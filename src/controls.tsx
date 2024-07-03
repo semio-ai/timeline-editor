@@ -74,7 +74,7 @@ export function Controls(): ReactNode {
         <SkipButton direction={SkipDirection.FORWARD} />
       </div>
       <div className="flex justify-center items-center">
-        <TimeDisplay type={TimeDisplayType.BOUNDS_START} />
+        <TimeDisplay type={TimeDisplayType.BOUNDS_END} />
         <SkipButton direction={SkipDirection.BOUNDS_END} />
       </div>
     </div>
