@@ -25,7 +25,7 @@ export function InnerSheet(): ReactNode {
   );
   return (
     <div
-      className={`dark:bg-neutral-800 bg-neutral-200 transition-all duration-75 ${expanded ? "h-48" : "h-16"}`}
+      className={`dark:bg-neutral-800 bg-neutral-200 transition-all duration-75 ${expanded && "h-48"}`}
     >
       InnerSheet
       <Controls />

@@ -25,15 +25,16 @@ export function Controls(): ReactNode {
 
   return (
     <div className="justify-between items-center p-1 flex">
-      <div className="justify-center items-center">
+      <div className="flex justify-center items-center">
         <SkipButton direction={SkipDirection.WindowStart} />
+        <TimeDisplay type={TimeDisplayType.WindowStart} />
       </div>
       <div className="flex justify-center items-center">
         <SkipButton direction={SkipDirection.Backward} />
 
         <div
           className={clsx(
-            "flex transition-all h-full justify-center items-center",
+            "flex transition-all justify-center items-center h-16",
             running ? "w-10" : "w-40",
           )}
         >
@@ -46,7 +47,9 @@ export function Controls(): ReactNode {
               <IconButton onClick={() => playPlayer(-1)}>
                 <IconPlayerPlayFilled style={{ transform: "rotate(180deg)" }} />
               </IconButton>
-              <div className="w-28 h-10 bg-black" />
+              <div className="items-center p-2">
+                <TimeDisplay type={TimeDisplayType.Current} />
+              </div>
               <IconButton onClick={() => playPlayer(1)}>
                 <IconPlayerPlayFilled />
               </IconButton>
@@ -55,7 +58,8 @@ export function Controls(): ReactNode {
         </div>
         <SkipButton direction={SkipDirection.Forward} />
       </div>
-      <div className="justify-center items-center">
+      <div className="flex justify-center items-center">
+        <TimeDisplay type={TimeDisplayType.WindowEnd} />
         <SkipButton direction={SkipDirection.WindowEnd} />
       </div>
     </div>

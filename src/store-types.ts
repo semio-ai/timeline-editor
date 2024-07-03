@@ -20,6 +20,8 @@ export interface AnimationData {
   expanded: boolean;
   // Whether to show times as frames or seconds
   timeDisplay: TimeDisplay;
+  // Player's interval
+  playerInterval?: number;
 }
 
 export interface AnimationActions {
@@ -84,6 +86,8 @@ export interface AnimationActions {
   setExpanded: (expanded: boolean) => void;
   // Set the time display mode
   setTimeDisplay: (mode: TimeDisplay) => void;
+  // Initialize the player updates
+  initPlayerInterval: () => void;
 }
 
 export type AnimationStoreSetter = (

@@ -27,7 +27,7 @@ enableMapSet();
 
 export const AnimationSlice = (
   set: AnimationStoreSetter,
-  _get: AnimationStoreGetter,
+  get: AnimationStoreGetter,
 ) => {
   const defaultAnimation = createDefaultAnimation();
   return {
@@ -40,6 +40,7 @@ export const AnimationSlice = (
     selectedKeyframe: undefined,
     expanded: false,
     timeDisplay: TimeDisplay.SECONDS,
+    playerInterval: undefined,
     createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string) => {
       set(
         produce((state: AnimationData): void => {
@@ -251,6 +252,16 @@ export const AnimationSlice = (
     },
     setTimeDisplay: (timeDisplay: TimeDisplay) => {
       set({ timeDisplay });
+    },
+    initPlayerInterval: () => {
+      if (get().playerInterval) {
+        window.clearInterval(get().playerInterval);
+      }
+      set({
+        playerInterval: window.setInterval(() => {
+          get().updatePlayer();
+        }, 15),
+      });
     },
   };
 };

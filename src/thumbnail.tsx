@@ -1,10 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState, memo } from "react";
 import { SpringValue, animated, useSpring, easings } from "@react-spring/web";
-import {
-  useStudioStore,
-  useStudioStoreState,
-  type StudioStore,
-} from "@semio/core";
 import { useGesture } from "@use-gesture/react";
 import { closestFrame, getHexagonPath } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";

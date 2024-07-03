@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return -- Fixme*/
-import { TimeInput } from "@semio/ui";
+import { TimeInput, Variant } from "@semio/ui";
 import { type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 // import { numberToDurationString } from "@semio/utils";
@@ -23,6 +23,8 @@ export function TimeDisplay({
   const timeDisplay = useAnimationStore(
     useShallow((state) => state.timeDisplay),
   );
+
+  const duration = useAnimationStore(useShallow((state) => state.duration));
 
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
 
@@ -48,24 +50,30 @@ export function TimeDisplay({
       } else if (type === TimeDisplayType.Duration) {
         return (t: number): void => state.updateDuration(t);
       } else if (type === TimeDisplayType.WindowStart) {
-        return (t: number): void =>
-          state.updatePlayerBounds(t / state.duration, state.player.bounds[1]);
+        return (t: number): void => {
+          const vals = [t / state.duration, state.player.bounds[1]].sort();
+          state.updatePlayerBounds(vals[0], vals[1]);
+        };
       } else if (type === TimeDisplayType.WindowEnd) {
-        return (t: number): void =>
-          state.updatePlayerBounds(state.player.bounds[0], t / state.duration);
+        return (t: number): void => {
+          const vals = [state.player.bounds[0], t / state.duration].sort();
+          state.updatePlayerBounds(vals[0], vals[1]);
+        };
       }
     }),
   );
 
   return (
-    <div className="w-8 bg-red-500">
-      <TimeInput
-        value={time}
-        onChange={setTime ? setTime : () => {}}
-        disabled={!setTime}
-        display={timeDisplay}
-        framerate={framerate}
-      />
-    </div>
+    <TimeInput
+      value={time}
+      onChange={setTime ? setTime : () => {}}
+      min={0}
+      size="sm"
+      max={duration}
+      disabled={!setTime}
+      display={timeDisplay}
+      framerate={framerate}
+      variant={Variant.DEFAULT}
+    />
   );
 }
