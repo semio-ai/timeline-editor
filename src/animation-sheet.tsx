@@ -11,6 +11,7 @@ export function AnimationSheet(): ReactNode {
   if (ctx) {
     return <MemoizedInnerSheet />;
   } else {
+    useDefaultAnimationStore.getState().initPlayerInterval();
     return (
       <AnimationContext.Provider value={useDefaultAnimationStore}>
         <MemoizedInnerSheet />
@@ -27,7 +28,9 @@ export function InnerSheet(): ReactNode {
     <div
       className={`dark:bg-neutral-800 bg-neutral-200 transition-all duration-75 ${expanded && "h-48"}`}
     >
-      InnerSheet
+      <div className="w-full h-12 dark:bg-neutral-700 bg-neutral-300">
+        Scrubber
+      </div>
       <Controls />
     </div>
   );

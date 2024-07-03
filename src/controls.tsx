@@ -34,7 +34,7 @@ export function Controls(): ReactNode {
 
         <div
           className={clsx(
-            "flex transition-all justify-center items-center h-16",
+            "flex transition-all justify-center items-center h-9",
             // running ? "w-10" : "w-40",
           )}
         >
