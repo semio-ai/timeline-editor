@@ -78,6 +78,10 @@ export interface AnimationActions {
   nextKeyframe: () => void;
   // Skip to the previous keyframe
   prevKeyframe: () => void;
+  // Skip to the start of the current bounds
+  skipToStart: () => void;
+  // Skip to the end of the current bounds
+  skipToEnd: () => void;
   // Set the duration of the animation
   updateDuration: (duration: number) => void;
   // Set the frame rate of the animation

@@ -10,10 +10,10 @@ import type { AnimationActions } from "./store-types";
 import { useAnimationStore } from "./hooks/use-animation-store";
 
 export enum SkipDirection {
-  Forward = "forward",
-  Backward = "backward",
-  WindowStart = "window-start",
-  WindowEnd = "window-end",
+  FORWARD = "forward",
+  BACKWARD = "backward",
+  BOUNDS_START = "bounds-start",
+  BOUNDS_END = "bounds-end",
 }
 
 export interface SkipButtonProps {
@@ -23,9 +23,17 @@ export interface SkipButtonProps {
 export function SkipButton({ direction }: SkipButtonProps): ReactNode {
   const skip = useAnimationStore(
     useCallback(
-      (state: AnimationActions) =>
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Fixme
-        direction === "forward" ? state.nextKeyframe : state.prevKeyframe,
+      (state: AnimationActions) => {
+        if (direction === SkipDirection.FORWARD) {
+          return state.nextKeyframe;
+        } else if (direction === SkipDirection.BACKWARD) {
+          return state.prevKeyframe;
+        } else if (direction === SkipDirection.BOUNDS_START) {
+          return state.skipToStart;
+        } else if (direction === SkipDirection.BOUNDS_END) {
+          return state.skipToEnd;
+        }
+      },
       [direction],
     ),
   );
@@ -38,8 +46,8 @@ export function SkipButton({ direction }: SkipButtonProps): ReactNode {
 }
 
 const ICONS: Record<SkipDirection, ReactNode> = {
-  [SkipDirection.Forward]: <IconPlayerTrackNextFilled />,
-  [SkipDirection.Backward]: <IconPlayerTrackPrevFilled />,
-  [SkipDirection.WindowStart]: <IconPlayerSkipBackFilled />,
-  [SkipDirection.WindowEnd]: <IconPlayerSkipForwardFilled />,
+  [SkipDirection.FORWARD]: <IconPlayerTrackNextFilled />,
+  [SkipDirection.BACKWARD]: <IconPlayerTrackPrevFilled />,
+  [SkipDirection.BOUNDS_START]: <IconPlayerSkipBackFilled />,
+  [SkipDirection.BOUNDS_END]: <IconPlayerSkipForwardFilled />,
 };

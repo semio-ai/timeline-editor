@@ -7,10 +7,10 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 import type { AnimationData, AnimationActions } from "./store-types";
 
 export enum TimeDisplayType {
-  Current = "current",
-  Duration = "duration",
-  WindowStart = "window-start",
-  WindowEnd = "window-end",
+  CURRENT = "current",
+  DURATION = "duration",
+  BOUNDS_START = "bounds-start",
+  BOUNDS_END = "bounds-end",
 }
 
 export interface TimeDisplayProps {
@@ -18,7 +18,7 @@ export interface TimeDisplayProps {
 }
 
 export function TimeDisplay({
-  type = TimeDisplayType.Current,
+  type = TimeDisplayType.CURRENT,
 }: TimeDisplayProps): ReactNode {
   const timeDisplay = useAnimationStore(
     useShallow((state) => state.timeDisplay),
@@ -30,13 +30,13 @@ export function TimeDisplay({
 
   const time: number = useAnimationStore(
     useShallow((state: AnimationData) => {
-      if (type === TimeDisplayType.Current) {
+      if (type === TimeDisplayType.CURRENT) {
         return state.player.stamp * state.duration;
-      } else if (type === TimeDisplayType.Duration) {
+      } else if (type === TimeDisplayType.DURATION) {
         return state.duration;
-      } else if (type === TimeDisplayType.WindowStart) {
+      } else if (type === TimeDisplayType.BOUNDS_START) {
         return state.duration * state.player.bounds[0];
-      } else if (type === TimeDisplayType.WindowEnd) {
+      } else if (type === TimeDisplayType.BOUNDS_END) {
         return state.duration * state.player.bounds[1];
       }
       return 0;
@@ -45,18 +45,22 @@ export function TimeDisplay({
 
   const setTime = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => {
-      if (type === TimeDisplayType.Current) {
+      if (type === TimeDisplayType.CURRENT) {
         return (t: number): void => state.resetPlayer(t / state.duration);
-      } else if (type === TimeDisplayType.Duration) {
+      } else if (type === TimeDisplayType.DURATION) {
         return (t: number): void => state.updateDuration(t);
-      } else if (type === TimeDisplayType.WindowStart) {
+      } else if (type === TimeDisplayType.BOUNDS_START) {
         return (t: number): void => {
-          const vals = [t / state.duration, state.player.bounds[1]].sort();
+          const vals = [t / state.duration, state.player.bounds[1]].sort(
+            (a, b) => a - b,
+          );
           state.updatePlayerBounds(vals[0], vals[1]);
         };
-      } else if (type === TimeDisplayType.WindowEnd) {
+      } else if (type === TimeDisplayType.BOUNDS_END) {
         return (t: number): void => {
-          const vals = [state.player.bounds[0], t / state.duration].sort();
+          const vals = [state.player.bounds[0], t / state.duration].sort(
+            (a, b) => a - b,
+          );
           state.updatePlayerBounds(vals[0], vals[1]);
         };
       }

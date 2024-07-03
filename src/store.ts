@@ -171,43 +171,27 @@ export const AnimationSlice = (
     },
     // Set the time of the animation
     resetPlayer: (time?: number) => {
-      set(
-        produce((state: AnimationData) => {
-          reset(state.player, time);
-        }),
-      );
+      set((state: AnimationData) => ({ player: reset(state.player, time) }));
     },
     // Play the animation
     playPlayer: (speed?: number) => {
-      set(
-        produce((state: AnimationData) => {
-          play(state.player, speed);
-        }),
-      );
+      set((state: AnimationData) => ({ player: play(state.player, speed) }));
     },
     // Pause the animation
     pausePlayer: () => {
-      set(
-        produce((state: AnimationData) => {
-          pause(state.player);
-        }),
-      );
+      set((state: AnimationData) => ({ player: pause(state.player) }));
     },
     // Update the timer
     updatePlayer: () => {
-      set(
-        produce((state: AnimationData) => {
-          update(state.player, state.duration);
-        }),
-      );
+      set((state: AnimationData) => ({
+        player: update(state.player, state.duration),
+      }));
     },
     // Set the player bounds
     updatePlayerBounds: (start: number, end: number) => {
-      set(
-        produce((state: AnimationData) => {
-          setBounds(state.player, [start, end]);
-        }),
-      );
+      set((state: AnimationData) => ({
+        player: setBounds(state.player, [start, end]),
+      }));
     },
     // Skip to the next keyframe
     nextKeyframe: () => {
@@ -239,6 +223,18 @@ export const AnimationSlice = (
         }),
       );
     },
+    // Skip to the start of the current bounds
+    skipToStart: () => {
+      set((state: AnimationData) => ({
+        player: reset(state.player, state.player.bounds[0]),
+      }));
+    },
+    // Skip to the end of the current bounds
+    skipToEnd: () => {
+      set((state: AnimationData) => ({
+        player: reset(state.player, state.player.bounds[1]),
+      }));
+    },
     // Set the duration of the animation
     updateDuration: (duration: number) => {
       set({ duration });
@@ -257,11 +253,11 @@ export const AnimationSlice = (
       if (get().playerInterval) {
         window.clearInterval(get().playerInterval);
       }
-      set({
-        playerInterval: window.setInterval(() => {
-          get().updatePlayer();
-        }, 15),
-      });
+      const updatePlayer = get().updatePlayer;
+      const interval = window.setInterval(() => {
+        updatePlayer();
+      }, 15);
+      set({ playerInterval: interval });
     },
   };
 };

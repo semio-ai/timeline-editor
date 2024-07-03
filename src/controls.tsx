@@ -26,41 +26,56 @@ export function Controls(): ReactNode {
   return (
     <div className="justify-between items-center p-1 flex">
       <div className="flex justify-center items-center">
-        <SkipButton direction={SkipDirection.WindowStart} />
-        <TimeDisplay type={TimeDisplayType.WindowStart} />
+        <SkipButton direction={SkipDirection.BOUNDS_START} />
+        <TimeDisplay type={TimeDisplayType.BOUNDS_START} />
       </div>
       <div className="flex justify-center items-center">
-        <SkipButton direction={SkipDirection.Backward} />
+        <SkipButton direction={SkipDirection.BACKWARD} />
 
         <div
           className={clsx(
             "flex transition-all justify-center items-center h-16",
-            running ? "w-10" : "w-40",
+            // running ? "w-10" : "w-40",
           )}
         >
-          {running ? (
-            <IconButton onClick={pausePlayer}>
+          <IconButton
+            onClick={() => {
+              if (running) {
+                pausePlayer();
+              } else {
+                playPlayer(-1);
+              }
+            }}
+          >
+            {running ? (
               <IconPlayerPauseFilled />
-            </IconButton>
-          ) : (
-            <>
-              <IconButton onClick={() => playPlayer(-1)}>
-                <IconPlayerPlayFilled style={{ transform: "rotate(180deg)" }} />
-              </IconButton>
-              <div className="items-center p-2">
-                <TimeDisplay type={TimeDisplayType.Current} />
-              </div>
-              <IconButton onClick={() => playPlayer(1)}>
-                <IconPlayerPlayFilled />
-              </IconButton>
-            </>
-          )}
+            ) : (
+              <IconPlayerPlayFilled
+                className="transform rotate-180"
+                // style={{ transform: "rotate(180deg)" }}
+              />
+            )}
+          </IconButton>
+          <div className="items-center p-2">
+            <TimeDisplay type={TimeDisplayType.CURRENT} />
+          </div>
+          <IconButton
+            onClick={() => {
+              if (running) {
+                pausePlayer();
+              } else {
+                playPlayer(1);
+              }
+            }}
+          >
+            {running ? <IconPlayerPauseFilled /> : <IconPlayerPlayFilled />}
+          </IconButton>
         </div>
-        <SkipButton direction={SkipDirection.Forward} />
+        <SkipButton direction={SkipDirection.FORWARD} />
       </div>
       <div className="flex justify-center items-center">
-        <TimeDisplay type={TimeDisplayType.WindowEnd} />
-        <SkipButton direction={SkipDirection.WindowEnd} />
+        <TimeDisplay type={TimeDisplayType.BOUNDS_START} />
+        <SkipButton direction={SkipDirection.BOUNDS_END} />
       </div>
     </div>
     // <Group
@@ -84,8 +99,8 @@ export function Controls(): ReactNode {
     //       paddingBottom: 0,
     //     }}
     //   >
-    //     <SkipButton direction={SkipDirection.WindowStart} />
-    //     <TimeDisplay type={TimeDisplayType.WindowStart} />
+    //     <SkipButton direction={SkipDirection.BOUNDS_START} />
+    //     <TimeDisplay type={TimeDisplayType.BOUNDS_START} />
     //   </Group>
     //   <Group
     //     align="center"
@@ -160,8 +175,8 @@ export function Controls(): ReactNode {
     //       paddingBottom: 0,
     //     }}
     //   >
-    //     <TimeDisplay type={TimeDisplayType.WindowEnd} />
-    //     <SkipButton direction={SkipDirection.WindowEnd} />
+    //     <TimeDisplay type={TimeDisplayType.BOUNDS_END} />
+    //     <SkipButton direction={SkipDirection.BOUNDS_END} />
     //   </Group>
     // </Group>
   );
