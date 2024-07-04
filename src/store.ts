@@ -193,8 +193,29 @@ export const AnimationSlice = (
         player: setBounds(state.player, [start, end]),
       }));
     },
+    updatePlayerBound: (bound: "start" | "end", time: number) => {
+      set((state: AnimationData) => {
+        if (bound === "start" && state.player.bounds[1] <= time) {
+          return {
+            player: setBounds(state.player, [state.player.bounds[1], time]),
+          };
+        } else if (bound === "end" && state.player.bounds[0] >= time) {
+          return {
+            player: setBounds(state.player, [time, state.player.bounds[0]]),
+          };
+        } else if (bound === "start") {
+          return {
+            player: setBounds(state.player, [time, state.player.bounds[1]]),
+          };
+        } else {
+          return {
+            player: setBounds(state.player, [state.player.bounds[0], time]),
+          };
+        }
+      });
+    },
     // Skip to the next keyframe
-    nextKeyframe: () => {
+    skipToNextKeyframe: () => {
       set(
         produce((state: AnimationData) => {
           const allStamps = computeStamps(state, state.visualizedAnimations);
@@ -208,7 +229,7 @@ export const AnimationSlice = (
       );
     },
     // Skip to the previous keyframe
-    prevKeyframe: () => {
+    skipToPrevKeyframe: () => {
       set(
         produce((state: AnimationData) => {
           const allStamps = computeStamps(state, state.visualizedAnimations);
@@ -222,6 +243,22 @@ export const AnimationSlice = (
           }
         }),
       );
+    },
+    nextKeyframeTime: () => {
+      const allStamps = computeStamps(get(), get().visualizedAnimations);
+      const stamp = get().player.stamp;
+      const bounds = get().player.bounds;
+      const nextStamp = allStamps.find((s) => s > stamp && s <= bounds[1]);
+      return nextStamp;
+    },
+    prevKeyframeTime: () => {
+      const allStamps = computeStamps(get(), get().visualizedAnimations);
+      const stamp = get().player.stamp;
+      const bounds = get().player.bounds;
+      const nextStamp = allStamps
+        .reverse()
+        .find((s) => s < stamp && s >= bounds[0]);
+      return nextStamp;
     },
     // Skip to the start of the current bounds
     skipToStart: () => {

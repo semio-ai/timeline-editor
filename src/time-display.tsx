@@ -9,6 +9,8 @@ import type { AnimationData, AnimationActions } from "./store-types";
 export enum TimeDisplayType {
   CURRENT = "current",
   DURATION = "duration",
+  FORWARD = "forward",
+  BACKWARD = "backward",
   BOUNDS_START = "bounds-start",
   BOUNDS_END = "bounds-end",
 }
@@ -28,8 +30,8 @@ export function TimeDisplay({
 
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
 
-  const time: number = useAnimationStore(
-    useShallow((state: AnimationData) => {
+  const time: number | undefined = useAnimationStore(
+    useShallow((state: AnimationData & AnimationActions) => {
       if (type === TimeDisplayType.CURRENT) {
         return state.player.stamp * state.duration;
       } else if (type === TimeDisplayType.DURATION) {
@@ -38,6 +40,16 @@ export function TimeDisplay({
         return state.duration * state.player.bounds[0];
       } else if (type === TimeDisplayType.BOUNDS_END) {
         return state.duration * state.player.bounds[1];
+      } else if (type === TimeDisplayType.BACKWARD) {
+        const prev = state.prevKeyframeTime();
+        if (prev !== undefined) {
+          return prev * state.duration;
+        } else return undefined;
+      } else if (type === TimeDisplayType.FORWARD) {
+        const next = state.nextKeyframeTime();
+        if (next !== undefined) {
+          return next * state.duration;
+        } else return undefined;
       }
       return 0;
     }),
@@ -74,7 +86,11 @@ export function TimeDisplay({
       min={0}
       size="sm"
       max={duration}
-      disabled={!setTime}
+      disabled={
+        !setTime ||
+        type === TimeDisplayType.FORWARD ||
+        type === TimeDisplayType.BACKWARD
+      }
       display={timeDisplay}
       framerate={framerate}
       variant={Variant.DEFAULT}

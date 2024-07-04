@@ -5,6 +5,7 @@ import { AnimationContext } from "./context";
 import { useDefaultAnimationStore } from "./store";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { Controls } from "./controls";
+import { Timeline } from "./timeline";
 
 export function AnimationSheet(): ReactNode {
   const ctx = useContext(AnimationContext);
@@ -28,8 +29,8 @@ export function InnerSheet(): ReactNode {
     <div
       className={`dark:bg-neutral-800 bg-neutral-200 transition-all duration-75 ${expanded && "h-48"}`}
     >
-      <div className="w-full h-12 dark:bg-neutral-700 bg-neutral-300">
-        Scrubber
+      <div className="w-full h-[22px]">
+        <Timeline />
       </div>
       <Controls />
     </div>

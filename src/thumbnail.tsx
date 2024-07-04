@@ -1,9 +1,18 @@
-import { type ReactNode, useEffect, useMemo, useState, memo } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+  memo,
+  useContext,
+} from "react";
 import { SpringValue, animated, useSpring, easings } from "@react-spring/web";
 import { useGesture } from "@use-gesture/react";
 import { closestFrame, getHexagonPath } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import type { ScaleLinear } from "./scale-linear";
+import { AnimationContext } from "./context";
+import { useAnimationStore } from "./hooks/use-animation-store";
 
 export interface ThumbnailProps {
   xScale: ScaleLinear;
@@ -28,40 +37,42 @@ function Thumbnail({
     console.log("thumbnail prop timelineWidth updated");
   }, [timelineWidth]);
 
-  const studioState = useStudioStoreState();
+  const animationState = useContext(AnimationContext);
   // useEffect(() => {
   //   console.log("thumbnail props updated");
   // }, [xScale, activeRegionBounds]);
 
   const completion = new SpringValue<number>(
-    studioState.getState().timer.stamp as number,
+    animationState?.getState().player.stamp as number,
   );
 
   const [hovered, setHovered] = useState(false);
 
-  const duration = useStudioStore(
-    useShallow((state: StudioStore) => state.animation.duration as number),
+  const duration = useAnimationStore(
+    useShallow((state) => state.duration as number),
   );
-  const framerate = useStudioStore(
-    useShallow((state: StudioStore) => state.animation.framerate as number),
+  const framerate = useAnimationStore(
+    useShallow((state) => state.framerate as number),
   );
   const frameCount = Math.floor(framerate * (duration / 1000));
 
-  type resetTimerType = (time?: number | undefined) => void;
-
-  const resetTimer = useStudioStore(
-    useShallow((state: StudioStore) => state.resetTimer as resetTimerType),
+  const resetPlayer = useAnimationStore(
+    useShallow((state) => state.resetPlayer),
   );
 
   useEffect(() => {
-    studioState.subscribe(
-      (state: StudioStore) => state.timer.stamp as number,
+    if (!animationState) {
+      return;
+    }
+    const unsub = animationState.subscribe(
+      (state) => state.player.stamp as number,
       (s: number) => {
         // console.log("setting time", s);
         completion.set(s);
         completion;
       },
     );
+    return unsub;
   });
 
   const hoveredPath = useMemo<string>(
@@ -88,10 +99,10 @@ function Thumbnail({
     onDrag: (state) => {
       const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
       if (state.shiftKey) {
-        resetTimer(newPosition);
+        resetPlayer(newPosition);
       } else {
         const closest: number = closestFrame(newPosition, frameCount);
-        resetTimer(closest);
+        resetPlayer(closest);
       }
     },
     onHover: (state) => {
@@ -106,11 +117,7 @@ function Thumbnail({
         touchAction: "none",
         transform: completion.to((c) => `translateX(${xScale(c).toString()}px`),
       }}
-      strokeWidth={2}
-      stroke="var(--mantine-color-body)"
-      strokeOpacity={1}
-      fill="var(--mantine-color-semioBlue-7)"
-      fillOpacity={1}
+      className="fill-tertiary-500 dark:stroke-neutral-950 stroke-neutral-500 stroke-2"
       rx={1}
       d={d}
       height={10}

@@ -1,10 +1,11 @@
 import { type ReactNode, useMemo, useState, memo } from "react";
+import { clsx } from "clsx";
 import { getHexagonPath, getDegenerateHexagonPath } from "@semio/utils";
-import { useStudioStore } from "@semio/core";
 import { useShallow } from "zustand/react/shallow";
 import { useGesture } from "@use-gesture/react";
 import { useSpring, animated } from "@react-spring/web";
 import type { ScaleLinear } from "./scale-linear";
+import { useAnimationStore } from "./hooks/use-animation-store";
 
 export interface LandmarkProps {
   time: number;
@@ -31,9 +32,9 @@ function Landmark({
     [xScale, time],
   );
 
-  const resetTimer = useStudioStore(
+  const resetPlayer = useAnimationStore(
     useShallow(
-      (state) => state.resetTimer as (time?: number | undefined) => void,
+      (state) => state.resetPlayer as (time?: number | undefined) => void,
     ),
   );
 
@@ -47,10 +48,6 @@ function Landmark({
 
   const styles = useSpring({
     d: getPath(hovered, parentActive, inactivePath, unhoveredPath, hoveredPath),
-    fillOpacity: getFillOpacity(hovered, parentActive),
-    fill: hovered
-      ? "var(--mantine-color-semioBlue-2)"
-      : "var(--mantine-color-gray-1)",
     config: {
       duration: 100,
     },
@@ -61,26 +58,15 @@ function Landmark({
       {...gestureHandlers()}
       role="button"
       onClick={() => {
-        resetTimer(time);
+        resetPlayer(time);
       }}
-      stroke="var(--mantine-color-body)"
-      fill={styles.fill}
-      strokeWidth={2}
-      strokeOpacity={1}
-      fillOpacity={styles.fillOpacity}
+      className={clsx(
+        "hover:fill-primary-500 fill-default-500 transition-colors duration-75 stroke-2 stroke-default-500",
+        parentActive ? "fill-primary-500" : "fill-transparent",
+      )}
       d={styles.d}
     />
   );
-}
-
-function getFillOpacity(hovered: boolean, active: boolean): number {
-  if (active) {
-    return 1;
-  } else if (hovered) {
-    return 1;
-  } else {
-    return 0;
-  }
 }
 
 function getPath(

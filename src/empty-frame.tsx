@@ -1,9 +1,9 @@
 import { type ReactNode } from "react";
-import { useStudioStore, type StudioStore } from "@semio/core";
 import { useShallow } from "zustand/react/shallow";
 import type { SpringValue } from "@react-spring/web";
 import { animated, useSpring } from "@react-spring/web";
 import type { ScaleLinear } from "./scale-linear";
+import { useAnimationStore } from "./hooks/use-animation-store";
 
 export interface EmptyFrameProps {
   x: number;
@@ -20,10 +20,9 @@ export function EmptyFrame({
   parentActive,
   major,
 }: EmptyFrameProps): ReactNode {
-  const resetTimer = useStudioStore(
+  const resetPlayer = useAnimationStore(
     useShallow(
-      (state: StudioStore) =>
-        state.resetTimer as (time?: number | undefined) => void,
+      (state) => state.resetPlayer as (time?: number | undefined) => void,
     ),
   );
 
@@ -36,7 +35,7 @@ export function EmptyFrame({
   return (
     <animated.path
       onClick={() => {
-        resetTimer(x);
+        resetPlayer(x);
       }}
       d={styles.d}
       opacity={hoverX.to((hoverXval) =>

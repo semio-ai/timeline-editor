@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ActionIcon, Group } from "@mantine/core";
+import { useMediaQuery } from "@semio/utils";
 import {
   IconPlayerPauseFilled,
   IconPlayerPlayFilled,
@@ -23,13 +23,17 @@ export function Controls(): ReactNode {
     })),
   );
 
+  const smallScreen = useMediaQuery("(max-width: 768px)");
+  const xsmallScreen = useMediaQuery("(max-width: 640px)");
+
   return (
     <div className="justify-between items-center p-1 flex">
       <div className="flex justify-center items-center">
         <SkipButton direction={SkipDirection.BOUNDS_START} />
-        <TimeDisplay type={TimeDisplayType.BOUNDS_START} />
+        {!xsmallScreen && <TimeDisplay type={TimeDisplayType.BOUNDS_START} />}
       </div>
       <div className="flex justify-center items-center">
+        {!smallScreen && <TimeDisplay type={TimeDisplayType.FORWARD} />}
         <SkipButton direction={SkipDirection.BACKWARD} />
 
         <div
@@ -72,9 +76,10 @@ export function Controls(): ReactNode {
           </IconButton>
         </div>
         <SkipButton direction={SkipDirection.FORWARD} />
+        {!smallScreen && <TimeDisplay type={TimeDisplayType.FORWARD} />}
       </div>
       <div className="flex justify-center items-center">
-        <TimeDisplay type={TimeDisplayType.BOUNDS_END} />
+        {!xsmallScreen && <TimeDisplay type={TimeDisplayType.BOUNDS_END} />}
         <SkipButton direction={SkipDirection.BOUNDS_END} />
       </div>
     </div>
