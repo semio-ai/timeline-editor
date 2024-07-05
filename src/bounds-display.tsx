@@ -1,4 +1,4 @@
-import React, { useRef, useState, memo } from "react";
+import { useRef, useState, memo } from "react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
 import { useGesture } from "@use-gesture/react";

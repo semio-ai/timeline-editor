@@ -39,7 +39,7 @@ export const AnimationSlice = (
     framerate: 24,
     selectedKeyframe: undefined,
     expanded: false,
-    timeDisplay: TimeDisplay.SECONDS,
+    timeDisplay: TimeDisplay.Seconds,
     playerInterval: undefined,
     createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string) => {
       set(

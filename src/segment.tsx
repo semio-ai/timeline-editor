@@ -1,13 +1,10 @@
 import type { ReactNode } from "react";
-import { useState, memo } from "react";
+import { memo } from "react";
 import { clsx } from "clsx";
-import { useGesture } from "@use-gesture/react";
-import { animated, useSpring } from "@react-spring/web";
+import { animated } from "@react-spring/web";
 // import { closestFrame } from "@semio/utils";
 // import useMeasure from "react-use-measure";
-import { useShallow } from "zustand/react/shallow";
 import type { ScaleLinear } from "./scale-linear";
-import { useAnimationStore } from "./hooks/use-animation-store";
 // import { darken, rgba, toRgba } from "@mantine/core";
 
 export interface SegmentProps {

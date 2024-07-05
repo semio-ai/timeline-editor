@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return -- Fixme*/
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import useMeasure from "react-use-measure";
@@ -8,15 +7,14 @@ import { animated, useSpringValue, useSpring } from "@react-spring/web";
 import { scaleLinear } from "@visx/scale";
 import { useGesture } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
-import Landmark from "./landmark";
 import Segment from "./segment";
 import Thumbnail from "./thumbnail";
 import { TIMELINE_PADDING } from "./constants";
 import HoverMarker from "./hover-marker";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { AnimationActions, AnimationData } from "./store-types";
-import { Keyframe } from "./types";
 import { BoundsDisplay } from "./bounds-display";
+import { DataDisplay } from "./data-display";
 
 export interface ScrubberProps {
   width: number;
@@ -25,25 +23,10 @@ export interface ScrubberProps {
 
 export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
   const { resolvedTheme } = useTheme();
-  // const frames: Keyframe[] = useAnimationStore(
-  //   useShallow(
-  //     (state: AnimationData) =>
-  //       // Array.from(state.animation.frames.values())
-  //       state.animation.frameOrder
-  //         .map((id: string) => state.animation.frames.get(id))
-  //         // Just in case, filter out any undefined frames
-  //         .filter(
-  //           // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- Fixme
-  //           (item: Keyframe | undefined) => item !== undefined,
-  //         ) as Keyframe[],
-  //   ),
-  // );
 
   const resetPlayer = useAnimationStore(
     useShallow((state: AnimationActions) => state.resetPlayer),
   );
-
-  // console.log("frames", frames);
 
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
@@ -62,10 +45,6 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
 
   const hoverPoint = useSpringValue<number>(0, { config: { duration: 0 } });
 
-  // const duration = useStudioStore((state) => state.animation.duration);
-  const [hoveredSpan, setHoveredSpan] = useState<number[] | null>(null);
-  const [activeSpan, setActiveSpan] = useState<number[] | null>([0, 0]);
-
   const [activeRegionRef, activeRegionBounds] = useMeasure();
 
   const xScale = useMemo(
@@ -80,13 +59,8 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
 
   const innerWidth = width - TIMELINE_PADDING * 2;
 
-  // const scrubberRef = useClickOutside(() => {
-  //   onHoverEnd();
-  //   setHoveredSpan(null);
-  // });
-  //
-  const bgColor = resolvedTheme === Theme.DARK ? "#525252" : "#a3a3a3";
-  const highlightColor = resolvedTheme === Theme.DARK ? "#a3a3a3" : "#525252";
+  const bgColor = resolvedTheme === Theme.Dark ? "#525252" : "#a3a3a3";
+  const highlightColor = resolvedTheme === Theme.Dark ? "#a3a3a3" : "#525252";
 
   const styles = useSpring({
     height: hovered || editorOpened || delayedHover ? 22 : 5,
@@ -113,7 +87,6 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
         onHoverStart();
       } else {
         onHoverEnd();
-        setHoveredSpan(null);
       }
     },
     onMove: (state) => {
@@ -185,16 +158,6 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
             parentActive={hovered || editorOpened || delayedHover}
             start={frame1 / frameCount}
             xScale={xScale}
-            inHoveredSpan={
-              (hoveredSpan &&
-                frame1 / frameCount >= hoveredSpan[0] &&
-                frame2 / frameCount <= hoveredSpan[1])!
-            }
-            inActiveSpan={
-              (activeSpan &&
-                frame1 / frameCount >= activeSpan[0] &&
-                frame2 / frameCount <= activeSpan[1])!
-            }
           />
         ),
       )}
@@ -205,17 +168,6 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
         hoverX={hoverPoint}
         parentActive={hovered || editorOpened || delayedHover}
       />
-      {/* {Object.values(frames).map((frame) => {
-        return (
-          <Landmark
-            key={frame.id}
-            time={frame.stamp}
-            xScale={xScale}
-            parentActive={hovered || editorOpened || delayedHover}
-          />
-        );
-      })} */}
-
       <BoundsDisplay
         xScale={xScale}
         timelineWidth={activeRegionBounds.width}
@@ -223,6 +175,11 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
         frameCount={frameCount}
         parentActive={hovered || editorOpened || delayedHover}
       />
+      <DataDisplay
+        xScale={xScale}
+        parentActive={hovered || editorOpened || delayedHover}
+      />
+
       <Thumbnail
         xScale={xScale}
         timelineWidth={activeRegionBounds.width}

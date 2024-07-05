@@ -1,18 +1,16 @@
 import type { ReactNode } from "react";
 import { useMediaQuery } from "@semio/utils";
+import { IconButton } from "@semio/ui";
 import {
   IconPlayerPauseFilled,
   IconPlayerPlayFilled,
-  // IconPointFilled,
 } from "@tabler/icons-react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
-import { type AnimationStore } from "./store";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { TimeDisplay, TimeDisplayType } from "./time-display";
 import { SkipButton, SkipDirection } from "./skip-button";
 import { AnimationActions, AnimationData } from "./store-types";
-import { IconButton } from "@semio/ui";
 
 export function Controls(): ReactNode {
   const { playPlayer, pausePlayer, running } = useAnimationStore(
@@ -29,12 +27,12 @@ export function Controls(): ReactNode {
   return (
     <div className="justify-between items-center p-1 flex">
       <div className="flex justify-center items-center">
-        <SkipButton direction={SkipDirection.BOUNDS_START} />
-        {!xsmallScreen && <TimeDisplay type={TimeDisplayType.BOUNDS_START} />}
+        <SkipButton direction={SkipDirection.BoundsStart} />
+        {!xsmallScreen && <TimeDisplay type={TimeDisplayType.BoundsStart} />}
       </div>
       <div className="flex justify-center items-center">
-        {!smallScreen && <TimeDisplay type={TimeDisplayType.FORWARD} />}
-        <SkipButton direction={SkipDirection.BACKWARD} />
+        {!smallScreen && <TimeDisplay type={TimeDisplayType.Forward} />}
+        <SkipButton direction={SkipDirection.Backward} />
 
         <div
           className={clsx(
@@ -61,7 +59,7 @@ export function Controls(): ReactNode {
             )}
           </IconButton>
           <div className="items-center p-2">
-            <TimeDisplay type={TimeDisplayType.CURRENT} />
+            <TimeDisplay type={TimeDisplayType.Current} />
           </div>
           <IconButton
             onClick={() => {
@@ -75,12 +73,12 @@ export function Controls(): ReactNode {
             {running ? <IconPlayerPauseFilled /> : <IconPlayerPlayFilled />}
           </IconButton>
         </div>
-        <SkipButton direction={SkipDirection.FORWARD} />
-        {!smallScreen && <TimeDisplay type={TimeDisplayType.FORWARD} />}
+        <SkipButton direction={SkipDirection.Forward} />
+        {!smallScreen && <TimeDisplay type={TimeDisplayType.Forward} />}
       </div>
       <div className="flex justify-center items-center">
-        {!xsmallScreen && <TimeDisplay type={TimeDisplayType.BOUNDS_END} />}
-        <SkipButton direction={SkipDirection.BOUNDS_END} />
+        {!xsmallScreen && <TimeDisplay type={TimeDisplayType.BoundsEnd} />}
+        <SkipButton direction={SkipDirection.BoundsEnd} />
       </div>
     </div>
     // <Group
@@ -104,8 +102,8 @@ export function Controls(): ReactNode {
     //       paddingBottom: 0,
     //     }}
     //   >
-    //     <SkipButton direction={SkipDirection.BOUNDS_START} />
-    //     <TimeDisplay type={TimeDisplayType.BOUNDS_START} />
+    //     <SkipButton direction={SkipDirection.BoundsStart} />
+    //     <TimeDisplay type={TimeDisplayType.BoundsStart} />
     //   </Group>
     //   <Group
     //     align="center"
@@ -180,8 +178,8 @@ export function Controls(): ReactNode {
     //       paddingBottom: 0,
     //     }}
     //   >
-    //     <TimeDisplay type={TimeDisplayType.BOUNDS_END} />
-    //     <SkipButton direction={SkipDirection.BOUNDS_END} />
+    //     <TimeDisplay type={TimeDisplayType.BoundsEnd} />
+    //     <SkipButton direction={SkipDirection.BoundsEnd} />
     //   </Group>
     // </Group>
   );

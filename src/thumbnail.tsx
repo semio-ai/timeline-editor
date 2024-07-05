@@ -43,7 +43,7 @@ function Thumbnail({
   // }, [xScale, activeRegionBounds]);
 
   const completion = new SpringValue<number>(
-    animationState?.getState().player.stamp as number,
+    animationState!.getState().player.stamp as number,
   );
 
   const [hovered, setHovered] = useState(false);

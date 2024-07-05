@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return -- Fixme*/
 import { TimeInput, Variant } from "@semio/ui";
 import { type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -7,12 +6,12 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 import type { AnimationData, AnimationActions } from "./store-types";
 
 export enum TimeDisplayType {
-  CURRENT = "current",
-  DURATION = "duration",
-  FORWARD = "forward",
-  BACKWARD = "backward",
-  BOUNDS_START = "bounds-start",
-  BOUNDS_END = "bounds-end",
+  Current = "current",
+  Duration = "duration",
+  Forward = "forward",
+  Backward = "Backward",
+  BoundsStart = "bounds-start",
+  BoundsEnd = "bounds-end",
 }
 
 export interface TimeDisplayProps {
@@ -20,7 +19,7 @@ export interface TimeDisplayProps {
 }
 
 export function TimeDisplay({
-  type = TimeDisplayType.CURRENT,
+  type = TimeDisplayType.Current,
 }: TimeDisplayProps): ReactNode {
   const timeDisplay = useAnimationStore(
     useShallow((state) => state.timeDisplay),
@@ -32,20 +31,20 @@ export function TimeDisplay({
 
   const time: number | undefined = useAnimationStore(
     useShallow((state: AnimationData & AnimationActions) => {
-      if (type === TimeDisplayType.CURRENT) {
+      if (type === TimeDisplayType.Current) {
         return state.player.stamp * state.duration;
-      } else if (type === TimeDisplayType.DURATION) {
+      } else if (type === TimeDisplayType.Duration) {
         return state.duration;
-      } else if (type === TimeDisplayType.BOUNDS_START) {
+      } else if (type === TimeDisplayType.BoundsStart) {
         return state.duration * state.player.bounds[0];
-      } else if (type === TimeDisplayType.BOUNDS_END) {
+      } else if (type === TimeDisplayType.BoundsEnd) {
         return state.duration * state.player.bounds[1];
-      } else if (type === TimeDisplayType.BACKWARD) {
+      } else if (type === TimeDisplayType.Backward) {
         const prev = state.prevKeyframeTime();
         if (prev !== undefined) {
           return prev * state.duration;
         } else return undefined;
-      } else if (type === TimeDisplayType.FORWARD) {
+      } else if (type === TimeDisplayType.Forward) {
         const next = state.nextKeyframeTime();
         if (next !== undefined) {
           return next * state.duration;
@@ -57,18 +56,18 @@ export function TimeDisplay({
 
   const setTime = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => {
-      if (type === TimeDisplayType.CURRENT) {
+      if (type === TimeDisplayType.Current) {
         return (t: number): void => state.resetPlayer(t / state.duration);
-      } else if (type === TimeDisplayType.DURATION) {
+      } else if (type === TimeDisplayType.Duration) {
         return (t: number): void => state.updateDuration(t);
-      } else if (type === TimeDisplayType.BOUNDS_START) {
+      } else if (type === TimeDisplayType.BoundsStart) {
         return (t: number): void => {
           const vals = [t / state.duration, state.player.bounds[1]].sort(
             (a, b) => a - b,
           );
           state.updatePlayerBounds(vals[0], vals[1]);
         };
-      } else if (type === TimeDisplayType.BOUNDS_END) {
+      } else if (type === TimeDisplayType.BoundsEnd) {
         return (t: number): void => {
           const vals = [state.player.bounds[0], t / state.duration].sort(
             (a, b) => a - b,
@@ -88,12 +87,12 @@ export function TimeDisplay({
       max={duration}
       disabled={
         !setTime ||
-        type === TimeDisplayType.FORWARD ||
-        type === TimeDisplayType.BACKWARD
+        type === TimeDisplayType.Forward ||
+        type === TimeDisplayType.Backward
       }
       display={timeDisplay}
       framerate={framerate}
-      variant={Variant.DEFAULT}
+      variant={Variant.Default}
     />
   );
 }

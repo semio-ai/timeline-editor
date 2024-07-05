@@ -22,12 +22,10 @@ export function AnimationSheet(): ReactNode {
 }
 
 export function InnerSheet(): ReactNode {
-  const [expanded, setExpanded] = useAnimationStore(
-    useShallow((state) => [state.expanded, state.setExpanded]),
-  );
+  const expanded = useAnimationStore(useShallow((state) => state.expanded));
   return (
     <div
-      className={`dark:bg-neutral-800 bg-neutral-200 transition-all duration-75 ${expanded && "h-48"}`}
+      className={`dark:bg-neutral-800 bg-neutral-200 transition-all duration-75 ${expanded ? "h-48" : ""}`}
     >
       <div className="w-full h-[22px]">
         <Timeline />
