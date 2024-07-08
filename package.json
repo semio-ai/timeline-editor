@@ -36,7 +36,6 @@
     "zustand": "^4.5.1"
   },
   "peerDependencies": {
-    "@mantine/core": "^7.7.1",
     "@tabler/icons-react": "^2.46.0"
   },
   "devDependencies": {

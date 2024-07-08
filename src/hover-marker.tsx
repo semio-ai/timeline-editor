@@ -1,6 +1,6 @@
-import { type ReactNode, useEffect, memo } from "react";
+import { type ReactNode, memo } from "react";
 import { clsx } from "clsx";
-import { SpringValue, animated, useSpring } from "@react-spring/web";
+import { SpringValue, animated } from "@react-spring/web";
 import type { ScaleLinear } from "./scale-linear";
 
 export interface HoverMarkerProps {
