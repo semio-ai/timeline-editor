@@ -25,17 +25,17 @@ function Thumbnail({
   timelineWidth,
   timelineLeft,
 }: ThumbnailProps): ReactNode {
-  useEffect(() => {
-    console.log("thumbnail prop xScale updated");
-  }, [xScale]);
+  // useEffect(() => {
+  //   console.log("thumbnail prop xScale updated");
+  // }, [xScale]);
 
-  useEffect(() => {
-    console.log("thumbnail prop timelineLeft updated");
-  }, [timelineLeft]);
+  // useEffect(() => {
+  //   console.log("thumbnail prop timelineLeft updated");
+  // }, [timelineLeft]);
 
-  useEffect(() => {
-    console.log("thumbnail prop timelineWidth updated");
-  }, [timelineWidth]);
+  // useEffect(() => {
+  //   console.log("thumbnail prop timelineWidth updated");
+  // }, [timelineWidth]);
 
   const animationState = useContext(AnimationContext);
   // useEffect(() => {

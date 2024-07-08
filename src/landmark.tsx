@@ -49,7 +49,7 @@ function Landmark({
   const styles = useSpring({
     d: getPath(hovered, parentActive, inactivePath, unhoveredPath, hoveredPath),
     config: {
-      duration: 100,
+      duration: 50,
     },
   });
 
@@ -61,7 +61,7 @@ function Landmark({
         resetPlayer(time);
       }}
       className={clsx(
-        "hover:fill-primary-500 fill-default-500 transition-colors duration-75 stroke-2 stroke-default-500",
+        "hover:fill-primary-500 fill-default-500 transition-colors duration-75 stroke-2 dark:stroke-default-400 stroke-default-600",
         parentActive ? "fill-primary-500" : "fill-transparent",
       )}
       d={styles.d}

@@ -41,6 +41,7 @@ export const AnimationSlice = (
     expanded: false,
     timeDisplay: TimeDisplay.Seconds,
     playerInterval: undefined,
+    hoverpoint: 0,
     createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string) => {
       set(
         produce((state: AnimationData): void => {
@@ -295,6 +296,9 @@ export const AnimationSlice = (
         updatePlayer();
       }, 15);
       set({ playerInterval: interval });
+    },
+    setHoverpoint: (hoverpoint: number) => {
+      set({ hoverpoint });
     },
   };
 };

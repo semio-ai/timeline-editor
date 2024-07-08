@@ -28,47 +28,65 @@ function InnerBoundsDisplay({
   );
   const [dragging, setDragging] = useState(false);
   const [hovering, setHovering] = useState(false);
-  const gestureBindingsLeft = useGesture({
-    onDragStart: () => {
-      setDragging(true);
-      initialBounds.current = bounds;
+  const gestureBindingsLeft = useGesture(
+    {
+      onDragStart: () => {
+        setDragging(true);
+        initialBounds.current = bounds;
+      },
+      onDragEnd: (state) => {
+        setDragging(false);
+        state.event.stopPropagation();
+      },
+      onHover: ({ hovering: h }) => setHovering(h || false),
+      onDrag: (state) => {
+        const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
+        const newValue = state.shiftKey
+          ? newPosition
+          : closestFrame(newPosition, frameCount);
+        const vals =
+          newValue >= initialBounds.current[1]
+            ? [initialBounds.current[1], newValue]
+            : [newValue, initialBounds.current[1]];
+        updateBounds(vals[0], vals[1]);
+        state.event.stopPropagation();
+      },
+      onClick: (state) => {
+        state.event.stopPropagation();
+      },
     },
-    onDragEnd: () => setDragging(false),
-    onHover: ({ hovering: h }) => setHovering(h || false),
-    onDrag: (state) => {
-      const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
-      const newValue = state.shiftKey
-        ? newPosition
-        : closestFrame(newPosition, frameCount);
-      const vals =
-        newValue >= initialBounds.current[1]
-          ? [initialBounds.current[1], newValue]
-          : [newValue, initialBounds.current[1]];
-      updateBounds(vals[0], vals[1]);
-      state.event.stopPropagation();
-    },
-  });
+    { drag: { filterTaps: true } },
+  );
 
-  const gestureBindingsRight = useGesture({
-    onDragStart: () => {
-      setDragging(true);
-      initialBounds.current = bounds;
+  const gestureBindingsRight = useGesture(
+    {
+      onDragStart: () => {
+        setDragging(true);
+        initialBounds.current = bounds;
+      },
+      onDragEnd: (state) => {
+        setDragging(false);
+        state.event.stopPropagation();
+      },
+      onHover: ({ hovering: h }) => setHovering(h || false),
+      onDrag: (state) => {
+        const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
+        const newValue = state.shiftKey
+          ? newPosition
+          : closestFrame(newPosition, frameCount);
+        const vals =
+          newValue <= initialBounds.current[0]
+            ? [newValue, initialBounds.current[0]]
+            : [initialBounds.current[0], newValue];
+        updateBounds(vals[0], vals[1]);
+        state.event.stopPropagation();
+      },
+      onClick: (state) => {
+        state.event.stopPropagation();
+      },
     },
-    onDragEnd: () => setDragging(false),
-    onHover: ({ hovering: h }) => setHovering(h || false),
-    onDrag: (state) => {
-      const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
-      const newValue = state.shiftKey
-        ? newPosition
-        : closestFrame(newPosition, frameCount);
-      const vals =
-        newValue <= initialBounds.current[0]
-          ? [newValue, initialBounds.current[0]]
-          : [initialBounds.current[0], newValue];
-      updateBounds(vals[0], vals[1]);
-      state.event.stopPropagation();
-    },
-  });
+    { drag: { filterTaps: true } },
+  );
 
   return (
     <>
@@ -89,7 +107,7 @@ function InnerBoundsDisplay({
       <rect
         x={xScale(bounds[0])}
         y={0}
-        width={xScale(bounds[1]) - xScale(bounds[0])}
+        width={Math.max(0, xScale(bounds[1]) - xScale(bounds[0]))}
         height={22}
         className={
           parentActive && dragging

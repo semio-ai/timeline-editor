@@ -22,6 +22,8 @@ export interface AnimationData {
   timeDisplay: TimeDisplay;
   // Player's interval
   playerInterval?: number;
+  // Where the user is currently hovering in the timeline
+  hoverpoint: number;
 }
 
 export interface AnimationActions {
@@ -98,6 +100,8 @@ export interface AnimationActions {
   setTimeDisplay: (mode: TimeDisplay) => void;
   // Initialize the player updates
   initPlayerInterval: () => void;
+  // Set the hoverpoint
+  setHoverpoint: (hoverpoint: number) => void;
 }
 
 export type AnimationStoreSetter = (

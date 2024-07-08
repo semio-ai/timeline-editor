@@ -15,6 +15,7 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 import { AnimationActions, AnimationData } from "./store-types";
 import { BoundsDisplay } from "./bounds-display";
 import { DataDisplay } from "./data-display";
+import { useHoverSpring } from "./hooks/use-hover-spring";
 
 export interface ScrubberProps {
   width: number;
@@ -43,7 +44,7 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
   const onHoverEnd = () => setHovered(false);
   const delayedHover = useLazy(hovered, 1000);
 
-  const hoverPoint = useSpringValue<number>(0, { config: { duration: 0 } });
+  const { setHoverpoint, hoverpoint } = useHoverSpring();
 
   const [activeRegionRef, activeRegionBounds] = useMeasure();
 
@@ -70,7 +71,7 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
   });
 
   const gestureBindings = useGesture({
-    onClick: (state) => {
+    onDoubleClick: (state) => {
       console.log(state);
       const newPosition =
         ((state.event.clientX ?? 0) - activeRegionBounds.left) /
@@ -94,11 +95,11 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
         ((state.xy[0] || 0) - activeRegionBounds.left) /
         activeRegionBounds.width;
       if (state.altKey) {
-        hoverPoint.set(newPosition);
+        setHoverpoint(newPosition);
         // setHoveredSpan(getInclusionSpan(frames, newPosition));
       } else {
         const closest: number = closestFrame(newPosition, frameCount);
-        hoverPoint.set(closest);
+        setHoverpoint(closest);
         // setHoveredSpan(getInclusionSpan(frames, closest));
       }
     },
@@ -116,17 +117,17 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
         <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="0%">
           <animated.stop offset="0%" stopColor={bgColor} />
           <animated.stop
-            offset={hoverPoint.to(
+            offset={hoverpoint.to(
               (hp) => `${Math.max(0, hp * 100 - 20).toString()}%`,
             )}
             stopColor={bgColor}
           />
           <animated.stop
-            offset={hoverPoint.to((hp) => `${(hp * 100).toString()}%`)}
+            offset={hoverpoint.to((hp) => `${(hp * 100).toString()}%`)}
             stopColor={styles.color}
           />
           <animated.stop
-            offset={hoverPoint.to(
+            offset={hoverpoint.to(
               (hp) => `${Math.min(100, hp * 100 + 20).toString()}%`,
             )}
             stopColor={bgColor}
@@ -165,7 +166,7 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
         xScale={xScale}
         timelineWidth={activeRegionBounds.width}
         timelineLeft={activeRegionBounds.left}
-        hoverX={hoverPoint}
+        hoverX={hoverpoint}
         parentActive={hovered || editorOpened || delayedHover}
       />
       <BoundsDisplay
