@@ -1,5 +1,5 @@
 import { TimeInput, Variant } from "@semio/ui";
-import { type ReactNode } from "react";
+import { type ReactNode, useState, memo } from "react";
 import { useShallow } from "zustand/react/shallow";
 // import { numberToDurationString } from "@semio/utils";
 import { useAnimationStore } from "./hooks/use-animation-store";
@@ -18,7 +18,7 @@ export interface TimeDisplayProps {
   type?: TimeDisplayType;
 }
 
-export function TimeDisplay({
+export function InnerTimeDisplay({
   type = TimeDisplayType.Current,
 }: TimeDisplayProps): ReactNode {
   const timeDisplay = useAnimationStore(
@@ -26,6 +26,7 @@ export function TimeDisplay({
   );
 
   const duration = useAnimationStore(useShallow((state) => state.duration));
+  const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
 
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
 
@@ -54,41 +55,38 @@ export function TimeDisplay({
     }),
   );
 
-  const setTime = useAnimationStore(
-    useShallow((state: AnimationActions & AnimationData) => {
-      if (type === TimeDisplayType.Current) {
-        return (t: number): void => state.resetPlayer(t / state.duration);
-      } else if (type === TimeDisplayType.Duration) {
-        return (t: number): void => state.updateDuration(t);
-      } else if (type === TimeDisplayType.BoundsStart) {
-        return (t: number): void => {
-          const vals = [t / state.duration, state.player.bounds[1]].sort(
-            (a, b) => a - b,
-          );
-          state.updatePlayerBounds(vals[0], vals[1]);
-        };
-      } else if (type === TimeDisplayType.BoundsEnd) {
-        return (t: number): void => {
-          const vals = [state.player.bounds[0], t / state.duration].sort(
-            (a, b) => a - b,
-          );
-          state.updatePlayerBounds(vals[0], vals[1]);
-        };
-      }
-    }),
+  const { resetPlayer, updateDuration, updatePlayerBounds } = useAnimationStore(
+    useShallow((state: AnimationActions & AnimationData) => ({
+      resetPlayer: state.resetPlayer,
+      updateDuration: state.updateDuration,
+      updatePlayerBounds: state.updatePlayerBounds,
+    })),
   );
+
+  const setTime = (t: number) => {
+    console.log("setting time", t, type);
+    if (type === TimeDisplayType.Current) {
+      resetPlayer(t / duration);
+    } else if (type === TimeDisplayType.Duration) {
+      updateDuration(t);
+    } else if (type === TimeDisplayType.BoundsStart) {
+      const vals = [t / duration, bounds[1]].sort((a, b) => a - b);
+      updatePlayerBounds(vals[0], vals[1]);
+    } else if (type === TimeDisplayType.BoundsEnd) {
+      const vals = [bounds[0], t / duration].sort((a, b) => a - b);
+      updatePlayerBounds(vals[0], vals[1]);
+    }
+  };
 
   return (
     <TimeInput
       value={time}
-      onChange={setTime ? setTime : () => {}}
+      onChange={setTime}
       min={0}
       size="sm"
       max={duration}
       disabled={
-        !setTime ||
-        type === TimeDisplayType.Forward ||
-        type === TimeDisplayType.Backward
+        type === TimeDisplayType.Forward || type === TimeDisplayType.Backward
       }
       display={timeDisplay}
       framerate={framerate}
@@ -96,3 +94,7 @@ export function TimeDisplay({
     />
   );
 }
+
+InnerTimeDisplay.displayName = "TimeDisplay";
+
+export const TimeDisplay = memo(InnerTimeDisplay);
