@@ -1,5 +1,5 @@
 import { TimeInput, Variant } from "@semio/ui";
-import { type ReactNode, useState, memo } from "react";
+import { type ReactNode, memo } from "react";
 import { useShallow } from "zustand/react/shallow";
 // import { numberToDurationString } from "@semio/utils";
 import { useAnimationStore } from "./hooks/use-animation-store";

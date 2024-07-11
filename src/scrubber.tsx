@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import useMeasure from "react-use-measure";
 import { pairwise, useLazy, closestFrame } from "@semio/utils";
 import { Theme, useTheme } from "@semio/ui";
-import { animated, useSpringValue, useSpring } from "@react-spring/web";
+import { animated, useSpring } from "@react-spring/web";
 import { scaleLinear } from "@visx/scale";
 import { useGesture } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
