@@ -33,6 +33,8 @@ export interface AnimationActions {
   createAutoKeyframe: () => void;
   // Remove a keyframe from the animation
   removeKeyframe: (keyframeId: string, animationId?: string) => void;
+  // Update the animation data
+  updateAnimation: (animation: Partial<Animation>) => void;
   // Update a keyframe time in the animation
   updateKeyframeStamp: (
     keyframeId: string,
