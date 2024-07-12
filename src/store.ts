@@ -70,6 +70,22 @@ export const AnimationSlice = (
         }),
       );
     },
+    updateAnimation: (animation: Partial<Animation>) => {
+      set(
+        produce((state: AnimationData): void => {
+          console.log("Adding animation", animation);
+          state.activeAnimation = animation.id ?? state.activeAnimation;
+          state.animations[animation.id ?? state.activeAnimation] = {
+            ...state.animations[state.activeAnimation],
+            ...animation,
+          };
+          if (animation.id) {
+            state.visualizedAnimations = [animation.id];
+          }
+          console.log("Updated animations", state.animations)
+        }),
+      );
+    },
     updateKeyframeStamp: (
       keyframeId: string,
       stamp: number,
