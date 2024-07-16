@@ -34,14 +34,25 @@ export const AnimationSlice = (
     activeAnimation: defaultAnimation.id,
     animations: { [defaultAnimation.id]: defaultAnimation },
     visualizedAnimations: [defaultAnimation.id],
-    player: newPlayer(),
     duration: defaultAnimation.duration,
+    player: newPlayer(),
     framerate: 24,
     selectedKeyframe: undefined,
     expanded: false,
     timeDisplay: TimeDisplay.Frames,
     playerInterval: undefined,
     hoverpoint: 0,
+    addEmptyAnimation: () => {
+      set(
+        produce((state: AnimationData): void => {
+          console.log("Adding empty animation");
+          const newAnimation = createDefaultAnimation();
+          state.animations[newAnimation.id] = newAnimation;
+          state.activeAnimation = newAnimation.id;
+          state.visualizedAnimations = [newAnimation.id];
+        }),
+      );
+    },
     createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string) => {
       set(
         produce((state: AnimationData): void => {
@@ -70,25 +81,25 @@ export const AnimationSlice = (
         }),
       );
     },
-    // setActiveAnimation: (animationId: string) => {
-    //   set({ activeAnimation: animationId });
-    // },
-    // removeVisualized: (animationId: string) => {
-    //   set(
-    //     produce((state: AnimationData): void => {
-    //       state.visualizedAnimations = state.visualizedAnimations.filter(
-    //         (id) => id !== animationId,
-    //       );
-    //     }),
-    //   );
-    // },
-    // addVisualized: (animationId: string) => {
-    //   set(
-    //     produce((state: AnimationData): void => {
-    //       state.visualizedAnimations = [...state.visualizedAnimations, animationId];
-    //     }),
-    //   );
-    // },
+    setActiveAnimation: (animationId: string) => {
+      set({ activeAnimation: animationId });
+    },
+    removeVisualized: (animationId: string) => {
+      set(
+        produce((state: AnimationData): void => {
+          state.visualizedAnimations = state.visualizedAnimations.filter(
+            (id) => id !== animationId,
+          );
+        }),
+      );
+    },
+    addVisualized: (animationId: string) => {
+      set(
+        produce((state: AnimationData): void => {
+          state.visualizedAnimations = [...state.visualizedAnimations, animationId];
+        }),
+      );
+    },
     updateAnimation: (animation: Partial<Animation>) => {
       set(
         produce((state: AnimationData): void => {
