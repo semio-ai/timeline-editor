@@ -39,7 +39,7 @@ export function updateAnimationKeypoint(
   }
 
   let point = [...state.animations[animationId].points.values()].find(
-    (p) => p.frame === keyframe.id && p.track === track.id,
+    (p) => p.frame === keyframe?.id && p.track === track?.id,
   );
 
   if (!point) {
