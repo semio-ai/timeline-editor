@@ -1,3 +1,4 @@
+import { RawValue } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import { Keypoint } from "../types";
 import { createKeyframe } from "./create-keyframe";
@@ -6,8 +7,8 @@ export function createKeypoint(
   state: AnimationData,
   animationId: string,
   trackId: string,
-  point: Partial<Keypoint<number | string>>,
-) {
+  point: Partial<Keypoint<RawValue>>,
+): Keypoint<RawValue> {
   const id = crypto.randomUUID();
   const keyframeId =
     point.frame ?? state.selectedKeyframe ?? crypto.randomUUID();
@@ -16,18 +17,20 @@ export function createKeypoint(
     createKeyframe(state, animationId, { id: keyframeId });
   frame.points.push(id);
   state.animations[animationId].frames.set(frame.id, frame);
-
-  state.animations[animationId].points.set(id, {
+  const newPoint = {
+    id,
     value: 0,
     frame: frame.id,
     track: trackId,
     ...point,
-    id,
-  });
+  };
+
+  state.animations[animationId].points.set(newPoint.id, newPoint);
 
   const track = state.animations[animationId].tracks.get(trackId);
   if (track && "points" in track) {
-    track.points.push(id);
+    track.points.push(newPoint.id);
     state.animations[animationId].tracks.set(trackId, track);
   }
+  return newPoint;
 }

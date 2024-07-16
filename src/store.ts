@@ -1,10 +1,9 @@
-import { newPlayer, reset, update, play, pause, setBounds } from "@semio/utils";
+import { reset, update, play, pause, setBounds, RawValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
 import { create } from "zustand";
 import { Keyframe, Keypoint, Track } from "./types";
-import { createDefaultAnimation } from "./actions/create-default-animation";
 import { createKeyframe } from "./actions/create-keyframe";
 import { createAutoKeyframe } from "./actions/create-auto-keyframe";
 import { removeKeyframe } from "./actions/remove-keyframe";
@@ -22,6 +21,8 @@ import { createTrack } from "./actions/create-track";
 import { removeTrack } from "./actions/remove-track";
 import { moveKeypoint } from "./actions/move-keypoint";
 import { computeStamps } from "./actions/compute-stamps";
+import { createDefaultState } from "./actions/create-default-state";
+import { updateAnimationKeypoint } from "./actions/update-animation-keypoint";
 
 enableMapSet();
 
@@ -29,30 +30,8 @@ export const AnimationSlice = (
   set: AnimationStoreSetter,
   get: AnimationStoreGetter,
 ) => {
-  const defaultAnimation = createDefaultAnimation();
   return {
-    activeAnimation: defaultAnimation.id,
-    animations: { [defaultAnimation.id]: defaultAnimation },
-    visualizedAnimations: [defaultAnimation.id],
-    duration: defaultAnimation.duration,
-    player: newPlayer(),
-    framerate: 24,
-    selectedKeyframe: undefined,
-    expanded: false,
-    timeDisplay: TimeDisplay.Frames,
-    playerInterval: undefined,
-    hoverpoint: 0,
-    addEmptyAnimation: () => {
-      set(
-        produce((state: AnimationData): void => {
-          console.log("Adding empty animation");
-          const newAnimation = createDefaultAnimation();
-          state.animations[newAnimation.id] = newAnimation;
-          state.activeAnimation = newAnimation.id;
-          state.visualizedAnimations = [newAnimation.id];
-        }),
-      );
-    },
+    ...createDefaultState(),
     createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string) => {
       set(
         produce((state: AnimationData): void => {
@@ -87,8 +66,21 @@ export const AnimationSlice = (
     removeVisualized: (animationId: string) => {
       set(
         produce((state: AnimationData): void => {
-          state.visualizedAnimations = state.visualizedAnimations.filter(
-            (id) => id !== animationId,
+          state.visualizedAnimations = state.visualizedAnimations.filter((id) => id !== animationId)}))},
+    updateAnimationKeypoint: (
+      keyframeOrTime: string | number,
+      trackId: string,
+      value: RawValue,
+      animationId?: string,
+    ) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateAnimationKeypoint(
+            state,
+            animationId ?? state.activeAnimation,
+            keyframeOrTime,
+            trackId,
+            value,
           );
         }),
       );
@@ -112,7 +104,7 @@ export const AnimationSlice = (
           if (animation.id) {
             state.visualizedAnimations = [animation.id];
           }
-          console.log("Updated animations", state.animations)
+          console.log("Updated animations", state.animations);
         }),
       );
     },
@@ -134,7 +126,7 @@ export const AnimationSlice = (
     },
     createKeypoint: (
       trackId: string,
-      point: Partial<Keypoint<number | string>>,
+      point: Partial<Keypoint<RawValue>>,
       animationId?: string,
     ) => {
       set(
@@ -150,7 +142,7 @@ export const AnimationSlice = (
     },
     updateKeypointValue: (
       keypointId: string,
-      value: number | string,
+      value: RawValue,
       animationId?: string,
     ) => {
       set(

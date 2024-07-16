@@ -5,16 +5,12 @@ import type { ScaleLinear } from "./scale-linear";
 
 export interface HoverMarkerProps {
   xScale: ScaleLinear;
-  timelineWidth: number;
-  timelineLeft: number;
   hoverX: SpringValue<number>;
   parentActive: boolean;
 }
 
 function HoverMarker({
   xScale,
-  timelineWidth,
-  timelineLeft,
   hoverX,
   parentActive,
 }: HoverMarkerProps): ReactNode {

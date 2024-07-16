@@ -1,4 +1,4 @@
-import { type Player } from "@semio/utils";
+import { type Player, type RawValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { Keypoint, Track, Animation } from "./types";
 
@@ -35,6 +35,13 @@ export interface AnimationActions {
   removeKeyframe: (keyframeId: string, animationId?: string) => void;
   // Update the animation data
   updateAnimation: (animation: Partial<Animation>) => void;
+  // Update a keypoint by track and keyframe/time in the animation
+  updateAnimationKeypoint: (
+    keyframeOrTime: string | number,
+    trackId: string,
+    value: RawValue,
+    animationId?: string,
+  ) => void;
   // Update a keyframe time in the animation
   updateKeyframeStamp: (
     keyframeId: string,
@@ -44,13 +51,13 @@ export interface AnimationActions {
   // Add a new keypoint to a keyframe/track
   createKeypoint: (
     trackId: string,
-    point: Partial<Keypoint<number | string>>,
+    point: Partial<Keypoint<RawValue>>,
     animationId?: string,
   ) => void;
   // Set a keypoint value
   updateKeypointValue: (
     keypointId: string,
-    value: number | string,
+    value: RawValue,
     animationId?: string,
   ) => void;
   // Remove a keypoint from the animation
@@ -93,7 +100,7 @@ export interface AnimationActions {
   // Skip to the end of the current bounds
   skipToEnd: () => void;
   // Set the duration of the animation
-  updateDuration: (duration: number) => void;
+  updateDuration: (duration: number, animationId?: string) => void;
   // Set the frame rate of the animation
   updateFramerate: (framerate: number) => void;
   // Set the exanded state of the sheet
@@ -104,6 +111,12 @@ export interface AnimationActions {
   initPlayerInterval: () => void;
   // Set the hoverpoint
   setHoverpoint: (hoverpoint: number) => void;
+  // Add an animation to the visualized set
+  addVisualized: (animationId: string) => void;
+  // Remove an animation from the visualized set
+  removeVisualized: (animationId: string) => void;
+  // Set the active animation
+  setActiveAnimation: (animationId: string) => void;
 }
 
 export type AnimationStoreSetter = (

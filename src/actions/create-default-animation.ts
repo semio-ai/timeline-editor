@@ -13,6 +13,7 @@ export function createDefaultAnimation(): Animation {
     trackOrder: [],
     frames: new Map(),
     tracks: new Map(),
+    groups: new Map(),
     points: new Map(),
     transitions: new Map(),
     instances: {
@@ -21,7 +22,6 @@ export function createDefaultAnimation(): Animation {
         timescale: 1,
       },
     },
-    framerate: 24,
     duration: 5000,
   };
 }

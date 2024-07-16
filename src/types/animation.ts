@@ -1,3 +1,4 @@
+import { RawValue } from "@semio/utils";
 import type { Transition } from "./transition";
 import type { Track } from "./track";
 import type { TrackGroup } from "./track-group";
@@ -22,14 +23,14 @@ import type { InstanceInfo } from "./instance-info";
 export interface Animation {
   id: string;
   name: string;
-  points: Map<string, Keypoint<number | string>>;
+  points: Map<string, Keypoint<RawValue>>;
   frames: Map<string, Keyframe>;
-  tracks: Map<string, Track | TrackGroup>;
+  tracks: Map<string, Track>;
+  groups: Map<string, TrackGroup>;
   transitions: Map<string, Transition>;
   frameOrder: string[];
   trackOrder: string[];
   duration: number;
-  framerate: number;
   instances: Record<string, InstanceInfo>;
 }
 

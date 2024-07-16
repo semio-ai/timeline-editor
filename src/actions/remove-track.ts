@@ -1,3 +1,4 @@
+import { RawValue } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import { Keypoint } from "../types";
 
@@ -7,7 +8,7 @@ export function removeTrack(
   trackId: string,
 ) {
   const originalPoints = Object.values(state.animations[animationId].points);
-  originalPoints.forEach((originalPoint: Keypoint<number | string>) => {
+  originalPoints.forEach((originalPoint: Keypoint<RawValue>) => {
     if (originalPoint.track === trackId) {
       const parentFrame = state.animations[animationId].frames.get(
         originalPoint.frame,

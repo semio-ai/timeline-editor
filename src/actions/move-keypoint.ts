@@ -1,3 +1,4 @@
+import { type RawValue } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import type { Keypoint } from "../types";
 
@@ -12,7 +13,7 @@ export function moveKeypoint(
   if (!point) {
     return;
   }
-  const draftPoint: Keypoint<number | string> = { ...point };
+  const draftPoint: Keypoint<RawValue> = { ...point };
   if (typeof keyframeOrTime === "string") {
     // Remove the point from the old frame and add it to the new frame
     const oldFrame = state.animations[animationId].frames.get(point.frame);

@@ -164,8 +164,6 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
       )}
       <HoverMarker
         xScale={xScale}
-        timelineWidth={activeRegionBounds.width}
-        timelineLeft={activeRegionBounds.left}
         hoverX={hoverpoint}
         parentActive={hovered || editorOpened || delayedHover}
       />
