@@ -70,6 +70,25 @@ export const AnimationSlice = (
         }),
       );
     },
+    // setActiveAnimation: (animationId: string) => {
+    //   set({ activeAnimation: animationId });
+    // },
+    // removeVisualized: (animationId: string) => {
+    //   set(
+    //     produce((state: AnimationData): void => {
+    //       state.visualizedAnimations = state.visualizedAnimations.filter(
+    //         (id) => id !== animationId,
+    //       );
+    //     }),
+    //   );
+    // },
+    // addVisualized: (animationId: string) => {
+    //   set(
+    //     produce((state: AnimationData): void => {
+    //       state.visualizedAnimations = [...state.visualizedAnimations, animationId];
+    //     }),
+    //   );
+    // },
     updateAnimation: (animation: Partial<Animation>) => {
       set(
         produce((state: AnimationData): void => {
