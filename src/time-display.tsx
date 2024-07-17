@@ -1,4 +1,4 @@
-import { TimeInput, Variant } from "@semio/ui";
+import { Size, TimeInput, Variant } from "@semio/ui";
 import { type ReactNode, memo } from "react";
 import { useShallow } from "zustand/react/shallow";
 // import { numberToDurationString } from "@semio/utils";
@@ -83,7 +83,7 @@ export function InnerTimeDisplay({
       value={time}
       onChange={setTime}
       min={0}
-      size="sm"
+      size={Size.Sm}
       max={duration}
       disabled={
         type === TimeDisplayType.Forward || type === TimeDisplayType.Backward

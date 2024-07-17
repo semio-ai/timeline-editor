@@ -10,7 +10,7 @@ export function computeStamps(
   // console.log("DEBUG", animationIds, state.animations);
   animationIds.forEach((animationId) => {
     // console.log(state.animations[animationId]);
-    Object.values(state.animations[animationId].instances).forEach(
+    Object.values(state.animations[animationId]?.instances || {}).forEach(
       (instanceInfo) => {
         stamps = [
           ...stamps,
