@@ -26,17 +26,17 @@ export function Controls(): ReactNode {
 
   return (
     <div className="justify-between items-center p-1 flex">
-      <div className="flex justify-center items-center">
+      <div className="flex justify-center items-center gap-2">
         <SkipButton direction={SkipDirection.BoundsStart} />
         {!xsmallScreen && <TimeDisplay type={TimeDisplayType.BoundsStart} />}
       </div>
-      <div className="flex justify-center items-center">
+      <div className="flex justify-center items-center gap-2">
         {!smallScreen && <TimeDisplay type={TimeDisplayType.Forward} />}
         <SkipButton direction={SkipDirection.Backward} />
 
         <div
           className={clsx(
-            "flex transition-all justify-center items-center h-9",
+            "flex transition-all justify-center items-center h-9 gap-2",
             // running ? "w-10" : "w-40",
           )}
         >
@@ -76,111 +76,10 @@ export function Controls(): ReactNode {
         <SkipButton direction={SkipDirection.Forward} />
         {!smallScreen && <TimeDisplay type={TimeDisplayType.Forward} />}
       </div>
-      <div className="flex justify-center items-center">
+      <div className="flex justify-center items-center gap-2">
         {!xsmallScreen && <TimeDisplay type={TimeDisplayType.BoundsEnd} />}
         <SkipButton direction={SkipDirection.BoundsEnd} />
       </div>
     </div>
-    // <Group
-    //   align="center"
-    //   justify="center"
-    //   style={{
-    //     // height: 15,
-    //     alignItems: "center",
-    //     justifyContent: "space-between",
-    //     padding: 5,
-    //   }}
-    // >
-    //   <Group
-    //     align="center"
-    //     justify="center"
-    //     style={{
-    //       // height: 15,
-    //       alignItems: "center",
-    //       justifyContent: "center",
-    //       paddingTop: 0,
-    //       paddingBottom: 0,
-    //     }}
-    //   >
-    //     <SkipButton direction={SkipDirection.BoundsStart} />
-    //     <TimeDisplay type={TimeDisplayType.BoundsStart} />
-    //   </Group>
-    //   <Group
-    //     align="center"
-    //     justify="center"
-    //     style={{
-    //       // height: 15,
-    //       alignItems: "center",
-    //       justifyContent: "center",
-    //       paddingTop: 0,
-    //       paddingBottom: 0,
-    //     }}
-    //   >
-    //     <TimeDisplay type={TimeDisplayType.Current} />
-    //     <SkipButton direction={SkipDirection.Backward} />
-    //     <ActionIcon
-    //       color="gray"
-    //       onClick={() => {
-    //         if (running) {
-    //           pausePlayer();
-    //         } else {
-    //           playPlayer(-1);
-    //         }
-    //       }}
-    //       radius={0}
-    //       size="sm"
-    //       variant="transparent"
-    //     >
-    //       {running ? (
-    //         <IconPlayerPauseFilled />
-    //       ) : (
-    //         <IconPlayerPlayFilled style={{ transform: "rotate(180deg)" }} />
-    //       )}
-    //     </ActionIcon>
-    //     {/* <ActionIcon
-    //     color="gray"
-    //     onClick={() => {
-    //       addAutoKeyframe();
-    //     }}
-    //     radius={0}
-    //     size="sm"
-    //     variant="transparent"
-    //   >
-    //     <IconPointFilled />
-    //   </ActionIcon> */}
-    //     <TimeDisplay type={TimeDisplayType.Current} />
-    //     <ActionIcon
-    //       color="gray"
-    //       onClick={() => {
-    //         if (running) {
-    //           pausePlayer();
-    //         } else {
-    //           playPlayer(1);
-    //         }
-    //       }}
-    //       radius={0}
-    //       size="sm"
-    //       variant="transparent"
-    //     >
-    //       {running ? <IconPlayerPauseFilled /> : <IconPlayerPlayFilled />}
-    //     </ActionIcon>
-    //     <SkipButton direction={SkipDirection.Forward} />
-    //     <TimeDisplay type={TimeDisplayType.Current} />
-    //   </Group>
-    //   <Group
-    //     align="center"
-    //     justify="center"
-    //     style={{
-    //       // height: 15,
-    //       alignItems: "center",
-    //       justifyContent: "center",
-    //       paddingTop: 0,
-    //       paddingBottom: 0,
-    //     }}
-    //   >
-    //     <TimeDisplay type={TimeDisplayType.BoundsEnd} />
-    //     <SkipButton direction={SkipDirection.BoundsEnd} />
-    //   </Group>
-    // </Group>
   );
 }
