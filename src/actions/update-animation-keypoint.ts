@@ -38,6 +38,10 @@ export function updateAnimationKeypoint(
     track = createTrack(state, animationId, { id: trackId });
   }
 
+  if (!keyframe || !track) {
+    throw new Error("Could not create keyframe or track");
+  }
+
   let point = [...state.animations[animationId].points.values()].find(
     (p) => p.frame === keyframe?.id && p.track === track?.id,
   );
