@@ -23,6 +23,7 @@ import { moveKeypoint } from "./actions/move-keypoint";
 import { computeStamps } from "./actions/compute-stamps";
 import { createDefaultState } from "./actions/create-default-state";
 import { updateAnimationKeypoint } from "./actions/update-animation-keypoint";
+import { updateTrack } from "./actions/update-track";
 
 enableMapSet();
 
@@ -66,7 +67,12 @@ export const AnimationSlice = (
     unvisualizeAnimation: (animationId: string) => {
       set(
         produce((state: AnimationData): void => {
-          state.visualizedAnimations = state.visualizedAnimations.filter((id) => id !== animationId)}))},
+          state.visualizedAnimations = state.visualizedAnimations.filter(
+            (id) => id !== animationId,
+          );
+        }),
+      );
+    },
     updateAnimationKeypoint: (
       keyframeOrTime: string | number,
       trackId: string,
@@ -88,7 +94,10 @@ export const AnimationSlice = (
     visualizeAnimation: (animationId: string) => {
       set(
         produce((state: AnimationData): void => {
-          state.visualizedAnimations = [...state.visualizedAnimations, animationId];
+          state.visualizedAnimations = [
+            ...state.visualizedAnimations,
+            animationId,
+          ];
         }),
       );
     },
@@ -152,6 +161,22 @@ export const AnimationSlice = (
             animationId ?? state.activeAnimation,
             keypointId,
             value,
+          );
+        }),
+      );
+    },
+    updateTrack: (
+      trackId: string,
+      data: Omit<Track, "id" | "points">,
+      animationId?: string,
+    ) => {
+      set(
+        produce((state: AnimationData) => {
+          updateTrack(
+            state,
+            animationId || state.activeAnimation,
+            trackId,
+            data,
           );
         }),
       );

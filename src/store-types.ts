@@ -60,6 +60,12 @@ export interface AnimationActions {
     value: RawValue,
     animationId?: string,
   ) => void;
+  // Update a track's data (other than id and points)
+  updateTrack: (
+    trackId: string,
+    data: Omit<Track, "id" | "points">,
+    animationId?: string,
+  ) => void;
   // Remove a keypoint from the animation
   removeKeypoint: (keypointId: string, animationId?: string) => void;
   // Add a track to the animation
