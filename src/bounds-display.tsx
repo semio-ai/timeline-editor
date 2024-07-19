@@ -111,41 +111,78 @@ function InnerBoundsDisplay({
         height={22}
         className={
           parentActive && dragging
-            ? "cursor-ew-resize fill-primary-600/25"
+            ? "cursor-ew-resize fill-neutral-600/25"
             : "fill-transparent"
         }
       />
-      <path
-        {...gestureBindingsLeft()}
-        d={
-          hovering
-            ? `M${(xScale(bounds[0]) - 5).toString()} 0 L${xScale(bounds[0]).toString()} 10 L${(xScale(bounds[0]) + 5).toString()} 0`
-            : `M${(xScale(bounds[0]) - 3.5).toString()} 0 L${xScale(bounds[0]).toString()} 7 L${(xScale(bounds[0]) + 3.5).toString()} 0`
-        }
-        className={clsx(
-          "cursor-ew-resize touch-none",
-          parentActive
-            ? "fill-primary-600 hover:fill-primary-500"
-            : "fill-transparent",
-        )}
-      />
+      <g>
+        <path
+          d={getPath(xScale, bounds, "left")}
+          className={clsx(
+            "transition-[fill]",
+            getFill("left", hovering, bounds[0] === 0, parentActive),
+          )}
+        />
+        <rect
+          {...gestureBindingsLeft()}
+          x={xScale(bounds[0]) - (hovering ? 10 : 7)}
+          y={0}
+          width={hovering ? 20 : 14}
+          height={22}
+          className="cursor-ew-resize touch-none fill-transparent"
+        />
+      </g>
 
-      <path
-        {...gestureBindingsRight()}
-        d={
-          hovering
-            ? `M${(xScale(bounds[1]) - 5).toString()} 0 L${xScale(bounds[1]).toString()} 10 L${(xScale(bounds[1]) + 5).toString()} 0`
-            : `M${(xScale(bounds[1]) - 3.5).toString()} 0 L${xScale(bounds[1]).toString()} 7 L${(xScale(bounds[1]) + 3.5).toString()} 0`
-        }
-        className={clsx(
-          "cursor-ew-resize touch-none",
-          parentActive
-            ? "fill-primary-600 hover:fill-primary-500"
-            : "fill-transparent",
-        )}
-      />
+      <g>
+        <path
+          d={getPath(xScale, bounds, "right")}
+          className={clsx(
+            "transition-[fill]",
+            getFill("right", hovering, bounds[1] === 1, parentActive),
+          )}
+        />
+        <rect
+          {...gestureBindingsRight()}
+          x={xScale(bounds[1]) - (hovering ? 10 : 14)}
+          y={0}
+          width={hovering ? 20 : 14}
+          height={22}
+          className="cursor-ew-resize touch-none fill-transparent"
+        />
+      </g>
     </>
   );
+}
+
+function getFill(
+  side: "left" | "right",
+  hovering: boolean,
+  atBounds: boolean,
+  parentActive: boolean,
+): string {
+  if (hovering) {
+    return side === "left"
+      ? "dark:fill-success-400 fill-success-600"
+      : "dark:fill-error-400 fill-error-600";
+  } else if (!atBounds) {
+    return side === "left" ? "fill-success-500" : "fill-error-500";
+  } else {
+    return parentActive
+      ? "dark:fill-white/50 fill-black/50"
+      : "fill-transparent";
+  }
+}
+
+function getPath(
+  xScale: ScaleLinear,
+  bounds: [number, number],
+  side: "left" | "right",
+): string {
+  const width = 5;
+  const height = 7;
+  const x = side === "left" ? xScale(bounds[0]) : xScale(bounds[1]);
+  const trailing = side === "left" ? x + width : x - width;
+  return `M${x.toString()} 0 L${trailing.toString()} 0 L${x.toString()} ${(0 + height).toString()} L${x.toString()} ${(22 - height).toString()} L${trailing.toString()} 22 L${x.toString()} 22 Z`;
 }
 
 export const BoundsDisplay = memo(InnerBoundsDisplay);
