@@ -63,7 +63,7 @@ export const AnimationSlice = (
     setActiveAnimation: (animationId: string) => {
       set({ activeAnimation: animationId });
     },
-    removeVisualized: (animationId: string) => {
+    unvisualizeAnimation: (animationId: string) => {
       set(
         produce((state: AnimationData): void => {
           state.visualizedAnimations = state.visualizedAnimations.filter((id) => id !== animationId)}))},
@@ -85,14 +85,14 @@ export const AnimationSlice = (
         }),
       );
     },
-    addVisualized: (animationId: string) => {
+    visualizeAnimation: (animationId: string) => {
       set(
         produce((state: AnimationData): void => {
           state.visualizedAnimations = [...state.visualizedAnimations, animationId];
         }),
       );
     },
-    updateAnimation: (animation: Partial<Animation>) => {
+    addAnimation: (animation: Partial<Animation>) => {
       set(
         produce((state: AnimationData): void => {
           console.log("Adding animation", animation);

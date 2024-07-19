@@ -34,7 +34,7 @@ export interface AnimationActions {
   // Remove a keyframe from the animation
   removeKeyframe: (keyframeId: string, animationId?: string) => void;
   // Update the animation data
-  updateAnimation: (animation: Partial<Animation>) => void;
+  addAnimation: (animation: Partial<Animation>) => void;
   // Update a keypoint by track and keyframe/time in the animation
   updateAnimationKeypoint: (
     keyframeOrTime: string | number,
@@ -112,9 +112,9 @@ export interface AnimationActions {
   // Set the hoverpoint
   setHoverpoint: (hoverpoint: number) => void;
   // Add an animation to the visualized set
-  addVisualized: (animationId: string) => void;
+  visualizeAnimation: (animationId: string) => void;
   // Remove an animation from the visualized set
-  removeVisualized: (animationId: string) => void;
+  unvisualizeAnimation: (animationId: string) => void;
   // Set the active animation
   setActiveAnimation: (animationId: string) => void;
 }
