@@ -15,6 +15,7 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 import { AnimationActions, AnimationData } from "./store-types";
 import { BoundsDisplay } from "./bounds-display";
 import { DataDisplay } from "./data-display";
+import { TrackBoundsContext } from "./hooks/use-track-bounds";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 
 export interface ScrubberProps {
@@ -106,84 +107,73 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
   });
 
   return (
-    <animated.svg
-      // ref={scrubberRef}
-      height={22}
-      className="touch-none fill-neutral-500"
-      width={width < 0 ? 0 : width}
-      {...gestureBindings()}
+    <TrackBoundsContext.Provider
+      value={{ bounds: activeRegionBounds, scale: xScale, frameCount }}
     >
-      <defs>
-        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="0%">
-          <animated.stop offset="0%" stopColor={bgColor} />
-          <animated.stop
-            offset={hoverpoint.to(
-              (hp) => `${Math.max(0, hp * 100 - 20).toString()}%`,
-            )}
-            stopColor={bgColor}
-          />
-          <animated.stop
-            offset={hoverpoint.to((hp) => `${(hp * 100).toString()}%`)}
-            stopColor={styles.color}
-          />
-          <animated.stop
-            offset={hoverpoint.to(
-              (hp) => `${Math.min(100, hp * 100 + 20).toString()}%`,
-            )}
-            stopColor={bgColor}
-          />
-          <animated.stop offset="100%" stopColor={bgColor} />
-        </linearGradient>
-      </defs>
-      {/* Create a rect frame for use for measurements */}
-      <animated.rect
-        x={0}
-        y={styles.y}
-        width={Math.max(0, width)}
-        height={styles.height}
-        className="fill-neutral-500/25"
-      />
-      <animated.rect
-        ref={activeRegionRef}
-        x={TIMELINE_PADDING}
-        y={styles.y}
-        width={Math.max(0, innerWidth)}
-        height={styles.height}
-        fill="url(#bg)"
-      />
-      {pairwise(Array.from({ length: frameCount + 1 }, (_v, i) => i)).map(
-        ([frame1, frame2]) => (
-          <Segment
-            end={frame2 / frameCount}
-            key={`${frame1.toString()}-${frame2.toString()}`}
-            parentActive={hovered || editorOpened || delayedHover}
-            start={frame1 / frameCount}
-            xScale={xScale}
-          />
-        ),
-      )}
-      <HoverMarker
-        xScale={xScale}
-        hoverX={hoverpoint}
-        parentActive={hovered || editorOpened || delayedHover}
-      />
-      <BoundsDisplay
-        xScale={xScale}
-        timelineWidth={activeRegionBounds.width}
-        timelineLeft={activeRegionBounds.left}
-        frameCount={frameCount}
-        parentActive={hovered || editorOpened || delayedHover}
-      />
-      <DataDisplay
-        xScale={xScale}
-        parentActive={hovered || editorOpened || delayedHover}
-      />
+      <animated.svg
+        // ref={scrubberRef}
+        height={22}
+        className="touch-none fill-neutral-500"
+        width={width < 0 ? 0 : width}
+        {...gestureBindings()}
+      >
+        <defs>
+          <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="0%">
+            <animated.stop offset="0%" stopColor={bgColor} />
+            <animated.stop
+              offset={hoverpoint.to(
+                (hp) => `${Math.max(0, hp * 100 - 20).toString()}%`,
+              )}
+              stopColor={bgColor}
+            />
+            <animated.stop
+              offset={hoverpoint.to((hp) => `${(hp * 100).toString()}%`)}
+              stopColor={styles.color}
+            />
+            <animated.stop
+              offset={hoverpoint.to(
+                (hp) => `${Math.min(100, hp * 100 + 20).toString()}%`,
+              )}
+              stopColor={bgColor}
+            />
+            <animated.stop offset="100%" stopColor={bgColor} />
+          </linearGradient>
+        </defs>
+        {/* Create a rect frame for use for measurements */}
+        <animated.rect
+          x={0}
+          y={styles.y}
+          width={Math.max(0, width)}
+          height={styles.height}
+          className="fill-neutral-500/25"
+        />
+        <animated.rect
+          ref={activeRegionRef}
+          x={TIMELINE_PADDING}
+          y={styles.y}
+          width={Math.max(0, innerWidth)}
+          height={styles.height}
+          fill="url(#bg)"
+        />
+        {pairwise(Array.from({ length: frameCount + 1 }, (_v, i) => i)).map(
+          ([frame1, frame2]) => (
+            <Segment
+              end={frame2 / frameCount}
+              key={`${frame1.toString()}-${frame2.toString()}`}
+              parentActive={hovered || editorOpened || delayedHover}
+              start={frame1 / frameCount}
+            />
+          ),
+        )}
+        <HoverMarker
+          hoverX={hoverpoint}
+          parentActive={hovered || editorOpened || delayedHover}
+        />
+        <BoundsDisplay parentActive={hovered || editorOpened || delayedHover} />
+        <DataDisplay parentActive={hovered || editorOpened || delayedHover} />
 
-      <Thumbnail
-        xScale={xScale}
-        timelineWidth={activeRegionBounds.width}
-        timelineLeft={activeRegionBounds.left}
-      />
-    </animated.svg>
+        <Thumbnail />
+      </animated.svg>
+    </TrackBoundsContext.Provider>
   );
 }

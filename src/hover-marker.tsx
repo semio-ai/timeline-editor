@@ -1,19 +1,15 @@
 import { type ReactNode, memo } from "react";
 import { clsx } from "clsx";
 import { SpringValue, animated } from "@react-spring/web";
-import type { ScaleLinear } from "./scale-linear";
+import { useTrackBounds } from "./hooks/use-track-bounds";
 
 export interface HoverMarkerProps {
-  xScale: ScaleLinear;
   hoverX: SpringValue<number>;
   parentActive: boolean;
 }
 
-function HoverMarker({
-  xScale,
-  hoverX,
-  parentActive,
-}: HoverMarkerProps): ReactNode {
+function HoverMarker({ hoverX, parentActive }: HoverMarkerProps): ReactNode {
+  const { scale: xScale } = useTrackBounds();
   return (
     <animated.path
       style={{

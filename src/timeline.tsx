@@ -3,8 +3,6 @@ import { ParentSize } from "@visx/responsive";
 import { Scrubber } from "./scrubber";
 
 export function Timeline(): ReactNode {
-  // const [editorOpened, { toggle: openEditorToggle }] = useDisclosure();
-
   return (
     <div className="cursor-pointer flex-1 flex items-center">
       <ParentSize debounceTime={10}>

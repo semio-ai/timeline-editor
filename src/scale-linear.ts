@@ -1,6 +1,6 @@
 import { scaleLinear } from "@visx/scale";
 
-const defaultScaleLinear = scaleLinear({
+export const defaultScaleLinear = scaleLinear({
   domain: [0, 1],
   range: [0, 1],
   clamp: true,

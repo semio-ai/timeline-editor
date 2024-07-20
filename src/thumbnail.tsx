@@ -6,7 +6,7 @@ import {
   memo,
   useContext,
 } from "react";
-import { SpringValue, animated, useSpring, easings } from "@react-spring/web";
+import { SpringValue, animated, useSpring } from "@react-spring/web";
 import { useGesture } from "@use-gesture/react";
 import { clsx } from "clsx";
 import {
@@ -15,52 +15,29 @@ import {
   getDegenerateHexagonPath,
 } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-import { computeStamps } from "./actions/compute-stamps";
-import type { ScaleLinear } from "./scale-linear";
+// import type { ScaleLinear } from "./scale-linear";
 import { AnimationContext } from "./context";
+import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { AnimationStore } from "./store";
 
-export interface ThumbnailProps {
-  xScale: ScaleLinear;
-  timelineWidth: number;
-  timelineLeft: number;
-}
+// export interface ThumbnailProps {
+//   xScale: ScaleLinear;
+//   timelineWidth: number;
+//   timelineLeft: number;
+// }
 
-function Thumbnail({
-  xScale,
-  timelineWidth,
-  timelineLeft,
-}: ThumbnailProps): ReactNode {
-  // useEffect(() => {
-  //   console.log("thumbnail prop xScale updated");
-  // }, [xScale]);
-
-  // useEffect(() => {
-  //   console.log("thumbnail prop timelineLeft updated");
-  // }, [timelineLeft]);
-
-  // useEffect(() => {
-  //   console.log("thumbnail prop timelineWidth updated");
-  // }, [timelineWidth]);
-  //
+function Thumbnail(): ReactNode {
+  const {
+    scale: xScale,
+    bounds: { width: timelineWidth, left: timelineLeft },
+    frameCount,
+  } = useTrackBounds();
 
   const animationState = useContext(AnimationContext);
-  // useEffect(() => {
-  //   console.log("thumbnail props updated");
-  // }, [xScale, activeRegionBounds]);
 
   const completion = new SpringValue<number>(
     animationState!.getState().player.stamp as number,
   );
-
-  // const keyed = useAnimationStore(
-  //   useShallow((state) => {
-  //     return computeStamps(state, state.visualizedAnimations).includes(
-  //       state.player.stamp,
-  //     );
-  //   }),
-  // );
 
   const playing = useAnimationStore(
     useShallow((state) => state.player.running),
@@ -71,13 +48,13 @@ function Thumbnail({
 
   const [hovered, setHovered] = useState(false);
 
-  const duration = useAnimationStore(
-    useShallow((state) => state.duration as number),
-  );
-  const framerate = useAnimationStore(
-    useShallow((state) => state.framerate as number),
-  );
-  const frameCount = Math.floor(framerate * (duration / 1000));
+  // const duration = useAnimationStore(
+  //   useShallow((state) => state.duration as number),
+  // );
+  // const framerate = useAnimationStore(
+  //   useShallow((state) => state.framerate as number),
+  // );
+  // const frameCount = Math.floor(framerate * (duration / 1000));
 
   const resetPlayer = useAnimationStore(
     useShallow((state) => state.resetPlayer),
@@ -105,16 +82,12 @@ function Thumbnail({
     [],
   );
 
-  // const unhoveredPath = `M${(-5).toString()} 1 L${(0).toString()} 10 L${(5).toString()} 1 Z`;
-  // const hoveredPath = `M${(-7).toString()} 1 L${(0).toString()} 14 L${(7).toString()} 1 Z`;
-
   const { d } = useSpring({
     reverse: playing || !keyed,
     from: { d: unkeyedPath },
     to: { d: keyedPath },
     config: {
       duration: 50,
-      // easing: easings.easeInOutCubic,
     },
   });
 
@@ -178,15 +151,6 @@ function Thumbnail({
             : "dark:stroke-neutral-300 stroke-neutral-700 fill-info-500",
         )}
       />
-      {/* <animated.path
-        className={clsx(
-          "transition-[d,color] fill-tertiary-500 dark:stroke-neutral-950 stroke-neutral-500 stroke-2 hover:fill-tertiary-50 text-shadow-sm",
-        )}
-        rx={1}
-        d={d}
-        height={10}
-        width={10}
-      /> */}
     </animated.g>
   );
 }
