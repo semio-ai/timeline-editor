@@ -20,3 +20,4 @@ export {
   computeWorldStamp,
   computeLocalStamp,
 } from "./actions/compute-instance-time";
+export { addAnimation } from "./actions/add-animation";

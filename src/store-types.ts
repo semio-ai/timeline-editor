@@ -34,7 +34,7 @@ export interface AnimationActions {
   // Remove a keyframe from the animation
   removeKeyframe: (keyframeId: string, animationId?: string) => void;
   // Update the animation data
-  addAnimation: (animation: Partial<Animation>) => void;
+  addAnimation: (animation: unknown) => void;
   // Update a keypoint by track and keyframe/time in the animation
   updateAnimationKeypoint: (
     keyframeOrTime: string | number,

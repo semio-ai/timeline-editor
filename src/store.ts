@@ -24,6 +24,7 @@ import { computeStamps } from "./actions/compute-stamps";
 import { createDefaultState } from "./actions/create-default-state";
 import { updateAnimationKeypoint } from "./actions/update-animation-keypoint";
 import { updateTrack } from "./actions/update-track";
+import { addAnimation } from "./actions/add-animation";
 
 enableMapSet();
 
@@ -64,6 +65,16 @@ export const AnimationSlice = (
     setActiveAnimation: (animationId: string) => {
       set({ activeAnimation: animationId });
     },
+    visualizeAnimation: (animationId: string) => {
+      set(
+        produce((state: AnimationData): void => {
+          state.visualizedAnimations = [
+            ...state.visualizedAnimations,
+            animationId,
+          ];
+        }),
+      );
+    },
     unvisualizeAnimation: (animationId: string) => {
       set(
         produce((state: AnimationData): void => {
@@ -91,29 +102,10 @@ export const AnimationSlice = (
         }),
       );
     },
-    visualizeAnimation: (animationId: string) => {
+    addAnimation: (animation: unknown) => {
       set(
         produce((state: AnimationData): void => {
-          state.visualizedAnimations = [
-            ...state.visualizedAnimations,
-            animationId,
-          ];
-        }),
-      );
-    },
-    addAnimation: (animation: Partial<Animation>) => {
-      set(
-        produce((state: AnimationData): void => {
-          console.log("Adding animation", animation);
-          state.activeAnimation = animation.id ?? state.activeAnimation;
-          state.animations[animation.id ?? state.activeAnimation] = {
-            ...state.animations[state.activeAnimation],
-            ...animation,
-          };
-          if (animation.id) {
-            state.visualizedAnimations = [animation.id];
-          }
-          console.log("Updated animations", state.animations);
+          addAnimation(state, animation);
         }),
       );
     },
