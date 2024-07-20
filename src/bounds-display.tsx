@@ -4,23 +4,19 @@ import { useShallow } from "zustand/react/shallow";
 import { useGesture } from "@use-gesture/react";
 import { closestFrame } from "@semio/utils";
 import { useAnimationStore } from "./hooks/use-animation-store";
+import { useTrackBounds } from "./hooks/use-track-bounds";
 import type { ScaleLinear } from "./scale-linear";
 
 export interface BoundsDisplayProps {
-  xScale: ScaleLinear;
-  timelineWidth: number;
-  timelineLeft: number;
-  frameCount: number;
   parentActive: boolean;
 }
 
-function InnerBoundsDisplay({
-  xScale,
-  timelineWidth,
-  timelineLeft,
-  frameCount,
-  parentActive,
-}: BoundsDisplayProps) {
+function InnerBoundsDisplay({ parentActive }: BoundsDisplayProps) {
+  const {
+    frameCount,
+    scale: xScale,
+    bounds: { width: timelineWidth, left: timelineLeft },
+  } = useTrackBounds();
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
   const initialBounds = useRef<[number, number]>(bounds);
   const updateBounds = useAnimationStore(
