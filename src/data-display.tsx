@@ -18,13 +18,13 @@ function InnerDataDisplay({ parentActive }: DataDisplayProps) {
 
   return (
     <>
-      {Object.keys(passive).map((activeKey) => (
+      {Object.keys(passive).map((passiveKey) => (
         <FrameMarker
-          key={activeKey}
-          animation={active[activeKey].animation}
-          frame={active[activeKey].frame}
-          instanceInfo={active[activeKey].instanceInfo}
-          stamp={active[activeKey].stamp}
+          key={passiveKey}
+          animation={passive[passiveKey].animation}
+          frame={passive[passiveKey].frame}
+          instanceInfo={passive[passiveKey].instanceInfo}
+          stamp={passive[passiveKey].stamp}
           parentActive={parentActive}
         />
       ))}
