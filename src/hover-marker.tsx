@@ -1,7 +1,9 @@
 import { type ReactNode, memo } from "react";
 import { clsx } from "clsx";
+import { useShallow } from "zustand/react/shallow";
 import { SpringValue, animated } from "@react-spring/web";
 import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useAnimationStore } from "./hooks/use-animation-store";
 
 export interface HoverMarkerProps {
   hoverX: SpringValue<number>;
@@ -10,6 +12,9 @@ export interface HoverMarkerProps {
 
 function HoverMarker({ hoverX, parentActive }: HoverMarkerProps): ReactNode {
   const { scale: xScale } = useTrackBounds();
+  const selection = useAnimationStore(
+    useShallow((state) => state.selectedKeyframe),
+  );
   return (
     <animated.path
       style={{
@@ -19,7 +24,8 @@ function HoverMarker({ hoverX, parentActive }: HoverMarkerProps): ReactNode {
       }}
       className={clsx(
         "touch-none stroke-2",
-        parentActive ? "stroke-white" : "stroke-transparent",
+        selection && "stroke-transparent",
+        !selection && parentActive ? "stroke-white" : "stroke-transparent",
       )}
       rx={1}
       // vertical line

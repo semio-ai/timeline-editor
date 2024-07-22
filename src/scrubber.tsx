@@ -8,7 +8,7 @@ import { scaleLinear } from "@visx/scale";
 import { useGesture } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
 import Segment from "./segment";
-import Thumbnail from "./thumbnail";
+import Playhead from "./playhead";
 import { TIMELINE_PADDING } from "./constants";
 import HoverMarker from "./hover-marker";
 import { useAnimationStore } from "./hooks/use-animation-store";
@@ -65,10 +65,10 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
   const highlightColor = resolvedTheme === Theme.Dark ? "#a3a3a3" : "#525252";
 
   const styles = useSpring({
-    height: hovered || editorOpened || delayedHover ? 22 : 5,
-    y: hovered || editorOpened || delayedHover ? 0 : 8.5,
+    height: hovered || editorOpened || delayedHover ? 22 : 6.2,
+    y: hovered || editorOpened || delayedHover ? 0 : 7.9,
     color: hovered || editorOpened || delayedHover ? highlightColor : bgColor,
-    config: { duration: 100 },
+    config: { duration: 50 },
   });
 
   const gestureBindings = useGesture({
@@ -170,9 +170,8 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
           parentActive={hovered || editorOpened || delayedHover}
         />
         <BoundsDisplay parentActive={hovered || editorOpened || delayedHover} />
+        <Playhead />
         <DataDisplay parentActive={hovered || editorOpened || delayedHover} />
-
-        <Thumbnail />
       </animated.svg>
     </TrackBoundsContext.Provider>
   );

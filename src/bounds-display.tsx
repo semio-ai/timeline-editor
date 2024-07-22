@@ -89,14 +89,14 @@ function InnerBoundsDisplay({ parentActive }: BoundsDisplayProps) {
       <path
         d={`M${xScale(0).toString()} 11 L${xScale(bounds[0]).toString()} 11`}
         className={clsx(
-          parentActive ? "stroke-[22px]" : "stroke-[5px]",
+          parentActive ? "stroke-[22px]" : "stroke-[6.2px]",
           "dark:stroke-neutral-800/50 stroke-neutral-200/50 ransition-all duration-75",
         )}
       />
       <path
         d={`M${xScale(bounds[1]).toString()} 11 L${xScale(1).toString()} 11`}
         className={clsx(
-          parentActive ? "stroke-[22px]" : "stroke-[5px]",
+          parentActive ? "stroke-[22px]" : "stroke-[6.2px]",
           "dark:stroke-neutral-800/50 stroke-neutral-200/50 transition-all duration-75",
         )}
       />
@@ -174,8 +174,8 @@ function getPath(
   bounds: [number, number],
   side: "left" | "right",
 ): string {
-  const width = 5;
-  const height = 7;
+  const width = 6.35;
+  const height = 3.7;
   const x = side === "left" ? xScale(bounds[0]) : xScale(bounds[1]);
   const trailing = side === "left" ? x + width : x - width;
   return `M${x.toString()} 0 L${trailing.toString()} 0 L${x.toString()} ${(0 + height).toString()} L${x.toString()} ${(22 - height).toString()} L${trailing.toString()} 22 L${x.toString()} 22 Z`;

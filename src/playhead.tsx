@@ -26,7 +26,7 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 //   timelineLeft: number;
 // }
 
-function Thumbnail(): ReactNode {
+function Playhead(): ReactNode {
   const {
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
@@ -75,10 +75,13 @@ function Thumbnail(): ReactNode {
     return unsub;
   });
 
-  const keyedPath = useMemo<string>(() => getHexagonPath(0, 11, 10, 10), []);
+  const keyedPath = useMemo<string>(
+    () => getHexagonPath(0, 11, 13.5, 13.5),
+    [],
+  );
 
   const unkeyedPath = useMemo<string>(
-    () => getDegenerateHexagonPath(0, 11, 10, 10),
+    () => getDegenerateHexagonPath(0, 11, 15, 15),
     [],
   );
 
@@ -124,7 +127,7 @@ function Thumbnail(): ReactNode {
       />
       {/* Top triangle */}
       <path
-        d="M-5 0 L0 7 L5 0 Z"
+        d="M-6.35 0 L0 3.7 L6.35 0 Z"
         className={
           hovered
             ? "dark:fill-white fill-black"
@@ -133,7 +136,7 @@ function Thumbnail(): ReactNode {
       />
       {/* Bottom triangle */}
       <path
-        d="M-5 22 L0 15 L5 22 Z"
+        d="M-6.35 22 L0 18.3 L6.35 22 Z"
         className={
           hovered
             ? "dark:fill-white fill-black"
@@ -141,18 +144,18 @@ function Thumbnail(): ReactNode {
         }
       />
       {/* Middle Hexagon */}
-      <animated.path
+      {/* <animated.path
         d={d}
         className={clsx(
-          keyed ? "stroke-2" : "stroke-1",
-          "transition-[stroke,fill]",
+          "stroke-1",
+          "transition-[fill]",
           hovered
             ? "dark:stroke-white stroke-black dark:fill-info-100 fill-info-900"
             : "dark:stroke-neutral-300 stroke-neutral-700 fill-info-500",
         )}
-      />
+      /> */}
     </animated.g>
   );
 }
 
-export default memo(Thumbnail);
+export default memo(Playhead);

@@ -35,8 +35,12 @@ function InnerFrameMarker({
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackBounds();
 
+  const isSelected = useAnimationStore(
+    useShallow((state) => state.selectedKeyframe === frame),
+  );
+
   const hoveredPath: string = useMemo<string>(
-    () => getHexagonPath(0, 11, 10, 22),
+    () => getHexagonPath(0, 11, 13.5, 13.5),
     [],
   );
 
@@ -76,7 +80,7 @@ function InnerFrameMarker({
 
   const styles = useSpring({
     d: getPath(
-      active === true && hovered,
+      active === true && (hovered || isSelected),
       parentActive,
       inactivePath,
       unhoveredPath,
@@ -98,8 +102,15 @@ function InnerFrameMarker({
         transform: `translateX(${xScale(stamp).toString()}px`,
       }}
       className={clsx(
-        "touch-none hover:fill-primary-500 fill-default-500 transition-colors duration-75 stroke-2 dark:stroke-default-400 stroke-default-600",
-        parentActive ? "fill-primary-500" : "fill-transparent",
+        "touch-none transition-[colors,stroke] duration-75 dark:stroke-default-400 stroke-default-600",
+        isSelected &&
+          "fill-info-500 dark:hover:fill-info-100 hover:fill-info-900",
+        hovered &&
+          !isSelected &&
+          "fill-primary-500 dark:hover:fill-primary-100 hover:fill-primary-900",
+        (isSelected || hovered) &&
+          "hover:dark:stroke-white hover:stroke-black dark:stroke-neutral-300 stroke-neutral-700 stroke-1",
+        !(isSelected || hovered) && "fill-transparent stroke-2",
       )}
       d={styles.d}
     />
