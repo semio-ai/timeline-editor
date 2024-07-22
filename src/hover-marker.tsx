@@ -25,7 +25,9 @@ function HoverMarker({ hoverX, parentActive }: HoverMarkerProps): ReactNode {
       className={clsx(
         "touch-none stroke-2",
         selection && "stroke-transparent",
-        !selection && parentActive ? "stroke-white" : "stroke-transparent",
+        !selection && parentActive
+          ? "dark:stroke-white stroke-black"
+          : "stroke-transparent",
       )}
       rx={1}
       // vertical line
