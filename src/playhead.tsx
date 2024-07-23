@@ -1,0 +1,161 @@
+import {
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+  memo,
+  useContext,
+} from "react";
+import { SpringValue, animated, useSpring } from "@react-spring/web";
+import { useGesture } from "@use-gesture/react";
+import { clsx } from "clsx";
+import {
+  closestFrame,
+  getHexagonPath,
+  getDegenerateHexagonPath,
+} from "@semio/utils";
+import { useShallow } from "zustand/react/shallow";
+// import type { ScaleLinear } from "./scale-linear";
+import { AnimationContext } from "./context";
+import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useAnimationStore } from "./hooks/use-animation-store";
+
+// export interface ThumbnailProps {
+//   xScale: ScaleLinear;
+//   timelineWidth: number;
+//   timelineLeft: number;
+// }
+
+function Playhead(): ReactNode {
+  const {
+    scale: xScale,
+    bounds: { width: timelineWidth, left: timelineLeft },
+    frameCount,
+  } = useTrackBounds();
+
+  const animationState = useContext(AnimationContext);
+
+  const completion = new SpringValue<number>(
+    animationState!.getState().player.stamp as number,
+  );
+
+  const playing = useAnimationStore(
+    useShallow((state) => state.player.running),
+  );
+  const keyed = useAnimationStore(
+    useShallow((state) => state.selectedKeyframe !== undefined),
+  );
+
+  const [hovered, setHovered] = useState(false);
+
+  // const duration = useAnimationStore(
+  //   useShallow((state) => state.duration as number),
+  // );
+  // const framerate = useAnimationStore(
+  //   useShallow((state) => state.framerate as number),
+  // );
+  // const frameCount = Math.floor(framerate * (duration / 1000));
+
+  const resetPlayer = useAnimationStore(
+    useShallow((state) => state.resetPlayer),
+  );
+
+  useEffect(() => {
+    if (!animationState) {
+      return;
+    }
+    const unsub = animationState.subscribe(
+      (state) => state.player.stamp as number,
+      (s: number) => {
+        // console.log("setting time", s);
+        completion.set(s);
+        completion;
+      },
+    );
+    return unsub;
+  });
+
+  const keyedPath = useMemo<string>(
+    () => getHexagonPath(0, 11, 13.5, 13.5),
+    [],
+  );
+
+  const unkeyedPath = useMemo<string>(
+    () => getDegenerateHexagonPath(0, 11, 15, 15),
+    [],
+  );
+
+  const { d } = useSpring({
+    reverse: playing || !keyed,
+    from: { d: unkeyedPath },
+    to: { d: keyedPath },
+    config: {
+      duration: 50,
+    },
+  });
+
+  const gestureBindings = useGesture({
+    onDrag: (state) => {
+      const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
+      if (state.shiftKey) {
+        resetPlayer(newPosition);
+      } else {
+        const closest: number = closestFrame(newPosition, frameCount);
+        resetPlayer(closest);
+      }
+    },
+    onHover: (state) => {
+      setHovered(state.hovering || false);
+    },
+  });
+
+  return (
+    <animated.g
+      className="cursor-pointer touch-none"
+      style={{
+        transform: completion.to((c) => `translateX(${xScale(c).toString()}px`),
+        filter: "drop-shadow(0px 0px 2px rgba(0, 0, 0, 0.5))",
+      }}
+      {...gestureBindings()}
+    >
+      <rect
+        x={-10}
+        y={-10}
+        width={20}
+        height={20}
+        className="fill-transparent"
+      />
+      {/* Top triangle */}
+      <path
+        d="M-6.35 0 L0 3.7 L6.35 0 Z"
+        className={
+          hovered
+            ? "dark:fill-white fill-black"
+            : "dark:fill-neutral-300 fill-neutral-700"
+        }
+      />
+      {/* Bottom triangle */}
+      <path
+        d="M-6.35 22 L0 18.3 L6.35 22 Z"
+        className={
+          hovered
+            ? "dark:fill-white fill-black"
+            : "dark:fill-neutral-300 fill-neutral-700"
+        }
+      />
+      {/* Middle Hexagon */}
+      {/* <animated.path
+        d={d}
+        className={clsx(
+          "stroke-1",
+          "transition-[fill]",
+          hovered
+            ? "dark:stroke-white stroke-black dark:fill-info-100 fill-info-900"
+            : "dark:stroke-neutral-300 stroke-neutral-700 fill-info-500",
+        )}
+      /> */}
+    </animated.g>
+  );
+}
+
+export default memo(Playhead);
