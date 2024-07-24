@@ -1,10 +1,7 @@
 import type { ReactNode } from "react";
 import { useMediaQuery } from "@semio/utils";
-import { IconButton } from "@semio/ui";
-import {
-  IconPlayerPauseFilled,
-  IconPlayerPlayFilled,
-} from "@tabler/icons-react";
+import { IconButton, IconPlayerPlay } from "@semio/ui";
+import { IconPlayerPauseFilled } from "@tabler/icons-react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
 import { useAnimationStore } from "./hooks/use-animation-store";
@@ -52,7 +49,7 @@ export function Controls(): ReactNode {
             {running ? (
               <IconPlayerPauseFilled />
             ) : (
-              <IconPlayerPlayFilled
+              <IconPlayerPlay
                 className="transform rotate-180"
                 // style={{ transform: "rotate(180deg)" }}
               />
@@ -70,7 +67,7 @@ export function Controls(): ReactNode {
               }
             }}
           >
-            {running ? <IconPlayerPauseFilled /> : <IconPlayerPlayFilled />}
+            {running ? <IconPlayerPauseFilled /> : <IconPlayerPlay />}
           </IconButton>
         </div>
         <SkipButton direction={SkipDirection.Forward} />
