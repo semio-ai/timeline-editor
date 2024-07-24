@@ -1,11 +1,5 @@
 import { type ReactNode, useCallback } from "react";
-import { IconButton } from "@semio/ui";
-import {
-  IconPlayerSkipBackFilled,
-  IconPlayerSkipForwardFilled,
-  IconPlayerTrackNextFilled,
-  IconPlayerTrackPrevFilled,
-} from "@tabler/icons-react";
+import { IconButton, IconPlayerNextKey, IconPlayerEndBounds } from "@semio/ui";
 import type { AnimationActions } from "./store-types";
 import { useAnimationStore } from "./hooks/use-animation-store";
 
@@ -46,8 +40,8 @@ export function SkipButton({ direction }: SkipButtonProps): ReactNode {
 }
 
 const ICONS: Record<SkipDirection, ReactNode> = {
-  [SkipDirection.Forward]: <IconPlayerTrackNextFilled />,
-  [SkipDirection.Backward]: <IconPlayerTrackPrevFilled />,
-  [SkipDirection.BoundsStart]: <IconPlayerSkipBackFilled />,
-  [SkipDirection.BoundsEnd]: <IconPlayerSkipForwardFilled />,
+  [SkipDirection.Forward]: <IconPlayerNextKey />,
+  [SkipDirection.Backward]: <IconPlayerNextKey className="rotate-180" />,
+  [SkipDirection.BoundsStart]: <IconPlayerEndBounds className="rotate-180" />,
+  [SkipDirection.BoundsEnd]: <IconPlayerEndBounds />,
 };

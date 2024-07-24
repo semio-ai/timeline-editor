@@ -1,18 +1,10 @@
-import {
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useState,
-  memo,
-  useContext,
-} from "react";
-import { SpringValue, animated, useSpring } from "@react-spring/web";
+import { type ReactNode, useEffect, useState, memo, useContext } from "react";
+import { SpringValue, animated } from "@react-spring/web";
 import { useGesture } from "@use-gesture/react";
-import { clsx } from "clsx";
 import {
   closestFrame,
-  getHexagonPath,
-  getDegenerateHexagonPath,
+  // getHexagonPath,
+  // getDegenerateHexagonPath,
 } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 // import type { ScaleLinear } from "./scale-linear";
@@ -39,12 +31,12 @@ function Playhead(): ReactNode {
     animationState!.getState().player.stamp as number,
   );
 
-  const playing = useAnimationStore(
-    useShallow((state) => state.player.running),
-  );
-  const keyed = useAnimationStore(
-    useShallow((state) => state.selectedKeyframe !== undefined),
-  );
+  // const playing = useAnimationStore(
+  //   useShallow((state) => state.player.running),
+  // );
+  // const keyed = useAnimationStore(
+  //   useShallow((state) => state.selectedKeyframe !== undefined),
+  // );
 
   const [hovered, setHovered] = useState(false);
 
@@ -75,24 +67,24 @@ function Playhead(): ReactNode {
     return unsub;
   });
 
-  const keyedPath = useMemo<string>(
-    () => getHexagonPath(0, 11, 13.5, 13.5),
-    [],
-  );
+  // const keyedPath = useMemo<string>(
+  //   () => getHexagonPath(0, 11, 13.5, 13.5),
+  //   [],
+  // );
 
-  const unkeyedPath = useMemo<string>(
-    () => getDegenerateHexagonPath(0, 11, 15, 15),
-    [],
-  );
+  // const unkeyedPath = useMemo<string>(
+  //   () => getDegenerateHexagonPath(0, 11, 15, 15),
+  //   [],
+  // );
 
-  const { d } = useSpring({
-    reverse: playing || !keyed,
-    from: { d: unkeyedPath },
-    to: { d: keyedPath },
-    config: {
-      duration: 50,
-    },
-  });
+  // const { d } = useSpring({
+  //   reverse: playing || !keyed,
+  //   from: { d: unkeyedPath },
+  //   to: { d: keyedPath },
+  //   config: {
+  //     duration: 50,
+  //   },
+  // });
 
   const gestureBindings = useGesture({
     onDrag: (state) => {
