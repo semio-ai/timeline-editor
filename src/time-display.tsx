@@ -41,12 +41,12 @@ export function InnerTimeDisplay({
       } else if (type === TimeDisplayType.BoundsEnd) {
         return state.duration * state.player.bounds[1];
       } else if (type === TimeDisplayType.Backward) {
-        const prev = state.prevKeyframeTime();
+        const prev = state.prevKeyframeTime(state);
         if (prev !== undefined) {
           return prev * state.duration;
         } else return undefined;
       } else if (type === TimeDisplayType.Forward) {
-        const next = state.nextKeyframeTime();
+        const next = state.nextKeyframeTime(state);
         if (next !== undefined) {
           return next * state.duration;
         } else return undefined;

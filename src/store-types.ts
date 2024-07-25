@@ -93,14 +93,20 @@ export interface AnimationActions {
   updatePlayerBounds: (start: number, end: number) => void;
   // Update one bound of the player
   updatePlayerBound: (bound: "start" | "end", time: number) => void;
-  // The current next keyframe time
-  nextKeyframeTime: () => number | undefined;
-  // The current previous keyframe time
-  prevKeyframeTime: () => number | undefined;
-  // Skip to the next keyframe
-  skipToNextKeyframe: () => void;
-  // Skip to the previous keyframe
-  skipToPrevKeyframe: () => void;
+  // The current next keyframe time (optionally filter by track)
+  nextKeyframeTime: (
+    state: AnimationData,
+    trackId?: string,
+  ) => number | undefined;
+  // The current previous keyframe time (optionally filter by track)
+  prevKeyframeTime: (
+    state: AnimationData,
+    trackId?: string,
+  ) => number | undefined;
+  // Skip to the next keyframe (optionally filter by track)
+  skipToNextKeyframe: (trackId?: string) => void;
+  // Skip to the previous keyframe (optionally filter by track)
+  skipToPrevKeyframe: (trackId?: string) => void;
   // Skip to the start of the current bounds
   skipToStart: () => void;
   // Skip to the end of the current bounds
