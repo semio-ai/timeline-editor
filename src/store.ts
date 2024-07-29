@@ -271,49 +271,85 @@ export const AnimationSlice = (
       });
     },
     // Skip to the next keyframe
-    skipToNextKeyframe: () => {
+    skipToNextKeyframe: (trackId?: string, respectBounds?: boolean) => {
       set(
         produce((state: AnimationData) => {
-          const allStamps = computeStamps(state, state.visualizedAnimations);
+          const allStamps = computeStamps(
+            state,
+            state.visualizedAnimations,
+            trackId,
+          );
           const stamp = state.player.stamp;
           const bounds = state.player.bounds;
-          const nextStamp = allStamps.find((s) => s > stamp && s <= bounds[1]);
-          if (nextStamp) {
+          let nextStamp: number | undefined;
+          if (respectBounds) {
+            nextStamp = allStamps.find((s) => s > stamp && s <= bounds[1]);
+          } else {
+            nextStamp = allStamps.find((s) => s > stamp);
+          }
+          if (nextStamp !== undefined) {
             state.player = reset(state.player, nextStamp);
           }
         }),
       );
     },
     // Skip to the previous keyframe
-    skipToPrevKeyframe: () => {
+    skipToPrevKeyframe: (trackId?: string, respectBounds?: boolean) => {
       set(
         produce((state: AnimationData) => {
-          const allStamps = computeStamps(state, state.visualizedAnimations);
+          const allStamps = computeStamps(
+            state,
+            state.visualizedAnimations,
+            trackId,
+          );
           const stamp = state.player.stamp;
           const bounds = state.player.bounds;
-          const nextStamp = allStamps
-            .reverse()
-            .find((s) => s < stamp && s >= bounds[0]);
-          if (nextStamp) {
-            state.player = reset(state.player, nextStamp);
+          let prevStamp: number | undefined;
+          if (respectBounds) {
+            prevStamp = allStamps
+              .reverse()
+              .find((s) => s < stamp && s >= bounds[0]);
+          } else {
+            prevStamp = allStamps.reverse().find((s) => s < stamp);
+          }
+          if (prevStamp !== undefined) {
+            state.player = reset(state.player, prevStamp);
           }
         }),
       );
     },
-    nextKeyframeTime: () => {
-      const allStamps = computeStamps(get(), get().visualizedAnimations);
-      const stamp = get().player.stamp;
-      const bounds = get().player.bounds;
-      const nextStamp = allStamps.find((s) => s > stamp && s <= bounds[1]);
+    nextKeyframeTime: (
+      state: AnimationData,
+      trackId?: string,
+      respectBounds?: boolean,
+    ): number | undefined => {
+      const allStamps = computeStamps(
+        state,
+        state.visualizedAnimations,
+        trackId,
+      );
+      const stamp = state.player.stamp;
+      const bounds = state.player.bounds;
+      const nextStamp = respectBounds
+        ? allStamps.find((s) => s > stamp && s <= bounds[1])
+        : allStamps.find((s) => s > stamp);
       return nextStamp;
     },
-    prevKeyframeTime: () => {
-      const allStamps = computeStamps(get(), get().visualizedAnimations);
-      const stamp = get().player.stamp;
-      const bounds = get().player.bounds;
-      const nextStamp = allStamps
-        .reverse()
-        .find((s) => s < stamp && s >= bounds[0]);
+    prevKeyframeTime: (
+      state: AnimationData,
+      trackId?: string,
+      respectBounds?: boolean,
+    ): number | undefined => {
+      const allStamps = computeStamps(
+        state,
+        state.visualizedAnimations,
+        trackId,
+      );
+      const stamp = state.player.stamp;
+      const bounds = state.player.bounds;
+      const nextStamp = respectBounds
+        ? allStamps.reverse().find((s) => s < stamp && s >= bounds[0])
+        : allStamps.reverse().find((s) => s < stamp);
       return nextStamp;
     },
     // Skip to the start of the current bounds

@@ -1,4 +1,5 @@
 import type { AnimationData } from "../store-types";
+import { removeKeyframe } from "./remove-keyframe";
 
 export function removeKeypoint(
   state: AnimationData,
@@ -14,7 +15,11 @@ export function removeKeypoint(
     parentFrame.points = parentFrame.points.filter(
       (pointId) => pointId !== keypointId,
     );
-    state.animations[animationId].frames.set(point.frame, parentFrame);
+    if (parentFrame.points.length === 0) {
+      removeKeyframe(state, animationId, parentFrame.id);
+    } else {
+      state.animations[animationId].frames.set(point.frame, parentFrame);
+    }
   }
   const parentTrack = state.animations[animationId].tracks.get(point.track);
   if (parentTrack && "points" in parentTrack) {

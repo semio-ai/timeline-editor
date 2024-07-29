@@ -1,5 +1,10 @@
 import { type ReactNode, useCallback } from "react";
-import { IconButton, IconPlayerNextKey, IconPlayerEndBounds } from "@semio/ui";
+import {
+  IconButton,
+  IconPlayerNextKey,
+  IconPlayerEndBounds,
+  Variant,
+} from "@semio/ui";
 import type { AnimationActions } from "./store-types";
 import { useAnimationStore } from "./hooks/use-animation-store";
 
@@ -33,7 +38,7 @@ export function SkipButton({ direction }: SkipButtonProps): ReactNode {
   );
 
   return (
-    <IconButton color="gray" onClick={skip}>
+    <IconButton variant={Variant.Default} onClick={() => skip?.()}>
       {ICONS[direction]}
     </IconButton>
   );
