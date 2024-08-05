@@ -4,4 +4,11 @@ module.exports = {
   // prefix: "",
   presets: [require("@semio/tailwind-config")],
   darkMode: "selector",
+  theme: {
+    extend: {
+      data: {
+        expanded: "expanded~=true",
+      },
+    },
+  },
 };

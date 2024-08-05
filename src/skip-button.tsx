@@ -38,15 +38,19 @@ export function SkipButton({ direction }: SkipButtonProps): ReactNode {
   );
 
   return (
-    <IconButton variant={Variant.Default} onClick={() => skip?.()}>
+    <IconButton size="fit" color="#737373" onClick={() => skip?.()}>
       {ICONS[direction]}
     </IconButton>
   );
 }
 
 const ICONS: Record<SkipDirection, ReactNode> = {
-  [SkipDirection.Forward]: <IconPlayerNextKey />,
-  [SkipDirection.Backward]: <IconPlayerNextKey className="rotate-180" />,
-  [SkipDirection.BoundsStart]: <IconPlayerEndBounds className="rotate-180" />,
-  [SkipDirection.BoundsEnd]: <IconPlayerEndBounds />,
+  [SkipDirection.Forward]: <IconPlayerNextKey size="10px" />,
+  [SkipDirection.Backward]: (
+    <IconPlayerNextKey className="rotate-180" size="10px" />
+  ),
+  [SkipDirection.BoundsStart]: (
+    <IconPlayerEndBounds className="rotate-180" size="12px" />
+  ),
+  [SkipDirection.BoundsEnd]: <IconPlayerEndBounds size="12px" />,
 };

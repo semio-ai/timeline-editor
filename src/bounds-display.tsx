@@ -3,6 +3,7 @@ import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
 import { useGesture } from "@use-gesture/react";
 import { closestFrame } from "@semio/utils";
+import { clamp } from "lodash";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import type { ScaleLinear } from "./scale-linear";
@@ -36,8 +37,12 @@ function InnerBoundsDisplay({ parentActive }: BoundsDisplayProps) {
       },
       onHover: ({ hovering: h }) => setHovering(h || false),
       onDrag: (state) => {
-        const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
-        const newValue = state.shiftKey
+        const newPosition = clamp(
+          ((state.xy[0] || 0) - timelineLeft) / timelineWidth,
+          0,
+          1,
+        );
+        const newValue = state.altKey
           ? newPosition
           : closestFrame(newPosition, frameCount);
         const vals =
@@ -66,7 +71,11 @@ function InnerBoundsDisplay({ parentActive }: BoundsDisplayProps) {
       },
       onHover: ({ hovering: h }) => setHovering(h || false),
       onDrag: (state) => {
-        const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
+        const newPosition = clamp(
+          ((state.xy[0] || 0) - timelineLeft) / timelineWidth,
+          0,
+          1,
+        );
         const newValue = state.shiftKey
           ? newPosition
           : closestFrame(newPosition, frameCount);
@@ -87,16 +96,16 @@ function InnerBoundsDisplay({ parentActive }: BoundsDisplayProps) {
   return (
     <>
       <path
-        d={`M${xScale(0).toString()} 11 L${xScale(bounds[0]).toString()} 11`}
+        d={`M${xScale(0).toString()} 15 L${xScale(bounds[0]).toString()} 15`}
         className={clsx(
-          parentActive ? "stroke-[22px]" : "stroke-[6.2px]",
-          "dark:stroke-neutral-800/50 stroke-neutral-200/50 ransition-all duration-75",
+          "group-aria-expanded:stroke-[30px] group-hover:stroke-[30px] stroke-[7.5px]",
+          "dark:stroke-neutral-800/50 stroke-neutral-200/50 transition-all duration-75",
         )}
       />
       <path
-        d={`M${xScale(bounds[1]).toString()} 11 L${xScale(1).toString()} 11`}
+        d={`M${xScale(bounds[1]).toString()} 15 L${xScale(1).toString()} 15`}
         className={clsx(
-          parentActive ? "stroke-[22px]" : "stroke-[6.2px]",
+          "group-aria-expanded:stroke-[30px] group-hover:stroke-[30px] stroke-[7.5px]",
           "dark:stroke-neutral-800/50 stroke-neutral-200/50 transition-all duration-75",
         )}
       />
@@ -104,45 +113,53 @@ function InnerBoundsDisplay({ parentActive }: BoundsDisplayProps) {
         x={xScale(bounds[0])}
         y={0}
         width={Math.max(0, xScale(bounds[1]) - xScale(bounds[0]))}
-        height={22}
+        height={30}
         className={
           parentActive && dragging
             ? "cursor-ew-resize fill-neutral-600/25"
             : "fill-transparent"
         }
       />
-      <g>
+      <g className="group/bound">
         <path
           d={getPath(xScale, bounds, "left")}
           className={clsx(
             "transition-[fill]",
-            getFill("left", hovering, bounds[0] === 0, parentActive),
+            getFill("left", bounds[0] === 0),
           )}
+        />
+        <path
+          d={`M${xScale(bounds[0]).toString()} 0 L${xScale(bounds[0]).toString()} 30Z`}
+          className={clsx("transition-stroke duration-75", getStroke("left"))}
         />
         <rect
           {...gestureBindingsLeft()}
           x={xScale(bounds[0]) - (hovering ? 10 : 7)}
           y={0}
           width={hovering ? 20 : 14}
-          height={22}
+          height={30}
           className="cursor-ew-resize touch-none fill-transparent"
         />
       </g>
 
-      <g>
+      <g className="group/bound">
         <path
           d={getPath(xScale, bounds, "right")}
           className={clsx(
             "transition-[fill]",
-            getFill("right", hovering, bounds[1] === 1, parentActive),
+            getFill("right", bounds[1] === 1),
           )}
+        />
+        <path
+          d={`M${xScale(bounds[1]).toString()} 0 L${xScale(bounds[1]).toString()} 30Z`}
+          className={clsx("transition-stroke duration-75", getStroke("right"))}
         />
         <rect
           {...gestureBindingsRight()}
           x={xScale(bounds[1]) - (hovering ? 10 : 14)}
           y={0}
           width={hovering ? 20 : 14}
-          height={22}
+          height={30}
           className="cursor-ew-resize touch-none fill-transparent"
         />
       </g>
@@ -150,23 +167,37 @@ function InnerBoundsDisplay({ parentActive }: BoundsDisplayProps) {
   );
 }
 
-function getFill(
-  side: "left" | "right",
-  hovering: boolean,
-  atBounds: boolean,
-  parentActive: boolean,
-): string {
-  if (hovering) {
-    return side === "left"
-      ? "dark:fill-success-400 fill-success-600"
-      : "dark:fill-error-400 fill-error-600";
-  } else if (!atBounds) {
-    return side === "left" ? "fill-success-500" : "fill-error-500";
-  } else {
-    return parentActive
-      ? "dark:fill-white/50 fill-black/50"
-      : "fill-transparent";
-  }
+function getFill(side: "left" | "right", atBounds: boolean): string {
+  return clsx(
+    !atBounds &&
+      side === "left" &&
+      clsx(
+        "group-aria-expanded:fill-success-500 group-hover:fill-success-500",
+        "group-aria-expanded:group-hover/bound:dark:fill-success-400 group-hover:group-hover/bound:dark:fill-success-400",
+        "group-aria-expanded:group-hover/bound:fill-success-600 group-hover:group-hover/bound:fill-success-600",
+      ),
+    !atBounds &&
+      side === "right" &&
+      clsx(
+        "group-aria-expanded:fill-error-500 group-hover:fill-error-500",
+        "group-aria-expanded:group-hover/bound:dark:fill-error-400 group-hover:group-hover/bound:dark:fill-error-400",
+        "group-aria-expanded:group-hover/bound:fill-error-600 group-hover:group-hover/bound:fill-error-600",
+      ),
+    side === "left"
+      ? "group-hover/bound:dark:fill-success-400 group-hover/bound:fill-success-600"
+      : "group-hover/bound:dark:fill-error-400 group-hover/bound:fill-error-600",
+
+    atBounds ? "dark:fill-white/50 fill-black/50" : "fill-transparent",
+  );
+}
+
+function getStroke(side: "left" | "right"): string {
+  return clsx(
+    side === "left"
+      ? "group-hover/bound:dark:stroke-success-400 group-hover/bound:stroke-success-600"
+      : "group-hover/bound:dark:stroke-error-400 group-hover/bound:stroke-error-600",
+    "stroke-transparent",
+  );
 }
 
 function getPath(
@@ -174,11 +205,11 @@ function getPath(
   bounds: [number, number],
   side: "left" | "right",
 ): string {
-  const width = 6.35;
-  const height = 3.7;
+  const width = 6;
+  const height = 3.5;
   const x = side === "left" ? xScale(bounds[0]) : xScale(bounds[1]);
   const trailing = side === "left" ? x + width : x - width;
-  return `M${x.toString()} 0 L${trailing.toString()} 0 L${x.toString()} ${(0 + height).toString()} L${x.toString()} ${(22 - height).toString()} L${trailing.toString()} 22 L${x.toString()} 22 Z`;
+  return `M${x.toString()} 0 L${trailing.toString()} 0 L${x.toString()} ${(0 + height).toString()} L${x.toString()} ${(30 - height).toString()} L${trailing.toString()} 30 L${x.toString()} 30 Z`;
 }
 
 export const BoundsDisplay = memo(InnerBoundsDisplay);

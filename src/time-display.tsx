@@ -1,4 +1,9 @@
-import { Size, TimeInput, Variant } from "@semio/ui";
+import {
+  Size,
+  TimeDisplay as TimeDisplayMethod,
+  TimeInput,
+  Variant,
+} from "@semio/ui";
 import { type ReactNode, memo } from "react";
 import { useShallow } from "zustand/react/shallow";
 // import { numberToDurationString } from "@semio/utils";
@@ -16,16 +21,22 @@ export enum TimeDisplayType {
 
 export interface TimeDisplayProps {
   type?: TimeDisplayType;
+  displayMethod?: TimeDisplayMethod;
 }
 
 export function InnerTimeDisplay({
   type = TimeDisplayType.Current,
+  displayMethod,
 }: TimeDisplayProps): ReactNode {
   const timeDisplay = useAnimationStore(
-    useShallow((state) => state.timeDisplay),
+    useShallow((state) => displayMethod || state.timeDisplay),
   );
-
-  const duration = useAnimationStore(useShallow((state) => state.duration));
+  const activeAnimation = useAnimationStore(
+    useShallow((state) => state.activeAnimation),
+  );
+  const duration = useAnimationStore(
+    useShallow((state) => state.animations[state.activeAnimation]?.duration),
+  );
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
 
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
@@ -33,7 +44,9 @@ export function InnerTimeDisplay({
   const time: number | undefined = useAnimationStore(
     useShallow((state: AnimationData & AnimationActions) => {
       if (type === TimeDisplayType.Current) {
-        return state.player.stamp * state.duration;
+        return (
+          state.player.stamp * state.animations[state.activeAnimation]?.duration
+        );
       } else if (type === TimeDisplayType.Duration) {
         return state.duration;
       } else if (type === TimeDisplayType.BoundsStart) {
@@ -68,7 +81,7 @@ export function InnerTimeDisplay({
     if (type === TimeDisplayType.Current) {
       resetPlayer(t / duration);
     } else if (type === TimeDisplayType.Duration) {
-      updateDuration(t);
+      updateDuration(t, activeAnimation);
     } else if (type === TimeDisplayType.BoundsStart) {
       const vals = [t / duration, bounds[1]].sort((a, b) => a - b);
       updatePlayerBounds(vals[0], vals[1]);
@@ -82,8 +95,9 @@ export function InnerTimeDisplay({
     <TimeInput
       value={time}
       onChange={setTime}
+      label={getLabel(type)}
       min={0}
-      size={Size.Sm}
+      size={Size.Xs}
       max={duration}
       disabled={
         type === TimeDisplayType.Forward || type === TimeDisplayType.Backward
@@ -93,6 +107,23 @@ export function InnerTimeDisplay({
       variant={Variant.Default}
     />
   );
+}
+
+function getLabel(type: TimeDisplayType): string {
+  switch (type) {
+    case TimeDisplayType.Current:
+      return "Current Time";
+    case TimeDisplayType.Duration:
+      return "Duration";
+    case TimeDisplayType.Forward:
+      return "Next Keyed Frame";
+    case TimeDisplayType.Backward:
+      return "Previous Keyed Frame";
+    case TimeDisplayType.BoundsStart:
+      return "Bounds Start";
+    case TimeDisplayType.BoundsEnd:
+      return "Bounds End";
+  }
 }
 
 InnerTimeDisplay.displayName = "TimeDisplay";

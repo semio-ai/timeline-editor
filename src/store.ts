@@ -271,13 +271,13 @@ export const AnimationSlice = (
       });
     },
     // Skip to the next keyframe
-    skipToNextKeyframe: (trackId?: string, respectBounds?: boolean) => {
+    skipToNextKeyframe: (trackIds?: string[], respectBounds?: boolean) => {
       set(
         produce((state: AnimationData) => {
           const allStamps = computeStamps(
             state,
             state.visualizedAnimations,
-            trackId,
+            trackIds || [],
           );
           const stamp = state.player.stamp;
           const bounds = state.player.bounds;
@@ -294,13 +294,13 @@ export const AnimationSlice = (
       );
     },
     // Skip to the previous keyframe
-    skipToPrevKeyframe: (trackId?: string, respectBounds?: boolean) => {
+    skipToPrevKeyframe: (trackIds?: string[], respectBounds?: boolean) => {
       set(
         produce((state: AnimationData) => {
           const allStamps = computeStamps(
             state,
             state.visualizedAnimations,
-            trackId,
+            trackIds || [],
           );
           const stamp = state.player.stamp;
           const bounds = state.player.bounds;
@@ -320,13 +320,13 @@ export const AnimationSlice = (
     },
     nextKeyframeTime: (
       state: AnimationData,
-      trackId?: string,
+      trackIds?: string[],
       respectBounds?: boolean,
     ): number | undefined => {
       const allStamps = computeStamps(
         state,
         state.visualizedAnimations,
-        trackId,
+        trackIds || [],
       );
       const stamp = state.player.stamp;
       const bounds = state.player.bounds;
@@ -337,13 +337,13 @@ export const AnimationSlice = (
     },
     prevKeyframeTime: (
       state: AnimationData,
-      trackId?: string,
+      trackIds?: string[],
       respectBounds?: boolean,
     ): number | undefined => {
       const allStamps = computeStamps(
         state,
         state.visualizedAnimations,
-        trackId,
+        trackIds || [],
       );
       const stamp = state.player.stamp;
       const bounds = state.player.bounds;

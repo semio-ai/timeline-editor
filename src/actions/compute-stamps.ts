@@ -5,7 +5,7 @@ import { computeWorldStamp } from "./compute-instance-time";
 export function computeStamps(
   state: AnimationData,
   animationIds: string[],
-  trackId?: string,
+  trackIds: string[],
 ): number[] {
   let stamps: number[] = [];
   // console.log("DEBUG", animationIds, state.animations);
@@ -17,12 +17,12 @@ export function computeStamps(
           ...stamps,
           ...state.animations[animationId].frameOrder
             .filter((frameId) => {
-              if (!trackId) return true;
+              if (trackIds.length === 0) return true;
               const frame = state.animations[animationId].frames.get(frameId);
               const points = frame?.points || [];
               return points.some((pointId) => {
                 const point = state.animations[animationId].points.get(pointId);
-                return point?.track === trackId;
+                return trackIds.includes(point?.track || "");
               });
             })
             .map((frameId) =>

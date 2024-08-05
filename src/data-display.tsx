@@ -25,7 +25,7 @@ function InnerDataDisplay({ parentActive }: DataDisplayProps) {
           frame={passive[passiveKey].frame}
           instanceInfo={passive[passiveKey].instanceInfo}
           stamp={passive[passiveKey].stamp}
-          parentActive={parentActive}
+          // parentActive={parentActive}
         />
       ))}
       {Object.keys(active).map((activeKey) => (
@@ -35,7 +35,7 @@ function InnerDataDisplay({ parentActive }: DataDisplayProps) {
           frame={active[activeKey].frame}
           instanceInfo={active[activeKey].instanceInfo}
           stamp={active[activeKey].stamp}
-          parentActive={parentActive}
+          // parentActive={parentActive}
           active
         />
       ))}

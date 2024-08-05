@@ -96,17 +96,17 @@ export interface AnimationActions {
   // The current next keyframe time (optionally filter by track)
   nextKeyframeTime: (
     state: AnimationData,
-    trackId?: string,
+    trackIds?: string[],
   ) => number | undefined;
   // The current previous keyframe time (optionally filter by track)
   prevKeyframeTime: (
     state: AnimationData,
-    trackId?: string,
+    trackIds?: string[],
   ) => number | undefined;
   // Skip to the next keyframe (optionally filter by track)
-  skipToNextKeyframe: (trackId?: string) => void;
+  skipToNextKeyframe: (trackIds?: string[]) => void;
   // Skip to the previous keyframe (optionally filter by track)
-  skipToPrevKeyframe: (trackId?: string) => void;
+  skipToPrevKeyframe: (trackIds?: string[]) => void;
   // Skip to the start of the current bounds
   skipToStart: () => void;
   // Skip to the end of the current bounds

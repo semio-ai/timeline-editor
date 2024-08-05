@@ -21,3 +21,5 @@ export {
   computeLocalStamp,
 } from "./actions/compute-instance-time";
 export { addAnimation } from "./actions/add-animation";
+
+export { TrackControl, type TrackControlProps } from "./track-control";

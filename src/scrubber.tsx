@@ -1,12 +1,13 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import useMeasure from "react-use-measure";
 import { pairwise, useLazy, closestFrame } from "@semio/utils";
 import { Theme, useTheme } from "@semio/ui";
-import { animated, useSpring } from "@react-spring/web";
+import { animated, easings, useSpring } from "@react-spring/web";
 import { scaleLinear } from "@visx/scale";
 import { useGesture } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
+import { clsx } from "clsx";
 import Segment from "./segment";
 import Playhead from "./playhead";
 import { TIMELINE_PADDING } from "./constants";
@@ -43,7 +44,7 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
   const [hovered, setHovered] = useState<boolean>(false);
   const onHoverStart = () => setHovered(true);
   const onHoverEnd = () => setHovered(false);
-  const delayedHover = useLazy(hovered, 1000);
+  const delayedHover = useLazy(hovered, 250);
 
   const { setHoverpoint, hoverpoint } = useHoverSpring();
 
@@ -65,10 +66,13 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
   const highlightColor = resolvedTheme === Theme.Dark ? "#a3a3a3" : "#525252";
 
   const styles = useSpring({
-    height: hovered || editorOpened || delayedHover ? 22 : 6.2,
-    y: hovered || editorOpened || delayedHover ? 0 : 7.9,
-    color: hovered || editorOpened || delayedHover ? highlightColor : bgColor,
-    config: { duration: 50 },
+    height:
+      hovered || editorOpened || delayedHover
+        ? activeRegionBounds.height
+        : activeRegionBounds.height * 0.25,
+    y: hovered || editorOpened || delayedHover ? 0 : 10.7,
+    color: hovered || editorOpened ? highlightColor : bgColor,
+    config: { duration: 75, easing: easings.easeInOutCubic },
   });
 
   const gestureBindings = useGesture({
@@ -77,7 +81,7 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
       const newPosition =
         ((state.event.clientX ?? 0) - activeRegionBounds.left) /
         activeRegionBounds.width;
-      if (state.shiftKey) {
+      if (state.altKey) {
         resetPlayer(newPosition);
       } else {
         const closest: number = closestFrame(newPosition, frameCount);
@@ -112,8 +116,9 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
     >
       <animated.svg
         // ref={scrubberRef}
-        height={22}
-        className="touch-none fill-neutral-500"
+        //
+        height={30}
+        className="touch-none fill-neutral-500/0 w-full"
         width={width < 0 ? 0 : width}
         {...gestureBindings()}
       >
@@ -141,19 +146,25 @@ export function Scrubber({ width, editorOpened }: ScrubberProps): ReactNode {
         </defs>
         {/* Create a rect frame for use for measurements */}
         <animated.rect
-          x={0}
-          y={styles.y}
-          width={Math.max(0, width)}
-          height={styles.height}
-          className="fill-neutral-500/25"
+          x={TIMELINE_PADDING}
+          width={Math.max(0, innerWidth)}
+          // height={styles.height}
+          // fill="url(#bg)"
+          className={clsx(
+            "transition-[fill,transform] duration-75",
+            "fill-neutral-400 dark:fill-neutral-600 h-[7.5px] translate-y-[11.25px]",
+            "group-aria-expanded:fill-[url(#bg)] group-hover:fill-[url(#bg)]",
+            "group-aria-expanded:h-[32px] group-hover:h-[32px] group-aria-expanded:translate-y-0 group-hover:translate-y-0",
+          )}
         />
         <animated.rect
           ref={activeRegionRef}
           x={TIMELINE_PADDING}
-          y={styles.y}
+          // y={styles.y}
           width={Math.max(0, innerWidth)}
-          height={styles.height}
-          fill="url(#bg)"
+          // height={styles.height}
+          className="h-[30px]"
+          // fill="url(#bg)"
         />
         {pairwise(Array.from({ length: frameCount + 1 }, (_v, i) => i)).map(
           ([frame1, frame2]) => (

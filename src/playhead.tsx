@@ -119,7 +119,7 @@ function Playhead(): ReactNode {
       />
       {/* Top triangle */}
       <path
-        d="M-6.35 0 L0 3.7 L6.35 0 Z"
+        d="M-6 0 L0 3.5 L6 0 Z"
         className={
           hovered
             ? "dark:fill-white fill-black"
@@ -128,7 +128,7 @@ function Playhead(): ReactNode {
       />
       {/* Bottom triangle */}
       <path
-        d="M-6.35 22 L0 18.3 L6.35 22 Z"
+        d="M-6 30 L0 26.5 L6 30 Z"
         className={
           hovered
             ? "dark:fill-white fill-black"

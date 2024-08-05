@@ -21,11 +21,12 @@ function Segment({
   return (
     <animated.path
       className={clsx(
-        "touch-none hover:stroke-[22px]",
+        "touch-none group-hover:stroke-[30px] group-aria-expanded:stroke-[30px] stroke-[7.5px]",
         "hover:stroke-neutral-500 dark:stroke-neutral-600 stroke-neutral-400",
-        parentActive ? "stroke-[22px]" : "stroke-[5px]",
+        "transition-all duration-75",
+        // parentActive ? "stroke-[30px]" : "stroke-[5px]",
       )}
-      d={`M${(xScale(start) + 0.5).toString()},11 L${(xScale(end) - 0.5).toString()},11`}
+      d={`M${(xScale(start) + 0.5).toString()},15 L${(xScale(end) - 0.5).toString()},15`}
     />
   );
 }
