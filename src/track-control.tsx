@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 import { IconPlayerPlay, IconButton, IconKey } from "@semio/ui";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { type AnimationData, type AnimationActions } from "./store-types";
+import { SemanticTime } from "./store-types";
 
 export interface TrackControlProps {
   color?: string;
@@ -32,7 +33,21 @@ export function TrackControl({
     ]),
   );
 
+  const [backTime, forwardTime] = useAnimationStore(
+    useShallow((state: AnimationData & AnimationActions) => [
+      state.prevKeyframeTime(state, filter),
+      state.nextKeyframeTime(state, filter),
+    ]),
+  );
+
   const dashed = trackIds !== undefined && (!enabledBack || !enabledForward);
+
+  const [addPreview, removePreview] = useAnimationStore(
+    useShallow((state: AnimationData & AnimationActions) => [
+      state.addPreview,
+      state.removePreview,
+    ]),
+  );
 
   const [hovered, setHovered] = useState(false);
 
@@ -49,6 +64,16 @@ export function TrackControl({
         color={color}
         disabled={!enabledBack}
         onClick={() => backFn(filter)}
+        onMouseEnter={() => {
+          addPreview({
+            stamp: backTime || 0,
+            semanticTime: SemanticTime.Backward,
+            label: "Previous Keyed Frame",
+          });
+        }}
+        onMouseLeave={() => {
+          removePreview((p) => p.semanticTime === SemanticTime.Backward);
+        }}
       >
         <IconPlayerPlay className="rotate-180" size="10px" />
       </IconButton>
@@ -72,6 +97,16 @@ export function TrackControl({
         color={color}
         disabled={!enabledForward}
         onClick={() => forwardFn(filter)}
+        onMouseEnter={() => {
+          addPreview({
+            stamp: forwardTime || 0,
+            semanticTime: SemanticTime.Forward,
+            label: "Next Keyed Frame",
+          });
+        }}
+        onMouseLeave={() => {
+          removePreview((p) => p.semanticTime === SemanticTime.Forward);
+        }}
       >
         <IconPlayerPlay size="10px" />
       </IconButton>

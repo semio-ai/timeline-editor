@@ -1,10 +1,6 @@
-import { type ReactNode, useMemo, useState, memo } from "react";
+import { type ReactNode, useMemo, memo } from "react";
 import { clsx } from "clsx";
-import {
-  getHexagonPath,
-  getDegenerateHexagonPath,
-  closestFrame,
-} from "@semio/utils";
+import { getHexagonPath, closestFrame } from "@semio/utils";
 import { clamp } from "lodash";
 import { useShallow } from "zustand/react/shallow";
 import { useGesture } from "@use-gesture/react";

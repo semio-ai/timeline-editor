@@ -1,18 +1,18 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
 // import { useMediaQuery } from "@semio/utils";
 import { IconButton, IconPlayerPlay2, Select, Size, Variant } from "@semio/ui";
 import { IconPlayerPauseFilled, IconWorld } from "@tabler/icons-react";
-import { dclsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { TimeDisplay, TimeDisplayType } from "./time-display";
-import { SkipButton, SkipDirection } from "./skip-button";
-import { AnimationActions, AnimationData } from "./store-types";
+import { TimeDisplay } from "./time-display";
+import { SkipButton } from "./skip-button";
+import { AnimationActions, AnimationData, SemanticTime } from "./store-types";
 import { TrackControl } from "./track-control";
 
-export function Controls(): ReactNode {
-  const [playerHovered, setPlayerHovered] = useState(false);
+export function PlaybackControls(): ReactNode {
+  const previews = useAnimationStore(
+    useShallow((state: AnimationData) => state.previews),
+  );
 
   const { playPlayer, pausePlayer, running } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
@@ -69,7 +69,7 @@ export function Controls(): ReactNode {
       </div>
       <div className="flex flex-1 flex-row h-[30px] items-center">
         <div className="h-[30px] flex flex-row gap-0 px-0 py-1 items-center justify-center w-[44px]">
-          <SkipButton direction={SkipDirection.BoundsStart} />
+          <SkipButton semanticTime={SemanticTime.BoundsStart} />
           <IconButton
             size="fit"
             onClick={() => {
@@ -80,8 +80,6 @@ export function Controls(): ReactNode {
               }
             }}
             color="#737373"
-            onMouseEnter={() => setPlayerHovered(true)}
-            onMouseLeave={() => setPlayerHovered(false)}
           >
             {/* <IconPlayPause
               size="16px"
@@ -94,10 +92,24 @@ export function Controls(): ReactNode {
               <IconPlayerPlay2 size="16px" />
             )}
           </IconButton>
-          <SkipButton direction={SkipDirection.BoundsEnd} />
+          <SkipButton semanticTime={SemanticTime.BoundsEnd} />
         </div>
         <div className="flex flex-1 flex-row items-center px-1">
-          <TimeDisplay type={TimeDisplayType.Current} />
+          <TimeDisplay
+            valueOverride={
+              previews.length === 1 &&
+              [SemanticTime.Backward, SemanticTime.Forward].includes(
+                previews[0].semanticTime,
+              )
+                ? previews[0].stamp
+                : undefined
+            }
+            semanticTime={
+              previews.length === 1
+                ? previews[0].semanticTime
+                : SemanticTime.Current
+            }
+          />
         </div>
       </div>
     </div>

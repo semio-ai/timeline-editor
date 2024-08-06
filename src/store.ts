@@ -13,6 +13,7 @@ import {
   AnimationActions,
   AnimationStoreGetter,
   AnimationStoreSetter,
+  Preview,
 } from "./store-types";
 import { createKeypoint } from "./actions/create-keypoint";
 import { updateKeypointValue } from "./actions/update-keypoint-value";
@@ -390,6 +391,16 @@ export const AnimationSlice = (
     },
     setHoverpoint: (hoverpoint: number) => {
       set({ hoverpoint });
+    },
+    addPreview: (preview: Preview) => {
+      set((state: AnimationData) => ({
+        previews: [...state.previews, preview],
+      }));
+    },
+    removePreview: (evaluator: (preview: Preview) => boolean) => {
+      set((state: AnimationData) => ({
+        previews: state.previews.filter((p) => !evaluator(p)),
+      }));
     },
   };
 };

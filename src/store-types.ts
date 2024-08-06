@@ -24,6 +24,8 @@ export interface AnimationData {
   playerInterval?: number;
   // Where the user is currently hovering in the timeline
   hoverpoint: number;
+  // Previews for parts of the animation other than the current time
+  previews: Preview[];
 }
 
 export interface AnimationActions {
@@ -129,6 +131,10 @@ export interface AnimationActions {
   unvisualizeAnimation: (animationId: string) => void;
   // Set the active animation
   setActiveAnimation: (animationId: string) => void;
+  // Add a preview to the animation
+  addPreview: (preview: Preview) => void;
+  // Remove a preview from the animation
+  removePreview: (evaluator: (preview: Preview) => boolean) => void;
 }
 
 export type AnimationStoreSetter = (
@@ -144,3 +150,18 @@ export type AnimationStoreSetter = (
 ) => void;
 
 export type AnimationStoreGetter = () => AnimationData & AnimationActions;
+
+export interface Preview {
+  stamp: number;
+  label: string;
+  semanticTime: SemanticTime;
+}
+
+export enum SemanticTime {
+  Current = "current",
+  Duration = "duration",
+  Forward = "forward",
+  Backward = "backward",
+  BoundsStart = "bounds-start",
+  BoundsEnd = "bounds-end",
+}

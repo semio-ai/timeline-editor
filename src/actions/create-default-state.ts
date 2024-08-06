@@ -17,5 +17,6 @@ export const createDefaultState = (): AnimationData => {
     timeDisplay: TimeDisplay.Frames,
     playerInterval: undefined,
     hoverpoint: 0,
+    previews: [],
   };
 };

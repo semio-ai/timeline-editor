@@ -7,10 +7,9 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 
 export interface HoverMarkerProps {
   hoverX: SpringValue<number>;
-  parentActive: boolean;
 }
 
-function HoverMarker({ hoverX, parentActive }: HoverMarkerProps): ReactNode {
+function HoverMarker({ hoverX }: HoverMarkerProps): ReactNode {
   const { scale: xScale } = useTrackBounds();
   const selection = useAnimationStore(
     useShallow(

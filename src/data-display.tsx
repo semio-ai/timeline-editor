@@ -9,7 +9,7 @@ export interface DataDisplayProps {
   parentActive: boolean;
 }
 
-function InnerDataDisplay({ parentActive }: DataDisplayProps) {
+function InnerDataDisplay(_props: DataDisplayProps) {
   const { active, passive } = useAnimationStore(
     useDeep((state: AnimationData) => {
       return computeFrames(state, state.visualizedAnimations);
