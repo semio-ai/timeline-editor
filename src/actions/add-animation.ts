@@ -15,5 +15,5 @@ export function addAnimation(
           state.visualizedAnimations.push(animationId);
         }
       }
-      console.log("Updated animations now include", state.animations);
+      // console.log("Updated animations now include", state.animations);
 }
