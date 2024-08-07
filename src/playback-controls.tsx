@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useEffect } from "react";
 // import { useMediaQuery } from "@semio/utils";
 import { IconButton, IconPlayerPlay2, Select, Size, Variant } from "@semio/ui";
 import { IconPlayerPauseFilled, IconWorld } from "@tabler/icons-react";
@@ -9,7 +10,13 @@ import { SkipButton } from "./skip-button";
 import { AnimationActions, AnimationData, SemanticTime } from "./store-types";
 import { TrackControl } from "./track-control";
 
-export function PlaybackControls(): ReactNode {
+export function PlaybackControls({
+  track,
+  onChangeTrack,
+}: {
+  track: string;
+  onChangeTrack: (track: string) => void;
+}): ReactNode {
   const previews = useAnimationStore(
     useShallow((state: AnimationData) => state.previews),
   );
@@ -37,6 +44,14 @@ export function PlaybackControls(): ReactNode {
     ),
   );
 
+  const activeAnimation = useAnimationStore(
+    useShallow((state: AnimationData) => state.activeAnimation),
+  );
+
+  useEffect(() => {
+    onChangeTrack("all");
+  }, [activeAnimation, onChangeTrack]);
+
   // const smallScreen = useMediaQuery("(max-width: 768px)");
   // const xsmallScreen = useMediaQuery("(max-width: 640px)");
 
@@ -44,7 +59,7 @@ export function PlaybackControls(): ReactNode {
     <div className="h-[60px] dark:bg-neutral-800 bg-neutral-200">
       <div className="flex flex-1 flex-row items-center h-[30px] ">
         <TrackControl
-          trackIds={[]}
+          trackIds={track === "all" ? [] : [track]}
           filled={selectedFrame !== undefined}
           color="#737373"
         />
@@ -60,9 +75,9 @@ export function PlaybackControls(): ReactNode {
               },
               ...tracks,
             ]}
-            value="all"
-            onChange={(value) => {
-              // playPlayer(Number(value));
+            value={track}
+            onChange={(value: string) => {
+              onChangeTrack(value);
             }}
           />
         </div>

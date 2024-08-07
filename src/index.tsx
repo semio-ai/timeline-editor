@@ -7,6 +7,7 @@ export type {
   AnimationActions,
   AnimationStoreGetter,
   AnimationStoreSetter,
+  Preview,
 } from "./store-types";
 export { AnimationSlice } from "./store";
 export type { AnimationStore } from "./store";
