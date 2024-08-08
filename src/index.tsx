@@ -15,6 +15,7 @@ export * from "./types";
 
 export { createKeypoint } from "./actions/create-keypoint";
 export { createTrack } from "./actions/create-track";
+export { removeAnimation } from "./actions/remove-animation";
 export { updateAnimationKeypoint } from "./actions/update-animation-keypoint";
 export { createDefaultState } from "./actions/create-default-state";
 export {

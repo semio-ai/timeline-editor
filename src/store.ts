@@ -26,6 +26,7 @@ import { createDefaultState } from "./actions/create-default-state";
 import { updateAnimationKeypoint } from "./actions/update-animation-keypoint";
 import { updateTrack } from "./actions/update-track";
 import { addAnimation } from "./actions/add-animation";
+import { removeAnimation } from "./actions/remove-animation";
 
 enableMapSet();
 
@@ -107,6 +108,13 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           addAnimation(state, animation);
+        }),
+      );
+    },
+    removeAnimation: (animationId: string) => {
+      set(
+        produce((state: AnimationData): void => {
+          removeAnimation(state, animationId);
         }),
       );
     },
