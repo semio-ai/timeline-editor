@@ -7,18 +7,39 @@ import { clamp } from "lodash";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import type { ScaleLinear } from "./scale-linear";
+import { SemanticTime } from "./store-types";
 
 export interface BoundsDisplayProps {
-  parentActive: boolean;
+  isTop?: boolean;
+  isBottom?: boolean;
 }
 
-function InnerBoundsDisplay({ parentActive }: BoundsDisplayProps) {
+function InnerBoundsDisplay({
+  isTop = true,
+  isBottom = true,
+}: BoundsDisplayProps) {
   const {
     frameCount,
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackBounds();
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
+  const [
+    previewLeft,
+    _previewRight,
+    removePreview,
+    addPreview,
+    _updatePreview,
+  ] = useAnimationStore(
+    useShallow((state) => [
+      state.previews.find((p) => p.semanticTime === SemanticTime.BoundsStart),
+      state.previews.find((p) => p.semanticTime === SemanticTime.BoundsEnd),
+      state.removePreview,
+      state.addPreview,
+      state.updatePreview,
+    ]),
+  );
+
   const initialBounds = useRef<[number, number]>(bounds);
   const updateBounds = useAnimationStore(
     useShallow((state) => state.updatePlayerBounds),
@@ -95,34 +116,58 @@ function InnerBoundsDisplay({ parentActive }: BoundsDisplayProps) {
 
   return (
     <>
-      <path
-        d={`M${xScale(0).toString()} 15 L${xScale(bounds[0]).toString()} 15`}
-        className={clsx(
-          "group-aria-expanded:stroke-[30px] group-hover:stroke-[30px] stroke-[7.5px]",
-          "dark:stroke-neutral-800/50 stroke-neutral-200/50 transition-all duration-75",
-        )}
-      />
-      <path
-        d={`M${xScale(bounds[1]).toString()} 15 L${xScale(1).toString()} 15`}
-        className={clsx(
-          "group-aria-expanded:stroke-[30px] group-hover:stroke-[30px] stroke-[7.5px]",
-          "dark:stroke-neutral-800/50 stroke-neutral-200/50 transition-all duration-75",
-        )}
-      />
+      {false && (
+        <>
+          <path
+            d={`M${xScale(0).toString()} 15 L${xScale(bounds[0]).toString()} 15`}
+            className={clsx(
+              "group-aria-expanded:stroke-[30px] group-hover:stroke-[30px] stroke-[7.5px]",
+              "dark:stroke-neutral-900/25 stroke-neutral-100/25 transition-all duration-75",
+            )}
+          />
+          <path
+            d={`M${xScale(bounds[1]).toString()} 15 L${xScale(1).toString()} 15`}
+            className={clsx(
+              "group-aria-expanded:stroke-[30px] group-hover:stroke-[30px] stroke-[7.5px]",
+              "dark:stroke-neutral-900/25 stroke-neutral-100/25 transition-all duration-75",
+            )}
+          />
+        </>
+      )}
       <rect
         x={xScale(bounds[0])}
         y={0}
         width={Math.max(0, xScale(bounds[1]) - xScale(bounds[0]))}
         height={30}
         className={
-          parentActive && dragging
-            ? "cursor-ew-resize fill-neutral-600/25"
+          dragging
+            ? clsx(
+                "fill-transparent",
+                "group-hover:cursor-ew-resize group-hover:fill-neutral-600/25",
+                "group-aria-expanded:cursor-ew-resize group-aria-expanded:fill-neutral-600/25",
+              )
             : "fill-transparent"
         }
       />
-      <g className="group/bound">
+      <g
+        className="group/bound"
+        onMouseEnter={() => {
+          if (!previewLeft) {
+            addPreview({
+              semanticTime: SemanticTime.BoundsStart,
+              stamp: bounds[0],
+              label: "Bounds Start",
+            });
+          }
+        }}
+        onMouseLeave={() => {
+          if (previewLeft) {
+            removePreview((p) => p.semanticTime === SemanticTime.BoundsStart);
+          }
+        }}
+      >
         <path
-          d={getPath(xScale, bounds, "left")}
+          d={getPath(xScale, bounds, "left", isTop, isBottom)}
           className={clsx(
             "transition-[fill]",
             getFill("left", bounds[0] === 0),
@@ -142,9 +187,25 @@ function InnerBoundsDisplay({ parentActive }: BoundsDisplayProps) {
         />
       </g>
 
-      <g className="group/bound">
+      <g
+        className="group/bound"
+        onMouseEnter={() => {
+          if (!previewLeft) {
+            addPreview({
+              semanticTime: SemanticTime.BoundsEnd,
+              stamp: bounds[1],
+              label: "Bounds End",
+            });
+          }
+        }}
+        onMouseLeave={() => {
+          if (previewLeft) {
+            removePreview((p) => p.semanticTime === SemanticTime.BoundsEnd);
+          }
+        }}
+      >
         <path
-          d={getPath(xScale, bounds, "right")}
+          d={getPath(xScale, bounds, "right", isTop, isBottom)}
           className={clsx(
             "transition-[fill]",
             getFill("right", bounds[1] === 1),
@@ -204,12 +265,22 @@ function getPath(
   xScale: ScaleLinear,
   bounds: [number, number],
   side: "left" | "right",
+  isTop: boolean,
+  isBottom: boolean,
 ): string {
   const width = 6;
   const height = 3.5;
   const x = side === "left" ? xScale(bounds[0]) : xScale(bounds[1]);
   const trailing = side === "left" ? x + width : x - width;
-  return `M${x.toString()} 0 L${trailing.toString()} 0 L${x.toString()} ${(0 + height).toString()} L${x.toString()} ${(30 - height).toString()} L${trailing.toString()} 30 L${x.toString()} 30 Z`;
+  if (isTop && isBottom) {
+    return `M${x.toString()} 0 L${trailing.toString()} 0 L${x.toString()} ${(0 + height).toString()} L${x.toString()} ${(30 - height).toString()} L${trailing.toString()} 30 L${x.toString()} 30 Z`;
+  } else if (isTop) {
+    return `M${x.toString()} 0 L${trailing.toString()} 0 L${x.toString()} ${(0 + height).toString()} L${x.toString()} ${(30 - height).toString()} L${x.toString()} 30 Z`;
+  } else if (isBottom) {
+    return `M${x.toString()} 0 L${x.toString()} ${(0 + height).toString()} L${x.toString()} ${(30 - height).toString()} L${trailing.toString()} 30 L${x.toString()} 30 Z`;
+  } else {
+    return `M${x.toString()} 0 L${x.toString()} 30 Z`;
+  }
 }
 
 export const BoundsDisplay = memo(InnerBoundsDisplay);

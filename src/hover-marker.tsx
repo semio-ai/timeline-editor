@@ -4,33 +4,37 @@ import { useShallow } from "zustand/react/shallow";
 import { SpringValue, animated } from "@react-spring/web";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useAnimationStore } from "./hooks/use-animation-store";
+import { useHoverSpring } from "./hooks/use-hover-spring";
 
-export interface HoverMarkerProps {
-  hoverX: SpringValue<number>;
-}
+// export interface HoverMarkerProps {}
 
-function HoverMarker({ hoverX }: HoverMarkerProps): ReactNode {
+function HoverMarker(): ReactNode {
   const { scale: xScale } = useTrackBounds();
+  const { hoverpoint } = useHoverSpring();
   const selection = useAnimationStore(
     useShallow(
       (state) =>
         state.selectedKeyframe !== undefined &&
         state.animations[state.activeAnimation]?.frames?.get(
           state.selectedKeyframe,
-        )?.stamp === hoverX.get(),
+        )?.stamp === hoverpoint.get(),
     ),
   );
+
   return (
     <animated.path
       aria-selected={selection}
       style={{
-        transform: hoverX.to(
-          (hoverXval) => `translateX(${xScale(hoverXval).toString()}px`,
+        strokeWidth: hoverpoint.to((hoverXval) =>
+          hoverXval === undefined ? 0 : 2,
+        ),
+        transform: hoverpoint.to(
+          (hoverXval) => `translateX(${xScale(hoverXval ?? 0).toString()}px)`,
         ),
       }}
       className={clsx(
-        "touch-none stroke-2 stroke-transparent",
-        // "group-hover:stroke-black group-hover:dark:stroke-white group-aria-expanded:stroke-black group-aria-expanded:dark:stroke-white",
+        "touch-none stroke-transparent",
+        "group-hover:stroke-black group-hover:dark:stroke-white group-aria-expanded:stroke-black group-aria-expanded:dark:stroke-white",
         "aria-selected:stroke-transparent",
       )}
       rx={1}

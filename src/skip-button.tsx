@@ -71,4 +71,5 @@ const ICONS: Record<SemanticTime, ReactNode> = {
   [SemanticTime.BoundsEnd]: <IconPlayerEndBounds size="12px" />,
   [SemanticTime.Duration]: <IconPlayerPlay size="10px" />,
   [SemanticTime.Current]: <IconPlayerPlay size="10px" />,
+  [SemanticTime.Hover]: <IconPlayerPlay size="10px" />,
 };

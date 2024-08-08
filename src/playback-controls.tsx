@@ -20,6 +20,9 @@ export function PlaybackControls({
   const previews = useAnimationStore(
     useShallow((state: AnimationData) => state.previews),
   );
+  const nonHoverPreviews = previews.filter(
+    (p) => p.semanticTime !== SemanticTime.Hover,
+  );
 
   const { playPlayer, pausePlayer, running } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
@@ -52,6 +55,13 @@ export function PlaybackControls({
     onChangeTrack("all");
   }, [activeAnimation, onChangeTrack]);
 
+  const [removeKeyframe, createKeyframe] = useAnimationStore(
+    useShallow((state: AnimationActions) => [
+      state.removeKeyframe,
+      state.createKeyframe,
+    ]),
+  );
+
   // const smallScreen = useMediaQuery("(max-width: 768px)");
   // const xsmallScreen = useMediaQuery("(max-width: 640px)");
 
@@ -62,6 +72,13 @@ export function PlaybackControls({
           trackIds={track === "all" ? [] : [track]}
           filled={selectedFrame !== undefined}
           color="#737373"
+          onHexClick={() => {
+            if (selectedFrame) {
+              removeKeyframe(selectedFrame, activeAnimation);
+            } else {
+              createKeyframe({});
+            }
+          }}
         />
         <div className="block w-full items-center px-1">
           <Select
@@ -112,16 +129,16 @@ export function PlaybackControls({
         <div className="flex flex-1 flex-row items-center px-1">
           <TimeDisplay
             valueOverride={
-              previews.length === 1 &&
+              nonHoverPreviews.length === 1 &&
               [SemanticTime.Backward, SemanticTime.Forward].includes(
-                previews[0].semanticTime,
+                nonHoverPreviews[0].semanticTime,
               )
-                ? previews[0].stamp
+                ? nonHoverPreviews[0].stamp
                 : undefined
             }
             semanticTime={
-              previews.length === 1
-                ? previews[0].semanticTime
+              nonHoverPreviews.length === 1
+                ? nonHoverPreviews[0].semanticTime
                 : SemanticTime.Current
             }
           />

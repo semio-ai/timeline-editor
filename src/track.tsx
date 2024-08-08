@@ -18,17 +18,20 @@ import { BoundsDisplay } from "./bounds-display";
 import { DataDisplay } from "./data-display";
 import { TrackBoundsContext } from "./hooks/use-track-bounds";
 import { useHoverSpring } from "./hooks/use-hover-spring";
+import { TrackBackground } from "./track-background";
 
 export interface TrackProps {
   width: number;
-  editorOpened: boolean;
   trackIds?: string[];
+  isTop?: boolean;
+  isBottom?: boolean;
 }
 
 export function Track({
   width,
-  editorOpened,
   trackIds,
+  isTop = true,
+  isBottom = true,
 }: TrackProps): ReactNode {
   const { resolvedTheme } = useTheme();
 
@@ -40,18 +43,21 @@ export function Track({
     useShallow((state: AnimationData) => state.framerate as number),
   );
   const duration = useAnimationStore(
-    useShallow((state: AnimationData) => state.duration as number),
+    useShallow(
+      (state: AnimationData) =>
+        state.animations[state.activeAnimation]?.duration ?? 5000,
+    ),
   );
 
   const frameCount = Math.floor(framerate * (duration / 1000));
 
   // console.log(frames) xds
-  const [hovered, setHovered] = useState<boolean>(false);
-  const onHoverStart = () => setHovered(true);
-  const onHoverEnd = () => setHovered(false);
-  const delayedHover = useLazy(hovered, 250);
+  // const [hovered, setHovered] = useState<boolean>(false);
+  // const onHoverStart = () => setHovered(true);
+  // const onHoverEnd = () => setHovered(false);
+  // const delayedHover = useLazy(hovered, 250);
 
-  const { setHoverpoint, hoverpoint } = useHoverSpring();
+  const { setHoverpoint, clearHoverpoint } = useHoverSpring();
 
   const [activeRegionRef, activeRegionBounds] = useMeasure();
 
@@ -67,13 +73,14 @@ export function Track({
 
   const innerWidth = width - TIMELINE_PADDING * 2;
 
-  const bgColor = resolvedTheme === Theme.Dark ? "#525252" : "#a3a3a3";
-  const highlightColor = resolvedTheme === Theme.Dark ? "#a3a3a3" : "#525252";
+  // const bgColor = "#737373"; //Theme.Dark ? "#525252" : "#a3a3a3";
+  // const bgColor = resolvedTheme === Theme.Light ? "#262626" : "#e5e5e5";
+  // const highlightColor = resolvedTheme === Theme.Dark ? "#a3a3a3" : "#525252";
 
-  const styles = useSpring({
-    color: hovered || editorOpened ? highlightColor : bgColor,
-    config: { duration: 75, easing: easings.easeInOutCubic },
-  });
+  // const styles = useSpring({
+  //   color: hovered || editorOpened ? highlightColor : bgColor,
+  //   config: { duration: 75, easing: easings.easeInOutCubic },
+  // });
 
   const gestureBindings = useGesture({
     onDoubleClick: (state) => {
@@ -89,10 +96,8 @@ export function Track({
       }
     },
     onHover: (state) => {
-      if (state.hovering) {
-        onHoverStart();
-      } else {
-        onHoverEnd();
+      if (!state.hovering) {
+        clearHoverpoint();
       }
     },
     onMove: (state) => {
@@ -114,73 +119,27 @@ export function Track({
     <TrackBoundsContext.Provider
       value={{ bounds: activeRegionBounds, scale: xScale, frameCount }}
     >
-      <animated.svg
-        // ref={scrubberRef}
-        //
+      <svg
         height={30}
-        className="touch-none fill-neutral-500/0 w-full"
+        className="touch-none fill-transparent w-full"
         width={width < 0 ? 0 : width}
         {...gestureBindings()}
       >
-        <defs>
-          <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="0%">
-            <animated.stop offset="0%" stopColor={bgColor} />
-            <animated.stop
-              offset={hoverpoint.to(
-                (hp) => `${Math.max(0, hp * 100 - 20).toString()}%`,
-              )}
-              stopColor={bgColor}
-            />
-            <animated.stop
-              offset={hoverpoint.to((hp) => `${(hp * 100).toString()}%`)}
-              stopColor={styles.color}
-            />
-            <animated.stop
-              offset={hoverpoint.to(
-                (hp) => `${Math.min(100, hp * 100 + 20).toString()}%`,
-              )}
-              stopColor={bgColor}
-            />
-            <animated.stop offset="100%" stopColor={bgColor} />
-          </linearGradient>
-        </defs>
-        {/* Create a rect frame for use for measurements */}
-        <animated.rect
-          x={TIMELINE_PADDING}
-          width={Math.max(0, innerWidth)}
-          // height={styles.height}
-          // fill="url(#bg)"
-          className={clsx(
-            "transition-[fill,transform] duration-75",
-            "fill-neutral-400 dark:fill-neutral-600 h-[7.5px] translate-y-[11.25px]",
-            "group-aria-expanded:fill-[url(#bg)] group-hover:fill-[url(#bg)]",
-            "group-aria-expanded:h-[32px] group-hover:h-[32px] group-aria-expanded:translate-y-0 group-hover:translate-y-0",
-          )}
-        />
-        <animated.rect
+        <rect
           ref={activeRegionRef}
-          x={TIMELINE_PADDING}
-          // y={styles.y}
-          width={Math.max(0, innerWidth)}
-          // height={styles.height}
+          x={xScale(0)}
+          width={Math.max(0, xScale(1))}
           className="h-[30px]"
-          // fill="url(#bg)"
         />
-        {pairwise(Array.from({ length: frameCount + 1 }, (_v, i) => i)).map(
-          ([frame1, frame2]) => (
-            <Segment
-              end={frame2 / frameCount}
-              key={`${frame1.toString()}-${frame2.toString()}`}
-              parentActive={hovered || editorOpened || delayedHover}
-              start={frame1 / frameCount}
-            />
-          ),
-        )}
-        <HoverMarker hoverX={hoverpoint} />
-        <BoundsDisplay parentActive={hovered || editorOpened || delayedHover} />
-        <Playhead />
+        <TrackBackground />
+        <HoverMarker />
+        <BoundsDisplay isTop={isTop} isBottom={isBottom} />
+        <Playhead isTop={isTop} isBottom={isBottom} />
         <DataDisplay trackIds={trackIds} />
-      </animated.svg>
+        {/*
+
+        */}
+      </svg>
     </TrackBoundsContext.Provider>
   );
 }

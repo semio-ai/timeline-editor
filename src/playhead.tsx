@@ -12,13 +12,12 @@ import { AnimationContext } from "./context";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useAnimationStore } from "./hooks/use-animation-store";
 
-// export interface ThumbnailProps {
-//   xScale: ScaleLinear;
-//   timelineWidth: number;
-//   timelineLeft: number;
-// }
+export interface PlayheadProps {
+  isTop?: boolean;
+  isBottom?: boolean;
+}
 
-function Playhead(): ReactNode {
+function Playhead({ isTop = true, isBottom = true }: PlayheadProps): ReactNode {
   const {
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
@@ -118,22 +117,11 @@ function Playhead(): ReactNode {
         className="fill-transparent"
       />
       {/* Top triangle */}
-      <path
-        d="M-6 0 L0 3.5 L6 0 Z"
-        className={
-          hovered
-            ? "dark:fill-white fill-black"
-            : "dark:fill-neutral-300 fill-neutral-700"
-        }
-      />
+      <path d="M-6 0 L0 3.5 L6 0 Z" className={getStyle(isTop, hovered)} />
       {/* Bottom triangle */}
       <path
         d="M-6 30 L0 26.5 L6 30 Z"
-        className={
-          hovered
-            ? "dark:fill-white fill-black"
-            : "dark:fill-neutral-300 fill-neutral-700"
-        }
+        className={getStyle(isBottom, hovered)}
       />
       {/* Middle Hexagon */}
       {/* <animated.path
@@ -148,6 +136,16 @@ function Playhead(): ReactNode {
       /> */}
     </animated.g>
   );
+}
+
+function getStyle(onBounds: boolean, hovered: boolean): string {
+  if (onBounds && hovered) {
+    return "dark:fill-white fill-black";
+  } else if (onBounds) {
+    return "dark:fill-neutral-300 fill-neutral-700";
+  } else {
+    return "fill-transparent";
+  }
 }
 
 export default memo(Playhead);

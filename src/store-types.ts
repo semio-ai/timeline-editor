@@ -135,6 +135,11 @@ export interface AnimationActions {
   addPreview: (preview: Preview) => void;
   // Remove a preview from the animation
   removePreview: (evaluator: (preview: Preview) => boolean) => void;
+  // Update a preview in the animation
+  updatePreview: (
+    evaluator: (preview: Preview) => boolean,
+    preview: Partial<Preview>,
+  ) => void;
 }
 
 export type AnimationStoreSetter = (
@@ -164,4 +169,5 @@ export enum SemanticTime {
   Backward = "backward",
   BoundsStart = "bounds-start",
   BoundsEnd = "bounds-end",
+  Hover = "hover",
 }

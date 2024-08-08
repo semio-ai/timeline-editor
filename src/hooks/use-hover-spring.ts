@@ -1,6 +1,7 @@
 import { useContext, useEffect } from "react";
 import { SpringValue } from "@react-spring/web";
 import type { AnimationData, AnimationActions } from "../store-types";
+import { SemanticTime } from "../store-types";
 import { AnimationContext } from "../context";
 
 /*
@@ -11,18 +12,30 @@ import { AnimationContext } from "../context";
 */
 export function useHoverSpring(): {
   setHoverpoint: (value: number) => void;
-  hoverpoint: SpringValue;
+  clearHoverpoint: () => void;
+  hoverpoint: SpringValue<number | undefined>;
 } {
   const store = useContext(AnimationContext);
   if (!store) {
     throw new Error("useHoverSpring must be used within a StudioProvider");
   }
-  const hoverpointSpring = new SpringValue(store!.getState().hoverpoint, {
-    config: { duration: 0 },
-  });
+  const addPreview = store.getState().addPreview;
+  const updatePreview = store.getState().updatePreview;
+  const removePreview = store.getState().removePreview;
+
+  const hoverpointSpring = new SpringValue<number | undefined>(
+    store!
+      .getState()
+      .previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp,
+    {
+      config: { duration: 0 },
+    },
+  );
   useEffect(() => {
     const unsubscribe = store.subscribe(
-      (state: AnimationData & AnimationActions) => state.hoverpoint,
+      (state: AnimationData & AnimationActions) =>
+        state.previews.find((p) => p.semanticTime === SemanticTime.Hover)
+          ?.stamp,
       (hoverpoint) => {
         hoverpointSpring.set(hoverpoint);
       },
@@ -30,8 +43,25 @@ export function useHoverSpring(): {
     return unsubscribe;
   });
   const setHoverpoint = (value: number) => {
-    store.setState({ hoverpoint: value });
+    if (
+      store
+        .getState()
+        .previews.find((p) => p.semanticTime === SemanticTime.Hover)
+    ) {
+      updatePreview((preview) => preview.semanticTime === SemanticTime.Hover, {
+        stamp: value,
+      });
+    } else {
+      addPreview({
+        stamp: value,
+        label: "Hoverpoint",
+        semanticTime: SemanticTime.Hover,
+      });
+    }
+  };
+  const clearHoverpoint = () => {
+    removePreview((preview) => preview.semanticTime === SemanticTime.Hover);
   };
 
-  return { setHoverpoint, hoverpoint: hoverpointSpring };
+  return { setHoverpoint, hoverpoint: hoverpointSpring, clearHoverpoint };
 }

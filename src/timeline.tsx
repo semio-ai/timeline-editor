@@ -7,7 +7,7 @@ export function Timeline({ trackIds }: { trackIds?: string[] }): ReactNode {
     <div className="cursor-pointer items-center w-full">
       <ParentSize debounceTime={10}>
         {({ width }) => (
-          <Track editorOpened={false} width={width} trackIds={trackIds} />
+          <Track width={width} trackIds={trackIds} isTop isBottom />
         )}
       </ParentSize>
     </div>

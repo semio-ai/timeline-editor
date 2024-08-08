@@ -402,6 +402,16 @@ export const AnimationSlice = (
         previews: state.previews.filter((p) => !evaluator(p)),
       }));
     },
+    updatePreview: (
+      evaluator: (preview: Preview) => boolean,
+      preview: Partial<Preview>,
+    ) => {
+      set((state: AnimationData) => ({
+        previews: state.previews.map((p) =>
+          evaluator(p) ? { ...p, ...preview } : p,
+        ),
+      }));
+    },
   };
 };
 

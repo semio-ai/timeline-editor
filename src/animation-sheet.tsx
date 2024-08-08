@@ -9,6 +9,7 @@ import { useDefaultAnimationStore } from "./store";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { PlaybackControls } from "./playback-controls";
 import { Timeline } from "./timeline";
+import { TrackList } from "./track-list";
 
 export function AnimationSheet(): ReactNode {
   const ctx = useContext(AnimationContext);
@@ -35,6 +36,7 @@ export function InnerSheet(): ReactNode {
       aria-expanded={expanded}
       className="flex flex-col group w-full dark:bg-neutral-800 bg-neutral-200"
     >
+      {/* Expand Toggle/Ruler */}
       <div
         className={clsx(
           "h-4 overflow-hidden",
@@ -60,41 +62,61 @@ export function InnerSheet(): ReactNode {
           ruler
         </div>
       </div>
-      <div className="flex flex-row group shadow-md">
-        <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-full">
-          <div className="group-aria-expanded:xs:h-64 transition-[height] duration-75 h-0 dark:bg-neutral-950 bg-neutral-50" />
-          <div className="h-[60px] w-full overflow-hidden">
+      <div className="divide-y divide-transparent">
+        {/* Tracks */}
+        <div
+          className={clsx(
+            "group-aria-expanded:xs:h-[240px] overflow-hidden",
+            "transition-[height] duration-75 h-0",
+          )}
+        >
+          {expanded && <TrackList />}
+        </div>
+        {/* Content */}
+        <div className="flex flex-row group shadow-md">
+          <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-[60px]">
             <PlaybackControls
               track={selectedTrack}
               onChangeTrack={setSelectedTrack}
             />
           </div>
-        </div>
-        <div className="flex-1">
-          {/* <div className="relative">
-            <div
-              className={clsx(
-                "absolute w-full bg-transparent bottom-[1px]",
-                "group-aria-expanded:dark:bg-black/10 group-aria-expanded:bg-white/10 group-aria-expanded:backdrop-blur-md",
-                "group-hover:dark:bg-black/20 group-hover:bg-white/20 group-hover:backdrop-blur-md",
-              )}
-            >
-              <button type="button" onClick={() => setExpanded(!expanded)}>
-                {!expanded ? "Open" : "Close"}
-              </button>
+          <div className="flex-1 overflow-hidden h-[60px] flex-col flex">
+            <div className="h-[60px]">
+              <Timeline
+                trackIds={selectedTrack === "all" ? [] : [selectedTrack]}
+              />
+              <div className="w-full h-[30px] items-center px-4">Minimap</div>
             </div>
-          </div> */}
-          <div className="group-aria-expanded:xs:h-64 transition-[height] ease-in-out duration-75 h-0 dark:bg-neutral-950 bg-neutral-50" />
-          <div className="h-[60px]">
-            <Timeline
-              trackIds={selectedTrack === "all" ? [] : [selectedTrack]}
-            />
-            <div className="w-full h-[30px] items-center px-4">Minimap</div>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+// function getSize(size: number): string {
+//   switch (size) {
+//     case 0:
+//       return "group-aria-expanded:xs:h-[30px]";
+//     case 1:
+//       return "group-aria-expanded:xs:h-[30px]";
+//     case 2:
+//       return "group-aria-expanded:xs:h-[60px]";
+//     case 3:
+//       return "group-aria-expanded:xs:h-[90px]";
+//     case 4:
+//       return "group-aria-expanded:xs:h-[120px]";
+//     case 5:
+//       return "group-aria-expanded:xs:h-[150px]";
+//     case 6:
+//       return "group-aria-expanded:xs:h-[180px]";
+//     case 7:
+//       return "group-aria-expanded:xs:h-[210px]";
+//     case 8:
+//       return "group-aria-expanded:xs:h-[240px]";
+//     default:
+//       return "group-aria-expanded:xs:h-[240px]";
+//   }
+// }
 
 const MemoizedInnerSheet = memo(InnerSheet);
