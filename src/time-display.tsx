@@ -9,24 +9,18 @@ import { useShallow } from "zustand/react/shallow";
 // import { numberToDurationString } from "@semio/utils";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import type { AnimationData, AnimationActions } from "./store-types";
-
-export enum TimeDisplayType {
-  Current = "current",
-  Duration = "duration",
-  Forward = "forward",
-  Backward = "Backward",
-  BoundsStart = "bounds-start",
-  BoundsEnd = "bounds-end",
-}
+import { SemanticTime } from "./store-types";
 
 export interface TimeDisplayProps {
-  type?: TimeDisplayType;
+  semanticTime?: SemanticTime;
   displayMethod?: TimeDisplayMethod;
+  valueOverride?: number;
 }
 
 export function InnerTimeDisplay({
-  type = TimeDisplayType.Current,
+  semanticTime = SemanticTime.Current,
   displayMethod,
+  valueOverride,
 }: TimeDisplayProps): ReactNode {
   const timeDisplay = useAnimationStore(
     useShallow((state) => displayMethod || state.timeDisplay),
@@ -41,31 +35,26 @@ export function InnerTimeDisplay({
 
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
 
-  const time: number | undefined = useAnimationStore(
-    useShallow((state: AnimationData & AnimationActions) => {
-      if (type === TimeDisplayType.Current) {
-        return (
-          state.player.stamp * state.animations[state.activeAnimation]?.duration
-        );
-      } else if (type === TimeDisplayType.Duration) {
-        return state.duration;
-      } else if (type === TimeDisplayType.BoundsStart) {
-        return state.duration * state.player.bounds[0];
-      } else if (type === TimeDisplayType.BoundsEnd) {
-        return state.duration * state.player.bounds[1];
-      } else if (type === TimeDisplayType.Backward) {
-        const prev = state.prevKeyframeTime(state);
-        if (prev !== undefined) {
-          return prev * state.duration;
-        } else return undefined;
-      } else if (type === TimeDisplayType.Forward) {
-        const next = state.nextKeyframeTime(state);
-        if (next !== undefined) {
-          return next * state.duration;
-        } else return undefined;
-      }
-      return 0;
+  const prevKeyframeTime = useAnimationStore(
+    useShallow((state) => {
+      const prev = state.prevKeyframeTime(state);
+      if (prev !== undefined) {
+        return prev * duration;
+      } else return undefined;
     }),
+  );
+
+  const nextKeyframeTime = useAnimationStore(
+    useShallow((state) => {
+      const next = state.nextKeyframeTime(state);
+      if (next !== undefined) {
+        return next * duration;
+      } else return undefined;
+    }),
+  );
+
+  const currentTime = useAnimationStore(
+    useShallow((state) => state.player.stamp * duration),
   );
 
   const { resetPlayer, updateDuration, updatePlayerBounds } = useAnimationStore(
@@ -76,54 +65,107 @@ export function InnerTimeDisplay({
     })),
   );
 
-  const setTime = (t: number) => {
-    console.log("setting time", t, type);
-    if (type === TimeDisplayType.Current) {
-      resetPlayer(t / duration);
-    } else if (type === TimeDisplayType.Duration) {
-      updateDuration(t, activeAnimation);
-    } else if (type === TimeDisplayType.BoundsStart) {
-      const vals = [t / duration, bounds[1]].sort((a, b) => a - b);
-      updatePlayerBounds(vals[0], vals[1]);
-    } else if (type === TimeDisplayType.BoundsEnd) {
-      const vals = [bounds[0], t / duration].sort((a, b) => a - b);
-      updatePlayerBounds(vals[0], vals[1]);
-    }
-  };
-
   return (
-    <TimeInput
-      value={time}
-      onChange={setTime}
-      label={getLabel(type)}
-      min={0}
-      size={Size.Xs}
-      max={duration}
-      disabled={
-        type === TimeDisplayType.Forward || type === TimeDisplayType.Backward
-      }
-      display={timeDisplay}
-      framerate={framerate}
-      variant={Variant.Default}
-    />
+    <>
+      {/* Current Time Display */}
+      <TimeInput
+        value={currentTime}
+        onChange={(v) => resetPlayer(v / duration)}
+        label="Current Time"
+        min={0}
+        size={Size.Xs}
+        max={duration}
+        display={timeDisplay}
+        framerate={framerate}
+        variant={Variant.Default}
+        hidden={semanticTime !== SemanticTime.Current}
+      />
+      {/* Bounds Start Display */}
+      <TimeInput
+        value={bounds[0] * duration}
+        onChange={(v) => {
+          const vals = [v / duration, bounds[1]].sort((a, b) => a - b);
+          updatePlayerBounds(vals[0], vals[1]);
+        }}
+        label="Bounds Start"
+        min={0}
+        size={Size.Xs}
+        max={duration}
+        display={timeDisplay}
+        framerate={framerate}
+        variant={Variant.Success}
+        hidden={semanticTime !== SemanticTime.BoundsStart}
+      />
+      {/* Bounds End Display */}
+      <TimeInput
+        value={bounds[1] * duration}
+        onChange={(v) => {
+          const vals = [bounds[0], v / duration].sort((a, b) => a - b);
+          updatePlayerBounds(vals[0], vals[1]);
+        }}
+        label="Bounds End"
+        min={0}
+        size={Size.Xs}
+        max={duration}
+        display={timeDisplay}
+        framerate={framerate}
+        variant={Variant.Error}
+        hidden={semanticTime !== SemanticTime.BoundsEnd}
+      />
+      {/* Prev Keyframe Display */}
+      <TimeInput
+        value={
+          valueOverride !== undefined
+            ? valueOverride * duration
+            : prevKeyframeTime
+        }
+        onChange={() => {}}
+        label="Previous Keyed Frame"
+        min={0}
+        disabled
+        size={Size.Xs}
+        max={duration}
+        display={timeDisplay}
+        framerate={framerate}
+        variant={Variant.Primary}
+        hidden={semanticTime !== SemanticTime.Backward}
+      />
+      {/* Next Keyframe Display */}
+      <TimeInput
+        value={
+          valueOverride !== undefined
+            ? valueOverride * duration
+            : nextKeyframeTime
+        }
+        onChange={() => {}}
+        label="Next Keyed Frame"
+        min={0}
+        disabled
+        size={Size.Xs}
+        max={duration}
+        display={timeDisplay}
+        framerate={framerate}
+        variant={Variant.Primary}
+        hidden={semanticTime !== SemanticTime.Forward}
+      />
+      {/* Duration Display */}
+      <TimeInput
+        value={duration}
+        onChange={(v) => {
+          updateDuration(v, activeAnimation);
+        }}
+        label="Duration"
+        min={0}
+        disabled
+        size={Size.Xs}
+        max={duration * 2}
+        display={timeDisplay}
+        framerate={framerate}
+        variant={Variant.Default}
+        hidden={semanticTime !== SemanticTime.Duration}
+      />
+    </>
   );
-}
-
-function getLabel(type: TimeDisplayType): string {
-  switch (type) {
-    case TimeDisplayType.Current:
-      return "Current Time";
-    case TimeDisplayType.Duration:
-      return "Duration";
-    case TimeDisplayType.Forward:
-      return "Next Keyed Frame";
-    case TimeDisplayType.Backward:
-      return "Previous Keyed Frame";
-    case TimeDisplayType.BoundsStart:
-      return "Bounds Start";
-    case TimeDisplayType.BoundsEnd:
-      return "Bounds End";
-  }
 }
 
 InnerTimeDisplay.displayName = "TimeDisplay";

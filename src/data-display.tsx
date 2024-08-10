@@ -6,13 +6,14 @@ import { AnimationData } from "./store-types";
 import { computeFrames } from "./actions/compute-frames";
 
 export interface DataDisplayProps {
-  parentActive: boolean;
+  trackIds?: string[];
 }
 
-function InnerDataDisplay({ parentActive }: DataDisplayProps) {
+function InnerDataDisplay({ trackIds }: DataDisplayProps) {
+  const filter = trackIds || [];
   const { active, passive } = useAnimationStore(
     useDeep((state: AnimationData) => {
-      return computeFrames(state, state.visualizedAnimations);
+      return computeFrames(state, state.visualizedAnimations, filter);
     }),
   );
 

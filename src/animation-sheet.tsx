@@ -1,15 +1,14 @@
 import type { ReactNode } from "react";
-import { useContext, memo } from "react";
+import { useContext, memo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
+import { IconButton } from "@semio/ui";
+import { IconChevronDown } from "@tabler/icons-react";
 import { AnimationContext } from "./context";
 import { useDefaultAnimationStore } from "./store";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { Controls } from "./controls";
+import { PlaybackControls } from "./playback-controls";
 import { Timeline } from "./timeline";
-import { IconButton } from "@semio/ui";
-import { IconChevronDown } from "@tabler/icons-react";
-import { TimeDisplay, TimeDisplayType } from "./time-display";
 
 export function AnimationSheet(): ReactNode {
   const ctx = useContext(AnimationContext);
@@ -30,6 +29,7 @@ export function InnerSheet(): ReactNode {
   const setExpanded = useAnimationStore(
     useShallow((state) => state.setExpanded),
   );
+  const [selectedTrack, setSelectedTrack] = useState<string>("all");
   return (
     <div
       aria-expanded={expanded}
@@ -64,7 +64,10 @@ export function InnerSheet(): ReactNode {
         <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-full">
           <div className="group-aria-expanded:xs:h-64 transition-[height] duration-75 h-0 dark:bg-neutral-950 bg-neutral-50" />
           <div className="h-[60px] w-full overflow-hidden">
-            <Controls />
+            <PlaybackControls
+              track={selectedTrack}
+              onChangeTrack={setSelectedTrack}
+            />
           </div>
         </div>
         <div className="flex-1">
@@ -83,11 +86,11 @@ export function InnerSheet(): ReactNode {
           </div> */}
           <div className="group-aria-expanded:xs:h-64 transition-[height] ease-in-out duration-75 h-0 dark:bg-neutral-950 bg-neutral-50" />
           <div className="h-[60px]">
-            <Timeline />
-            <div className="w-full h-[30px] items-center px-4" />
+            <Timeline
+              trackIds={selectedTrack === "all" ? [] : [selectedTrack]}
+            />
+            <div className="w-full h-[30px] items-center px-4">Minimap</div>
           </div>
-
-          {/* <Controls /> */}
         </div>
       </div>
     </div>

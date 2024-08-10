@@ -1,10 +1,6 @@
-import { type ReactNode, useMemo, useState, memo } from "react";
+import { type ReactNode, useMemo, memo } from "react";
 import { clsx } from "clsx";
-import {
-  getHexagonPath,
-  getDegenerateHexagonPath,
-  closestFrame,
-} from "@semio/utils";
+import { getHexagonPath, closestFrame } from "@semio/utils";
 import { clamp } from "lodash";
 import { useShallow } from "zustand/react/shallow";
 import { useGesture } from "@use-gesture/react";
@@ -109,7 +105,9 @@ function InnerFrameMarker({
         d="M 0 0 L 0 30"
         className={clsx(
           "transition-[colors,stroke,transform] duration-75 stroke-2 scale-y-[33%] translate-y-[10px]",
-          "dark:stroke-default-300 stroke-default-700",
+          active
+            ? "dark:stroke-default-300 stroke-default-700"
+            : "dark:stroke-default-400/50 stroke-default-600/50",
           "group-hover:translate-y-0 group-aria-expanded:translate-y-0 group-hover:scale-y-100 group-aria-expanded:scale-y-100",
           "group-aria-selected/frame:scale-y-100 group-aria-selected/frame:translate-y-0",
           "group-hover/frame:group-aria-selected/frame:stroke-transparent",
