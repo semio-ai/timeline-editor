@@ -14,6 +14,7 @@ function Segment({
   start,
   end,
   // xScale,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- still working through
   parentActive = false,
 }: SegmentProps): ReactNode {
   const { scale: xScale } = useTrackBounds();

@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import useMeasure from "react-use-measure";
 import { pairwise, useLazy, closestFrame } from "@semio/utils";
