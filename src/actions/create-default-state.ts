@@ -6,6 +6,8 @@ import { createDefaultAnimation } from "./create-default-animation";
 export const createDefaultState = (): AnimationData => {
   const defaultAnimation = createDefaultAnimation();
   return {
+    values: new Map(),
+    interpolator: () => new Map(),
     activeAnimation: defaultAnimation.id,
     animations: { [defaultAnimation.id]: defaultAnimation },
     visualizedAnimations: [defaultAnimation.id],

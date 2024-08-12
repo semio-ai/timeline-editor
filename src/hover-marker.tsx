@@ -1,7 +1,7 @@
 import { type ReactNode, memo } from "react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
-import { SpringValue, animated } from "@react-spring/web";
+import { animated } from "@react-spring/web";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useHoverSpring } from "./hooks/use-hover-spring";

@@ -36,6 +36,27 @@ export function PlaybackControls({
     useShallow((state: AnimationData) => state.selectedKeyframe),
   );
 
+  const pointId: string | undefined = useAnimationStore(
+    useShallow((state) => {
+      if (state.selectedKeyframe) {
+        const frame = state.animations[state.activeAnimation].frames.get(
+          state.selectedKeyframe,
+        );
+        if (frame && track !== "all") {
+          return frame.points.find(
+            (p) =>
+              state.animations[state.activeAnimation].points.get(p)?.track ===
+              track,
+          );
+        } else {
+          return undefined;
+        }
+      } else {
+        return undefined;
+      }
+    }),
+  );
+
   const tracks: { label: string; value: string }[] = useAnimationStore(
     useShallow((state: AnimationData) =>
       state.animations[state.activeAnimation].trackOrder.map((id) => ({
@@ -55,26 +76,40 @@ export function PlaybackControls({
     onChangeTrack("all");
   }, [activeAnimation, onChangeTrack]);
 
-  const [removeKeyframe, createKeyframe] = useAnimationStore(
-    useShallow((state: AnimationActions) => [
-      state.removeKeyframe,
-      state.createKeyframe,
-    ]),
-  );
+  const [removeKeypoint, removeKeyframe, createKeypoint, createKeyframe] =
+    useAnimationStore(
+      useShallow((state: AnimationActions) => [
+        state.removeKeypoint,
+        state.removeKeyframe,
+        state.createKeypoint,
+        state.createKeyframe,
+      ]),
+    );
 
   // const smallScreen = useMediaQuery("(max-width: 768px)");
   // const xsmallScreen = useMediaQuery("(max-width: 640px)");
+  //
+  let filled = false;
+  if (pointId) {
+    filled = true;
+  } else if (track === "all" && selectedFrame) {
+    filled = true;
+  }
 
   return (
     <div className="h-[60px] dark:bg-neutral-800 bg-neutral-200">
       <div className="flex flex-1 flex-row items-center h-[30px] ">
         <TrackControl
           trackIds={track === "all" ? [] : [track]}
-          filled={selectedFrame !== undefined}
+          filled={filled}
           color="#737373"
           onHexClick={() => {
-            if (selectedFrame) {
+            if (pointId) {
+              removeKeypoint(pointId);
+            } else if (selectedFrame && track === "all") {
               removeKeyframe(selectedFrame, activeAnimation);
+            } else if (track !== "all") {
+              createKeypoint(track, {});
             } else {
               createKeyframe({});
             }

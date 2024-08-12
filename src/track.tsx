@@ -1,7 +1,7 @@
-import type { CSSProperties, ReactNode } from "react";
-import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { useMemo } from "react";
 import useMeasure from "react-use-measure";
-import { pairwise, useLazy, closestFrame } from "@semio/utils";
+import { closestFrame } from "@semio/utils";
 import { Theme, useTheme } from "@semio/ui";
 import { animated, easings, useSpring } from "@react-spring/web";
 import { scaleLinear } from "@visx/scale";

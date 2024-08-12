@@ -1,8 +1,13 @@
 import { type Player, type RawValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
-import { Keypoint, Track, Animation } from "./types";
+import { Keypoint, Track, Animation, AnimationInterpolator } from "./types";
 
 export interface AnimationData {
+  // Current values (output of interpolator)
+  values: Map<string, RawValue>;
+  // Current interpolator
+  interpolator: AnimationInterpolator;
+  // Active animation
   activeAnimation: string;
   // All animations loaded in the project
   animations: Record<string, Animation>;

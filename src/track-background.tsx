@@ -75,7 +75,7 @@ function InnerTrackBackground({ trackIds }: TrackBackgroundProps) {
             width={Math.max(0, xScale(bounds[1] - bounds[0]))}
             y={10.75}
             height={7.5}
-            className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white"
+            className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white transition-[fill] duration-75 ease-in-out"
           />
           <rect
             key={`${identifier}-leftmask`}
@@ -83,7 +83,7 @@ function InnerTrackBackground({ trackIds }: TrackBackgroundProps) {
             width={Math.max(0, xScale(bounds[0]))}
             y={10.75}
             height={7.5}
-            className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50"
+            className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out"
           />
           <rect
             key={`${identifier}-rightmask`}
@@ -91,43 +91,34 @@ function InnerTrackBackground({ trackIds }: TrackBackgroundProps) {
             width={Math.max(0, xScale(1 - bounds[1]))}
             y={10.75}
             height={7.5}
-            className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50"
+            className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out"
           />
-          {timedFrames.map((tick) => {
-            if (tick.stamp < bounds[0] || tick.stamp > bounds[1]) {
-              return (
-                <circle
-                  key={tick.key}
-                  cx={xScale(tick.stamp)}
-                  cy={15}
-                  r={1}
-                  className="group-aria-expanded:fill-neutral-300 group-hover:fill-neutral-300 fill-transparent"
-                />
-              );
-            } else {
-              return (
-                <rect
-                  key={tick.key}
-                  x={xScale(tick.stamp) - 1}
-                  y={0}
-                  width={2}
-                  height={30}
-                  className="group-aria-expanded:fill-white group-hover:fill-neutral-300 fill-transparent"
-                />
-              );
-            }
-          })}
+          {timedFrames.map((tick) => (
+            <rect
+              key={tick.key}
+              x={xScale(tick.stamp) - 1}
+              y={0}
+              width={2}
+              height={30}
+              className={clsx(
+                "transition-[fill,transform] duration-75 ease-in-out group-aria-expanded:fill-white group-hover:fill-neutral-300 fill-transparent",
+                tick.stamp < bounds[0] || tick.stamp > bounds[1]
+                  ? "scale-y-[33%] translate-y-[10px] group-aria-expanded:fill-neutral-700 group-hover:fill-neutral-700"
+                  : "group-aria-expanded:fill-white group-hover:fill-white",
+              )}
+            />
+          ))}
         </mask>
       </defs>
       <rect
         x={xScale(0)}
         width={xScale(1)}
         mask="url(#mask)"
-        // fill="url(#bg)"
+        fill="url(#bg)"
         className={clsx(
           "transition-[fill] duration-75",
           "h-[29px] translate-y-[0.5px]",
-          "group-aria-expanded:fill-[url(#bg)] group-hover:fill-[url(#bg)] fill-transparent",
+          "group-aria-expanded:opacity-100 group-hover:opacity-100 opacity-0",
           "",
           // "fill-neutral-500 h-[29px] translate-y-[0.5px]",
           // "fill-neutral-400 dark:fill-neutral-600 h-[7.5px] translate-y-[10.75px]",
@@ -135,18 +126,17 @@ function InnerTrackBackground({ trackIds }: TrackBackgroundProps) {
           // "group-aria-expanded:h-[29px] group-hover:h-[29px] group-aria-expanded:translate-y-[0.5px] group-hover:translate-y-[0.5px]",
         )}
       />
-      {false && (
-        <rect
-          x={xScale(0)}
-          width={xScale(1)}
-          mask="url(#mask)"
-          className={clsx(
-            "transition-[fill] duration-75",
-            "h-[29px] translate-y-[0.5px]",
-            "group-aria-expanded:fill-transparent group-hover:transparent fill-neutral-500",
-          )}
-        />
-      )}
+
+      <rect
+        x={xScale(0)}
+        width={xScale(1)}
+        mask="url(#mask)"
+        className={clsx(
+          "transition-[fill] duration-75 fill-neutral-500",
+          "h-[29px] translate-y-[0.5px]",
+          "group-aria-expanded:opacity-0 group-hover:opacity-0 opacity-100",
+        )}
+      />
     </>
   );
 }
