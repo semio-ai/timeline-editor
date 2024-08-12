@@ -2,13 +2,9 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import useMeasure from "react-use-measure";
 import { closestFrame } from "@semio/utils";
-import { Theme, useTheme } from "@semio/ui";
-import { animated, easings, useSpring } from "@react-spring/web";
 import { scaleLinear } from "@visx/scale";
 import { useGesture } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
-import { clsx } from "clsx";
-import Segment from "./segment";
 import Playhead from "./playhead";
 import { TIMELINE_PADDING } from "./constants";
 import HoverMarker from "./hover-marker";
@@ -33,8 +29,6 @@ export function Track({
   isTop = true,
   isBottom = true,
 }: TrackProps): ReactNode {
-  const { resolvedTheme } = useTheme();
-
   const resetPlayer = useAnimationStore(
     useShallow((state: AnimationActions) => state.resetPlayer),
   );
@@ -70,17 +64,6 @@ export function Track({
       }),
     [width],
   );
-
-  const innerWidth = width - TIMELINE_PADDING * 2;
-
-  // const bgColor = "#737373"; //Theme.Dark ? "#525252" : "#a3a3a3";
-  // const bgColor = resolvedTheme === Theme.Light ? "#262626" : "#e5e5e5";
-  // const highlightColor = resolvedTheme === Theme.Dark ? "#a3a3a3" : "#525252";
-
-  // const styles = useSpring({
-  //   color: hovered || editorOpened ? highlightColor : bgColor,
-  //   config: { duration: 75, easing: easings.easeInOutCubic },
-  // });
 
   const gestureBindings = useGesture({
     onDoubleClick: (state) => {
@@ -136,9 +119,6 @@ export function Track({
         <BoundsDisplay isTop={isTop} isBottom={isBottom} />
         <Playhead isTop={isTop} isBottom={isBottom} />
         <DataDisplay trackIds={trackIds} />
-        {/*
-
-        */}
       </svg>
     </TrackBoundsContext.Provider>
   );

@@ -2,14 +2,10 @@ import { AnimationData } from "../store-types";
 import { addAnimation } from "./add-animation";
 import { createDefaultAnimation } from "./create-default-animation";
 
-export function removeAnimation(
-  state: AnimationData,
-  animationId: string,
-){
+export function removeAnimation(state: AnimationData, animationId: string) {
   if (animationId in state.animations) {
-    // console.log("Removing animation", animationId);
-    // console.log("Animations before removal", Object.keys(state.animations));
-    delete state.animations[animationId];
+    const { [animationId]: _, ...newAnimations } = state.animations;
+    state.animations = newAnimations;
     state.visualizedAnimations = state.visualizedAnimations.filter(
       (id) => id !== animationId,
     );
