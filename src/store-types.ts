@@ -4,7 +4,7 @@ import { Keypoint, Track, Animation, AnimationInterpolator } from "./types";
 
 export interface AnimationData {
   // Current values (output of interpolator)
-  values: Map<string, RawValue>;
+  values: Map<string, RawValue | undefined>;
   // Current interpolator
   interpolator: AnimationInterpolator;
   // Active animation
