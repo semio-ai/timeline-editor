@@ -85,20 +85,29 @@ function Playhead({ isTop = true, isBottom = true }: PlayheadProps): ReactNode {
   //   },
   // });
 
-  const gestureBindings = useGesture({
-    onDrag: (state) => {
-      const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
-      if (state.shiftKey) {
-        resetPlayer(newPosition);
-      } else {
-        const closest: number = closestFrame(newPosition, frameCount);
-        resetPlayer(closest);
-      }
+  const gestureBindings = useGesture(
+    {
+      onDrag: (state) => {
+        const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
+        if (state.shiftKey) {
+          resetPlayer(newPosition);
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          resetPlayer(closest);
+        }
+      },
+      onHover: (state) => {
+        setHovered(state.hovering || false);
+      },
     },
-    onHover: (state) => {
-      setHovered(state.hovering || false);
+    {
+      drag: {
+        pointer: {
+          capture: false,
+        },
+      },
     },
-  });
+  );
 
   return (
     <animated.g

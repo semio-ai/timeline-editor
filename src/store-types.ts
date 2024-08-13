@@ -34,8 +34,14 @@ export interface AnimationData {
 }
 
 export interface AnimationActions {
+  // Update all values in the store
+  updateValues: (values: Map<string, RawValue | undefined>) => void;
   // Add a new keyframe to the animation
-  createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string) => void;
+  createKeyframe: (
+    keyframe: Partial<Keyframe>,
+    animationId?: string,
+    fillPoints?: boolean,
+  ) => void;
   // Add a new keyframe to the animation at the current time;
   createAutoKeyframe: () => void;
   // Remove a keyframe from the animation
@@ -129,6 +135,8 @@ export interface AnimationActions {
   setTimeDisplay: (mode: TimeDisplay) => void;
   // Initialize the player updates
   initPlayerInterval: () => void;
+  // Initialize interpolator generation
+  initInterpolatorGeneration: () => void;
   // Set the hoverpoint
   setHoverpoint: (hoverpoint: number) => void;
   // Add an animation to the visualized set

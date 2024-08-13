@@ -8,6 +8,7 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { computeLocalStamp } from "./actions/compute-instance-time";
 import { InstanceInfo } from "./types";
+import { TIMELINE_PADDING } from "./constants";
 
 export interface FrameMarkerProps {
   stamp: number;
@@ -52,29 +53,50 @@ function InnerFrameMarker({
     useShallow((state) => state.updateKeyframeStamp),
   );
 
+  const resetPlayer = useAnimationStore(
+    useShallow((state) => state.resetPlayer),
+  );
+
   // const [hovered, setHovered] = useState(false);
 
-  const gestureHandlers = useGesture({
-    // onHover: ({ hovering }) => {
-    //   setHovered(hovering || false);
-    // },
-    onDrag: (state) => {
-      if (!active) {
-        return;
-      }
-      const newPosition = clamp(
-        ((state.xy[0] || 0) - timelineLeft) / timelineWidth,
-        0,
-        1,
-      );
-      const newStamp = state.shiftKey
-        ? newPosition
-        : closestFrame(newPosition, frameCount);
-      const transformedStamp = computeLocalStamp(newStamp, instanceInfo);
-      updateKeyframeStamp(frame, transformedStamp, animation);
-      state.event.stopPropagation();
+  const gestureHandlers = useGesture(
+    {
+      onDoubleClick: (state) => {
+        resetPlayer(stamp);
+        state.event.stopPropagation();
+      },
+      // onHover: ({ hovering }) => {
+      //   setHovered(hovering || false);
+      // },
+      onDrag: (state) => {
+        if (!active) {
+          return;
+        }
+        const newPosition = clamp(
+          ((state.xy[0] || 0) - timelineLeft) /
+            (timelineWidth - TIMELINE_PADDING),
+          0,
+          1,
+        );
+        const newStamp = state.shiftKey
+          ? newPosition
+          : closestFrame(newPosition, frameCount);
+        const transformedStamp = computeLocalStamp(newStamp, instanceInfo);
+        updateKeyframeStamp(frame, transformedStamp, animation);
+        state.event.stopPropagation();
+      },
     },
-  });
+    {
+      drag: {
+        // bounds,
+        filterTaps: true,
+        // from: [bounds.left + bounds.width * ((value - min) / (max - min)), 0],
+        pointer: {
+          capture: false,
+        },
+      },
+    },
+  );
 
   // const styles = useSpring({
   //   d: getPath(

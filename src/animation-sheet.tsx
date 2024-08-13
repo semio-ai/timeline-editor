@@ -58,7 +58,7 @@ export function InnerSheet(): ReactNode {
             />
           </IconButton>
         </div>
-        <div className="flex-1 xs:w-64 transition-[width] h-full overflow-hidden">
+        <div className="flex-1 xs:w-64 transition-[width] h-full overflow-hidden text-black dark:text-white">
           ruler
         </div>
       </div>
@@ -85,7 +85,9 @@ export function InnerSheet(): ReactNode {
               <Timeline
                 trackIds={selectedTrack === "all" ? [] : [selectedTrack]}
               />
-              <div className="w-full h-[30px] items-center px-4">Minimap</div>
+              <div className="w-full h-[30px] items-center px-4 text-black dark:text-white">
+                Minimap
+              </div>
             </div>
           </div>
         </div>

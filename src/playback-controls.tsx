@@ -105,13 +105,17 @@ export function PlaybackControls({
           color="#737373"
           onHexClick={() => {
             if (pointId) {
+              console.log("remove keypoint");
               removeKeypoint(pointId);
             } else if (selectedFrame && track === "all") {
-              removeKeyframe(selectedFrame, activeAnimation);
+              console.log("remove keyframe");
+              removeKeyframe(selectedFrame);
             } else if (track !== "all") {
-              createKeypoint(track, {});
+              console.log("create keypoint");
+              createKeypoint(track, { track });
             } else {
-              createKeyframe({});
+              console.log("create keyframe");
+              createKeyframe({}, activeAnimation, true);
             }
           }}
         />

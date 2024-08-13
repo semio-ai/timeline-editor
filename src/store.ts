@@ -1,8 +1,18 @@
-import { reset, update, play, pause, setBounds, RawValue } from "@semio/utils";
+import {
+  reset,
+  update,
+  play,
+  pause,
+  setBounds,
+  RawValue,
+  Write,
+  StoreSubscribeWithSelector,
+} from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
+import isDeepEqual from "fast-deep-equal";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
-import { create } from "zustand";
+import { create, type StoreApi } from "zustand";
 import { Keyframe, Keypoint, Track } from "./types";
 import { createKeyframe } from "./actions/create-keyframe";
 import { createAutoKeyframe } from "./actions/create-auto-keyframe";
@@ -15,6 +25,7 @@ import {
   AnimationStoreSetter,
   Preview,
 } from "./store-types";
+import { createAnimationInterpolator } from "./actions/create-animation-interpolator";
 import { createKeypoint } from "./actions/create-keypoint";
 import { updateKeypointValue } from "./actions/update-keypoint-value";
 import { removeKeypoint } from "./actions/remove-keypoint";
@@ -30,16 +41,46 @@ import { removeAnimation } from "./actions/remove-animation";
 
 enableMapSet();
 
+export type AnimationApi = Write<
+  StoreApi<AnimationData & AnimationActions>,
+  StoreSubscribeWithSelector<AnimationData & AnimationActions>
+>;
+
 export const AnimationSlice = (
   set: AnimationStoreSetter,
   get: AnimationStoreGetter,
+  api: AnimationApi,
 ) => {
   return {
     ...createDefaultState(),
-    createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string) => {
+    updateValues: (values: Map<string, RawValue | undefined>) => {
+      set(
+        produce((state: AnimationData) => {
+          values.forEach?.((value, key) => {
+            if (value === undefined) {
+              // console.log("clearing value for key ", key);
+              state.values.delete(key);
+            } else {
+              // console.log("setting value for key ", key, value);
+              state.values.set(key, value);
+            }
+          });
+        }),
+      );
+    },
+    createKeyframe: (
+      keyframe: Partial<Keyframe>,
+      animationId?: string,
+      fillPoints?: boolean,
+    ) => {
       set(
         produce((state: AnimationData): void => {
-          createKeyframe(state, animationId ?? state.activeAnimation, keyframe);
+          createKeyframe(
+            state,
+            animationId ?? state.activeAnimation,
+            keyframe,
+            fillPoints,
+          );
         }),
       );
     },
@@ -58,8 +99,8 @@ export const AnimationSlice = (
           // Remove all points associated with the keyframe
           removeKeyframe(
             state,
-            keyframeId,
             animationId ?? state.activeAnimation,
+            keyframeId,
           );
         }),
       );
@@ -397,6 +438,53 @@ export const AnimationSlice = (
       }, 15);
       set({ playerInterval: interval });
     },
+    initInterpolatorGeneration: () => {
+      // If the time changes, check if it matches an existing keyframe and set the current selected keyframe
+      api.subscribe(
+        (state) => ({
+          stamp: state.player.stamp,
+          keyframes:
+            state.animations[state.activeAnimation]?.frameOrder
+              ?.map((frameId: string) =>
+                state.animations[state.activeAnimation].frames.get(frameId),
+              )
+              .filter((f) => f !== undefined) || [],
+        }),
+        ({ stamp, keyframes }) => {
+          const selectedKeyframe = keyframes.find(
+            (keyframe) => keyframe?.stamp === stamp,
+          );
+          set({ selectedKeyframe: selectedKeyframe?.id });
+        },
+        { equalityFn: isDeepEqual },
+      );
+
+      // If the animation data changes, rerun the interpolator generator
+      api.subscribe(
+        (state) => state.animations,
+        (animations) => {
+          // console.log("Animation data changed. Creating new interpolator.");
+          const interpolator = createAnimationInterpolator(animations);
+          set({ interpolator });
+        },
+        // { equalityFn: isDeepEqual },
+      );
+
+      // If the timer or interpolator changes, rerun the interpolator with that time.
+      const updateValues = api.getState().updateValues;
+      api.subscribe(
+        (state: AnimationData) => ({
+          interpolator: state.interpolator,
+          stamp: state.player.stamp,
+        }),
+        ({ interpolator, stamp }) => {
+          // console.log("updating current track values");
+          const values = interpolator(stamp);
+          updateValues(values);
+        },
+        { equalityFn: isDeepEqual },
+      );
+    },
     setHoverpoint: (hoverpoint: number) => {
       set({ hoverpoint });
     },
@@ -425,6 +513,10 @@ export const AnimationSlice = (
 
 export const useDefaultAnimationStore = create<
   AnimationData & AnimationActions
->()(subscribeWithSelector((set, get) => ({ ...AnimationSlice(set, get) })));
+>()(
+  subscribeWithSelector((set, get, api) => ({
+    ...AnimationSlice(set, get, api),
+  })),
+);
 
 export type AnimationStore = typeof useDefaultAnimationStore;

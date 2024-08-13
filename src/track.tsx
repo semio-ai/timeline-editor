@@ -67,10 +67,10 @@ export function Track({
 
   const gestureBindings = useGesture({
     onDoubleClick: (state) => {
-      console.log(state);
+      // console.log(state);
       const newPosition =
         ((state.event.clientX ?? 0) - activeRegionBounds.left) /
-        activeRegionBounds.width;
+        (activeRegionBounds.width - TIMELINE_PADDING);
       if (state.altKey) {
         resetPlayer(newPosition);
       } else {
@@ -86,7 +86,7 @@ export function Track({
     onMove: (state) => {
       const newPosition =
         ((state.xy[0] || 0) - activeRegionBounds.left) /
-        activeRegionBounds.width;
+        (activeRegionBounds.width - TIMELINE_PADDING);
       if (state.altKey) {
         setHoverpoint(newPosition);
         // setHoveredSpan(getInclusionSpan(frames, newPosition));

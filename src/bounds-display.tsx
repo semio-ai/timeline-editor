@@ -8,6 +8,7 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import type { ScaleLinear } from "./scale-linear";
 import { SemanticTime } from "./store-types";
+import { TIMELINE_PADDING } from "./constants";
 
 export interface BoundsDisplayProps {
   isTop?: boolean;
@@ -59,7 +60,8 @@ function InnerBoundsDisplay({
       onHover: ({ hovering: h }) => setHovering(h || false),
       onDrag: (state) => {
         const newPosition = clamp(
-          ((state.xy[0] || 0) - timelineLeft) / timelineWidth,
+          ((state.xy[0] || 0) - timelineLeft) /
+            (timelineWidth - TIMELINE_PADDING),
           0,
           1,
         );
