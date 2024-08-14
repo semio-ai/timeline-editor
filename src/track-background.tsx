@@ -12,11 +12,15 @@ import { useTrackBounds } from "./hooks/use-track-bounds";
 
 export interface TrackBackgroundProps {
   trackIds?: string[];
+  showLine?: boolean;
 }
 
-function InnerTrackBackground({ trackIds }: TrackBackgroundProps) {
+function InnerTrackBackground({
+  trackIds,
+  showLine = true,
+}: TrackBackgroundProps) {
   const identifier: string = trackIds?.join("-") ?? "default";
-  const { scale: xScale } = useTrackBounds();
+  const { scale: xScale, zoom: zoomScale } = useTrackBounds();
   const { hoverpoint } = useHoverSpring();
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
   const framerate = useAnimationStore(
@@ -49,54 +53,60 @@ function InnerTrackBackground({ trackIds }: TrackBackgroundProps) {
           <animated.stop
             offset={hoverpoint.to(
               (hp) =>
-                `${Math.max(0, (hp ?? -Infinity) * 100 - 30).toString()}%`,
+                `${Math.max(0, zoomScale(hp ?? -Infinity) * 100 - 30).toString()}%`,
             )}
             stopColor="transparent"
           />
           <animated.stop
             offset={hoverpoint.to(
-              (hp) => `${((hp ?? -Infinity) * 100).toString()}%`,
+              (hp) => `${(zoomScale(hp ?? -Infinity) * 100).toString()}%`,
             )}
             stopColor="#737373"
           />
           <animated.stop
             offset={hoverpoint.to(
               (hp) =>
-                `${Math.min(100, (hp ?? -Infinity) * 100 + 30).toString()}%`,
+                `${Math.min(100, zoomScale(hp ?? -Infinity) * 100 + 30).toString()}%`,
             )}
             stopColor="transparent"
           />
           <animated.stop offset="100%" stopColor="transparent" />
         </linearGradient>
         <mask id="mask">
-          <rect
-            key={`${identifier}-mask`}
-            x={xScale(bounds[0])}
-            width={Math.max(0, xScale(bounds[1] - bounds[0]))}
-            y={10.75}
-            height={7.5}
-            className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white transition-[fill] duration-75 ease-in-out"
-          />
-          <rect
-            key={`${identifier}-leftmask`}
-            x={xScale(0)}
-            width={Math.max(0, xScale(bounds[0]))}
-            y={10.75}
-            height={7.5}
-            className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out"
-          />
-          <rect
-            key={`${identifier}-rightmask`}
-            x={xScale(bounds[1])}
-            width={Math.max(0, xScale(1 - bounds[1]))}
-            y={10.75}
-            height={7.5}
-            className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out"
-          />
+          {showLine && (
+            <rect
+              key={`${identifier}-mask`}
+              x={xScale(bounds[0])}
+              width={Math.max(0, xScale(bounds[1] - bounds[0]))}
+              y={10.75}
+              height={7.5}
+              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white transition-[fill] duration-75 ease-in-out"
+            />
+          )}
+          {showLine && (
+            <rect
+              key={`${identifier}-leftmask`}
+              x={xScale(0)}
+              width={Math.max(0, xScale(bounds[0]))}
+              y={10.75}
+              height={7.5}
+              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out"
+            />
+          )}
+          {showLine && (
+            <rect
+              key={`${identifier}-rightmask`}
+              x={xScale(bounds[1])}
+              width={Math.max(0, xScale(1 - bounds[1]))}
+              y={10.75}
+              height={7.5}
+              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out"
+            />
+          )}
           {timedFrames.map((tick) => (
             <rect
               key={tick.key}
-              x={xScale(tick.stamp) - 1}
+              x={xScale(zoomScale(tick.stamp)) - 1}
               y={0}
               width={2}
               height={30}

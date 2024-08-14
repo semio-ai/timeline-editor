@@ -7,9 +7,10 @@ import { computeFrames } from "./actions/compute-frames";
 
 export interface DataDisplayProps {
   trackIds?: string[];
+  disabled?: boolean;
 }
 
-function InnerDataDisplay({ trackIds }: DataDisplayProps) {
+function InnerDataDisplay({ trackIds, disabled }: DataDisplayProps) {
   const filter = trackIds || [];
   const { active, passive } = useAnimationStore(
     useDeep((state: AnimationData) => {
@@ -37,7 +38,7 @@ function InnerDataDisplay({ trackIds }: DataDisplayProps) {
           instanceInfo={active[activeKey].instanceInfo}
           stamp={active[activeKey].stamp}
           // parentActive={parentActive}
-          active
+          active={!disabled}
         />
       ))}
     </>

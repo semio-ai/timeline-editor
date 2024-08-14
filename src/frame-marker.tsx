@@ -27,6 +27,7 @@ function InnerFrameMarker({
   const {
     frameCount,
     scale: xScale,
+    zoom: zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackBounds();
 
@@ -72,11 +73,8 @@ function InnerFrameMarker({
         if (!active) {
           return;
         }
-        const newPosition = clamp(
-          ((state.xy[0] || 0) - timelineLeft) /
-            (timelineWidth - TIMELINE_PADDING),
-          0,
-          1,
+        const newPosition = zoomScale.invert(
+          clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
         );
         const newStamp = state.shiftKey
           ? newPosition
@@ -87,6 +85,7 @@ function InnerFrameMarker({
       },
     },
     {
+      axis: "x",
       drag: {
         // bounds,
         filterTaps: true,
@@ -120,7 +119,7 @@ function InnerFrameMarker({
       //   resetPlayer(stamp);
       // }}
       style={{
-        transform: `translateX(${xScale(stamp).toString()}px`,
+        transform: `translateX(${xScale(zoomScale(stamp)).toString()}px`,
       }}
     >
       <path
@@ -130,23 +129,28 @@ function InnerFrameMarker({
           active
             ? "dark:stroke-default-300 stroke-default-700"
             : "dark:stroke-default-400/50 stroke-default-600/50",
-          "group-hover:translate-y-0 group-aria-expanded:translate-y-0 group-hover:scale-y-100 group-aria-expanded:scale-y-100",
-          "group-aria-selected/frame:scale-y-100 group-aria-selected/frame:translate-y-0",
-          "group-hover/frame:group-aria-selected/frame:stroke-transparent",
+          active &&
+            "group-hover:translate-y-0 group-aria-expanded:translate-y-0 group-hover:scale-y-100 group-aria-expanded:scale-y-100",
+          active &&
+            "group-aria-selected/frame:scale-y-100 group-aria-selected/frame:translate-y-0",
+          active &&
+            "group-hover/frame:group-aria-selected/frame:stroke-transparent",
           // "group-hover:group-aria-selected/frame:dark:stroke-transparent group-hover:group-aria-selected/frame:stroke-transparent",
         )}
       />
-      <path
-        d={hoveredPath}
-        className={clsx(
-          "transition-[colors,stroke,transform] duration-75 stroke-2 stroke-transparent scale-x-0",
-          "group-hover/frame:scale-x-100 group-aria-selected/frame:scale-x-100",
-          "group-hover/frame:dark:stroke-default-300 group-hover/frame:stroke-default-700",
-          "group-aria-selected/frame:dark:stroke-default-300 group-aria-selected/frame:stroke-default-700",
-          "dark:fill-primary-100 fill-primary-900",
-          "group-aria-selected/frame:dark:fill-info-100 group-aria-selected/frame:fill-info-900",
-        )}
-      />
+      {active && (
+        <path
+          d={hoveredPath}
+          className={clsx(
+            "transition-[colors,stroke,transform] duration-75 stroke-2 stroke-transparent scale-x-0",
+            "group-hover/frame:scale-x-100 group-aria-selected/frame:scale-x-100",
+            "group-hover/frame:dark:stroke-default-300 group-hover/frame:stroke-default-700",
+            "group-aria-selected/frame:dark:stroke-default-300 group-aria-selected/frame:stroke-default-700",
+            "dark:fill-primary-100 fill-primary-900",
+            "group-aria-selected/frame:dark:fill-info-100 group-aria-selected/frame:fill-info-900",
+          )}
+        />
+      )}
       {/* <animated.path
         className={clsx(
           "touch-none transition-[colors,stroke] duration-75 dark:stroke-default-400 stroke-default-600",

@@ -22,6 +22,7 @@ function InnerBoundsDisplay({
   const {
     frameCount,
     scale: xScale,
+    zoom: zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackBounds();
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
@@ -59,11 +60,13 @@ function InnerBoundsDisplay({
       },
       onHover: ({ hovering: h }) => setHovering(h || false),
       onDrag: (state) => {
-        const newPosition = clamp(
-          ((state.xy[0] || 0) - timelineLeft) /
-            (timelineWidth - TIMELINE_PADDING),
-          0,
-          1,
+        const newPosition = zoomScale.invert(
+          clamp(
+            ((state.xy[0] || 0) - timelineLeft) /
+              (timelineWidth - TIMELINE_PADDING),
+            0,
+            1,
+          ),
         );
         const newValue = state.altKey
           ? newPosition
@@ -79,7 +82,14 @@ function InnerBoundsDisplay({
         state.event.stopPropagation();
       },
     },
-    { drag: { filterTaps: true } },
+    {
+      drag: {
+        filterTaps: true,
+        pointer: {
+          capture: false,
+        },
+      },
+    },
   );
 
   const gestureBindingsRight = useGesture(
@@ -94,10 +104,8 @@ function InnerBoundsDisplay({
       },
       onHover: ({ hovering: h }) => setHovering(h || false),
       onDrag: (state) => {
-        const newPosition = clamp(
-          ((state.xy[0] || 0) - timelineLeft) / timelineWidth,
-          0,
-          1,
+        const newPosition = zoomScale.invert(
+          clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
         );
         const newValue = state.shiftKey
           ? newPosition
@@ -113,22 +121,32 @@ function InnerBoundsDisplay({
         state.event.stopPropagation();
       },
     },
-    { drag: { filterTaps: true } },
+    {
+      axis: "x",
+      drag: {
+        filterTaps: true,
+        pointer: {
+          capture: false,
+        },
+      },
+    },
   );
+
+  const zoomBounds = bounds.map(zoomScale) as [number, number];
 
   return (
     <>
       {false && (
         <>
           <path
-            d={`M${xScale(0).toString()} 15 L${xScale(bounds[0]).toString()} 15`}
+            d={`M${xScale(0).toString()} 15 L${xScale(zoomBounds[0]).toString()} 15`}
             className={clsx(
               "group-aria-expanded:stroke-[30px] group-hover:stroke-[30px] stroke-[7.5px]",
               "dark:stroke-neutral-900/25 stroke-neutral-100/25 transition-all duration-75",
             )}
           />
           <path
-            d={`M${xScale(bounds[1]).toString()} 15 L${xScale(1).toString()} 15`}
+            d={`M${xScale(zoomBounds[1]).toString()} 15 L${xScale(1).toString()} 15`}
             className={clsx(
               "group-aria-expanded:stroke-[30px] group-hover:stroke-[30px] stroke-[7.5px]",
               "dark:stroke-neutral-900/25 stroke-neutral-100/25 transition-all duration-75",
@@ -137,9 +155,9 @@ function InnerBoundsDisplay({
         </>
       )}
       <rect
-        x={xScale(bounds[0])}
+        x={xScale(zoomBounds[0])}
         y={0}
-        width={Math.max(0, xScale(bounds[1]) - xScale(bounds[0]))}
+        width={Math.max(0, xScale(zoomBounds[1]) - xScale(zoomBounds[0]))}
         height={30}
         className={
           dragging
@@ -169,19 +187,19 @@ function InnerBoundsDisplay({
         }}
       >
         <path
-          d={getPath(xScale, bounds, "left", isTop, isBottom)}
+          d={getPath(xScale, zoomBounds, "left", isTop, isBottom)}
           className={clsx(
             "transition-[fill]",
             getFill("left", bounds[0] === 0),
           )}
         />
         <path
-          d={`M${xScale(bounds[0]).toString()} 0 L${xScale(bounds[0]).toString()} 30Z`}
+          d={`M${xScale(zoomBounds[0]).toString()} 0 L${xScale(zoomBounds[0]).toString()} 30Z`}
           className={clsx("transition-stroke duration-75", getStroke("left"))}
         />
         <rect
           {...gestureBindingsLeft()}
-          x={xScale(bounds[0]) - (hovering ? 10 : 7)}
+          x={xScale(zoomBounds[0]) - (hovering ? 10 : 7)}
           y={0}
           width={hovering ? 20 : 14}
           height={30}
@@ -207,19 +225,19 @@ function InnerBoundsDisplay({
         }}
       >
         <path
-          d={getPath(xScale, bounds, "right", isTop, isBottom)}
+          d={getPath(xScale, zoomBounds, "right", isTop, isBottom)}
           className={clsx(
             "transition-[fill]",
             getFill("right", bounds[1] === 1),
           )}
         />
         <path
-          d={`M${xScale(bounds[1]).toString()} 0 L${xScale(bounds[1]).toString()} 30Z`}
+          d={`M${xScale(zoomBounds[1]).toString()} 0 L${xScale(zoomBounds[1]).toString()} 30Z`}
           className={clsx("transition-stroke duration-75", getStroke("right"))}
         />
         <rect
           {...gestureBindingsRight()}
-          x={xScale(bounds[1]) - (hovering ? 10 : 14)}
+          x={xScale(zoomBounds[1]) - (hovering ? 10 : 14)}
           y={0}
           width={hovering ? 20 : 14}
           height={30}

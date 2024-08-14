@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState, memo, useContext } from "react";
 import { SpringValue, animated } from "@react-spring/web";
 import { useGesture } from "@use-gesture/react";
+import { clamp } from "lodash";
 import {
   closestFrame,
   // getHexagonPath,
@@ -11,15 +12,23 @@ import { useShallow } from "zustand/react/shallow";
 import { AnimationContext } from "./context";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useAnimationStore } from "./hooks/use-animation-store";
+import { TIMELINE_PADDING } from "./constants";
 
 export interface PlayheadProps {
   isTop?: boolean;
   isBottom?: boolean;
+  minimap?: boolean;
 }
 
-function Playhead({ isTop = true, isBottom = true }: PlayheadProps): ReactNode {
+function Playhead({
+  isTop = true,
+  isBottom = true,
+  minimap = false,
+}: PlayheadProps): ReactNode {
   const {
     scale: xScale,
+    zoom: zoomScale,
+    zoomReference: zoomRefScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     frameCount,
   } = useTrackBounds();
@@ -88,7 +97,9 @@ function Playhead({ isTop = true, isBottom = true }: PlayheadProps): ReactNode {
   const gestureBindings = useGesture(
     {
       onDrag: (state) => {
-        const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
+        const newPosition = zoomScale.invert(
+          clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+        );
         if (state.shiftKey) {
           resetPlayer(newPosition);
         } else {
@@ -101,7 +112,9 @@ function Playhead({ isTop = true, isBottom = true }: PlayheadProps): ReactNode {
       },
     },
     {
+      axis: "x",
       drag: {
+        filterTaps: true,
         pointer: {
           capture: false,
         },
@@ -113,7 +126,9 @@ function Playhead({ isTop = true, isBottom = true }: PlayheadProps): ReactNode {
     <animated.g
       className="cursor-pointer touch-none"
       style={{
-        transform: completion.to((c) => `translateX(${xScale(c).toString()}px`),
+        transform: completion.to(
+          (c) => `translateX(${xScale(zoomScale(c)).toString()}px`,
+        ),
         filter: "drop-shadow(0px 0px 2px rgba(0, 0, 0, 0.5))",
       }}
       {...gestureBindings()}
@@ -134,15 +149,15 @@ function Playhead({ isTop = true, isBottom = true }: PlayheadProps): ReactNode {
       />
       {/* Middle Hexagon */}
       {/* <animated.path
-        d={d}
-        className={clsx(
-          "stroke-1",
-          "transition-[fill]",
-          hovered
-            ? "dark:stroke-white stroke-black dark:fill-info-100 fill-info-900"
-            : "dark:stroke-neutral-300 stroke-neutral-700 fill-info-500",
-        )}
-      /> */}
+          d={d}
+          className={clsx(
+            "stroke-1",
+            "transition-[fill]",
+            hovered
+              ? "dark:stroke-white stroke-black dark:fill-info-100 fill-info-900"
+              : "dark:stroke-neutral-300 stroke-neutral-700 fill-info-500",
+          )}
+        /> */}
     </animated.g>
   );
 }

@@ -10,6 +10,7 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 import { PlaybackControls } from "./playback-controls";
 import { Timeline } from "./timeline";
 import { TrackList } from "./track-list";
+import { Minimap } from "./minimap";
 
 export function AnimationSheet(): ReactNode {
   const ctx = useContext(AnimationContext);
@@ -85,8 +86,8 @@ export function InnerSheet(): ReactNode {
               <Timeline
                 trackIds={selectedTrack === "all" ? [] : [selectedTrack]}
               />
-              <div className="w-full h-[30px] items-center px-4 text-black dark:text-white">
-                Minimap
+              <div className="w-full h-[30px] items-center text-black dark:text-white">
+                <Minimap />
               </div>
             </div>
           </div>

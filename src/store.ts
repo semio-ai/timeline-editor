@@ -4,6 +4,7 @@ import {
   play,
   pause,
   setBounds,
+  setViewport,
   RawValue,
   Write,
   StoreSubscribeWithSelector,
@@ -316,6 +317,33 @@ export const AnimationSlice = (
         } else {
           return {
             player: setBounds(state.player, [state.player.bounds[0], time]),
+          };
+        }
+      });
+    },
+    // Set the player viewport
+    updatePlayerViewport: (start: number, end: number) => {
+      set((state: AnimationData) => ({
+        player: setViewport(state.player, [start, end]),
+      }));
+    },
+    updatePlayerViewportBound: (bound: "start" | "end", time: number) => {
+      set((state: AnimationData) => {
+        if (bound === "start" && state.player.viewport[1] <= time) {
+          return {
+            player: setViewport(state.player, [state.player.viewport[1], time]),
+          };
+        } else if (bound === "end" && state.player.viewport[0] >= time) {
+          return {
+            player: setViewport(state.player, [time, state.player.viewport[0]]),
+          };
+        } else if (bound === "start") {
+          return {
+            player: setViewport(state.player, [time, state.player.viewport[1]]),
+          };
+        } else {
+          return {
+            player: setViewport(state.player, [state.player.viewport[0], time]),
           };
         }
       });

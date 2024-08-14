@@ -1,7 +1,6 @@
-import { intersection } from "lodash";
+import type { RawValue } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import type { Keyframe, Keypoint, Track } from "../types";
-import { RawValue } from "@semio/utils";
 
 export function createKeyframe(
   state: AnimationData,

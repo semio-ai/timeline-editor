@@ -107,6 +107,10 @@ export interface AnimationActions {
   updatePlayerBounds: (start: number, end: number) => void;
   // Update one bound of the player
   updatePlayerBound: (bound: "start" | "end", time: number) => void;
+  // Set the player viewport
+  updatePlayerViewport: (start: number, end: number) => void;
+  // Update one bound of the player viewport
+  updatePlayerViewportBound: (bound: "start" | "end", time: number) => void;
   // The current next keyframe time (optionally filter by track)
   nextKeyframeTime: (
     state: AnimationData,

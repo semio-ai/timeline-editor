@@ -1,5 +1,4 @@
 import type { AnimationData } from "../store-types";
-import type { Track } from "../types";
 
 export function removeKeyframe(
   state: AnimationData,

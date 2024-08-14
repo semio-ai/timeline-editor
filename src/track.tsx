@@ -15,12 +15,17 @@ import { DataDisplay } from "./data-display";
 import { TrackBoundsContext } from "./hooks/use-track-bounds";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 import { TrackBackground } from "./track-background";
+import { ZoomDisplay } from "./zoom-display";
 
 export interface TrackProps {
   width: number;
   trackIds?: string[];
   isTop?: boolean;
   isBottom?: boolean;
+  canZoom?: boolean;
+  showBackground?: boolean;
+  showData?: boolean;
+  showZoomControls?: boolean;
 }
 
 export function Track({
@@ -28,6 +33,10 @@ export function Track({
   trackIds,
   isTop = true,
   isBottom = true,
+  canZoom = true,
+  showBackground = true,
+  showData = true,
+  showZoomControls = false,
 }: TrackProps): ReactNode {
   const resetPlayer = useAnimationStore(
     useShallow((state: AnimationActions) => state.resetPlayer),
@@ -55,12 +64,32 @@ export function Track({
 
   const [activeRegionRef, activeRegionBounds] = useMeasure();
 
+  const viewport = useAnimationStore(
+    (state: AnimationData) => state.player.viewport,
+  );
+
+  const zoomScale = useMemo(
+    () =>
+      scaleLinear({
+        domain: canZoom ? viewport : [0, 1],
+        range: [0, 1],
+      }),
+    [canZoom, viewport],
+  );
+  const zoomReferenceScale = useMemo(
+    () =>
+      scaleLinear({
+        domain: viewport,
+        range: [0, 1],
+      }),
+    [viewport],
+  );
   const xScale = useMemo(
     () =>
       scaleLinear({
         domain: [0, 1],
         range: [TIMELINE_PADDING, width - TIMELINE_PADDING],
-        clamp: true,
+        // clamp: true,
       }),
     [width],
   );
@@ -68,9 +97,10 @@ export function Track({
   const gestureBindings = useGesture({
     onDoubleClick: (state) => {
       // console.log(state);
-      const newPosition =
+      const newPosition = zoomScale.invert(
         ((state.event.clientX ?? 0) - activeRegionBounds.left) /
-        (activeRegionBounds.width - TIMELINE_PADDING);
+          activeRegionBounds.width,
+      );
       if (state.altKey) {
         resetPlayer(newPosition);
       } else {
@@ -84,9 +114,10 @@ export function Track({
       }
     },
     onMove: (state) => {
-      const newPosition =
+      const newPosition = zoomScale.invert(
         ((state.xy[0] || 0) - activeRegionBounds.left) /
-        (activeRegionBounds.width - TIMELINE_PADDING);
+          activeRegionBounds.width,
+      );
       if (state.altKey) {
         setHoverpoint(newPosition);
         // setHoveredSpan(getInclusionSpan(frames, newPosition));
@@ -100,7 +131,13 @@ export function Track({
 
   return (
     <TrackBoundsContext.Provider
-      value={{ bounds: activeRegionBounds, scale: xScale, frameCount }}
+      value={{
+        bounds: activeRegionBounds,
+        scale: xScale,
+        frameCount,
+        zoom: zoomScale,
+        zoomReference: zoomReferenceScale,
+      }}
     >
       <svg
         height={30}
@@ -111,14 +148,19 @@ export function Track({
         <rect
           ref={activeRegionRef}
           x={xScale(0)}
-          width={Math.max(0, xScale(1))}
+          width={Math.max(0, width - TIMELINE_PADDING * 2)}
           className="h-[30px]"
         />
-        <TrackBackground />
+        {showBackground && <TrackBackground showLine={showBackground} />}
         <HoverMarker />
         <BoundsDisplay isTop={isTop} isBottom={isBottom} />
-        <Playhead isTop={isTop} isBottom={isBottom} />
-        <DataDisplay trackIds={trackIds} />
+        <Playhead
+          isTop={isTop}
+          isBottom={isBottom}
+          minimap={showZoomControls}
+        />
+        {!canZoom && <ZoomDisplay />}
+        <DataDisplay trackIds={trackIds} disabled={!showData} />
       </svg>
     </TrackBoundsContext.Provider>
   );

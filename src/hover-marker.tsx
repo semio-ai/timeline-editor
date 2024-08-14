@@ -9,7 +9,7 @@ import { useHoverSpring } from "./hooks/use-hover-spring";
 // export interface HoverMarkerProps {}
 
 function HoverMarker(): ReactNode {
-  const { scale: xScale } = useTrackBounds();
+  const { scale: xScale, zoom: zoomScale } = useTrackBounds();
   const { hoverpoint } = useHoverSpring();
   const selection = useAnimationStore(
     useShallow(
@@ -29,7 +29,8 @@ function HoverMarker(): ReactNode {
           hoverXval === undefined ? 0 : 2,
         ),
         transform: hoverpoint.to(
-          (hoverXval) => `translateX(${xScale(hoverXval ?? 0).toString()}px)`,
+          (hoverXval) =>
+            `translateX(${xScale(zoomScale(hoverXval ?? 0)).toString()}px)`,
         ),
       }}
       className={clsx(
