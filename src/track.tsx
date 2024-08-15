@@ -76,14 +76,6 @@ export function Track({
       }),
     [canZoom, viewport],
   );
-  const zoomReferenceScale = useMemo(
-    () =>
-      scaleLinear({
-        domain: viewport,
-        range: [0, 1],
-      }),
-    [viewport],
-  );
   const xScale = useMemo(
     () =>
       scaleLinear({
@@ -136,7 +128,6 @@ export function Track({
         scale: xScale,
         frameCount,
         zoom: zoomScale,
-        zoomReference: zoomReferenceScale,
       }}
     >
       <svg

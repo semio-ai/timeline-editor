@@ -6,7 +6,6 @@ export const TrackBoundsContext = createContext<{
   bounds: RectReadOnly;
   scale: ScaleLinear;
   zoom: ScaleLinear;
-  zoomReference?: ScaleLinear;
   frameCount: number;
 }>({
   bounds: {

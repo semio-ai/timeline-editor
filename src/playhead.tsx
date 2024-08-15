@@ -28,7 +28,6 @@ function Playhead({
   const {
     scale: xScale,
     zoom: zoomScale,
-    zoomReference: zoomRefScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     frameCount,
   } = useTrackBounds();

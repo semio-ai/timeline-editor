@@ -11,6 +11,7 @@ import { PlaybackControls } from "./playback-controls";
 import { Timeline } from "./timeline";
 import { TrackList } from "./track-list";
 import { Minimap } from "./minimap";
+import { Ruler } from "./ruler";
 
 export function AnimationSheet(): ReactNode {
   const ctx = useContext(AnimationContext);
@@ -60,7 +61,7 @@ export function InnerSheet(): ReactNode {
           </IconButton>
         </div>
         <div className="flex-1 xs:w-64 transition-[width] h-full overflow-hidden text-black dark:text-white">
-          ruler
+          <Ruler side="top" />
         </div>
       </div>
       <div className="divide-y divide-transparent">
@@ -74,7 +75,7 @@ export function InnerSheet(): ReactNode {
           {expanded && <TrackList />}
         </div>
         {/* Content */}
-        <div className="flex flex-row group shadow-md">
+        <div className="flex flex-row group">
           <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-[60px]">
             <PlaybackControls
               track={selectedTrack}
@@ -91,6 +92,17 @@ export function InnerSheet(): ReactNode {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+      <div
+        className={clsx(
+          "h-4 overflow-hidden",
+          "relative bg-transparent w-full flex flex-row text-xs",
+        )}
+      >
+        <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-full duration-75 flex items-center justify-center" />
+        <div className="flex-1 xs:w-64 transition-[width] h-full overflow-hidden text-black dark:text-white">
+          <Ruler side="bottom" />
         </div>
       </div>
     </div>
