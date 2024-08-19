@@ -5,6 +5,7 @@ import type { AnimationData } from "../store-types";
 // import { SemanticTime } from "../store-types";
 import { AnimationContext } from "../context";
 import { defaultScaleLinear, type ScaleLinear } from "../scale-linear";
+import { springConfig } from "../spring-config";
 
 /*
   @name useAnimationStore
@@ -27,13 +28,7 @@ export function useStaticZoomedSpring(
   const zoomScale = useRef<ScaleLinear>(defaultScaleLinear);
 
   const zoomedSpring = useSpringValue<number>(zoomScale.current(completion), {
-    config: {
-      // duration: 50,
-      // easing: easings.easeInElastic,
-      tension: 400,
-      friction: 20,
-      clamp: true,
-    },
+    config: springConfig,
   });
 
   const onViewportChange = useCallback(

@@ -4,6 +4,7 @@ import { scaleLinear } from "@visx/scale";
 import type { AnimationData } from "../store-types";
 import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
+import { springConfig } from "../spring-config";
 
 /*
   @name useAnimationStore
@@ -29,13 +30,7 @@ export function usePlayheadSpring(ignoreZoom?: boolean): SpringValue<number> {
   const hoverpointSpring = useSpringValue<number>(
     store!.getState().player.stamp,
     {
-      config: {
-        tension: 400,
-        friction: 20,
-        clamp: true,
-        // duration: 50,
-        // easing: easings.easeInElastic
-      },
+      config: springConfig,
     },
   );
   useEffect(() => {

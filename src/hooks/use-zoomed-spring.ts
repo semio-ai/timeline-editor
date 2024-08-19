@@ -7,6 +7,7 @@ import type { AnimationData, AnimationActions } from "../store-types";
 import { AnimationContext } from "../context";
 import { defaultScaleLinear, type ScaleLinear } from "../scale-linear";
 import { useAnimationStore } from "./use-animation-store";
+import { springConfig } from "../spring-config";
 
 /*
   @name useAnimationStore
@@ -38,11 +39,7 @@ export function useZoomedSpring(ignoreZoom?: boolean): {
   const zoomedSpring = useSpringValue<number>(
     zoomScale.current(storedValue.current || 0),
     {
-      config: {
-        tension: 400,
-        friction: 20,
-        clamp: true,
-      },
+      config: springConfig,
     },
   );
 

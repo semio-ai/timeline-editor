@@ -138,7 +138,11 @@ export function Track({
         />
         <TrackBackground showLine={showBackground} ignoreZoom={!canZoom} />
         <HoverMarker ignoreZoom={!canZoom} />
-        <BoundsDisplay isTop={isTop} isBottom={isBottom} />
+        <BoundsDisplay
+          isTop={isTop}
+          isBottom={isBottom}
+          ignoreZoom={!canZoom}
+        />
         <Playhead
           isTop={isTop}
           isBottom={isBottom}

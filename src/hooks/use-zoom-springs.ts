@@ -5,6 +5,7 @@ import type { AnimationData } from "../store-types";
 // import { SemanticTime } from "../store-types";
 import { AnimationContext } from "../context";
 import { useAnimationStore } from "./use-animation-store";
+import { springConfig } from "../spring-config";
 
 /*
   @name useAnimationStore
@@ -28,21 +29,13 @@ export function useZoomSprings(): {
   const leftSpring = useSpringValue<number>(
     store.getState().player.viewport[0],
     {
-      config: {
-        tension: 400,
-        friction: 20,
-        clamp: true,
-      },
+      config: springConfig,
     },
   );
   const rightSpring = useSpringValue<number>(
     store.getState().player.viewport[1],
     {
-      config: {
-        tension: 400,
-        friction: 20,
-        clamp: true,
-      },
+      config: springConfig,
     },
   );
 

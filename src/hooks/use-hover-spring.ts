@@ -5,6 +5,7 @@ import type { AnimationData, AnimationActions } from "../store-types";
 import { SemanticTime } from "../store-types";
 import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
+import { springConfig } from "../spring-config";
 
 /*
   @name useAnimationStore
@@ -44,13 +45,7 @@ export function useHoverSpring(ignoreZoom?: boolean): {
       .getState()
       .previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp,
     {
-      config: {
-        tension: 400,
-        friction: 20,
-        clamp: true,
-        // duration: 50,
-        // easing: easings.easeInElastic
-      },
+      config: springConfig,
     },
   );
   useEffect(() => {

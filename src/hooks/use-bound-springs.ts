@@ -4,6 +4,7 @@ import { scaleLinear } from "@visx/scale";
 import type { AnimationData } from "../store-types";
 import { AnimationContext } from "../context";
 import { defaultScaleLinear, type ScaleLinear } from "../scale-linear";
+import { springConfig } from "../spring-config";
 
 /*
   @name useAnimationStore
@@ -24,13 +25,19 @@ export function useBoundSprings(ignoreZoom?: boolean): {
 
   const zoomScale = useRef<ScaleLinear>(defaultScaleLinear);
 
-  const leftSpring = useSpringValue<number>(store.getState().player.bounds[0]);
-  const rightSpring = useSpringValue<number>(store.getState().player.bounds[1]);
+  const leftSpring = useSpringValue<number>(store.getState().player.bounds[0], {
+    config: springConfig,
+  });
+  const rightSpring = useSpringValue<number>(
+    store.getState().player.bounds[1],
+    { config: springConfig },
+  );
   const widthSpring = useSpringValue<number>(
     Math.max(
       0,
       store.getState().player.viewport[1] - store.getState().player.viewport[0],
     ),
+    { config: springConfig },
   );
 
   useEffect(() => {
@@ -53,6 +60,7 @@ export function useBoundSprings(ignoreZoom?: boolean): {
         domain: viewport,
         range: [0, 1],
       });
+      zoomScale.current = scale;
       const bounds = store.getState().player.bounds;
       void leftSpring.start(scale(bounds[0]));
       void rightSpring.start(scale(bounds[1]));
