@@ -42,6 +42,7 @@ export interface AnimationActions {
     animationId?: string,
     fillPoints?: boolean,
   ) => void;
+  createNewDefaultAnimation: () => void;
   // Add a new keyframe to the animation at the current time;
   createAutoKeyframe: () => void;
   // Remove a keyframe from the animation
