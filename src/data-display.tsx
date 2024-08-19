@@ -8,9 +8,14 @@ import { computeFrames } from "./actions/compute-frames";
 export interface DataDisplayProps {
   trackIds?: string[];
   disabled?: boolean;
+  ignoreZoom?: boolean;
 }
 
-function InnerDataDisplay({ trackIds, disabled }: DataDisplayProps) {
+function InnerDataDisplay({
+  trackIds,
+  disabled,
+  ignoreZoom = false,
+}: DataDisplayProps) {
   const filter = trackIds || [];
   const { active, passive } = useAnimationStore(
     useDeep((state: AnimationData) => {
@@ -27,6 +32,7 @@ function InnerDataDisplay({ trackIds, disabled }: DataDisplayProps) {
           frame={passive[passiveKey].frame}
           instanceInfo={passive[passiveKey].instanceInfo}
           stamp={passive[passiveKey].stamp}
+          ignoreZoom={ignoreZoom}
           // parentActive={parentActive}
         />
       ))}
@@ -37,6 +43,7 @@ function InnerDataDisplay({ trackIds, disabled }: DataDisplayProps) {
           frame={active[activeKey].frame}
           instanceInfo={active[activeKey].instanceInfo}
           stamp={active[activeKey].stamp}
+          ignoreZoom={ignoreZoom}
           // parentActive={parentActive}
           active={!disabled}
         />

@@ -16,6 +16,7 @@ import { TrackBoundsContext } from "./hooks/use-track-bounds";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 import { TrackBackground } from "./track-background";
 import { ZoomDisplay } from "./zoom-display";
+import { useWithZoom } from "./hooks/use-with-zoom";
 
 export interface TrackProps {
   width: number;
@@ -64,18 +65,8 @@ export function Track({
 
   const [activeRegionRef, activeRegionBounds] = useMeasure();
 
-  const viewport = useAnimationStore(
-    (state: AnimationData) => state.player.viewport,
-  );
+  const withZoom = useWithZoom(!canZoom);
 
-  const zoomScale = useMemo(
-    () =>
-      scaleLinear({
-        domain: canZoom ? viewport : [0, 1],
-        range: [0, 1],
-      }),
-    [canZoom, viewport],
-  );
   const xScale = useMemo(
     () =>
       scaleLinear({
@@ -89,16 +80,18 @@ export function Track({
   const gestureBindings = useGesture({
     onDoubleClick: (state) => {
       // console.log(state);
-      const newPosition = zoomScale.invert(
-        ((state.event.clientX ?? 0) - activeRegionBounds.left) /
-          activeRegionBounds.width,
-      );
-      if (state.altKey) {
-        resetPlayer(newPosition);
-      } else {
-        const closest: number = closestFrame(newPosition, frameCount);
-        resetPlayer(closest);
-      }
+      withZoom((zoomScale) => {
+        const newPosition = zoomScale.invert(
+          ((state.event.clientX ?? 0) - activeRegionBounds.left) /
+            activeRegionBounds.width,
+        );
+        if (state.altKey) {
+          resetPlayer(newPosition);
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          resetPlayer(closest);
+        }
+      });
     },
     onHover: (state) => {
       if (!state.hovering) {
@@ -106,18 +99,20 @@ export function Track({
       }
     },
     onMove: (state) => {
-      const newPosition = zoomScale.invert(
-        ((state.xy[0] || 0) - activeRegionBounds.left) /
-          activeRegionBounds.width,
-      );
-      if (state.altKey) {
-        setHoverpoint(newPosition);
-        // setHoveredSpan(getInclusionSpan(frames, newPosition));
-      } else {
-        const closest: number = closestFrame(newPosition, frameCount);
-        setHoverpoint(closest);
-        // setHoveredSpan(getInclusionSpan(frames, closest));
-      }
+      withZoom((zoomScale) => {
+        const newPosition = zoomScale.invert(
+          ((state.xy[0] || 0) - activeRegionBounds.left) /
+            activeRegionBounds.width,
+        );
+        if (state.altKey) {
+          setHoverpoint(newPosition);
+          // setHoveredSpan(getInclusionSpan(frames, newPosition));
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          setHoverpoint(closest);
+          // setHoveredSpan(getInclusionSpan(frames, closest));
+        }
+      });
     },
   });
 
@@ -127,7 +122,6 @@ export function Track({
         bounds: activeRegionBounds,
         scale: xScale,
         frameCount,
-        zoom: zoomScale,
       }}
     >
       <svg
@@ -142,8 +136,8 @@ export function Track({
           width={Math.max(0, width - TIMELINE_PADDING * 2)}
           className="h-[30px]"
         />
-        {showBackground && <TrackBackground showLine={showBackground} />}
-        <HoverMarker />
+        <TrackBackground showLine={showBackground} ignoreZoom={!canZoom} />
+        <HoverMarker ignoreZoom={!canZoom} />
         <BoundsDisplay isTop={isTop} isBottom={isBottom} />
         <Playhead
           isTop={isTop}
@@ -151,7 +145,11 @@ export function Track({
           minimap={showZoomControls}
         />
         {!canZoom && <ZoomDisplay />}
-        <DataDisplay trackIds={trackIds} disabled={!showData} />
+        <DataDisplay
+          trackIds={trackIds}
+          disabled={!showData}
+          ignoreZoom={!canZoom}
+        />
       </svg>
     </TrackBoundsContext.Provider>
   );

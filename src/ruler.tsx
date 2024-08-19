@@ -1,13 +1,16 @@
 import { type ReactNode, useMemo } from "react";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
+import { animated } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
 import useMeasure from "react-use-measure";
 import { clsx } from "clsx";
 import type { AnimationData } from "./store-types";
+import { type ScaleLinear } from "./scale-linear";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { TrackBoundsContext } from "./hooks/use-track-bounds";
 import { TIMELINE_PADDING } from "./constants";
+import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
 
 function InnerRuler({
   width,
@@ -26,18 +29,6 @@ function InnerRuler({
     ),
   );
 
-  const viewport = useAnimationStore(
-    useShallow((state: AnimationData) => state.player.viewport),
-  );
-
-  const zoomScale = useMemo(
-    () =>
-      scaleLinear({
-        domain: side === "top" ? viewport : [0, 1],
-        range: [0, 1],
-      }),
-    [side, viewport],
-  );
   const xScale = useMemo(
     () =>
       scaleLinear({
@@ -66,7 +57,6 @@ function InnerRuler({
         bounds: activeRegionBounds,
         scale: xScale,
         frameCount,
-        zoom: zoomScale,
       }}
     >
       <svg
@@ -81,22 +71,50 @@ function InnerRuler({
           className="h-[16px]"
         />
         {timedFrames.map((tick, i) => (
-          <rect
+          <Tick
             key={tick.key}
-            x={xScale(zoomScale(tick.stamp)) - 0.5}
-            y={getY(side, framerate, i)}
-            width={1}
-            height={i % framerate === 0 ? 8 : 4}
-            className={clsx(
-              "transition-[fill,transform] duration-75 ease-in-out",
-              i % framerate === 0
-                ? "fill-black dark:fill-white"
-                : "fill-black/50 dark:fill-white/50",
-            )}
+            completion={tick.stamp}
+            xScale={xScale}
+            side={side}
+            framerate={framerate}
+            idx={i}
+            ignoreZoom={side === "bottom"}
           />
         ))}
       </svg>
     </TrackBoundsContext.Provider>
+  );
+}
+
+function Tick({
+  ignoreZoom = false,
+  completion,
+  xScale,
+  side,
+  framerate,
+  idx,
+}: {
+  completion: number;
+  ignoreZoom?: boolean;
+  xScale: ScaleLinear;
+  side: "top" | "bottom";
+  framerate: number;
+  idx: number;
+}) {
+  const zoomedCompletion = useStaticZoomedSpring(completion, ignoreZoom);
+  return (
+    <animated.rect
+      x={zoomedCompletion.to((s) => xScale(s) - 0.5)}
+      y={getY(side, framerate, idx)}
+      width={1}
+      height={idx % framerate === 0 ? 8 : 4}
+      className={clsx(
+        "transition-[fill,transform] duration-75 ease-in-out",
+        idx % framerate === 0
+          ? "fill-black dark:fill-white"
+          : "fill-black/50 dark:fill-white/50",
+      )}
+    />
   );
 }
 

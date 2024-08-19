@@ -6,11 +6,13 @@ import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 
-// export interface HoverMarkerProps {}
+export interface HoverMarkerProps {
+  ignoreZoom?: boolean;
+}
 
-function HoverMarker(): ReactNode {
-  const { scale: xScale, zoom: zoomScale } = useTrackBounds();
-  const { hoverpoint } = useHoverSpring();
+function HoverMarker({ ignoreZoom = false }: HoverMarkerProps): ReactNode {
+  const { scale: xScale } = useTrackBounds();
+  const { hoverpoint } = useHoverSpring(ignoreZoom);
   const selection = useAnimationStore(
     useShallow(
       (state) =>
@@ -29,8 +31,7 @@ function HoverMarker(): ReactNode {
           hoverXval === undefined ? 0 : 2,
         ),
         transform: hoverpoint.to(
-          (hoverXval) =>
-            `translateX(${xScale(zoomScale(hoverXval ?? 0)).toString()}px)`,
+          (hoverXval) => `translateX(${xScale(hoverXval ?? 0).toString()}px)`,
         ),
       }}
       className={clsx(

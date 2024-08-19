@@ -21,5 +21,3 @@ export function Minimap() {
     </div>
   );
 }
-
-function InnerMinimap() {}

@@ -7,21 +7,25 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 // import { FrameMarker } from "./frame-marker";
 import { AnimationData } from "./store-types";
 // import { computeFrames } from "./actions/compute-frames";
+import type { ScaleLinear } from "./scale-linear";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
 
 export interface TrackBackgroundProps {
   trackIds?: string[];
   showLine?: boolean;
+  ignoreZoom?: boolean;
 }
 
 function InnerTrackBackground({
   trackIds,
   showLine = true,
+  ignoreZoom = false,
 }: TrackBackgroundProps) {
   const identifier: string = trackIds?.join("-") ?? "default";
-  const { scale: xScale, zoom: zoomScale } = useTrackBounds();
-  const { hoverpoint } = useHoverSpring();
+  const { scale: xScale } = useTrackBounds();
+  const { hoverpoint } = useHoverSpring(ignoreZoom);
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
@@ -53,20 +57,20 @@ function InnerTrackBackground({
           <animated.stop
             offset={hoverpoint.to(
               (hp) =>
-                `${Math.max(0, zoomScale(hp ?? -Infinity) * 100 - 30).toString()}%`,
+                `${Math.max(0, (hp ?? -Infinity) * 100 - 30).toString()}%`,
             )}
             stopColor="transparent"
           />
           <animated.stop
             offset={hoverpoint.to(
-              (hp) => `${(zoomScale(hp ?? -Infinity) * 100).toString()}%`,
+              (hp) => `${((hp ?? -Infinity) * 100).toString()}%`,
             )}
             stopColor="#737373"
           />
           <animated.stop
             offset={hoverpoint.to(
               (hp) =>
-                `${Math.min(100, zoomScale(hp ?? -Infinity) * 100 + 30).toString()}%`,
+                `${Math.min(100, (hp ?? -Infinity) * 100 + 30).toString()}%`,
             )}
             stopColor="transparent"
           />
@@ -104,18 +108,12 @@ function InnerTrackBackground({
             />
           )}
           {timedFrames.map((tick) => (
-            <rect
+            <Tick
               key={tick.key}
-              x={xScale(zoomScale(tick.stamp)) - 1}
-              y={0}
-              width={2}
-              height={30}
-              className={clsx(
-                "transition-[fill,transform] duration-75 ease-in-out group-aria-expanded:fill-white group-hover:fill-neutral-300 fill-transparent",
-                tick.stamp < bounds[0] || tick.stamp > bounds[1]
-                  ? "scale-y-[33%] translate-y-[10px] group-aria-expanded:fill-neutral-700 group-hover:fill-neutral-700"
-                  : "group-aria-expanded:fill-white group-hover:fill-white",
-              )}
+              completion={tick.stamp}
+              ignoreZoom={ignoreZoom}
+              xScale={xScale}
+              outsideBounds={tick.stamp < bounds[0] || tick.stamp > bounds[1]}
             />
           ))}
         </mask>
@@ -148,6 +146,34 @@ function InnerTrackBackground({
         )}
       />
     </>
+  );
+}
+
+function Tick({
+  completion,
+  xScale,
+  outsideBounds,
+  ignoreZoom,
+}: {
+  completion: number;
+  xScale: ScaleLinear;
+  outsideBounds: boolean;
+  ignoreZoom?: boolean;
+}) {
+  const zoomedCompletion = useStaticZoomedSpring(completion, ignoreZoom);
+  return (
+    <animated.rect
+      x={zoomedCompletion.to((c) => xScale(c) - 1)}
+      y={0}
+      width={2}
+      height={30}
+      className={clsx(
+        "transition-[fill,transform] duration-75 ease-in-out group-aria-expanded:fill-white group-hover:fill-neutral-300 fill-transparent",
+        outsideBounds
+          ? "scale-y-[33%] translate-y-[10px] group-aria-expanded:fill-neutral-700 group-hover:fill-neutral-700"
+          : "group-aria-expanded:fill-white group-hover:fill-white",
+      )}
+    />
   );
 }
 

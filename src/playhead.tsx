@@ -1,5 +1,5 @@
-import { type ReactNode, useEffect, useState, memo, useContext } from "react";
-import { SpringValue, animated } from "@react-spring/web";
+import { type ReactNode, useState, memo } from "react";
+import { animated } from "@react-spring/web";
 import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
 import {
@@ -8,11 +8,10 @@ import {
   // getDegenerateHexagonPath,
 } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-// import type { ScaleLinear } from "./scale-linear";
-import { AnimationContext } from "./context";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { TIMELINE_PADDING } from "./constants";
+import { useWithZoom } from "./hooks/use-with-zoom";
+import { usePlayheadSpring } from "./hooks/use-playhead-spring";
 
 export interface PlayheadProps {
   isTop?: boolean;
@@ -27,16 +26,13 @@ function Playhead({
 }: PlayheadProps): ReactNode {
   const {
     scale: xScale,
-    zoom: zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     frameCount,
   } = useTrackBounds();
 
-  const animationState = useContext(AnimationContext);
-
-  const completion = new SpringValue<number>(
-    animationState!.getState().player.stamp as number,
-  );
+  // const completion = new SpringValue<number>(
+  //   animationState!.getState().player.stamp as number,
+  // );
 
   // const playing = useAnimationStore(
   //   useShallow((state) => state.player.running),
@@ -59,20 +55,20 @@ function Playhead({
     useShallow((state) => state.resetPlayer),
   );
 
-  useEffect(() => {
-    if (!animationState) {
-      return;
-    }
-    const unsub = animationState.subscribe(
-      (state) => state.player.stamp as number,
-      (s: number) => {
-        // console.log("setting time", s);
-        completion.set(s);
-        completion;
-      },
-    );
-    return unsub;
-  });
+  // useEffect(() => {
+  //   if (!animationState) {
+  //     return;
+  //   }
+  //   const unsub = animationState.subscribe(
+  //     (state) => state.player.stamp as number,
+  //     (s: number) => {
+  //       // console.log("setting time", s);
+  //       completion.set(s);
+  //       completion;
+  //     },
+  //   );
+  //   return unsub;
+  // });
 
   // const keyedPath = useMemo<string>(
   //   () => getHexagonPath(0, 11, 13.5, 13.5),
@@ -92,27 +88,33 @@ function Playhead({
   //     duration: 50,
   //   },
   // });
+  //
+  const withZoom = useWithZoom(minimap);
+
+  const playheadSpring = usePlayheadSpring(minimap);
 
   const gestureBindings = useGesture(
     {
       onDrag: (state) => {
-        const newPosition = zoomScale.invert(
-          clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
-        );
-        if (state.shiftKey) {
-          resetPlayer(newPosition);
-        } else {
-          const closest: number = closestFrame(newPosition, frameCount);
-          resetPlayer(closest);
-        }
+        withZoom((zoomScale) => {
+          const newPosition = zoomScale.invert(
+            clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+          );
+          if (state.shiftKey) {
+            resetPlayer(newPosition);
+          } else {
+            const closest: number = closestFrame(newPosition, frameCount);
+            resetPlayer(closest);
+          }
+        });
       },
       onHover: (state) => {
         setHovered(state.hovering || false);
       },
     },
     {
-      axis: "x",
       drag: {
+        axis: "x",
         filterTaps: true,
         pointer: {
           capture: false,
@@ -125,8 +127,8 @@ function Playhead({
     <animated.g
       className="cursor-pointer touch-none"
       style={{
-        transform: completion.to(
-          (c) => `translateX(${xScale(zoomScale(c)).toString()}px`,
+        transform: playheadSpring.to(
+          (c) => `translateX(${xScale(c).toString()}px`,
         ),
         filter: "drop-shadow(0px 0px 2px rgba(0, 0, 0, 0.5))",
       }}

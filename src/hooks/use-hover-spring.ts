@@ -1,8 +1,10 @@
-import { useContext, useEffect } from "react";
-import { SpringValue } from "@react-spring/web";
+import { useContext, useEffect, useRef } from "react";
+import { SpringValue, useSpringValue } from "@react-spring/web";
+import { scaleLinear } from "@visx/scale";
 import type { AnimationData, AnimationActions } from "../store-types";
 import { SemanticTime } from "../store-types";
 import { AnimationContext } from "../context";
+import { type ScaleLinear } from "../scale-linear";
 
 /*
   @name useAnimationStore
@@ -10,7 +12,7 @@ import { AnimationContext } from "../context";
 
   @param selector A function that takes the store and returns the value you want to access.
 */
-export function useHoverSpring(): {
+export function useHoverSpring(ignoreZoom?: boolean): {
   setHoverpoint: (value: number) => void;
   clearHoverpoint: () => void;
   hoverpoint: SpringValue<number | undefined>;
@@ -19,16 +21,36 @@ export function useHoverSpring(): {
   if (!store) {
     throw new Error("useHoverSpring must be used within a StudioProvider");
   }
+
   const addPreview = store.getState().addPreview;
   const updatePreview = store.getState().updatePreview;
   const removePreview = store.getState().removePreview;
 
-  const hoverpointSpring = new SpringValue<number | undefined>(
+  const storedHoverpoint = useRef<number | undefined>(
+    store!
+      .getState()
+      .previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp,
+  );
+
+  const zoomScale = useRef<ScaleLinear>(
+    scaleLinear({
+      domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
+      range: [0, 1],
+    }),
+  );
+
+  const hoverpointSpring = useSpringValue<number | undefined>(
     store!
       .getState()
       .previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp,
     {
-      config: { duration: 0 },
+      config: {
+        tension: 400,
+        friction: 20,
+        clamp: true,
+        // duration: 50,
+        // easing: easings.easeInElastic
+      },
     },
   );
   useEffect(() => {
@@ -36,12 +58,38 @@ export function useHoverSpring(): {
       (state: AnimationData & AnimationActions) =>
         state.previews.find((p) => p.semanticTime === SemanticTime.Hover)
           ?.stamp,
-      (hoverpoint) => {
-        hoverpointSpring.set(hoverpoint);
+      (hoverpoint, pastHoverpoint) => {
+        if (pastHoverpoint === undefined && hoverpoint !== undefined) {
+          void hoverpointSpring.set(zoomScale.current(hoverpoint));
+          storedHoverpoint.current = hoverpoint;
+        } else if (hoverpoint !== undefined) {
+          void hoverpointSpring.start(zoomScale.current(hoverpoint));
+          storedHoverpoint.current = hoverpoint;
+        } else {
+          void hoverpointSpring.set(undefined);
+          storedHoverpoint.current = hoverpoint;
+        }
       },
     );
     return unsubscribe;
   });
+  useEffect(() => {
+    const unsubscribe = store.subscribe(
+      (state: AnimationData & AnimationActions) => state.player.viewport,
+      (viewport) => {
+        zoomScale.current = scaleLinear({
+          domain: ignoreZoom ? [0, 1] : viewport,
+          range: [0, 1],
+        });
+        const hoverpoint = storedHoverpoint.current;
+        if (hoverpoint !== undefined) {
+          void hoverpointSpring.start(zoomScale.current(hoverpoint));
+        }
+      },
+    );
+    return unsubscribe;
+  });
+
   const setHoverpoint = (value: number) => {
     if (
       store

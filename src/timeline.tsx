@@ -7,7 +7,7 @@ export function Timeline({ trackIds }: { trackIds?: string[] }): ReactNode {
     <div className="cursor-pointer items-center w-full">
       <ParentSize debounceTime={10}>
         {({ width }) => (
-          <Track width={width} trackIds={trackIds} isTop isBottom />
+          <Track width={width} trackIds={trackIds} isTop isBottom canZoom />
         )}
       </ParentSize>
     </div>

@@ -2,13 +2,15 @@ import { type ReactNode, useMemo, memo } from "react";
 import { clsx } from "clsx";
 import { getHexagonPath, closestFrame } from "@semio/utils";
 import { clamp } from "lodash";
+import { animated } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
 import { useGesture } from "@use-gesture/react";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
 import { computeLocalStamp } from "./actions/compute-instance-time";
 import { InstanceInfo } from "./types";
-import { TIMELINE_PADDING } from "./constants";
+import { useWithZoom } from "./hooks/use-with-zoom";
 
 export interface FrameMarkerProps {
   stamp: number;
@@ -16,6 +18,7 @@ export interface FrameMarkerProps {
   frame: string;
   instanceInfo: InstanceInfo;
   active?: boolean;
+  ignoreZoom?: boolean;
 }
 function InnerFrameMarker({
   stamp,
@@ -23,11 +26,11 @@ function InnerFrameMarker({
   frame,
   instanceInfo,
   active,
+  ignoreZoom = false,
 }: FrameMarkerProps): ReactNode {
   const {
     frameCount,
     scale: xScale,
-    zoom: zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackBounds();
 
@@ -40,15 +43,7 @@ function InnerFrameMarker({
     [],
   );
 
-  // const inactivePath: string = useMemo<string>(
-  //   () => getDegenerateHexagonPath(0, 15, 12, 15),
-  //   [],
-  // );
-
-  // const unhoveredPath: string = useMemo<string>(
-  //   () => getDegenerateHexagonPath(0, 15, 12, 15),
-  //   [],
-  // );
+  const withZoom = useWithZoom(ignoreZoom);
 
   const updateKeyframeStamp = useAnimationStore(
     useShallow((state) => state.updateKeyframeStamp),
@@ -73,29 +68,31 @@ function InnerFrameMarker({
         if (!active) {
           return;
         }
-        const newPosition = zoomScale.invert(
-          clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
-        );
-        const newStamp = state.shiftKey
-          ? newPosition
-          : closestFrame(newPosition, frameCount);
-        const transformedStamp = computeLocalStamp(newStamp, instanceInfo);
-        updateKeyframeStamp(frame, transformedStamp, animation);
-        state.event.stopPropagation();
+        withZoom((zoomScale) => {
+          const newPosition = zoomScale.invert(
+            clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+          );
+          const newStamp = state.shiftKey
+            ? newPosition
+            : closestFrame(newPosition, frameCount);
+          const transformedStamp = computeLocalStamp(newStamp, instanceInfo);
+          updateKeyframeStamp(frame, transformedStamp, animation);
+          state.event.stopPropagation();
+        });
       },
     },
     {
-      axis: "x",
       drag: {
-        // bounds,
+        axis: "x",
         filterTaps: true,
-        // from: [bounds.left + bounds.width * ((value - min) / (max - min)), 0],
         pointer: {
           capture: false,
         },
       },
     },
   );
+
+  const zoomedStamp = useStaticZoomedSpring(stamp, ignoreZoom);
 
   // const styles = useSpring({
   //   d: getPath(
@@ -111,7 +108,7 @@ function InnerFrameMarker({
   // });
 
   return (
-    <g
+    <animated.g
       {...gestureHandlers()}
       className="group/frame touch-none"
       aria-selected={isSelected}
@@ -119,7 +116,9 @@ function InnerFrameMarker({
       //   resetPlayer(stamp);
       // }}
       style={{
-        transform: `translateX(${xScale(zoomScale(stamp)).toString()}px`,
+        transform: zoomedStamp.to(
+          (zs) => `translateX(${xScale(zs).toString()}px`,
+        ),
       }}
     >
       <path
@@ -165,7 +164,7 @@ function InnerFrameMarker({
         )}
         d={styles.d}
       /> */}
-    </g>
+    </animated.g>
   );
 }
 

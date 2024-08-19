@@ -5,7 +5,6 @@ import { ScaleLinear, defaultScaleLinear } from "../scale-linear";
 export const TrackBoundsContext = createContext<{
   bounds: RectReadOnly;
   scale: ScaleLinear;
-  zoom: ScaleLinear;
   frameCount: number;
 }>({
   bounds: {
@@ -19,7 +18,6 @@ export const TrackBoundsContext = createContext<{
     y: 0,
   },
   scale: defaultScaleLinear,
-  zoom: defaultScaleLinear,
   frameCount: 1,
 });
 
