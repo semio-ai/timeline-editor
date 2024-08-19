@@ -21,7 +21,6 @@ export function useZoomedSpring(ignoreZoom?: boolean): {
   setValue: (value: number) => void;
   withZoom: (withZoomFn: (zoomScale: ScaleLinear) => void) => void;
 } {
-  const zoomScale = useRef<ScaleLinear>(defaultScaleLinear);
   const storedValue = useRef<number | undefined>();
 
   const store = useContext(AnimationContext);
@@ -29,6 +28,13 @@ export function useZoomedSpring(ignoreZoom?: boolean): {
   if (!store) {
     throw new Error("useHoverSpring must be used within an AnimationProvider");
   }
+
+  const zoomScale = useRef<ScaleLinear>(
+    scaleLinear({
+      domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
+      range: [0, 1],
+    }),
+  );
 
   const updateViewport = useAnimationStore(
     useShallow((state) => state.updatePlayerViewport),
@@ -59,7 +65,7 @@ export function useZoomedSpring(ignoreZoom?: boolean): {
       },
     );
     return unsubscribe;
-  }, [ignoreZoom, store, zoomedSpring]);
+  }, [ignoreZoom, store, zoomedSpring, ignoreZoom]);
 
   const setValue = useCallback(
     (value: number) => {

@@ -3,7 +3,7 @@ import { scaleLinear } from "@visx/scale";
 import type { AnimationData, AnimationActions } from "../store-types";
 // import { SemanticTime } from "../store-types";
 import { AnimationContext } from "../context";
-import { defaultScaleLinear, type ScaleLinear } from "../scale-linear";
+import { type ScaleLinear } from "../scale-linear";
 
 /*
   @name useAnimationStore
@@ -14,13 +14,18 @@ import { defaultScaleLinear, type ScaleLinear } from "../scale-linear";
 export function useWithZoom(
   ignoreZoom?: boolean,
 ): (withZoomFn: (zoomScale: ScaleLinear) => void) => void {
-  const zoomScale = useRef<ScaleLinear>(defaultScaleLinear);
-
   const store = useContext(AnimationContext);
 
   if (!store) {
     throw new Error("useHoverSpring must be used within an AnimationProvider");
   }
+
+  const zoomScale = useRef<ScaleLinear>(
+    scaleLinear({
+      domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
+      range: [0, 1],
+    }),
+  );
 
   useEffect(() => {
     const unsubscribe = store.subscribe(

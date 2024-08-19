@@ -108,6 +108,7 @@ export function TrackRow({
               trackIds={trackIds}
               isTop={isTop}
               isBottom={isBottom}
+              canZoom
             />
           )}
         </ParentSize>

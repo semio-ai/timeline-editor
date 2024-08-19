@@ -25,7 +25,12 @@ export function useStaticZoomedSpring(
     );
   }
 
-  const zoomScale = useRef<ScaleLinear>(defaultScaleLinear);
+  const zoomScale = useRef<ScaleLinear>(
+    scaleLinear({
+      domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
+      range: [0, 1],
+    }),
+  );
 
   const zoomedSpring = useSpringValue<number>(zoomScale.current(completion), {
     config: springConfig,

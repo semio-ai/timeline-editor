@@ -23,7 +23,12 @@ export function useBoundSprings(ignoreZoom?: boolean): {
     throw new Error("useBoundSprings must be used within an AnimationProvider");
   }
 
-  const zoomScale = useRef<ScaleLinear>(defaultScaleLinear);
+  const zoomScale = useRef<ScaleLinear>(
+    scaleLinear({
+      domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
+      range: [0, 1],
+    }),
+  );
 
   const leftSpring = useSpringValue<number>(store.getState().player.bounds[0], {
     config: springConfig,

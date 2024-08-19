@@ -136,7 +136,9 @@ export function Track({
           width={Math.max(0, width - TIMELINE_PADDING * 2)}
           className="h-[30px]"
         />
-        <TrackBackground showLine={showBackground} ignoreZoom={!canZoom} />
+        {canZoom && (
+          <TrackBackground showLine={showBackground} ignoreZoom={false} />
+        )}
         <HoverMarker ignoreZoom={!canZoom} />
         <BoundsDisplay
           isTop={isTop}

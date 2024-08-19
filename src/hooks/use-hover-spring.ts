@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect, useRef, useCallback } from "react";
 import { SpringValue, useSpringValue } from "@react-spring/web";
 import { scaleLinear } from "@visx/scale";
 import type { AnimationData, AnimationActions } from "../store-types";
@@ -40,14 +40,33 @@ export function useHoverSpring(ignoreZoom?: boolean): {
     }),
   );
 
+  const initialHoverpoint = store
+    ?.getState()
+    .previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp;
+
   const hoverpointSpring = useSpringValue<number | undefined>(
-    store!
-      .getState()
-      .previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp,
+    initialHoverpoint ? zoomScale.current(initialHoverpoint) : undefined,
     {
       config: springConfig,
     },
   );
+
+  const onViewportChange = useCallback(
+    (viewport: [number, number]) => {
+      const scale = scaleLinear({
+        domain: viewport,
+        range: [0, 1],
+      });
+      zoomScale.current = scale;
+      if (storedHoverpoint.current) {
+        void hoverpointSpring.start(scale(storedHoverpoint.current));
+      } else {
+        void hoverpointSpring.set(undefined);
+      }
+    },
+    [hoverpointSpring, zoomScale],
+  );
+
   useEffect(() => {
     const unsubscribe = store.subscribe(
       (state: AnimationData & AnimationActions) =>
@@ -69,21 +88,28 @@ export function useHoverSpring(ignoreZoom?: boolean): {
     return unsubscribe;
   });
   useEffect(() => {
-    const unsubscribe = store.subscribe(
-      (state: AnimationData & AnimationActions) => state.player.viewport,
-      (viewport) => {
-        zoomScale.current = scaleLinear({
-          domain: ignoreZoom ? [0, 1] : viewport,
-          range: [0, 1],
-        });
-        const hoverpoint = storedHoverpoint.current;
-        if (hoverpoint !== undefined) {
-          void hoverpointSpring.start(zoomScale.current(hoverpoint));
-        }
-      },
-    );
-    return unsubscribe;
-  });
+    if (ignoreZoom) {
+      const scale = scaleLinear({
+        domain: [0, 1],
+        range: [0, 1],
+      });
+      zoomScale.current = scale;
+      if (storedHoverpoint.current) {
+        void hoverpointSpring.start(storedHoverpoint.current);
+      }
+
+      return () => {};
+    } else {
+      const unsubscribe = store.subscribe(
+        (state: AnimationData) => state.player.viewport,
+        onViewportChange,
+      );
+
+      onViewportChange(store.getState().player.viewport);
+
+      return unsubscribe;
+    }
+  }, [ignoreZoom, store, onViewportChange, hoverpointSpring]);
 
   const setHoverpoint = (value: number) => {
     if (
