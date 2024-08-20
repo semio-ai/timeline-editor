@@ -25,3 +25,6 @@ export {
 export { addAnimation } from "./actions/add-animation";
 
 export { TrackControl, type TrackControlProps } from "./track-control";
+
+// THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
+export * from "./temp-duplicate-types";

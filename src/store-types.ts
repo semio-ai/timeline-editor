@@ -1,6 +1,7 @@
-import { type Player, type RawValue } from "@semio/utils";
+import { type Player, type RawValue, type AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { Keypoint, Track, Animation, AnimationInterpolator } from "./types";
+import { Graph, ProcessNode, Control } from "./temp-duplicate-types";
 
 export interface AnimationData {
   // Current values (output of interpolator)
@@ -31,6 +32,14 @@ export interface AnimationData {
   hoverpoint: number;
   // Previews for parts of the animation other than the current time
   previews: Preview[];
+
+  // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
+  activeGraph: string;
+  graphs: Record<string, Graph>;
+  nodes: Record<string, ProcessNode>;
+  controls: Record<string, Control>;
+  latestControl?: Control;
+  animatables: Record<string, AnimatableValue>;
 }
 
 export interface AnimationActions {
@@ -159,6 +168,10 @@ export interface AnimationActions {
     evaluator: (preview: Preview) => boolean,
     preview: Partial<Preview>,
   ) => void;
+
+  // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
+  setValue: (animatedId: string, namespace: string, value: RawValue) => void;
+  updateControlColor: (controlId: string, color: string) => void;
 }
 
 export type AnimationStoreSetter = (

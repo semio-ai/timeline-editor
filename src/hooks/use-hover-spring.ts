@@ -27,11 +27,11 @@ export function useHoverSpring(ignoreZoom?: boolean): {
   const updatePreview = store.getState().updatePreview;
   const removePreview = store.getState().removePreview;
 
-  const storedHoverpoint = useRef<number | undefined>(
-    store!
-      .getState()
-      .previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp,
-  );
+  const initialHoverpoint = store
+    ?.getState()
+    .previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp;
+
+  const storedHoverpoint = useRef<number | undefined>(initialHoverpoint);
 
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
@@ -39,10 +39,6 @@ export function useHoverSpring(ignoreZoom?: boolean): {
       range: [0, 1],
     }),
   );
-
-  const initialHoverpoint = store
-    ?.getState()
-    .previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp;
 
   const hoverpointSpring = useSpringValue<number | undefined>(
     initialHoverpoint ? zoomScale.current(initialHoverpoint) : undefined,
