@@ -27,6 +27,7 @@ export interface TrackProps {
   showBackground?: boolean;
   showData?: boolean;
   showZoomControls?: boolean;
+  useCustomColor?: boolean;
 }
 
 export function Track({
@@ -38,6 +39,7 @@ export function Track({
   showBackground = true,
   showData = true,
   showZoomControls = false,
+  useCustomColor = false,
 }: TrackProps): ReactNode {
   const resetPlayer = useAnimationStore(
     useShallow((state: AnimationActions) => state.resetPlayer),
@@ -155,6 +157,7 @@ export function Track({
           trackIds={trackIds}
           disabled={!showData}
           ignoreZoom={!canZoom}
+          useCustomColor={useCustomColor}
         />
       </svg>
     </TrackBoundsContext.Provider>

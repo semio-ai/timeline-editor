@@ -9,12 +9,14 @@ export interface DataDisplayProps {
   trackIds?: string[];
   disabled?: boolean;
   ignoreZoom?: boolean;
+  useCustomColor?: boolean;
 }
 
 function InnerDataDisplay({
   trackIds,
   disabled,
   ignoreZoom = false,
+  useCustomColor = false,
 }: DataDisplayProps) {
   const filter = trackIds || [];
   const { active, passive } = useAnimationStore(
@@ -33,6 +35,7 @@ function InnerDataDisplay({
           instanceInfo={passive[passiveKey].instanceInfo}
           stamp={passive[passiveKey].stamp}
           ignoreZoom={ignoreZoom}
+          useCustomColor={false}
           // parentActive={parentActive}
         />
       ))}
@@ -44,6 +47,7 @@ function InnerDataDisplay({
           instanceInfo={active[activeKey].instanceInfo}
           stamp={active[activeKey].stamp}
           ignoreZoom={ignoreZoom}
+          useCustomColor={useCustomColor}
           // parentActive={parentActive}
           active={!disabled}
         />

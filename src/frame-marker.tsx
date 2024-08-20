@@ -19,6 +19,7 @@ export interface FrameMarkerProps {
   instanceInfo: InstanceInfo;
   active?: boolean;
   ignoreZoom?: boolean;
+  useCustomColor?: boolean;
 }
 function InnerFrameMarker({
   stamp,
@@ -27,6 +28,7 @@ function InnerFrameMarker({
   instanceInfo,
   active,
   ignoreZoom = false,
+  useCustomColor = false,
 }: FrameMarkerProps): ReactNode {
   const {
     frameCount,
@@ -125,9 +127,11 @@ function InnerFrameMarker({
         d="M 0 0 L 0 30"
         className={clsx(
           "transition-[colors,stroke,transform] duration-75 stroke-2 scale-y-[33%] translate-y-[10px]",
-          active
-            ? "dark:stroke-default-300 stroke-default-700"
-            : "dark:stroke-default-400/50 stroke-default-600/50",
+          active && useCustomColor && "stroke-[--track-color]",
+          active &&
+            !useCustomColor &&
+            "dark:stroke-default-400 stroke-default-600",
+          !active && "dark:stroke-default-400/50 stroke-default-600/50",
           active &&
             "group-hover:translate-y-0 group-aria-expanded:translate-y-0 group-hover:scale-y-100 group-aria-expanded:scale-y-100",
           active &&

@@ -39,6 +39,10 @@ import { updateAnimationKeypoint } from "./actions/update-animation-keypoint";
 import { updateTrack } from "./actions/update-track";
 import { addAnimation } from "./actions/add-animation";
 import { removeAnimation } from "./actions/remove-animation";
+import {
+  setValue,
+  updateControlColor,
+} from "./actions/temp-duplicate-functions";
 
 enableMapSet();
 
@@ -457,13 +461,22 @@ export const AnimationSlice = (
       set({ timeDisplay });
     },
     initPlayerInterval: () => {
-      if (get().playerInterval) {
-        window.clearInterval(get().playerInterval);
+      const playerInterval = get().playerInterval;
+      if (playerInterval) {
+        cancelAnimationFrame(playerInterval);
+
+        // window.clearInterval(get().playerInterval);
       }
-      const updatePlayer = get().updatePlayer;
-      const interval = window.setInterval(() => {
-        updatePlayer();
-      }, 15);
+      const updatePlayerInner = get().updatePlayer;
+      const updatePlayer = () => {
+        updatePlayerInner();
+        requestAnimationFrame(updatePlayer);
+      };
+      const interval = requestAnimationFrame(updatePlayer);
+
+      // const interval = window.setInterval(() => {
+      //   updatePlayer();
+      // }, 15);
       set({ playerInterval: interval });
     },
     initInterpolatorGeneration: () => {
@@ -535,6 +548,20 @@ export const AnimationSlice = (
           evaluator(p) ? { ...p, ...preview } : p,
         ),
       }));
+    },
+    updateControlColor: (controlId: string, color: string) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateControlColor(state, controlId, color);
+        }),
+      );
+    },
+    setValue: (id: string, namespace: string, value: RawValue) => {
+      set(
+        produce((state: AnimationData) => {
+          setValue(state, id, namespace, value);
+        }),
+      );
     },
   };
 };
