@@ -116,7 +116,7 @@ export interface AnimationActions {
   // Set the player bounds
   updatePlayerBounds: (start: number, end: number) => void;
   // Update one bound of the player
-  updatePlayerBound: (bound: "start" | "end", time: number) => void;
+  updatePlayerBound: (bound: "start" | "end", time?: number) => void;
   // Set the player viewport
   updatePlayerViewport: (start: number, end: number) => void;
   // Update one bound of the player viewport

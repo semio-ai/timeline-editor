@@ -151,7 +151,7 @@ function InnerBoundsDisplay({
       <animated.rect
         x={leftSpring.to((ls) => xScale(ls))}
         y={0}
-        width={widthSpring.to((ws) => xScale(ws))}
+        width={widthSpring.to((ws) => Math.max(0, xScale(ws)))}
         height={30}
         className={
           dragging
