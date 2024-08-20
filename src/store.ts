@@ -304,23 +304,24 @@ export const AnimationSlice = (
         player: setBounds(state.player, [start, end]),
       }));
     },
-    updatePlayerBound: (bound: "start" | "end", time: number) => {
+    updatePlayerBound: (bound: "start" | "end", time?: number) => {
       set((state: AnimationData) => {
-        if (bound === "start" && state.player.bounds[1] <= time) {
+        const t = time ?? state.player.stamp;
+        if (bound === "start" && state.player.bounds[1] <= t) {
           return {
-            player: setBounds(state.player, [state.player.bounds[1], time]),
+            player: setBounds(state.player, [state.player.bounds[1], t]),
           };
-        } else if (bound === "end" && state.player.bounds[0] >= time) {
+        } else if (bound === "end" && state.player.bounds[0] >= t) {
           return {
-            player: setBounds(state.player, [time, state.player.bounds[0]]),
+            player: setBounds(state.player, [t, state.player.bounds[0]]),
           };
         } else if (bound === "start") {
           return {
-            player: setBounds(state.player, [time, state.player.bounds[1]]),
+            player: setBounds(state.player, [t, state.player.bounds[1]]),
           };
         } else {
           return {
-            player: setBounds(state.player, [state.player.bounds[0], time]),
+            player: setBounds(state.player, [state.player.bounds[0], t]),
           };
         }
       });
