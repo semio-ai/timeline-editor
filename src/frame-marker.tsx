@@ -124,36 +124,21 @@ function InnerFrameMarker({
       }}
     >
       <path
-        d="M 0 0 L 0 30"
+        d={hoveredPath}
         className={clsx(
-          "transition-[colors,stroke,transform] duration-75 stroke-2 scale-y-[33%] translate-y-[10px]",
-          active && useCustomColor && "stroke-[--track-color]",
+          "transition-[colors,stroke,transform] duration-75 stroke-2 stroke-transparent scale-x-100",
+          active && "group-hover:scale-x-100 group-aria-expanded:scale-x-100",
+          "scale-x-[15%]",
           active &&
-            !useCustomColor &&
-            "dark:stroke-default-400 stroke-default-600",
-          !active && "dark:stroke-default-400/50 stroke-default-600/50",
+            "group-hover/frame:dark:stroke-default-300 group-hover/frame:stroke-default-700",
           active &&
-            "group-hover:translate-y-0 group-aria-expanded:translate-y-0 group-hover:scale-y-100 group-aria-expanded:scale-y-100",
-          active &&
-            "group-aria-selected/frame:scale-y-100 group-aria-selected/frame:translate-y-0",
-          active &&
-            "group-hover/frame:group-aria-selected/frame:stroke-transparent",
-          // "group-hover:group-aria-selected/frame:dark:stroke-transparent group-hover:group-aria-selected/frame:stroke-transparent",
+            "group-aria-selected/frame:dark:stroke-default-300 group-aria-selected/frame:stroke-default-700",
+          useCustomColor
+            ? "fill-[--track-color]"
+            : "dark:fill-default-400 fill-default-600",
+          // "group-aria-selected/frame:dark:fill-info-100 group-aria-selected/frame:fill-info-900",
         )}
       />
-      {active && (
-        <path
-          d={hoveredPath}
-          className={clsx(
-            "transition-[colors,stroke,transform] duration-75 stroke-2 stroke-transparent scale-x-0",
-            "group-hover/frame:scale-x-100 group-aria-selected/frame:scale-x-100",
-            "group-hover/frame:dark:stroke-default-300 group-hover/frame:stroke-default-700",
-            "group-aria-selected/frame:dark:stroke-default-300 group-aria-selected/frame:stroke-default-700",
-            "dark:fill-primary-100 fill-primary-900",
-            "group-aria-selected/frame:dark:fill-info-100 group-aria-selected/frame:fill-info-900",
-          )}
-        />
-      )}
       {/* <animated.path
         className={clsx(
           "touch-none transition-[colors,stroke] duration-75 dark:stroke-default-400 stroke-default-600",
