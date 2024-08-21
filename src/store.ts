@@ -476,21 +476,21 @@ export const AnimationSlice = (
     initPlayerInterval: () => {
       const playerInterval = get().playerInterval;
       if (playerInterval) {
-        cancelAnimationFrame(playerInterval);
+        // cancelAnimationFrame(playerInterval);
 
-        // window.clearInterval(get().playerInterval);
+        window.clearInterval(playerInterval);
       }
       const updatePlayerInner = get().updatePlayer;
-      const updatePlayer = () => {
+      const _updatePlayer = () => {
         updatePlayerInner();
-        requestAnimationFrame(updatePlayer);
+        requestAnimationFrame(_updatePlayer);
       };
       // const interval = requestAnimationFrame(updatePlayer);
 
-      // const interval = window.setInterval(() => {
-      //   updatePlayer();
-      // }, 15);
-      // set({ playerInterval: interval });
+      const interval = window.setInterval(() => {
+        updatePlayerInner();
+      }, 25);
+      set({ playerInterval: interval });
     },
     initInterpolatorGeneration: () => {
       // If the time changes, check if it matches an existing keyframe and set the current selected keyframe
