@@ -485,12 +485,12 @@ export const AnimationSlice = (
         updatePlayerInner();
         requestAnimationFrame(updatePlayer);
       };
-      // const interval = requestAnimationFrame(updatePlayer);
+      const interval = requestAnimationFrame(updatePlayer);
 
       // const interval = window.setInterval(() => {
       //   updatePlayer();
       // }, 15);
-      // set({ playerInterval: interval });
+      set({ playerInterval: interval });
     },
     initInterpolatorGeneration: () => {
       // If the time changes, check if it matches an existing keyframe and set the current selected keyframe
