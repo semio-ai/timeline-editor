@@ -39,6 +39,7 @@ import { updateAnimationKeypoint } from "./actions/update-animation-keypoint";
 import { updateTrack } from "./actions/update-track";
 import { addAnimation } from "./actions/add-animation";
 import { removeAnimation } from "./actions/remove-animation";
+import { createDefaultAnimation } from "./actions/create-default-animation";
 import {
   setValue,
   updateControlColor,
@@ -70,6 +71,17 @@ export const AnimationSlice = (
               state.values.set(key, value);
             }
           });
+        }),
+      );
+    },
+    createNewDefaultAnimation: () => {
+      set(
+        produce((state: AnimationData) => {
+          const defaultAnimation = createDefaultAnimation();
+          state.activeAnimation = defaultAnimation.id;
+          state.animations[defaultAnimation.id] = defaultAnimation;
+          state.visualizedAnimations.push(defaultAnimation.id);
+          state.duration = defaultAnimation.duration;
         }),
       );
     },
@@ -473,12 +485,12 @@ export const AnimationSlice = (
         updatePlayerInner();
         requestAnimationFrame(updatePlayer);
       };
-      const interval = requestAnimationFrame(updatePlayer);
+      // const interval = requestAnimationFrame(updatePlayer);
 
       // const interval = window.setInterval(() => {
       //   updatePlayer();
       // }, 15);
-      set({ playerInterval: interval });
+      // set({ playerInterval: interval });
     },
     initInterpolatorGeneration: () => {
       // If the time changes, check if it matches an existing keyframe and set the current selected keyframe
