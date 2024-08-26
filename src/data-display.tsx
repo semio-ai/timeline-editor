@@ -1,9 +1,10 @@
 import { memo } from "react";
-import { useDeep } from "@semio/utils";
+import { pairwise, useDeep } from "@semio/utils";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { FrameMarker } from "./frame-marker";
 import { AnimationData } from "./store-types";
 import { computeFrames } from "./actions/compute-frames";
+import { InterpolationSegment } from "./interpolation-segment";
 
 export interface DataDisplayProps {
   trackIds?: string[];
@@ -25,6 +26,9 @@ function InnerDataDisplay({
     }),
   );
 
+  const interps = pairwise(Object.values(active).sort((a) => a.stamp));
+  // console.log(interps);
+
   return (
     <>
       {Object.keys(passive).map((passiveKey) => (
@@ -39,6 +43,16 @@ function InnerDataDisplay({
           // parentActive={parentActive}
         />
       ))}
+      {!disabled &&
+        interps.map(([s1, s2]) => (
+          <InterpolationSegment
+            key={s1.stamp}
+            stamp1={s1.stamp}
+            stamp2={s2.stamp}
+            ignoreZoom={ignoreZoom}
+            useCustomColor={useCustomColor}
+          />
+        ))}
       {Object.keys(active).map((activeKey) => (
         <FrameMarker
           key={activeKey}

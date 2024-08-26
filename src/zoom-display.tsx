@@ -161,12 +161,12 @@ function InnerZoomDisplay() {
     <g className="group/zoom">
       <animated.path
         {...gestureBindingsMain()}
-        className="fill-neutral-500/50 cursor-pointer"
+        className="fill-neutral-500/50 cursor-pointer touch-none"
         d={`M${scaledViewport[0].toString()} 3.8 ${scaledViewport[1].toString()} 3.8 L${(scaledViewport[1] + 7).toString()} 8.4 L${(scaledViewport[1] + 7).toString()} 21.6 L${scaledViewport[1].toString()} 26.2 ${scaledViewport[0].toString()} 26.2 L${(scaledViewport[0] - 7).toString()} 21.6 L${(scaledViewport[0] - 7).toString()} 8.4 Z`}
       />
       <animated.path
         {...gestureBindingsLeft()}
-        className="fill-transparent cursor-ew-resize group-hover/zoom:fill-neutral-500"
+        className="fill-transparent cursor-ew-resize group-hover/zoom:fill-neutral-500 touch-none"
         d={leftSpring.to(
           (v) =>
             `M${xScale(v).toString()} 3.8 L${xScale(v).toString()} 26.2 L${(xScale(v) - 7).toString()} 21.6 L${(xScale(v) - 7).toString()} 8.4 Z`,
@@ -174,7 +174,7 @@ function InnerZoomDisplay() {
       />
       <animated.path
         {...gestureBindingsRight()}
-        className="fill-transparent cursor-ew-resize group-hover/zoom:fill-neutral-500"
+        className="fill-transparent cursor-ew-resize group-hover/zoom:fill-neutral-500 touch-none"
         d={rightSpring.to(
           (v) =>
             `M${xScale(v).toString()} 3.8 L${xScale(v).toString()} 26.2 L${(xScale(v) + 7).toString()} 21.6 L${(xScale(v) + 7).toString()} 8.4 Z`,

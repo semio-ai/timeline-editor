@@ -148,6 +148,10 @@ function Playhead({
         d="M-6 30 L0 26.5 L6 30 Z"
         className={getStyle(isBottom, hovered)}
       />
+      <path
+        d="M0 0 L0 30"
+        className="dark:stroke-white stroke-black stroke-2"
+      />
       {/* Middle Hexagon */}
       {/* <animated.path
           d={d}
