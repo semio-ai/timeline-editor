@@ -122,9 +122,9 @@ export function ControlWidget({
             size={Size.Xs}
             strict
             disabled={playing}
-            value={(rv as number) || (av.default as number)}
-            min={av.constraints.min || -Math.PI * 2}
-            max={av.constraints.max || Math.PI * 2}
+            value={(rv as number) ?? (av.default as number)}
+            min={av.constraints.min ?? -Math.PI * 2}
+            max={av.constraints.max ?? Math.PI * 2}
             color={control?.settings?.color}
             onChange={(v) => {
               setValue(animatedId, namespace, v);
