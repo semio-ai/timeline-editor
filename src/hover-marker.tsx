@@ -1,9 +1,7 @@
 import { type ReactNode, memo } from "react";
 import { clsx } from "clsx";
-import { useShallow } from "zustand/react/shallow";
 import { animated } from "@react-spring/web";
 import { useTrackBounds } from "./hooks/use-track-bounds";
-import { useAnimationStore } from "./hooks/use-animation-store";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 
 export interface HoverMarkerProps {
@@ -13,20 +11,22 @@ export interface HoverMarkerProps {
 function HoverMarker({ ignoreZoom = false }: HoverMarkerProps): ReactNode {
   const { scale: xScale } = useTrackBounds();
   const { hoverpoint } = useHoverSpring(ignoreZoom);
-  const selection = useAnimationStore(
-    useShallow(
-      (state) =>
-        state.selectedKeyframe !== undefined &&
-        state.animations[state.activeAnimation]?.frames?.get(
-          state.selectedKeyframe,
-        )?.stamp === hoverpoint.get(),
-    ),
-  );
+  // const selection = useAnimationStore(
+  //   useShallow(
+  //     (state) =>
+  //       state.selectedKeyframe !== undefined &&
+  //       state.animations[state.activeAnimation]?.frames?.get(
+  //         state.selectedKeyframe,
+  //       )?.stamp === hoverpoint.get(),
+  //   ),
+  // );
 
   return (
     <animated.path
-      aria-selected={selection}
+      // aria-selected={selection}
       style={{
+        strokeDasharray: "5 5",
+        strokeDashoffset: "2.5",
         strokeWidth: hoverpoint.to((hoverXval) =>
           hoverXval === undefined ? 0 : 2,
         ),

@@ -150,11 +150,7 @@ export function Track({
         <HoverMarker ignoreZoom={!canZoom} />
         {!canZoom && <ZoomDisplay />}
 
-        <Playhead
-          isTop={isTop}
-          isBottom={isBottom}
-          minimap={showZoomControls}
-        />
+        <Playhead ignoreZoom={showZoomControls} />
 
         <DataDisplay
           trackIds={trackIds}

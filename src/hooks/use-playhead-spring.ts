@@ -18,8 +18,6 @@ export function usePlayheadSpring(ignoreZoom?: boolean): SpringValue<number> {
     throw new Error("useHoverSpring must be used within a StudioProvider");
   }
 
-  const storedPlayhead = useRef<number>(store!.getState().player.stamp);
-
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
       domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
@@ -27,8 +25,10 @@ export function usePlayheadSpring(ignoreZoom?: boolean): SpringValue<number> {
     }),
   );
 
-  const hoverpointSpring = useSpringValue<number>(
-    store!.getState().player.stamp,
+  const storedPlayhead = useRef<number>(store!.getState().player.stamp);
+
+  const playheadSpring = useSpringValue<number>(
+    zoomScale.current(store!.getState().player.stamp),
     {
       config: springConfig,
     },
@@ -37,7 +37,7 @@ export function usePlayheadSpring(ignoreZoom?: boolean): SpringValue<number> {
     const unsubscribe = store.subscribe(
       (state: AnimationData) => state.player.stamp,
       (playhead) => {
-        void hoverpointSpring.start(zoomScale.current(playhead));
+        void playheadSpring.start(zoomScale.current(playhead));
         storedPlayhead.current = playhead;
       },
     );
@@ -52,11 +52,11 @@ export function usePlayheadSpring(ignoreZoom?: boolean): SpringValue<number> {
           range: [0, 1],
         });
         const playhead = storedPlayhead.current;
-        void hoverpointSpring.start(zoomScale.current(playhead));
+        void playheadSpring.start(zoomScale.current(playhead));
       },
     );
     return unsubscribe;
   });
 
-  return hoverpointSpring;
+  return playheadSpring;
 }

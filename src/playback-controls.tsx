@@ -119,7 +119,7 @@ export function PlaybackControls({
             }
           }}
         />
-        <div className="block w-full items-center px-1">
+        <div className="w-full items-center px-1">
           <Select
             variant={Variant.Default}
             size={Size.Xs}
