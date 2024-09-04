@@ -21,7 +21,6 @@
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"
   },
   "dependencies": {
-    "@mantine/hooks": "^7.7.1",
     "@react-spring/web": "^9.7.3",
     "@semio/ui": "*",
     "@semio/utils": "*",
