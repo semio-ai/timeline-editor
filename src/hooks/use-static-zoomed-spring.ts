@@ -4,7 +4,7 @@ import { scaleLinear } from "@visx/scale";
 import type { AnimationData } from "../store-types";
 // import { SemanticTime } from "../store-types";
 import { AnimationContext } from "../context";
-import { defaultScaleLinear, type ScaleLinear } from "../scale-linear";
+import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 
 /*
