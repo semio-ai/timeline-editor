@@ -16,6 +16,7 @@ import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
 import PlayheadCart from "./playhead-cart";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { useHoverSpring } from "./hooks/use-hover-spring";
+import { AnimatedText } from "./animated-text";
 
 function InnerRuler({
   width,
@@ -184,16 +185,18 @@ function Tick({
         )}
       />
       {major && (
-        <animated.text
-          style={{ fontSize: 8, translateX: "-50%" }}
+        <AnimatedText
+          textAnchor="middle"
+          x={0}
           y={side === "top" ? 9 : 24}
+          fontSize={8}
           className={clsx(
             "font-mono font-light",
             "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
           )}
         >
-          {idx}f
-        </animated.text>
+          {`${idx.toString()}f`}
+        </AnimatedText>
       )}
     </animated.g>
   );
