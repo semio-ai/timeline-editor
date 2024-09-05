@@ -36,13 +36,13 @@ export function InnerSheet(): ReactNode {
   return (
     <div
       aria-expanded={expanded}
-      className="flex flex-col group w-full dark:bg-neutral-800 bg-neutral-200"
+      className="flex flex-col group w-full dark:bg-neutral-800 bg-neutral-200 divide-y divide-transparent"
     >
       {/* Expand Toggle/Ruler */}
       <div
         className={clsx(
-          "h-4 overflow-hidden",
-          "relative hover:dark:bg-neutral-900/10 hover:bg-neutral-100/10 bg-transparent w-full flex flex-row text-xs",
+          "h-6 relative z-10",
+          "hover:dark:bg-neutral-900/10 hover:bg-neutral-100/10 bg-transparent w-full flex flex-row text-xs",
         )}
       >
         <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-full duration-75 flex items-center justify-center">
@@ -60,11 +60,11 @@ export function InnerSheet(): ReactNode {
             />
           </IconButton>
         </div>
-        <div className="flex-1 xs:w-64 transition-[width] h-full overflow-hidden text-black dark:text-white">
+        <div className="flex-1 xs:w-64 transition-[width] h-6 text-black dark:text-white">
           <Ruler side="top" />
         </div>
       </div>
-      <div className="divide-y divide-transparent">
+      <div>
         {/* Tracks */}
         <div
           className={clsx(
@@ -75,7 +75,7 @@ export function InnerSheet(): ReactNode {
           {expanded && <TrackList />}
         </div>
         {/* Content */}
-        <div className="flex flex-row group">
+        <div className="flex flex-row group ">
           <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-[60px]">
             <PlaybackControls
               track={selectedTrack}
@@ -95,13 +95,10 @@ export function InnerSheet(): ReactNode {
         </div>
       </div>
       <div
-        className={clsx(
-          "h-4 overflow-hidden",
-          "relative bg-transparent w-full flex flex-row text-xs",
-        )}
+        className={clsx("z-50 h-6 bg-transparent w-full flex flex-row text-xs")}
       >
-        <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-full duration-75 flex items-center justify-center" />
-        <div className="flex-1 xs:w-64 transition-[width] h-full overflow-hidden text-black dark:text-white">
+        <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-6 duration-75 flex items-center justify-center" />
+        <div className="flex-1 xs:w-64 transition-[width] h-6 text-black dark:text-white">
           <Ruler side="bottom" />
         </div>
       </div>

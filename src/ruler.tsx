@@ -2,15 +2,20 @@ import { type ReactNode, useMemo } from "react";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
 import { animated } from "@react-spring/web";
+import { useGesture } from "@use-gesture/react";
+import { closestFrame } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import useMeasure from "react-use-measure";
 import { clsx } from "clsx";
-import type { AnimationData } from "./store-types";
+import type { AnimationData, AnimationActions } from "./store-types";
 import { type ScaleLinear } from "./scale-linear";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { TrackBoundsContext } from "./hooks/use-track-bounds";
 import { TIMELINE_PADDING } from "./constants";
 import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
+import PlayheadCart from "./playhead-cart";
+import { useWithZoom } from "./hooks/use-with-zoom";
+import { useHoverSpring } from "./hooks/use-hover-spring";
 
 function InnerRuler({
   width,
@@ -29,6 +34,10 @@ function InnerRuler({
     ),
   );
 
+  const resetPlayer = useAnimationStore(
+    useShallow((state: AnimationActions) => state.resetPlayer),
+  );
+
   const xScale = useMemo(
     () =>
       scaleLinear({
@@ -42,6 +51,9 @@ function InnerRuler({
   const frameCount = Math.floor(framerate * (duration / 1000));
   const [activeRegionRef, activeRegionBounds] = useMeasure();
 
+  const { setHoverpoint, clearHoverpoint } = useHoverSpring();
+  const withZoom = useWithZoom(side === "bottom");
+
   const timedFrames: { stamp: number; key: string }[] = useMemo(
     () =>
       Array.from({ length: frameCount + 1 }, (_v, i) => ({
@@ -51,6 +63,45 @@ function InnerRuler({
     [frameCount, side],
   );
 
+  const gestureBindings = useGesture({
+    onDoubleClick: (state) => {
+      // console.log(state);
+      withZoom((zoomScale) => {
+        const newPosition = zoomScale.invert(
+          ((state.event.clientX ?? 0) - activeRegionBounds.left) /
+            activeRegionBounds.width,
+        );
+        if (state.altKey) {
+          resetPlayer(newPosition);
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          resetPlayer(closest);
+        }
+      });
+    },
+    onHover: (state) => {
+      if (!state.hovering) {
+        clearHoverpoint();
+      }
+    },
+    onMove: (state) => {
+      withZoom((zoomScale) => {
+        const newPosition = zoomScale.invert(
+          ((state.xy[0] || 0) - activeRegionBounds.left) /
+            activeRegionBounds.width,
+        );
+        if (state.altKey) {
+          setHoverpoint(newPosition);
+          // setHoveredSpan(getInclusionSpan(frames, newPosition));
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          setHoverpoint(closest);
+          // setHoveredSpan(getInclusionSpan(frames, closest));
+        }
+      });
+    },
+  });
+
   return (
     <TrackBoundsContext.Provider
       value={{
@@ -59,29 +110,42 @@ function InnerRuler({
         frameCount,
       }}
     >
-      <svg
-        height={16}
-        className="touch-none fill-transparent w-full"
-        width={width < 0 ? 0 : width}
-      >
-        <rect
-          ref={activeRegionRef}
-          x={xScale(0)}
-          width={Math.max(0, width - TIMELINE_PADDING * 2)}
-          className="h-[16px]"
-        />
-        {timedFrames.map((tick, i) => (
-          <Tick
-            key={tick.key}
-            completion={tick.stamp}
-            xScale={xScale}
-            side={side}
-            framerate={framerate}
-            idx={i}
-            ignoreZoom={side === "bottom"}
-          />
-        ))}
-      </svg>
+      <div className={clsx("h-6 relative")}>
+        <svg
+          height={28}
+          className={clsx(
+            "absolute left-0 right-0 h-7",
+            "touch-none fill-transparent",
+            side === "top" ? "bottom-[-4px]" : "top-[-4px]",
+          )}
+          width={width < 0 ? 0 : width}
+          {...gestureBindings()}
+        >
+          <g
+            x={side === "top" ? 0 : 4}
+            // className={clsx("relative", side === "top" ? "top-0" : "top-[4px]")}
+          >
+            <rect
+              ref={activeRegionRef}
+              x={xScale(0)}
+              width={Math.max(0, width - TIMELINE_PADDING * 2)}
+              className="h-[24px]"
+            />
+            {timedFrames.map((tick, i) => (
+              <Tick
+                key={tick.key}
+                completion={tick.stamp}
+                xScale={xScale}
+                side={side}
+                framerate={framerate}
+                idx={i}
+                ignoreZoom={side === "bottom"}
+              />
+            ))}
+          </g>
+          <PlayheadCart side={side} ignoreZoom={side === "bottom"} />
+        </svg>
+      </div>
     </TrackBoundsContext.Provider>
   );
 }
@@ -102,29 +166,46 @@ function Tick({
   idx: number;
 }) {
   const zoomedCompletion = useStaticZoomedSpring(completion, ignoreZoom);
+  const major = idx % framerate === 0;
+
   return (
-    <animated.rect
-      x={zoomedCompletion.to((s) => xScale(s) - 0.5)}
-      y={getY(side, framerate, idx)}
-      width={1}
-      height={idx % framerate === 0 ? 8 : 4}
-      className={clsx(
-        "transition-[fill,transform] duration-75 ease-in-out",
-        idx % framerate === 0
-          ? "fill-black dark:fill-white"
-          : "fill-black/50 dark:fill-white/50",
+    <animated.g style={{ translateX: zoomedCompletion.to((s) => xScale(s)) }}>
+      <animated.rect
+        y={getY(side, major)}
+        x={-0.5}
+        width={1}
+        height={major ? 12 : 6}
+        className={clsx(
+          "transition-[fill,transform] duration-75 ease-in-out",
+          "fill-transparent",
+          major
+            ? "group-hover:fill-black group-hover:dark:fill-white"
+            : "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
+        )}
+      />
+      {major && (
+        <animated.text
+          style={{ fontSize: 8, translateX: "-50%" }}
+          y={side === "top" ? 9 : 24}
+          className={clsx(
+            "font-mono font-light",
+            "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
+          )}
+        >
+          {idx}f
+        </animated.text>
       )}
-    />
+    </animated.g>
   );
 }
 
-function getY(side: "top" | "bottom", framerate: number, index: number) {
+function getY(side: "top" | "bottom", major: boolean) {
   if (side === "bottom") {
-    return 0;
-  } else if (index % framerate === 0) {
-    return 8;
-  } else {
+    return 4;
+  } else if (major) {
     return 12;
+  } else {
+    return 18;
   }
 }
 
