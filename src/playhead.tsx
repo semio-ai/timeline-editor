@@ -40,7 +40,7 @@ function Playhead({ ignoreZoom = false }: PlayheadProps): ReactNode {
           const newPosition = zoomScale.invert(
             clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
           );
-          if (state.shiftKey) {
+          if (state.altKey) {
             resetPlayer(newPosition);
           } else {
             const closest: number = closestFrame(newPosition, frameCount);
