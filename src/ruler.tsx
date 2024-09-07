@@ -175,7 +175,7 @@ function Tick({
         y={getY(side, major)}
         x={-0.5}
         width={1}
-        height={major ? 12 : 6}
+        height={major ? 18 : 4}
         className={clsx(
           "transition-[fill,transform] duration-75 ease-in-out",
           "fill-transparent",
@@ -186,10 +186,11 @@ function Tick({
       />
       {major && (
         <AnimatedText
-          textAnchor="middle"
-          x={0}
-          y={side === "top" ? 9 : 24}
-          fontSize={8}
+          textAnchor="start"
+          verticalAnchor="start"
+          x={3}
+          y={side === "top" ? 9 : 13}
+          fontSize={10}
           className={clsx(
             "font-mono font-light",
             "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
@@ -206,9 +207,9 @@ function getY(side: "top" | "bottom", major: boolean) {
   if (side === "bottom") {
     return 4;
   } else if (major) {
-    return 12;
+    return 6;
   } else {
-    return 18;
+    return 20;
   }
 }
 
