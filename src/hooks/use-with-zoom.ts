@@ -17,7 +17,7 @@ export function useWithZoom(
   const store = useContext(AnimationContext);
 
   if (!store) {
-    throw new Error("useHoverSpring must be used within an AnimationProvider");
+    throw new Error("useWithZoom must be used within an AnimationProvider");
   }
 
   const zoomScale = useRef<ScaleLinear>(
