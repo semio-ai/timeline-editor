@@ -6,10 +6,10 @@ import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 
 /*
-  @name useAnimationStore
-  @description A hook used to access values in the store. Must be used within a AnimationProvider. See the AnimationData for the attributes and the AnimationActions for the methods that can be accessed.
-
-  @param selector A function that takes the store and returns the value you want to access.
+  @name useWithZoom
+  @description A hook used to retrieve a function that provides the current zoom scale to a provided function.
+  @param ignoreZoom If true, the zoom scale will be ignored.
+  @returns A function that provides the current zoom scale to a function argument.
 */
 export function useWithZoom(
   ignoreZoom?: boolean,

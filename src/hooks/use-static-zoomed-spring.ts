@@ -8,10 +8,11 @@ import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 
 /*
-  @name useAnimationStore
-  @description A hook used to access values in the store. Must be used within a AnimationProvider. See the AnimationData for the attributes and the AnimationActions for the methods that can be accessed.
-
-  @param selector A function that takes the store and returns the value you want to access.
+  @name useStaticZoomedSpring
+  @description A hook used to retrieve a spring representing a static value, scaled to the viewport.
+  @param completion The static value to be scaled to the viewport.
+  @param ignoreZoom If true, the value will not be scaled to the viewport.
+  @returns A spring representing the static value, scaled to the viewport if desired.
 */
 export function useStaticZoomedSpring(
   completion: number,

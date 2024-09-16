@@ -7,10 +7,10 @@ import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 
 /*
-  @name useAnimationStore
-  @description A hook used to access values in the store. Must be used within a AnimationProvider. See the AnimationData for the attributes and the AnimationActions for the methods that can be accessed.
-
-  @param selector A function that takes the store and returns the value you want to access.
+  @name useBoundSprings
+  @description A hook used to retrieve spring values representing the dimensions of the playback region.
+  @param ignoreZoom A boolean that determines whether the zoom scale should be ignored.
+  @returns An object containing the left, right, and width springs.
 */
 export function useBoundSprings(ignoreZoom?: boolean): {
   leftSpring: SpringValue<number>;

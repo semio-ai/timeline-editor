@@ -8,10 +8,10 @@ import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 
 /*
-  @name useAnimationStore
-  @description A hook used to access values in the store. Must be used within a AnimationProvider. See the AnimationData for the attributes and the AnimationActions for the methods that can be accessed.
-
-  @param selector A function that takes the store and returns the value you want to access.
+  @name useHoverSpring
+  @description A hook used to retrieve a spring value and set it in the store. Must be used within a AnimationProvider.
+  @param ignoreZoom A boolean that determines if the zoom should be ignored when setting the hoverpoint.
+  @returns An object containing the hoverpoint spring, a setter for the hoverpoint, and a function to clear the hoverpoint.
 */
 export function useHoverSpring(ignoreZoom?: boolean): {
   setHoverpoint: (value: number) => void;

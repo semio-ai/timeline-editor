@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
-import { useMemo } from "react";
+import type { ReactNode, MutableRefObject } from "react";
+import { useMemo, useRef } from "react";
 import useMeasure from "react-use-measure";
 import { closestFrame } from "@semio/utils";
 import { scaleLinear } from "@visx/scale";
 import { useGesture } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
+import { clamp } from "lodash";
 import Playhead from "./playhead";
 import { TIMELINE_PADDING } from "./constants";
 import HoverMarker from "./hover-marker";
@@ -41,6 +42,8 @@ export function Track({
   showZoomControls = false,
   useCustomColor = false,
 }: TrackProps): ReactNode {
+  const svgRef = useRef<SVGSVGElement>();
+
   const resetPlayer = useAnimationStore(
     useShallow((state: AnimationActions) => state.resetPlayer),
   );
@@ -79,44 +82,85 @@ export function Track({
     [width],
   );
 
-  const gestureBindings = useGesture({
-    onDoubleClick: (state) => {
-      // console.log(state);
-      withZoom((zoomScale) => {
-        const newPosition = zoomScale.invert(
-          ((state.event.clientX ?? 0) - activeRegionBounds.left) /
-            activeRegionBounds.width,
-        );
-        if (state.altKey) {
-          resetPlayer(newPosition);
-        } else {
-          const closest: number = closestFrame(newPosition, frameCount);
-          resetPlayer(closest);
+  const gestureBindings = useGesture(
+    {
+      onDoubleClick: (state) => {
+        // console.log(state);
+        withZoom((zoomScale) => {
+          const newPosition = clamp(
+            zoomScale.invert(
+              ((state.event.clientX ?? 0) - activeRegionBounds.left) /
+                activeRegionBounds.width,
+            ),
+            0,
+            1,
+          );
+          if (state.altKey) {
+            resetPlayer(newPosition);
+          } else {
+            const closest: number = closestFrame(newPosition, frameCount);
+            resetPlayer(closest);
+          }
+        });
+      },
+      onHover: (state) => {
+        if (!state.hovering) {
+          clearHoverpoint();
         }
-      });
+      },
+      // onPinch: ({ event, memo, first, offset: [scale] }) => {
+      //   let m = memo;
+      //   withZoom((zoomScale) => {
+      //     if (first) {
+      //       m = zoomScale.domain() as [number, number];
+      //     }
+      //     const newDomainWidth = 1 / scale;
+
+      //     event.stopPropagation();
+      //     event.preventDefault();
+      //     const _hp = hoverpoint.get();
+      //     console.log(memo);
+      //   });
+      //   return m as [number, number];
+      // },
+      // onScroll: (state) => {
+      //   withZoom((_zoomScale) => {
+      //     console.log(state.delta);
+      //     state.event.preventDefault();
+      //     state.event.stopPropagation();
+
+      //     // const delta = state.delta[1];
+      //     // const zoom = delta > 0 ? 1.1 : 0.9;
+      //   });
+      // },
+      onMove: (state) => {
+        withZoom((zoomScale) => {
+          const newPosition = zoomScale.invert(
+            ((state.xy[0] || 0) - activeRegionBounds.left) /
+              activeRegionBounds.width,
+          );
+          if (state.altKey) {
+            setHoverpoint(newPosition);
+            // setHoveredSpan(getInclusionSpan(frames, newPosition));
+          } else {
+            const closest: number = closestFrame(newPosition, frameCount);
+            setHoverpoint(closest);
+            // setHoveredSpan(getInclusionSpan(frames, closest));
+          }
+        });
+      },
     },
-    onHover: (state) => {
-      if (!state.hovering) {
-        clearHoverpoint();
-      }
+    {
+      // target: svgRef as MutableRefObject<EventTarget>,
+      pinch: {
+        scaleBounds: { min: 1, max: duration / 1000 },
+        rubberband: true,
+      },
+      // scroll: {
+      //   target: svgRef as MutableRefObject<EventTarget>,
+      // },
     },
-    onMove: (state) => {
-      withZoom((zoomScale) => {
-        const newPosition = zoomScale.invert(
-          ((state.xy[0] || 0) - activeRegionBounds.left) /
-            activeRegionBounds.width,
-        );
-        if (state.altKey) {
-          setHoverpoint(newPosition);
-          // setHoveredSpan(getInclusionSpan(frames, newPosition));
-        } else {
-          const closest: number = closestFrame(newPosition, frameCount);
-          setHoverpoint(closest);
-          // setHoveredSpan(getInclusionSpan(frames, closest));
-        }
-      });
-    },
-  });
+  );
 
   return (
     <TrackBoundsContext.Provider
@@ -127,6 +171,7 @@ export function Track({
       }}
     >
       <svg
+        ref={svgRef as MutableRefObject<SVGSVGElement>}
         height={30}
         className="touch-none fill-transparent w-full"
         width={width < 0 ? 0 : width}

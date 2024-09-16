@@ -1,25 +1,19 @@
 import { useContext, useEffect } from "react";
-import { useShallow } from "zustand/react/shallow";
 import { SpringValue, useSpringValue } from "@react-spring/web";
 import type { AnimationData } from "../store-types";
-// import { SemanticTime } from "../store-types";
-import { AnimationContext } from "../context";
-import { useAnimationStore } from "./use-animation-store";
 import { springConfig } from "../spring-config";
+import { AnimationContext } from "../context";
 
 /*
-  @name useAnimationStore
-  @description A hook used to access values in the store. Must be used within a AnimationProvider. See the AnimationData for the attributes and the AnimationActions for the methods that can be accessed.
-
-  @param selector A function that takes the store and returns the value you want to access.
+  @name useZoomSprings
+  @description A hook used to retrieve springs representing the left and right bounds of the viewport.
+  @returns An object containing the left and right springs.
 */
 export function useZoomSprings(): {
-  setZoom: (start: number, end: number) => void;
   leftSpring: SpringValue<number>;
   rightSpring: SpringValue<number>;
+  widthSpring: SpringValue<number>;
 } {
-  // const storedValue = useRef<number | undefined>();
-
   const store = useContext(AnimationContext);
 
   if (!store) {
@@ -38,9 +32,11 @@ export function useZoomSprings(): {
       config: springConfig,
     },
   );
-
-  const updateViewport = useAnimationStore(
-    useShallow((state) => state.updatePlayerViewport),
+  const widthSpring = useSpringValue<number>(
+    store.getState().player.viewport[1] - store.getState().player.viewport[0],
+    {
+      config: springConfig,
+    },
   );
 
   useEffect(() => {
@@ -49,10 +45,11 @@ export function useZoomSprings(): {
       (bounds) => {
         void leftSpring.set(bounds[0]);
         void rightSpring.set(bounds[1]);
+        void widthSpring.set(bounds[1] - bounds[0]);
       },
     );
     return unsubscribe;
-  }, [store, leftSpring, rightSpring]);
+  }, [store, leftSpring, rightSpring, widthSpring]);
 
-  return { setZoom: updateViewport, leftSpring, rightSpring };
+  return { leftSpring, rightSpring, widthSpring };
 }

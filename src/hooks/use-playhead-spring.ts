@@ -7,10 +7,10 @@ import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 
 /*
-  @name useAnimationStore
-  @description A hook used to access values in the store. Must be used within a AnimationProvider. See the AnimationData for the attributes and the AnimationActions for the methods that can be accessed.
-
-  @param selector A function that takes the store and returns the value you want to access.
+  @name usePlayheadSpring
+  @description A hook used to retrieve a spring representing the current playhead time, scaled to the viewport.
+  @param ignoreZoom If true, the playhead will not be scaled to the viewport.
+  @returns A spring representing the current playhead time, scaled to the viewport if desired.
 */
 export function usePlayheadSpring(ignoreZoom?: boolean): SpringValue<number> {
   const store = useContext(AnimationContext);

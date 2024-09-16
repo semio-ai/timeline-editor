@@ -172,10 +172,10 @@ function Tick({
   return (
     <animated.g style={{ translateX: zoomedCompletion.to((s) => xScale(s)) }}>
       <animated.rect
-        y={getY(side, major)}
+        y={side === "top" ? 20 : 4}
         x={-0.5}
         width={1}
-        height={major ? 18 : 4}
+        height={4}
         className={clsx(
           "transition-[fill,transform] duration-75 ease-in-out",
           "fill-transparent",
@@ -186,10 +186,10 @@ function Tick({
       />
       {major && (
         <AnimatedText
-          textAnchor="start"
+          textAnchor="middle"
           verticalAnchor="start"
-          x={3}
-          y={side === "top" ? 9 : 13}
+          x={0}
+          y={side === "top" ? 9 : 11.5}
           fontSize={10}
           className={clsx(
             "font-mono font-light",
@@ -203,15 +203,15 @@ function Tick({
   );
 }
 
-function getY(side: "top" | "bottom", major: boolean) {
-  if (side === "bottom") {
-    return 4;
-  } else if (major) {
-    return 6;
-  } else {
-    return 20;
-  }
-}
+// function getY(side: "top" | "bottom", major: boolean) {
+//   if (side === "bottom") {
+//     return 4;
+//   } else if (major) {
+//     return 6;
+//   } else {
+//     return 20;
+//   }
+// }
 
 export function Ruler({ side }: { side: "top" | "bottom" }): ReactNode {
   return (

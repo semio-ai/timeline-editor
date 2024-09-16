@@ -1,4 +1,4 @@
-import { useRef, memo } from "react";
+import { memo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { animated } from "@react-spring/web";
 import { useGesture } from "@use-gesture/react";
@@ -7,6 +7,8 @@ import { clamp } from "lodash";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useZoomSprings } from "./hooks/use-zoom-springs";
+import { useWithZoom } from "./hooks/use-with-zoom";
+import { TIMELINE_PADDING } from "./constants";
 
 function InnerZoomDisplay() {
   const {
@@ -14,46 +16,35 @@ function InnerZoomDisplay() {
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackBounds();
-  const viewport = useAnimationStore(
-    useShallow((state) => state.player.viewport),
-  );
 
-  const initialViewport = useRef<[number, number]>(viewport);
   const updateViewport = useAnimationStore(
     useShallow((state) => state.updatePlayerViewport),
   );
 
+  const withZoom = useWithZoom(false);
+
   const gestureBindingsMain = useGesture(
     {
-      onDragStart: () => {
-        // setDragging(true);
-        initialViewport.current = viewport;
-      },
-      onDragEnd: (state) => {
-        // setDragging(false);
-        state.event.stopPropagation();
-      },
       onDrag: (state) => {
-        let offset = state.offset[0] / timelineWidth;
-        if (initialViewport.current[0] + offset < 0) {
-          offset = -initialViewport.current[0];
-        } else if (initialViewport.current[1] + offset > 1) {
-          offset = 1 - initialViewport.current[1];
-        }
-
-        const newValues = initialViewport.current.map((v) =>
-          clamp(v + offset, 0, 1),
-        );
-
-        if (state.altKey) {
-          updateViewport(newValues[0], newValues[1]);
-        } else {
-          const newFrameValues = newValues.map((v) =>
-            closestFrame(v, frameCount),
-          );
-          updateViewport(newFrameValues[0], newFrameValues[1]);
-        }
-        state.event.stopPropagation();
+        withZoom((zoomScale) => {
+          const currentViewport = zoomScale.domain();
+          let offset = state.delta[0] / timelineWidth;
+          if (currentViewport[0] + offset < 0) {
+            offset = -currentViewport[0];
+          } else if (currentViewport[1] + offset > 1) {
+            offset = 1 - currentViewport[1];
+          }
+          const newValues = currentViewport.map((v) => clamp(v + offset, 0, 1));
+          if (state.altKey) {
+            updateViewport(newValues[0], newValues[1]);
+          } else {
+            const newFrameValues = newValues.map((v) =>
+              closestFrame(v, frameCount),
+            );
+            updateViewport(newFrameValues[0], newFrameValues[1]);
+          }
+          state.event.stopPropagation();
+        });
       },
       onClick: (state) => {
         state.event.stopPropagation();
@@ -72,30 +63,24 @@ function InnerZoomDisplay() {
 
   const gestureBindingsLeft = useGesture(
     {
-      onDragStart: () => {
-        // setDragging(true);
-        initialViewport.current = viewport;
-      },
-      onDragEnd: (state) => {
-        // setDragging(false);
-        state.event.stopPropagation();
-      },
-      // onHover: ({ hovering: h }) => setHovering(h || false),
       onDrag: (state) => {
-        const newPosition = clamp(
-          ((state.xy[0] || 0) - timelineLeft) / timelineWidth,
-          0,
-          1,
-        );
-        const newValue = state.altKey
-          ? newPosition
-          : closestFrame(newPosition, frameCount);
-        const vals =
-          newValue >= initialViewport.current[1]
-            ? [initialViewport.current[1], newValue]
-            : [newValue, initialViewport.current[1]];
-        updateViewport(vals[0], vals[1]);
-        state.event.stopPropagation();
+        withZoom((zoomScale) => {
+          const currentViewport = zoomScale.domain();
+          const newPosition = clamp(
+            ((state.xy[0] || 0) - timelineLeft) / timelineWidth,
+            0,
+            1,
+          );
+          const newValue = state.altKey
+            ? newPosition
+            : closestFrame(newPosition, frameCount);
+          const vals =
+            newValue >= currentViewport[1]
+              ? [currentViewport[1], newValue]
+              : [newValue, currentViewport[1]];
+          updateViewport(vals[0], vals[1]);
+          state.event.stopPropagation();
+        });
       },
       onClick: (state) => {
         state.event.stopPropagation();
@@ -114,30 +99,24 @@ function InnerZoomDisplay() {
 
   const gestureBindingsRight = useGesture(
     {
-      onDragStart: () => {
-        // setDragging(true);
-        initialViewport.current = viewport;
-      },
-      onDragEnd: (state) => {
-        // setDragging(false);
-        state.event.stopPropagation();
-      },
-      // onHover: ({ hovering: h }) => setHovering(h || false),
       onDrag: (state) => {
-        const newPosition = clamp(
-          ((state.xy[0] || 0) - timelineLeft) / timelineWidth,
-          0,
-          1,
-        );
-        const newValue = state.shiftKey
-          ? newPosition
-          : closestFrame(newPosition, frameCount);
-        const vals =
-          newValue <= initialViewport.current[0]
-            ? [newValue, initialViewport.current[0]]
-            : [initialViewport.current[0], newValue];
-        updateViewport(vals[0], vals[1]);
-        state.event.stopPropagation();
+        withZoom((zoomScale) => {
+          const currentViewport = zoomScale.domain();
+          const newPosition = clamp(
+            ((state.xy[0] || 0) - timelineLeft) / timelineWidth,
+            0,
+            1,
+          );
+          const newValue = state.shiftKey
+            ? newPosition
+            : closestFrame(newPosition, frameCount);
+          const vals =
+            newValue <= currentViewport[0]
+              ? [newValue, currentViewport[0]]
+              : [currentViewport[0], newValue];
+          updateViewport(vals[0], vals[1]);
+          state.event.stopPropagation();
+        });
       },
       onClick: (state) => {
         state.event.stopPropagation();
@@ -153,20 +132,22 @@ function InnerZoomDisplay() {
       },
     },
   );
-  const scaledViewport = viewport.map(xScale) as [number, number];
-  // const zoomBounds = bounds.map(zoomScale) as [number, number];
-  const { leftSpring, rightSpring } = useZoomSprings();
+
+  const { leftSpring, rightSpring, widthSpring } = useZoomSprings();
 
   return (
     <g className="group/zoom">
-      <animated.path
+      <animated.rect
         {...gestureBindingsMain()}
         className="fill-neutral-500/50 cursor-pointer touch-none"
-        d={`M${scaledViewport[0].toString()} 3.8 ${scaledViewport[1].toString()} 3.8 L${(scaledViewport[1] + 7).toString()} 8.4 L${(scaledViewport[1] + 7).toString()} 21.6 L${scaledViewport[1].toString()} 26.2 ${scaledViewport[0].toString()} 26.2 L${(scaledViewport[0] - 7).toString()} 21.6 L${(scaledViewport[0] - 7).toString()} 8.4 Z`}
+        x={leftSpring.to((v) => xScale(v))}
+        y={3.8}
+        width={widthSpring.to((v) => Math.max(0, xScale(v) - TIMELINE_PADDING))}
+        height={22.4}
       />
       <animated.path
         {...gestureBindingsLeft()}
-        className="fill-transparent cursor-ew-resize group-hover/zoom:fill-neutral-500 touch-none"
+        className="fill-neutral-500/50 cursor-ew-resize group-hover/zoom:fill-neutral-500 touch-none"
         d={leftSpring.to(
           (v) =>
             `M${xScale(v).toString()} 3.8 L${xScale(v).toString()} 26.2 L${(xScale(v) - 7).toString()} 21.6 L${(xScale(v) - 7).toString()} 8.4 Z`,
@@ -174,7 +155,7 @@ function InnerZoomDisplay() {
       />
       <animated.path
         {...gestureBindingsRight()}
-        className="fill-transparent cursor-ew-resize group-hover/zoom:fill-neutral-500 touch-none"
+        className="fill-neutral-500/50 cursor-ew-resize group-hover/zoom:fill-neutral-500 touch-none"
         d={rightSpring.to(
           (v) =>
             `M${xScale(v).toString()} 3.8 L${xScale(v).toString()} 26.2 L${(xScale(v) + 7).toString()} 21.6 L${(xScale(v) + 7).toString()} 8.4 Z`,
