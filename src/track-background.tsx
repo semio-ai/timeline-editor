@@ -146,10 +146,10 @@ function Tick({
       width={2}
       height={30}
       className={clsx(
-        "transition-[fill,transform] duration-75 ease-in-out group-aria-expanded:fill-white group-hover:fill-neutral-300 fill-transparent",
+        "transition-[fill,transform] duration-75 ease-in-out group-hover:fill-neutral-300 fill-transparent",
         outsideBounds
-          ? "scale-y-[33%] translate-y-[10px] group-aria-expanded:fill-neutral-700 group-hover:fill-neutral-700"
-          : "group-aria-expanded:fill-white group-hover:fill-white",
+          ? "scale-y-[33%] translate-y-[10px] group-hover:fill-neutral-700"
+          : "group-hover:fill-white",
       )}
     />
   );
@@ -170,7 +170,8 @@ function InnerGradient({ ignoreZoom }: { ignoreZoom?: boolean }) {
         offset={hoverpoint.to(
           (hp) => `${((hp ?? -Infinity) * 100).toString()}%`,
         )}
-        stopColor="#737373"
+        stopColor="white"
+        stopOpacity={0.5}
       />
       <animated.stop
         offset={hoverpoint.to(

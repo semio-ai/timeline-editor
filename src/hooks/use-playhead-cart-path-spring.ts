@@ -1,13 +1,16 @@
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect, useRef, useMemo, useCallback } from "react";
 import { SpringValue, useSpringValue } from "@react-spring/web";
+import { useShallow } from "zustand/react/shallow";
 import { pointsToPath } from "@semio/utils";
+import { stampToVisualTime } from "@semio/ui";
 import { scaleLinear } from "@visx/scale";
 import type { AnimationData } from "../store-types";
-import { FLAG_WIDTH, TIMELINE_PADDING } from "../constants";
 import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 import { useTrackBounds } from "./use-track-bounds";
+import { useAnimationStore } from "./use-animation-store";
+import useAltKeyPressed from "./use-alt-key-pressed";
 
 /*
   @name usePlayheadCartPathSpring
@@ -15,7 +18,10 @@ import { useTrackBounds } from "./use-track-bounds";
 
   @param selector A function that takes the store and returns the value you want to access.
 */
-export function usePlayheadCartPathSpring(ignoreZoom?: boolean): {
+export function usePlayheadCartPathSpring(
+  side: "top" | "bottom",
+  ignoreZoom?: boolean,
+): {
   d: SpringValue<string>;
   x: SpringValue<number>;
 } {
@@ -26,74 +32,109 @@ export function usePlayheadCartPathSpring(ignoreZoom?: boolean): {
   }
 
   const storedPlayhead = useRef<number>(store!.getState().player.stamp);
-  const storedViewport = useRef<[number, number]>(
-    store.getState().player.viewport,
+
+  const { duration, framerate, timeDisplay } = useAnimationStore(
+    useShallow((state) => ({
+      duration: state.animations[state.activeAnimation].duration,
+      framerate: state.framerate,
+      timeDisplay: state.timeDisplay,
+    })),
   );
-  // console.log("vp", storedViewport.current);
-  // console.log("ph", storedPlayhead.current);
+  const storedCharCount = useRef<number>(
+    stampToVisualTime(storedPlayhead.current, duration, framerate, timeDisplay)
+      .length,
+  );
 
   const { scale: xScale } = useTrackBounds();
 
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
-      domain: ignoreZoom ? [0, 1] : storedViewport.current,
+      domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
       range: [0, 1],
     }),
   );
 
-  const [initialPath, initialX] = distanceToPath(TIMELINE_PADDING, 200);
+  const [initialPath, initialX] = useMemo(() => {
+    return distanceToPath(0, 200, storedCharCount.current, side);
+  }, [side]);
 
   const playheadCartPathSpring = useSpringValue<string>(initialPath, {
-    config: springConfig,
+    config: {
+      tension: 180,
+      friction: 12,
+      clamp: true,
+    },
   });
 
   const xSpring = useSpringValue<number>(initialX, {
     config: springConfig,
   });
 
+  const altPressed = useAltKeyPressed();
+
+  const handlePlayheadChange = useCallback(
+    (playhead: number) => {
+      storedPlayhead.current = playhead;
+      const bufferVals = valsToBuffer(xScale, zoomScale.current, playhead);
+      const charCount = stampToVisualTime(
+        playhead,
+        duration,
+        framerate,
+        timeDisplay,
+        altPressed,
+      ).length;
+      const [path, offset] = distanceToPath(...bufferVals, charCount, side);
+      void playheadCartPathSpring.start(path);
+      void xSpring.start(offset);
+      storedCharCount.current = charCount;
+    },
+    [
+      storedPlayhead,
+      xSpring,
+      playheadCartPathSpring,
+      xScale,
+      zoomScale,
+      duration,
+      framerate,
+      timeDisplay,
+      altPressed,
+      side,
+    ],
+  );
+
+  const handleViewportChange = useCallback(
+    (viewport: [number, number]) => {
+      zoomScale.current = scaleLinear({
+        domain: ignoreZoom ? [0, 1] : viewport,
+        range: [0, 1],
+      });
+      const playhead = storedPlayhead.current;
+      const bufferVals = valsToBuffer(xScale, zoomScale.current, playhead);
+      const [path, offset] = distanceToPath(
+        ...bufferVals,
+        storedCharCount.current,
+        side,
+      );
+      void playheadCartPathSpring.start(path);
+      void xSpring.start(offset);
+    },
+    [ignoreZoom, xScale, playheadCartPathSpring, xSpring, storedPlayhead, side],
+  );
+
   useEffect(() => {
     const unsubscribe = store.subscribe(
       (state: AnimationData) => state.player.stamp,
-      (playhead) => {
-        storedPlayhead.current = playhead;
-        const bufferVals = valsToBuffer(
-          xScale,
-          zoomScale.current,
-          storedViewport.current,
-          playhead,
-          ignoreZoom ?? false,
-        );
-        // buffer.current = bufferVals;
-        const [path, x] = distanceToPath(...bufferVals);
-        void playheadCartPathSpring.start(path);
-        void xSpring.start(x);
-      },
+      handlePlayheadChange,
     );
+    handlePlayheadChange(store.getState().player.stamp);
     return unsubscribe;
   });
   useEffect(() => {
     const unsubscribe = store.subscribe(
       (state: AnimationData) => state.player.viewport,
-      (viewport) => {
-        zoomScale.current = scaleLinear({
-          domain: ignoreZoom ? [0, 1] : viewport,
-          range: [0, 1],
-        });
-        const playhead = storedPlayhead.current;
-        storedViewport.current = viewport;
-        const bufferVals = valsToBuffer(
-          xScale,
-          zoomScale.current,
-          viewport,
-          playhead,
-          ignoreZoom ?? false,
-        );
-        // buffer.current = bufferVals;
-        const [path, x] = distanceToPath(...bufferVals);
-        void playheadCartPathSpring.start(path);
-        void xSpring.start(x);
-      },
+      handleViewportChange,
     );
+    handleViewportChange(store.getState().player.viewport);
     return unsubscribe;
   });
 
@@ -103,36 +144,16 @@ export function usePlayheadCartPathSpring(ignoreZoom?: boolean): {
 const valsToBuffer = (
   xScale: ScaleLinear,
   zoomScale: ScaleLinear,
-  viewport: [number, number],
   playhead: number,
-  ignoreZoom: boolean,
 ): [number, number] => {
-  if (ignoreZoom) {
-    const ignoredZoom: [number, number] = [
-      xScale(zoomScale(playhead)) - TIMELINE_PADDING,
-      xScale(zoomScale(1 - playhead)) - TIMELINE_PADDING,
-    ];
-    // console.log("ignore zoom", ignoredZoom);
-    return ignoredZoom;
-  } else {
-    const zoomed: [number, number] = [
-      xScale(zoomScale(playhead)) -
-        xScale(zoomScale(viewport[0])) -
-        TIMELINE_PADDING,
-      xScale(zoomScale(viewport[1])) -
-        xScale(zoomScale(playhead)) -
-        TIMELINE_PADDING,
-    ];
-    // console.log("zoom", zoomed);
-    return zoomed;
-  }
+  const xrange = xScale.range();
+  const scaledPlayhead = xScale(zoomScale(playhead));
+  const zoomed: [number, number] = [
+    scaledPlayhead - xrange[0],
+    xrange[1] - scaledPlayhead,
+  ];
+  return zoomed;
 };
-
-const boundScale = scaleLinear({
-  domain: [0, FLAG_WIDTH],
-  range: [6, FLAG_WIDTH],
-  clamp: true,
-});
 
 const corner = scaleLinear({
   domain: [-4, 0],
@@ -143,34 +164,73 @@ const corner = scaleLinear({
 function distanceToPath(
   distanceLeft: number,
   distanceRight: number,
+  charCount: number,
+  side: "top" | "bottom",
 ): [string, number] {
+  const flagWidth = charCount * 8;
+  const boundScale = scaleLinear({
+    domain: [0, flagWidth / 2],
+    range: [0, flagWidth / 2],
+    clamp: true,
+  });
   // These are ordered clockwise around the shape
   const leftP = -1 * boundScale(distanceLeft);
   const rightP = boundScale(distanceRight);
   const offscreenL = corner(distanceLeft);
   const offscreenR = corner(distanceRight);
 
-  const pTLC: [number, number] = [
-    Math.max(leftP, rightP - FLAG_WIDTH - 6),
-    3.5 + 3.5 * offscreenL,
-  ];
-  const pTLT: [number, number] = [-6, 3.5 + offscreenL];
-  const pTCT: [number, number] = [0, 0 + Math.max(offscreenL, offscreenR)];
-  const pTRT: [number, number] = [+6, 3.5 + offscreenR];
-  const pTRC: [number, number] = [rightP, 3.5 + offscreenR];
-
-  const pBRC: [number, number] = [rightP, 24 - offscreenR];
-  const pBRT: [number, number] = [+6, 24 - offscreenR];
-  const pBCT: [number, number] = [0, 27.5 - Math.max(offscreenL, offscreenR)];
-  const pBLT: [number, number] = [-6, 24 - offscreenL];
-  const pBLC: [number, number] = [
-    Math.max(leftP, rightP - FLAG_WIDTH - 6),
-    24 - 3.5 * offscreenL,
-  ];
-
-  const path = pointsToPath(
-    [pTLC, pTLT, pTCT, pTRT, pTRC, pBRC, pBRT, pBCT, pBLT, pBLC],
-    true,
+  const leftX = Math.min(leftP - 6, Math.max(0, distanceRight) - flagWidth);
+  const rightX = Math.max(
+    Math.min(0, -1 * distanceLeft) + flagWidth,
+    rightP + 6,
   );
-  return [path, pTLC[0] + 8.5] as [string, number];
+
+  const pTLC: [number, number] = [leftX, 3.5 + offscreenL + VERTICAL_BUFFER];
+  const pTLT: [number, number] = [-6, 3.5 + offscreenL + VERTICAL_BUFFER];
+  const pTCTl: [number, number] = [
+    -0.5,
+    (side === "top" ? 3.5 : 0 + Math.max(offscreenL, offscreenR)) +
+      VERTICAL_BUFFER,
+  ];
+  const pTCTr: [number, number] = [
+    0.5,
+    (side === "top" ? 3.5 : 0 + Math.max(offscreenL, offscreenR)) +
+      VERTICAL_BUFFER,
+  ];
+  const pTRT: [number, number] = [+6, 3.5 + offscreenR + VERTICAL_BUFFER];
+  const pTRC: [number, number] = [rightX, 3.5 + offscreenR + VERTICAL_BUFFER];
+
+  const pBRC: [number, number] = [rightX, 24 - offscreenR - VERTICAL_BUFFER];
+  const pBRT: [number, number] = [+6, 24 - offscreenR - VERTICAL_BUFFER];
+  const pBCTr: [number, number] = [
+    0.5,
+    (side === "bottom" ? 24 : 27.5 - Math.max(offscreenL, offscreenR)) -
+      VERTICAL_BUFFER,
+  ];
+  const pBCTl: [number, number] = [
+    -0.5,
+    (side === "bottom" ? 24 : 27.5 - Math.max(offscreenL, offscreenR)) -
+      VERTICAL_BUFFER,
+  ];
+  const pBLT: [number, number] = [-6, 24 - offscreenL - VERTICAL_BUFFER];
+  const pBLC: [number, number] = [leftX, 24 - offscreenL - VERTICAL_BUFFER];
+
+  const points = [
+    pTLC,
+    pTLT,
+    pTCTl,
+    pTCTr,
+    pTRT,
+    pTRC,
+    pBRC,
+    pBRT,
+    pBCTr,
+    pBCTl,
+    pBLT,
+    pBLC,
+  ];
+  const path = pointsToPath(points, true);
+  return [path, (leftX + rightX) / 2] as [string, number];
 }
+
+const VERTICAL_BUFFER = 1.5;

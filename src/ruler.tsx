@@ -4,6 +4,7 @@ import { scaleLinear } from "@visx/scale";
 import { animated } from "@react-spring/web";
 import { useGesture } from "@use-gesture/react";
 import { closestFrame } from "@semio/utils";
+import { stampToVisualTime } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import useMeasure from "react-use-measure";
 import { clsx } from "clsx";
@@ -17,6 +18,7 @@ import PlayheadCart from "./playhead-cart";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 import { AnimatedText } from "./animated-text";
+import useAltKeyPressed from "./hooks/use-alt-key-pressed";
 
 function InnerRuler({
   width,
@@ -167,20 +169,34 @@ function Tick({
   idx: number;
 }) {
   const zoomedCompletion = useStaticZoomedSpring(completion, ignoreZoom);
+  const [duration, timeDisplay] = useAnimationStore(
+    useShallow((state: AnimationData) => [
+      state.animations[state.activeAnimation]?.duration ?? 5000,
+      state.timeDisplay,
+    ]),
+  );
+  const altPressed = useAltKeyPressed();
+  const visualTime = stampToVisualTime(
+    completion,
+    duration,
+    framerate,
+    timeDisplay,
+    altPressed,
+  );
   const major = idx % framerate === 0;
 
   return (
     <animated.g style={{ translateX: zoomedCompletion.to((s) => xScale(s)) }}>
       <animated.rect
-        y={side === "top" ? 20 : 4}
-        x={-0.5}
-        width={1}
-        height={4}
+        y={getY(side, major)}
+        x={major ? -1 : -0.5}
+        width={major ? 2 : 1}
+        height={major ? 6 : 4}
         className={clsx(
           "transition-[fill,transform] duration-75 ease-in-out",
           "fill-transparent",
           major
-            ? "group-hover:fill-black group-hover:dark:fill-white"
+            ? "group-hover:fill-black group-hover:dark:fill-white group-aria-expanded:fill-black group-aria-expanded:dark:fill-white"
             : "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
         )}
       />
@@ -189,29 +205,29 @@ function Tick({
           textAnchor="middle"
           verticalAnchor="start"
           x={0}
-          y={side === "top" ? 9 : 11.5}
+          y={side === "top" ? 5 : 15.5}
           fontSize={10}
           className={clsx(
             "font-mono font-light",
             "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
           )}
         >
-          {`${idx.toString()}f`}
+          {visualTime}
         </AnimatedText>
       )}
     </animated.g>
   );
 }
 
-// function getY(side: "top" | "bottom", major: boolean) {
-//   if (side === "bottom") {
-//     return 4;
-//   } else if (major) {
-//     return 6;
-//   } else {
-//     return 20;
-//   }
-// }
+function getY(side: "top" | "bottom", major: boolean) {
+  if (side === "bottom") {
+    return 4;
+  } else if (major) {
+    return 18;
+  } else {
+    return 20;
+  }
+}
 
 export function Ruler({ side }: { side: "top" | "bottom" }): ReactNode {
   return (

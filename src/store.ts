@@ -8,6 +8,7 @@ import {
   RawValue,
   Write,
   StoreSubscribeWithSelector,
+  seek,
 } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import isDeepEqual from "fast-deep-equal";
@@ -342,6 +343,11 @@ export const AnimationSlice = (
     updatePlayerViewport: (start: number, end: number) => {
       set((state: AnimationData) => ({
         player: setViewport(state.player, [start, end]),
+      }));
+    },
+    updatePlayerViewportCenter: (time?: number) => {
+      set((state: AnimationData) => ({
+        player: seek(state.player, time ?? state.player.stamp),
       }));
     },
     updatePlayerViewportBound: (bound: "start" | "end", time: number) => {

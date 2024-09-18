@@ -16,8 +16,9 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { usePlayheadSpring } from "./hooks/use-playhead-spring";
 import { usePlayheadCartPathSpring } from "./hooks/use-playhead-cart-path-spring";
+import useAltKeyPressed from "./hooks/use-alt-key-pressed";
 
-const AnimatedText = animated(Text);
+// const AnimatedText = animated(Text);
 
 export interface PlayheadCartProps {
   side: "top" | "bottom";
@@ -39,11 +40,18 @@ function PlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
     useShallow((state) => state.resetPlayer),
   );
 
+  const seekPlayer = useAnimationStore(
+    useShallow((state) => state.updatePlayerViewportCenter),
+  );
+
   const withZoom = useWithZoom(ignoreZoom);
 
   const playheadSpring = usePlayheadSpring(ignoreZoom);
 
-  const { d: playheadCartPath, x } = usePlayheadCartPathSpring(ignoreZoom);
+  const { d: playheadCartPath, x } = usePlayheadCartPathSpring(
+    side,
+    ignoreZoom,
+  );
 
   const gestureBindings = useGesture(
     {
@@ -62,6 +70,10 @@ function PlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
       },
       onHover: (state) => {
         setHovered(state.hovering || false);
+      },
+      onDoubleClick: (state) => {
+        seekPlayer();
+        state.event.stopPropagation();
       },
     },
     {
@@ -82,13 +94,13 @@ function PlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
       style={{
         transform: playheadSpring.to(
           (c) =>
-            `translate(${clamp(xScale(c), xScale(0), xScale(1)).toString()}px, ${side === "top" ? "0.5" : "0"}px)`,
+            `translate(${clamp(xScale(c), xScale(0), xScale(1)).toString()}px, ${side === "top" ? "-3.5" : "3.5"}px)`,
         ),
       }}
     >
       {/* Cart path */}
       <animated.path
-        d={playheadCartPath.to((c) => c)}
+        d={playheadCartPath}
         className={clsx("touch-none", getStyle(true, hovered))}
         y={side === "top" ? 20.5 : 0}
       />
@@ -112,18 +124,34 @@ function PlayheadText({
   const timeDisplay = useAnimationStore(
     useShallow((state) => state.timeDisplay),
   );
-  const visualTime = stampToVisualTime(stamp, duration, framerate, timeDisplay);
+
+  const altPressed = useAltKeyPressed();
+  const visualTime = stampToVisualTime(
+    stamp,
+    duration,
+    framerate,
+    timeDisplay,
+    altPressed,
+  );
+
   return (
-    <AnimatedText
-      textAnchor="start"
-      verticalAnchor="start"
-      x={x}
-      y={side === "top" ? 8.5 : 11.5}
-      fontSize={10}
-      className={clsx("font-mono", "fill-white/75 dark:fill-black/75")}
+    <animated.g
+      style={{
+        transform: x.to(
+          (c) =>
+            `translate(${c.toString()}px, ${(side === "top" ? 8.5 : 11.5).toString()}px)`,
+        ),
+      }}
     >
-      {visualTime}
-    </AnimatedText>
+      <Text
+        textAnchor="middle"
+        verticalAnchor="start"
+        fontSize={10}
+        className={clsx("font-mono", "fill-white/75 dark:fill-black/75")}
+      >
+        {visualTime}
+      </Text>
+    </animated.g>
   );
 }
 
