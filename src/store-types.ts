@@ -119,6 +119,8 @@ export interface AnimationActions {
   updatePlayerBound: (bound: "start" | "end", time?: number) => void;
   // Set the player viewport
   updatePlayerViewport: (start: number, end: number) => void;
+  // Seek the viewport to center the player at a time
+  updatePlayerViewportCenter: (time?: number) => void;
   // Update one bound of the player viewport
   updatePlayerViewportBound: (bound: "start" | "end", time: number) => void;
   // The current next keyframe time (optionally filter by track)

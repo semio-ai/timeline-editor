@@ -17,6 +17,7 @@ import { useWithZoom } from "./hooks/use-with-zoom";
 import { usePlayheadSpring } from "./hooks/use-playhead-spring";
 import { usePlayheadCartPathSpring } from "./hooks/use-playhead-cart-path-spring";
 import useAltKeyPressed from "./hooks/use-alt-key-pressed";
+import { AnimationActions, AnimationData } from "./store-types";
 
 // const AnimatedText = animated(Text);
 
@@ -37,11 +38,11 @@ function PlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
   const [hovered, setHovered] = useState(false);
 
   const resetPlayer = useAnimationStore(
-    useShallow((state) => state.resetPlayer),
+    useShallow((state: AnimationActions) => state.resetPlayer),
   );
 
   const seekPlayer = useAnimationStore(
-    useShallow((state) => state.updatePlayerViewportCenter),
+    useShallow((state: AnimationActions) => state.updatePlayerViewportCenter),
   );
 
   const withZoom = useWithZoom(ignoreZoom);
@@ -117,12 +118,19 @@ function PlayheadText({
   x: SpringValue<number>;
 }): ReactNode {
   const duration = useAnimationStore(
-    useShallow((state) => state.animations[state.activeAnimation].duration),
+    useShallow(
+      (state: AnimationData) =>
+        state.animations[state.activeAnimation].duration,
+    ),
   );
-  const framerate = useAnimationStore(useShallow((state) => state.framerate));
-  const stamp = useAnimationStore(useShallow((state) => state.player.stamp));
+  const framerate = useAnimationStore(
+    useShallow((state: AnimationData) => state.framerate),
+  );
+  const stamp = useAnimationStore(
+    useShallow((state: AnimationData) => state.player.stamp),
+  );
   const timeDisplay = useAnimationStore(
-    useShallow((state) => state.timeDisplay),
+    useShallow((state: AnimationData) => state.timeDisplay),
   );
 
   const altPressed = useAltKeyPressed();

@@ -1,14 +1,16 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { animated } from "@react-spring/web";
+import { animated, useSpring } from "@react-spring/web";
 import { useGesture } from "@use-gesture/react";
 import { closestFrame } from "@semio/utils";
+import { clsx } from "clsx";
 import { clamp } from "lodash";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useZoomSprings } from "./hooks/use-zoom-springs";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { TIMELINE_PADDING } from "./constants";
+import { easeConfig } from "./spring-config";
 
 function InnerZoomDisplay() {
   const {
@@ -16,6 +18,9 @@ function InnerZoomDisplay() {
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackBounds();
+
+  const [dragging, setDragging] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   const updateViewport = useAnimationStore(
     useShallow((state) => state.updatePlayerViewport),
@@ -26,6 +31,7 @@ function InnerZoomDisplay() {
   const gestureBindingsMain = useGesture(
     {
       onDrag: (state) => {
+        setDragging(state.dragging ?? false);
         withZoom((zoomScale) => {
           const currentViewport = zoomScale.domain();
           let offset = state.delta[0] / timelineWidth;
@@ -49,6 +55,9 @@ function InnerZoomDisplay() {
       onClick: (state) => {
         state.event.stopPropagation();
       },
+      onHover: ({ hovering }) => {
+        setHovered(hovering ?? false);
+      },
     },
     {
       drag: {
@@ -64,6 +73,7 @@ function InnerZoomDisplay() {
   const gestureBindingsLeft = useGesture(
     {
       onDrag: (state) => {
+        setDragging(state.dragging ?? false);
         withZoom((zoomScale) => {
           const currentViewport = zoomScale.domain();
           const newPosition = clamp(
@@ -85,6 +95,9 @@ function InnerZoomDisplay() {
       onClick: (state) => {
         state.event.stopPropagation();
       },
+      onHover: ({ hovering }) => {
+        setHovered(hovering ?? false);
+      },
     },
     {
       drag: {
@@ -100,6 +113,7 @@ function InnerZoomDisplay() {
   const gestureBindingsRight = useGesture(
     {
       onDrag: (state) => {
+        setDragging(state.dragging ?? false);
         withZoom((zoomScale) => {
           const currentViewport = zoomScale.domain();
           const newPosition = clamp(
@@ -121,6 +135,9 @@ function InnerZoomDisplay() {
       onClick: (state) => {
         state.event.stopPropagation();
       },
+      onHover: ({ hovering }) => {
+        setHovered(hovering ?? false);
+      },
     },
     {
       drag: {
@@ -135,32 +152,71 @@ function InnerZoomDisplay() {
 
   const { leftSpring, rightSpring, widthSpring } = useZoomSprings();
 
+  const [{ leftPath, rightPath }] = useSpring(
+    {
+      leftPath:
+        hovered || dragging
+          ? `M0 3.8 L0 26.2 L-7 21.6 L-7 8.4 Z`
+          : `M0 12.2 L0 17.8 L-7 17.8 L-7 12.2 Z`,
+      rightPath:
+        hovered || dragging
+          ? `M0 3.8 L0 26.2 L7 21.6 L7 8.4 Z`
+          : `M0 12.2 L0 17.8 L7 17.8 L7 12.2 Z`,
+      config: easeConfig,
+    },
+    [xScale, leftSpring, rightSpring, hovered, dragging],
+  );
+
   return (
-    <g className="group/zoom">
+    <g className="group/zoom" aria-selected={dragging || hovered}>
       <animated.rect
         {...gestureBindingsMain()}
-        className="fill-neutral-500/50 cursor-pointer touch-none"
+        className={clsx(
+          "transition-[transform,fill]",
+          "group-hover/zoom:fill-neutral-500/50",
+          "group-aria-selected/zoom:fill-neutral-500/50",
+          "group-hover/zoom:translate-y-[3.8px] group-hover/zoom:scale-y-100",
+          "group-aria-selected/zoom:translate-y-[3.8px] group-aria-selected/zoom:scale-y-100",
+          "fill-neutral-500/25 cursor-pointer touch-none",
+          "scale-y-[25%] translate-y-[12.2px]",
+        )}
         x={leftSpring.to((v) => xScale(v))}
-        y={3.8}
+        // y={3.8}
         width={widthSpring.to((v) => Math.max(0, xScale(v) - TIMELINE_PADDING))}
         height={22.4}
       />
-      <animated.path
+      <animated.g
         {...gestureBindingsLeft()}
-        className="fill-neutral-500/50 cursor-ew-resize group-hover/zoom:fill-neutral-500 touch-none"
-        d={leftSpring.to(
-          (v) =>
-            `M${xScale(v).toString()} 3.8 L${xScale(v).toString()} 26.2 L${(xScale(v) - 7).toString()} 21.6 L${(xScale(v) - 7).toString()} 8.4 Z`,
-        )}
-      />
-      <animated.path
+        style={{
+          transform: leftSpring.to(
+            (ls) => `translateX(${xScale(ls).toString()}px)`,
+          ),
+        }}
+      >
+        <animated.path
+          className={clsx(
+            "transition-[fill] fill-neutral-500/25 cursor-ew-resize touch-none",
+            "group-hover/zoom:fill-neutral-500 group-aria-selected/zoom:fill-neutral-500",
+          )}
+          d={leftPath}
+        />
+      </animated.g>
+      <animated.g
         {...gestureBindingsRight()}
-        className="fill-neutral-500/50 cursor-ew-resize group-hover/zoom:fill-neutral-500 touch-none"
-        d={rightSpring.to(
-          (v) =>
-            `M${xScale(v).toString()} 3.8 L${xScale(v).toString()} 26.2 L${(xScale(v) + 7).toString()} 21.6 L${(xScale(v) + 7).toString()} 8.4 Z`,
-        )}
-      />
+        style={{
+          transform: rightSpring.to(
+            (rs) => `translateX(${xScale(rs).toString()}px)`,
+          ),
+        }}
+      >
+        <animated.path
+          className={clsx(
+            "transition-[fill] fill-neutral-500/25 cursor-ew-resize touch-none",
+            "group-hover/zoom:fill-neutral-500 group-aria-selected/zoom:fill-neutral-500",
+          )}
+          d={rightPath}
+        />
+      </animated.g>
     </g>
   );
 }
