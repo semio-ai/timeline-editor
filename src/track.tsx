@@ -42,7 +42,7 @@ export function Track({
   showZoomControls = false,
   useCustomColor = false,
 }: TrackProps): ReactNode {
-  const svgRef = useRef<SVGSVGElement>();
+  const gestureRef = useRef<SVGRectElement>();
 
   const resetPlayer = useAnimationStore(
     useShallow((state: AnimationActions) => state.resetPlayer),
@@ -56,6 +56,9 @@ export function Track({
       (state: AnimationData) =>
         state.animations[state.activeAnimation]?.duration ?? 5000,
     ),
+  );
+  const updatePlayerViewport = useAnimationStore(
+    useShallow((state: AnimationActions) => state.updatePlayerViewport),
   );
 
   const frameCount = Math.floor(framerate * (duration / 1000));
@@ -82,83 +85,81 @@ export function Track({
     [width],
   );
 
-  const gestureBindings = useGesture(
+  const gestureBinding = useGesture({
+    onDoubleClick: (state) => {
+      // console.log(state);
+      withZoom((zoomScale) => {
+        const newPosition = clamp(
+          zoomScale.invert(
+            ((state.event.clientX ?? 0) - activeRegionBounds.left) /
+              activeRegionBounds.width,
+          ),
+          0,
+          1,
+        );
+        if (state.altKey) {
+          resetPlayer(newPosition);
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          resetPlayer(closest);
+        }
+      });
+    },
+    onMove: (state) => {
+      withZoom((zoomScale) => {
+        const newPosition = zoomScale.invert(
+          ((state.xy[0] || 0) - activeRegionBounds.left) /
+            activeRegionBounds.width,
+        );
+        if (state.altKey) {
+          setHoverpoint(newPosition);
+          // setHoveredSpan(getInclusionSpan(frames, newPosition));
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          setHoverpoint(closest);
+          // setHoveredSpan(getInclusionSpan(frames, closest));
+        }
+      });
+    },
+  });
+
+  useGesture(
     {
-      onDoubleClick: (state) => {
-        // console.log(state);
-        withZoom((zoomScale) => {
-          const newPosition = clamp(
-            zoomScale.invert(
-              ((state.event.clientX ?? 0) - activeRegionBounds.left) /
-                activeRegionBounds.width,
-            ),
-            0,
-            1,
-          );
-          if (state.altKey) {
-            resetPlayer(newPosition);
-          } else {
-            const closest: number = closestFrame(newPosition, frameCount);
-            resetPlayer(closest);
-          }
-        });
-      },
       onHover: (state) => {
         if (!state.hovering) {
           clearHoverpoint();
         }
       },
-      // onPinch: ({ event, memo, first, offset: [scale] }) => {
-      //   let m = memo;
-      //   withZoom((zoomScale) => {
-      //     if (first) {
-      //       m = zoomScale.domain() as [number, number];
-      //     }
-      //     const newDomainWidth = 1 / scale;
-
-      //     event.stopPropagation();
-      //     event.preventDefault();
-      //     const _hp = hoverpoint.get();
-      //     console.log(memo);
-      //   });
-      //   return m as [number, number];
-      // },
-      // onScroll: (state) => {
-      //   withZoom((_zoomScale) => {
-      //     console.log(state.delta);
-      //     state.event.preventDefault();
-      //     state.event.stopPropagation();
-
-      //     // const delta = state.delta[1];
-      //     // const zoom = delta > 0 ? 1.1 : 0.9;
-      //   });
-      // },
-      onMove: (state) => {
+      onPinch: ({ event, offset: [scale] }) => {
+        event.preventDefault();
+        event.stopPropagation();
         withZoom((zoomScale) => {
-          const newPosition = zoomScale.invert(
-            ((state.xy[0] || 0) - activeRegionBounds.left) /
-              activeRegionBounds.width,
+          const newPosition = clamp(
+            zoomScale.invert(
+              (((event as MouseEvent).clientX ?? 0) - activeRegionBounds.left) /
+                activeRegionBounds.width,
+            ),
+            0,
+            1,
           );
-          if (state.altKey) {
-            setHoverpoint(newPosition);
-            // setHoveredSpan(getInclusionSpan(frames, newPosition));
-          } else {
-            const closest: number = closestFrame(newPosition, frameCount);
-            setHoverpoint(closest);
-            // setHoveredSpan(getInclusionSpan(frames, closest));
-          }
+          const s = clamp(scale, 1, duration / 1000);
+          const newDomainWidth = 1 / s;
+
+          const hp = newPosition;
+          const newDomain = [
+            hp - newDomainWidth * hp,
+            hp + newDomainWidth * (1 - hp),
+          ];
+          updatePlayerViewport(newDomain[0], newDomain[1]);
         });
       },
     },
     {
-      // target: svgRef as MutableRefObject<EventTarget>,
+      target: gestureRef as MutableRefObject<EventTarget>,
       pinch: {
         scaleBounds: { min: 1, max: duration / 1000 },
         rubberband: true,
       },
-      // scroll: {
-      //   target: svgRef as MutableRefObject<EventTarget>,
-      // },
     },
   );
 
@@ -171,11 +172,10 @@ export function Track({
       }}
     >
       <svg
-        ref={svgRef as MutableRefObject<SVGSVGElement>}
         height={30}
         className="touch-none fill-transparent w-full"
         width={width < 0 ? 0 : width}
-        {...gestureBindings()}
+        {...gestureBinding()}
       >
         <rect
           ref={activeRegionRef}
@@ -202,6 +202,14 @@ export function Track({
           disabled={!showData}
           ignoreZoom={!canZoom}
           useCustomColor={useCustomColor}
+        />
+
+        {/* Gesture Detector */}
+        <rect
+          ref={gestureRef as MutableRefObject<SVGRectElement>}
+          x={xScale(0)}
+          width={Math.max(0, width - TIMELINE_PADDING * 2)}
+          className="h-[30px] touch-none fill-transparent"
         />
       </svg>
     </TrackBoundsContext.Provider>
