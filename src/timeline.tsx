@@ -1,12 +1,14 @@
 import { type ReactNode } from "react";
 import { ParentSize } from "@visx/responsive";
-import { Scrubber } from "./scrubber";
+import { Track } from "./track";
 
-export function Timeline(): ReactNode {
+export function Timeline({ trackIds }: { trackIds?: string[] }): ReactNode {
   return (
-    <div className="cursor-pointer flex-1 flex items-center">
+    <div className="cursor-pointer items-center w-full">
       <ParentSize debounceTime={10}>
-        {({ width }) => <Scrubber editorOpened={false} width={width} />}
+        {({ width }) => (
+          <Track width={width} trackIds={trackIds} isTop isBottom canZoom />
+        )}
       </ParentSize>
     </div>
   );

@@ -1,20 +1,33 @@
 import { memo } from "react";
-import { useDeep } from "@semio/utils";
+import { pairwise, useDeep } from "@semio/utils";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { FrameMarker } from "./frame-marker";
 import { AnimationData } from "./store-types";
 import { computeFrames } from "./actions/compute-frames";
+import { InterpolationSegment } from "./interpolation-segment";
 
 export interface DataDisplayProps {
-  parentActive: boolean;
+  trackIds?: string[];
+  disabled?: boolean;
+  ignoreZoom?: boolean;
+  useCustomColor?: boolean;
 }
 
-function InnerDataDisplay({ parentActive }: DataDisplayProps) {
+function InnerDataDisplay({
+  trackIds,
+  disabled,
+  ignoreZoom = false,
+  useCustomColor = false,
+}: DataDisplayProps) {
+  const filter = trackIds || [];
   const { active, passive } = useAnimationStore(
     useDeep((state: AnimationData) => {
-      return computeFrames(state, state.visualizedAnimations);
+      return computeFrames(state, state.visualizedAnimations, filter);
     }),
   );
+
+  const interps = pairwise(Object.values(active).sort((a) => a.stamp));
+  // console.log(interps);
 
   return (
     <>
@@ -25,9 +38,21 @@ function InnerDataDisplay({ parentActive }: DataDisplayProps) {
           frame={passive[passiveKey].frame}
           instanceInfo={passive[passiveKey].instanceInfo}
           stamp={passive[passiveKey].stamp}
-          parentActive={parentActive}
+          ignoreZoom={ignoreZoom}
+          useCustomColor={false}
+          // parentActive={parentActive}
         />
       ))}
+      {!disabled &&
+        interps.map(([s1, s2]) => (
+          <InterpolationSegment
+            key={s1.stamp}
+            stamp1={s1.stamp}
+            stamp2={s2.stamp}
+            ignoreZoom={ignoreZoom}
+            useCustomColor={useCustomColor}
+          />
+        ))}
       {Object.keys(active).map((activeKey) => (
         <FrameMarker
           key={activeKey}
@@ -35,8 +60,10 @@ function InnerDataDisplay({ parentActive }: DataDisplayProps) {
           frame={active[activeKey].frame}
           instanceInfo={active[activeKey].instanceInfo}
           stamp={active[activeKey].stamp}
-          parentActive={parentActive}
-          active
+          ignoreZoom={ignoreZoom}
+          useCustomColor={useCustomColor}
+          // parentActive={parentActive}
+          active={!disabled}
         />
       ))}
     </>

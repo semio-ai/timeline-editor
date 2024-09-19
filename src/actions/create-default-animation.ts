@@ -7,7 +7,7 @@ Creates a default animation. This is a one-to-one mapping of joints to tracks.
 */
 export function createDefaultAnimation(): Animation {
   return {
-    id: crypto.randomUUID(),
+    id: "Unsaved Default Animation",
     name: "New Animation",
     frameOrder: [],
     trackOrder: [],

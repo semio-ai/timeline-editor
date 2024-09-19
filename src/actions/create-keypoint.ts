@@ -19,7 +19,7 @@ export function createKeypoint(
   state.animations[animationId].frames.set(frame.id, frame);
   const newPoint = {
     id,
-    value: 0,
+    value: state.values.get(trackId) ?? 0,
     frame: frame.id,
     track: trackId,
     ...point,

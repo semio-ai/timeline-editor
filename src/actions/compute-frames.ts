@@ -1,5 +1,5 @@
 import type { AnimationData } from "../store-types";
-import { InstanceInfo } from "../types";
+import { InstanceInfo, Keyframe } from "../types";
 import { computeWorldStamp } from "./compute-instance-time";
 
 export interface InstancedFrameInfo {
@@ -14,6 +14,7 @@ export interface InstancedFrameInfo {
 export function computeFrames(
   state: AnimationData,
   animationIds: string[],
+  filter?: string[],
 ): {
   active: Record<string, InstancedFrameInfo>;
   passive: Record<string, InstancedFrameInfo>;
@@ -50,23 +51,44 @@ export function computeFrames(
     );
     uniqueInstanceKeys.forEach((uniqueInstanceKey, i) => {
       animation.frames.forEach?.((frame) => {
-        const entryKey = `${frame.id}-${uniqueInstanceKey}`;
-        const worldStamp = computeWorldStamp(frame.stamp, uniqueInstances[i]);
-        const instancedFrameInfo = {
-          id: entryKey,
-          stamp: worldStamp,
-          frame: frame.id,
-          animation: animationId,
-          namespace: uniqueInstanceKey,
-          instanceInfo: uniqueInstances[i],
-        };
-        if (active) {
-          activeFrames[entryKey] = instancedFrameInfo;
-        } else {
-          passiveFrames[entryKey] = instancedFrameInfo;
+        if (
+          !filter ||
+          filter.length === 0 ||
+          filter.some((t: string) =>
+            frameHasKeysInTrack(state, frame, t, animationId),
+          )
+        ) {
+          const entryKey = `${frame.id}-${uniqueInstanceKey}`;
+          const worldStamp = computeWorldStamp(frame.stamp, uniqueInstances[i]);
+          const instancedFrameInfo = {
+            id: entryKey,
+            stamp: worldStamp,
+            frame: frame.id,
+            animation: animationId,
+            namespace: uniqueInstanceKey,
+            instanceInfo: uniqueInstances[i],
+          };
+          if (active) {
+            activeFrames[entryKey] = instancedFrameInfo;
+          } else {
+            passiveFrames[entryKey] = instancedFrameInfo;
+          }
         }
       });
     });
   });
   return { active: activeFrames, passive: passiveFrames };
+}
+
+function frameHasKeysInTrack(
+  state: AnimationData,
+  frame: Keyframe,
+  trackId: string,
+  animationId: string,
+): boolean {
+  const points = frame.points || [];
+  return points.some((pointId) => {
+    const point = state.animations[animationId].points.get(pointId);
+    return point?.track === trackId;
+  });
 }

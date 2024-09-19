@@ -1,8 +1,20 @@
-import { reset, update, play, pause, setBounds, RawValue } from "@semio/utils";
+import {
+  reset,
+  update,
+  play,
+  pause,
+  setBounds,
+  setViewport,
+  RawValue,
+  Write,
+  StoreSubscribeWithSelector,
+  seek,
+} from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
+import isDeepEqual from "fast-deep-equal";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
-import { create } from "zustand";
+import { create, type StoreApi } from "zustand";
 import { Keyframe, Keypoint, Track } from "./types";
 import { createKeyframe } from "./actions/create-keyframe";
 import { createAutoKeyframe } from "./actions/create-auto-keyframe";
@@ -13,7 +25,9 @@ import {
   AnimationActions,
   AnimationStoreGetter,
   AnimationStoreSetter,
+  Preview,
 } from "./store-types";
+import { createAnimationInterpolator } from "./actions/create-animation-interpolator";
 import { createKeypoint } from "./actions/create-keypoint";
 import { updateKeypointValue } from "./actions/update-keypoint-value";
 import { removeKeypoint } from "./actions/remove-keypoint";
@@ -25,19 +39,66 @@ import { createDefaultState } from "./actions/create-default-state";
 import { updateAnimationKeypoint } from "./actions/update-animation-keypoint";
 import { updateTrack } from "./actions/update-track";
 import { addAnimation } from "./actions/add-animation";
+import { removeAnimation } from "./actions/remove-animation";
+import { createDefaultAnimation } from "./actions/create-default-animation";
+import {
+  setValue,
+  updateControlColor,
+} from "./actions/temp-duplicate-functions";
 
 enableMapSet();
+
+export type AnimationApi = Write<
+  StoreApi<AnimationData & AnimationActions>,
+  StoreSubscribeWithSelector<AnimationData & AnimationActions>
+>;
 
 export const AnimationSlice = (
   set: AnimationStoreSetter,
   get: AnimationStoreGetter,
+  api: AnimationApi,
 ) => {
   return {
     ...createDefaultState(),
-    createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string) => {
+    updateValues: (values: Map<string, RawValue | undefined>) => {
+      set(
+        produce((state: AnimationData) => {
+          values.forEach?.((value, key) => {
+            if (value === undefined) {
+              // console.log("clearing value for key ", key);
+              state.values.delete(key);
+            } else {
+              // console.log("setting value for key ", key, value);
+              state.values.set(key, value);
+            }
+          });
+        }),
+      );
+    },
+    createNewDefaultAnimation: () => {
+      set(
+        produce((state: AnimationData) => {
+          const defaultAnimation = createDefaultAnimation();
+          state.activeAnimation = defaultAnimation.id;
+          state.animations[defaultAnimation.id] = defaultAnimation;
+          state.visualizedAnimations.push(defaultAnimation.id);
+          state.duration = defaultAnimation.duration;
+        }),
+      );
+    },
+    createKeyframe: (
+      keyframe: Partial<Keyframe>,
+      animationId?: string,
+      fillPoints?: boolean,
+    ) => {
       set(
         produce((state: AnimationData): void => {
-          createKeyframe(state, animationId ?? state.activeAnimation, keyframe);
+          createKeyframe(
+            state,
+            animationId ?? state.activeAnimation,
+            keyframe,
+            fillPoints,
+          );
         }),
       );
     },
@@ -56,8 +117,8 @@ export const AnimationSlice = (
           // Remove all points associated with the keyframe
           removeKeyframe(
             state,
-            keyframeId,
             animationId ?? state.activeAnimation,
+            keyframeId,
           );
         }),
       );
@@ -106,6 +167,13 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           addAnimation(state, animation);
+        }),
+      );
+    },
+    removeAnimation: (animationId: string) => {
+      set(
+        produce((state: AnimationData): void => {
+          removeAnimation(state, animationId);
         }),
       );
     },
@@ -249,35 +317,68 @@ export const AnimationSlice = (
         player: setBounds(state.player, [start, end]),
       }));
     },
-    updatePlayerBound: (bound: "start" | "end", time: number) => {
+    updatePlayerBound: (bound: "start" | "end", time?: number) => {
       set((state: AnimationData) => {
-        if (bound === "start" && state.player.bounds[1] <= time) {
+        const t = time ?? state.player.stamp;
+        if (bound === "start" && state.player.bounds[1] <= t) {
           return {
-            player: setBounds(state.player, [state.player.bounds[1], time]),
+            player: setBounds(state.player, [state.player.bounds[1], t]),
           };
-        } else if (bound === "end" && state.player.bounds[0] >= time) {
+        } else if (bound === "end" && state.player.bounds[0] >= t) {
           return {
-            player: setBounds(state.player, [time, state.player.bounds[0]]),
+            player: setBounds(state.player, [t, state.player.bounds[0]]),
           };
         } else if (bound === "start") {
           return {
-            player: setBounds(state.player, [time, state.player.bounds[1]]),
+            player: setBounds(state.player, [t, state.player.bounds[1]]),
           };
         } else {
           return {
-            player: setBounds(state.player, [state.player.bounds[0], time]),
+            player: setBounds(state.player, [state.player.bounds[0], t]),
+          };
+        }
+      });
+    },
+    // Set the player viewport
+    updatePlayerViewport: (start: number, end: number) => {
+      set((state: AnimationData) => ({
+        player: setViewport(state.player, [start, end]),
+      }));
+    },
+    updatePlayerViewportCenter: (time?: number) => {
+      set((state: AnimationData) => ({
+        player: seek(state.player, time ?? state.player.stamp),
+      }));
+    },
+    updatePlayerViewportBound: (bound: "start" | "end", time: number) => {
+      set((state: AnimationData) => {
+        if (bound === "start" && state.player.viewport[1] <= time) {
+          return {
+            player: setViewport(state.player, [state.player.viewport[1], time]),
+          };
+        } else if (bound === "end" && state.player.viewport[0] >= time) {
+          return {
+            player: setViewport(state.player, [time, state.player.viewport[0]]),
+          };
+        } else if (bound === "start") {
+          return {
+            player: setViewport(state.player, [time, state.player.viewport[1]]),
+          };
+        } else {
+          return {
+            player: setViewport(state.player, [state.player.viewport[0], time]),
           };
         }
       });
     },
     // Skip to the next keyframe
-    skipToNextKeyframe: (trackId?: string, respectBounds?: boolean) => {
+    skipToNextKeyframe: (trackIds?: string[], respectBounds?: boolean) => {
       set(
         produce((state: AnimationData) => {
           const allStamps = computeStamps(
             state,
             state.visualizedAnimations,
-            trackId,
+            trackIds || [],
           );
           const stamp = state.player.stamp;
           const bounds = state.player.bounds;
@@ -294,13 +395,13 @@ export const AnimationSlice = (
       );
     },
     // Skip to the previous keyframe
-    skipToPrevKeyframe: (trackId?: string, respectBounds?: boolean) => {
+    skipToPrevKeyframe: (trackIds?: string[], respectBounds?: boolean) => {
       set(
         produce((state: AnimationData) => {
           const allStamps = computeStamps(
             state,
             state.visualizedAnimations,
-            trackId,
+            trackIds || [],
           );
           const stamp = state.player.stamp;
           const bounds = state.player.bounds;
@@ -320,13 +421,13 @@ export const AnimationSlice = (
     },
     nextKeyframeTime: (
       state: AnimationData,
-      trackId?: string,
+      trackIds?: string[],
       respectBounds?: boolean,
     ): number | undefined => {
       const allStamps = computeStamps(
         state,
         state.visualizedAnimations,
-        trackId,
+        trackIds || [],
       );
       const stamp = state.player.stamp;
       const bounds = state.player.bounds;
@@ -337,13 +438,13 @@ export const AnimationSlice = (
     },
     prevKeyframeTime: (
       state: AnimationData,
-      trackId?: string,
+      trackIds?: string[],
       respectBounds?: boolean,
     ): number | undefined => {
       const allStamps = computeStamps(
         state,
         state.visualizedAnimations,
-        trackId,
+        trackIds || [],
       );
       const stamp = state.player.stamp;
       const bounds = state.player.bounds;
@@ -379,23 +480,117 @@ export const AnimationSlice = (
       set({ timeDisplay });
     },
     initPlayerInterval: () => {
-      if (get().playerInterval) {
-        window.clearInterval(get().playerInterval);
+      const playerInterval = get().playerInterval;
+      if (playerInterval) {
+        // cancelAnimationFrame(playerInterval);
+
+        window.clearInterval(playerInterval);
       }
-      const updatePlayer = get().updatePlayer;
+      const updatePlayerInner = get().updatePlayer;
+      const _updatePlayer = () => {
+        updatePlayerInner();
+        requestAnimationFrame(_updatePlayer);
+      };
+      // const interval = requestAnimationFrame(updatePlayer);
+
       const interval = window.setInterval(() => {
-        updatePlayer();
-      }, 15);
+        updatePlayerInner();
+      }, 25);
       set({ playerInterval: interval });
+    },
+    initInterpolatorGeneration: () => {
+      // If the time changes, check if it matches an existing keyframe and set the current selected keyframe
+      api.subscribe(
+        (state) => ({
+          stamp: state.player.stamp,
+          keyframes:
+            state.animations[state.activeAnimation]?.frameOrder
+              ?.map((frameId: string) =>
+                state.animations[state.activeAnimation].frames.get(frameId),
+              )
+              .filter((f) => f !== undefined) || [],
+        }),
+        ({ stamp, keyframes }) => {
+          const selectedKeyframe = keyframes.find(
+            (keyframe) => keyframe?.stamp === stamp,
+          );
+          set({ selectedKeyframe: selectedKeyframe?.id });
+        },
+        { equalityFn: isDeepEqual },
+      );
+
+      // If the animation data changes, rerun the interpolator generator
+      api.subscribe(
+        (state) => state.animations,
+        (animations) => {
+          // console.log("Animation data changed. Creating new interpolator.");
+          const interpolator = createAnimationInterpolator(animations);
+          set({ interpolator });
+        },
+        // { equalityFn: isDeepEqual },
+      );
+
+      // If the timer or interpolator changes, rerun the interpolator with that time.
+      const updateValues = api.getState().updateValues;
+      api.subscribe(
+        (state: AnimationData) => ({
+          interpolator: state.interpolator,
+          stamp: state.player.stamp,
+        }),
+        ({ interpolator, stamp }) => {
+          // console.log("updating current track values");
+          const values = interpolator(stamp);
+          updateValues(values);
+        },
+        { equalityFn: isDeepEqual },
+      );
     },
     setHoverpoint: (hoverpoint: number) => {
       set({ hoverpoint });
+    },
+    addPreview: (preview: Preview) => {
+      set((state: AnimationData) => ({
+        previews: [...state.previews, preview],
+      }));
+    },
+    removePreview: (evaluator: (preview: Preview) => boolean) => {
+      set((state: AnimationData) => ({
+        previews: state.previews.filter((p) => !evaluator(p)),
+      }));
+    },
+    updatePreview: (
+      evaluator: (preview: Preview) => boolean,
+      preview: Partial<Preview>,
+    ) => {
+      set((state: AnimationData) => ({
+        previews: state.previews.map((p) =>
+          evaluator(p) ? { ...p, ...preview } : p,
+        ),
+      }));
+    },
+    updateControlColor: (controlId: string, color: string) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateControlColor(state, controlId, color);
+        }),
+      );
+    },
+    setValue: (id: string, namespace: string, value: RawValue) => {
+      set(
+        produce((state: AnimationData) => {
+          setValue(state, id, namespace, value);
+        }),
+      );
     },
   };
 };
 
 export const useDefaultAnimationStore = create<
   AnimationData & AnimationActions
->()(subscribeWithSelector((set, get) => ({ ...AnimationSlice(set, get) })));
+>()(
+  subscribeWithSelector((set, get, api) => ({
+    ...AnimationSlice(set, get, api),
+  })),
+);
 
 export type AnimationStore = typeof useDefaultAnimationStore;
