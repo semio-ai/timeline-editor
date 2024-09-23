@@ -1,24 +1,19 @@
 import type { ReactNode } from "react";
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import useMeasure from "react-use-measure";
-import { closestFrame } from "@semio/utils";
 import { scaleLinear } from "@visx/scale";
-import { useGesture } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
-import { clamp } from "lodash";
 import Playhead from "./playhead";
 import { TIMELINE_PADDING } from "./constants";
 import HoverMarker from "./hover-marker";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { AnimationActions, AnimationData } from "./store-types";
+import { AnimationData } from "./store-types";
 import { BoundsDisplay } from "./bounds-display";
 import { GestureDetector } from "./gesture-detector";
 import { DataDisplay } from "./data-display";
 import { TrackBoundsContext } from "./hooks/use-track-bounds";
-import { useHoverSpring } from "./hooks/use-hover-spring";
 import { TrackBackground } from "./track-background";
 import { ZoomDisplay } from "./zoom-display";
-import { useWithZoom } from "./hooks/use-with-zoom";
 
 export interface TrackProps {
   width: number;

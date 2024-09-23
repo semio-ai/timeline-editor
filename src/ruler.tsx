@@ -2,21 +2,17 @@ import { type ReactNode, useMemo } from "react";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
 import { animated } from "@react-spring/web";
-import { useGesture } from "@use-gesture/react";
-import { closestFrame } from "@semio/utils";
 import { stampToVisualTime } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import useMeasure from "react-use-measure";
 import { clsx } from "clsx";
-import type { AnimationData, AnimationActions } from "./store-types";
+import type { AnimationData } from "./store-types";
 import { type ScaleLinear } from "./scale-linear";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { TrackBoundsContext } from "./hooks/use-track-bounds";
 import { TIMELINE_PADDING } from "./constants";
 import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
 import PlayheadCart from "./playhead-cart";
-import { useWithZoom } from "./hooks/use-with-zoom";
-import { useHoverSpring } from "./hooks/use-hover-spring";
 import { AnimatedText } from "./animated-text";
 import useAltKeyPressed from "./hooks/use-alt-key-pressed";
 import { GestureDetector } from "./gesture-detector";
@@ -38,10 +34,6 @@ function InnerRuler({
     ),
   );
 
-  const resetPlayer = useAnimationStore(
-    useShallow((state: AnimationActions) => state.resetPlayer),
-  );
-
   const xScale = useMemo(
     () =>
       scaleLinear({
@@ -53,9 +45,6 @@ function InnerRuler({
 
   const frameCount = Math.floor(framerate * (duration / 1000));
   const [activeRegionRef, activeRegionBounds] = useMeasure();
-
-  const { setHoverpoint, clearHoverpoint } = useHoverSpring();
-  const withZoom = useWithZoom(side === "bottom");
 
   const timedFrames: { stamp: number; key: string }[] = useMemo(
     () =>

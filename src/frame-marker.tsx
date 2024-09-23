@@ -12,7 +12,6 @@ import { getHexagonPath, closestFrame } from "@semio/utils";
 import { clamp } from "lodash";
 import { animated } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
-import { useGesture } from "@use-gesture/react";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";

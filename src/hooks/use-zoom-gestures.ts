@@ -1,4 +1,4 @@
-import { type MutableRefObject, useRef } from "react";
+import { type MutableRefObject } from "react";
 import {
   type AnyHandlerEventTypes,
   type GestureHandlers,
@@ -20,7 +20,6 @@ export const useZoomGestures = (
 ) => {
   // Temp solution to address safari receiving duplicate events
   // https://github.com/pmndrs/use-gesture/issues/681
-  const timestampSetRef = useRef<Set<number>>(new Set());
   const withZoom = useWithZoom(false);
   const { bounds } = useTrackBounds();
   const { duration, updatePlayerViewport } = useAnimationStore(
