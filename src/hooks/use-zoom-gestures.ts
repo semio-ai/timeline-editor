@@ -102,7 +102,9 @@ export const useZoomGestures = (
         scaleBounds: { min: 1, max: duration / 1000 },
         rubberband: true,
       },
-      wheel: {},
+      wheel: {
+        axis: "x",
+      },
       eventOptions: { passive: false },
     },
   );
