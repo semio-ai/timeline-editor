@@ -1,4 +1,12 @@
-import { type ReactNode, useMemo, memo } from "react";
+import {
+  type ReactNode,
+  type MutableRefObject,
+  type MouseEventHandler,
+  useMemo,
+  memo,
+  useRef,
+  useCallback,
+} from "react";
 import { clsx } from "clsx";
 import { getHexagonPath, closestFrame } from "@semio/utils";
 import { clamp } from "lodash";
@@ -11,6 +19,8 @@ import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
 import { computeLocalStamp } from "./actions/compute-instance-time";
 import { InstanceInfo } from "./types";
 import { useWithZoom } from "./hooks/use-with-zoom";
+import { useZoomGestures } from "./hooks/use-zoom-gestures";
+import { DRAG_X_CONFIG } from "./gesture-config";
 
 export interface FrameMarkerProps {
   stamp: number;
@@ -30,6 +40,7 @@ function InnerFrameMarker({
   ignoreZoom = false,
   useCustomColor = false,
 }: FrameMarkerProps): ReactNode {
+  const gestureRef = useRef<SVGGElement>();
   const {
     frameCount,
     scale: xScale,
@@ -55,17 +66,18 @@ function InnerFrameMarker({
     useShallow((state) => state.resetPlayer),
   );
 
-  // const [hovered, setHovered] = useState(false);
+  const doubleClickHandler = useCallback(
+    (event: MouseEvent) => {
+      resetPlayer(stamp);
+      event.stopPropagation();
+    },
+    [stamp, resetPlayer],
+  );
 
-  const gestureHandlers = useGesture(
+  useZoomGestures(
+    gestureRef as MutableRefObject<SVGGElement>,
+    ignoreZoom,
     {
-      onDoubleClick: (state) => {
-        resetPlayer(stamp);
-        state.event.stopPropagation();
-      },
-      // onHover: ({ hovering }) => {
-      //   setHovered(hovering || false);
-      // },
       onDrag: (state) => {
         if (!active) {
           return;
@@ -83,40 +95,17 @@ function InnerFrameMarker({
         });
       },
     },
-    {
-      drag: {
-        axis: "x",
-        filterTaps: true,
-        pointer: {
-          capture: false,
-        },
-      },
-    },
+    DRAG_X_CONFIG,
   );
 
   const zoomedStamp = useStaticZoomedSpring(stamp, ignoreZoom);
 
-  // const styles = useSpring({
-  //   d: getPath(
-  //     active === true && (hovered || isSelected),
-  //     parentActive,
-  //     inactivePath,
-  //     unhoveredPath,
-  //     hoveredPath,
-  //   ),
-  //   config: {
-  //     duration: 50,
-  //   },
-  // });
-
   return (
     <animated.g
-      {...gestureHandlers()}
+      ref={gestureRef as MutableRefObject<SVGGElement>}
+      onDoubleClick={doubleClickHandler as any as MouseEventHandler}
       className="group/frame touch-none"
       aria-selected={isSelected}
-      // onClick={() => {
-      //   resetPlayer(stamp);
-      // }}
       style={{
         transform: zoomedStamp.to(
           (zs) => `translateX(${xScale(zs).toString()}px`,
@@ -126,6 +115,7 @@ function InnerFrameMarker({
       <path
         d={hoveredPath}
         className={clsx(
+          !active && "pointer-events-none",
           "transition-[colors,stroke,transform] duration-75 stroke-2 stroke-transparent scale-x-100",
           active && "group-hover:scale-x-100 group-aria-expanded:scale-x-100",
           "scale-x-[15%]",
@@ -136,41 +126,10 @@ function InnerFrameMarker({
           useCustomColor
             ? "fill-[--track-color]"
             : "dark:fill-default-400 fill-default-600",
-          // "group-aria-selected/frame:dark:fill-info-100 group-aria-selected/frame:fill-info-900",
         )}
       />
-      {/* <animated.path
-        className={clsx(
-          "touch-none transition-[colors,stroke] duration-75 dark:stroke-default-400 stroke-default-600",
-          isSelected &&
-            "fill-info-500 dark:hover:fill-info-100 hover:fill-info-900",
-          hovered &&
-            !isSelected &&
-            "fill-primary-500 dark:hover:fill-primary-100 hover:fill-primary-900",
-          (isSelected || hovered) &&
-            "hover:dark:stroke-white hover:stroke-black dark:stroke-neutral-300 stroke-neutral-700 stroke-1",
-          !(isSelected || hovered) && "fill-transparent stroke-2",
-        )}
-        d={styles.d}
-      /> */}
     </animated.g>
   );
 }
-
-// function getPath(
-//   hovered: boolean,
-//   active: boolean,
-//   degeneratePath: string,
-//   activePath: string,
-//   fullPath: string,
-// ): string {
-//   if (hovered) {
-//     return fullPath;
-//   } else if (active) {
-//     return activePath;
-//   } else {
-//     return degeneratePath;
-//   }
-// }
 
 export const FrameMarker = memo(InnerFrameMarker);

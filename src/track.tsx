@@ -1,4 +1,4 @@
-import type { ReactNode, MutableRefObject } from "react";
+import type { ReactNode } from "react";
 import { useMemo, useRef } from "react";
 import useMeasure from "react-use-measure";
 import { closestFrame } from "@semio/utils";
@@ -12,6 +12,7 @@ import HoverMarker from "./hover-marker";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { AnimationActions, AnimationData } from "./store-types";
 import { BoundsDisplay } from "./bounds-display";
+import { GestureDetector } from "./gesture-detector";
 import { DataDisplay } from "./data-display";
 import { TrackBoundsContext } from "./hooks/use-track-bounds";
 import { useHoverSpring } from "./hooks/use-hover-spring";
@@ -42,12 +43,6 @@ export function Track({
   showZoomControls = false,
   useCustomColor = false,
 }: TrackProps): ReactNode {
-  const gestureRef = useRef<SVGRectElement>();
-
-  const resetPlayer = useAnimationStore(
-    useShallow((state: AnimationActions) => state.resetPlayer),
-  );
-
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
@@ -57,110 +52,18 @@ export function Track({
         state.animations[state.activeAnimation]?.duration ?? 5000,
     ),
   );
-  const updatePlayerViewport = useAnimationStore(
-    useShallow((state: AnimationActions) => state.updatePlayerViewport),
-  );
 
   const frameCount = Math.floor(framerate * (duration / 1000));
 
-  // console.log(frames) xds
-  // const [hovered, setHovered] = useState<boolean>(false);
-  // const onHoverStart = () => setHovered(true);
-  // const onHoverEnd = () => setHovered(false);
-  // const delayedHover = useLazy(hovered, 250);
-
-  const { setHoverpoint, clearHoverpoint } = useHoverSpring();
-
   const [activeRegionRef, activeRegionBounds] = useMeasure();
-
-  const withZoom = useWithZoom(!canZoom);
 
   const xScale = useMemo(
     () =>
       scaleLinear({
         domain: [0, 1],
         range: [TIMELINE_PADDING, width - TIMELINE_PADDING],
-        // clamp: true,
       }),
     [width],
-  );
-
-  const gestureBinding = useGesture({
-    onDoubleClick: (state) => {
-      // console.log(state);
-      withZoom((zoomScale) => {
-        const newPosition = clamp(
-          zoomScale.invert(
-            ((state.event.clientX ?? 0) - activeRegionBounds.left) /
-              activeRegionBounds.width,
-          ),
-          0,
-          1,
-        );
-        if (state.altKey) {
-          resetPlayer(newPosition);
-        } else {
-          const closest: number = closestFrame(newPosition, frameCount);
-          resetPlayer(closest);
-        }
-      });
-    },
-    onMove: (state) => {
-      withZoom((zoomScale) => {
-        const newPosition = zoomScale.invert(
-          ((state.xy[0] || 0) - activeRegionBounds.left) /
-            activeRegionBounds.width,
-        );
-        if (state.altKey) {
-          setHoverpoint(newPosition);
-          // setHoveredSpan(getInclusionSpan(frames, newPosition));
-        } else {
-          const closest: number = closestFrame(newPosition, frameCount);
-          setHoverpoint(closest);
-          // setHoveredSpan(getInclusionSpan(frames, closest));
-        }
-      });
-    },
-  });
-
-  useGesture(
-    {
-      onHover: (state) => {
-        if (!state.hovering) {
-          clearHoverpoint();
-        }
-      },
-      onPinch: ({ event, offset: [scale] }) => {
-        event.preventDefault();
-        event.stopPropagation();
-        withZoom((zoomScale) => {
-          const newPosition = clamp(
-            zoomScale.invert(
-              (((event as MouseEvent).clientX ?? 0) - activeRegionBounds.left) /
-                activeRegionBounds.width,
-            ),
-            0,
-            1,
-          );
-          const s = clamp(scale, 1, duration / 1000);
-          const newDomainWidth = 1 / s;
-
-          const hp = newPosition;
-          const newDomain = [
-            hp - newDomainWidth * hp,
-            hp + newDomainWidth * (1 - hp),
-          ];
-          updatePlayerViewport(newDomain[0], newDomain[1]);
-        });
-      },
-    },
-    {
-      target: gestureRef as MutableRefObject<EventTarget>,
-      pinch: {
-        scaleBounds: { min: 1, max: duration / 1000 },
-        rubberband: true,
-      },
-    },
   );
 
   return (
@@ -171,47 +74,43 @@ export function Track({
         frameCount,
       }}
     >
-      <svg
-        height={30}
-        className="touch-none fill-transparent w-full"
-        width={width < 0 ? 0 : width}
-        {...gestureBinding()}
-      >
-        <rect
-          ref={activeRegionRef}
-          x={xScale(0)}
-          width={Math.max(0, width - TIMELINE_PADDING * 2)}
-          className="h-[30px]"
-        />
-        {canZoom && (
-          <TrackBackground showLine={showBackground} ignoreZoom={false} />
-        )}
+      <div className="relative h-[30px] w-full">
+        <svg
+          height={30}
+          className="touch-none fill-transparent w-full"
+          width={width < 0 ? 0 : width}
+        >
+          <rect
+            ref={activeRegionRef}
+            x={xScale(0)}
+            width={Math.max(0, width - TIMELINE_PADDING * 2)}
+            className="h-[30px]"
+          />
+          {canZoom && (
+            <TrackBackground showLine={showBackground} ignoreZoom={false} />
+          )}
 
-        <BoundsDisplay
-          isTop={isTop}
-          isBottom={isBottom}
-          ignoreZoom={!canZoom}
-        />
-        <HoverMarker ignoreZoom={!canZoom} />
-        {!canZoom && <ZoomDisplay />}
+          {/* Gesture Detector */}
+          <GestureDetector ignoreZoom={!canZoom} />
 
-        <Playhead ignoreZoom={showZoomControls} />
+          <BoundsDisplay
+            isTop={isTop}
+            isBottom={isBottom}
+            ignoreZoom={!canZoom}
+          />
+          <HoverMarker ignoreZoom={!canZoom} />
+          {!canZoom && <ZoomDisplay />}
 
-        <DataDisplay
-          trackIds={trackIds}
-          disabled={!showData}
-          ignoreZoom={!canZoom}
-          useCustomColor={useCustomColor}
-        />
+          <Playhead ignoreZoom={showZoomControls} />
 
-        {/* Gesture Detector */}
-        <rect
-          ref={gestureRef as MutableRefObject<SVGRectElement>}
-          x={xScale(0)}
-          width={Math.max(0, width - TIMELINE_PADDING * 2)}
-          className="h-[30px] touch-none fill-transparent"
-        />
-      </svg>
+          <DataDisplay
+            trackIds={trackIds}
+            disabled={!showData}
+            ignoreZoom={!canZoom}
+            useCustomColor={useCustomColor}
+          />
+        </svg>
+      </div>
     </TrackBoundsContext.Provider>
   );
 }

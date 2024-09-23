@@ -11,19 +11,9 @@ export interface HoverMarkerProps {
 function HoverMarker({ ignoreZoom = false }: HoverMarkerProps): ReactNode {
   const { scale: xScale } = useTrackBounds();
   const { hoverpoint } = useHoverSpring(ignoreZoom);
-  // const selection = useAnimationStore(
-  //   useShallow(
-  //     (state) =>
-  //       state.selectedKeyframe !== undefined &&
-  //       state.animations[state.activeAnimation]?.frames?.get(
-  //         state.selectedKeyframe,
-  //       )?.stamp === hoverpoint.get(),
-  //   ),
-  // );
 
   return (
     <animated.path
-      // aria-selected={selection}
       style={{
         strokeDasharray: "5 5",
         strokeDashoffset: "2.5",
@@ -35,7 +25,7 @@ function HoverMarker({ ignoreZoom = false }: HoverMarkerProps): ReactNode {
         ),
       }}
       className={clsx(
-        "touch-none stroke-transparent",
+        "touch-none stroke-transparent pointer-events-none",
         "group-hover:stroke-black group-hover:dark:stroke-white group-aria-expanded:stroke-black group-aria-expanded:dark:stroke-white",
         "aria-selected:stroke-transparent",
       )}

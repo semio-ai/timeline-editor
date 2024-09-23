@@ -1,7 +1,6 @@
-import { memo, useState } from "react";
+import { memo, useState, useRef, MutableRefObject } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { animated, useSpring } from "@react-spring/web";
-import { useGesture } from "@use-gesture/react";
 import { closestFrame } from "@semio/utils";
 import { clsx } from "clsx";
 import { clamp } from "lodash";
@@ -9,10 +8,16 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useZoomSprings } from "./hooks/use-zoom-springs";
 import { useWithZoom } from "./hooks/use-with-zoom";
+import { useZoomGestures } from "./hooks/use-zoom-gestures";
 import { TIMELINE_PADDING } from "./constants";
 import { easeConfig } from "./spring-config";
+import { DRAG_X_CONFIG } from "./gesture-config";
 
 function InnerZoomDisplay() {
+  const mainGestureRef = useRef<SVGRectElement>();
+  const leftGestureRef = useRef<SVGPathElement>();
+  const rightGestureRef = useRef<SVGPathElement>();
+
   const {
     frameCount,
     scale: xScale,
@@ -28,7 +33,27 @@ function InnerZoomDisplay() {
 
   const withZoom = useWithZoom(false);
 
-  const gestureBindingsMain = useGesture(
+  const { leftSpring, rightSpring, widthSpring } = useZoomSprings();
+
+  const [{ leftPath, rightPath }] = useSpring(
+    {
+      leftPath:
+        hovered || dragging
+          ? `M0 3.8 L0 26.2 L-7 21.6 L-7 8.4 Z`
+          : `M0 12.2 L0 17.8 L-7 17.8 L-7 12.2 Z`,
+      rightPath:
+        hovered || dragging
+          ? `M0 3.8 L0 26.2 L7 21.6 L7 8.4 Z`
+          : `M0 12.2 L0 17.8 L7 17.8 L7 12.2 Z`,
+      config: easeConfig,
+    },
+    [xScale, leftSpring, rightSpring, hovered, dragging],
+  );
+
+  // Handlers for the main zoom gesture
+  useZoomGestures(
+    mainGestureRef as MutableRefObject<SVGRectElement>,
+    true,
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
@@ -59,18 +84,13 @@ function InnerZoomDisplay() {
         setHovered(hovering ?? false);
       },
     },
-    {
-      drag: {
-        axis: "x",
-        filterTaps: true,
-        pointer: {
-          capture: false,
-        },
-      },
-    },
+    DRAG_X_CONFIG,
   );
 
-  const gestureBindingsLeft = useGesture(
+  // Handlers for the left zoom endpoint element
+  useZoomGestures(
+    leftGestureRef as MutableRefObject<SVGPathElement>,
+    true,
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
@@ -99,18 +119,13 @@ function InnerZoomDisplay() {
         setHovered(hovering ?? false);
       },
     },
-    {
-      drag: {
-        axis: "x",
-        filterTaps: true,
-        pointer: {
-          capture: false,
-        },
-      },
-    },
+    DRAG_X_CONFIG,
   );
 
-  const gestureBindingsRight = useGesture(
+  // Handlers for the right zoom endpoint element
+  useZoomGestures(
+    rightGestureRef as MutableRefObject<SVGPathElement>,
+    true,
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
@@ -139,38 +154,13 @@ function InnerZoomDisplay() {
         setHovered(hovering ?? false);
       },
     },
-    {
-      drag: {
-        axis: "x",
-        filterTaps: true,
-        pointer: {
-          capture: false,
-        },
-      },
-    },
-  );
-
-  const { leftSpring, rightSpring, widthSpring } = useZoomSprings();
-
-  const [{ leftPath, rightPath }] = useSpring(
-    {
-      leftPath:
-        hovered || dragging
-          ? `M0 3.8 L0 26.2 L-7 21.6 L-7 8.4 Z`
-          : `M0 12.2 L0 17.8 L-7 17.8 L-7 12.2 Z`,
-      rightPath:
-        hovered || dragging
-          ? `M0 3.8 L0 26.2 L7 21.6 L7 8.4 Z`
-          : `M0 12.2 L0 17.8 L7 17.8 L7 12.2 Z`,
-      config: easeConfig,
-    },
-    [xScale, leftSpring, rightSpring, hovered, dragging],
+    DRAG_X_CONFIG,
   );
 
   return (
     <g className="group/zoom" aria-selected={dragging || hovered}>
       <animated.rect
-        {...gestureBindingsMain()}
+        ref={mainGestureRef as MutableRefObject<SVGRectElement>}
         className={clsx(
           "transition-[transform,fill]",
           "group-hover/zoom:fill-neutral-500/50",
@@ -186,7 +176,8 @@ function InnerZoomDisplay() {
         height={22.4}
       />
       <animated.g
-        {...gestureBindingsLeft()}
+        ref={leftGestureRef as MutableRefObject<SVGPathElement>}
+        className="touch-none"
         style={{
           transform: leftSpring.to(
             (ls) => `translateX(${xScale(ls).toString()}px)`,
@@ -202,7 +193,8 @@ function InnerZoomDisplay() {
         />
       </animated.g>
       <animated.g
-        {...gestureBindingsRight()}
+        ref={rightGestureRef as MutableRefObject<SVGPathElement>}
+        className="touch-none"
         style={{
           transform: rightSpring.to(
             (rs) => `translateX(${xScale(rs).toString()}px)`,

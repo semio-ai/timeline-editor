@@ -4,11 +4,7 @@ import { Text } from "@visx/text";
 import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { clsx } from "clsx";
-import {
-  closestFrame,
-  // getHexagonPath,
-  // getDegenerateHexagonPath,
-} from "@semio/utils";
+import { closestFrame } from "@semio/utils";
 import { stampToVisualTime } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import { useTrackBounds } from "./hooks/use-track-bounds";
@@ -18,15 +14,12 @@ import { usePlayheadSpring } from "./hooks/use-playhead-spring";
 import { usePlayheadCartPathSpring } from "./hooks/use-playhead-cart-path-spring";
 import useAltKeyPressed from "./hooks/use-alt-key-pressed";
 import { AnimationActions, AnimationData } from "./store-types";
-
-// const AnimatedText = animated(Text);
+import { DRAG_X_CONFIG } from "./gesture-config";
 
 export interface PlayheadCartProps {
   side: "top" | "bottom";
   ignoreZoom?: boolean;
 }
-
-// const cartWidth = 24;
 
 function PlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
   const {
@@ -77,15 +70,7 @@ function PlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
         state.event.stopPropagation();
       },
     },
-    {
-      drag: {
-        axis: "x",
-        filterTaps: true,
-        pointer: {
-          capture: false,
-        },
-      },
-    },
+    DRAG_X_CONFIG,
   );
 
   return (

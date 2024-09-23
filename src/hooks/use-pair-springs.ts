@@ -50,10 +50,6 @@ export function usePairSprings(
     width: Math.max(0, stamp2 - stamp2),
     config: springConfig,
   }));
-  // const rightSpring = useSpringValue<number>(stamp2, { config: springConfig });
-  // const widthSpring = useSpringValue<number>(Math.max(0, stamp2 - stamp2), {
-  //   config: springConfig,
-  // });
 
   const onViewportChange = useCallback(
     (viewport: [number, number]) => {
@@ -72,9 +68,6 @@ export function usePairSprings(
         right: scale(stamp2),
         width: scaleNoOffset(Math.max(0, stamp2 - stamp1)),
       });
-      // void leftSpring.start(scale(stamp1));
-      // void rightSpring.start(scale(stamp2));
-      // void widthSpring.start(scaleNoOffset(Math.max(0, stamp2 - stamp1)));
     },
     [api, stamp1, stamp2],
   );

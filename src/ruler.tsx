@@ -19,6 +19,7 @@ import { useWithZoom } from "./hooks/use-with-zoom";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 import { AnimatedText } from "./animated-text";
 import useAltKeyPressed from "./hooks/use-alt-key-pressed";
+import { GestureDetector } from "./gesture-detector";
 
 function InnerRuler({
   width,
@@ -46,7 +47,6 @@ function InnerRuler({
       scaleLinear({
         domain: [0, 1],
         range: [TIMELINE_PADDING, width - TIMELINE_PADDING],
-        // clamp: true,
       }),
     [width],
   );
@@ -66,44 +66,41 @@ function InnerRuler({
     [frameCount, side],
   );
 
-  const gestureBindings = useGesture({
-    onDoubleClick: (state) => {
-      // console.log(state);
-      withZoom((zoomScale) => {
-        const newPosition = zoomScale.invert(
-          ((state.event.clientX ?? 0) - activeRegionBounds.left) /
-            activeRegionBounds.width,
-        );
-        if (state.altKey) {
-          resetPlayer(newPosition);
-        } else {
-          const closest: number = closestFrame(newPosition, frameCount);
-          resetPlayer(closest);
-        }
-      });
-    },
-    onHover: (state) => {
-      if (!state.hovering) {
-        clearHoverpoint();
-      }
-    },
-    onMove: (state) => {
-      withZoom((zoomScale) => {
-        const newPosition = zoomScale.invert(
-          ((state.xy[0] || 0) - activeRegionBounds.left) /
-            activeRegionBounds.width,
-        );
-        if (state.altKey) {
-          setHoverpoint(newPosition);
-          // setHoveredSpan(getInclusionSpan(frames, newPosition));
-        } else {
-          const closest: number = closestFrame(newPosition, frameCount);
-          setHoverpoint(closest);
-          // setHoveredSpan(getInclusionSpan(frames, closest));
-        }
-      });
-    },
-  });
+  // const gestureBindings = useGesture({
+  //   onDoubleClick: (state) => {
+  //     withZoom((zoomScale) => {
+  //       const newPosition = zoomScale.invert(
+  //         ((state.event.clientX ?? 0) - activeRegionBounds.left) /
+  //           activeRegionBounds.width,
+  //       );
+  //       if (state.altKey) {
+  //         resetPlayer(newPosition);
+  //       } else {
+  //         const closest: number = closestFrame(newPosition, frameCount);
+  //         resetPlayer(closest);
+  //       }
+  //     });
+  //   },
+  //   onHover: (state) => {
+  //     if (!state.hovering) {
+  //       clearHoverpoint();
+  //     }
+  //   },
+  //   onMove: (state) => {
+  //     withZoom((zoomScale) => {
+  //       const newPosition = zoomScale.invert(
+  //         ((state.xy[0] || 0) - activeRegionBounds.left) /
+  //           activeRegionBounds.width,
+  //       );
+  //       if (state.altKey) {
+  //         setHoverpoint(newPosition);
+  //       } else {
+  //         const closest: number = closestFrame(newPosition, frameCount);
+  //         setHoverpoint(closest);
+  //       }
+  //     });
+  //   },
+  // });
 
   return (
     <TrackBoundsContext.Provider
@@ -122,17 +119,15 @@ function InnerRuler({
             side === "top" ? "bottom-[-4px]" : "top-[-4px]",
           )}
           width={width < 0 ? 0 : width}
-          {...gestureBindings()}
         >
-          <g
-            x={side === "top" ? 0 : 4}
-            // className={clsx("relative", side === "top" ? "top-0" : "top-[4px]")}
-          >
+          {/* Gesture Detector */}
+          <GestureDetector ignoreZoom={side === "bottom"} inRuler />
+          <g x={side === "top" ? 0 : 4}>
             <rect
               ref={activeRegionRef}
               x={xScale(0)}
               width={Math.max(0, width - TIMELINE_PADDING * 2)}
-              className="h-[24px]"
+              className="h-[24px] pointer-events-none"
             />
             {timedFrames.map((tick, i) => (
               <Tick
@@ -194,7 +189,7 @@ function Tick({
         height={major ? 6 : 4}
         className={clsx(
           "transition-[fill,transform] duration-75 ease-in-out",
-          "fill-transparent",
+          "fill-transparent pointer-events-none",
           major
             ? "group-hover:fill-black group-hover:dark:fill-white group-aria-expanded:fill-black group-aria-expanded:dark:fill-white"
             : "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
@@ -208,7 +203,7 @@ function Tick({
           y={side === "top" ? 5 : 15.5}
           fontSize={10}
           className={clsx(
-            "font-mono font-light",
+            "font-mono font-light pointer-events-none",
             "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
           )}
         >

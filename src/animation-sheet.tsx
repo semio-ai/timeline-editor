@@ -106,29 +106,4 @@ export function InnerSheet(): ReactNode {
   );
 }
 
-// function getSize(size: number): string {
-//   switch (size) {
-//     case 0:
-//       return "group-aria-expanded:xs:h-[30px]";
-//     case 1:
-//       return "group-aria-expanded:xs:h-[30px]";
-//     case 2:
-//       return "group-aria-expanded:xs:h-[60px]";
-//     case 3:
-//       return "group-aria-expanded:xs:h-[90px]";
-//     case 4:
-//       return "group-aria-expanded:xs:h-[120px]";
-//     case 5:
-//       return "group-aria-expanded:xs:h-[150px]";
-//     case 6:
-//       return "group-aria-expanded:xs:h-[180px]";
-//     case 7:
-//       return "group-aria-expanded:xs:h-[210px]";
-//     case 8:
-//       return "group-aria-expanded:xs:h-[240px]";
-//     default:
-//       return "group-aria-expanded:xs:h-[240px]";
-//   }
-// }
-
 const MemoizedInnerSheet = memo(InnerSheet);
