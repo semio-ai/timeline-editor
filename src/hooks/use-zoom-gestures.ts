@@ -98,9 +98,11 @@ export const useZoomGestures = (
       // unpack other gesture handlers that were passed in.
       ...(config ?? {}),
       target: ref,
+
       pinch: {
         scaleBounds: { min: 1, max: duration / 1000 },
         rubberband: true,
+        modifierKey: ["metaKey", "ctrlKey"],
       },
       wheel: {
         axis: "x",
