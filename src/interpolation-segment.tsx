@@ -28,7 +28,7 @@ function InnerInterpolationSegment({
       width={width.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
       height={4}
       className={clsx(
-        "transition-[colors,stroke,transform] duration-75 fill-transparent",
+        "transition-[colors,stroke,transform] duration-75 fill-transparent pointer-events-none",
         useCustomColor
           ? "group-aria-expanded:fill-[--track-color] group-hover:fill-[--track-color]"
           : "group-aria-expanded:dark:fill-default-400 group-aria-expanded:fill-default-600 group-hover:fill-default-600 group-hover:dark:fill-default-400",

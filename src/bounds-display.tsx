@@ -153,15 +153,13 @@ function InnerBoundsDisplay({
         y={0}
         width={widthSpring.to((ws) => Math.max(0, xScale(ws)))}
         height={30}
-        className={
-          dragging
-            ? clsx(
-                "fill-transparent",
-                "group-hover:cursor-ew-resize group-hover:fill-neutral-600/25",
-                "group-aria-expanded:cursor-ew-resize group-aria-expanded:fill-neutral-600/25",
-              )
-            : "fill-transparent"
-        }
+        className={clsx(
+          "fill-transparent pointer-events-none",
+          dragging &&
+            "group-hover:cursor-ew-resize group-hover:fill-neutral-600/25",
+          dragging &&
+            "group-aria-expanded:cursor-ew-resize group-aria-expanded:fill-neutral-600/25",
+        )}
       />
       <g
         className="group/bound"
@@ -184,10 +182,7 @@ function InnerBoundsDisplay({
           d={leftSpring.to((ls) =>
             getPath(xScale, ls, "left", isTop, isBottom),
           )}
-          className={clsx(
-            "transition-[fill]",
-            getFill("left", bounds[0] === 0),
-          )}
+          className={clsx("transition-[fill", getFill("left", bounds[0] === 0))}
         />
         <animated.path
           d={leftSpring.to(

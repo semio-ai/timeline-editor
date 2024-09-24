@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
-// import { useMediaQuery } from "@semio/utils";
 import { IconButton, IconPlayerPlay2, Select, Size, Variant } from "@semio/ui";
 import { IconPlayerPauseFilled, IconWorld } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
@@ -86,9 +85,6 @@ export function PlaybackControls({
       ]),
     );
 
-  // const smallScreen = useMediaQuery("(max-width: 768px)");
-  // const xsmallScreen = useMediaQuery("(max-width: 640px)");
-  //
   let filled = false;
   if (pointId) {
     filled = true;
@@ -152,11 +148,6 @@ export function PlaybackControls({
             }}
             color="#737373"
           >
-            {/* <IconPlayPause
-              size="16px"
-              center={running ? "pause" : "play"}
-              fillOpacity={playerHovered ? 0.5 : 0}
-            /> */}
             {running ? (
               <IconPlayerPauseFilled size="16px" />
             ) : (
@@ -185,63 +176,4 @@ export function PlaybackControls({
       </div>
     </div>
   );
-
-  // return (
-  //   <div className="justify-between items-center p-1 flex">
-  //     <div className="flex justify-center items-center gap-2">
-  //       <SkipButton direction={SkipDirection.BoundsStart} />
-  //       {!xsmallScreen && <TimeDisplay type={TimeDisplayType.BoundsStart} />}
-  //     </div>
-  //     <div className="flex justify-center items-center gap-2">
-  //       {!smallScreen && <TimeDisplay type={TimeDisplayType.Forward} />}
-  //       <SkipButton direction={SkipDirection.Backward} />
-
-  //       <div
-  //         className={clsx(
-  //           "flex transition-all justify-center items-center h-9 gap-2",
-  //           // running ? "w-10" : "w-40",
-  //         )}
-  //       >
-  //         <IconButton
-  //           onClick={() => {
-  //             if (running) {
-  //               pausePlayer();
-  //             } else {
-  //               playPlayer(-1);
-  //             }
-  //           }}
-  //         >
-  //           {running ? (
-  //             <IconPlayerPauseFilled />
-  //           ) : (
-  //             <IconPlayerPlay
-  //               className="transform rotate-180"
-  //               // style={{ transform: "rotate(180deg)" }}
-  //             />
-  //           )}
-  //         </IconButton>
-  //         <div className="items-center p-2">
-  //           <TimeDisplay type={TimeDisplayType.Current} />
-  //         </div>
-  //         <IconButton
-  //           onClick={() => {
-  //             if (running) {
-  //               pausePlayer();
-  //             } else {
-  //               playPlayer(1);
-  //             }
-  //           }}
-  //         >
-  //           {running ? <IconPlayerPauseFilled /> : <IconPlayerPlay />}
-  //         </IconButton>
-  //       </div>
-  //       <SkipButton direction={SkipDirection.Forward} />
-  //       {!smallScreen && <TimeDisplay type={TimeDisplayType.Forward} />}
-  //     </div>
-  //     <div className="flex justify-center items-center gap-2">
-  //       {!xsmallScreen && <TimeDisplay type={TimeDisplayType.BoundsEnd} />}
-  //       <SkipButton direction={SkipDirection.BoundsEnd} />
-  //     </div>
-  //   </div>
-  // );
 }

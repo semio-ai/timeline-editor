@@ -2,16 +2,13 @@ import { type ReactNode, useState, memo } from "react";
 import { animated } from "@react-spring/web";
 import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
-import {
-  closestFrame,
-  // getHexagonPath,
-  // getDegenerateHexagonPath,
-} from "@semio/utils";
+import { closestFrame } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { usePlayheadSpring } from "./hooks/use-playhead-spring";
+import { DRAG_X_CONFIG } from "./gesture-config";
 
 export interface PlayheadProps {
   ignoreZoom?: boolean;
@@ -52,15 +49,7 @@ function Playhead({ ignoreZoom = false }: PlayheadProps): ReactNode {
         setHovered(state.hovering || false);
       },
     },
-    {
-      drag: {
-        axis: "x",
-        filterTaps: true,
-        pointer: {
-          capture: false,
-        },
-      },
-    },
+    DRAG_X_CONFIG,
   );
 
   return (

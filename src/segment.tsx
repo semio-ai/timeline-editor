@@ -19,7 +19,7 @@ function Segment({ start, end }: SegmentProps): ReactNode {
         "dark:group-hover:stroke-neutral-800 dark:group-aria-expanded:stroke-neutral-800",
         "group-hover:stroke-neutral-200 group-aria-expanded:stroke-neutral-200",
         "hover:stroke-neutral-500 dark:stroke-transparent",
-        "transition-all duration-75 ease-in-out",
+        "transition-all duration-75 ease-in-out pointer-events-none",
       )}
       d={`M${(xScale(start) + 0.5).toString()},15 L${(xScale(end) - 0.5).toString()},15`}
     />

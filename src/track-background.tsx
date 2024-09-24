@@ -2,11 +2,8 @@ import { memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { animated } from "@react-spring/web";
 import { clsx } from "clsx";
-// import { useDeep } from "@semio/utils";
 import { useAnimationStore } from "./hooks/use-animation-store";
-// import { FrameMarker } from "./frame-marker";
 import { AnimationData } from "./store-types";
-// import { computeFrames } from "./actions/compute-frames";
 import type { ScaleLinear } from "./scale-linear";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 import { useTrackBounds } from "./hooks/use-track-bounds";
@@ -59,10 +56,10 @@ function InnerTrackBackground({
             <rect
               key={`${identifier}-mask`}
               x={xScale(bounds[0])}
-              width={Math.max(0, xScale(bounds[1] - bounds[0]))}
+              width={Math.max(0, xScale(bounds[1]) - xScale(bounds[0]))}
               y={10.75}
               height={7.5}
-              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white transition-[fill] duration-75 ease-in-out"
+              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white transition-[fill] duration-75 ease-in-out pointer-events-none"
             />
           )}
           {showLine && (
@@ -72,7 +69,7 @@ function InnerTrackBackground({
               width={Math.max(0, xScale(bounds[0]))}
               y={10.75}
               height={7.5}
-              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out"
+              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out pointer-events-none"
             />
           )}
           {showLine && (
@@ -82,7 +79,7 @@ function InnerTrackBackground({
               width={Math.max(0, xScale(1 - bounds[1]))}
               y={10.75}
               height={7.5}
-              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out"
+              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out pointer-events-none"
             />
           )}
           {timedFrames.map((tick) => (
@@ -105,11 +102,7 @@ function InnerTrackBackground({
           "transition-[fill] duration-75",
           "h-[29px] translate-y-[0.5px]",
           "group-aria-expanded:opacity-100 group-hover:opacity-100 opacity-0",
-          "",
-          // "fill-neutral-500 h-[29px] translate-y-[0.5px]",
-          // "fill-neutral-400 dark:fill-neutral-600 h-[7.5px] translate-y-[10.75px]",
-          // "group-aria-expanded:fill-[url(#bg)] group-hover:fill-[url(#bg)]",
-          // "group-aria-expanded:h-[29px] group-hover:h-[29px] group-aria-expanded:translate-y-[0.5px] group-hover:translate-y-[0.5px]",
+          "pointer-events-none",
         )}
       />
 
@@ -119,7 +112,7 @@ function InnerTrackBackground({
         mask="url(#mask)"
         className={clsx(
           "transition-[fill] duration-75 fill-neutral-500",
-          "h-[29px] translate-y-[0.5px]",
+          "h-[29px] translate-y-[0.5px] pointer-events-none",
           "group-aria-expanded:opacity-0 group-hover:opacity-0 opacity-100",
         )}
       />
@@ -146,7 +139,7 @@ function Tick({
       width={2}
       height={30}
       className={clsx(
-        "transition-[fill,transform] duration-75 ease-in-out group-hover:fill-neutral-300 fill-transparent",
+        "transition-[fill,transform] duration-75 ease-in-out group-hover:fill-neutral-300 fill-transparent pointer-events-none",
         outsideBounds
           ? "scale-y-[33%] translate-y-[10px] group-hover:fill-neutral-700"
           : "group-hover:fill-white",

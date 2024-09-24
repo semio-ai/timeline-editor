@@ -27,7 +27,6 @@ function InnerDataDisplay({
   );
 
   const interps = pairwise(Object.values(active).sort((a) => a.stamp));
-  // console.log(interps);
 
   return (
     <>
@@ -40,7 +39,6 @@ function InnerDataDisplay({
           stamp={passive[passiveKey].stamp}
           ignoreZoom={ignoreZoom}
           useCustomColor={false}
-          // parentActive={parentActive}
         />
       ))}
       {!disabled &&
@@ -62,7 +60,6 @@ function InnerDataDisplay({
           stamp={active[activeKey].stamp}
           ignoreZoom={ignoreZoom}
           useCustomColor={useCustomColor}
-          // parentActive={parentActive}
           active={!disabled}
         />
       ))}
