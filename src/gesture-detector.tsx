@@ -17,10 +17,10 @@ import { AnimationActions, AnimationData } from "./store-types";
 
 export function GestureDetector({
   ignoreZoom,
-  inRuler,
+  height = 30,
 }: {
   ignoreZoom?: boolean;
-  inRuler?: boolean;
+  height?: number;
 }) {
   const gestureRef = useRef<SVGRectElement>();
   const { scale, bounds } = useTrackBounds();
@@ -107,11 +107,9 @@ export function GestureDetector({
         e.stopPropagation();
       }}
       x={scale(0)}
+      height={height}
       width={Math.max(0, bounds.width)}
-      className={clsx(
-        "pointer-events-auto touch-none",
-        inRuler ? "h-[28px]" : "h-[30px]",
-      )}
+      className={clsx("pointer-events-auto touch-none")}
     />
   );
 }

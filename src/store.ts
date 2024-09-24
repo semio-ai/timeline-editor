@@ -582,6 +582,11 @@ export const AnimationSlice = (
         }),
       );
     },
+    setPreferences: (preferences: Partial<AnimationData["preferences"]>) => {
+      set((state) => ({
+        preferences: { ...state.preferences, ...preferences },
+      }));
+    },
   };
 };
 

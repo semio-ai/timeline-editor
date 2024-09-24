@@ -73,17 +73,27 @@ export const useZoomGestures = (
         });
         return timestampSet;
       },
-      onWheel: ({ event, delta }) => {
+      onWheel: ({ event, delta, shiftKey }) => {
         withZoom((zoomScale) => {
           const currentDomain = zoomScale.domain();
-          const movement = delta[0] / bounds.width;
+          const deltaMovement = shiftKey ? delta[1] : delta[0];
+          const movement = deltaMovement / bounds.width;
           const proposedStart = currentDomain[0] + movement;
           const proposedEnd = currentDomain[1] + movement;
           if (proposedStart >= 0 && proposedEnd <= 1) {
             updatePlayerViewport(proposedStart, proposedEnd);
+          } else if (proposedStart < 0 && proposedEnd <= 1) {
+            // fit to the start of the domain
+            updatePlayerViewport(0, proposedEnd - proposedStart);
+          } else if (proposedStart >= 0 && proposedEnd > 1) {
+            // fit to the end of the domain
+            updatePlayerViewport(proposedStart - (proposedEnd - 1), 1);
           }
         });
-        event.preventDefault();
+        if (shiftKey) {
+          event.preventDefault();
+        }
+
         event.stopPropagation();
       },
       onScroll: ({ event }) => {
@@ -102,7 +112,8 @@ export const useZoomGestures = (
         modifierKey: ["metaKey", "ctrlKey"],
       },
       wheel: {
-        axis: "x",
+        // Testing out removing axis limit
+        // axis: "x",
       },
       eventOptions: { passive: false },
     },

@@ -12,17 +12,21 @@ import { SemanticTime } from "./store-types";
 import { TIMELINE_PADDING } from "./constants";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { useBoundSprings } from "./hooks/use-bound-springs";
+import { DRAG_X_CONFIG } from "./gesture-config";
+import { useWithBounds } from "./hooks/use-with-bounds";
 
 export interface BoundsDisplayProps {
   isTop?: boolean;
   isBottom?: boolean;
   ignoreZoom?: boolean;
+  height?: number;
 }
 
 function InnerBoundsDisplay({
   isTop = true,
   isBottom = true,
   ignoreZoom = false,
+  height = 30,
 }: BoundsDisplayProps) {
   const {
     frameCount,
@@ -53,6 +57,7 @@ function InnerBoundsDisplay({
   const [dragging, setDragging] = useState(false);
   const [hovering, setHovering] = useState(false);
   const withZoom = useWithZoom(ignoreZoom);
+  const withBounds = useWithBounds();
 
   const gestureBindingsLeft = useGesture(
     {
@@ -65,40 +70,34 @@ function InnerBoundsDisplay({
         state.event.stopPropagation();
       },
       onHover: ({ hovering: h }) => setHovering(h || false),
-      onDrag: (state) => {
-        withZoom((zoomScale) => {
-          const newPosition = zoomScale.invert(
-            clamp(
-              ((state.xy[0] || 0) - timelineLeft) /
-                (timelineWidth - TIMELINE_PADDING),
-              0,
-              1,
-            ),
-          );
-          const newValue = state.altKey
-            ? newPosition
-            : closestFrame(newPosition, frameCount);
-          const vals =
-            newValue >= initialBounds.current[1]
-              ? [initialBounds.current[1], newValue]
-              : [newValue, initialBounds.current[1]];
-          updateBounds(vals[0], vals[1]);
-          state.event.stopPropagation();
+      onDrag: ({ event, xy, altKey }) => {
+        withBounds((bounds) => {
+          withZoom((zoomScale) => {
+            const newPosition = zoomScale.invert(
+              clamp(
+                ((xy[0] || 0) - timelineLeft) /
+                  (timelineWidth - TIMELINE_PADDING),
+                0,
+                1,
+              ),
+            );
+            const newValue = altKey
+              ? newPosition
+              : closestFrame(newPosition, frameCount);
+            const vals =
+              newValue >= initialBounds.current[1]
+                ? [initialBounds.current[1], newValue]
+                : [newValue, initialBounds.current[1]];
+            updateBounds(vals[0], vals[1]);
+            event.stopPropagation();
+          });
         });
       },
       onClick: (state) => {
         state.event.stopPropagation();
       },
     },
-    {
-      drag: {
-        axis: "x",
-        filterTaps: true,
-        pointer: {
-          capture: false,
-        },
-      },
-    },
+    DRAG_X_CONFIG,
   );
 
   const gestureBindingsRight = useGesture(
@@ -132,15 +131,7 @@ function InnerBoundsDisplay({
         state.event.stopPropagation();
       },
     },
-    {
-      drag: {
-        axis: "x",
-        filterTaps: true,
-        pointer: {
-          capture: false,
-        },
-      },
-    },
+    DRAG_X_CONFIG,
   );
 
   // const zoomBounds = bounds.map(zoomScale) as [number, number];
@@ -152,7 +143,7 @@ function InnerBoundsDisplay({
         x={leftSpring.to((ls) => xScale(ls))}
         y={0}
         width={widthSpring.to((ws) => Math.max(0, xScale(ws)))}
-        height={30}
+        height={height}
         className={clsx(
           "fill-transparent pointer-events-none",
           dragging &&
@@ -182,11 +173,15 @@ function InnerBoundsDisplay({
           d={leftSpring.to((ls) =>
             getPath(xScale, ls, "left", isTop, isBottom),
           )}
-          className={clsx("transition-[fill", getFill("left", bounds[0] === 0))}
+          className={clsx(
+            "transition-[fill]",
+            getFill("left", bounds[0] === 0),
+          )}
         />
         <animated.path
           d={leftSpring.to(
-            (ls) => `M${xScale(ls).toString()} 0 L${xScale(ls).toString()} 30Z`,
+            (ls) =>
+              `M${xScale(ls).toString()} 0 L${xScale(ls).toString()} ${height.toString()}Z`,
           )}
           className={clsx("transition-stroke duration-75", getStroke("left"))}
         />
@@ -195,7 +190,7 @@ function InnerBoundsDisplay({
           x={leftSpring.to((ls) => xScale(ls) - (hovering ? 10 : 7))}
           y={0}
           width={hovering ? 20 : 14}
-          height={30}
+          height={height}
           className="cursor-ew-resize touch-none fill-transparent"
         />
       </g>
@@ -228,7 +223,8 @@ function InnerBoundsDisplay({
         />
         <animated.path
           d={rightSpring.to(
-            (rs) => `M${xScale(rs).toString()} 0 L${xScale(rs).toString()} 30Z`,
+            (rs) =>
+              `M${xScale(rs).toString()} 0 L${xScale(rs).toString()} ${height.toString()}Z`,
           )}
           className={clsx("transition-stroke duration-75", getStroke("right"))}
         />
@@ -237,7 +233,7 @@ function InnerBoundsDisplay({
           x={rightSpring.to((rs) => xScale(rs) - (hovering ? 10 : 14))}
           y={0}
           width={hovering ? 20 : 14}
-          height={30}
+          height={height}
           className="cursor-ew-resize touch-none fill-transparent"
         />
       </g>

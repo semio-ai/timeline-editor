@@ -10,11 +10,11 @@ import type { AnimationData } from "./store-types";
 import { type ScaleLinear } from "./scale-linear";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { TrackBoundsContext } from "./hooks/use-track-bounds";
-import { TIMELINE_PADDING } from "./constants";
 import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
-import PlayheadCart from "./playhead-cart";
+import { useAltKeyPressed } from "./hooks/use-alt-key-pressed";
+import { TIMELINE_PADDING } from "./constants";
+import { PlayheadCart } from "./playhead-cart";
 import { AnimatedText } from "./animated-text";
-import useAltKeyPressed from "./hooks/use-alt-key-pressed";
 import { GestureDetector } from "./gesture-detector";
 
 function InnerRuler({
@@ -74,7 +74,7 @@ function InnerRuler({
           width={width < 0 ? 0 : width}
         >
           {/* Gesture Detector */}
-          <GestureDetector ignoreZoom={side === "bottom"} inRuler />
+          <GestureDetector ignoreZoom={side === "bottom"} height={28} />
           <g x={side === "top" ? 0 : 4}>
             <rect
               ref={activeRegionRef}

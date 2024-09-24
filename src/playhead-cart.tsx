@@ -12,7 +12,7 @@ import { useAnimationStore } from "./hooks/use-animation-store";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { usePlayheadSpring } from "./hooks/use-playhead-spring";
 import { usePlayheadCartPathSpring } from "./hooks/use-playhead-cart-path-spring";
-import useAltKeyPressed from "./hooks/use-alt-key-pressed";
+import { useAltKeyPressed } from "./hooks/use-alt-key-pressed";
 import { AnimationActions, AnimationData } from "./store-types";
 import { DRAG_X_CONFIG } from "./gesture-config";
 
@@ -21,7 +21,7 @@ export interface PlayheadCartProps {
   ignoreZoom?: boolean;
 }
 
-function PlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
+function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
   const {
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
@@ -158,4 +158,4 @@ function getStyle(cart: boolean, hovered: boolean): string {
   }
 }
 
-export default memo(PlayheadCart);
+export const PlayheadCart = memo(InnerPlayheadCart);

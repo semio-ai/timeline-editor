@@ -1,6 +1,7 @@
 import { ScrollArea } from "@semio/ui";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { TrackRow } from "./track-row";
+import { TrackGap } from "./track-gap";
 
 export function TrackList() {
   const tracks = useAnimationStore(
@@ -17,6 +18,9 @@ export function TrackList() {
             isBottom={false}
           />
         ))}
+        {tracks.length < 8 && tracks.length > 0 && (
+          <TrackGap count={8 - tracks.length} />
+        )}
         {tracks.length === 0 && (
           <div className="h-[240px] grid place-items-center">
             <p className="text-neutral-500 font-thin text-sm">No tracks</p>

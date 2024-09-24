@@ -32,6 +32,10 @@ export interface AnimationData {
   hoverpoint: number;
   // Previews for parts of the animation other than the current time
   previews: Preview[];
+  // Some configurable preferences
+  preferences: {
+    hoverDashedLine: boolean;
+  };
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   activeGraph: string;
@@ -174,6 +178,7 @@ export interface AnimationActions {
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   setValue: (animatedId: string, namespace: string, value: RawValue) => void;
   updateControlColor: (controlId: string, color: string) => void;
+  setPreferences: (preferences: Partial<AnimationData["preferences"]>) => void;
 }
 
 export type AnimationStoreSetter = (

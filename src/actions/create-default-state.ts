@@ -24,6 +24,9 @@ export const createDefaultState = (): AnimationData => {
     playerInterval: undefined,
     hoverpoint: 0,
     previews: [],
+    preferences: {
+      hoverDashedLine: false,
+    },
 
     // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
     activeGraph: defaultGraph.id,

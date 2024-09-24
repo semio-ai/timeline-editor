@@ -5,7 +5,6 @@ import { clsx } from "clsx";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { AnimationData } from "./store-types";
 import type { ScaleLinear } from "./scale-linear";
-import { useHoverSpring } from "./hooks/use-hover-spring";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
 
@@ -13,17 +12,20 @@ export interface TrackBackgroundProps {
   trackIds?: string[];
   showLine?: boolean;
   ignoreZoom?: boolean;
+  tickHeight?: number;
 }
 
 function InnerTrackBackground({
   trackIds,
   showLine = true,
   ignoreZoom = false,
+  tickHeight = 30,
 }: TrackBackgroundProps) {
   const identifier: string = trackIds?.join("-") ?? "default";
   const { scale: xScale } = useTrackBounds();
 
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
+
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
@@ -48,8 +50,6 @@ function InnerTrackBackground({
   return (
     <>
       <defs>
-        {/* Create a gradient for the background of the timeline */}
-        <Gradient ignoreZoom={ignoreZoom} />
         {/* Create a mask for the timeline */}
         <mask id="mask">
           {showLine && (
@@ -89,6 +89,7 @@ function InnerTrackBackground({
               ignoreZoom={ignoreZoom}
               xScale={xScale}
               outsideBounds={tick.stamp < bounds[0] || tick.stamp > bounds[1]}
+              tickHeight={tickHeight}
             />
           ))}
         </mask>
@@ -97,12 +98,13 @@ function InnerTrackBackground({
         x={xScale(0)}
         width={Math.max(0, xScale(1))}
         mask="url(#mask)"
-        fill="url(#bg)"
+        // fill="url(#bg)"
+        height={tickHeight - 1}
         className={clsx(
           "transition-[fill] duration-75",
-          "h-[29px] translate-y-[0.5px]",
+          "translate-y-[0.5px]",
           "group-aria-expanded:opacity-100 group-hover:opacity-100 opacity-0",
-          "pointer-events-none",
+          "pointer-events-none fill-black/10 dark:fill-white/10",
         )}
       />
 
@@ -110,9 +112,10 @@ function InnerTrackBackground({
         x={xScale(0)}
         width={Math.max(0, xScale(1))}
         mask="url(#mask)"
+        height={tickHeight - 1}
         className={clsx(
           "transition-[fill] duration-75 fill-neutral-500",
-          "h-[29px] translate-y-[0.5px] pointer-events-none",
+          "translate-y-[0.5px] pointer-events-none",
           "group-aria-expanded:opacity-0 group-hover:opacity-0 opacity-100",
         )}
       />
@@ -125,11 +128,13 @@ function Tick({
   xScale,
   outsideBounds,
   ignoreZoom,
+  tickHeight,
 }: {
   completion: number;
   xScale: ScaleLinear;
   outsideBounds: boolean;
   ignoreZoom?: boolean;
+  tickHeight: number;
 }) {
   const zoomedCompletion = useStaticZoomedSpring(completion, ignoreZoom);
   return (
@@ -137,46 +142,13 @@ function Tick({
       x={zoomedCompletion.to((c) => xScale(c) - 1)}
       y={0}
       width={2}
-      height={30}
+      height={tickHeight}
       className={clsx(
-        "transition-[fill,transform] duration-75 ease-in-out group-hover:fill-neutral-300 fill-transparent pointer-events-none",
-        outsideBounds
-          ? "scale-y-[33%] translate-y-[10px] group-hover:fill-neutral-700"
-          : "group-hover:fill-white",
+        "transition-[fill,transform] duration-75 ease-in-out fill-transparent pointer-events-none group-hover:fill-neutral-300",
+        outsideBounds && "group-hover:fill-neutral-700",
       )}
     />
   );
 }
-
-function InnerGradient({ ignoreZoom }: { ignoreZoom?: boolean }) {
-  const { hoverpoint } = useHoverSpring(ignoreZoom);
-  return (
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="0%">
-      <animated.stop offset="0%" stopColor="transparent" />
-      <animated.stop
-        offset={hoverpoint.to(
-          (hp) => `${Math.max(0, (hp ?? -Infinity) * 100 - 30).toString()}%`,
-        )}
-        stopColor="transparent"
-      />
-      <animated.stop
-        offset={hoverpoint.to(
-          (hp) => `${((hp ?? -Infinity) * 100).toString()}%`,
-        )}
-        stopColor="white"
-        stopOpacity={0.5}
-      />
-      <animated.stop
-        offset={hoverpoint.to(
-          (hp) => `${Math.min(100, (hp ?? -Infinity) * 100 + 30).toString()}%`,
-        )}
-        stopColor="transparent"
-      />
-      <animated.stop offset="100%" stopColor="transparent" />
-    </linearGradient>
-  );
-}
-
-const Gradient = memo(InnerGradient);
 
 export const TrackBackground = memo(InnerTrackBackground);

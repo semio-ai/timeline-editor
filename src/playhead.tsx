@@ -12,9 +12,13 @@ import { DRAG_X_CONFIG } from "./gesture-config";
 
 export interface PlayheadProps {
   ignoreZoom?: boolean;
+  height?: number;
 }
 
-function Playhead({ ignoreZoom = false }: PlayheadProps): ReactNode {
+function InnerPlayhead({
+  ignoreZoom = false,
+  height = 30,
+}: PlayheadProps): ReactNode {
   const {
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
@@ -61,15 +65,19 @@ function Playhead({ ignoreZoom = false }: PlayheadProps): ReactNode {
       }}
       {...gestureBindings()}
     >
+      {/* This is an element that makes a slightly larger hitbox */}
       <rect
-        x={-10}
-        y={-10}
-        width={20}
-        height={20}
+        x={-2.5}
+        y={0}
+        width={5}
+        height={height}
         className="fill-transparent"
       />
 
-      <path d="M0 0 L0 30" className={getStyle(hovered)} />
+      <path
+        d={`M 0 0 L 0 ${height.toString()}}`}
+        className={getStyle(hovered)}
+      />
     </animated.g>
   );
 }
@@ -82,4 +90,4 @@ function getStyle(hovered: boolean): string {
   }
 }
 
-export default memo(Playhead);
+export const Playhead = memo(InnerPlayhead);

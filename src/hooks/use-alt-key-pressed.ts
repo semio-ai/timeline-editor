@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const useAltKeyPressed = (): boolean => {
+export const useAltKeyPressed = (): boolean => {
   const [isAltPressed, setIsAltPressed] = useState(false);
 
   useEffect(() => {
@@ -28,5 +28,3 @@ const useAltKeyPressed = (): boolean => {
 
   return isAltPressed;
 };
-
-export default useAltKeyPressed;

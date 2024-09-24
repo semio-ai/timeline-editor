@@ -10,7 +10,7 @@ import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 import { useTrackBounds } from "./use-track-bounds";
 import { useAnimationStore } from "./use-animation-store";
-import useAltKeyPressed from "./use-alt-key-pressed";
+import { useAltKeyPressed } from "./use-alt-key-pressed";
 
 /*
   @name usePlayheadCartPathSpring
