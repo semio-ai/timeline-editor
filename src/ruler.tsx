@@ -55,42 +55,6 @@ function InnerRuler({
     [frameCount, side],
   );
 
-  // const gestureBindings = useGesture({
-  //   onDoubleClick: (state) => {
-  //     withZoom((zoomScale) => {
-  //       const newPosition = zoomScale.invert(
-  //         ((state.event.clientX ?? 0) - activeRegionBounds.left) /
-  //           activeRegionBounds.width,
-  //       );
-  //       if (state.altKey) {
-  //         resetPlayer(newPosition);
-  //       } else {
-  //         const closest: number = closestFrame(newPosition, frameCount);
-  //         resetPlayer(closest);
-  //       }
-  //     });
-  //   },
-  //   onHover: (state) => {
-  //     if (!state.hovering) {
-  //       clearHoverpoint();
-  //     }
-  //   },
-  //   onMove: (state) => {
-  //     withZoom((zoomScale) => {
-  //       const newPosition = zoomScale.invert(
-  //         ((state.xy[0] || 0) - activeRegionBounds.left) /
-  //           activeRegionBounds.width,
-  //       );
-  //       if (state.altKey) {
-  //         setHoverpoint(newPosition);
-  //       } else {
-  //         const closest: number = closestFrame(newPosition, frameCount);
-  //         setHoverpoint(closest);
-  //       }
-  //     });
-  //   },
-  // });
-
   return (
     <TrackBoundsContext.Provider
       value={{

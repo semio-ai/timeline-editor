@@ -18,8 +18,6 @@ export const useZoomGestures = (
   otherGestureHandlers?: GestureHandlers<AnyHandlerEventTypes>,
   config?: UserGestureConfig,
 ) => {
-  // Temp solution to address safari receiving duplicate events
-  // https://github.com/pmndrs/use-gesture/issues/681
   const withZoom = useWithZoom(false);
   const { bounds } = useTrackBounds();
   const { duration, updatePlayerViewport } = useAnimationStore(
@@ -34,25 +32,25 @@ export const useZoomGestures = (
       // unpack other gesture handlers that were passed in
       ...(otherGestureHandlers ?? {}),
       onPinch: ({ event, offset: [scale], memo, timeStamp }) => {
-        // console.log("pinch");
         event.preventDefault();
         event.stopPropagation();
+        // Note, timestampSet is returned from this handler,
+        // which becomes the memo value for the next pinch event
         let timestampSet: Set<number> = memo ?? new Set<number>();
 
-        // Temporary workaround to prevent duplicate events in Safari
+        // Temp solution to address safari receiving duplicate events
+        // https://github.com/pmndrs/use-gesture/issues/681
         const isRepeatTimestamp = timestampSet.has(timeStamp);
-
-        // Update the set manually
-        timestampSet.add(timeStamp);
-
-        // If the set exceeds 16 elements, remove the oldest one
-        if (timestampSet.size > 16) {
-          // Convert to an array, shift, and recreate the set
-          timestampSet = new Set([...timestampSet].slice(1));
-        }
-        // Temporary workaround to prevent duplicate events in Safari
         if (isRepeatTimestamp) {
           return timestampSet;
+        } else if (timestampSet.size > 16) {
+          // If the set exceeds 16 elements, remove the oldest one
+          timestampSet = new Set([...timestampSet].slice(1));
+          // And then add the latest timestamp
+          timestampSet.add(timeStamp);
+        } else {
+          // Just add the latest timestamp
+          timestampSet.add(timeStamp);
         }
 
         withZoom((zoomScale) => {
@@ -64,13 +62,12 @@ export const useZoomGestures = (
             0,
             1,
           );
-          const s = clamp(scale, 1, duration / 1000);
-          const newDomainWidth = 1 / s;
+          const clampedScale = clamp(scale, 1, duration / 1000);
+          const newDomainWidth = 1 / clampedScale;
 
-          const hp = newPosition;
           const newDomain = [
-            hp - newDomainWidth * hp,
-            hp + newDomainWidth * (1 - hp),
+            newPosition - newDomainWidth * newPosition,
+            newPosition + newDomainWidth * (1 - newPosition),
           ];
           updatePlayerViewport(newDomain[0], newDomain[1]);
         });
