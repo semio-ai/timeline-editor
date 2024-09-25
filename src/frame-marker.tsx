@@ -75,7 +75,6 @@ function InnerFrameMarker({
 
   useZoomGestures(
     gestureRef as MutableRefObject<SVGGElement>,
-    ignoreZoom,
     {
       onDrag: (state) => {
         if (!active) {

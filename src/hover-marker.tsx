@@ -40,7 +40,7 @@ function InnerHoverMarker({
       )}
       rx={1}
       // vertical line
-      d={`M 0 0 L 0 ${height.toString()}}`}
+      d={`M 0 0 L 0 ${height.toString()}`}
     />
   );
 }

@@ -11,14 +11,15 @@ import { AnimationActions, AnimationData } from "../store-types";
 import { useWithZoom } from "./use-with-zoom";
 import { useTrackBounds } from "./use-track-bounds";
 import { useAnimationStore } from "./use-animation-store";
+import { useShiftKeyPressed } from "./use-shift-key-pressed";
 
 export const useZoomGestures = (
   ref: MutableRefObject<EventTarget>,
-  ignoreZoom?: boolean,
   otherGestureHandlers?: GestureHandlers<AnyHandlerEventTypes>,
   config?: UserGestureConfig,
 ) => {
   const withZoom = useWithZoom(false);
+  const shiftKeyPressed = useShiftKeyPressed();
   const { bounds } = useTrackBounds();
   const { duration, updatePlayerViewport } = useAnimationStore(
     useShallow((state: AnimationData & AnimationActions) => ({
@@ -31,7 +32,7 @@ export const useZoomGestures = (
     {
       // unpack other gesture handlers that were passed in
       ...(otherGestureHandlers ?? {}),
-      onPinch: ({ event, offset: [scale], memo, timeStamp }) => {
+      onPinch: ({ event, offset: [scale], memo, timeStamp, origin }) => {
         event.preventDefault();
         event.stopPropagation();
         // Note, timestampSet is returned from this handler,
@@ -54,11 +55,9 @@ export const useZoomGestures = (
         }
 
         withZoom((zoomScale) => {
+          // console.log("origin", origin);
           const newPosition = clamp(
-            zoomScale.invert(
-              (((event as MouseEvent).clientX ?? 0) - bounds.left) /
-                bounds.width,
-            ),
+            zoomScale.invert((origin[0] - bounds.left) / bounds.width),
             0,
             1,
           );
@@ -90,13 +89,6 @@ export const useZoomGestures = (
             updatePlayerViewport(proposedStart - (proposedEnd - 1), 1);
           }
         });
-        if (shiftKey) {
-          event.preventDefault();
-        }
-
-        event.stopPropagation();
-      },
-      onScroll: ({ event }) => {
         event.preventDefault();
         event.stopPropagation();
       },
@@ -112,8 +104,7 @@ export const useZoomGestures = (
         modifierKey: ["metaKey", "ctrlKey"],
       },
       wheel: {
-        // Testing out removing axis limit
-        // axis: "x",
+        axis: shiftKeyPressed ? "y" : "x",
       },
       eventOptions: { passive: false },
     },

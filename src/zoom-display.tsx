@@ -53,7 +53,6 @@ function InnerZoomDisplay() {
   // Handlers for the main zoom gesture
   useZoomGestures(
     mainGestureRef as MutableRefObject<SVGRectElement>,
-    true,
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
@@ -90,7 +89,6 @@ function InnerZoomDisplay() {
   // Handlers for the left zoom endpoint element
   useZoomGestures(
     leftGestureRef as MutableRefObject<SVGPathElement>,
-    true,
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
@@ -125,7 +123,6 @@ function InnerZoomDisplay() {
   // Handlers for the right zoom endpoint element
   useZoomGestures(
     rightGestureRef as MutableRefObject<SVGPathElement>,
-    true,
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);

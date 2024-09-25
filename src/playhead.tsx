@@ -75,7 +75,7 @@ function InnerPlayhead({
       />
 
       <path
-        d={`M 0 0 L 0 ${height.toString()}}`}
+        d={`M 0 0 L 0 ${height.toString()}`}
         className={getStyle(hovered)}
       />
     </animated.g>

@@ -66,7 +66,7 @@ export function GestureDetector({
     [bounds, frameCount, resetPlayer, withZoom],
   );
 
-  useZoomGestures(gestureRef as MutableRefObject<EventTarget>, ignoreZoom, {
+  useZoomGestures(gestureRef as MutableRefObject<EventTarget>, {
     onHover: (state) => {
       if (!state.hovering) {
         clearHoverpoint();
