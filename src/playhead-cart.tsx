@@ -149,12 +149,10 @@ function PlayheadText({
 }
 
 function getStyle(cart: boolean, hovered: boolean): string {
-  if (cart && hovered) {
-    return "dark:fill-white/75 fill-black/75";
-  } else if (cart) {
-    return "dark:fill-white/50 fill-black/50";
+  if (hovered) {
+    return "dark:fill-white fill-black";
   } else {
-    return "dark:fill-white fill-black ";
+    return "dark:fill-neutral-300 fill-neutral-700";
   }
 }
 

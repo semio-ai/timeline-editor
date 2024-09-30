@@ -29,7 +29,7 @@ function InnerDataDisplay({
   const interps = pairwise(Object.values(active).sort((a) => a.stamp));
 
   return (
-    <>
+    <g mask="url(#boundsMask)">
       {Object.keys(passive).map((passiveKey) => (
         <FrameMarker
           key={passiveKey}
@@ -63,7 +63,7 @@ function InnerDataDisplay({
           active={!disabled}
         />
       ))}
-    </>
+    </g>
   );
 }
 

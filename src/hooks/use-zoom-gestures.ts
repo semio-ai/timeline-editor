@@ -55,13 +55,12 @@ export const useZoomGestures = (
         }
 
         withZoom((zoomScale) => {
-          // console.log("origin", origin);
           const newPosition = clamp(
             zoomScale.invert((origin[0] - bounds.left) / bounds.width),
             0,
             1,
           );
-          const clampedScale = clamp(scale, 1, duration / 1000);
+          const clampedScale = Math.max(1, scale);
           const newDomainWidth = 1 / clampedScale;
 
           const newDomain = [
@@ -99,7 +98,7 @@ export const useZoomGestures = (
       target: ref,
 
       pinch: {
-        scaleBounds: { min: 1, max: duration / 1000 },
+        scaleBounds: { min: 1, max: duration / 500 },
         rubberband: true,
         modifierKey: ["metaKey", "ctrlKey"],
       },

@@ -14,6 +14,7 @@ import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
 import { useAltKeyPressed } from "./hooks/use-alt-key-pressed";
 import { TIMELINE_PADDING } from "./constants";
 import { PlayheadCart } from "./playhead-cart";
+import { BoundCart } from "./bounds-cart";
 import { AnimatedText } from "./animated-text";
 import { GestureDetector } from "./gesture-detector";
 
@@ -94,6 +95,8 @@ function InnerRuler({
               />
             ))}
           </g>
+          <BoundCart side={side} end="left" ignoreZoom={side === "bottom"} />
+          <BoundCart side={side} end="right" ignoreZoom={side === "bottom"} />
           <PlayheadCart side={side} ignoreZoom={side === "bottom"} />
         </svg>
       </div>

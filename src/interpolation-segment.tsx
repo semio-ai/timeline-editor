@@ -24,8 +24,8 @@ function InnerInterpolationSegment({
   return (
     <animated.rect
       y={13}
-      x={left.to((ls) => xScale(ls))}
-      width={width.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
+      x={left.to((ls) => xScale(ls) + 6)}
+      width={width.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING - 12))}
       height={4}
       className={clsx(
         "transition-[colors,stroke,transform] duration-75 fill-transparent pointer-events-none",

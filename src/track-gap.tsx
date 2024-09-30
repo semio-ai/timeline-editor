@@ -74,7 +74,7 @@ export function InnerTrackGap({ count }: { count: number }) {
             {/* Gesture Detector */}
             <GestureDetector height={height} />
 
-            <BoundsDisplay isBottom />
+            <BoundsDisplay />
             <HoverMarker height={height} />
 
             <Playhead height={height} />

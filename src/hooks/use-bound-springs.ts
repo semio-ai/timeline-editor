@@ -29,18 +29,32 @@ export function useBoundSprings(ignoreZoom?: boolean): {
       range: [0, 1],
     }),
   );
+  const zoomBaseZeroScale = useRef<ScaleLinear>(
+    scaleLinear({
+      domain: ignoreZoom
+        ? [0, 1]
+        : getBasedZeroViewport(store.getState().player.viewport),
+      range: [0, 1],
+    }),
+  );
 
-  const leftSpring = useSpringValue<number>(store.getState().player.bounds[0], {
-    config: springConfig,
-  });
+  const leftSpring = useSpringValue<number>(
+    zoomScale.current(store.getState().player.bounds[0]),
+    {
+      config: springConfig,
+    },
+  );
   const rightSpring = useSpringValue<number>(
-    store.getState().player.bounds[1],
+    zoomScale.current(store.getState().player.bounds[1]),
     { config: springConfig },
   );
   const widthSpring = useSpringValue<number>(
-    Math.max(
-      0,
-      store.getState().player.viewport[1] - store.getState().player.viewport[0],
+    zoomBaseZeroScale.current(
+      Math.max(
+        0,
+        store.getState().player.viewport[1] -
+          store.getState().player.viewport[0],
+      ),
     ),
     { config: springConfig },
   );
@@ -52,12 +66,19 @@ export function useBoundSprings(ignoreZoom?: boolean): {
         void leftSpring.set(zoomScale.current(bounds[0]));
         void rightSpring.set(zoomScale.current(bounds[1]));
         void widthSpring.set(
-          zoomScale.current(Math.max(0, bounds[1] - bounds[0])),
+          zoomBaseZeroScale.current(Math.max(0, bounds[1] - bounds[0])),
         );
       },
     );
     return unsubscribe;
-  }, [store, leftSpring, rightSpring, widthSpring, zoomScale]);
+  }, [
+    store,
+    leftSpring,
+    rightSpring,
+    widthSpring,
+    zoomScale,
+    zoomBaseZeroScale,
+  ]);
 
   const onViewportChange = useCallback(
     (viewport: [number, number]) => {
@@ -65,11 +86,16 @@ export function useBoundSprings(ignoreZoom?: boolean): {
         domain: viewport,
         range: [0, 1],
       });
+      const baseZeroScale = scaleLinear({
+        domain: getBasedZeroViewport(viewport),
+        range: [0, 1],
+      });
       zoomScale.current = scale;
+      zoomBaseZeroScale.current = baseZeroScale;
       const bounds = store.getState().player.bounds;
       void leftSpring.start(scale(bounds[0]));
       void rightSpring.start(scale(bounds[1]));
-      void widthSpring.start(scale(Math.max(0, bounds[1] - bounds[0])));
+      void widthSpring.start(baseZeroScale(Math.max(0, bounds[1] - bounds[0])));
     },
     [leftSpring, rightSpring, widthSpring, store],
   );
@@ -95,3 +121,7 @@ export function useBoundSprings(ignoreZoom?: boolean): {
 
   return { leftSpring, rightSpring, widthSpring };
 }
+
+const getBasedZeroViewport = (viewport: [number, number]) => {
+  return [0, viewport[1] - viewport[0]];
+};

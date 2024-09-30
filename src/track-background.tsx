@@ -7,6 +7,8 @@ import { AnimationData } from "./store-types";
 import type { ScaleLinear } from "./scale-linear";
 import { useTrackBounds } from "./hooks/use-track-bounds";
 import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
+import { useBoundSprings } from "./hooks/use-bound-springs";
+import { TIMELINE_PADDING } from "./constants";
 
 export interface TrackBackgroundProps {
   trackIds?: string[];
@@ -22,7 +24,10 @@ function InnerTrackBackground({
   tickHeight = 30,
 }: TrackBackgroundProps) {
   const identifier: string = trackIds?.join("-") ?? "default";
-  const { scale: xScale } = useTrackBounds();
+  const {
+    scale: xScale,
+    bounds: { width },
+  } = useTrackBounds();
 
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
 
@@ -35,6 +40,8 @@ function InnerTrackBackground({
         state.animations[state.activeAnimation]?.duration ?? 5000,
     ),
   );
+
+  const { leftSpring, widthSpring } = useBoundSprings(ignoreZoom);
 
   const frameCount = Math.floor(framerate * (duration / 1000));
 
@@ -50,38 +57,50 @@ function InnerTrackBackground({
   return (
     <>
       <defs>
+        {/* Create a bounds mask that can be used elsewhere */}
+        <mask id="boundsMask">
+          <animated.rect
+            key={`${identifier}-linebg`}
+            x={0}
+            width={width}
+            y={0}
+            height={tickHeight}
+            className="fill-white/50 pointer-events-none"
+          />
+          <animated.rect
+            x={leftSpring.to((ls) => xScale(ls))}
+            y={0}
+            width={widthSpring.to((ws) =>
+              Math.max(0, xScale(ws) - TIMELINE_PADDING),
+            )}
+            height={tickHeight}
+            className="fill-white pointer-events-none"
+          />
+        </mask>
         {/* Create a mask for the timeline */}
         <mask id="mask">
           {showLine && (
-            <rect
-              key={`${identifier}-mask`}
-              x={xScale(bounds[0])}
-              width={Math.max(0, xScale(bounds[1]) - xScale(bounds[0]))}
-              y={10.75}
-              height={7.5}
-              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white transition-[fill] duration-75 ease-in-out pointer-events-none"
-            />
+            <>
+              <animated.rect
+                key={`${identifier}-linebg`}
+                x={xScale(-10)}
+                width={width}
+                y={10.75}
+                height={7.5}
+                className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/25 transition-[fill] duration-75 ease-in-out pointer-events-none"
+              />
+              <animated.rect
+                x={leftSpring.to((ls) => xScale(ls))}
+                y={10.75}
+                width={widthSpring.to((ws) =>
+                  Math.max(0, xScale(ws) - TIMELINE_PADDING),
+                )}
+                height={7.5}
+                className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white transition-[fill] duration-75 ease-in-out pointer-events-none"
+              />
+            </>
           )}
-          {showLine && (
-            <rect
-              key={`${identifier}-leftmask`}
-              x={xScale(0)}
-              width={Math.max(0, xScale(bounds[0]))}
-              y={10.75}
-              height={7.5}
-              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out pointer-events-none"
-            />
-          )}
-          {showLine && (
-            <rect
-              key={`${identifier}-rightmask`}
-              x={xScale(bounds[1])}
-              width={Math.max(0, xScale(1 - bounds[1]))}
-              y={10.75}
-              height={7.5}
-              className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white/50 transition-[fill] duration-75 ease-in-out pointer-events-none"
-            />
-          )}
+
           {timedFrames.map((tick) => (
             <Tick
               key={tick.key}
@@ -144,8 +163,11 @@ function Tick({
       width={2}
       height={tickHeight}
       className={clsx(
-        "transition-[fill,transform] duration-75 ease-in-out fill-transparent pointer-events-none group-hover:fill-neutral-300",
-        outsideBounds && "group-hover:fill-neutral-700",
+        "transition-[fill,transform] duration-75 ease-in-out fill-transparent pointer-events-none",
+        !outsideBounds &&
+          "group-aria-expanded:fill-neutral-300 group-hover:fill-neutral-300",
+        outsideBounds &&
+          "group-aria-expanded:fill-neutral-700 group-hover:fill-neutral-700",
       )}
     />
   );
