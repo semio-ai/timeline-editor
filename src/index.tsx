@@ -1,5 +1,6 @@
 import "./styles.css";
 
+export { ControlWidget } from "./control-widget";
 export { AnimationSheet } from "./animation-sheet";
 export { AnimationContext } from "./context";
 export type {

@@ -6,16 +6,9 @@ import type { AnimationData } from "./store-types";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { ControlWidget } from "./control-widget";
 
-export function TrackRow({
-  trackIds,
-  isTop,
-  isBottom,
-}: {
-  trackIds?: string[];
-  isTop?: boolean;
-  isBottom?: boolean;
-}): ReactNode {
+export function TrackRow({ trackIds }: { trackIds?: string[] }): ReactNode {
   const [expanded, setExpanded] = useState(false);
+  const [emphasis, setEmphasis] = useState(false);
 
   const track: string = trackIds?.[0] ?? "all";
 
@@ -39,9 +32,11 @@ export function TrackRow({
     <div className="flex flex-row items-center">
       <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] flex flex-row">
         <ControlWidget
-          animatedId={control.readId}
+          animatableId={control.readId}
           namespace="default"
           onExpandedChange={setExpanded}
+          emphasis={emphasis}
+          onEmphasisChange={setEmphasis}
         />
       </div>
       <div
@@ -60,34 +55,34 @@ export function TrackRow({
                   <Track
                     width={width}
                     trackIds={trackIds}
-                    isTop={isTop}
-                    isBottom={isBottom}
                     useCustomColor
                     canZoom
+                    emphasis={emphasis}
+                    onEmphasisChange={setEmphasis}
                   />
                   <Track
                     width={width}
                     trackIds={trackIds}
-                    isTop={isTop}
-                    isBottom={isBottom}
                     useCustomColor
                     canZoom
+                    emphasis={emphasis}
+                    onEmphasisChange={setEmphasis}
                   />
                   <Track
                     width={width}
                     trackIds={trackIds}
-                    isTop={isTop}
-                    isBottom={isBottom}
                     useCustomColor
                     canZoom
+                    emphasis={emphasis}
+                    onEmphasisChange={setEmphasis}
                   />
                   <Track
                     width={width}
                     trackIds={trackIds}
-                    isTop={isTop}
-                    isBottom={isBottom}
                     useCustomColor
                     canZoom
+                    emphasis={emphasis}
+                    onEmphasisChange={setEmphasis}
                   />
                 </div>
               );
@@ -96,10 +91,10 @@ export function TrackRow({
                 <Track
                   width={width}
                   trackIds={trackIds}
-                  isTop={isTop}
-                  isBottom={isBottom}
                   useCustomColor
                   canZoom
+                  emphasis={emphasis}
+                  onEmphasisChange={setEmphasis}
                 />
               );
             }

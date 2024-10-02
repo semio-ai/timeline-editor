@@ -2,7 +2,9 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import useMeasure from "react-use-measure";
 import { scaleLinear } from "@visx/scale";
+import { useHover } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
+import { clsx } from "clsx";
 import { Playhead } from "./playhead";
 import { TIMELINE_PADDING } from "./constants";
 import { HoverMarker } from "./hover-marker";
@@ -18,25 +20,25 @@ import { ZoomDisplay } from "./zoom-display";
 export interface TrackProps {
   width: number;
   trackIds?: string[];
-  isTop?: boolean;
-  isBottom?: boolean;
   canZoom?: boolean;
   showBackground?: boolean;
   showData?: boolean;
   showZoomControls?: boolean;
   useCustomColor?: boolean;
+  emphasis?: boolean;
+  onEmphasisChange?: (emphasis: boolean) => void;
 }
 
 export function Track({
   width,
   trackIds,
-  isTop = true,
-  isBottom = true,
   canZoom = true,
   showBackground = true,
   showData = true,
   showZoomControls = false,
   useCustomColor = false,
+  emphasis = false,
+  onEmphasisChange,
 }: TrackProps): ReactNode {
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
@@ -61,6 +63,13 @@ export function Track({
     [width],
   );
 
+  const bind = useHover(({ hovering: h }) => {
+    const hovering = h ?? false;
+    if (onEmphasisChange) {
+      onEmphasisChange(hovering);
+    }
+  });
+
   return (
     <TrackBoundsContext.Provider
       value={{
@@ -69,7 +78,13 @@ export function Track({
         frameCount,
       }}
     >
-      <div className="relative h-[30px] w-full">
+      <div
+        {...bind()}
+        className={clsx(
+          "relative h-[30px] w-full group/track",
+          emphasis && "has-emphasis",
+        )}
+      >
         <svg
           height={30}
           className="touch-none fill-transparent w-full"
@@ -88,11 +103,7 @@ export function Track({
           {/* Gesture Detector */}
           <GestureDetector ignoreZoom={!canZoom} />
 
-          <BoundsDisplay
-            isTop={isTop}
-            isBottom={isBottom}
-            ignoreZoom={!canZoom}
-          />
+          <BoundsDisplay ignoreZoom={!canZoom} />
           <HoverMarker ignoreZoom={!canZoom} />
           {!canZoom && <ZoomDisplay />}
 

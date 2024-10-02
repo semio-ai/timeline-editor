@@ -113,11 +113,21 @@ function InnerTrackBackground({
           ))}
         </mask>
       </defs>
+
+      <rect
+        x={xScale(0)}
+        width={Math.max(0, xScale(1))}
+        mask="url(#boundsMask)"
+        height={tickHeight - 1}
+        className={clsx(
+          "transition-[fill,opacity] duration-75 fill-[--track-color] pointer-events-none",
+          "translate-y-[0.5px] opacity-20 group-[.has-emphasis]/track:opacity-30",
+        )}
+      />
       <rect
         x={xScale(0)}
         width={Math.max(0, xScale(1))}
         mask="url(#mask)"
-        // fill="url(#bg)"
         height={tickHeight - 1}
         className={clsx(
           "transition-[fill] duration-75",
