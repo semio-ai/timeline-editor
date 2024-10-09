@@ -114,10 +114,7 @@ export function TrackControl({
   );
 }
 
-function getCenter(
-  hovered: boolean,
-  filled: boolean,
-): "plus" | "minus" | undefined {
+function getCenter(hovered: boolean, filled: boolean): "plus" | "minus" | undefined {
   if (filled && hovered) {
     return "minus";
   } else if (!filled && hovered) {

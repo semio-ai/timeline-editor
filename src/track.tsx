@@ -44,10 +44,7 @@ export function Track({
     useShallow((state: AnimationData) => state.framerate as number),
   );
   const duration = useAnimationStore(
-    useShallow(
-      (state: AnimationData) =>
-        state.animations[state.activeAnimation]?.duration ?? 5000,
-    ),
+    useShallow((state: AnimationData) => state.animations[state.activeAnimation]?.duration ?? 5000),
   );
 
   const frameCount = Math.floor(framerate * (duration / 1000));
@@ -80,10 +77,7 @@ export function Track({
     >
       <div
         {...bind()}
-        className={clsx(
-          "relative h-[30px] w-full group/track",
-          emphasis && "has-emphasis",
-        )}
+        className={clsx("relative h-[30px] w-full group/track", emphasis && "has-emphasis")}
       >
         <svg
           height={30}
@@ -96,9 +90,7 @@ export function Track({
             width={Math.max(0, width - TIMELINE_PADDING * 2)}
             className="h-[30px]"
           />
-          {canZoom && (
-            <TrackBackground showLine={showBackground} ignoreZoom={false} />
-          )}
+          {canZoom && <TrackBackground showLine={showBackground} ignoreZoom={false} />}
 
           {/* Gesture Detector */}
           <GestureDetector ignoreZoom={!canZoom} />

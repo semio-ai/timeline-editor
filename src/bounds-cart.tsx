@@ -38,16 +38,15 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
   const { leftSpring, rightSpring } = useBoundSprings(ignoreZoom);
   const boundSpring = end === "left" ? leftSpring : rightSpring;
 
-  const [previewLeft, previewRight, removePreview, addPreview, _updatePreview] =
-    useAnimationStore(
-      useShallow((state) => [
-        state.previews.find((p) => p.semanticTime === SemanticTime.BoundsStart),
-        state.previews.find((p) => p.semanticTime === SemanticTime.BoundsEnd),
-        state.removePreview,
-        state.addPreview,
-        state.updatePreview,
-      ]),
-    );
+  const [previewLeft, previewRight, removePreview, addPreview, _updatePreview] = useAnimationStore(
+    useShallow((state) => [
+      state.previews.find((p) => p.semanticTime === SemanticTime.BoundsStart),
+      state.previews.find((p) => p.semanticTime === SemanticTime.BoundsEnd),
+      state.removePreview,
+      state.addPreview,
+      state.updatePreview,
+    ]),
+  );
 
   // Whether there is a preview for either left or right bounds present.
   const anyPreview = previewLeft !== undefined || previewRight !== undefined;
@@ -66,10 +65,7 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
         if (hovering && !dragging && !anyPreview) {
           withBounds((currentBounds) => {
             addPreview({
-              semanticTime:
-                end === "left"
-                  ? SemanticTime.BoundsStart
-                  : SemanticTime.BoundsEnd,
+              semanticTime: end === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd,
               stamp: currentBounds[end === "left" ? 0 : 1],
               label: end === "left" ? "Bounds Start" : "Bounds End",
             });
@@ -90,9 +86,7 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
             const newPosition = zoomScale.invert(
               clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
             );
-            const newValue = altKey
-              ? newPosition
-              : closestFrame(newPosition, frameCount);
+            const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
             let newBounds: [number, number] = initialBounds;
             if (end === "left") {
               newBounds =
@@ -110,10 +104,7 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
             // If a preview is present and no longer dragging, remove it.
             if (!anyPreview && dragging) {
               addPreview({
-                semanticTime:
-                  end === "left"
-                    ? SemanticTime.BoundsStart
-                    : SemanticTime.BoundsEnd,
+                semanticTime: end === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd,
                 stamp: currentBounds[end === "left" ? 0 : 1],
                 label: end === "left" ? "Bounds Start" : "Bounds End",
               });
@@ -141,8 +132,7 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
       className="touch-none"
       style={{
         transform: boundSpring.to(
-          (c) =>
-            `translate(${xScale(c).toString()}px, ${side === "top" ? "-3.5" : "3.5"}px)`,
+          (c) => `translate(${xScale(c).toString()}px, ${side === "top" ? "-3.5" : "3.5"}px)`,
         ),
       }}
     >

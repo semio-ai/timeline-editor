@@ -19,10 +19,7 @@ export interface BoundsDisplayProps {
   height?: number;
 }
 
-function InnerBoundsDisplay({
-  ignoreZoom = false,
-  height = 30,
-}: BoundsDisplayProps) {
+function InnerBoundsDisplay({ ignoreZoom = false, height = 30 }: BoundsDisplayProps) {
   const leftBoundsRef = useRef<SVGGElement>(null);
   const rightBoundsRef = useRef<SVGGElement>(null);
   const {
@@ -31,22 +28,19 @@ function InnerBoundsDisplay({
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackBounds();
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
-  const [previewLeft, previewRight, removePreview, addPreview] =
-    useAnimationStore(
-      useShallow((state) => [
-        state.previews.find((p) => p.semanticTime === SemanticTime.BoundsStart),
-        state.previews.find((p) => p.semanticTime === SemanticTime.BoundsEnd),
-        state.removePreview,
-        state.addPreview,
-      ]),
-    );
+  const [previewLeft, previewRight, removePreview, addPreview] = useAnimationStore(
+    useShallow((state) => [
+      state.previews.find((p) => p.semanticTime === SemanticTime.BoundsStart),
+      state.previews.find((p) => p.semanticTime === SemanticTime.BoundsEnd),
+      state.removePreview,
+      state.addPreview,
+    ]),
+  );
 
   // Whether there is a preview for either left or right bounds present.
   const anyPreview = previewLeft !== undefined || previewRight !== undefined;
 
-  const updateBounds = useAnimationStore(
-    useShallow((state) => state.updatePlayerBounds),
-  );
+  const updateBounds = useAnimationStore(useShallow((state) => state.updatePlayerBounds));
 
   const withZoom = useWithZoom(ignoreZoom);
   const withBounds = useWithBounds();
@@ -81,9 +75,7 @@ function InnerBoundsDisplay({
             const newPosition = zoomScale.invert(
               clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
             );
-            const newValue = altKey
-              ? newPosition
-              : closestFrame(newPosition, frameCount);
+            const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
             const newBounds: [number, number] =
               newValue >= initialBounds[1]
                 ? [initialBounds[1], newValue]
@@ -139,9 +131,7 @@ function InnerBoundsDisplay({
             const newPosition = zoomScale.invert(
               clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
             );
-            const newValue = altKey
-              ? newPosition
-              : closestFrame(newPosition, frameCount);
+            const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
             const newBounds: [number, number] =
               newValue <= initialBounds[0]
                 ? [newValue, initialBounds[0]]
@@ -177,14 +167,11 @@ function InnerBoundsDisplay({
       <animated.rect
         x={leftSpring.to((ls) => xScale(ls))}
         y={0}
-        width={widthSpring.to((ws) =>
-          Math.max(0, xScale(ws) - TIMELINE_PADDING),
-        )}
+        width={widthSpring.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
         height={height}
         className={clsx(
           "fill-transparent pointer-events-none transition-[fill]",
-          anyPreview &&
-            "group-hover:cursor-ew-resize group-hover:fill-neutral-600/25",
+          anyPreview && "group-hover:cursor-ew-resize group-hover:fill-neutral-600/25",
           anyPreview &&
             "group-aria-expanded:cursor-ew-resize group-aria-expanded:fill-neutral-600/25",
         )}
@@ -192,26 +179,18 @@ function InnerBoundsDisplay({
       <g ref={leftBoundsRef} className="group/bound">
         <animated.path
           d={leftSpring.to(
-            (ls) =>
-              `M${xScale(ls).toString()} 0 L${xScale(ls).toString()} ${height.toString()}Z`,
+            (ls) => `M${xScale(ls).toString()} 0 L${xScale(ls).toString()} ${height.toString()}Z`,
           )}
-          className={clsx(
-            "transition-stroke duration-75",
-            getStroke(anyPreview),
-          )}
+          className={clsx("transition-stroke duration-75", getStroke(anyPreview))}
         />
       </g>
 
       <g ref={rightBoundsRef} className="group/bound">
         <animated.path
           d={rightSpring.to(
-            (rs) =>
-              `M${xScale(rs).toString()} 0 L${xScale(rs).toString()} ${height.toString()}Z`,
+            (rs) => `M${xScale(rs).toString()} 0 L${xScale(rs).toString()} ${height.toString()}Z`,
           )}
-          className={clsx(
-            "transition-stroke duration-75",
-            getStroke(anyPreview),
-          )}
+          className={clsx("transition-stroke duration-75", getStroke(anyPreview))}
         />
       </g>
     </>

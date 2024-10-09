@@ -1,10 +1,6 @@
 import type { AnimationData } from "../store-types";
 
-export function removeKeyframe(
-  state: AnimationData,
-  animationId: string,
-  keyframeId: string,
-) {
+export function removeKeyframe(state: AnimationData, animationId: string, keyframeId: string) {
   console.log("in remove keyframe", animationId, state.animations);
   const frame = state.animations[animationId].frames.get(keyframeId);
   const deletedPoints: string[] = [];
@@ -20,9 +16,9 @@ export function removeKeyframe(
     deletedPoints.push(pointId);
   });
   // Remove the keyframe id from the ordered set
-  state.animations[animationId].frameOrder = state.animations[
-    animationId
-  ].frameOrder.filter((frameId: string) => frameId !== keyframeId);
+  state.animations[animationId].frameOrder = state.animations[animationId].frameOrder.filter(
+    (frameId: string) => frameId !== keyframeId,
+  );
   // Remove the keyframe from the animation
   state.animations[animationId].frames.delete(keyframeId);
 }

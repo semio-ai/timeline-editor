@@ -7,9 +7,7 @@ import { AnimationContext } from "../context";
   @description A hook used to retrieve a function that provides the current bounds to a provided function.
   @returns A function that provides the current bounds to a function argument.
 */
-export function useWithBounds(): (
-  withBoundsFn: (bounds: [number, number]) => void,
-) => void {
+export function useWithBounds(): (withBoundsFn: (bounds: [number, number]) => void) => void {
   const store = useContext(AnimationContext);
 
   if (!store) {

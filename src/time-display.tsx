@@ -1,9 +1,4 @@
-import {
-  Size,
-  TimeDisplay as TimeDisplayMethod,
-  TimeInput,
-  Variant,
-} from "@semio/ui";
+import { Size, TimeDisplay as TimeDisplayMethod, TimeInput, Variant } from "@semio/ui";
 import { type ReactNode, memo } from "react";
 import { useShallow } from "zustand/react/shallow";
 // import { numberToDurationString } from "@semio/utils";
@@ -22,12 +17,8 @@ export function InnerTimeDisplay({
   displayMethod,
   valueOverride,
 }: TimeDisplayProps): ReactNode {
-  const timeDisplay = useAnimationStore(
-    useShallow((state) => displayMethod || state.timeDisplay),
-  );
-  const activeAnimation = useAnimationStore(
-    useShallow((state) => state.activeAnimation),
-  );
+  const timeDisplay = useAnimationStore(useShallow((state) => displayMethod || state.timeDisplay));
+  const activeAnimation = useAnimationStore(useShallow((state) => state.activeAnimation));
   const duration = useAnimationStore(
     useShallow((state) => state.animations[state.activeAnimation]?.duration),
   );
@@ -53,9 +44,7 @@ export function InnerTimeDisplay({
     }),
   );
 
-  const currentTime = useAnimationStore(
-    useShallow((state) => state.player.stamp * duration),
-  );
+  const currentTime = useAnimationStore(useShallow((state) => state.player.stamp * duration));
 
   const { resetPlayer, updateDuration, updatePlayerBounds } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
@@ -114,11 +103,7 @@ export function InnerTimeDisplay({
       />
       {/* Prev Keyframe Display */}
       <TimeInput
-        value={
-          valueOverride !== undefined
-            ? valueOverride * duration
-            : prevKeyframeTime
-        }
+        value={valueOverride !== undefined ? valueOverride * duration : prevKeyframeTime}
         onChange={() => {}}
         label="Previous Keyed Frame"
         min={0}
@@ -132,11 +117,7 @@ export function InnerTimeDisplay({
       />
       {/* Next Keyframe Display */}
       <TimeInput
-        value={
-          valueOverride !== undefined
-            ? valueOverride * duration
-            : nextKeyframeTime
-        }
+        value={valueOverride !== undefined ? valueOverride * duration : nextKeyframeTime}
         onChange={() => {}}
         label="Next Keyed Frame"
         min={0}

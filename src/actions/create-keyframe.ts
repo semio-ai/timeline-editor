@@ -11,9 +11,7 @@ export function createKeyframe(
   const id = crypto.randomUUID();
   const stamp = state.player.stamp;
   const completekeyframe: Keyframe = {
-    ...(state.animations[animationId].frames.get(
-      state.selectedKeyframe ?? "",
-    ) ?? {
+    ...(state.animations[animationId].frames.get(state.selectedKeyframe ?? "") ?? {
       stamp,
       id,
       points: [],
@@ -44,8 +42,7 @@ export function createKeyframe(
 
   // Insert the keyframe into the correct position based on time
   const index = state.animations[animationId].frameOrder.findIndex(
-    (frameId) =>
-      (state.animations[animationId].frames.get(frameId)?.stamp || -1) > stamp,
+    (frameId) => (state.animations[animationId].frames.get(frameId)?.stamp || -1) > stamp,
   );
   // insert the frame at that index
   state.animations[animationId].frameOrder.splice(index, 0, id);

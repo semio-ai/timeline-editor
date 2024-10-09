@@ -31,30 +31,20 @@ export function useBoundSprings(ignoreZoom?: boolean): {
   );
   const zoomBaseZeroScale = useRef<ScaleLinear>(
     scaleLinear({
-      domain: ignoreZoom
-        ? [0, 1]
-        : getBasedZeroViewport(store.getState().player.viewport),
+      domain: ignoreZoom ? [0, 1] : getBasedZeroViewport(store.getState().player.viewport),
       range: [0, 1],
     }),
   );
 
-  const leftSpring = useSpringValue<number>(
-    zoomScale.current(store.getState().player.bounds[0]),
-    {
-      config: springConfig,
-    },
-  );
-  const rightSpring = useSpringValue<number>(
-    zoomScale.current(store.getState().player.bounds[1]),
-    { config: springConfig },
-  );
+  const leftSpring = useSpringValue<number>(zoomScale.current(store.getState().player.bounds[0]), {
+    config: springConfig,
+  });
+  const rightSpring = useSpringValue<number>(zoomScale.current(store.getState().player.bounds[1]), {
+    config: springConfig,
+  });
   const widthSpring = useSpringValue<number>(
     zoomBaseZeroScale.current(
-      Math.max(
-        0,
-        store.getState().player.viewport[1] -
-          store.getState().player.viewport[0],
-      ),
+      Math.max(0, store.getState().player.viewport[1] - store.getState().player.viewport[0]),
     ),
     { config: springConfig },
   );
@@ -65,20 +55,11 @@ export function useBoundSprings(ignoreZoom?: boolean): {
       (bounds) => {
         void leftSpring.set(zoomScale.current(bounds[0]));
         void rightSpring.set(zoomScale.current(bounds[1]));
-        void widthSpring.set(
-          zoomBaseZeroScale.current(Math.max(0, bounds[1] - bounds[0])),
-        );
+        void widthSpring.set(zoomBaseZeroScale.current(Math.max(0, bounds[1] - bounds[0])));
       },
     );
     return unsubscribe;
-  }, [
-    store,
-    leftSpring,
-    rightSpring,
-    widthSpring,
-    zoomScale,
-    zoomBaseZeroScale,
-  ]);
+  }, [store, leftSpring, rightSpring, widthSpring, zoomScale, zoomBaseZeroScale]);
 
   const onViewportChange = useCallback(
     (viewport: [number, number]) => {

@@ -22,9 +22,7 @@ export function updateAnimationKeypoint(
     const existingKeyframeId = animation.frameOrder.find(
       (frame) => animation.frames.get(frame)?.stamp === keyframeOrTime,
     );
-    keyframe = existingKeyframeId
-      ? animation.frames.get(existingKeyframeId)
-      : undefined;
+    keyframe = existingKeyframeId ? animation.frames.get(existingKeyframeId) : undefined;
   }
 
   const timestamp = keyframe?.stamp || state.player.stamp;
