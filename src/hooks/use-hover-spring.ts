@@ -66,8 +66,7 @@ export function useHoverSpring(ignoreZoom?: boolean): {
   useEffect(() => {
     const unsubscribe = store.subscribe(
       (state: AnimationData & AnimationActions) =>
-        state.previews.find((p) => p.semanticTime === SemanticTime.Hover)
-          ?.stamp,
+        state.previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp,
       (hoverpoint, pastHoverpoint) => {
         if (pastHoverpoint === undefined && hoverpoint !== undefined) {
           void hoverpointSpring.set(zoomScale.current(hoverpoint));
@@ -108,11 +107,7 @@ export function useHoverSpring(ignoreZoom?: boolean): {
   }, [ignoreZoom, store, onViewportChange, hoverpointSpring]);
 
   const setHoverpoint = (value: number) => {
-    if (
-      store
-        .getState()
-        .previews.find((p) => p.semanticTime === SemanticTime.Hover)
-    ) {
+    if (store.getState().previews.find((p) => p.semanticTime === SemanticTime.Hover)) {
       updatePreview((preview) => preview.semanticTime === SemanticTime.Hover, {
         stamp: value,
       });

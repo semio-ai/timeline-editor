@@ -27,9 +27,7 @@ function InnerZoomDisplay() {
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  const updateViewport = useAnimationStore(
-    useShallow((state) => state.updatePlayerViewport),
-  );
+  const updateViewport = useAnimationStore(useShallow((state) => state.updatePlayerViewport));
 
   const withZoom = useWithZoom(false);
 
@@ -68,9 +66,7 @@ function InnerZoomDisplay() {
           if (state.altKey) {
             updateViewport(newValues[0], newValues[1]);
           } else {
-            const newFrameValues = newValues.map((v) =>
-              closestFrame(v, frameCount),
-            );
+            const newFrameValues = newValues.map((v) => closestFrame(v, frameCount));
             updateViewport(newFrameValues[0], newFrameValues[1]);
           }
           state.event.stopPropagation();
@@ -94,14 +90,8 @@ function InnerZoomDisplay() {
         setDragging(state.dragging ?? false);
         withZoom((zoomScale) => {
           const currentViewport = zoomScale.domain();
-          const newPosition = clamp(
-            ((state.xy[0] || 0) - timelineLeft) / timelineWidth,
-            0,
-            1,
-          );
-          const newValue = state.altKey
-            ? newPosition
-            : closestFrame(newPosition, frameCount);
+          const newPosition = clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1);
+          const newValue = state.altKey ? newPosition : closestFrame(newPosition, frameCount);
           const vals =
             newValue >= currentViewport[1]
               ? [currentViewport[1], newValue]
@@ -128,14 +118,8 @@ function InnerZoomDisplay() {
         setDragging(state.dragging ?? false);
         withZoom((zoomScale) => {
           const currentViewport = zoomScale.domain();
-          const newPosition = clamp(
-            ((state.xy[0] || 0) - timelineLeft) / timelineWidth,
-            0,
-            1,
-          );
-          const newValue = state.shiftKey
-            ? newPosition
-            : closestFrame(newPosition, frameCount);
+          const newPosition = clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1);
+          const newValue = state.shiftKey ? newPosition : closestFrame(newPosition, frameCount);
           const vals =
             newValue <= currentViewport[0]
               ? [newValue, currentViewport[0]]
@@ -176,9 +160,7 @@ function InnerZoomDisplay() {
         ref={leftGestureRef as MutableRefObject<SVGPathElement>}
         className="touch-none"
         style={{
-          transform: leftSpring.to(
-            (ls) => `translateX(${xScale(ls).toString()}px)`,
-          ),
+          transform: leftSpring.to((ls) => `translateX(${xScale(ls).toString()}px)`),
         }}
       >
         <animated.path
@@ -193,9 +175,7 @@ function InnerZoomDisplay() {
         ref={rightGestureRef as MutableRefObject<SVGPathElement>}
         className="touch-none"
         style={{
-          transform: rightSpring.to(
-            (rs) => `translateX(${xScale(rs).toString()}px)`,
-          ),
+          transform: rightSpring.to((rs) => `translateX(${xScale(rs).toString()}px)`),
         }}
       >
         <animated.path

@@ -35,10 +35,7 @@ export function SkipButton({
   );
 
   const [addPreview, removePreview] = useAnimationStore(
-    useShallow((state: AnimationActions) => [
-      state.addPreview,
-      state.removePreview,
-    ]),
+    useShallow((state: AnimationActions) => [state.addPreview, state.removePreview]),
   );
 
   return (
@@ -62,12 +59,8 @@ export function SkipButton({
 
 const ICONS: Record<SemanticTime, ReactNode> = {
   [SemanticTime.Forward]: <IconPlayerPlay className="rotate-0" size="10px" />,
-  [SemanticTime.Backward]: (
-    <IconPlayerPlay className="rotate-180" size="10px" />
-  ),
-  [SemanticTime.BoundsStart]: (
-    <IconPlayerEndBounds className="rotate-180" size="12px" />
-  ),
+  [SemanticTime.Backward]: <IconPlayerPlay className="rotate-180" size="10px" />,
+  [SemanticTime.BoundsStart]: <IconPlayerEndBounds className="rotate-180" size="12px" />,
   [SemanticTime.BoundsEnd]: <IconPlayerEndBounds size="12px" />,
   [SemanticTime.Duration]: <IconPlayerPlay size="10px" />,
   [SemanticTime.Current]: <IconPlayerPlay size="10px" />,

@@ -11,24 +11,17 @@ export interface HoverMarkerProps {
   height?: number;
 }
 
-function InnerHoverMarker({
-  ignoreZoom = false,
-  height = 30,
-}: HoverMarkerProps): ReactNode {
+function InnerHoverMarker({ ignoreZoom = false, height = 30 }: HoverMarkerProps): ReactNode {
   const { scale: xScale } = useTrackBounds();
   const { hoverpoint } = useHoverSpring(ignoreZoom);
-  const dashed = useAnimationStore(
-    useShallow((state) => state.preferences.hoverDashedLine),
-  );
+  const dashed = useAnimationStore(useShallow((state) => state.preferences.hoverDashedLine));
 
   return (
     <animated.path
       style={{
         strokeDasharray: dashed ? "5 5" : "none",
         strokeDashoffset: dashed ? "2.5" : "none",
-        strokeWidth: hoverpoint.to((hoverXval) =>
-          hoverXval === undefined ? 0 : 1,
-        ),
+        strokeWidth: hoverpoint.to((hoverXval) => (hoverXval === undefined ? 0 : 1)),
         transform: hoverpoint.to(
           (hoverXval) => `translateX(${xScale(hoverXval ?? 0).toString()}px)`,
         ),

@@ -16,12 +16,8 @@ export function PlaybackControls({
   track: string;
   onChangeTrack: (track: string) => void;
 }): ReactNode {
-  const previews = useAnimationStore(
-    useShallow((state: AnimationData) => state.previews),
-  );
-  const nonHoverPreviews = previews.filter(
-    (p) => p.semanticTime !== SemanticTime.Hover,
-  );
+  const previews = useAnimationStore(useShallow((state: AnimationData) => state.previews));
+  const nonHoverPreviews = previews.filter((p) => p.semanticTime !== SemanticTime.Hover);
 
   const { playPlayer, pausePlayer, running } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
@@ -38,14 +34,10 @@ export function PlaybackControls({
   const pointId: string | undefined = useAnimationStore(
     useShallow((state) => {
       if (state.selectedKeyframe) {
-        const frame = state.animations[state.activeAnimation].frames.get(
-          state.selectedKeyframe,
-        );
+        const frame = state.animations[state.activeAnimation].frames.get(state.selectedKeyframe);
         if (frame && track !== "all") {
           return frame.points.find(
-            (p) =>
-              state.animations[state.activeAnimation].points.get(p)?.track ===
-              track,
+            (p) => state.animations[state.activeAnimation].points.get(p)?.track === track,
           );
         } else {
           return undefined;
@@ -59,9 +51,7 @@ export function PlaybackControls({
   const tracks: { label: string; value: string }[] = useAnimationStore(
     useShallow((state: AnimationData) =>
       state.animations[state.activeAnimation].trackOrder.map((id) => ({
-        label:
-          state.animations[state.activeAnimation].tracks.get(id)?.name ||
-          "Unknown Track",
+        label: state.animations[state.activeAnimation].tracks.get(id)?.name || "Unknown Track",
         value: id,
       })),
     ),
@@ -75,15 +65,14 @@ export function PlaybackControls({
     onChangeTrack("all");
   }, [activeAnimation, onChangeTrack]);
 
-  const [removeKeypoint, removeKeyframe, createKeypoint, createKeyframe] =
-    useAnimationStore(
-      useShallow((state: AnimationActions) => [
-        state.removeKeypoint,
-        state.removeKeyframe,
-        state.createKeypoint,
-        state.createKeyframe,
-      ]),
-    );
+  const [removeKeypoint, removeKeyframe, createKeypoint, createKeyframe] = useAnimationStore(
+    useShallow((state: AnimationActions) => [
+      state.removeKeypoint,
+      state.removeKeyframe,
+      state.createKeypoint,
+      state.createKeyframe,
+    ]),
+  );
 
   let filled = false;
   if (pointId) {
@@ -148,11 +137,7 @@ export function PlaybackControls({
             }}
             color="#737373"
           >
-            {running ? (
-              <IconPlayerPauseFilled size="16px" />
-            ) : (
-              <IconPlayerPlay2 size="16px" />
-            )}
+            {running ? <IconPlayerPauseFilled size="16px" /> : <IconPlayerPlay2 size="16px" />}
           </IconButton>
           <SkipButton semanticTime={SemanticTime.BoundsEnd} />
         </div>

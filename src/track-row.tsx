@@ -15,9 +15,7 @@ export function TrackRow({ trackIds }: { trackIds?: string[] }): ReactNode {
   const control = useAnimationStore(
     useShallow((state: AnimationData) => {
       if (track && track !== "all") {
-        return Object.values(state.controls).filter(
-          (c) => c.writeId === track,
-        )[0];
+        return Object.values(state.controls).filter((c) => c.writeId === track)[0];
       } else {
         return undefined;
       }

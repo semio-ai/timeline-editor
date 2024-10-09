@@ -53,10 +53,7 @@ export function createTrackInterpolator(
     valuesByTime.unshift([0, valuesByTime[0][1]]);
   }
   // Add a point at time 1 if the last point is before 1.
-  if (
-    valuesByTime[valuesByTime.length - 1][0] < 1 &&
-    !valuesByTime.map((p) => p[0]).includes(1)
-  ) {
+  if (valuesByTime[valuesByTime.length - 1][0] < 1 && !valuesByTime.map((p) => p[0]).includes(1)) {
     valuesByTime.push([1, valuesByTime[valuesByTime.length - 1][1]]);
   }
 

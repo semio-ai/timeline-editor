@@ -46,24 +46,15 @@ function InnerFrameMarker({
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackBounds();
 
-  const isSelected = useAnimationStore(
-    useShallow((state) => state.selectedKeyframe === frame),
-  );
+  const isSelected = useAnimationStore(useShallow((state) => state.selectedKeyframe === frame));
 
-  const hoveredPath: string = useMemo<string>(
-    () => getHexagonPath(0, 15, 12, 30),
-    [],
-  );
+  const hoveredPath: string = useMemo<string>(() => getHexagonPath(0, 15, 12, 30), []);
 
   const withZoom = useWithZoom(ignoreZoom);
 
-  const updateKeyframeStamp = useAnimationStore(
-    useShallow((state) => state.updateKeyframeStamp),
-  );
+  const updateKeyframeStamp = useAnimationStore(useShallow((state) => state.updateKeyframeStamp));
 
-  const resetPlayer = useAnimationStore(
-    useShallow((state) => state.resetPlayer),
-  );
+  const resetPlayer = useAnimationStore(useShallow((state) => state.resetPlayer));
 
   const doubleClickHandler = useCallback(
     (event: MouseEvent) => {
@@ -84,9 +75,7 @@ function InnerFrameMarker({
           const newPosition = zoomScale.invert(
             clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
           );
-          const newStamp = state.shiftKey
-            ? newPosition
-            : closestFrame(newPosition, frameCount);
+          const newStamp = state.shiftKey ? newPosition : closestFrame(newPosition, frameCount);
           const transformedStamp = computeLocalStamp(newStamp, instanceInfo);
           updateKeyframeStamp(frame, transformedStamp, animation);
           state.event.stopPropagation();
@@ -105,9 +94,7 @@ function InnerFrameMarker({
       className="group/frame touch-none"
       aria-selected={isSelected}
       style={{
-        transform: zoomedStamp.to(
-          (zs) => `translateX(${xScale(zs).toString()}px`,
-        ),
+        transform: zoomedStamp.to((zs) => `translateX(${xScale(zs).toString()}px`),
       }}
     >
       <path
@@ -121,9 +108,7 @@ function InnerFrameMarker({
             "group-hover/frame:dark:stroke-default-300 group-hover/frame:stroke-default-700",
           active &&
             "group-aria-selected/frame:dark:stroke-default-300 group-aria-selected/frame:stroke-default-700",
-          useCustomColor
-            ? "fill-[--track-color]"
-            : "dark:fill-default-400 fill-default-600",
+          useCustomColor ? "fill-[--track-color]" : "dark:fill-default-400 fill-default-600",
         )}
       />
     </animated.g>

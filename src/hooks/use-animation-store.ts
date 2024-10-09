@@ -9,9 +9,7 @@ import { AnimationContext } from "../context";
 
   @param selector A function that takes the store and returns the value you want to access.
 */
-export function useAnimationStore<T>(
-  selector: (state: AnimationData & AnimationActions) => T,
-): T {
+export function useAnimationStore<T>(selector: (state: AnimationData & AnimationActions) => T): T {
   const store = useContext(AnimationContext);
   if (!store) throw new Error("Missing AnimationProvider in the tree");
   return useStore(store, selector);

@@ -35,10 +35,7 @@ function InnerTrackBackground({
     useShallow((state: AnimationData) => state.framerate as number),
   );
   const duration = useAnimationStore(
-    useShallow(
-      (state: AnimationData) =>
-        state.animations[state.activeAnimation]?.duration ?? 5000,
-    ),
+    useShallow((state: AnimationData) => state.animations[state.activeAnimation]?.duration ?? 5000),
   );
 
   const { leftSpring, widthSpring } = useBoundSprings(ignoreZoom);
@@ -70,9 +67,7 @@ function InnerTrackBackground({
           <animated.rect
             x={leftSpring.to((ls) => xScale(ls))}
             y={0}
-            width={widthSpring.to((ws) =>
-              Math.max(0, xScale(ws) - TIMELINE_PADDING),
-            )}
+            width={widthSpring.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
             height={tickHeight}
             className="fill-white pointer-events-none"
           />
@@ -92,9 +87,7 @@ function InnerTrackBackground({
               <animated.rect
                 x={leftSpring.to((ls) => xScale(ls))}
                 y={10.75}
-                width={widthSpring.to((ws) =>
-                  Math.max(0, xScale(ws) - TIMELINE_PADDING),
-                )}
+                width={widthSpring.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
                 height={7.5}
                 className="group-hover:fill-transparent group-aria-expanded:fill-transparent fill-white transition-[fill] duration-75 ease-in-out pointer-events-none"
               />
@@ -174,10 +167,8 @@ function Tick({
       height={tickHeight}
       className={clsx(
         "transition-[fill,transform] duration-75 ease-in-out fill-transparent pointer-events-none",
-        !outsideBounds &&
-          "group-aria-expanded:fill-neutral-300 group-hover:fill-neutral-300",
-        outsideBounds &&
-          "group-aria-expanded:fill-neutral-700 group-hover:fill-neutral-700",
+        !outsideBounds && "group-aria-expanded:fill-neutral-300 group-hover:fill-neutral-300",
+        outsideBounds && "group-aria-expanded:fill-neutral-700 group-hover:fill-neutral-700",
       )}
     />
   );
