@@ -12,14 +12,6 @@ export function createTrackInterpolator(
   points: Map<string, Keypoint<RawValue>>,
   instanceInfo: InstanceInfo,
 ): (time: number) => RawValue | undefined {
-  // TODO: Currently this works in uniformly space time, but our frames are
-  // not uniformly spaced. We need to interpolate with respect to the frame time.
-  // One option is to rewrite the interpolator to use pairwise adjacent frames, and
-  // index into them.
-  // The other option is to create a time interpolator as well, and use that to map
-  // between the uniform and non-uniform time. See https://github.com/d3/d3-interpolate/issues/81
-  // for a discussion on this.
-  //
   // If the animation has zero points, always return undefined.
   if (isEmpty(track.points)) {
     return (_time: number) => undefined;

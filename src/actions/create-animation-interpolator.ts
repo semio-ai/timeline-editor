@@ -6,7 +6,8 @@ import { createTrackInterpolator } from "./create-track-interpolator";
 // This function takes in the animation data structure, and returns a function of time,
 // which returns the interpolated value of the animation at that time.
 // @param animation: Animation - the animation data structure
-// @returns: AnimationInterpolator - a function that takes in a time and returns the interpolated value of the animation at that time.
+// @returns: AnimationInterpolator - a function that takes in a time and returns the interpolated
+// value of the animation at that time.
 export function createAnimationInterpolator(
   animations: Record<string, Animation>,
 ): AnimationInterpolator {
