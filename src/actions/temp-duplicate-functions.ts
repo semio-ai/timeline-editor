@@ -1,21 +1,11 @@
 import { RawValue } from "@semio/utils";
 import { type AnimationData } from "../store-types";
-import {
-  Control,
-  ProcessType,
-  ProcessNode,
-  Graph,
-} from "../temp-duplicate-types";
+import { Control, ProcessType, ProcessNode, Graph } from "../temp-duplicate-types";
 import { updateAnimationKeypoint } from "./update-animation-keypoint";
 import { createTrack } from "./create-track";
 // import { GraphData } from "../store-types";
 
-export function setValue(
-  state: AnimationData,
-  id: string,
-  _namespace: string,
-  value: RawValue,
-) {
+export function setValue(state: AnimationData, id: string, _namespace: string, value: RawValue) {
   // const lookupId = getLookup(namespace, id);
   const control =
     state.latestControl?.readId === id
@@ -26,13 +16,7 @@ export function setValue(
     // Update the existing track
     // We will for now assume that if the control exists, we have already created the track for it
     const trackId = control.writeId;
-    updateAnimationKeypoint(
-      state,
-      state.activeAnimation,
-      state.player.stamp,
-      trackId,
-      value,
-    );
+    updateAnimationKeypoint(state, state.activeAnimation, state.player.stamp, trackId, value);
     state.latestControl = control;
   } else {
     console.log("control doesn't exist, creating new track and control");
@@ -65,23 +49,13 @@ export function setValue(
     state.controls[newControl.id] = newControl;
     state.latestControl = newControl;
 
-    updateAnimationKeypoint(
-      state,
-      state.activeAnimation,
-      state.player.stamp,
-      track.id,
-      value,
-    );
+    updateAnimationKeypoint(state, state.activeAnimation, state.player.stamp, track.id, value);
   }
   // console.log("Setting value", lookupId, value);
   // state.values.set(lookupId, value);
 }
 
-export function updateControlColor(
-  state: AnimationData,
-  controlId: string,
-  color: string,
-) {
+export function updateControlColor(state: AnimationData, controlId: string, color: string) {
   if (state.controls[controlId]) {
     state.controls[controlId].settings.color = color;
   }

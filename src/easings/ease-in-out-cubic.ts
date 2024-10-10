@@ -6,10 +6,7 @@ import {
   RawValue,
 } from "@semio/utils";
 
-export function easeInOutCubic(
-  a: RawValue,
-  b: RawValue,
-): (t: number) => RawValue {
+export function easeInOutCubic(a: RawValue, b: RawValue): (t: number) => RawValue {
   // The first two options don't have an obvious interpolation approach, so just switch at t=0.5'
   // if the types don't match, just switch at t=0.5
   if (typeof a !== typeof b) {
@@ -20,8 +17,7 @@ export function easeInOutCubic(
     return (t: number) => (t < 0.5 ? a : b) as RawValue;
   } else if (typeof a === "number" && typeof b === "number") {
     return (t: number) =>
-      ((t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2) * (b - a) +
-        a) as RawValue;
+      ((t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2) * (b - a) + a) as RawValue;
   } else if (
     (instanceOfRawVector3(a) && instanceOfRawVector3(b)) ||
     (instanceOfRawEuler(a) && instanceOfRawEuler(b))

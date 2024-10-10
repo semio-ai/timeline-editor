@@ -27,12 +27,9 @@ export function usePlayheadSpring(ignoreZoom?: boolean): SpringValue<number> {
 
   const storedPlayhead = useRef<number>(store!.getState().player.stamp);
 
-  const playheadSpring = useSpringValue<number>(
-    zoomScale.current(store!.getState().player.stamp),
-    {
-      config: springConfig,
-    },
-  );
+  const playheadSpring = useSpringValue<number>(zoomScale.current(store!.getState().player.stamp), {
+    config: springConfig,
+  });
   useEffect(() => {
     const unsubscribe = store.subscribe(
       (state: AnimationData) => state.player.stamp,

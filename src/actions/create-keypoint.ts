@@ -10,8 +10,7 @@ export function createKeypoint(
   point: Partial<Keypoint<RawValue>>,
 ): Keypoint<RawValue> {
   const id = crypto.randomUUID();
-  const keyframeId =
-    point.frame ?? state.selectedKeyframe ?? crypto.randomUUID();
+  const keyframeId = point.frame ?? state.selectedKeyframe ?? crypto.randomUUID();
   const frame =
     state.animations[animationId].frames.get(keyframeId) ??
     createKeyframe(state, animationId, { id: keyframeId });

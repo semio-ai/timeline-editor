@@ -29,9 +29,7 @@ export function AnimationSheet(): ReactNode {
 
 export function InnerSheet(): ReactNode {
   const expanded = useAnimationStore(useShallow((state) => state.expanded));
-  const setExpanded = useAnimationStore(
-    useShallow((state) => state.setExpanded),
-  );
+  const setExpanded = useAnimationStore(useShallow((state) => state.setExpanded));
   const [selectedTrack, setSelectedTrack] = useState<string>("all");
   return (
     <div
@@ -77,16 +75,11 @@ export function InnerSheet(): ReactNode {
         {/* Content */}
         <div className="flex flex-row group ">
           <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-[60px]">
-            <PlaybackControls
-              track={selectedTrack}
-              onChangeTrack={setSelectedTrack}
-            />
+            <PlaybackControls track={selectedTrack} onChangeTrack={setSelectedTrack} />
           </div>
           <div className="flex-1 overflow-hidden h-[60px] flex-col flex">
             <div className="h-[60px]">
-              <Timeline
-                trackIds={selectedTrack === "all" ? [] : [selectedTrack]}
-              />
+              <Timeline trackIds={selectedTrack === "all" ? [] : [selectedTrack]} />
               <div className="w-full h-[30px] items-center text-black dark:text-white">
                 <Minimap />
               </div>
@@ -94,9 +87,7 @@ export function InnerSheet(): ReactNode {
           </div>
         </div>
       </div>
-      <div
-        className={clsx("z-50 h-6 bg-transparent w-full flex flex-row text-xs")}
-      >
+      <div className={clsx("z-50 h-6 bg-transparent w-full flex flex-row text-xs")}>
         <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-6 duration-75 flex items-center justify-center" />
         <div className="flex-1 xs:w-64 transition-[width] h-6 text-black dark:text-white">
           <Ruler side="bottom" />

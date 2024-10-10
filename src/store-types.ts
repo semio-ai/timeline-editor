@@ -50,11 +50,7 @@ export interface AnimationActions {
   // Update all values in the store
   updateValues: (values: Map<string, RawValue | undefined>) => void;
   // Add a new keyframe to the animation
-  createKeyframe: (
-    keyframe: Partial<Keyframe>,
-    animationId?: string,
-    fillPoints?: boolean,
-  ) => void;
+  createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string, fillPoints?: boolean) => void;
   createNewDefaultAnimation: () => void;
   // Add a new keyframe to the animation at the current time;
   createAutoKeyframe: () => void;
@@ -71,11 +67,7 @@ export interface AnimationActions {
     animationId?: string,
   ) => void;
   // Update a keyframe time in the animation
-  updateKeyframeStamp: (
-    keyframeId: string,
-    stamp: number,
-    animationId?: string,
-  ) => void;
+  updateKeyframeStamp: (keyframeId: string, stamp: number, animationId?: string) => void;
   // Add a new keypoint to a keyframe/track
   createKeypoint: (
     trackId: string,
@@ -83,17 +75,9 @@ export interface AnimationActions {
     animationId?: string,
   ) => void;
   // Set a keypoint value
-  updateKeypointValue: (
-    keypointId: string,
-    value: RawValue,
-    animationId?: string,
-  ) => void;
+  updateKeypointValue: (keypointId: string, value: RawValue, animationId?: string) => void;
   // Update a track's data (other than id and points)
-  updateTrack: (
-    trackId: string,
-    data: Omit<Track, "id" | "points">,
-    animationId?: string,
-  ) => void;
+  updateTrack: (trackId: string, data: Omit<Track, "id" | "points">, animationId?: string) => void;
   // Remove a keypoint from the animation
   removeKeypoint: (keypointId: string, animationId?: string) => void;
   // Add a track to the animation
@@ -128,15 +112,9 @@ export interface AnimationActions {
   // Update one bound of the player viewport
   updatePlayerViewportBound: (bound: "start" | "end", time: number) => void;
   // The current next keyframe time (optionally filter by track)
-  nextKeyframeTime: (
-    state: AnimationData,
-    trackIds?: string[],
-  ) => number | undefined;
+  nextKeyframeTime: (state: AnimationData, trackIds?: string[]) => number | undefined;
   // The current previous keyframe time (optionally filter by track)
-  prevKeyframeTime: (
-    state: AnimationData,
-    trackIds?: string[],
-  ) => number | undefined;
+  prevKeyframeTime: (state: AnimationData, trackIds?: string[]) => number | undefined;
   // Skip to the next keyframe (optionally filter by track)
   skipToNextKeyframe: (trackIds?: string[]) => void;
   // Skip to the previous keyframe (optionally filter by track)
@@ -170,10 +148,7 @@ export interface AnimationActions {
   // Remove a preview from the animation
   removePreview: (evaluator: (preview: Preview) => boolean) => void;
   // Update a preview in the animation
-  updatePreview: (
-    evaluator: (preview: Preview) => boolean,
-    preview: Partial<Preview>,
-  ) => void;
+  updatePreview: (evaluator: (preview: Preview) => boolean, preview: Partial<Preview>) => void;
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   setValue: (animatedId: string, namespace: string, value: RawValue) => void;
@@ -187,9 +162,7 @@ export type AnimationStoreSetter = (
     | Partial<AnimationData & AnimationActions>
     | ((
         state: AnimationData & AnimationActions,
-      ) =>
-        | (AnimationData & AnimationActions)
-        | Partial<AnimationData & AnimationActions>),
+      ) => (AnimationData & AnimationActions) | Partial<AnimationData & AnimationActions>),
   replace?: boolean,
 ) => void;
 

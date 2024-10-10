@@ -30,9 +30,7 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
 
   const [hovered, setHovered] = useState(false);
 
-  const resetPlayer = useAnimationStore(
-    useShallow((state: AnimationActions) => state.resetPlayer),
-  );
+  const resetPlayer = useAnimationStore(useShallow((state: AnimationActions) => state.resetPlayer));
 
   const seekPlayer = useAnimationStore(
     useShallow((state: AnimationActions) => state.updatePlayerViewportCenter),
@@ -42,10 +40,7 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
 
   const playheadSpring = usePlayheadSpring(ignoreZoom);
 
-  const { d: playheadCartPath, x } = usePlayheadCartPathSpring(
-    side,
-    ignoreZoom,
-  );
+  const { d: playheadCartPath, x } = usePlayheadCartPathSpring(side, ignoreZoom);
 
   const gestureBindings = useGesture(
     {
@@ -95,44 +90,22 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
   );
 }
 
-function PlayheadText({
-  side,
-  x,
-}: {
-  side: "top" | "bottom";
-  x: SpringValue<number>;
-}): ReactNode {
+function PlayheadText({ side, x }: { side: "top" | "bottom"; x: SpringValue<number> }): ReactNode {
   const duration = useAnimationStore(
-    useShallow(
-      (state: AnimationData) =>
-        state.animations[state.activeAnimation].duration,
-    ),
+    useShallow((state: AnimationData) => state.animations[state.activeAnimation].duration),
   );
-  const framerate = useAnimationStore(
-    useShallow((state: AnimationData) => state.framerate),
-  );
-  const stamp = useAnimationStore(
-    useShallow((state: AnimationData) => state.player.stamp),
-  );
-  const timeDisplay = useAnimationStore(
-    useShallow((state: AnimationData) => state.timeDisplay),
-  );
+  const framerate = useAnimationStore(useShallow((state: AnimationData) => state.framerate));
+  const stamp = useAnimationStore(useShallow((state: AnimationData) => state.player.stamp));
+  const timeDisplay = useAnimationStore(useShallow((state: AnimationData) => state.timeDisplay));
 
   const altPressed = useAltKeyPressed();
-  const visualTime = stampToVisualTime(
-    stamp,
-    duration,
-    framerate,
-    timeDisplay,
-    altPressed,
-  );
+  const visualTime = stampToVisualTime(stamp, duration, framerate, timeDisplay, altPressed);
 
   return (
     <animated.g
       style={{
         transform: x.to(
-          (c) =>
-            `translate(${c.toString()}px, ${(side === "top" ? 8.5 : 11.5).toString()}px)`,
+          (c) => `translate(${c.toString()}px, ${(side === "top" ? 8.5 : 11.5).toString()}px)`,
         ),
       }}
     >
