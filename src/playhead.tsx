@@ -15,10 +15,7 @@ export interface PlayheadProps {
   height?: number;
 }
 
-function InnerPlayhead({
-  ignoreZoom = false,
-  height = 30,
-}: PlayheadProps): ReactNode {
+function InnerPlayhead({ ignoreZoom = false, height = 30 }: PlayheadProps): ReactNode {
   const {
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
@@ -27,9 +24,7 @@ function InnerPlayhead({
 
   const [hovered, setHovered] = useState(false);
 
-  const resetPlayer = useAnimationStore(
-    useShallow((state) => state.resetPlayer),
-  );
+  const resetPlayer = useAnimationStore(useShallow((state) => state.resetPlayer));
   const withZoom = useWithZoom(ignoreZoom);
 
   const playheadSpring = usePlayheadSpring(ignoreZoom);
@@ -59,25 +54,14 @@ function InnerPlayhead({
   return (
     <animated.g
       style={{
-        transform: playheadSpring.to(
-          (c) => `translateX(${xScale(c).toString()}px`,
-        ),
+        transform: playheadSpring.to((c) => `translateX(${xScale(c).toString()}px`),
       }}
       {...gestureBindings()}
     >
       {/* This is an element that makes a slightly larger hitbox */}
-      <rect
-        x={-2.5}
-        y={0}
-        width={5}
-        height={height}
-        className="fill-transparent"
-      />
+      <rect x={-2.5} y={0} width={5} height={height} className="fill-transparent" />
 
-      <path
-        d={`M 0 0 L 0 ${height.toString()}`}
-        className={getStyle(hovered)}
-      />
+      <path d={`M 0 0 L 0 ${height.toString()}`} className={getStyle(hovered)} />
     </animated.g>
   );
 }

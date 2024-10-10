@@ -6,9 +6,7 @@ export function removeAnimation(state: AnimationData, animationId: string) {
   if (animationId in state.animations) {
     const { [animationId]: _, ...newAnimations } = state.animations;
     state.animations = newAnimations;
-    state.visualizedAnimations = state.visualizedAnimations.filter(
-      (id) => id !== animationId,
-    );
+    state.visualizedAnimations = state.visualizedAnimations.filter((id) => id !== animationId);
     if (state.activeAnimation === animationId) {
       if (state.visualizedAnimations.length > 0) {
         state.activeAnimation = state.visualizedAnimations[0];

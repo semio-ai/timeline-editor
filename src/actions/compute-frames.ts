@@ -35,28 +35,22 @@ export function computeFrames(
     }
     const uniqueInstances: InstanceInfo[] = [];
     const uniqueInstanceKeys: string[] = [];
-    Object.keys(state.animations[animationId]?.instances || {}).forEach(
-      (instanceKey: string) => {
-        const instanceInfo = animation.instances[instanceKey];
-        const existingInstance = uniqueInstances.find(
-          (i) =>
-            i.offset === instanceInfo.offset &&
-            i.timescale === instanceInfo.timescale,
-        );
-        if (!existingInstance) {
-          uniqueInstances.push(instanceInfo);
-          uniqueInstanceKeys.push(instanceKey);
-        }
-      },
-    );
+    Object.keys(state.animations[animationId]?.instances || {}).forEach((instanceKey: string) => {
+      const instanceInfo = animation.instances[instanceKey];
+      const existingInstance = uniqueInstances.find(
+        (i) => i.offset === instanceInfo.offset && i.timescale === instanceInfo.timescale,
+      );
+      if (!existingInstance) {
+        uniqueInstances.push(instanceInfo);
+        uniqueInstanceKeys.push(instanceKey);
+      }
+    });
     uniqueInstanceKeys.forEach((uniqueInstanceKey, i) => {
       animation.frames.forEach?.((frame) => {
         if (
           !filter ||
           filter.length === 0 ||
-          filter.some((t: string) =>
-            frameHasKeysInTrack(state, frame, t, animationId),
-          )
+          filter.some((t: string) => frameHasKeysInTrack(state, frame, t, animationId))
         ) {
           const entryKey = `${frame.id}-${uniqueInstanceKey}`;
           const worldStamp = computeWorldStamp(frame.stamp, uniqueInstances[i]);

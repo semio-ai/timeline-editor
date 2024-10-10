@@ -21,9 +21,7 @@ export function useStaticZoomedSpring(
   const store = useContext(AnimationContext);
 
   if (!store) {
-    throw new Error(
-      "useStaticZoomedSpring must be used within an AnimationProvider",
-    );
+    throw new Error("useStaticZoomedSpring must be used within an AnimationProvider");
   }
 
   const zoomScale = useRef<ScaleLinear>(

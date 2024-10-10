@@ -41,8 +41,7 @@ export function usePlayheadCartPathSpring(
     })),
   );
   const storedCharCount = useRef<number>(
-    stampToVisualTime(storedPlayhead.current, duration, framerate, timeDisplay)
-      .length,
+    stampToVisualTime(storedPlayhead.current, duration, framerate, timeDisplay).length,
   );
 
   const { scale: xScale } = useTrackBounds();
@@ -110,11 +109,7 @@ export function usePlayheadCartPathSpring(
       });
       const playhead = storedPlayhead.current;
       const bufferVals = valsToBuffer(xScale, zoomScale.current, playhead);
-      const [path, offset] = distanceToPath(
-        ...bufferVals,
-        storedCharCount.current,
-        side,
-      );
+      const [path, offset] = distanceToPath(...bufferVals, storedCharCount.current, side);
       void playheadCartPathSpring.start(path);
       void xSpring.start(offset);
     },
@@ -148,10 +143,7 @@ const valsToBuffer = (
 ): [number, number] => {
   const xrange = xScale.range();
   const scaledPlayhead = xScale(zoomScale(playhead));
-  const zoomed: [number, number] = [
-    scaledPlayhead - xrange[0],
-    xrange[1] - scaledPlayhead,
-  ];
+  const zoomed: [number, number] = [scaledPlayhead - xrange[0], xrange[1] - scaledPlayhead];
   return zoomed;
 };
 
@@ -180,22 +172,17 @@ function distanceToPath(
   const offscreenR = corner(distanceRight);
 
   const leftX = Math.min(leftP - 6, Math.max(0, distanceRight) - flagWidth);
-  const rightX = Math.max(
-    Math.min(0, -1 * distanceLeft) + flagWidth,
-    rightP + 6,
-  );
+  const rightX = Math.max(Math.min(0, -1 * distanceLeft) + flagWidth, rightP + 6);
 
   const pTLC: [number, number] = [leftX, 3.5 + offscreenL + VERTICAL_BUFFER];
   const pTLT: [number, number] = [-6, 3.5 + offscreenL + VERTICAL_BUFFER];
   const pTCTl: [number, number] = [
     -0.5,
-    (side === "top" ? 3.5 : 0 + Math.max(offscreenL, offscreenR)) +
-      VERTICAL_BUFFER,
+    (side === "top" ? 3.5 : 0 + Math.max(offscreenL, offscreenR)) + VERTICAL_BUFFER,
   ];
   const pTCTr: [number, number] = [
     0.5,
-    (side === "top" ? 3.5 : 0 + Math.max(offscreenL, offscreenR)) +
-      VERTICAL_BUFFER,
+    (side === "top" ? 3.5 : 0 + Math.max(offscreenL, offscreenR)) + VERTICAL_BUFFER,
   ];
   const pTRT: [number, number] = [+6, 3.5 + offscreenR + VERTICAL_BUFFER];
   const pTRC: [number, number] = [rightX, 3.5 + offscreenR + VERTICAL_BUFFER];
@@ -204,31 +191,16 @@ function distanceToPath(
   const pBRT: [number, number] = [+6, 24 - offscreenR - VERTICAL_BUFFER];
   const pBCTr: [number, number] = [
     0.5,
-    (side === "bottom" ? 24 : 27.5 - Math.max(offscreenL, offscreenR)) -
-      VERTICAL_BUFFER,
+    (side === "bottom" ? 24 : 27.5 - Math.max(offscreenL, offscreenR)) - VERTICAL_BUFFER,
   ];
   const pBCTl: [number, number] = [
     -0.5,
-    (side === "bottom" ? 24 : 27.5 - Math.max(offscreenL, offscreenR)) -
-      VERTICAL_BUFFER,
+    (side === "bottom" ? 24 : 27.5 - Math.max(offscreenL, offscreenR)) - VERTICAL_BUFFER,
   ];
   const pBLT: [number, number] = [-6, 24 - offscreenL - VERTICAL_BUFFER];
   const pBLC: [number, number] = [leftX, 24 - offscreenL - VERTICAL_BUFFER];
 
-  const points = [
-    pTLC,
-    pTLT,
-    pTCTl,
-    pTCTr,
-    pTRT,
-    pTRC,
-    pBRC,
-    pBRT,
-    pBCTr,
-    pBCTl,
-    pBLT,
-    pBLC,
-  ];
+  const points = [pTLC, pTLT, pTCTl, pTCTr, pTRT, pTRC, pBRC, pBRT, pBCTr, pBCTl, pBLT, pBLC];
   const path = pointsToPath(points, true);
   return [path, (leftX + rightX) / 2] as [string, number];
 }

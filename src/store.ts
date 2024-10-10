@@ -41,10 +41,7 @@ import { updateTrack } from "./actions/update-track";
 import { addAnimation } from "./actions/add-animation";
 import { removeAnimation } from "./actions/remove-animation";
 import { createDefaultAnimation } from "./actions/create-default-animation";
-import {
-  setValue,
-  updateControlColor,
-} from "./actions/temp-duplicate-functions";
+import { setValue, updateControlColor } from "./actions/temp-duplicate-functions";
 
 enableMapSet();
 
@@ -86,19 +83,10 @@ export const AnimationSlice = (
         }),
       );
     },
-    createKeyframe: (
-      keyframe: Partial<Keyframe>,
-      animationId?: string,
-      fillPoints?: boolean,
-    ) => {
+    createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string, fillPoints?: boolean) => {
       set(
         produce((state: AnimationData): void => {
-          createKeyframe(
-            state,
-            animationId ?? state.activeAnimation,
-            keyframe,
-            fillPoints,
-          );
+          createKeyframe(state, animationId ?? state.activeAnimation, keyframe, fillPoints);
         }),
       );
     },
@@ -115,11 +103,7 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           // Remove all points associated with the keyframe
-          removeKeyframe(
-            state,
-            animationId ?? state.activeAnimation,
-            keyframeId,
-          );
+          removeKeyframe(state, animationId ?? state.activeAnimation, keyframeId);
         }),
       );
     },
@@ -129,10 +113,7 @@ export const AnimationSlice = (
     visualizeAnimation: (animationId: string) => {
       set(
         produce((state: AnimationData): void => {
-          state.visualizedAnimations = [
-            ...state.visualizedAnimations,
-            animationId,
-          ];
+          state.visualizedAnimations = [...state.visualizedAnimations, animationId];
         }),
       );
     },
@@ -177,78 +158,38 @@ export const AnimationSlice = (
         }),
       );
     },
-    updateKeyframeStamp: (
-      keyframeId: string,
-      stamp: number,
-      animationId?: string,
-    ) => {
+    updateKeyframeStamp: (keyframeId: string, stamp: number, animationId?: string) => {
       set(
         produce((state: AnimationData): void => {
-          updateKeyframeStamp(
-            state,
-            animationId ?? state.activeAnimation,
-            keyframeId,
-            stamp,
-          );
+          updateKeyframeStamp(state, animationId ?? state.activeAnimation, keyframeId, stamp);
         }),
       );
     },
-    createKeypoint: (
-      trackId: string,
-      point: Partial<Keypoint<RawValue>>,
-      animationId?: string,
-    ) => {
+    createKeypoint: (trackId: string, point: Partial<Keypoint<RawValue>>, animationId?: string) => {
       set(
         produce((state: AnimationData): void => {
-          createKeypoint(
-            state,
-            animationId ?? state.activeAnimation,
-            trackId,
-            point,
-          );
+          createKeypoint(state, animationId ?? state.activeAnimation, trackId, point);
         }),
       );
     },
-    updateKeypointValue: (
-      keypointId: string,
-      value: RawValue,
-      animationId?: string,
-    ) => {
+    updateKeypointValue: (keypointId: string, value: RawValue, animationId?: string) => {
       set(
         produce((state: AnimationData): void => {
-          updateKeypointValue(
-            state,
-            animationId ?? state.activeAnimation,
-            keypointId,
-            value,
-          );
+          updateKeypointValue(state, animationId ?? state.activeAnimation, keypointId, value);
         }),
       );
     },
-    updateTrack: (
-      trackId: string,
-      data: Omit<Track, "id" | "points">,
-      animationId?: string,
-    ) => {
+    updateTrack: (trackId: string, data: Omit<Track, "id" | "points">, animationId?: string) => {
       set(
         produce((state: AnimationData) => {
-          updateTrack(
-            state,
-            animationId || state.activeAnimation,
-            trackId,
-            data,
-          );
+          updateTrack(state, animationId || state.activeAnimation, trackId, data);
         }),
       );
     },
     removeKeypoint: (keypointId: string, animationId?: string) => {
       set(
         produce((state: AnimationData): void => {
-          removeKeypoint(
-            state,
-            animationId ?? state.activeAnimation,
-            keypointId,
-          );
+          removeKeypoint(state, animationId ?? state.activeAnimation, keypointId);
         }),
       );
     },
@@ -375,11 +316,7 @@ export const AnimationSlice = (
     skipToNextKeyframe: (trackIds?: string[], respectBounds?: boolean) => {
       set(
         produce((state: AnimationData) => {
-          const allStamps = computeStamps(
-            state,
-            state.visualizedAnimations,
-            trackIds || [],
-          );
+          const allStamps = computeStamps(state, state.visualizedAnimations, trackIds || []);
           const stamp = state.player.stamp;
           const bounds = state.player.bounds;
           let nextStamp: number | undefined;
@@ -398,18 +335,12 @@ export const AnimationSlice = (
     skipToPrevKeyframe: (trackIds?: string[], respectBounds?: boolean) => {
       set(
         produce((state: AnimationData) => {
-          const allStamps = computeStamps(
-            state,
-            state.visualizedAnimations,
-            trackIds || [],
-          );
+          const allStamps = computeStamps(state, state.visualizedAnimations, trackIds || []);
           const stamp = state.player.stamp;
           const bounds = state.player.bounds;
           let prevStamp: number | undefined;
           if (respectBounds) {
-            prevStamp = allStamps
-              .reverse()
-              .find((s) => s < stamp && s >= bounds[0]);
+            prevStamp = allStamps.reverse().find((s) => s < stamp && s >= bounds[0]);
           } else {
             prevStamp = allStamps.reverse().find((s) => s < stamp);
           }
@@ -424,11 +355,7 @@ export const AnimationSlice = (
       trackIds?: string[],
       respectBounds?: boolean,
     ): number | undefined => {
-      const allStamps = computeStamps(
-        state,
-        state.visualizedAnimations,
-        trackIds || [],
-      );
+      const allStamps = computeStamps(state, state.visualizedAnimations, trackIds || []);
       const stamp = state.player.stamp;
       const bounds = state.player.bounds;
       const nextStamp = respectBounds
@@ -441,11 +368,7 @@ export const AnimationSlice = (
       trackIds?: string[],
       respectBounds?: boolean,
     ): number | undefined => {
-      const allStamps = computeStamps(
-        state,
-        state.visualizedAnimations,
-        trackIds || [],
-      );
+      const allStamps = computeStamps(state, state.visualizedAnimations, trackIds || []);
       const stamp = state.player.stamp;
       const bounds = state.player.bounds;
       const nextStamp = respectBounds
@@ -511,9 +434,7 @@ export const AnimationSlice = (
               .filter((f) => f !== undefined) || [],
         }),
         ({ stamp, keyframes }) => {
-          const selectedKeyframe = keyframes.find(
-            (keyframe) => keyframe?.stamp === stamp,
-          );
+          const selectedKeyframe = keyframes.find((keyframe) => keyframe?.stamp === stamp);
           set({ selectedKeyframe: selectedKeyframe?.id });
         },
         { equalityFn: isDeepEqual },
@@ -558,14 +479,9 @@ export const AnimationSlice = (
         previews: state.previews.filter((p) => !evaluator(p)),
       }));
     },
-    updatePreview: (
-      evaluator: (preview: Preview) => boolean,
-      preview: Partial<Preview>,
-    ) => {
+    updatePreview: (evaluator: (preview: Preview) => boolean, preview: Partial<Preview>) => {
       set((state: AnimationData) => ({
-        previews: state.previews.map((p) =>
-          evaluator(p) ? { ...p, ...preview } : p,
-        ),
+        previews: state.previews.map((p) => (evaluator(p) ? { ...p, ...preview } : p)),
       }));
     },
     updateControlColor: (controlId: string, color: string) => {
@@ -590,9 +506,7 @@ export const AnimationSlice = (
   };
 };
 
-export const useDefaultAnimationStore = create<
-  AnimationData & AnimationActions
->()(
+export const useDefaultAnimationStore = create<AnimationData & AnimationActions>()(
   subscribeWithSelector((set, get, api) => ({
     ...AnimationSlice(set, get, api),
   })),

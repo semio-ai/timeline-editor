@@ -20,18 +20,12 @@ export function useZoomSprings(): {
     throw new Error("useHoverSpring must be used within an AnimationProvider");
   }
 
-  const leftSpring = useSpringValue<number>(
-    store.getState().player.viewport[0],
-    {
-      config: springConfig,
-    },
-  );
-  const rightSpring = useSpringValue<number>(
-    store.getState().player.viewport[1],
-    {
-      config: springConfig,
-    },
-  );
+  const leftSpring = useSpringValue<number>(store.getState().player.viewport[0], {
+    config: springConfig,
+  });
+  const rightSpring = useSpringValue<number>(store.getState().player.viewport[1], {
+    config: springConfig,
+  });
   const widthSpring = useSpringValue<number>(
     store.getState().player.viewport[1] - store.getState().player.viewport[0],
     {

@@ -1,22 +1,30 @@
+import { type RawValue } from "@semio/utils";
 import { AnimationData } from "../store-types";
-import { Animation } from "../types";
+import {
+  Animation,
+  InstanceInfo,
+  Keyframe,
+  Keypoint,
+  Track,
+  TrackGroup,
+  Transition,
+} from "../types";
 
 export function addAnimation(state: AnimationData, animationData: unknown) {
   if (animationData && typeof animationData === "object") {
-    const animationId =
-      (animationData as { id?: string }).id ?? state.activeAnimation;
+    const animationId = (animationData as { id?: string }).id ?? state.activeAnimation;
     const animation: Animation = {
       id: animationId,
       name: (animationData as { name: string }).name,
       duration: (animationData as { duration: number }).duration,
-      tracks: (animationData as { tracks: any }).tracks,
-      points: (animationData as { points: any }).points,
-      frames: (animationData as { frames: any }).frames,
-      groups: (animationData as { groups: any }).groups,
-      transitions: (animationData as { transitions: any }).transitions,
-      frameOrder: (animationData as { frameOrder: any }).frameOrder,
-      trackOrder: (animationData as { trackOrder: any }).trackOrder,
-      instances: (animationData as { instances: any }).instances,
+      tracks: (animationData as { tracks: Map<string, Track> }).tracks,
+      points: (animationData as { points: Map<string, Keypoint<RawValue>> }).points,
+      frames: (animationData as { frames: Map<string, Keyframe> }).frames,
+      groups: (animationData as { groups: Map<string, TrackGroup> }).groups,
+      transitions: (animationData as { transitions: Map<string, Transition> }).transitions,
+      frameOrder: (animationData as { frameOrder: string[] }).frameOrder,
+      trackOrder: (animationData as { trackOrder: string[] }).trackOrder,
+      instances: (animationData as { instances: Record<string, InstanceInfo> }).instances,
     };
     state.animations[animationId] = {
       ...animation,

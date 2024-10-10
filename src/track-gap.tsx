@@ -19,10 +19,7 @@ export function InnerTrackGap({ count }: { count: number }) {
     useShallow((state: AnimationData) => state.framerate as number),
   );
   const duration = useAnimationStore(
-    useShallow(
-      (state: AnimationData) =>
-        state.animations[state.activeAnimation]?.duration ?? 5000,
-    ),
+    useShallow((state: AnimationData) => state.animations[state.activeAnimation]?.duration ?? 5000),
   );
 
   const frameCount = Math.floor(framerate * (duration / 1000));
@@ -41,10 +38,7 @@ export function InnerTrackGap({ count }: { count: number }) {
 
   return (
     <div className="w-full flex flex-row items-center" style={{ height }}>
-      <div
-        className="w-[calc(100vw-40px)] xs:w-64 transition-[width]"
-        style={{ height }}
-      />
+      <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width]" style={{ height }} />
       <div
         ref={containerRef}
         className="cursor-pointer items-center flex flex-1"

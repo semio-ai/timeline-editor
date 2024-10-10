@@ -18,9 +18,7 @@ export function moveKeypoint(
     // Remove the point from the old frame and add it to the new frame
     const oldFrame = state.animations[animationId].frames.get(point.frame);
     if (oldFrame) {
-      oldFrame.points = oldFrame.points.filter(
-        (pointId) => pointId !== keypointId,
-      );
+      oldFrame.points = oldFrame.points.filter((pointId) => pointId !== keypointId);
       state.animations[animationId].frames.set(point.frame, oldFrame);
     }
     const newFrame = state.animations[animationId].frames.get(keyframeOrTime);
@@ -43,9 +41,7 @@ export function moveKeypoint(
     // Remove the point from the old track and add it to the new track
     const oldTrack = state.animations[animationId].tracks.get(point.track);
     if (oldTrack && "points" in oldTrack) {
-      oldTrack.points = oldTrack.points.filter(
-        (pointId) => pointId !== keypointId,
-      );
+      oldTrack.points = oldTrack.points.filter((pointId) => pointId !== keypointId);
       state.animations[animationId].tracks.set(point.track, oldTrack);
     }
     const newTrack = state.animations[animationId].tracks.get(trackId);

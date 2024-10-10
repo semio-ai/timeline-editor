@@ -1,9 +1,4 @@
-import {
-  MutableRefObject,
-  useRef,
-  useCallback,
-  MouseEventHandler,
-} from "react";
+import { MutableRefObject, useRef, useCallback, MouseEventHandler } from "react";
 import { clamp } from "lodash";
 import { clsx } from "clsx";
 import { closestFrame } from "@semio/utils";
@@ -39,10 +34,7 @@ export function GestureDetector({
     useShallow((state: AnimationData) => state.framerate as number),
   );
   const duration = useAnimationStore(
-    useShallow(
-      (state: AnimationData) =>
-        state.animations[state.activeAnimation]?.duration ?? 5000,
-    ),
+    useShallow((state: AnimationData) => state.animations[state.activeAnimation]?.duration ?? 5000),
   );
 
   const frameCount = Math.floor(framerate * (duration / 1000));
@@ -74,9 +66,7 @@ export function GestureDetector({
     },
     onMove: (state) => {
       withZoom((zoomScale) => {
-        const newPosition = zoomScale.invert(
-          ((state.xy[0] || 0) - bounds.left) / bounds.width,
-        );
+        const newPosition = zoomScale.invert(((state.xy[0] || 0) - bounds.left) / bounds.width);
         if (state.altKey) {
           setHoverpoint(newPosition);
         } else {

@@ -37,9 +37,7 @@ export function usePairSprings(
   );
   const zoomScaleNoOffset = useRef<ScaleLinear>(
     scaleLinear({
-      domain: ignoreZoom
-        ? [0, 1]
-        : getRebasedViewport(store.getState().player.viewport),
+      domain: ignoreZoom ? [0, 1] : getRebasedViewport(store.getState().player.viewport),
       range: [0, 1],
     }),
   );

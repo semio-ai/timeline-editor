@@ -18,21 +18,12 @@ import { BoundCart } from "./bounds-cart";
 import { AnimatedText } from "./animated-text";
 import { GestureDetector } from "./gesture-detector";
 
-function InnerRuler({
-  width,
-  side,
-}: {
-  width: number;
-  side: "top" | "bottom";
-}) {
+function InnerRuler({ width, side }: { width: number; side: "top" | "bottom" }) {
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
   const duration = useAnimationStore(
-    useShallow(
-      (state: AnimationData) =>
-        state.animations[state.activeAnimation]?.duration ?? 5000,
-    ),
+    useShallow((state: AnimationData) => state.animations[state.activeAnimation]?.duration ?? 5000),
   );
 
   const xScale = useMemo(
@@ -127,13 +118,7 @@ function Tick({
     ]),
   );
   const altPressed = useAltKeyPressed();
-  const visualTime = stampToVisualTime(
-    completion,
-    duration,
-    framerate,
-    timeDisplay,
-    altPressed,
-  );
+  const visualTime = stampToVisualTime(completion, duration, framerate, timeDisplay, altPressed);
   const major = idx % framerate === 0;
 
   return (
