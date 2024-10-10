@@ -406,7 +406,6 @@ export const AnimationSlice = (
       const playerInterval = get().playerInterval;
       if (playerInterval) {
         // cancelAnimationFrame(playerInterval);
-
         window.clearInterval(playerInterval);
       }
       const updatePlayerInner = get().updatePlayer;
@@ -421,27 +420,35 @@ export const AnimationSlice = (
       }, 25);
       set({ playerInterval: interval });
     },
-    initInterpolatorGeneration: () => {
+    initAnimationSubscriptions: () => {
       // If the time changes, check if it matches an existing keyframe and set the current selected keyframe
-      api.subscribe(
+      const unsub1 = api.subscribe(
         (state) => ({
+          running: state.player.running,
           stamp: state.player.stamp,
-          keyframes:
-            state.animations[state.activeAnimation]?.frameOrder
-              ?.map((frameId: string) =>
-                state.animations[state.activeAnimation].frames.get(frameId),
-              )
-              .filter((f) => f !== undefined) || [],
+          keyframes: state.animations[state.activeAnimation]?.frames,
         }),
-        ({ stamp, keyframes }) => {
-          const selectedKeyframe = keyframes.find((keyframe) => keyframe?.stamp === stamp);
-          set({ selectedKeyframe: selectedKeyframe?.id });
+        ({ running, stamp, keyframes }) => {
+          if (running) {
+            // The animation is running, so don't select any keyframe
+            set({ selectedKeyframe: undefined });
+          } else {
+            // The animation isn't running, so select the keyframe that matches the current time
+            // If none match, return undefined
+            const selectedKeyframe = keyframes
+              .values()
+              .find((keyframe: Keyframe) => keyframe?.stamp === stamp);
+            set({ selectedKeyframe: selectedKeyframe?.id });
+          }
         },
-        { equalityFn: isDeepEqual },
+        {
+          equalityFn: (current: StampAndKeyframes, previous: StampAndKeyframes) =>
+            current.stamp === previous.stamp && current.keyframes === previous.keyframes,
+        },
       );
 
       // If the animation data changes, rerun the interpolator generator
-      api.subscribe(
+      const unsub2 = api.subscribe(
         (state) => state.animations,
         (animations) => {
           // console.log("Animation data changed. Creating new interpolator.");
@@ -453,7 +460,7 @@ export const AnimationSlice = (
 
       // If the timer or interpolator changes, rerun the interpolator with that time.
       const updateValues = api.getState().updateValues;
-      api.subscribe(
+      const unsub3 = api.subscribe(
         (state: AnimationData) => ({
           interpolator: state.interpolator,
           stamp: state.player.stamp,
@@ -465,6 +472,12 @@ export const AnimationSlice = (
         },
         { equalityFn: isDeepEqual },
       );
+
+      return () => {
+        unsub1();
+        unsub2();
+        unsub3();
+      };
     },
     setHoverpoint: (hoverpoint: number) => {
       set({ hoverpoint });
@@ -513,3 +526,9 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
 );
 
 export type AnimationStore = typeof useDefaultAnimationStore;
+
+interface StampAndKeyframes {
+  running: boolean;
+  stamp: number;
+  keyframes: Map<string, Keyframe>;
+}

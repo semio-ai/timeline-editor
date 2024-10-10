@@ -36,6 +36,7 @@ export interface AnimationData {
   preferences: {
     hoverDashedLine: boolean;
   };
+  testVal?: number;
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   activeGraph: string;
@@ -133,8 +134,8 @@ export interface AnimationActions {
   setTimeDisplay: (mode: TimeDisplay) => void;
   // Initialize the player updates
   initPlayerInterval: () => void;
-  // Initialize interpolator generation
-  initInterpolatorGeneration: () => void;
+  // Initialize interpolator generation. Returns a function to cancel the subscriptions
+  initAnimationSubscriptions: () => () => void;
   // Set the hoverpoint
   setHoverpoint: (hoverpoint: number) => void;
   // Add an animation to the visualized set
