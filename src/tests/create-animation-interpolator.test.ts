@@ -58,27 +58,31 @@ test("should return the interpolated values for each track", () => {
   // Test the interpolated values at different times
   // the method `toBeCloseTo` tests that the values are close to each other with
   // floating-point precision
-  expect(animationInterpolator(0).get("track1")).toBeCloseTo(10);
+  expect(animationInterpolator.get("track1")?.(0)).toBeCloseTo(10);
 
-  expect(animationInterpolator(0).get("track2")).toBeCloseTo(1.2);
+  expect(animationInterpolator.get("track2")?.(0)).toBeCloseTo(1.2);
 
-  expect(animationInterpolator(0.3).get("track1")).toBeCloseTo(15);
+  expect(animationInterpolator.get("track1")?.(0.3)).toBeCloseTo(15);
 
-  expect(animationInterpolator(0.5).get("track2")).toBeCloseTo(1.65);
+  expect(animationInterpolator.get("track2")?.(0.5)).toBeCloseTo(1.65);
 
-  expect(animationInterpolator(1).get("track1")).toBeCloseTo(20);
+  expect(animationInterpolator.get("track1")?.(1)).toBeCloseTo(20);
 
-  expect(animationInterpolator(1).get("track2")).toBeCloseTo(2.1);
+  expect(animationInterpolator.get("track2")?.(1)).toBeCloseTo(2.1);
 
-  expect(animationInterpolator(0).get(getLookup("doublespeed", "track1"))).toBeCloseTo(10);
+  expect(animationInterpolator.get(getLookup("doublespeed", "track1"))?.(0)).toBeCloseTo(10);
 
-  expect(animationInterpolator(0.5).get(getLookup("doublespeed", "track1"))).toBeCloseTo(20);
+  expect(animationInterpolator.get(getLookup("doublespeed", "track1"))?.(0.5)).toBeCloseTo(20);
 
-  expect(animationInterpolator(0.5).get(getLookup("offset", "track1"))).toBeCloseTo(10);
+  expect(animationInterpolator.get(getLookup("offset", "track1"))?.(0.5)).toBeCloseTo(10);
 
-  expect(animationInterpolator(0.5).get(getLookup("offsetDoublespeed", "track1"))).toBeCloseTo(10);
+  expect(animationInterpolator.get(getLookup("offsetDoublespeed", "track1"))?.(0.5)).toBeCloseTo(
+    10,
+  );
 
-  expect(animationInterpolator(1).get(getLookup("offsetDoublespeed", "track1"))).toBeCloseTo(20);
+  expect(animationInterpolator.get(getLookup("offsetDoublespeed", "track1"))?.(1)).toBeCloseTo(20);
 
-  expect(animationInterpolator(0.65).get(getLookup("offsetDoublespeed", "track1"))).toBeCloseTo(15);
+  expect(animationInterpolator.get(getLookup("offsetDoublespeed", "track1"))?.(0.65)).toBeCloseTo(
+    15,
+  );
 });
