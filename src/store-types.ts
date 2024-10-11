@@ -102,7 +102,7 @@ export interface AnimationActions {
   // Pause the animation
   pausePlayer: () => void;
   // Update the timer
-  updatePlayer: () => void;
+  updatePlayer: (coldStart?: boolean) => void;
   // Set the player bounds
   updatePlayerBounds: (start: number, end: number) => void;
   // Update one bound of the player
