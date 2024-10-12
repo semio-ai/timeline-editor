@@ -18,7 +18,6 @@ export function AnimationSheet(): ReactNode {
   if (ctx) {
     return <MemoizedInnerSheet />;
   } else {
-    useDefaultAnimationStore.getState().initPlayerInterval();
     return (
       <AnimationContext.Provider value={useDefaultAnimationStore}>
         <MemoizedInnerSheet />
