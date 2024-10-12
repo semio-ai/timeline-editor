@@ -36,8 +36,6 @@ export interface AnimationData {
   preferences: {
     hoverDashedLine: boolean;
   };
-  // A set of unsubscribers for individual tracks (subscribers listen to changes in the track)
-  trackSubscribers: (() => void)[];
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   activeGraph: string;
@@ -133,8 +131,6 @@ export interface AnimationActions {
   setExpanded: (expanded: boolean) => void;
   // Set the time display mode
   setTimeDisplay: (mode: TimeDisplay) => void;
-  // Initialize the player updates
-  initPlayerInterval: () => void;
   // Initialize interpolator generation. Returns a function to cancel the subscriptions
   initAnimationSubscriptions: () => () => void;
   // Set the hoverpoint

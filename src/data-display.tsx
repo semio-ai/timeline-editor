@@ -26,7 +26,7 @@ function InnerDataDisplay({
     }),
   );
 
-  const interps = pairwise(Object.values(active).sort((a) => a.stamp));
+  const interps = pairwise(Object.values(active).sort((a, b) => a.stamp - b.stamp));
 
   return (
     <g mask="url(#boundsMask)">
@@ -44,7 +44,7 @@ function InnerDataDisplay({
       {!disabled &&
         interps.map(([s1, s2]) => (
           <InterpolationSegment
-            key={s1.stamp}
+            key={`${s1.id}-${s2.id}`}
             stamp1={s1.stamp}
             stamp2={s2.stamp}
             ignoreZoom={ignoreZoom}

@@ -40,7 +40,7 @@ export function updateAnimationKeypoint(
     throw new Error("Could not create keyframe or track");
   }
 
-  let point = [...state.animations[animationId].points.values()].find(
+  let point = Array.from(state.animations[animationId].points.values()).find(
     (p) => p.frame === keyframe?.id && p.track === track?.id,
   );
 

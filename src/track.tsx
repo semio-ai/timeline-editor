@@ -90,7 +90,9 @@ export function Track({
             width={Math.max(0, width - TIMELINE_PADDING * 2)}
             className="h-[30px]"
           />
-          {canZoom && <TrackBackground showLine={showBackground} ignoreZoom={false} />}
+          {canZoom && (
+            <TrackBackground showLine={showBackground} ignoreZoom={false} tickHeight={30} />
+          )}
 
           {/* Gesture Detector */}
           <GestureDetector ignoreZoom={!canZoom} />

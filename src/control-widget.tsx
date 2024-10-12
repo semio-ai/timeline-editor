@@ -85,7 +85,7 @@ function InnerControlWidget({
       if (!track || !control || !keyframe) {
         return undefined;
       } else {
-        return [...state.animations[state.activeAnimation].points.values()].find(
+        return Array.from(state.animations[state.activeAnimation].points.values()).find(
           (p: Keypoint<RawValue>) => {
             return p.track === track.id && p.frame === keyframe.id;
           },

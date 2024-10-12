@@ -19,7 +19,7 @@ export interface BoundsDisplayProps {
   height?: number;
 }
 
-function InnerBoundsDisplay({ ignoreZoom = false, height = 30 }: BoundsDisplayProps) {
+function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
   const leftBoundsRef = useRef<SVGGElement>(null);
   const rightBoundsRef = useRef<SVGGElement>(null);
   const {
@@ -165,43 +165,39 @@ function InnerBoundsDisplay({ ignoreZoom = false, height = 30 }: BoundsDisplayPr
   return (
     <>
       <animated.rect
+        name="bounds-rect"
         x={leftSpring.to((ls) => xScale(ls))}
         y={0}
         width={widthSpring.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
-        height={height}
         className={clsx(
-          "fill-transparent pointer-events-none transition-[fill]",
+          "fill-transparent pointer-events-none transition-[fill] h-full",
           anyPreview && "group-hover:cursor-ew-resize group-hover:fill-neutral-600/25",
           anyPreview &&
             "group-aria-expanded:cursor-ew-resize group-aria-expanded:fill-neutral-600/25",
         )}
       />
-      <g ref={leftBoundsRef} className="group/bound">
-        <animated.path
-          d={leftSpring.to(
-            (ls) => `M${xScale(ls).toString()} 0 L${xScale(ls).toString()} ${height.toString()}Z`,
+      <g ref={leftBoundsRef} name="bounds-left-stroke" className="group/bound">
+        <animated.rect
+          x={leftSpring.to((ls) => xScale(ls) - 0.5)}
+          width={1}
+          className={clsx(
+            "transition-fill duration-75 h-full",
+            anyPreview ? "fill-neutral-500" : "fill-transparent",
           )}
-          className={clsx("transition-stroke duration-75", getStroke(anyPreview))}
         />
       </g>
 
-      <g ref={rightBoundsRef} className="group/bound">
-        <animated.path
-          d={rightSpring.to(
-            (rs) => `M${xScale(rs).toString()} 0 L${xScale(rs).toString()} ${height.toString()}Z`,
+      <g ref={rightBoundsRef} name="bounds-right-stroke" className="group/bound">
+        <animated.rect
+          x={rightSpring.to((rs) => xScale(rs) - 0.5)}
+          width={1}
+          className={clsx(
+            "transition-fill duration-75 h-full",
+            anyPreview ? "fill-neutral-500" : "fill-transparent",
           )}
-          className={clsx("transition-stroke duration-75", getStroke(anyPreview))}
         />
       </g>
     </>
-  );
-}
-
-function getStroke(previewed: boolean): string {
-  return clsx(
-    "transition-[stroke]",
-    previewed && "stroke-neutral-500",
-    !previewed && "stroke-transparent",
   );
 }
 

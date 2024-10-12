@@ -1,7 +1,6 @@
 import { getLookup, type RawValue } from "@semio/utils";
 import type { Animation, AnimationInterpolator, Track } from "../types";
 import { createTrackInterpolator } from "./create-track-interpolator";
-import { TrackInterpolator } from "../types/interpolator";
 
 // @description
 // This function takes in the animation data structure, and returns a function of time,
@@ -12,11 +11,14 @@ import { TrackInterpolator } from "../types/interpolator";
 export function createAnimationInterpolator(
   animations: Record<string, Animation>,
 ): AnimationInterpolator {
-  const animationInterpolator = new Map<string, TrackInterpolator>();
+  const interpolatorsByTrackAndNamespace = new Map<
+    string,
+    (time: number) => RawValue | undefined
+  >();
   Object.values(animations).forEach((animation) => {
     Object.keys(animation.instances).forEach((instance) => {
       animation.tracks.forEach((track: Track, trackId: string) => {
-        animationInterpolator.set(
+        interpolatorsByTrackAndNamespace.set(
           getLookup(instance, trackId),
           createTrackInterpolator(
             track,
@@ -29,5 +31,11 @@ export function createAnimationInterpolator(
     });
   });
 
-  return animationInterpolator;
+  return (time: number): Map<string, RawValue | undefined> => {
+    const result = new Map<string, RawValue | undefined>();
+    interpolatorsByTrackAndNamespace.forEach((interpolator, trackId) => {
+      result.set(trackId, interpolator(time));
+    });
+    return result;
+  };
 }

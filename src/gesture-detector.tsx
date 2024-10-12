@@ -80,6 +80,7 @@ export function GestureDetector({
   return (
     <rect
       ref={gestureRef as MutableRefObject<SVGRectElement>}
+      name="gesture-detector"
       onDoubleClick={doubleClickHandler as any as MouseEventHandler}
       onTouchMove={(e) => {
         console.log("touchmove");

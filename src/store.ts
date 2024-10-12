@@ -9,7 +9,6 @@ import {
   Write,
   StoreSubscribeWithSelector,
   seek,
-  getLookup,
 } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import isDeepEqual from "fast-deep-equal";
@@ -17,7 +16,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { shallow } from "zustand/shallow";
 import { produce, enableMapSet } from "immer";
 import { create, type StoreApi } from "zustand";
-import { InstanceInfo, Keyframe, Keypoint, Track, TrackInterpolator } from "./types";
+import { Keyframe, Keypoint, Track } from "./types";
 import { createKeyframe } from "./actions/create-keyframe";
 import { createAutoKeyframe } from "./actions/create-auto-keyframe";
 import { removeKeyframe } from "./actions/remove-keyframe";
@@ -30,7 +29,6 @@ import {
   Preview,
 } from "./store-types";
 import { createAnimationInterpolator } from "./actions/create-animation-interpolator";
-import { createTrackInterpolator } from "./actions/create-track-interpolator";
 import { createKeypoint } from "./actions/create-keypoint";
 import { updateKeypointValue } from "./actions/update-keypoint-value";
 import { removeKeypoint } from "./actions/remove-keypoint";
@@ -405,25 +403,9 @@ export const AnimationSlice = (
     setTimeDisplay: (timeDisplay: TimeDisplay) => {
       set({ timeDisplay });
     },
-    initPlayerInterval: () => {
-      // const playerInterval = get().playerInterval;
-      // if (playerInterval) {
-      //   // cancelAnimationFrame(playerInterval);
-      //   window.clearInterval(playerInterval);
-      // }
-      // const updatePlayerInner = get().updatePlayer;
-      // const _updatePlayer = () => {
-      //   updatePlayerInner();
-      //   requestAnimationFrame(_updatePlayer);
-      // };
-      // // const interval = requestAnimationFrame(updatePlayer);
-      // const interval = window.setInterval(() => {
-      //   updatePlayerInner();
-      // }, 25);
-      // set({ playerInterval: interval });
-    },
     initAnimationSubscriptions: () => {
-      // If the time changes, check if it matches an existing keyframe and set the current selected keyframe
+      // If the time changes, check if it matches an existing keyframe and
+      // set the current selected keyframe
       const unsub1 = api.subscribe(
         (state) => ({
           running: state.player.running,
@@ -437,9 +419,9 @@ export const AnimationSlice = (
           } else {
             // The animation isn't running, so select the keyframe that matches the current time
             // If none match, return undefined
-            const selectedKeyframe = keyframes
-              .values()
-              .find((keyframe: Keyframe) => keyframe?.stamp === stamp);
+            const selectedKeyframe = Array.from(keyframes.values()).find(
+              (keyframe: Keyframe) => keyframe?.stamp === stamp,
+            );
             set({ selectedKeyframe: selectedKeyframe?.id });
           }
         },
@@ -458,7 +440,6 @@ export const AnimationSlice = (
         }),
         ({ running, interval }) => {
           if (interval) {
-            // cancelAnimationFrame(interval);
             window.clearInterval(interval);
           }
 
@@ -481,30 +462,22 @@ export const AnimationSlice = (
           stamp: state.player.stamp,
         }),
         ({ interpolator, stamp }) => {
-          const result = new Map<string, RawValue | undefined>();
-          interpolator.entries().forEach(([key, trackInterpolator]) => {
-            result.set(key, trackInterpolator(stamp));
-          });
-          updateValues(result);
+          const values = interpolator(stamp);
+          updateValues(values);
         },
-        {
-          equalityFn: (current, previous) =>
-            current.stamp === previous.stamp &&
-            isDeepEqual(current.interpolator, previous.interpolator),
-        },
+        { equalityFn: isDeepEqual },
       );
 
       // If the animation data changes, rerun the interpolator generator
       const unsub4a = api.subscribe(
         (state) => state.animations,
         (animations) => {
-          // console.log("Animation data changed. Creating new interpolator.");
           const interpolator = createAnimationInterpolator(animations);
           set({ interpolator });
         },
-        { equalityFn: isDeepEqual },
+        { equalityFn: shallow },
       );
-
+      // Trying an alternative way of generating the interpolator
       // const unsub4b = api.subscribe(
       //   (state: AnimationData) => ({
       //     trackIds: state.animations[state.activeAnimation].trackOrder,
@@ -629,16 +602,4 @@ interface StampAndKeyframes {
   running: boolean;
   stamp: number;
   keyframes: Map<string, Keyframe>;
-}
-
-interface TrackIdsAndSubscribes {
-  trackIds: string[];
-  subscribes: (() => void)[];
-}
-
-interface TrackAndFrameData {
-  track?: Track;
-  frames: Map<string, Keyframe>;
-  points: Map<string, Keypoint<RawValue>>;
-  instances: Record<string, InstanceInfo>;
 }
