@@ -17,7 +17,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { shallow } from "zustand/shallow";
 import { produce, enableMapSet } from "immer";
 import { create, type StoreApi } from "zustand";
-import { Keyframe, Keypoint, Track, InstanceInfo, TrackInterpolator } from "./types";
+import { Keyframe, Keypoint, Track, InstanceInfo, TrackInterpolator, Animation } from "./types";
 import { createKeyframe } from "./actions/create-keyframe";
 import { createAutoKeyframe } from "./actions/create-auto-keyframe";
 import { removeKeyframe } from "./actions/remove-keyframe";
@@ -473,6 +473,28 @@ export const AnimationSlice = (
         { equalityFn: isDeepEqual },
       );
 
+      const unsub4a = api.subscribe(
+        (state) => state.animations[state.activeAnimation],
+        (animation: Animation) => {
+          const cache = new Map<string, { stamp: number; value: RawValue }[]>();
+          animation.trackOrder.forEach((trackId) => {
+            const track = animation.tracks.get(trackId);
+            if (!track) return;
+            cache.set(trackId, []);
+            track.points.forEach((pointId: string) => {
+              const point = animation.points.get(pointId);
+              if (!point) return;
+              const keyframe = animation.frames.get(point.frame);
+              if (!keyframe) return;
+              cache.get(trackId)?.push({ stamp: keyframe.stamp, value: point.value });
+            });
+            cache.get(trackId)?.sort((a, b) => a.stamp - b.stamp);
+          });
+          set({ animationCache: cache });
+        },
+        { equalityFn: shallow },
+      );
+
       // If the animation data changes, rerun the interpolator generator
       // old version of the interpolator
       // const unsub4a = api.subscribe(
@@ -503,18 +525,18 @@ export const AnimationSlice = (
               (state: AnimationData) => ({
                 instances: state.animations[state.activeAnimation].instances,
                 track: state.animations[state.activeAnimation].tracks.get(trackId),
-                frames: state.animations[state.activeAnimation].frames,
-                points: state.animations[state.activeAnimation].points,
+                cache: state.animationCache.get(trackId),
               }),
-              ({ track, frames, points, instances }) => {
+              ({ track, cache, instances }) => {
                 if (!track) return;
+                if (!cache) return;
                 // This is essentially the bundling code from the previous
                 // 'createAnimationInterpolator' function
                 const newTrackInterpolators = new Map<string, TrackInterpolator>();
                 Object.keys(instances).forEach((namespace) => {
                   newTrackInterpolators.set(
                     getLookup(namespace, track.id),
-                    createTrackInterpolator(track, frames, points, instances[namespace]),
+                    createTrackInterpolator(track, cache, instances[namespace]),
                   );
                 });
                 set((state: AnimationData) => ({
@@ -522,30 +544,36 @@ export const AnimationSlice = (
                 }));
               },
               {
-                equalityFn: (current: TrackAndFrameData, previous: TrackAndFrameData) => {
+                equalityFn: (current: TrackAndCacheData, previous: TrackAndCacheData) => {
                   // Specifically query for changes to points and frames that are relevant.
                   // We can probably avoid some of this by having a single top-level subscription
                   // that just computes an intermediate value that is tracked.
-                  if (!current.track || !previous.track) return true;
-                  const currentPointData = current.track.points.map((pointId) =>
-                    current.points.get(pointId),
-                  );
-                  const previousPointData = previous.track.points.map((pointId) =>
-                    previous.points.get(pointId),
-                  );
-                  const currentFrameTimes = currentPointData.map((point) =>
-                    point ? current.frames.get(point?.frame)?.stamp : undefined,
-                  );
-                  const previousFrameTimes = previousPointData.map((point) =>
-                    point ? previous.frames.get(point?.frame)?.stamp : undefined,
-                  );
-                  const currentPointValues = currentPointData.map((point) => point?.value);
-                  const previousPointValues = previousPointData.map((point) => point?.value);
+                  if (!current.track || !previous.track || !current.cache || !previous.cache)
+                    return true;
                   return (
-                    shallow(current.instances, previous.instances) &&
-                    shallow(currentPointValues, previousPointValues) &&
-                    shallow(currentFrameTimes, previousFrameTimes)
+                    shallow(current.track, previous.track) &&
+                    shallow(current.cache, previous.cache) &&
+                    shallow(current.instances, previous.instances)
                   );
+                  // const currentPointData = current.track.points.map((pointId) =>
+                  //   current.points.get(pointId),
+                  // );
+                  // const previousPointData = previous.track.points.map((pointId) =>
+                  //   previous.points.get(pointId),
+                  // );
+                  // const currentFrameTimes = currentPointData.map((point) =>
+                  //   point ? current.frames.get(point?.frame)?.stamp : undefined,
+                  // );
+                  // const previousFrameTimes = previousPointData.map((point) =>
+                  //   point ? previous.frames.get(point?.frame)?.stamp : undefined,
+                  // );
+                  // const currentPointValues = currentPointData.map((point) => point?.value);
+                  // const previousPointValues = previousPointData.map((point) => point?.value);
+                  // return (
+                  //   shallow(current.instances, previous.instances) &&
+                  //   shallow(currentPointValues, previousPointValues) &&
+                  //   shallow(currentFrameTimes, previousFrameTimes)
+                  // );
                 },
               },
             );
@@ -563,6 +591,7 @@ export const AnimationSlice = (
         unsub1();
         unsub2();
         unsub3();
+        unsub4a();
         unsub4b();
       };
     },
@@ -625,9 +654,8 @@ interface TrackIdsAndSubscribes {
   subscribes: (() => void)[];
 }
 
-interface TrackAndFrameData {
+interface TrackAndCacheData {
   track?: Track;
-  frames: Map<string, Keyframe>;
-  points: Map<string, Keypoint<RawValue>>;
+  cache?: { stamp: number; value: RawValue }[];
   instances: Record<string, InstanceInfo>;
 }

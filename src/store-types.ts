@@ -38,6 +38,8 @@ export interface AnimationData {
   };
   // A set of unsubscribers for individual tracks (subscribers listen to changes in the track)
   trackSubscribers: (() => void)[];
+  // A cached, simplified version of the animation data for use in computing the interpolators
+  animationCache: Map<string, { stamp: number; value: RawValue }[]>;
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   activeGraph: string;

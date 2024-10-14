@@ -14,17 +14,17 @@ export function createAnimationInterpolator(
   const animationInterpolator = new Map<string, (time: number) => RawValue | undefined>();
   Object.values(animations).forEach((animation) => {
     Object.keys(animation.instances).forEach((instance) => {
-      animation.tracks.forEach((track: Track, trackId: string) => {
-        animationInterpolator.set(
-          getLookup(instance, trackId),
-          createTrackInterpolator(
-            track,
-            animation.frames,
-            animation.points,
-            animation.instances[instance],
-          ),
-        );
-      });
+      // animation.tracks.forEach((track: Track, trackId: string) => {
+      //   animationInterpolator.set(
+      //     getLookup(instance, trackId),
+      //     createTrackInterpolator(
+      //       track,
+      //       animation.frames,
+      //       animation.points,
+      //       animation.instances[instance],
+      //     ),
+      //   );
+      // });
     });
   });
 

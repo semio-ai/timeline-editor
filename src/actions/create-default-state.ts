@@ -28,6 +28,7 @@ export const createDefaultState = (): AnimationData => {
       hoverDashedLine: false,
     },
     trackSubscribers: [],
+    animationCache: new Map(),
 
     // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
     activeGraph: defaultGraph.id,
