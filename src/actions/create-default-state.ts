@@ -11,7 +11,7 @@ export const createDefaultState = (): AnimationData => {
 
   return {
     values: new Map(),
-    interpolator: () => new Map(),
+    interpolator: new Map(),
     activeAnimation: defaultAnimation.id,
     animations: { [defaultAnimation.id]: defaultAnimation },
     visualizedAnimations: [defaultAnimation.id],
@@ -27,6 +27,7 @@ export const createDefaultState = (): AnimationData => {
     preferences: {
       hoverDashedLine: false,
     },
+    trackSubscribers: [],
 
     // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
     activeGraph: defaultGraph.id,

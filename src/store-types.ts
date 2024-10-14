@@ -36,6 +36,8 @@ export interface AnimationData {
   preferences: {
     hoverDashedLine: boolean;
   };
+  // A set of unsubscribers for individual tracks (subscribers listen to changes in the track)
+  trackSubscribers: (() => void)[];
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   activeGraph: string;

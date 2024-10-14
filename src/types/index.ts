@@ -1,6 +1,6 @@
 export { isTrack } from "./animation";
 export type { Animation } from "./animation";
-export type { AnimationInterpolator } from "./interpolator";
+export type { AnimationInterpolator, TrackInterpolator } from "./interpolator";
 export type { Keypoint } from "./keypoint";
 export type { Keyframe } from "./keyframe";
 export type { Track } from "./track";
