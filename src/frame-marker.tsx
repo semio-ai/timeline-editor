@@ -13,7 +13,7 @@ import { clamp } from "lodash";
 import { animated } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useTrackContext } from "./hooks/use-track-context";
 import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
 import { computeLocalStamp } from "./actions/compute-instance-time";
 import { InstanceInfo } from "./types";
@@ -44,7 +44,7 @@ function InnerFrameMarker({
     frameCount,
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
-  } = useTrackBounds();
+  } = useTrackContext();
 
   const isSelected = useAnimationStore(useShallow((state) => state.selectedKeyframe === frame));
 

@@ -5,6 +5,8 @@ import { FrameMarker } from "./frame-marker";
 import { AnimationData } from "./store-types";
 import { computeFrames } from "./actions/compute-frames";
 import { InterpolationSegment } from "./interpolation-segment";
+import { ViolationSet, ViolationType } from "./types";
+import { ViolationDisplay } from "./violation-display";
 
 export interface DataDisplayProps {
   trackIds?: string[];
@@ -12,6 +14,46 @@ export interface DataDisplayProps {
   ignoreZoom?: boolean;
   useCustomColor?: boolean;
 }
+
+const fakeViolationSet: ViolationSet = {
+  id: crypto.randomUUID(),
+  namespace: "default",
+  violations: {
+    violation1: {
+      id: "violation1",
+      type: ViolationType.Boundary,
+      message: "Value exceeds valid range",
+      stampRange: [1 / 5, 1 / 2],
+      namespace: "default",
+      trackId: "track1",
+    },
+    violation2: {
+      id: "violation2",
+      type: ViolationType.Velocity,
+      message: "Value is changing faster than allowed by velocity limits",
+      stampRange: [2 / 5, 3 / 5],
+      namespace: "default",
+      trackId: "track1",
+    },
+  },
+  segments: [
+    {
+      id: "segment1",
+      stampRange: [1 / 5, 2 / 5],
+      violations: ["violation1"],
+    },
+    {
+      id: "segment2",
+      stampRange: [2 / 5, 1 / 2],
+      violations: ["violation1", "violation2"],
+    },
+    {
+      id: "segment3",
+      stampRange: [1 / 2, 3 / 5],
+      violations: ["violation2"],
+    },
+  ],
+};
 
 function InnerDataDisplay({
   trackIds,
@@ -41,6 +83,11 @@ function InnerDataDisplay({
           useCustomColor={false}
         />
       ))}
+      <ViolationDisplay
+        violationSet={fakeViolationSet}
+        ignoreZoom={ignoreZoom}
+        useCustomColor={useCustomColor}
+      />
       {!disabled &&
         interps.map(([s1, s2]) => (
           <InterpolationSegment

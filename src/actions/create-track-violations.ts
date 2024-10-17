@@ -108,17 +108,14 @@ export function createTrackViolations(
     switch (animatableValue.type) {
       case "number":
         if (
-          numberHasBoundError(
-            valueStart as number,
-            animatableValue.constraints,
-          ) ||
+          numberHasBoundError(valueStart as number, animatableValue.constraints) ||
           numberHasBoundError(valueEnd as number, animatableValue.constraints)
         ) {
           if (boundsExceededOpenViolation === undefined) {
             openViolations.push({
               id: crypto.randomUUID(),
               stampRange: [stampStart, stampEnd],
-              message: `Warning: value exceeds valid range`,
+              message: `Value exceeds valid range`,
               type: ViolationType.Boundary,
               trackId,
               namespace,
@@ -149,20 +146,14 @@ export function createTrackViolations(
       case "vector3":
       case "euler":
         if (
-          vecHasBoundError(
-            valueStart as RawVector3 | RawEuler,
-            animatableValue.constraints,
-          ) ||
-          vecHasBoundError(
-            valueEnd as RawVector3 | RawEuler,
-            animatableValue.constraints,
-          )
+          vecHasBoundError(valueStart as RawVector3 | RawEuler, animatableValue.constraints) ||
+          vecHasBoundError(valueEnd as RawVector3 | RawEuler, animatableValue.constraints)
         ) {
           if (boundsExceededOpenViolation === undefined) {
             openViolations.push({
               id: crypto.randomUUID(),
               stampRange: [stampStart, stampEnd],
-              message: `Warning: value exceeds valid range`,
+              message: `Value exceeds valid range`,
               type: ViolationType.Boundary,
               trackId,
               namespace,
@@ -189,20 +180,14 @@ export function createTrackViolations(
       case "rgb":
       case "hsl":
         if (
-          colorHasBoundError(
-            valueStart as RawRGB | RawHSL,
-            animatableValue.constraints,
-          ) ||
-          colorHasBoundError(
-            valueEnd as RawRGB | RawHSL,
-            animatableValue.constraints,
-          )
+          colorHasBoundError(valueStart as RawRGB | RawHSL, animatableValue.constraints) ||
+          colorHasBoundError(valueEnd as RawRGB | RawHSL, animatableValue.constraints)
         ) {
           if (boundsExceededOpenViolation === undefined) {
             openViolations.push({
               id: crypto.randomUUID(),
               stampRange: [stampStart, stampEnd],
-              message: `Warning: value exceeds valid range`,
+              message: `Value exceeds valid range`,
               type: ViolationType.Boundary,
               trackId,
               namespace,
@@ -239,7 +224,7 @@ export function createTrackViolations(
           openViolations.push({
             id: crypto.randomUUID(),
             stampRange: [stampStart, stampEnd],
-            message: `Warning: value exceeds velocity`,
+            message: `Value is changing faster than allowed by velocity limits`,
             type: ViolationType.Velocity,
             trackId,
             namespace,
@@ -276,10 +261,7 @@ export function createTrackViolations(
   return { violations: completedViolations, cache };
 }
 
-function numberHasBoundError(
-  value: number,
-  constraints: { min?: number; max?: number },
-): boolean {
+function numberHasBoundError(value: number, constraints: { min?: number; max?: number }): boolean {
   if (constraints.min !== undefined && value < constraints.min) {
     return true;
   } else if (constraints.max !== undefined && value > constraints.max) {
@@ -288,10 +270,7 @@ function numberHasBoundError(
   return false;
 }
 
-function vecHasBoundError(
-  value: RawVector3 | RawEuler,
-  constraints: VecConstraints,
-): boolean {
+function vecHasBoundError(value: RawVector3 | RawEuler, constraints: VecConstraints): boolean {
   return ["x", "y", "z"].some((dim, i) => {
     const dimValue = value[dim as keyof RawVector3 | keyof RawEuler];
     const dimConstraints = {
@@ -302,10 +281,7 @@ function vecHasBoundError(
   });
 }
 
-function colorHasBoundError(
-  value: RawRGB | RawHSL,
-  constraints: ColorConstraints,
-): boolean {
+function colorHasBoundError(value: RawRGB | RawHSL, constraints: ColorConstraints): boolean {
   if ("r" in Object.keys(value)) {
     return (["r", "g", "b"] as RGBKey[]).some((dim, i) => {
       const dimValue = (value as RawRGB)[dim];
@@ -339,25 +315,13 @@ function genericDistance(point1: RawValue, point2: RawValue): number {
       return (point1 as boolean) === (point2 as boolean) ? 0 : 1;
     case "object-object":
       if (instanceOfRawVector3(point1) && instanceOfRawVector3(point2)) {
-        return distance(
-          [point1.x, point1.y, point1.z],
-          [point2.x, point2.y, point2.z],
-        );
+        return distance([point1.x, point1.y, point1.z], [point2.x, point2.y, point2.z]);
       } else if (instanceOfRawEuler(point1) && instanceOfRawEuler(point2)) {
-        return angularDistance(
-          [point1.x, point1.y, point1.z],
-          [point2.x, point2.y, point2.z],
-        );
+        return angularDistance([point1.x, point1.y, point1.z], [point2.x, point2.y, point2.z]);
       } else if (instanceOfRawRGB(point1) && instanceOfRawRGB(point2)) {
-        return distance(
-          [point1.r, point1.g, point1.b],
-          [point2.r, point2.g, point2.b],
-        );
+        return distance([point1.r, point1.g, point1.b], [point2.r, point2.g, point2.b]);
       } else if (instanceOfRawHSL(point1) && instanceOfRawHSL(point2)) {
-        return distance(
-          [point1.h, point1.s, point1.l],
-          [point2.h, point2.s, point2.l],
-        );
+        return distance([point1.h, point1.s, point1.l], [point2.h, point2.s, point2.l]);
       } else {
         return 0;
       }
@@ -367,11 +331,6 @@ function genericDistance(point1: RawValue, point2: RawValue): number {
   }
 }
 
-function distance(
-  p1: [number, number, number],
-  p2: [number, number, number],
-): number {
-  return Math.sqrt(
-    (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2,
-  );
+function distance(p1: [number, number, number], p2: [number, number, number]): number {
+  return Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2);
 }

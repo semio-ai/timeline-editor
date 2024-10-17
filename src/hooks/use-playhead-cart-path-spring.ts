@@ -8,7 +8,7 @@ import type { AnimationData } from "../store-types";
 import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
-import { useTrackBounds } from "./use-track-bounds";
+import { useTrackContext } from "./use-track-context";
 import { useAnimationStore } from "./use-animation-store";
 import { useAltKeyPressed } from "./use-alt-key-pressed";
 
@@ -44,7 +44,7 @@ export function usePlayheadCartPathSpring(
     stampToVisualTime(storedPlayhead.current, duration, framerate, timeDisplay).length,
   );
 
-  const { scale: xScale } = useTrackBounds();
+  const { scale: xScale } = useTrackContext();
 
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({

@@ -7,7 +7,7 @@ import { clsx } from "clsx";
 import { closestFrame } from "@semio/utils";
 import { stampToVisualTime } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
-import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useTrackContext } from "./hooks/use-track-context";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { usePlayheadSpring } from "./hooks/use-playhead-spring";
@@ -26,7 +26,7 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     frameCount,
-  } = useTrackBounds();
+  } = useTrackContext();
 
   const [hovered, setHovered] = useState(false);
 

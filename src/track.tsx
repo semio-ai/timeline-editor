@@ -13,7 +13,7 @@ import { AnimationData } from "./store-types";
 import { BoundsDisplay } from "./bounds-display";
 import { GestureDetector } from "./gesture-detector";
 import { DataDisplay } from "./data-display";
-import { TrackBoundsContext } from "./hooks/use-track-bounds";
+import { TrackContext } from "./hooks/use-track-context";
 import { TrackBackground } from "./track-background";
 import { ZoomDisplay } from "./zoom-display";
 
@@ -25,6 +25,7 @@ export interface TrackProps {
   showData?: boolean;
   showZoomControls?: boolean;
   useCustomColor?: boolean;
+  color?: string;
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
 }
@@ -38,6 +39,7 @@ export function Track({
   showZoomControls = false,
   useCustomColor = false,
   emphasis = false,
+  color = "#737373",
   onEmphasisChange,
 }: TrackProps): ReactNode {
   const framerate = useAnimationStore(
@@ -68,11 +70,12 @@ export function Track({
   });
 
   return (
-    <TrackBoundsContext.Provider
+    <TrackContext.Provider
       value={{
         bounds: activeRegionBounds,
         scale: xScale,
         frameCount,
+        color,
       }}
     >
       <div
@@ -111,6 +114,6 @@ export function Track({
           />
         </svg>
       </div>
-    </TrackBoundsContext.Provider>
+    </TrackContext.Provider>
   );
 }

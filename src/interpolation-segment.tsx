@@ -1,7 +1,7 @@
 import { type ReactNode, memo } from "react";
 import { clsx } from "clsx";
 import { animated } from "@react-spring/web";
-import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useTrackContext } from "./hooks/use-track-context";
 import { usePairSprings } from "./hooks/use-pair-springs";
 import { TIMELINE_PADDING } from "./constants";
 
@@ -17,7 +17,7 @@ function InnerInterpolationSegment({
   ignoreZoom = false,
   useCustomColor = false,
 }: InterpolationSegmentProps): ReactNode {
-  const { scale: xScale } = useTrackBounds();
+  const { scale: xScale } = useTrackContext();
 
   const { left, width } = usePairSprings(stamp1, stamp2, ignoreZoom);
 

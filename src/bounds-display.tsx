@@ -5,7 +5,7 @@ import { closestFrame } from "@semio/utils";
 import { clamp } from "lodash";
 import { animated } from "@react-spring/web";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useTrackContext } from "./hooks/use-track-context";
 import { SemanticTime } from "./store-types";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { useBoundSprings } from "./hooks/use-bound-springs";
@@ -26,7 +26,7 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
     frameCount,
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
-  } = useTrackBounds();
+  } = useTrackContext();
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
   const [previewLeft, previewRight, removePreview, addPreview] = useAnimationStore(
     useShallow((state) => [

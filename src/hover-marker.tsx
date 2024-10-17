@@ -2,17 +2,22 @@ import { type ReactNode, memo } from "react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
 import { animated } from "@react-spring/web";
-import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useTrackContext } from "./hooks/use-track-context";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 import { useAnimationStore } from "./hooks/use-animation-store";
 
 export interface HoverMarkerProps {
   ignoreZoom?: boolean;
   height?: number;
+  offset?: number;
 }
 
-function InnerHoverMarker({ ignoreZoom = false, height = 30 }: HoverMarkerProps): ReactNode {
-  const { scale: xScale } = useTrackBounds();
+function InnerHoverMarker({
+  ignoreZoom = false,
+  height = 30,
+  offset = 0,
+}: HoverMarkerProps): ReactNode {
+  const { scale: xScale } = useTrackContext();
   const { hoverpoint } = useHoverSpring(ignoreZoom);
   const dashed = useAnimationStore(useShallow((state) => state.preferences.hoverDashedLine));
 
@@ -33,7 +38,7 @@ function InnerHoverMarker({ ignoreZoom = false, height = 30 }: HoverMarkerProps)
       )}
       rx={1}
       // vertical line
-      d={`M 0 0 L 0 ${height.toString()}`}
+      d={`M 0 ${offset.toString()} L 0 ${height.toString()}`}
     />
   );
 }
