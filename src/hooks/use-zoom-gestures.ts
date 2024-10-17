@@ -9,7 +9,7 @@ import { useShallow } from "zustand/react/shallow";
 import { clamp } from "lodash";
 import { AnimationActions, AnimationData } from "../store-types";
 import { useWithZoom } from "./use-with-zoom";
-import { useTrackBounds } from "./use-track-bounds";
+import { useTrackContext } from "./use-track-context";
 import { useAnimationStore } from "./use-animation-store";
 import { useShiftKeyPressed } from "./use-shift-key-pressed";
 
@@ -20,7 +20,7 @@ export const useZoomGestures = (
 ) => {
   const withZoom = useWithZoom(false);
   const shiftKeyPressed = useShiftKeyPressed();
-  const { bounds } = useTrackBounds();
+  const { bounds } = useTrackContext();
   const { duration, updatePlayerViewport } = useAnimationStore(
     useShallow((state: AnimationData & AnimationActions) => ({
       duration: state.animations[state.activeAnimation].duration,

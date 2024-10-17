@@ -4,7 +4,7 @@ import { clsx } from "clsx";
 import { closestFrame } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { useZoomGestures } from "./hooks/use-zoom-gestures";
-import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useTrackContext } from "./hooks/use-track-context";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { useAnimationStore } from "./hooks/use-animation-store";
@@ -18,7 +18,7 @@ export function GestureDetector({
   height?: number;
 }) {
   const gestureRef = useRef<SVGRectElement>();
-  const { scale, bounds } = useTrackBounds();
+  const { scale, bounds } = useTrackContext();
 
   const withZoom = useWithZoom(ignoreZoom);
 

@@ -5,7 +5,7 @@ import { clsx } from "clsx";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { AnimationData } from "./store-types";
 import type { ScaleLinear } from "./scale-linear";
-import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useTrackContext } from "./hooks/use-track-context";
 import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
 import { useBoundSprings } from "./hooks/use-bound-springs";
 import { TIMELINE_PADDING } from "./constants";
@@ -27,7 +27,7 @@ function InnerTrackBackground({
   const {
     scale: xScale,
     bounds: { width },
-  } = useTrackBounds();
+  } = useTrackContext();
 
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
 
@@ -108,6 +108,47 @@ function InnerTrackBackground({
               tickHeight={tickHeight}
             />
           ))}
+        </mask>
+        <pattern id="diagonalStripePattern" patternUnits="userSpaceOnUse" width="20" height="10">
+          <rect x="0" y="0" width="20" height="10" className="fill-neutral-500" />
+          <line
+            x1="5"
+            y1="10"
+            x2="15"
+            y2="0"
+            className="stroke-neutral-300"
+            strokeWidth="4"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+          />
+          <line
+            x1="-5"
+            y1="10"
+            x2="5"
+            y2="0"
+            className="stroke-neutral-300"
+            strokeWidth="4"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+          />
+          <line
+            x1="15"
+            y1="10"
+            x2="25"
+            y2="0"
+            className="stroke-neutral-300"
+            strokeWidth="4"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+          />
+        </pattern>
+        <mask id="diagonalStripe" className="h-full" width={width}>
+          <rect
+            x={xScale(0)}
+            width={xScale(1)}
+            className="fill-[url(#diagonalStripePattern)]"
+            height="100%"
+          />
         </mask>
       </defs>
 

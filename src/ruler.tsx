@@ -9,11 +9,12 @@ import { clsx } from "clsx";
 import type { AnimationData } from "./store-types";
 import { type ScaleLinear } from "./scale-linear";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { TrackBoundsContext } from "./hooks/use-track-bounds";
+import { TrackContext } from "./hooks/use-track-context";
 import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
 import { useAltKeyPressed } from "./hooks/use-alt-key-pressed";
 import { TIMELINE_PADDING } from "./constants";
 import { PlayheadCart } from "./playhead-cart";
+import { HoverMarker } from "./hover-marker";
 import { BoundCart } from "./bounds-cart";
 import { AnimatedText } from "./animated-text";
 import { GestureDetector } from "./gesture-detector";
@@ -48,11 +49,12 @@ function InnerRuler({ width, side }: { width: number; side: "top" | "bottom" }) 
   );
 
   return (
-    <TrackBoundsContext.Provider
+    <TrackContext.Provider
       value={{
         bounds: activeRegionBounds,
         scale: xScale,
         frameCount,
+        color: "#737373",
       }}
     >
       <div className={clsx("h-6 relative")}>
@@ -86,12 +88,18 @@ function InnerRuler({ width, side }: { width: number; side: "top" | "bottom" }) 
               />
             ))}
           </g>
+
+          <HoverMarker
+            ignoreZoom={side === "bottom"}
+            height={24}
+            offset={side === "bottom" ? 4 : 0}
+          />
           <BoundCart side={side} end="left" ignoreZoom={side === "bottom"} />
           <BoundCart side={side} end="right" ignoreZoom={side === "bottom"} />
           <PlayheadCart side={side} ignoreZoom={side === "bottom"} />
         </svg>
       </div>
-    </TrackBoundsContext.Provider>
+    </TrackContext.Provider>
   );
 }
 

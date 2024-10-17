@@ -4,7 +4,7 @@ import { clamp } from "lodash";
 import { clsx } from "clsx";
 import { closestFrame, pointsToPath } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useTrackContext } from "./hooks/use-track-context";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { useWithBounds } from "./hooks/use-with-bounds";
@@ -25,7 +25,7 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     frameCount,
-  } = useTrackBounds();
+  } = useTrackContext();
 
   const cartRef = useRef<SVGGElement | null>(null);
 

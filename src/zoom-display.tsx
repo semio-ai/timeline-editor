@@ -5,8 +5,9 @@ import { closestFrame } from "@semio/utils";
 import { clsx } from "clsx";
 import { clamp } from "lodash";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useTrackContext } from "./hooks/use-track-context";
 import { useZoomSprings } from "./hooks/use-zoom-springs";
+import { useHoverSpring } from "./hooks/use-hover-spring";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { useZoomGestures } from "./hooks/use-zoom-gestures";
 import { TIMELINE_PADDING } from "./constants";
@@ -22,10 +23,12 @@ function InnerZoomDisplay() {
     frameCount,
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
-  } = useTrackBounds();
+  } = useTrackContext();
 
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
+
+  const { setHoverpoint, clearHoverpoint } = useHoverSpring(true);
 
   const updateViewport = useAnimationStore(useShallow((state) => state.updatePlayerViewport));
 
@@ -77,6 +80,18 @@ function InnerZoomDisplay() {
       },
       onHover: ({ hovering }) => {
         setHovered(hovering ?? false);
+        if (!hovering) {
+          clearHoverpoint();
+        }
+      },
+      onMove: (state) => {
+        const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
+        if (state.altKey) {
+          setHoverpoint(newPosition);
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          setHoverpoint(closest);
+        }
       },
     },
     DRAG_X_CONFIG,
@@ -105,6 +120,18 @@ function InnerZoomDisplay() {
       },
       onHover: ({ hovering }) => {
         setHovered(hovering ?? false);
+        if (!hovering) {
+          clearHoverpoint();
+        }
+      },
+      onMove: (state) => {
+        const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
+        if (state.altKey) {
+          setHoverpoint(newPosition);
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          setHoverpoint(closest);
+        }
       },
     },
     DRAG_X_CONFIG,
@@ -133,6 +160,18 @@ function InnerZoomDisplay() {
       },
       onHover: ({ hovering }) => {
         setHovered(hovering ?? false);
+        if (!hovering) {
+          clearHoverpoint();
+        }
+      },
+      onMove: (state) => {
+        const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
+        if (state.altKey) {
+          setHoverpoint(newPosition);
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          setHoverpoint(closest);
+        }
       },
     },
     DRAG_X_CONFIG,
