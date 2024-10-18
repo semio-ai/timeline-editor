@@ -1,6 +1,5 @@
 import {
   AnimatableValue,
-  getLookup,
   RawEuler,
   RawValue,
   RawVector3,
@@ -16,12 +15,7 @@ import {
   angularDistance,
 } from "@semio/utils";
 import { ViolationType } from "../types";
-import type {
-  // Keypoint,
-  // Keyframe,
-  Violation,
-  AnimationInterpolator,
-} from "../types";
+import type { Violation, TrackInterpolator } from "../types";
 
 export type InterpolatorCache = Map<string, Map<string, RawValue | undefined>>;
 type VecConstraints = (AnimatableVector3 | AnimatableEuler)["constraints"];
@@ -31,7 +25,7 @@ type HSLKey = keyof RawHSL;
 
 export function createTrackViolations(
   // An interpolator that takes in a time and outputs a set of values by id.
-  interpolator: AnimationInterpolator,
+  interpolator: TrackInterpolator,
   // The duration of the animation (in milliseconds)
   duration: number,
   // Track Id to compute violations for
@@ -40,9 +34,7 @@ export function createTrackViolations(
   namespace: string,
   // A lookup of animatable values by id
   animatableValue: AnimatableValue,
-  // A cache to store the values of the interpolator
-  cache: InterpolatorCache,
-): { violations: Violation[]; cache: InterpolatorCache } {
+): Violation[] {
   // Require that we check at an interval of 1/100th of a second (10ms).
   // First, determine the interval size, normalized to to a range of 0 to 1,
   // where 0 is the start of the animation and 1 is the end.
@@ -59,40 +51,12 @@ export function createTrackViolations(
   let openViolations: Violation[] = [];
   const defaultValue = animatableValue.default;
 
+  let valueStart: RawValue = interpolator(0) ?? defaultValue;
+
   for (let t = 0; t + intervalSize <= 1; t += intervalSize) {
     const stampStart = t;
     const stampEnd = t + intervalSize;
-    const cacheKeyStart = stampStart.toString();
-    const cacheKeyEnd = stampEnd.toString();
-    const varId = getLookup(namespace, trackId);
-    let interpResultStart = cache.get(cacheKeyStart);
-    let interpResultEnd = cache.get(cacheKeyEnd);
-    let valueStart: RawValue | undefined = interpResultStart?.get(varId);
-    let valueEnd: RawValue | undefined = interpResultEnd?.get(varId);
-
-    // Retrieve the value from the cache, run the interpolator,
-    // or use the default value for the start value
-    if (valueStart !== undefined) {
-      continue;
-    } else if (interpResultStart) {
-      valueStart = defaultValue;
-    } else {
-      interpResultStart = interpolator(stampStart);
-      valueStart = interpResultStart.get(varId) ?? defaultValue;
-      cache.set(cacheKeyStart, interpResultStart);
-    }
-
-    // Retrieve the value from the cache, run the interpolator,
-    // or use the default value for the end value
-    if (valueEnd !== undefined) {
-      continue;
-    } else if (interpResultEnd) {
-      valueEnd = defaultValue;
-    } else {
-      interpResultEnd = interpolator(stampEnd);
-      valueEnd = interpResultEnd.get(varId) ?? defaultValue;
-      cache.set(cacheKeyEnd, interpResultEnd);
-    }
+    const valueEnd: RawValue = interpolator(stampEnd) ?? defaultValue;
 
     // Define the current open violations by type
     const boundsExceededOpenViolation = openViolations.find(
@@ -102,9 +66,11 @@ export function createTrackViolations(
       (violation) => violation.type === ViolationType.Velocity,
     );
 
-    // Check for violations based on the constraints specified by the AnimatableValue.
+    /*
+        Check for violations based on the constraints specified by the AnimatableValue.
+    */
 
-    // Check each endpoint for bounds violations
+    // Check each endpoint for *bounds* violations
     switch (animatableValue.type) {
       case "number":
         if (
@@ -248,6 +214,9 @@ export function createTrackViolations(
         );
       }
     }
+
+    // Save the "end" value as the start value for the next round of the loop
+    valueStart = valueEnd;
   }
 
   // Close out any open violations
@@ -258,7 +227,7 @@ export function createTrackViolations(
     });
   });
 
-  return { violations: completedViolations, cache };
+  return completedViolations;
 }
 
 function numberHasBoundError(value: number, constraints: { min?: number; max?: number }): boolean {

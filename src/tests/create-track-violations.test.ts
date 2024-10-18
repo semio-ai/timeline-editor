@@ -1,10 +1,10 @@
 import { test, expect } from "vitest";
 import { RawValue } from "@semio/utils";
 import { createTrackViolations } from "../actions/create-track-violations";
-import { createAnimationInterpolator } from "../actions/create-animation-interpolator";
+import { createAnimationCache } from "../actions/create-animation-cache";
+import { createTrackInterpolator } from "../actions/create-track-interpolator";
 import {
   ViolationType,
-  Violation,
   Keyframe,
   Track,
   TrackGroup,
@@ -12,58 +12,6 @@ import {
   Keypoint,
   Animation,
 } from "../types";
-
-test("An empty animation should result in no errors", () => {
-  const emptyAnimation: Animation = {
-    id: "animation1",
-    name: "Animation 1",
-    points: new Map<string, Keypoint<RawValue>>([]),
-    frames: new Map<string, Keyframe>([]),
-    tracks: new Map<string, Track>([]),
-    groups: new Map<string, TrackGroup>(),
-    transitions: new Map<string, Transition>(),
-    frameOrder: [],
-    trackOrder: [],
-    duration: 1,
-    instances: {
-      default: { offset: 0, timescale: 1 },
-      doublespeed: { offset: 0, timescale: 2 },
-      offset: { offset: 0.5, timescale: 1 },
-      offsetDoublespeed: { offset: 0.5, timescale: 2 },
-    },
-  };
-
-  // Create the animation interpolator
-  const animationInterpolator = createAnimationInterpolator({
-    animation1: emptyAnimation,
-  });
-
-  // Compute the track violations
-  let cache = new Map<string, Map<string, RawValue | undefined>>();
-  let violations: Violation[] = [];
-  const response = createTrackViolations(
-    animationInterpolator,
-    emptyAnimation.duration,
-    "track1",
-    "default",
-    {
-      id: "some-animatable-id",
-      name: "Some Animatable",
-      type: "number",
-      default: 0,
-      constraints: {
-        min: -1,
-        max: 1,
-        velocity: 10,
-      },
-    },
-    cache,
-  );
-  cache = response.cache;
-  violations = response.violations;
-
-  expect(violations.length).toEqual(0);
-});
 
 test("An animation that shifts from within to outside bounds gets a bounds error at the midpoint", () => {
   const simpleAnimation: Animation = {
@@ -100,16 +48,18 @@ test("An animation that shifts from within to outside bounds gets a bounds error
     },
   };
 
+  // Create the animation cache
+  const animationCache = createAnimationCache(simpleAnimation);
+
   // Create the animation interpolator
-  const animationInterpolator = createAnimationInterpolator({
-    animation1: simpleAnimation,
-  });
+  const track1Interpolator = createTrackInterpolator(
+    animationCache.get("track1")!,
+    simpleAnimation.instances.default,
+  );
 
   // Compute the track violations
-  let cache = new Map<string, Map<string, RawValue | undefined>>();
-  let violations: Violation[] = [];
-  const response = createTrackViolations(
-    animationInterpolator,
+  const violations = createTrackViolations(
+    track1Interpolator,
     simpleAnimation.duration,
     "track1",
     "default",
@@ -124,10 +74,7 @@ test("An animation that shifts from within to outside bounds gets a bounds error
         velocity: 10,
       },
     },
-    cache,
   );
-  cache = response.cache;
-  violations = response.violations;
 
   expect(violations.length).toEqual(1);
   expect(violations[0]?.type).toEqual(ViolationType.Boundary);
@@ -174,16 +121,18 @@ test("An animation with a velocity limit of 0 returns a violation for the entire
     },
   };
 
+  // Create the animation cache
+  const animationCache = createAnimationCache(animation);
+
   // Create the animation interpolator
-  const animationInterpolator = createAnimationInterpolator({
-    animation1: animation,
-  });
+  const track1Interpolator = createTrackInterpolator(
+    animationCache.get("track1")!,
+    animation.instances.default,
+  );
 
   // Compute the track violations
-  let cache = new Map<string, Map<string, RawValue | undefined>>();
-  let violations: Violation[] = [];
-  const response = createTrackViolations(
-    animationInterpolator,
+  const violations = createTrackViolations(
+    track1Interpolator,
     animation.duration,
     "track1",
     "default",
@@ -198,10 +147,7 @@ test("An animation with a velocity limit of 0 returns a violation for the entire
         velocity: 0,
       },
     },
-    cache,
   );
-  cache = response.cache;
-  violations = response.violations;
 
   expect(violations.length).toEqual(1);
   expect(violations[0]?.type).toEqual(ViolationType.Velocity);

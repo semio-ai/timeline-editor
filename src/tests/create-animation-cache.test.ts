@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { getLookup, RawValue } from "@semio/utils";
+import { RawValue } from "@semio/utils";
 import type {
   Animation,
   Keyframe,
@@ -7,11 +7,11 @@ import type {
   Track,
   TrackGroup,
   Transition,
-  AnimationInterpolator,
+  AnimationCache,
 } from "../types";
-import { createAnimationInterpolator } from "../actions/create-animation-interpolator";
+import { createAnimationCache } from "../actions/create-animation-cache";
 
-test("should return the interpolated values for each track", () => {
+test("should return a cached array of timestamped values for each track", () => {
   // Define the animation data structure
   const animation: Animation = {
     id: "animation1",
@@ -52,33 +52,24 @@ test("should return the interpolated values for each track", () => {
     },
   };
 
-  // Create the animation interpolator
-  const animationInterpolator: AnimationInterpolator = createAnimationInterpolator({ animation });
+  // Create the animation cache
+  const animationCache: AnimationCache = createAnimationCache(animation);
 
   // Test the interpolated values at different times
   // the method `toBeCloseTo` tests that the values are close to each other with
   // floating-point precision
-  expect(animationInterpolator(0).get("track1")).toBeCloseTo(10);
+  expect(animationCache.get("track1")?.[0]?.value).toBe(10);
+  expect(animationCache.get("track1")?.[0]?.stamp).toBe(0.1);
 
-  expect(animationInterpolator(0).get("track2")).toBeCloseTo(1.2);
+  expect(animationCache.get("track2")?.[0]?.value).toBe(1.2);
+  expect(animationCache.get("track2")?.[0]?.stamp).toBe(0.1);
 
-  expect(animationInterpolator(0.3).get("track1")).toBeCloseTo(15);
+  expect(animationCache.get("track1")?.[1]?.value).toBe(15);
+  expect(animationCache.get("track1")?.[1]?.stamp).toBe(0.3);
 
-  expect(animationInterpolator(0.5).get("track2")).toBeCloseTo(1.65);
+  expect(animationCache.get("track2")?.[1]?.value).toBe(2.1);
+  expect(animationCache.get("track2")?.[1]?.stamp).toBe(0.9);
 
-  expect(animationInterpolator(1).get("track1")).toBeCloseTo(20);
-
-  expect(animationInterpolator(1).get("track2")).toBeCloseTo(2.1);
-
-  expect(animationInterpolator(0).get(getLookup("doublespeed", "track1"))).toBeCloseTo(10);
-
-  expect(animationInterpolator(0.5).get(getLookup("doublespeed", "track1"))).toBeCloseTo(20);
-
-  expect(animationInterpolator(0.5).get(getLookup("offset", "track1"))).toBeCloseTo(10);
-
-  expect(animationInterpolator(0.5).get(getLookup("offsetDoublespeed", "track1"))).toBeCloseTo(10);
-
-  expect(animationInterpolator(1).get(getLookup("offsetDoublespeed", "track1"))).toBeCloseTo(20);
-
-  expect(animationInterpolator(0.65).get(getLookup("offsetDoublespeed", "track1"))).toBeCloseTo(15);
+  expect(animationCache.get("track1")?.[2]?.value).toBe(20);
+  expect(animationCache.get("track1")?.[2]?.stamp).toBe(0.9);
 });
