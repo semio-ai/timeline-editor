@@ -1,6 +1,6 @@
 import { type Player, type RawValue, type AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
-import { Keypoint, Track, Animation, AnimationInterpolator } from "./types";
+import { Keypoint, Track, Animation, AnimationInterpolator, AnimationCache } from "./types";
 import { Graph, ProcessNode, Control } from "./temp-duplicate-types";
 
 export interface AnimationData {
@@ -39,7 +39,7 @@ export interface AnimationData {
   // A set of unsubscribers for individual tracks (subscribers listen to changes in the track)
   trackSubscribers: (() => void)[];
   // A cached, simplified version of the animation data for use in computing the interpolators
-  animationCache: Map<string, { stamp: number; value: RawValue }[]>;
+  animationCache: AnimationCache;
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   activeGraph: string;

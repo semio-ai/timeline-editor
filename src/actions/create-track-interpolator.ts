@@ -2,15 +2,12 @@ import { piecewise } from "d3-interpolate";
 import { scaleLinear } from "d3-scale";
 import { isEmpty } from "lodash";
 import type { RawValue } from "@semio/utils";
-import type { Track, Keypoint, Keyframe, InstanceInfo } from "../types";
+import type { InstanceInfo } from "../types";
 import { easeInOutCubic } from "../easings/ease-in-out-cubic";
 import { computeWorldStamp } from "./compute-instance-time";
 
 export function createTrackInterpolator(
-  track: Track,
   cache: { stamp: number; value: RawValue }[],
-  // frames: Map<string, Keyframe>,
-  // points: Map<string, Keypoint<RawValue>>,
   instanceInfo: InstanceInfo,
 ): (time: number) => RawValue | undefined {
   // If the animation has zero points, always return undefined.
@@ -20,27 +17,12 @@ export function createTrackInterpolator(
   // If the animation has one point, always return that point's value.
   else if (cache.length === 1) {
     return (_time: number) => cache[0].value;
-    // return (_time: number) => points.get(track.points[0])?.value;
   }
 
   let valuesByTime = Array<[number, RawValue]>();
   cache.forEach((point) => {
     valuesByTime.push([computeWorldStamp(point.stamp, instanceInfo), point.value]);
   });
-  // track.points.forEach((pointId: string) => {
-  //   const point: Keypoint<RawValue> | undefined = points.get(pointId);
-  //   if (!point) {
-  //     throw new Error(`Point with id ${pointId} does not exist.`);
-  //   }
-  //   const frame: Keyframe | undefined = frames.get(point.frame);
-  //   if (!frame) {
-  //     throw new Error(`Frame with id ${point.frame} does not exist.`);
-  //   }
-  //   // get the time of the frame relative to the duration of the animation
-  //   const worldStamp = computeWorldStamp(frame.stamp, instanceInfo);
-
-  //   valuesByTime.push([worldStamp, point.value]);
-  // });
 
   // Sort the entries to confirm that they are in order of time.
   valuesByTime = valuesByTime.sort((a, b) => a[0] - b[0]);
@@ -57,12 +39,6 @@ export function createTrackInterpolator(
   const domain = valuesByTime.map((p) => p[0]);
   const range = valuesByTime.map((_, i) => i / (valuesByTime.length - 1));
   const timeInterpolator = scaleLinear().domain(domain).range(range);
-  // valuesByTime.unshift([0, valuesByTime[0][1]]);
-  // valuesByTime.push([1, valuesByTime[valuesByTime.length - 1][1]]);
-  // console.log(`valuesByTime ${track.name}`, valuesByTime);
-  // const bSplineInterpolator = interpolateBasis(
-  //   valuesByTime.map((pair) => pair[1]),
-  // );
 
   const interpolator = piecewise(
     easeInOutCubic,
@@ -71,6 +47,5 @@ export function createTrackInterpolator(
 
   return (time: number): RawValue => {
     return interpolator(timeInterpolator(time)) as RawValue;
-    // return bSplineInterpolator(timeInterpolator(time));
   };
 }
