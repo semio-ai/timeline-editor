@@ -37,7 +37,6 @@ export function Track({
   showBackground = true,
   showData = true,
   showZoomControls = false,
-  useCustomColor = false,
   emphasis = false,
   color = "#737373",
   onEmphasisChange,
@@ -93,9 +92,12 @@ export function Track({
             width={Math.max(0, width - TIMELINE_PADDING * 2)}
             className="h-[30px]"
           />
-          {canZoom && (
-            <TrackBackground showLine={showBackground} ignoreZoom={false} tickHeight={30} />
-          )}
+          <TrackBackground
+            showLine={canZoom && showBackground}
+            ignoreZoom={!canZoom}
+            tickHeight={30}
+            showTicks={canZoom}
+          />
 
           {/* Gesture Detector */}
           <GestureDetector ignoreZoom={!canZoom} />
@@ -106,12 +108,7 @@ export function Track({
 
           <Playhead ignoreZoom={showZoomControls} />
 
-          <DataDisplay
-            trackIds={trackIds}
-            disabled={!showData}
-            ignoreZoom={!canZoom}
-            useCustomColor={useCustomColor}
-          />
+          <DataDisplay trackIds={trackIds} disabled={!showData} ignoreZoom={!canZoom} />
         </svg>
       </div>
     </TrackContext.Provider>

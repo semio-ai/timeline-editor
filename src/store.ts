@@ -7,6 +7,7 @@ import {
   setViewport,
   RawValue,
   Write,
+  AnimatableValue,
   StoreSubscribeWithSelector,
   seek,
   getLookup,
@@ -16,7 +17,15 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { shallow } from "zustand/shallow";
 import { produce, enableMapSet } from "immer";
 import { create, type StoreApi } from "zustand";
-import { Keyframe, Keypoint, Track, InstanceInfo, TrackInterpolator, Animation } from "./types";
+import {
+  Keyframe,
+  Keypoint,
+  Track,
+  InstanceInfo,
+  TrackInterpolator,
+  Animation,
+  Violation,
+} from "./types";
 import { createKeyframe } from "./actions/create-keyframe";
 import { createAutoKeyframe } from "./actions/create-auto-keyframe";
 import { removeKeyframe } from "./actions/remove-keyframe";
@@ -44,6 +53,7 @@ import { removeAnimation } from "./actions/remove-animation";
 import { createDefaultAnimation } from "./actions/create-default-animation";
 import { setValue, updateControlColor } from "./actions/temp-duplicate-functions";
 import { createAnimationCache } from "./actions/create-animation-cache";
+import { createTrackViolations } from "./actions/create-track-violations";
 
 enableMapSet();
 
@@ -500,21 +510,39 @@ export const AnimationSlice = (
               (state: AnimationData) => ({
                 instances: state.animations[state.activeAnimation].instances,
                 cache: state.animationCache.get(trackId),
+                duration: state.animations[state.activeAnimation].duration,
+                animatableValue:
+                  state.animatables[
+                    Object.values(state.controls).find((control) => control.writeId === trackId)
+                      ?.readId ?? ""
+                  ],
               }),
-              ({ cache, instances }) => {
+              ({ cache, instances, duration, animatableValue }) => {
                 // if (!track) return;
                 if (!cache) return;
                 const newVals = new Map<string, RawValue | undefined>();
                 const newTrackInterpolators = new Map<string, TrackInterpolator>();
+                let newViolations: Violation[] = [];
                 Object.keys(instances).forEach((namespace) => {
                   const lookup = getLookup(namespace, trackId);
                   const trackInterp = createTrackInterpolator(cache, instances[namespace]);
                   newTrackInterpolators.set(lookup, trackInterp);
                   newVals.set(lookup, trackInterp(api.getState().player.stamp));
+                  newViolations = [
+                    ...newViolations,
+                    ...createTrackViolations(
+                      trackInterp,
+                      duration,
+                      trackId,
+                      namespace,
+                      animatableValue,
+                    ),
+                  ];
                 });
                 set((state: AnimationData) => ({
                   interpolator: new Map([...state.interpolator, ...newTrackInterpolators]),
                   values: new Map([...state.values, ...newVals]),
+                  violations: { ...state.violations, [trackId]: newViolations },
                 }));
               },
               {
@@ -523,9 +551,11 @@ export const AnimationSlice = (
                   // that just computes an intermediate value that is tracked.
                   if (!current.cache || !previous.cache) return true;
                   return (
+                    current.duration === previous.duration &&
                     shallow(current.track, previous.track) &&
                     shallow(current.cache, previous.cache) &&
-                    shallow(current.instances, previous.instances)
+                    shallow(current.instances, previous.instances) &&
+                    shallow(current.animatableValue, previous.animatableValue)
                   );
                 },
               },
@@ -611,4 +641,6 @@ interface TrackAndCacheData {
   track?: Track;
   cache?: { stamp: number; value: RawValue }[];
   instances: Record<string, InstanceInfo>;
+  duration: number;
+  animatableValue?: AnimatableValue;
 }

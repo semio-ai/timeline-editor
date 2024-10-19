@@ -13,6 +13,7 @@ import { TIMELINE_PADDING } from "./constants";
 export interface TrackBackgroundProps {
   trackIds?: string[];
   showLine?: boolean;
+  showTicks?: boolean;
   ignoreZoom?: boolean;
   tickHeight?: number;
 }
@@ -20,6 +21,7 @@ export interface TrackBackgroundProps {
 function InnerTrackBackground({
   trackIds,
   showLine = true,
+  showTicks = true,
   ignoreZoom = false,
   tickHeight = 210,
 }: TrackBackgroundProps) {
@@ -44,11 +46,13 @@ function InnerTrackBackground({
 
   const timedFrames: { stamp: number; key: string }[] = useMemo(
     () =>
-      Array.from({ length: frameCount + 1 }, (_v, i) => ({
-        stamp: i / frameCount,
-        key: `${identifier}-frame-${i.toString()}`,
-      })),
-    [frameCount, identifier],
+      showTicks
+        ? Array.from({ length: frameCount + 1 }, (_v, i) => ({
+            stamp: i / frameCount,
+            key: `${identifier}-frame-${i.toString()}`,
+          }))
+        : [],
+    [frameCount, identifier, showTicks],
   );
 
   return (

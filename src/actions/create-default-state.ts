@@ -29,6 +29,7 @@ export const createDefaultState = (): AnimationData => {
     },
     trackSubscribers: [],
     animationCache: new Map(),
+    violations: {},
 
     // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
     activeGraph: defaultGraph.id,

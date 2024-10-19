@@ -28,7 +28,6 @@ export interface FrameMarkerProps {
   instanceInfo: InstanceInfo;
   active?: boolean;
   ignoreZoom?: boolean;
-  useCustomColor?: boolean;
 }
 function InnerFrameMarker({
   stamp,
@@ -37,7 +36,6 @@ function InnerFrameMarker({
   instanceInfo,
   active,
   ignoreZoom = false,
-  useCustomColor = false,
 }: FrameMarkerProps): ReactNode {
   const gestureRef = useRef<SVGGElement>();
   const {
@@ -108,7 +106,7 @@ function InnerFrameMarker({
             "group-hover/frame:dark:stroke-default-300 group-hover/frame:stroke-default-700",
           active &&
             "group-aria-selected/frame:dark:stroke-default-300 group-aria-selected/frame:stroke-default-700",
-          useCustomColor ? "fill-[--track-color]" : "dark:fill-default-400 fill-default-600",
+          "fill-[--track-color]",
         )}
       />
     </animated.g>

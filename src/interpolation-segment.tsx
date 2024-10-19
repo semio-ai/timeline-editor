@@ -9,13 +9,11 @@ export interface InterpolationSegmentProps {
   stamp1: number;
   stamp2: number;
   ignoreZoom?: boolean;
-  useCustomColor?: boolean;
 }
 function InnerInterpolationSegment({
   stamp1,
   stamp2,
   ignoreZoom = false,
-  useCustomColor = false,
 }: InterpolationSegmentProps): ReactNode {
   const { scale: xScale } = useTrackContext();
 
@@ -29,9 +27,7 @@ function InnerInterpolationSegment({
       height={4}
       className={clsx(
         "transition-[colors,stroke,transform] duration-75 fill-transparent pointer-events-none",
-        useCustomColor
-          ? "group-aria-expanded:fill-[--track-color] group-hover:fill-[--track-color]"
-          : "group-aria-expanded:dark:fill-default-400 group-aria-expanded:fill-default-600 group-hover:fill-default-600 group-hover:dark:fill-default-400",
+        "group-aria-expanded:fill-[--track-color] group-hover:fill-[--track-color]",
       )}
     />
   );
