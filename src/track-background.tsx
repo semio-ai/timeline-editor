@@ -149,7 +149,7 @@ function InnerTrackBackground({
         <mask id="diagonalStripe" className="h-full" width={width}>
           <rect
             x={xScale(0)}
-            width={xScale(1)}
+            width={Math.max(0, xScale(1))}
             className="fill-[url(#diagonalStripePattern)]"
             height="100%"
           />
