@@ -156,16 +156,18 @@ function InnerTrackBackground({
         </mask>
       </defs>
 
-      <rect
-        x={xScale(0)}
-        width={Math.max(0, xScale(1))}
-        mask="url(#boundsMask)"
-        className={clsx(
-          "h-[calc(100%-0.5px)]",
-          "transition-[fill,opacity] duration-75 fill-[--track-color] pointer-events-none",
-          "translate-y-[0.5px] opacity-20 group-[.has-emphasis]/track:opacity-30",
-        )}
-      />
+      {trackIds?.length === 1 && (
+        <rect
+          x={xScale(0)}
+          width={Math.max(0, xScale(1))}
+          mask="url(#boundsMask)"
+          className={clsx(
+            "h-[calc(100%-0.5px)]",
+            "transition-[fill,opacity] duration-75 fill-[--track-color] pointer-events-none",
+            "translate-y-[0.5px] opacity-20 group-[.has-emphasis]/track:opacity-30",
+          )}
+        />
+      )}
 
       <rect
         name="box1"

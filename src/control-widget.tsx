@@ -245,7 +245,13 @@ function InnerEditor({
     return (
       <SliderNumberField
         size={Size.Xs}
-        strict
+        strictText={false}
+        strictSlider={
+          animatableValue.constraints.min !== undefined &&
+          animatableValue.constraints.max !== undefined &&
+          animatableValue.constraints.min !== -Infinity &&
+          animatableValue.constraints.max !== Infinity
+        }
         disabled={playing}
         value={(rawValue as number) ?? (animatableValue.default as number)}
         min={animatableValue.constraints.min}
@@ -294,7 +300,8 @@ function InnerEditor({
     return (
       <SliderNumberField
         size={Size.Xs}
-        strict={
+        strictText={false}
+        strictSlider={
           animatableValue.constraints?.min?.[index] !== -Infinity &&
           animatableValue.constraints?.max?.[index] !== Infinity &&
           animatableValue.constraints?.min?.[index] !== undefined &&
@@ -339,7 +346,8 @@ function InnerEditor({
       <SliderNumberField
         size={Size.Xs}
         units="°"
-        strict={
+        strictText={false}
+        strictSlider={
           animatableValue.constraints?.min?.[index] !== -Infinity &&
           animatableValue.constraints?.max?.[index] !== Infinity &&
           animatableValue.constraints?.min?.[index] !== undefined &&
