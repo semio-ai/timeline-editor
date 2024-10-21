@@ -9,7 +9,7 @@ import type {
   Transition,
   AnimationCache,
 } from "../types";
-import { createAnimationCache } from "../actions/create-animation-cache";
+import { computeAnimationCache } from "../functions/compute-animation-cache";
 
 test("should return a cached array of timestamped values for each track", () => {
   // Define the animation data structure
@@ -53,7 +53,7 @@ test("should return a cached array of timestamped values for each track", () => 
   };
 
   // Create the animation cache
-  const animationCache: AnimationCache = createAnimationCache(animation);
+  const animationCache: AnimationCache = computeAnimationCache(animation);
 
   // Test the interpolated values at different times
   // the method `toBeCloseTo` tests that the values are close to each other with

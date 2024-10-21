@@ -27,12 +27,6 @@ export function useHoverSpring(ignoreZoom?: boolean): {
   const updatePreview = store.getState().updatePreview;
   const removePreview = store.getState().removePreview;
 
-  const initialHoverpoint = store
-    ?.getState()
-    .previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp;
-
-  const storedHoverpoint = useRef<number | undefined>(initialHoverpoint);
-
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
       domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
@@ -40,8 +34,14 @@ export function useHoverSpring(ignoreZoom?: boolean): {
     }),
   );
 
+  const initialHoverpoint = store
+    ?.getState()
+    .previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp;
+
+  const storedHoverpoint = useRef<number | undefined>(initialHoverpoint);
+
   const hoverpointSpring = useSpringValue<number | undefined>(
-    initialHoverpoint ? zoomScale.current(initialHoverpoint) : undefined,
+    storedHoverpoint.current ? zoomScale.current(storedHoverpoint.current) : undefined,
     {
       config: springConfig,
     },

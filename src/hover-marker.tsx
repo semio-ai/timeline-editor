@@ -33,7 +33,7 @@ function InnerHoverMarker({
       }}
       className={clsx(
         "touch-none stroke-transparent pointer-events-none",
-        "group-hover:stroke-black/50 group-hover:dark:stroke-white/50 group-aria-expanded:stroke-black/50 group-aria-expanded:dark:stroke-white/50",
+        "group-hover:stroke-black/50 group-hover:dark:stroke-white/50",
         "aria-selected:stroke-transparent",
       )}
       rx={1}

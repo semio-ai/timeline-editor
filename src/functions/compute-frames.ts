@@ -21,14 +21,9 @@ export function computeFrames(
 } {
   const activeFrames: Record<string, InstancedFrameInfo> = {};
   const passiveFrames: Record<string, InstancedFrameInfo> = {};
-  // console.log("DEBUG", animationIds, state.animations);
-  let active = false;
+
   animationIds.forEach((animationId) => {
-    if (animationId === state.activeAnimation) {
-      active = true;
-    } else {
-      active = false;
-    }
+    const active = animationId === state.activeAnimation;
     const animation = state.animations[animationId];
     if (!animation) {
       return;

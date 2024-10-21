@@ -5,7 +5,7 @@ export interface ViolationSet {
   violations: Record<string, Violation>;
   segments: {
     id: string;
-    stampRange: [number, number];
+    stampRange: { start: number; end: number };
     violations: string[];
   }[];
 }

@@ -97,6 +97,7 @@ export function Track({
             ignoreZoom={!canZoom}
             tickHeight={30}
             showTicks={canZoom}
+            trackIds={trackIds}
           />
 
           {/* Gesture Detector */}

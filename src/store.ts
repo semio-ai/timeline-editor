@@ -26,10 +26,6 @@ import {
   Animation,
   Violation,
 } from "./types";
-import { createKeyframe } from "./actions/create-keyframe";
-import { createAutoKeyframe } from "./actions/create-auto-keyframe";
-import { removeKeyframe } from "./actions/remove-keyframe";
-import { updateKeyframeStamp } from "./actions/update-keyframe-stamp";
 import {
   AnimationData,
   AnimationActions,
@@ -37,14 +33,16 @@ import {
   AnimationStoreSetter,
   Preview,
 } from "./store-types";
-import { createTrackInterpolator } from "./actions/create-track-interpolator";
+import { createKeyframe } from "./actions/create-keyframe";
+import { createAutoKeyframe } from "./actions/create-auto-keyframe";
+import { removeKeyframe } from "./actions/remove-keyframe";
+import { updateKeyframeStamp } from "./actions/update-keyframe-stamp";
 import { createKeypoint } from "./actions/create-keypoint";
 import { updateKeypointValue } from "./actions/update-keypoint-value";
 import { removeKeypoint } from "./actions/remove-keypoint";
 import { createTrack } from "./actions/create-track";
 import { removeTrack } from "./actions/remove-track";
 import { moveKeypoint } from "./actions/move-keypoint";
-import { computeStamps } from "./actions/compute-stamps";
 import { createDefaultState } from "./actions/create-default-state";
 import { updateAnimationKeypoint } from "./actions/update-animation-keypoint";
 import { updateTrack } from "./actions/update-track";
@@ -52,8 +50,10 @@ import { addAnimation } from "./actions/add-animation";
 import { removeAnimation } from "./actions/remove-animation";
 import { createDefaultAnimation } from "./actions/create-default-animation";
 import { setValue, updateControlColor } from "./actions/temp-duplicate-functions";
-import { createAnimationCache } from "./actions/create-animation-cache";
-import { createTrackViolations } from "./actions/create-track-violations";
+import { computeAnimationCache } from "./functions/compute-animation-cache";
+import { computeTrackViolations } from "./functions/compute-track-violations";
+import { computeTrackInterpolator } from "./functions/compute-track-interpolator";
+import { computeStamps } from "./functions/compute-stamps";
 
 enableMapSet();
 
@@ -415,167 +415,169 @@ export const AnimationSlice = (
       set({ timeDisplay });
     },
     initAnimationSubscriptions: () => {
+      const updatePlayerInner = get().updatePlayer;
+      const updateValues = get().updateValues;
+
       // If the time changes, check if it matches an existing keyframe and
       // set the current selected keyframe
-      const unsub1 = api.subscribe(
-        (state) => ({
-          running: state.player.running,
-          stamp: state.player.stamp,
-          keyframes: state.animations[state.activeAnimation]?.frames,
-        }),
-        ({ running, stamp, keyframes }) => {
-          if (running) {
-            // The animation is running, so don't select any keyframe
-            set({ selectedKeyframe: undefined });
-          } else {
-            // The animation isn't running, so select the keyframe that matches the current time
-            // If none match, return undefined
-            const selectedKeyframe = Array.from(keyframes.values()).find(
-              (keyframe: Keyframe) => keyframe?.stamp === stamp,
-            );
-            set({ selectedKeyframe: selectedKeyframe?.id });
-          }
-        },
-        {
-          equalityFn: (current: StampAndKeyframes, previous: StampAndKeyframes) =>
-            current.stamp === previous.stamp && current.keyframes === previous.keyframes,
-        },
-      );
+      const unsubs = [
+        api.subscribe(
+          (state) => ({
+            running: state.player.running,
+            stamp: state.player.stamp,
+            keyframes: state.animations[state.activeAnimation]?.frames,
+          }),
+          ({ running, stamp, keyframes }) => {
+            if (running) {
+              // The animation is running, so don't select any keyframe
+              set({ selectedKeyframe: undefined });
+            } else {
+              // The animation isn't running, so select the keyframe that matches the current time
+              // If none match, return undefined
+              const selectedKeyframe = Array.from(keyframes.values()).find(
+                (keyframe: Keyframe) => keyframe?.stamp === stamp,
+              );
+              set({ selectedKeyframe: selectedKeyframe?.id });
+            }
+          },
+          {
+            equalityFn: (current: StampAndKeyframes, previous: StampAndKeyframes) =>
+              current.stamp === previous.stamp && current.keyframes === previous.keyframes,
+          },
+        ),
 
-      const updatePlayerInner = get().updatePlayer;
-      // If the playing state changes, start or stop the interval that updates the player
-      const unsub2 = api.subscribe(
-        (state: AnimationData) => ({
-          running: state.player.running,
-          interval: state.playerInterval,
-        }),
-        ({ running, interval }) => {
-          if (interval) {
-            window.clearInterval(interval);
-          }
+        // If the playing state changes, start or stop the interval that updates the player
+        api.subscribe(
+          (state: AnimationData) => ({
+            running: state.player.running,
+            interval: state.playerInterval,
+          }),
+          ({ running, interval }) => {
+            if (interval) {
+              window.clearInterval(interval);
+            }
 
-          if (running) {
-            updatePlayerInner(true);
-            const newInterval = window.setInterval(() => {
-              updatePlayerInner(false);
-            }, 25);
-            set({ playerInterval: newInterval });
-          }
-        },
-        { equalityFn: (current, previous) => current.running === previous.running },
-      );
+            if (running) {
+              updatePlayerInner(true);
+              const newInterval = window.setInterval(() => {
+                updatePlayerInner(false);
+              }, 25);
+              set({ playerInterval: newInterval });
+            }
+          },
+          { equalityFn: (current, previous) => current.running === previous.running },
+        ),
 
-      // If the timer's timestamp changes, rerun the interpolators with that time.
-      const updateValues = api.getState().updateValues;
-      const unsub3 = api.subscribe(
-        (state: AnimationData) => ({
-          interpolator: state.interpolator,
-          stamp: state.player.stamp,
-        }),
-        ({ interpolator, stamp }) => {
-          const result = new Map<string, RawValue | undefined>();
-          Array.from(interpolator.entries()).forEach(([key, trackInterpolator]) => {
-            result.set(key, trackInterpolator(stamp));
-          });
-          updateValues(result);
-        },
-        { equalityFn: (current, previous) => current.stamp === previous.stamp },
-      );
+        // If the timer's timestamp changes, rerun the interpolators with that time.
+        api.subscribe(
+          (state: AnimationData) => ({
+            trackInterpolators: state.trackInterpolators,
+            stamp: state.player.stamp,
+          }),
+          ({ trackInterpolators, stamp }) => {
+            const result = new Map<string, RawValue | undefined>();
+            Array.from(trackInterpolators.entries()).forEach(([key, trackInterpolator]) => {
+              result.set(key, trackInterpolator(stamp));
+            });
+            updateValues(result);
+          },
+          { equalityFn: (current, previous) => current.stamp === previous.stamp },
+        ),
 
-      // Generates an intermediate version of the animation that can be used to more easily
-      // identify changes for each track, used for generating track interpolators in unsub4b
-      const unsub4a = api.subscribe(
-        (state) => state.animations[state.activeAnimation],
-        (animation: Animation) => {
-          const cache = createAnimationCache(animation);
-          set({ animationCache: cache });
-        },
-        { equalityFn: shallow },
-      );
+        // Generates an intermediate version of the animation that can be used to more easily
+        // identify changes for each track, used for generating track interpolators in unsub4b
+        api.subscribe(
+          (state) => state.animations[state.activeAnimation],
+          (animation: Animation) => {
+            const cache = computeAnimationCache(animation);
+            set({ animationCache: cache });
+          },
+          { equalityFn: shallow },
+        ),
 
-      const unsub4b = api.subscribe(
-        (state: AnimationData) => ({
-          trackIds: state.animations[state.activeAnimation].trackOrder,
-          subscribes: state.trackSubscribers,
-        }),
-        ({ trackIds, subscribes }) => {
-          // Clear the previous subscriptions for each track
-          subscribes.forEach((trackUnsub) => {
-            trackUnsub();
-          });
-          // Creat new subscriptions
-          const newSubscribes = trackIds.map((trackId) => {
-            return api.subscribe(
-              // Monitor changes in instances, track, [all] frames and [all] points
-              (state: AnimationData) => ({
-                instances: state.animations[state.activeAnimation].instances,
-                cache: state.animationCache.get(trackId),
-                duration: state.animations[state.activeAnimation].duration,
-                animatableValue:
-                  state.animatables[
-                    Object.values(state.controls).find((control) => control.writeId === trackId)
-                      ?.readId ?? ""
-                  ],
-              }),
-              ({ cache, instances, duration, animatableValue }) => {
-                // if (!track) return;
-                if (!cache) return;
-                const newVals = new Map<string, RawValue | undefined>();
-                const newTrackInterpolators = new Map<string, TrackInterpolator>();
-                let newViolations: Violation[] = [];
-                Object.keys(instances).forEach((namespace) => {
-                  const lookup = getLookup(namespace, trackId);
-                  const trackInterp = createTrackInterpolator(cache, instances[namespace]);
-                  newTrackInterpolators.set(lookup, trackInterp);
-                  newVals.set(lookup, trackInterp(api.getState().player.stamp));
-                  newViolations = [
-                    ...newViolations,
-                    ...createTrackViolations(
-                      trackInterp,
-                      duration,
-                      trackId,
-                      namespace,
-                      animatableValue,
-                    ),
-                  ];
-                });
-                set((state: AnimationData) => ({
-                  interpolator: new Map([...state.interpolator, ...newTrackInterpolators]),
-                  values: new Map([...state.values, ...newVals]),
-                  violations: { ...state.violations, [trackId]: newViolations },
-                }));
-              },
-              {
-                equalityFn: (current: TrackAndCacheData, previous: TrackAndCacheData) => {
-                  // We avoid some computation by subscribing to the cache, isntead of the track
-                  // that just computes an intermediate value that is tracked.
-                  if (!current.cache || !previous.cache) return true;
-                  return (
-                    current.duration === previous.duration &&
-                    shallow(current.track, previous.track) &&
-                    shallow(current.cache, previous.cache) &&
-                    shallow(current.instances, previous.instances) &&
-                    shallow(current.animatableValue, previous.animatableValue)
-                  );
+        api.subscribe(
+          (state: AnimationData) => ({
+            trackIds: state.animations[state.activeAnimation].trackOrder,
+            subscribes: state.trackSubscribers,
+          }),
+          ({ trackIds, subscribes }) => {
+            // Clear the previous subscriptions for each track
+            subscribes.forEach((trackUnsub) => {
+              trackUnsub();
+            });
+            // Creat new subscriptions
+            const newSubscribes = trackIds.map((trackId) => {
+              return api.subscribe(
+                // Monitor changes in instances, track, [all] frames and [all] points
+                (state: AnimationData) => ({
+                  instances: state.animations[state.activeAnimation].instances,
+                  cache: state.animationCache.get(trackId),
+                  duration: state.animations[state.activeAnimation].duration,
+                  animatableValue:
+                    state.animatables[
+                      Object.values(state.controls).find((control) => control.writeId === trackId)
+                        ?.readId ?? ""
+                    ],
+                }),
+                ({ cache, instances, duration, animatableValue }) => {
+                  // if (!track) return;
+                  if (!cache) return;
+                  const newVals = new Map<string, RawValue | undefined>();
+                  const newTrackInterpolators = new Map<string, TrackInterpolator>();
+                  let newViolations: Violation[] = [];
+                  Object.keys(instances).forEach((namespace) => {
+                    const lookup = getLookup(namespace, trackId);
+                    const trackInterp = computeTrackInterpolator(cache, instances[namespace]);
+                    newTrackInterpolators.set(lookup, trackInterp);
+                    newVals.set(lookup, trackInterp(api.getState().player.stamp));
+                    newViolations = [
+                      ...newViolations,
+                      ...computeTrackViolations(
+                        trackInterp,
+                        duration,
+                        trackId,
+                        namespace,
+                        animatableValue,
+                      ),
+                    ];
+                  });
+                  set((state: AnimationData) => ({
+                    trackInterpolators: new Map([
+                      ...state.trackInterpolators,
+                      ...newTrackInterpolators,
+                    ]),
+                    values: new Map([...state.values, ...newVals]),
+                    violations: { ...state.violations, [trackId]: newViolations },
+                  }));
                 },
-              },
-            );
-          });
+                {
+                  equalityFn: (current: TrackAndCacheData, previous: TrackAndCacheData) => {
+                    // We avoid some computation by subscribing to the cache, isntead of the track
+                    // that just computes an intermediate value that is tracked.
+                    if (!current.cache || !previous.cache) return true;
+                    return (
+                      current.duration === previous.duration &&
+                      shallow(current.track, previous.track) &&
+                      shallow(current.cache, previous.cache) &&
+                      shallow(current.instances, previous.instances) &&
+                      shallow(current.animatableValue, previous.animatableValue)
+                    );
+                  },
+                },
+              );
+            });
 
-          set({ trackSubscribers: newSubscribes });
-        },
-        {
-          equalityFn: (current: TrackIdsAndSubscribes, previous: TrackIdsAndSubscribes) =>
-            shallow(current.trackIds, previous.trackIds),
-        },
-      );
+            set({ trackSubscribers: newSubscribes });
+          },
+          {
+            equalityFn: (current: TrackIdsAndSubscribes, previous: TrackIdsAndSubscribes) =>
+              shallow(current.trackIds, previous.trackIds),
+          },
+        ),
+      ];
 
       return () => {
-        unsub1();
-        unsub2();
-        unsub3();
-        unsub4a();
-        unsub4b();
+        unsubs.forEach((unsub) => unsub());
       };
     },
     setHoverpoint: (hoverpoint: number) => {

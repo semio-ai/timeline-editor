@@ -15,7 +15,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useTrackContext } from "./hooks/use-track-context";
 import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
-import { computeLocalStamp } from "./actions/compute-instance-time";
+import { computeLocalStamp } from "./functions/compute-instance-time";
 import { InstanceInfo } from "./types";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { useZoomGestures } from "./hooks/use-zoom-gestures";

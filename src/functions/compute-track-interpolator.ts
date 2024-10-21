@@ -6,7 +6,7 @@ import type { InstanceInfo } from "../types";
 import { easeInOutCubic } from "../easings/ease-in-out-cubic";
 import { computeWorldStamp } from "./compute-instance-time";
 
-export function createTrackInterpolator(
+export function computeTrackInterpolator(
   cache: { stamp: number; value: RawValue }[],
   instanceInfo: InstanceInfo,
 ): (time: number) => RawValue | undefined {

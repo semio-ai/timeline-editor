@@ -1,11 +1,15 @@
 import type { RawValue } from "@semio/utils";
 import type { Animation, AnimationCache } from "../types";
 
-export function createAnimationCache(animation: Animation): AnimationCache {
+/*
+@description - Creates a cache of timestamped values for each track in the animation.
+Note, the timestamps are the raw, unadjusted (with respect to namespaces) timestamps.
+@param animation - The animation to cache
+@return - An AnimationCache map object
+*/
+export function computeAnimationCache(animation: Animation): AnimationCache {
   const cache = new Map<string, { stamp: number; value: RawValue }[]>();
-  animation.trackOrder.forEach((trackId) => {
-    const track = animation.tracks.get(trackId);
-    if (!track) return;
+  animation.tracks.forEach((track, trackId) => {
     cache.set(trackId, []);
     track.points.forEach((pointId: string) => {
       const point = animation.points.get(pointId);

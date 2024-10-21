@@ -13,8 +13,8 @@ import { Graph, ProcessNode, Control } from "./temp-duplicate-types";
 export interface AnimationData {
   // Current values (output of interpolator)
   values: Map<string, RawValue | undefined>;
-  // Current interpolator
-  interpolator: AnimationInterpolator;
+  // Current set of track interpolators
+  trackInterpolators: AnimationInterpolator;
   // Active animation
   activeAnimation: string;
   // All animations loaded in the project
@@ -44,6 +44,8 @@ export interface AnimationData {
     hoverDashedLine: boolean;
   };
   // A set of unsubscribers for individual tracks (subscribers listen to changes in the track)
+  // These are used internally to update the interpolators when the animation structure changes
+  // and should not be modified directly.
   trackSubscribers: (() => void)[];
   // A cached, simplified version of the animation data for use in computing the interpolators
   animationCache: AnimationCache;

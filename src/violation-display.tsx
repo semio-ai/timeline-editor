@@ -19,7 +19,7 @@ import { useTrackContext } from "./hooks/use-track-context";
 import { usePairSprings } from "./hooks/use-pair-springs";
 import { useHoverSpring } from "./hooks/use-hover-spring";
 import { TIMELINE_PADDING } from "./constants";
-import { ViolationSet, Violation } from "./types";
+import { ViolationSet, Violation, ViolationType } from "./types";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { AnimationData } from "./store-types";
 import { Control } from "./temp-duplicate-types";
@@ -75,7 +75,7 @@ function InnerViolationDisplay({
 interface ViolationSegmentDisplayProps {
   segment: {
     id: string;
-    stampRange: [number, number];
+    stampRange: { start: number; end: number };
     violations: string[];
   };
   violations: Record<string, Violation>;
@@ -92,9 +92,12 @@ function InnerViolationSegmentDisplay({
   const rectRefOrig = useRef<SVGRectElement>(null);
   const floatingRefOrig = useRef<HTMLDivElement>(null);
 
-  // const transformSpring = useSpringValue<string>("translate(0, 0)");
   const { scale: xScale, bounds, frameCount, color: defaultTrackColor } = useTrackContext();
-  const { left, width } = usePairSprings(segment.stampRange[0], segment.stampRange[1], ignoreZoom);
+  const { left, width } = usePairSprings(
+    segment.stampRange.start,
+    segment.stampRange.end,
+    ignoreZoom,
+  );
   const { setHoverpoint, clearHoverpoint } = useHoverSpring(ignoreZoom);
   const withZoom = useWithZoom(ignoreZoom);
 
@@ -169,6 +172,7 @@ function InnerViolationSegmentDisplay({
           <div className="p-2 grid grid-cols-3 gap-2">
             {segment.violations.map((violationId) => {
               const sourceTrack = violations[violationId].trackId;
+              const violationType = violations[violationId].type;
               return (
                 <Fragment key={violationId}>
                   <div
@@ -176,7 +180,10 @@ function InnerViolationSegmentDisplay({
                     style={{ backgroundColor: dataLookup[sourceTrack].color }}
                     className="bg-opacity-25 text-black px-2 py-0.5"
                   >
-                    {violations[violationId].type}
+                    {violationType === ViolationType.Upper && <span>Upper Limit</span>}
+                    {violationType === ViolationType.Lower && <span>Lower Limit</span>}
+                    {violationType === ViolationType.Velocity && <span>Velocity Limit</span>}
+                    {violationType === ViolationType.Rate && <span>Rate Limit</span>}
                   </div>
                   <div key={`${violationId}-description`} className="col-span-2 text-wrap">
                     {uniqueTracks.length > 1 && (
@@ -184,11 +191,22 @@ function InnerViolationSegmentDisplay({
                         <span style={{ color: dataLookup[sourceTrack].color }}>
                           {dataLookup[sourceTrack].name}
                         </span>
-                        {" - "}
+                        <br />
                       </>
                     )}
 
-                    {violations[violationId].message}
+                    {violationType === ViolationType.Upper && (
+                      <span>Value exceeds upper bounds</span>
+                    )}
+                    {violationType === ViolationType.Lower && (
+                      <span>Value exceeds lower bounds</span>
+                    )}
+                    {violationType === ViolationType.Velocity && (
+                      <span>Value is changing faster than allowed by velocity limits</span>
+                    )}
+                    {violationType === ViolationType.Rate && (
+                      <span>Value is updating faster than allowed by rate limits</span>
+                    )}
                   </div>
                 </Fragment>
               );

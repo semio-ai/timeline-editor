@@ -19,7 +19,7 @@ export { createTrack } from "./actions/create-track";
 export { removeAnimation } from "./actions/remove-animation";
 export { updateAnimationKeypoint } from "./actions/update-animation-keypoint";
 export { createDefaultState } from "./actions/create-default-state";
-export { computeWorldStamp, computeLocalStamp } from "./actions/compute-instance-time";
+export { computeWorldStamp, computeLocalStamp } from "./functions/compute-instance-time";
 export { addAnimation } from "./actions/add-animation";
 
 export { TrackControl, type TrackControlProps } from "./track-control";

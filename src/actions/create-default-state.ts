@@ -11,7 +11,7 @@ export const createDefaultState = (): AnimationData => {
 
   return {
     values: new Map(),
-    interpolator: new Map(),
+    trackInterpolators: new Map(),
     activeAnimation: defaultAnimation.id,
     animations: { [defaultAnimation.id]: defaultAnimation },
     visualizedAnimations: [defaultAnimation.id],

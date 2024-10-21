@@ -1,11 +1,12 @@
 import { memo, useMemo } from "react";
-import { pairwise, useDeep } from "@semio/utils";
+import { pick } from "lodash";
 import { useShallow } from "zustand/react/shallow";
+import { pairwise, useDeep } from "@semio/utils";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { FrameMarker } from "./frame-marker";
 import { AnimationData } from "./store-types";
-import { computeFrames } from "./actions/compute-frames";
-import { computeViolationSet } from "./actions/compute-violation-set";
+import { computeFrames } from "./functions/compute-frames";
+import { computeViolationSet } from "./functions/compute-violation-set";
 import { InterpolationSegment } from "./interpolation-segment";
 import { ViolationDisplay } from "./violation-display";
 
@@ -27,7 +28,8 @@ function InnerDataDisplay({ trackIds, disabled, ignoreZoom = false }: DataDispla
   const violations = useAnimationStore(useShallow((state: AnimationData) => state.violations));
 
   const violationSet = useMemo(() => {
-    return computeViolationSet(violations, filter);
+    const filteredViolations = filter.length === 0 ? violations : pick(violations, filter);
+    return computeViolationSet(filteredViolations);
   }, [violations, filter]);
 
   const interps = pairwise(Object.values(active).sort((a, b) => a.stamp - b.stamp));

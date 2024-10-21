@@ -9,8 +9,8 @@ import type {
   Transition,
   AnimationCache,
 } from "../types";
-import { createAnimationCache } from "../actions/create-animation-cache";
-import { createTrackInterpolator } from "../actions/create-track-interpolator";
+import { computeAnimationCache } from "../functions/compute-animation-cache";
+import { computeTrackInterpolator } from "../functions/compute-track-interpolator";
 
 test("should return the interpolated values for each track", () => {
   // Define the animation data structure
@@ -54,26 +54,26 @@ test("should return the interpolated values for each track", () => {
   };
 
   // Create the animation cache
-  const animationCache: AnimationCache = createAnimationCache(animation);
+  const animationCache: AnimationCache = computeAnimationCache(animation);
 
-  const defaultTrack1Interpolator = createTrackInterpolator(
+  const defaultTrack1Interpolator = computeTrackInterpolator(
     animationCache.get("track1")!,
     animation.instances.default,
   );
 
-  const defaultTrack2Interpolator = createTrackInterpolator(
+  const defaultTrack2Interpolator = computeTrackInterpolator(
     animationCache.get("track2")!,
     animation.instances.default,
   );
-  const doublespeedTrack1Interpolator = createTrackInterpolator(
+  const doublespeedTrack1Interpolator = computeTrackInterpolator(
     animationCache.get("track1")!,
     animation.instances.doublespeed,
   );
-  const offsetTrack1Interpolator = createTrackInterpolator(
+  const offsetTrack1Interpolator = computeTrackInterpolator(
     animationCache.get("track1")!,
     animation.instances.offset,
   );
-  const offsetDoublespeedTrack1Interpolator = createTrackInterpolator(
+  const offsetDoublespeedTrack1Interpolator = computeTrackInterpolator(
     animationCache.get("track1")!,
     animation.instances.offsetDoublespeed,
   );

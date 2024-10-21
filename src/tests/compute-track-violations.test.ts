@@ -1,8 +1,8 @@
 import { test, expect } from "vitest";
 import { RawValue } from "@semio/utils";
-import { createTrackViolations } from "../actions/create-track-violations";
-import { createAnimationCache } from "../actions/create-animation-cache";
-import { createTrackInterpolator } from "../actions/create-track-interpolator";
+import { computeTrackViolations } from "../functions/compute-track-violations";
+import { computeAnimationCache } from "../functions/compute-animation-cache";
+import { computeTrackInterpolator } from "../functions/compute-track-interpolator";
 import {
   ViolationType,
   Keyframe,
@@ -49,16 +49,16 @@ test("An animation that shifts from within to outside bounds gets a bounds error
   };
 
   // Create the animation cache
-  const animationCache = createAnimationCache(simpleAnimation);
+  const animationCache = computeAnimationCache(simpleAnimation);
 
   // Create the animation interpolator
-  const track1Interpolator = createTrackInterpolator(
+  const track1Interpolator = computeTrackInterpolator(
     animationCache.get("track1")!,
     simpleAnimation.instances.default,
   );
 
   // Compute the track violations
-  const violations = createTrackViolations(
+  const violations = computeTrackViolations(
     track1Interpolator,
     simpleAnimation.duration,
     "track1",
@@ -77,9 +77,9 @@ test("An animation that shifts from within to outside bounds gets a bounds error
   );
 
   expect(violations.length).toEqual(1);
-  expect(violations[0]?.type).toEqual(ViolationType.Boundary);
-  expect(violations[0]?.stampRange?.[0]).toBeCloseTo(0.5);
-  expect(violations[0]?.stampRange?.[1]).toBeCloseTo(1);
+  expect(violations[0]?.type).toEqual(ViolationType.Upper);
+  expect(violations[0]?.stampRange.start).toBeCloseTo(0.5);
+  expect(violations[0]?.stampRange.end).toBeCloseTo(1);
 });
 
 test("An animation with a velocity limit of 0 returns a violation for the entire change duration", () => {
@@ -122,16 +122,16 @@ test("An animation with a velocity limit of 0 returns a violation for the entire
   };
 
   // Create the animation cache
-  const animationCache = createAnimationCache(animation);
+  const animationCache = computeAnimationCache(animation);
 
   // Create the animation interpolator
-  const track1Interpolator = createTrackInterpolator(
+  const track1Interpolator = computeTrackInterpolator(
     animationCache.get("track1")!,
     animation.instances.default,
   );
 
   // Compute the track violations
-  const violations = createTrackViolations(
+  const violations = computeTrackViolations(
     track1Interpolator,
     animation.duration,
     "track1",
@@ -151,6 +151,6 @@ test("An animation with a velocity limit of 0 returns a violation for the entire
 
   expect(violations.length).toEqual(1);
   expect(violations[0]?.type).toEqual(ViolationType.Velocity);
-  expect(violations[0]?.stampRange?.[0]).toBeCloseTo(0.25);
-  expect(violations[0]?.stampRange?.[1]).toBeCloseTo(0.75);
+  expect(violations[0]?.stampRange.start).toBeCloseTo(0.25);
+  expect(violations[0]?.stampRange.end).toBeCloseTo(0.75);
 });
