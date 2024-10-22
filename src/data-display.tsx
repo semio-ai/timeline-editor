@@ -1,10 +1,14 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
+import { pick } from "lodash";
+import { useShallow } from "zustand/react/shallow";
 import { pairwise, useDeep } from "@semio/utils";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { FrameMarker } from "./frame-marker";
 import { AnimationData } from "./store-types";
-import { computeFrames } from "./actions/compute-frames";
+import { computeFrames } from "./functions/compute-frames";
+import { computeViolationSet } from "./functions/compute-violation-set";
 import { InterpolationSegment } from "./interpolation-segment";
+import { ViolationDisplay } from "./violation-display";
 
 export interface DataDisplayProps {
   trackIds?: string[];
@@ -13,20 +17,22 @@ export interface DataDisplayProps {
   useCustomColor?: boolean;
 }
 
-function InnerDataDisplay({
-  trackIds,
-  disabled,
-  ignoreZoom = false,
-  useCustomColor = false,
-}: DataDisplayProps) {
-  const filter = trackIds || [];
+function InnerDataDisplay({ trackIds, disabled, ignoreZoom = false }: DataDisplayProps) {
+  const filter = useMemo(() => trackIds || [], [trackIds]);
   const { active, passive } = useAnimationStore(
     useDeep((state: AnimationData) => {
       return computeFrames(state, state.visualizedAnimations, filter);
     }),
   );
 
-  const interps = pairwise(Object.values(active).sort((a) => a.stamp));
+  const violations = useAnimationStore(useShallow((state: AnimationData) => state.violations));
+
+  const violationSet = useMemo(() => {
+    const filteredViolations = filter.length === 0 ? violations : pick(violations, filter);
+    return computeViolationSet(filteredViolations);
+  }, [violations, filter]);
+
+  const interps = pairwise(Object.values(active).sort((a, b) => a.stamp - b.stamp));
 
   return (
     <g mask="url(#boundsMask)">
@@ -38,17 +44,16 @@ function InnerDataDisplay({
           instanceInfo={passive[passiveKey].instanceInfo}
           stamp={passive[passiveKey].stamp}
           ignoreZoom={ignoreZoom}
-          useCustomColor={false}
         />
       ))}
+      <ViolationDisplay violationSet={violationSet} ignoreZoom={ignoreZoom} />
       {!disabled &&
         interps.map(([s1, s2]) => (
           <InterpolationSegment
-            key={s1.stamp}
+            key={`${s1.id}-${s2.id}`}
             stamp1={s1.stamp}
             stamp2={s2.stamp}
             ignoreZoom={ignoreZoom}
-            useCustomColor={useCustomColor}
           />
         ))}
       {Object.keys(active).map((activeKey) => (
@@ -59,7 +64,6 @@ function InnerDataDisplay({
           instanceInfo={active[activeKey].instanceInfo}
           stamp={active[activeKey].stamp}
           ignoreZoom={ignoreZoom}
-          useCustomColor={useCustomColor}
           active={!disabled}
         />
       ))}

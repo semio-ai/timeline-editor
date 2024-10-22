@@ -13,7 +13,7 @@ import { AnimationData } from "./store-types";
 import { BoundsDisplay } from "./bounds-display";
 import { GestureDetector } from "./gesture-detector";
 import { DataDisplay } from "./data-display";
-import { TrackBoundsContext } from "./hooks/use-track-bounds";
+import { TrackContext } from "./hooks/use-track-context";
 import { TrackBackground } from "./track-background";
 import { ZoomDisplay } from "./zoom-display";
 
@@ -25,6 +25,7 @@ export interface TrackProps {
   showData?: boolean;
   showZoomControls?: boolean;
   useCustomColor?: boolean;
+  color?: string;
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
 }
@@ -36,8 +37,8 @@ export function Track({
   showBackground = true,
   showData = true,
   showZoomControls = false,
-  useCustomColor = false,
   emphasis = false,
+  color = "#737373",
   onEmphasisChange,
 }: TrackProps): ReactNode {
   const framerate = useAnimationStore(
@@ -68,11 +69,12 @@ export function Track({
   });
 
   return (
-    <TrackBoundsContext.Provider
+    <TrackContext.Provider
       value={{
         bounds: activeRegionBounds,
         scale: xScale,
         frameCount,
+        color,
       }}
     >
       <div
@@ -90,7 +92,13 @@ export function Track({
             width={Math.max(0, width - TIMELINE_PADDING * 2)}
             className="h-[30px]"
           />
-          {canZoom && <TrackBackground showLine={showBackground} ignoreZoom={false} />}
+          <TrackBackground
+            showLine={canZoom && showBackground}
+            ignoreZoom={!canZoom}
+            tickHeight={30}
+            showTicks={canZoom}
+            trackIds={trackIds}
+          />
 
           {/* Gesture Detector */}
           <GestureDetector ignoreZoom={!canZoom} />
@@ -101,14 +109,9 @@ export function Track({
 
           <Playhead ignoreZoom={showZoomControls} />
 
-          <DataDisplay
-            trackIds={trackIds}
-            disabled={!showData}
-            ignoreZoom={!canZoom}
-            useCustomColor={useCustomColor}
-          />
+          <DataDisplay trackIds={trackIds} disabled={!showData} ignoreZoom={!canZoom} />
         </svg>
       </div>
-    </TrackBoundsContext.Provider>
+    </TrackContext.Provider>
   );
 }

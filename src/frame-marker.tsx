@@ -13,9 +13,9 @@ import { clamp } from "lodash";
 import { animated } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useTrackContext } from "./hooks/use-track-context";
 import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
-import { computeLocalStamp } from "./actions/compute-instance-time";
+import { computeLocalStamp } from "./functions/compute-instance-time";
 import { InstanceInfo } from "./types";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { useZoomGestures } from "./hooks/use-zoom-gestures";
@@ -28,7 +28,6 @@ export interface FrameMarkerProps {
   instanceInfo: InstanceInfo;
   active?: boolean;
   ignoreZoom?: boolean;
-  useCustomColor?: boolean;
 }
 function InnerFrameMarker({
   stamp,
@@ -37,14 +36,13 @@ function InnerFrameMarker({
   instanceInfo,
   active,
   ignoreZoom = false,
-  useCustomColor = false,
 }: FrameMarkerProps): ReactNode {
   const gestureRef = useRef<SVGGElement>();
   const {
     frameCount,
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
-  } = useTrackBounds();
+  } = useTrackContext();
 
   const isSelected = useAnimationStore(useShallow((state) => state.selectedKeyframe === frame));
 
@@ -108,7 +106,7 @@ function InnerFrameMarker({
             "group-hover/frame:dark:stroke-default-300 group-hover/frame:stroke-default-700",
           active &&
             "group-aria-selected/frame:dark:stroke-default-300 group-aria-selected/frame:stroke-default-700",
-          useCustomColor ? "fill-[--track-color]" : "dark:fill-default-400 fill-default-600",
+          "fill-[--track-color]",
         )}
       />
     </animated.g>

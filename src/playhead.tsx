@@ -4,7 +4,7 @@ import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { closestFrame } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-import { useTrackBounds } from "./hooks/use-track-bounds";
+import { useTrackContext } from "./hooks/use-track-context";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { useWithZoom } from "./hooks/use-with-zoom";
 import { usePlayheadSpring } from "./hooks/use-playhead-spring";
@@ -20,7 +20,7 @@ function InnerPlayhead({ ignoreZoom = false, height = 30 }: PlayheadProps): Reac
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     frameCount,
-  } = useTrackBounds();
+  } = useTrackContext();
 
   const [hovered, setHovered] = useState(false);
 

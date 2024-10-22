@@ -1,13 +1,20 @@
 import { type Player, type RawValue, type AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
-import { Keypoint, Track, Animation, AnimationInterpolator } from "./types";
+import {
+  Keypoint,
+  Track,
+  Animation,
+  AnimationInterpolator,
+  AnimationCache,
+  Violation,
+} from "./types";
 import { Graph, ProcessNode, Control } from "./temp-duplicate-types";
 
 export interface AnimationData {
   // Current values (output of interpolator)
   values: Map<string, RawValue | undefined>;
-  // Current interpolator
-  interpolator: AnimationInterpolator;
+  // Current set of track interpolators
+  trackInterpolators: AnimationInterpolator;
   // Active animation
   activeAnimation: string;
   // All animations loaded in the project
@@ -36,6 +43,16 @@ export interface AnimationData {
   preferences: {
     hoverDashedLine: boolean;
   };
+  /*
+    A set of unsubscribers for individual tracks (subscribers listen to changes in the track)
+    These are used internally to update the interpolators when the animation structure changes
+    and should not be modified directly.
+  */
+  trackSubscribers: (() => void)[];
+  // A cached, simplified version of the animation data for use in computing the interpolators
+  animationCache: AnimationCache;
+  // A set of violations that have been detected in the animation, indexed by track id
+  violations: Record<string, Violation[]>;
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   activeGraph: string;
@@ -100,7 +117,7 @@ export interface AnimationActions {
   // Pause the animation
   pausePlayer: () => void;
   // Update the timer
-  updatePlayer: () => void;
+  updatePlayer: (coldStart?: boolean) => void;
   // Set the player bounds
   updatePlayerBounds: (start: number, end: number) => void;
   // Update one bound of the player
@@ -131,10 +148,8 @@ export interface AnimationActions {
   setExpanded: (expanded: boolean) => void;
   // Set the time display mode
   setTimeDisplay: (mode: TimeDisplay) => void;
-  // Initialize the player updates
-  initPlayerInterval: () => void;
-  // Initialize interpolator generation
-  initInterpolatorGeneration: () => void;
+  // Initialize interpolator generation. Returns a function to cancel the subscriptions
+  initAnimationSubscriptions: () => () => void;
   // Set the hoverpoint
   setHoverpoint: (hoverpoint: number) => void;
   // Add an animation to the visualized set

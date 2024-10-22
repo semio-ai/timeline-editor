@@ -54,6 +54,7 @@ export function TrackRow({ trackIds }: { trackIds?: string[] }): ReactNode {
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
+                    color={control.settings.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -62,6 +63,7 @@ export function TrackRow({ trackIds }: { trackIds?: string[] }): ReactNode {
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
+                    color={control.settings.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -70,6 +72,7 @@ export function TrackRow({ trackIds }: { trackIds?: string[] }): ReactNode {
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
+                    color={control.settings.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -78,6 +81,7 @@ export function TrackRow({ trackIds }: { trackIds?: string[] }): ReactNode {
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
+                    color={control.settings.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -90,6 +94,7 @@ export function TrackRow({ trackIds }: { trackIds?: string[] }): ReactNode {
                   width={width}
                   trackIds={trackIds}
                   useCustomColor
+                  color={control.settings.color || "#737373"}
                   canZoom
                   emphasis={emphasis}
                   onEmphasisChange={setEmphasis}

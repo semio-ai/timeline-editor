@@ -2,7 +2,7 @@ import { memo, useMemo } from "react";
 import { scaleLinear } from "@visx/scale";
 import useMeasure from "react-use-measure";
 import { useShallow } from "zustand/react/shallow";
-import { TrackBoundsContext } from "./hooks/use-track-bounds";
+import { TrackContext } from "./hooks/use-track-context";
 import { useAnimationStore } from "./hooks/use-animation-store";
 import { TrackBackground } from "./track-background";
 import { GestureDetector } from "./gesture-detector";
@@ -44,11 +44,12 @@ export function InnerTrackGap({ count }: { count: number }) {
         className="cursor-pointer items-center flex flex-1"
         style={{ height }}
       >
-        <TrackBoundsContext.Provider
+        <TrackContext.Provider
           value={{
             bounds: activeRegionBounds,
             scale: xScale,
             frameCount,
+            color: "#737373",
           }}
         >
           <svg
@@ -73,7 +74,7 @@ export function InnerTrackGap({ count }: { count: number }) {
 
             <Playhead height={height} />
           </svg>
-        </TrackBoundsContext.Provider>
+        </TrackContext.Provider>
       </div>
     </div>
   );
