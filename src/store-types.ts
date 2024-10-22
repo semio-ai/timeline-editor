@@ -43,9 +43,11 @@ export interface AnimationData {
   preferences: {
     hoverDashedLine: boolean;
   };
-  // A set of unsubscribers for individual tracks (subscribers listen to changes in the track)
-  // These are used internally to update the interpolators when the animation structure changes
-  // and should not be modified directly.
+  /*
+    A set of unsubscribers for individual tracks (subscribers listen to changes in the track)
+    These are used internally to update the interpolators when the animation structure changes
+    and should not be modified directly.
+  */
   trackSubscribers: (() => void)[];
   // A cached, simplified version of the animation data for use in computing the interpolators
   animationCache: AnimationCache;

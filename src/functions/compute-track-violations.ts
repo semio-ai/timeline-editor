@@ -88,7 +88,8 @@ export function computeTrackViolations(
     violationCheckerEntries.forEach(
       ([violationType, violationChecker]: [ViolationType, ViolationChecker]) => {
         if (violationChecker(valueStart, valueEnd, animatableValue.constraints, timeDelta)) {
-          if (openViolations[violationType as keyof typeof violationChecker] === undefined) {
+          const openViolation = openViolations[violationType as keyof typeof violationChecker];
+          if (openViolation === undefined) {
             // Open a new violation
             openViolations[violationType] = {
               id: crypto.randomUUID(),
@@ -97,7 +98,7 @@ export function computeTrackViolations(
               trackId,
               namespace,
             } as Violation;
-          } else if (openViolations[violationType as keyof typeof violationChecker] !== undefined) {
+          } else if (openViolation !== undefined) {
             // Update the end time of the current open violation
             (
               openViolations[violationType as keyof typeof violationChecker] as Violation
@@ -220,12 +221,7 @@ const violationCheckers: Record<ViolationType, ViolationChecker> = {
     constraints: Constraints,
     _timeDelta: number,
   ) => valueHasLowerBoundError(currentValue, constraints),
-  [ViolationType.Velocity]: (
-    currentValue: RawValue,
-    nextValue: RawValue,
-    constraints: Constraints,
-    timeDelta: number,
-  ) => valueHasVelocityError(currentValue, nextValue, constraints, timeDelta),
+  [ViolationType.Velocity]: valueHasVelocityError,
   [ViolationType.Rate]: (
     _currentValue: RawValue,
     _nextValue: RawValue,

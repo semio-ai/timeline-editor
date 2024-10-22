@@ -55,9 +55,11 @@ test("should return a cached array of timestamped values for each track", () => 
   // Create the animation cache
   const animationCache: AnimationCache = computeAnimationCache(animation);
 
-  // Test the interpolated values at different times
-  // the method `toBeCloseTo` tests that the values are close to each other with
-  // floating-point precision
+  /*
+    Test the interpolated values at different times
+    the method `toBeCloseTo` tests that the values are close to each other with
+    floating-point precision
+  */
   expect(animationCache.get("track1")?.[0]?.value).toBe(10);
   expect(animationCache.get("track1")?.[0]?.stamp).toBe(0.1);
 
