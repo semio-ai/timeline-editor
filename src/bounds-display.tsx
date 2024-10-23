@@ -1,184 +1,204 @@
-import { useRef, useState, memo } from "react";
+import { useRef, memo, MutableRefObject } from "react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
-import { useGesture } from "@use-gesture/react";
 import { closestFrame } from "@semio/utils";
+import { clamp } from "lodash";
+import { animated } from "@react-spring/web";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { useTrackBounds } from "./hooks/use-track-bounds";
-import type { ScaleLinear } from "./scale-linear";
+import { useTrackContext } from "./hooks/use-track-context";
+import { SemanticTime } from "./store-types";
+import { useWithZoom } from "./hooks/use-with-zoom";
+import { useBoundSprings } from "./hooks/use-bound-springs";
+import { DRAG_X_CONFIG } from "./gesture-config";
+import { useWithBounds } from "./hooks/use-with-bounds";
+import { useZoomGestures } from "./hooks/use-zoom-gestures";
+import { TIMELINE_PADDING } from "./constants";
 
 export interface BoundsDisplayProps {
-  parentActive: boolean;
+  ignoreZoom?: boolean;
+  height?: number;
 }
 
-function InnerBoundsDisplay({ parentActive }: BoundsDisplayProps) {
+function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
+  const leftBoundsRef = useRef<SVGGElement>(null);
+  const rightBoundsRef = useRef<SVGGElement>(null);
   const {
     frameCount,
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
-  } = useTrackBounds();
+  } = useTrackContext();
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
-  const initialBounds = useRef<[number, number]>(bounds);
-  const updateBounds = useAnimationStore(
-    useShallow((state) => state.updatePlayerBounds),
-  );
-  const [dragging, setDragging] = useState(false);
-  const [hovering, setHovering] = useState(false);
-  const gestureBindingsLeft = useGesture(
-    {
-      onDragStart: () => {
-        setDragging(true);
-        initialBounds.current = bounds;
-      },
-      onDragEnd: (state) => {
-        setDragging(false);
-        state.event.stopPropagation();
-      },
-      onHover: ({ hovering: h }) => setHovering(h || false),
-      onDrag: (state) => {
-        const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
-        const newValue = state.shiftKey
-          ? newPosition
-          : closestFrame(newPosition, frameCount);
-        const vals =
-          newValue >= initialBounds.current[1]
-            ? [initialBounds.current[1], newValue]
-            : [newValue, initialBounds.current[1]];
-        updateBounds(vals[0], vals[1]);
-        state.event.stopPropagation();
-      },
-      onClick: (state) => {
-        state.event.stopPropagation();
-      },
-    },
-    { drag: { filterTaps: true } },
+  const [previewLeft, previewRight, removePreview, addPreview] = useAnimationStore(
+    useShallow((state) => [
+      state.previews.find((p) => p.semanticTime === SemanticTime.BoundsStart),
+      state.previews.find((p) => p.semanticTime === SemanticTime.BoundsEnd),
+      state.removePreview,
+      state.addPreview,
+    ]),
   );
 
-  const gestureBindingsRight = useGesture(
+  // Whether there is a preview for either left or right bounds present.
+  const anyPreview = previewLeft !== undefined || previewRight !== undefined;
+
+  const updateBounds = useAnimationStore(useShallow((state) => state.updatePlayerBounds));
+
+  const withZoom = useWithZoom(ignoreZoom);
+  const withBounds = useWithBounds();
+
+  // Attach gestures to the left and right bounds.
+  // We use the custom useZoomGestures hook so that it
+  // also responds to standard gestures for zooming/panning.
+  useZoomGestures(
+    leftBoundsRef as MutableRefObject<EventTarget>,
     {
-      onDragStart: () => {
-        setDragging(true);
-        initialBounds.current = bounds;
+      onHover: ({ hovering, dragging, event }) => {
+        // Show a preview when hovering over the left bounds,
+        // or if the left bounds are being dragged.
+        // Remove the preview if there is a preview and no longer
+        // hovering or dragging.
+        if (hovering && !dragging && !anyPreview) {
+          addPreview({
+            semanticTime: SemanticTime.BoundsStart,
+            stamp: bounds[0],
+            label: "Bounds Start",
+          });
+        } else if (!hovering && !dragging && anyPreview) {
+          removePreview((p) => p.semanticTime === SemanticTime.BoundsStart);
+        }
+        event.stopPropagation();
       },
-      onDragEnd: (state) => {
-        setDragging(false);
-        state.event.stopPropagation();
-      },
-      onHover: ({ hovering: h }) => setHovering(h || false),
-      onDrag: (state) => {
-        const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
-        const newValue = state.shiftKey
-          ? newPosition
-          : closestFrame(newPosition, frameCount);
-        const vals =
-          newValue <= initialBounds.current[0]
-            ? [newValue, initialBounds.current[0]]
-            : [initialBounds.current[0], newValue];
-        updateBounds(vals[0], vals[1]);
-        state.event.stopPropagation();
-      },
-      onClick: (state) => {
-        state.event.stopPropagation();
+      onDrag: ({ xy, altKey, memo: initialBoundsMemo, dragging }) => {
+        let initialBounds = initialBoundsMemo;
+        withZoom((zoomScale) => {
+          withBounds((currentBounds) => {
+            initialBounds = initialBounds ?? currentBounds;
+            const newPosition = zoomScale.invert(
+              clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+            );
+            const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
+            const newBounds: [number, number] =
+              newValue >= initialBounds[1]
+                ? [initialBounds[1], newValue]
+                : [newValue, initialBounds[1]];
+            updateBounds(newBounds[0], newBounds[1]);
+            // If no preview is present, add one when dragging.
+            // If a preview is present and no longer dragging, remove it.
+            if (!anyPreview && dragging) {
+              addPreview({
+                semanticTime: SemanticTime.BoundsStart,
+                stamp: newBounds[0],
+                label: "Bounds Start",
+              });
+            } else if (anyPreview && !dragging) {
+              removePreview(
+                (p) =>
+                  p.semanticTime === SemanticTime.BoundsStart ||
+                  p.semanticTime === SemanticTime.BoundsEnd,
+              );
+            }
+          });
+        });
+        return initialBounds as [number, number];
       },
     },
-    { drag: { filterTaps: true } },
+    DRAG_X_CONFIG,
   );
+
+  useZoomGestures(
+    rightBoundsRef as MutableRefObject<EventTarget>,
+    {
+      onHover: ({ hovering, dragging, event }) => {
+        // Show a preview when hovering over the right bounds,
+        // or if the right bounds are being dragged.
+        // Remove the preview if there is a preview and no longer
+        // hovering or dragging.
+        if (hovering && !dragging && !anyPreview) {
+          addPreview({
+            semanticTime: SemanticTime.BoundsEnd,
+            stamp: bounds[1],
+            label: "Bounds End",
+          });
+        } else if (!hovering && !dragging && anyPreview) {
+          removePreview((p) => p.semanticTime === SemanticTime.BoundsEnd);
+        }
+        event.stopPropagation();
+      },
+      onDrag: ({ xy, altKey, memo: initialBoundsMemo, dragging }) => {
+        let initialBounds = initialBoundsMemo;
+        withZoom((zoomScale) => {
+          withBounds((currentBounds) => {
+            initialBounds = initialBounds ?? currentBounds;
+            const newPosition = zoomScale.invert(
+              clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+            );
+            const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
+            const newBounds: [number, number] =
+              newValue <= initialBounds[0]
+                ? [newValue, initialBounds[0]]
+                : [initialBounds[0], newValue];
+            updateBounds(newBounds[0], newBounds[1]);
+            // If no preview is present, add one when dragging.
+            // If a preview is present and no longer dragging, remove it.
+            if (!anyPreview && dragging) {
+              addPreview({
+                semanticTime: SemanticTime.BoundsEnd,
+                stamp: newBounds[1],
+                label: "Bounds End",
+              });
+            } else if (anyPreview && !dragging) {
+              removePreview(
+                (p) =>
+                  p.semanticTime === SemanticTime.BoundsStart ||
+                  p.semanticTime === SemanticTime.BoundsEnd,
+              );
+            }
+          });
+        });
+        return initialBounds as [number, number];
+      },
+    },
+    DRAG_X_CONFIG,
+  );
+
+  const { leftSpring, rightSpring, widthSpring } = useBoundSprings(ignoreZoom);
 
   return (
     <>
-      <path
-        d={`M${xScale(0).toString()} 11 L${xScale(bounds[0]).toString()} 11`}
-        className={clsx(
-          parentActive ? "stroke-[22px]" : "stroke-[6.2px]",
-          "dark:stroke-neutral-800/50 stroke-neutral-200/50 ransition-all duration-75",
-        )}
-      />
-      <path
-        d={`M${xScale(bounds[1]).toString()} 11 L${xScale(1).toString()} 11`}
-        className={clsx(
-          parentActive ? "stroke-[22px]" : "stroke-[6.2px]",
-          "dark:stroke-neutral-800/50 stroke-neutral-200/50 transition-all duration-75",
-        )}
-      />
-      <rect
-        x={xScale(bounds[0])}
+      <animated.rect
+        name="bounds-rect"
+        x={leftSpring.to((ls) => xScale(ls))}
         y={0}
-        width={Math.max(0, xScale(bounds[1]) - xScale(bounds[0]))}
-        height={22}
-        className={
-          parentActive && dragging
-            ? "cursor-ew-resize fill-neutral-600/25"
-            : "fill-transparent"
-        }
+        width={widthSpring.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
+        className={clsx(
+          "fill-transparent pointer-events-none transition-[fill] h-full",
+          anyPreview && "group-hover:cursor-ew-resize group-hover:fill-neutral-600/25",
+          anyPreview &&
+            "group-aria-expanded:cursor-ew-resize group-aria-expanded:fill-neutral-600/25",
+        )}
       />
-      <g>
-        <path
-          d={getPath(xScale, bounds, "left")}
+      <g ref={leftBoundsRef} name="bounds-left-stroke" className="group/bound">
+        <animated.rect
+          x={leftSpring.to((ls) => xScale(ls) - 0.5)}
+          width={1}
           className={clsx(
-            "transition-[fill]",
-            getFill("left", hovering, bounds[0] === 0, parentActive),
+            "transition-fill duration-75 h-full",
+            anyPreview ? "fill-neutral-500" : "fill-transparent",
           )}
-        />
-        <rect
-          {...gestureBindingsLeft()}
-          x={xScale(bounds[0]) - (hovering ? 10 : 7)}
-          y={0}
-          width={hovering ? 20 : 14}
-          height={22}
-          className="cursor-ew-resize touch-none fill-transparent"
         />
       </g>
 
-      <g>
-        <path
-          d={getPath(xScale, bounds, "right")}
+      <g ref={rightBoundsRef} name="bounds-right-stroke" className="group/bound">
+        <animated.rect
+          x={rightSpring.to((rs) => xScale(rs) - 0.5)}
+          width={1}
           className={clsx(
-            "transition-[fill]",
-            getFill("right", hovering, bounds[1] === 1, parentActive),
+            "transition-fill duration-75 h-full",
+            anyPreview ? "fill-neutral-500" : "fill-transparent",
           )}
-        />
-        <rect
-          {...gestureBindingsRight()}
-          x={xScale(bounds[1]) - (hovering ? 10 : 14)}
-          y={0}
-          width={hovering ? 20 : 14}
-          height={22}
-          className="cursor-ew-resize touch-none fill-transparent"
         />
       </g>
     </>
   );
-}
-
-function getFill(
-  side: "left" | "right",
-  hovering: boolean,
-  atBounds: boolean,
-  parentActive: boolean,
-): string {
-  if (hovering) {
-    return side === "left"
-      ? "dark:fill-success-400 fill-success-600"
-      : "dark:fill-error-400 fill-error-600";
-  } else if (!atBounds) {
-    return side === "left" ? "fill-success-500" : "fill-error-500";
-  } else {
-    return parentActive
-      ? "dark:fill-white/50 fill-black/50"
-      : "fill-transparent";
-  }
-}
-
-function getPath(
-  xScale: ScaleLinear,
-  bounds: [number, number],
-  side: "left" | "right",
-): string {
-  const width = 6.35;
-  const height = 3.7;
-  const x = side === "left" ? xScale(bounds[0]) : xScale(bounds[1]);
-  const trailing = side === "left" ? x + width : x - width;
-  return `M${x.toString()} 0 L${trailing.toString()} 0 L${x.toString()} ${(0 + height).toString()} L${x.toString()} ${(22 - height).toString()} L${trailing.toString()} 22 L${x.toString()} 22 Z`;
 }
 
 export const BoundsDisplay = memo(InnerBoundsDisplay);

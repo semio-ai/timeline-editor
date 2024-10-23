@@ -14,16 +14,5 @@ export function Editor({ width, opened }: EditorProps): ReactNode {
     },
   });
 
-  return (
-    <animated.svg
-      style={styles}
-      // animate={opened ? "visible" : "hidden"}
-      // initial="hidden"
-      // variants={{
-      //   visible: { height: 300 },
-      //   hidden: { height: 0 },
-      // }}
-      width={width}
-    />
-  );
+  return <animated.svg style={styles} width={width} />;
 }

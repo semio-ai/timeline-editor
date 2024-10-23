@@ -1,136 +1,116 @@
-import { type ReactNode, useMemo, useState, memo } from "react";
-import { clsx } from "clsx";
 import {
-  getHexagonPath,
-  getDegenerateHexagonPath,
-  closestFrame,
-} from "@semio/utils";
+  type ReactNode,
+  type MutableRefObject,
+  type MouseEventHandler,
+  useMemo,
+  memo,
+  useRef,
+  useCallback,
+} from "react";
+import { clsx } from "clsx";
+import { getHexagonPath, closestFrame } from "@semio/utils";
+import { clamp } from "lodash";
+import { animated } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
-import { useGesture } from "@use-gesture/react";
-import { useSpring, animated } from "@react-spring/web";
 import { useAnimationStore } from "./hooks/use-animation-store";
-import { useTrackBounds } from "./hooks/use-track-bounds";
-import { computeLocalStamp } from "./actions/compute-instance-time";
+import { useTrackContext } from "./hooks/use-track-context";
+import { useStaticZoomedSpring } from "./hooks/use-static-zoomed-spring";
+import { computeLocalStamp } from "./functions/compute-instance-time";
 import { InstanceInfo } from "./types";
+import { useWithZoom } from "./hooks/use-with-zoom";
+import { useZoomGestures } from "./hooks/use-zoom-gestures";
+import { DRAG_X_CONFIG } from "./gesture-config";
 
 export interface FrameMarkerProps {
-  parentActive: boolean;
   stamp: number;
   animation: string;
   frame: string;
   instanceInfo: InstanceInfo;
   active?: boolean;
+  ignoreZoom?: boolean;
 }
 function InnerFrameMarker({
-  parentActive,
   stamp,
   animation,
   frame,
   instanceInfo,
   active,
+  ignoreZoom = false,
 }: FrameMarkerProps): ReactNode {
+  const gestureRef = useRef<SVGGElement>();
   const {
     frameCount,
     scale: xScale,
     bounds: { width: timelineWidth, left: timelineLeft },
-  } = useTrackBounds();
+  } = useTrackContext();
 
-  const isSelected = useAnimationStore(
-    useShallow((state) => state.selectedKeyframe === frame),
-  );
+  const isSelected = useAnimationStore(useShallow((state) => state.selectedKeyframe === frame));
 
-  const hoveredPath: string = useMemo<string>(
-    () => getHexagonPath(0, 11, 13.5, 13.5),
-    [],
-  );
+  const hoveredPath: string = useMemo<string>(() => getHexagonPath(0, 15, 12, 30), []);
 
-  const inactivePath: string = useMemo<string>(
-    () => getDegenerateHexagonPath(0, 11, 10, 10),
-    [],
-  );
+  const withZoom = useWithZoom(ignoreZoom);
 
-  const unhoveredPath: string = useMemo<string>(
-    () => getDegenerateHexagonPath(0, 11, 10, 22),
-    [],
-  );
+  const updateKeyframeStamp = useAnimationStore(useShallow((state) => state.updateKeyframeStamp));
 
-  const updateKeyframeStamp = useAnimationStore(
-    useShallow((state) => state.updateKeyframeStamp),
-  );
+  const resetPlayer = useAnimationStore(useShallow((state) => state.resetPlayer));
 
-  const [hovered, setHovered] = useState(false);
-
-  const gestureHandlers = useGesture({
-    onHover: ({ hovering }) => {
-      setHovered(hovering || false);
+  const doubleClickHandler = useCallback(
+    (event: MouseEvent) => {
+      resetPlayer(stamp);
+      event.stopPropagation();
     },
-    onDrag: (state) => {
-      if (!active) {
-        return;
-      }
-      const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
-      const newStamp = state.shiftKey
-        ? newPosition
-        : closestFrame(newPosition, frameCount);
-      const transformedStamp = computeLocalStamp(newStamp, instanceInfo);
-      updateKeyframeStamp(frame, transformedStamp, animation);
-      state.event.stopPropagation();
-    },
-  });
+    [stamp, resetPlayer],
+  );
 
-  const styles = useSpring({
-    d: getPath(
-      active === true && (hovered || isSelected),
-      parentActive,
-      inactivePath,
-      unhoveredPath,
-      hoveredPath,
-    ),
-    config: {
-      duration: 50,
+  useZoomGestures(
+    gestureRef as MutableRefObject<SVGGElement>,
+    {
+      onDrag: (state) => {
+        if (!active) {
+          return;
+        }
+        withZoom((zoomScale) => {
+          const newPosition = zoomScale.invert(
+            clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+          );
+          const newStamp = state.shiftKey ? newPosition : closestFrame(newPosition, frameCount);
+          const transformedStamp = computeLocalStamp(newStamp, instanceInfo);
+          updateKeyframeStamp(frame, transformedStamp, animation);
+          state.event.stopPropagation();
+        });
+      },
     },
-  });
+    DRAG_X_CONFIG,
+  );
+
+  const zoomedStamp = useStaticZoomedSpring(stamp, ignoreZoom);
 
   return (
-    <animated.path
-      {...gestureHandlers()}
-      role="button"
-      // onClick={() => {
-      //   resetPlayer(stamp);
-      // }}
+    <animated.g
+      ref={gestureRef as MutableRefObject<SVGGElement>}
+      onDoubleClick={doubleClickHandler as any as MouseEventHandler}
+      className="group/frame touch-none"
+      aria-selected={isSelected}
       style={{
-        transform: `translateX(${xScale(stamp).toString()}px`,
+        transform: zoomedStamp.to((zs) => `translateX(${xScale(zs).toString()}px`),
       }}
-      className={clsx(
-        "touch-none transition-[colors,stroke] duration-75 dark:stroke-default-400 stroke-default-600",
-        isSelected &&
-          "fill-info-500 dark:hover:fill-info-100 hover:fill-info-900",
-        hovered &&
-          !isSelected &&
-          "fill-primary-500 dark:hover:fill-primary-100 hover:fill-primary-900",
-        (isSelected || hovered) &&
-          "hover:dark:stroke-white hover:stroke-black dark:stroke-neutral-300 stroke-neutral-700 stroke-1",
-        !(isSelected || hovered) && "fill-transparent stroke-2",
-      )}
-      d={styles.d}
-    />
+    >
+      <path
+        d={hoveredPath}
+        className={clsx(
+          !active && "pointer-events-none",
+          "transition-[colors,stroke,transform] duration-75 stroke-2 stroke-transparent scale-x-100",
+          active && "group-hover:scale-x-100 group-aria-expanded:scale-x-100",
+          "scale-x-[15%]",
+          active &&
+            "group-hover/frame:dark:stroke-default-300 group-hover/frame:stroke-default-700",
+          active &&
+            "group-aria-selected/frame:dark:stroke-default-300 group-aria-selected/frame:stroke-default-700",
+          "fill-[--track-color]",
+        )}
+      />
+    </animated.g>
   );
-}
-
-function getPath(
-  hovered: boolean,
-  active: boolean,
-  degeneratePath: string,
-  activePath: string,
-  fullPath: string,
-): string {
-  if (hovered) {
-    return fullPath;
-  } else if (active) {
-    return activePath;
-  } else {
-    return degeneratePath;
-  }
 }
 
 export const FrameMarker = memo(InnerFrameMarker);

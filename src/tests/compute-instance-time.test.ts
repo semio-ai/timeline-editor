@@ -1,8 +1,5 @@
 import { test, expect } from "vitest";
-import {
-  computeLocalStamp,
-  computeWorldStamp,
-} from "../actions/compute-instance-time";
+import { computeLocalStamp, computeWorldStamp } from "../functions/compute-instance-time";
 
 const defaultInstance = { offset: 0, timescale: 1 };
 const doubleSpeedInstance = { offset: 0, timescale: 2 };
