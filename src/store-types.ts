@@ -7,8 +7,10 @@ import {
   AnimationInterpolator,
   AnimationCache,
   Violation,
+  Graph,
+  ProcessNode,
+  Control,
 } from "./types";
-import { Graph, ProcessNode, Control } from "./temp-duplicate-types";
 
 export interface AnimationData {
   // Current values (output of interpolator)
@@ -23,9 +25,9 @@ export interface AnimationData {
   player: Player;
   // Selected Keyframe, if any
   selectedKeyframe?: string;
-  // Overall duration of all animations
+  // Duration of the playback region, in milliseconds
   duration: number;
-  // Overall Framrate of all animations
+  // Overall Framerate of all animations
   framerate: number;
   // Visualized Animations
   visualizedAnimations: string[];
@@ -42,6 +44,7 @@ export interface AnimationData {
   // Some configurable preferences
   preferences: {
     hoverDashedLine: boolean;
+    dataPreviews: boolean;
   };
   /*
     A set of unsubscribers for individual tracks (subscribers listen to changes in the track)
@@ -49,6 +52,7 @@ export interface AnimationData {
     and should not be modified directly.
   */
   trackSubscribers: (() => void)[];
+  animationSubscribers: (() => void)[];
   // A cached, simplified version of the animation data for use in computing the interpolators
   animationCache: AnimationCache;
   // A set of violations that have been detected in the animation, indexed by track id

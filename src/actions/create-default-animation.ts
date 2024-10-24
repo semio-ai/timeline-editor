@@ -1,4 +1,4 @@
-import type { Animation } from "../types/animation";
+import type { Animation } from "../types";
 
 /*
 @description

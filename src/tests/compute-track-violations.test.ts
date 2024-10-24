@@ -53,7 +53,7 @@ test("An animation that shifts from within to outside bounds gets a bounds error
 
   // Create the animation interpolator
   const track1Interpolator = computeTrackInterpolator(
-    animationCache.get("track1")!,
+    animationCache.track1,
     simpleAnimation.instances.default,
   );
 
@@ -126,7 +126,7 @@ test("An animation with a velocity limit of 0 returns a violation for the entire
 
   // Create the animation interpolator
   const track1Interpolator = computeTrackInterpolator(
-    animationCache.get("track1")!,
+    animationCache.track1,
     animation.instances.default,
   );
 

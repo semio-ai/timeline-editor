@@ -57,24 +57,24 @@ test("should return the interpolated values for each track", () => {
   const animationCache: AnimationCache = computeAnimationCache(animation);
 
   const defaultTrack1Interpolator = computeTrackInterpolator(
-    animationCache.get("track1")!,
+    animationCache.track1,
     animation.instances.default,
   );
 
   const defaultTrack2Interpolator = computeTrackInterpolator(
-    animationCache.get("track2")!,
+    animationCache.track2,
     animation.instances.default,
   );
   const doublespeedTrack1Interpolator = computeTrackInterpolator(
-    animationCache.get("track1")!,
+    animationCache.track1,
     animation.instances.doublespeed,
   );
   const offsetTrack1Interpolator = computeTrackInterpolator(
-    animationCache.get("track1")!,
+    animationCache.track1,
     animation.instances.offset,
   );
   const offsetDoublespeedTrack1Interpolator = computeTrackInterpolator(
-    animationCache.get("track1")!,
+    animationCache.track1,
     animation.instances.offsetDoublespeed,
   );
 

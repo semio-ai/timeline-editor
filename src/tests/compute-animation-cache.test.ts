@@ -60,18 +60,18 @@ test("should return a cached array of timestamped values for each track", () => 
     the method `toBeCloseTo` tests that the values are close to each other with
     floating-point precision
   */
-  expect(animationCache.get("track1")?.[0]?.value).toBe(10);
-  expect(animationCache.get("track1")?.[0]?.stamp).toBe(0.1);
+  expect(animationCache.track1[0]?.value).toBe(10);
+  expect(animationCache.track1[0]?.stamp).toBe(0.1);
 
-  expect(animationCache.get("track2")?.[0]?.value).toBe(1.2);
-  expect(animationCache.get("track2")?.[0]?.stamp).toBe(0.1);
+  expect(animationCache.track2[0]?.value).toBe(1.2);
+  expect(animationCache.track2[0]?.stamp).toBe(0.1);
 
-  expect(animationCache.get("track1")?.[1]?.value).toBe(15);
-  expect(animationCache.get("track1")?.[1]?.stamp).toBe(0.3);
+  expect(animationCache.track1[1]?.value).toBe(15);
+  expect(animationCache.track1[1]?.stamp).toBe(0.3);
 
-  expect(animationCache.get("track2")?.[1]?.value).toBe(2.1);
-  expect(animationCache.get("track2")?.[1]?.stamp).toBe(0.9);
+  expect(animationCache.track2[1]?.value).toBe(2.1);
+  expect(animationCache.track2[1]?.stamp).toBe(0.9);
 
-  expect(animationCache.get("track1")?.[2]?.value).toBe(20);
-  expect(animationCache.get("track1")?.[2]?.stamp).toBe(0.9);
+  expect(animationCache.track1[2]?.value).toBe(20);
+  expect(animationCache.track1[2]?.stamp).toBe(0.9);
 });

@@ -44,7 +44,7 @@ export function usePlayheadCartPathSpring(
     stampToVisualTime(storedPlayhead.current, duration, framerate, timeDisplay).length,
   );
 
-  const { scale: xScale } = useTrackContext();
+  const { xScale } = useTrackContext();
 
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({

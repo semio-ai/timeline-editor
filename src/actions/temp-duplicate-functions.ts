@@ -1,9 +1,8 @@
 import { RawValue } from "@semio/utils";
 import { type AnimationData } from "../store-types";
-import { Control, ProcessType, ProcessNode, Graph } from "../temp-duplicate-types";
+import { Control, ProcessType, ProcessNode, Graph } from "../types";
 import { updateAnimationKeypoint } from "./update-animation-keypoint";
 import { createTrack } from "./create-track";
-// import { GraphData } from "../store-types";
 
 export function setValue(state: AnimationData, id: string, _namespace: string, value: RawValue) {
   // const lookupId = getLookup(namespace, id);

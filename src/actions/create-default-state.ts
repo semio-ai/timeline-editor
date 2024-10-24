@@ -26,9 +26,11 @@ export const createDefaultState = (): AnimationData => {
     previews: [],
     preferences: {
       hoverDashedLine: false,
+      dataPreviews: true,
     },
     trackSubscribers: [],
-    animationCache: new Map(),
+    animationSubscribers: [],
+    animationCache: {},
     violations: {},
 
     // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
