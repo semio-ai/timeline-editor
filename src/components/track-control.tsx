@@ -3,11 +3,11 @@ import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { pick } from "lodash";
 import { IconPlayerPlay, IconButton, IconKey } from "@semio/ui";
+import { shallow } from "zustand/shallow";
 import { useAnimationStore, useStoreSubscription } from "../hooks";
 import { computeNextTime, computePreviousTime } from "../functions";
 import { type AnimationData, type AnimationActions } from "../store-types";
 import { SemanticTime } from "../store-types";
-import { shallow } from "zustand/shallow";
 
 export interface TrackControlProps {
   color?: string;

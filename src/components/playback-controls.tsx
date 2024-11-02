@@ -4,6 +4,7 @@ import { IconButton, IconPlayerPlay2, Select, Size, Variant } from "@semio/ui";
 import { getLookup, RawValue } from "@semio/utils";
 import { IconPlayerPauseFilled, IconWorld } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
+import { shallow } from "zustand/shallow";
 import { pick } from "lodash";
 import { useAnimationStore, useStoreSubscription } from "../hooks";
 import { computeLocalStamp, computeStamps } from "../functions";
@@ -12,7 +13,6 @@ import { AnimationActions, AnimationData, SemanticTime } from "../store-types";
 import { TimeDisplay } from "./time-display";
 import { SkipButton } from "./skip-button";
 import { TrackControl } from "./track-control";
-import { shallow } from "zustand/shallow";
 
 export function PlaybackControls({
   animationId,

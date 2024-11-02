@@ -1,8 +1,7 @@
-import { useContext, useEffect, useRef, useCallback } from "react";
-import type { AnimationData, AnimationActions } from "../store-types";
-import { AnimationContext } from "../context";
-import { useStoreSubscription } from "./use-store-subscription";
+import { useRef, useCallback } from "react";
 import { shallow } from "zustand/shallow";
+import type { AnimationData } from "../store-types";
+import { useStoreSubscription } from "./use-store-subscription";
 
 /**
  * A hook used to retrieve a function that provides the current bounds to a provided function.
