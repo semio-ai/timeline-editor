@@ -1,6 +1,7 @@
-import { type MutableRefObject } from "react";
+import { useCallback, type MutableRefObject } from "react";
 import {
   type AnyHandlerEventTypes,
+  FullGestureState,
   type GestureHandlers,
   type UserGestureConfig,
   useGesture,
@@ -28,69 +29,83 @@ export const useZoomGestures = (
     })),
   );
 
+  const onPinch = useCallback(
+    ({
+      event,
+      offset: [scale],
+      memo,
+      timeStamp,
+      origin,
+      intentional,
+    }: FullGestureState<"pinch">) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!intentional) return;
+      // Note, timestampSet is returned from this handler,
+      // which becomes the memo value for the next pinch event
+      let timestampSet: Set<number> = memo ?? new Set<number>();
+
+      // Temp solution to address safari receiving duplicate events
+      // https://github.com/pmndrs/use-gesture/issues/681
+      const isRepeatTimestamp = timestampSet.has(timeStamp);
+      if (isRepeatTimestamp) {
+        return timestampSet;
+      } else if (timestampSet.size > 16) {
+        // If the set exceeds 16 elements, remove the oldest one
+        timestampSet = new Set([...timestampSet].slice(1));
+        // And then add the latest timestamp
+        timestampSet.add(timeStamp);
+      } else {
+        // Just add the latest timestamp
+        timestampSet.add(timeStamp);
+      }
+
+      withZoom((zoomScale) => {
+        const newPosition = clamp(zoomScale.invert((origin[0] - bounds.left) / bounds.width), 0, 1);
+        const clampedScale = Math.max(1, scale);
+        const newDomainWidth = 1 / clampedScale;
+
+        const newDomain = [
+          newPosition - newDomainWidth * newPosition,
+          newPosition + newDomainWidth * (1 - newPosition),
+        ];
+        updatePlayerViewport(newDomain[0], newDomain[1]);
+      });
+      return timestampSet;
+    },
+    [bounds.width, bounds.left, updatePlayerViewport, withZoom],
+  );
+
+  const onWheel = useCallback(
+    ({ shiftKey, delta, event }: FullGestureState<"wheel">) => {
+      withZoom((zoomScale) => {
+        const currentDomain = zoomScale.domain();
+        const deltaMovement = shiftKey ? delta[1] : delta[0];
+        const movement = deltaMovement / bounds.width;
+        const proposedStart = currentDomain[0] + movement;
+        const proposedEnd = currentDomain[1] + movement;
+        if (proposedStart >= 0 && proposedEnd <= 1) {
+          updatePlayerViewport(proposedStart, proposedEnd);
+        } else if (proposedStart < 0 && proposedEnd <= 1) {
+          // fit to the start of the domain
+          updatePlayerViewport(0, proposedEnd - proposedStart);
+        } else if (proposedStart >= 0 && proposedEnd > 1) {
+          // fit to the end of the domain
+          updatePlayerViewport(proposedStart - (proposedEnd - 1), 1);
+        }
+      });
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [bounds.width, updatePlayerViewport, withZoom],
+  );
+
   useGesture(
     {
       // unpack other gesture handlers that were passed in
       ...(otherGestureHandlers ?? {}),
-      onPinch: ({ event, offset: [scale], memo, timeStamp, origin }) => {
-        event.preventDefault();
-        event.stopPropagation();
-        // Note, timestampSet is returned from this handler,
-        // which becomes the memo value for the next pinch event
-        let timestampSet: Set<number> = memo ?? new Set<number>();
-
-        // Temp solution to address safari receiving duplicate events
-        // https://github.com/pmndrs/use-gesture/issues/681
-        const isRepeatTimestamp = timestampSet.has(timeStamp);
-        if (isRepeatTimestamp) {
-          return timestampSet;
-        } else if (timestampSet.size > 16) {
-          // If the set exceeds 16 elements, remove the oldest one
-          timestampSet = new Set([...timestampSet].slice(1));
-          // And then add the latest timestamp
-          timestampSet.add(timeStamp);
-        } else {
-          // Just add the latest timestamp
-          timestampSet.add(timeStamp);
-        }
-
-        withZoom((zoomScale) => {
-          const newPosition = clamp(
-            zoomScale.invert((origin[0] - bounds.left) / bounds.width),
-            0,
-            1,
-          );
-          const clampedScale = Math.max(1, scale);
-          const newDomainWidth = 1 / clampedScale;
-
-          const newDomain = [
-            newPosition - newDomainWidth * newPosition,
-            newPosition + newDomainWidth * (1 - newPosition),
-          ];
-          updatePlayerViewport(newDomain[0], newDomain[1]);
-        });
-        return timestampSet;
-      },
-      onWheel: ({ event, delta, shiftKey }) => {
-        withZoom((zoomScale) => {
-          const currentDomain = zoomScale.domain();
-          const deltaMovement = shiftKey ? delta[1] : delta[0];
-          const movement = deltaMovement / bounds.width;
-          const proposedStart = currentDomain[0] + movement;
-          const proposedEnd = currentDomain[1] + movement;
-          if (proposedStart >= 0 && proposedEnd <= 1) {
-            updatePlayerViewport(proposedStart, proposedEnd);
-          } else if (proposedStart < 0 && proposedEnd <= 1) {
-            // fit to the start of the domain
-            updatePlayerViewport(0, proposedEnd - proposedStart);
-          } else if (proposedStart >= 0 && proposedEnd > 1) {
-            // fit to the end of the domain
-            updatePlayerViewport(proposedStart - (proposedEnd - 1), 1);
-          }
-        });
-        event.preventDefault();
-        event.stopPropagation();
-      },
+      onPinch,
+      onWheel,
     },
     {
       // unpack other gesture handlers that were passed in.

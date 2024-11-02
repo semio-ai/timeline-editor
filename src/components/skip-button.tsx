@@ -7,32 +7,51 @@ import { SemanticTime } from "../store-types";
 import { useAnimationStore } from "../hooks";
 
 export interface SkipButtonProps {
+  animationId: string;
+  namespaceIds: string[];
+  trackIds: string[];
   semanticTime: SemanticTime;
   onMouseEnter?: MouseEventHandler<HTMLButtonElement>;
   onMouseLeave?: MouseEventHandler<HTMLButtonElement>;
 }
 
 export function SkipButton({
+  animationId,
+  namespaceIds,
+  trackIds,
   semanticTime,
   onMouseEnter,
   onMouseLeave,
 }: SkipButtonProps): ReactNode {
-  const skip = useAnimationStore(
-    useCallback(
-      (state: AnimationActions) => {
-        if (semanticTime === SemanticTime.Forward) {
-          return state.skipToNextKeyframe;
-        } else if (semanticTime === SemanticTime.Backward) {
-          return state.skipToPrevKeyframe;
-        } else if (semanticTime === SemanticTime.BoundsStart) {
-          return state.skipToStart;
-        } else if (semanticTime === SemanticTime.BoundsEnd) {
-          return state.skipToEnd;
-        }
-      },
-      [semanticTime],
-    ),
+  const [skipToNextKeyframe, skiptToPrevKeyframe, skipToStart, skipToEnd] = useAnimationStore(
+    useShallow((state: AnimationActions) => [
+      state.skipToNextKeyframe,
+      state.skipToPrevKeyframe,
+      state.skipToStart,
+      state.skipToEnd,
+    ]),
   );
+
+  const skip = useCallback(() => {
+    if (semanticTime === SemanticTime.Forward) {
+      skipToNextKeyframe(animationId, namespaceIds, trackIds, true);
+    } else if (semanticTime === SemanticTime.Backward) {
+      skiptToPrevKeyframe(animationId, namespaceIds, trackIds, true);
+    } else if (semanticTime === SemanticTime.BoundsStart) {
+      skipToStart();
+    } else if (semanticTime === SemanticTime.BoundsEnd) {
+      skipToEnd();
+    }
+  }, [
+    semanticTime,
+    skipToNextKeyframe,
+    skiptToPrevKeyframe,
+    skipToStart,
+    skipToEnd,
+    animationId,
+    namespaceIds,
+    trackIds,
+  ]);
 
   const [addPreview, removePreview] = useAnimationStore(
     useShallow((state: AnimationActions) => [state.addPreview, state.removePreview]),

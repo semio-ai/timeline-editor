@@ -1,7 +1,7 @@
 import { RawValue } from "@semio/utils";
 import { type AnimationData } from "../store-types";
 import { Control, ProcessType, ProcessNode, Graph } from "../types";
-import { updateAnimationKeypoint } from "./update-animation-keypoint";
+import { updateKeypoint } from "./update-keypoint";
 import { createTrack } from "./create-track";
 
 export function setValue(state: AnimationData, id: string, _namespace: string, value: RawValue) {
@@ -15,7 +15,7 @@ export function setValue(state: AnimationData, id: string, _namespace: string, v
     // Update the existing track
     // We will for now assume that if the control exists, we have already created the track for it
     const trackId = control.writeId;
-    updateAnimationKeypoint(state, state.activeAnimation, state.player.stamp, trackId, value);
+    updateKeypoint(state, trackId, { value, stamp: state.player.stamp });
     state.latestControl = control;
   } else {
     console.log("control doesn't exist, creating new track and control");
@@ -48,7 +48,7 @@ export function setValue(state: AnimationData, id: string, _namespace: string, v
     state.controls[newControl.id] = newControl;
     state.latestControl = newControl;
 
-    updateAnimationKeypoint(state, state.activeAnimation, state.player.stamp, track.id, value);
+    updateKeypoint(state, track.id, { value, stamp: state.player.stamp });
   }
   // console.log("Setting value", lookupId, value);
   // state.values.set(lookupId, value);

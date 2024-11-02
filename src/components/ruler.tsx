@@ -6,6 +6,7 @@ import { stampToVisualTime } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import useMeasure from "react-use-measure";
 import { clsx } from "clsx";
+import { TrackRender } from "../types";
 import type { AnimationData } from "../store-types";
 import { type ScaleLinear } from "../scale-linear";
 import { useAnimationStore, TrackContext, useStaticZoomedSpring, useAltKeyPressed } from "../hooks";
@@ -33,6 +34,17 @@ function InnerRuler({
   const duration = useAnimationStore(
     useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );
+
+  // const viewport = useAnimationStore(useShallow((state: AnimationData) => state.player.viewport));
+
+  // const zoomScale = useMemo(
+  //   () =>
+  //     scaleLinear({
+  //       domain: side === "top" ? viewport : [0, 1],
+  //       range: [0, 1],
+  //     }),
+  //   [viewport, side],
+  // );
 
   const xScale = useMemo(
     () =>
@@ -70,8 +82,10 @@ function InnerRuler({
         bounds: activeRegionBounds,
         xScale,
         yScale,
+        // zoomScale,
         frameCount,
         color: "#737373",
+        trackRender: TrackRender.Dope,
       }}
     >
       <div className={clsx("h-6 relative")}>

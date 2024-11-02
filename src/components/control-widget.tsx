@@ -27,6 +27,7 @@ import { useShallow } from "zustand/react/shallow";
 import { type Keypoint, type Track, type Control } from "../types";
 import { useAnimationStore } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
+import { computeWorldStamp } from "../functions";
 import { TrackControl } from "./track-control";
 
 export interface ControlWidgetProps {
@@ -52,6 +53,10 @@ function InnerControlWidget({
     useShallow((state: AnimationData) => state.animatables[animatableId]),
   );
 
+  const instanceInfo = useAnimationStore(
+    useShallow((state: AnimationData) => state.animations[animationId].instances[namespace]),
+  );
+
   const rawValueId = getLookup(namespace, animatableId);
 
   const updateControlColor = useAnimationStore(
@@ -64,31 +69,17 @@ function InnerControlWidget({
     ),
   );
 
-  const track = useAnimationStore(
+  const track: Track<RawValue> | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {
-      return state.animations[animationId]?.tracks?.get(control?.writeId || "") || undefined;
+      return state.tracks[control?.writeId || ""] || undefined;
     }),
   );
 
-  const keyframe = useAnimationStore(
+  const keypoint = useAnimationStore(
     useShallow((state: AnimationData) => {
-      return state.selectedKeyframe
-        ? state.animations[animationId].frames.get(state.selectedKeyframe)
-        : undefined;
-    }),
-  );
-
-  const keypoint: Keypoint<RawValue> | undefined = useAnimationStore(
-    useShallow((state: AnimationData) => {
-      if (!track || !control || !keyframe) {
-        return undefined;
-      } else {
-        return Array.from(state.animations[animationId].points.values()).find(
-          (p: Keypoint<RawValue>) => {
-            return p.track === track.id && p.frame === keyframe.id;
-          },
-        ) as Keypoint<RawValue> | undefined;
-      }
+      return track?.points.find(
+        (p) => computeWorldStamp(p.stamp, instanceInfo) === state.player.stamp,
+      );
     }),
   );
 
@@ -215,13 +206,12 @@ interface EditorProps {
   namespace: string;
   prop?: string;
   playing: boolean;
-  track?: Track;
+  track?: Track<RawValue>;
   emphasis?: boolean;
   onEmphasisChange?: (v: boolean) => void;
 }
 
 function InnerEditor({
-  animationId,
   animatableValue,
   control,
   rawValueId,
@@ -264,7 +254,7 @@ function InnerEditor({
           setValue(animatableId, namespace, v);
         }}
         label={track ? track.name : animatableValue.name}
-        onLabelChange={track ? (v) => updateTrack(track.id, { name: v }, animationId) : undefined}
+        onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
         emphasis={emphasis}
         onEmphasisChange={onEmphasisChange}
       />
@@ -286,7 +276,7 @@ function InnerEditor({
         value={track ? track.name : animatableValue.name}
         readOnly={playing || !track}
         size={Size.Xs}
-        onChange={track ? (v) => updateTrack(track.id, { name: v }, animationId) : undefined}
+        onChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
       />
     );
   } else if (animatableValue.type === "euler" && !prop) {
@@ -295,7 +285,7 @@ function InnerEditor({
         value={track ? track.name : animatableValue.name}
         readOnly={playing || !track}
         size={Size.Xs}
-        onChange={track ? (v) => updateTrack(track.id, { name: v }, animationId) : undefined}
+        onChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
       />
     );
   } else if (animatableValue.type === "vector3" && (prop === "x" || prop === "y" || prop === "z")) {
@@ -407,7 +397,7 @@ const Editor = memo(InnerEditor);
 
 interface WrappedTrackControlProps {
   animationId: string;
-  track?: Track;
+  track?: Track<RawValue>;
   control?: Control;
   namespace: string;
   keypoint?: Keypoint<RawValue>;
@@ -437,7 +427,9 @@ function InnerWrappedTrackControl({
 
   return (
     <TrackControl
-      trackIds={(track?.points?.length || 0) > 0 && track?.id ? [track.id] : undefined}
+      animationId={animationId}
+      namespaceId={namespace}
+      trackIds={track ? [track.id] : []}
       filled={keypoint !== undefined}
       color={control?.settings?.color}
       onHexClick={() => {

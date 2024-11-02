@@ -1,3 +1,4 @@
+import { DEFAULT_ANIMATION_ID } from "../constants";
 import { AnimationData } from "../store-types";
 import { addAnimation } from "./add-animation";
 import { createDefaultAnimation } from "./create-default-animation";
@@ -12,7 +13,7 @@ export function removeAnimation(state: AnimationData, animationId: string) {
         state.activeAnimation = state.visualizedAnimations[0];
       } else if (Object.keys(state.animations).length > 0) {
         state.activeAnimation = Object.keys(state.animations)[0];
-      } else if (animationId !== "Unsaved Default Animation") {
+      } else if (animationId !== DEFAULT_ANIMATION_ID) {
         // console.log("Creating new default animation", Object.keys(state.animations));
         const newAnimation = createDefaultAnimation();
         addAnimation(state, newAnimation);

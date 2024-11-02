@@ -1,15 +1,15 @@
 import { AnimatableValue, RawValue } from "@semio/utils";
-import type { AnimationCache } from "../types";
+import type { Track } from "../types";
 
 /**
  * Creates a range from min to max .
  * Note, the timestamps are the raw, unadjusted (with respect to namespaces) timestamps.
- * @param trackCaches - The cached animation tracks
+ * @param tracks - A pre-filtered record of tracks
  * @param animatableValues - The animatable values
  * @returns - The min and max values
  */
 export function computeVerticalBounds(
-  trackCaches: AnimationCache,
+  tracks: Record<string, Track<RawValue>>,
   animatableValues: AnimatableValue[],
 ): [number, number] {
   let min = Number.POSITIVE_INFINITY;
@@ -25,8 +25,8 @@ export function computeVerticalBounds(
   });
 
   // Next, iterate over the track caches to find the min and max values.
-  Object.values(trackCaches).forEach((trackCache) => {
-    trackCache.forEach((point: { id: string; stamp: number; value: RawValue }) => {
+  Object.values(tracks).forEach((track) => {
+    track.points.forEach((point: { id: string; stamp: number; value: RawValue }) => {
       if (typeof point.value === "number") {
         if (point.value < min) min = point.value;
         if (point.value > max) max = point.value;

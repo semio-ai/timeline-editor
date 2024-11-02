@@ -2,17 +2,20 @@ import {
   CSSProperties,
   Fragment,
   MutableRefObject,
+  MouseEventHandler,
   type ReactNode,
   memo,
   useRef,
   useMemo,
+  useCallback,
 } from "react";
 import { clsx } from "clsx";
 import { IconAlertTriangle } from "@tabler/icons-react";
+import { useShallow } from "zustand/react/shallow";
 import { animated } from "@react-spring/web";
 import { closestFrame, useDeep } from "@semio/utils";
 import { TrackedTooltip, useTrackedTooltip } from "@semio/ui";
-import { uniq } from "lodash";
+import { uniq, clamp } from "lodash";
 import { TIMELINE_PADDING } from "../../constants";
 import {
   useAnimationStore,
@@ -23,7 +26,7 @@ import {
   useWithZoom,
 } from "../../hooks";
 import { ViolationSet, Violation, ViolationType, Control } from "../../types";
-import { AnimationData } from "../../store-types";
+import { AnimationData, AnimationActions } from "../../store-types";
 
 export interface ViolationDisplayProps {
   violationSet: ViolationSet;
@@ -49,8 +52,7 @@ function InnerViolationDisplay({
         if (control) {
           l[trackId] = {
             color: control.settings.color ?? "#737373",
-            name:
-              state.animations[state.activeAnimation].tracks.get(trackId)?.name ?? "Unknown Track",
+            name: state.tracks[trackId]?.name ?? "Unknown Track",
           };
         }
       });
@@ -101,6 +103,7 @@ function InnerViolationSegmentDisplay({
   );
   const { setHoverpoint, clearHoverpoint } = useHoverSpring(ignoreZoom);
   const withZoom = useWithZoom(ignoreZoom);
+  const resetPlayer = useAnimationStore(useShallow((state: AnimationActions) => state.resetPlayer));
 
   const { floatingStyles, elementRefs, context, updateHoverState } = useTrackedTooltip(
     rectRefOrig,
@@ -108,6 +111,25 @@ function InnerViolationSegmentDisplay({
     "top",
     "x",
     4,
+  );
+
+  const doubleClickHandler = useCallback(
+    (event: MouseEvent) => {
+      withZoom((zoomScale) => {
+        const newPosition = clamp(
+          zoomScale.invert(((event.clientX ?? 0) - bounds.left) / bounds.width),
+          0,
+          1,
+        );
+        if (event.altKey) {
+          resetPlayer(newPosition);
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          resetPlayer(closest);
+        }
+      });
+    },
+    [bounds, frameCount, resetPlayer, withZoom],
   );
 
   const [uniqueTracks, color] = useMemo(() => {
@@ -218,6 +240,7 @@ function InnerViolationSegmentDisplay({
       <animated.rect
         ref={elementRefs.triggerRef}
         x={left.to((ls) => xScale(ls))}
+        onDoubleClick={doubleClickHandler as any as MouseEventHandler}
         width={width.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
         y={0}
         fill={color}

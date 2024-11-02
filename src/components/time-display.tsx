@@ -1,50 +1,51 @@
 import { Size, TimeDisplay as TimeDisplayMethod, TimeInput, Variant } from "@semio/ui";
-import { type ReactNode, memo } from "react";
+import { type ReactNode, memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-// import { numberToDurationString } from "@semio/utils";
+import { pick } from "lodash";
 import { useAnimationStore } from "../hooks";
 import type { AnimationData, AnimationActions } from "../store-types";
 import { SemanticTime } from "../store-types";
+import { computeNextTime, computePreviousTime } from "../functions";
 
 export interface TimeDisplayProps {
+  animationId: string;
+  trackIds: string[];
+  namespaceIds: string[];
   semanticTime?: SemanticTime;
   displayMethod?: TimeDisplayMethod;
   valueOverride?: number;
 }
 
 export function InnerTimeDisplay({
+  animationId,
+  trackIds,
+  namespaceIds,
   semanticTime = SemanticTime.Current,
   displayMethod,
   valueOverride,
 }: TimeDisplayProps): ReactNode {
   const timeDisplay = useAnimationStore(useShallow((state) => displayMethod || state.timeDisplay));
-  const activeAnimation = useAnimationStore(useShallow((state) => state.activeAnimation));
-  const duration = useAnimationStore(
-    useShallow((state) => state.animations[state.activeAnimation].duration),
+
+  const duration = useAnimationStore(useShallow((state) => state.animations[animationId].duration));
+
+  const tracks = useAnimationStore(useShallow((state) => pick(state.tracks, trackIds)));
+  const namespaces = useAnimationStore(
+    useShallow((state) => pick(state.animations[animationId].instances, namespaceIds)),
   );
+
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
 
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
 
-  const prevKeyframeTime = useAnimationStore(
-    useShallow((state) => {
-      const prev = state.prevKeyframeTime(state);
-      if (prev !== undefined) {
-        return prev * duration;
-      } else return undefined;
-    }),
-  );
+  const stamp = useAnimationStore(useShallow((state) => state.player.stamp));
 
-  const nextKeyframeTime = useAnimationStore(
-    useShallow((state) => {
-      const next = state.nextKeyframeTime(state);
-      if (next !== undefined) {
-        return next * duration;
-      } else return undefined;
-    }),
-  );
+  const prevKeyframeTime = useMemo(() => {
+    return computePreviousTime(tracks, namespaces, stamp, bounds, true);
+  }, [stamp, bounds, tracks, namespaces]);
 
-  const currentTime = useAnimationStore(useShallow((state) => state.player.stamp * duration));
+  const nextKeyframeTime = useMemo(() => {
+    return computeNextTime(tracks, namespaces, stamp, bounds, true);
+  }, [stamp, bounds, tracks, namespaces]);
 
   const { resetPlayer, updateDuration, updatePlayerBounds } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
@@ -58,7 +59,7 @@ export function InnerTimeDisplay({
     <>
       {/* Current Time Display */}
       <TimeInput
-        value={currentTime}
+        value={stamp * duration}
         onChange={(v) => resetPlayer(v / duration)}
         label="Current Time"
         min={0}
@@ -133,7 +134,7 @@ export function InnerTimeDisplay({
       <TimeInput
         value={duration}
         onChange={(v) => {
-          updateDuration(v, activeAnimation);
+          updateDuration(v, animationId);
         }}
         label="Duration"
         min={0}

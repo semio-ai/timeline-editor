@@ -1,42 +1,59 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
+import { pick } from "lodash";
 import { IconPlayerPlay, IconButton, IconKey } from "@semio/ui";
-import { useAnimationStore } from "../hooks";
+import { useAnimationStore, useStoreSubscription } from "../hooks";
+import { computeNextTime, computePreviousTime } from "../functions";
 import { type AnimationData, type AnimationActions } from "../store-types";
 import { SemanticTime } from "../store-types";
+import { shallow } from "zustand/shallow";
 
 export interface TrackControlProps {
   color?: string;
   filled?: boolean;
   onHexClick?: () => void;
-  trackIds?: string[];
+  animationId: string;
+  namespaceId: string;
+  trackIds: string[];
 }
 
 export function TrackControl({
   color = "#737373",
   filled = false,
   onHexClick,
+  animationId,
+  namespaceId,
   trackIds,
 }: TrackControlProps) {
-  const filter = trackIds || [];
-  const [enabledBack, backFn] = useAnimationStore(
-    useShallow((state: AnimationData & AnimationActions) => [
-      trackIds ? state.prevKeyframeTime(state, filter) !== undefined : false,
-      state.skipToPrevKeyframe,
-    ]),
-  );
-  const [enabledForward, forwardFn] = useAnimationStore(
-    useShallow((state: AnimationData & AnimationActions) => [
-      trackIds ? state.nextKeyframeTime(state, filter) !== undefined : false,
-      state.skipToNextKeyframe,
-    ]),
+  const tracks = useAnimationStore(useShallow((state) => pick(state.tracks, trackIds)));
+  const namespaces = useAnimationStore(
+    useShallow((state) => pick(state.animations[animationId].instances, [namespaceId])),
   );
 
-  const [backTime, forwardTime] = useAnimationStore(
+  const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
+
+  const prevKeyframeTime = useRef<number | undefined>(undefined);
+  const nextKeyframeTime = useRef<number | undefined>(undefined);
+
+  useStoreSubscription(
+    (state) => state.player.stamp,
+    (stamp) => {
+      const prev = computePreviousTime(tracks, namespaces, stamp, bounds, true);
+      const next = computeNextTime(tracks, namespaces, stamp, bounds, true);
+      prevKeyframeTime.current = prev;
+      nextKeyframeTime.current = next;
+    },
+    shallow,
+  );
+
+  const enabledBack = prevKeyframeTime.current !== undefined;
+  const enabledForward = nextKeyframeTime.current !== undefined;
+
+  const [backFn, forwardFn] = useAnimationStore(
     useShallow((state: AnimationData & AnimationActions) => [
-      state.prevKeyframeTime(state, filter),
-      state.nextKeyframeTime(state, filter),
+      state.skipToPrevKeyframe,
+      state.skipToNextKeyframe,
     ]),
   );
 
@@ -63,10 +80,10 @@ export function TrackControl({
         size="fit"
         color={color}
         disabled={!enabledBack}
-        onClick={() => backFn(filter)}
+        onClick={() => backFn(animationId, [namespaceId], trackIds, true)}
         onMouseEnter={() => {
           addPreview({
-            stamp: backTime || 0,
+            stamp: prevKeyframeTime.current ?? 0,
             semanticTime: SemanticTime.Backward,
             label: "Previous Keyed Frame",
           });
@@ -96,10 +113,10 @@ export function TrackControl({
         size="fit"
         color={color}
         disabled={!enabledForward}
-        onClick={() => forwardFn(filter)}
+        onClick={() => forwardFn(animationId, [namespaceId], trackIds, true)}
         onMouseEnter={() => {
           addPreview({
-            stamp: forwardTime || 0,
+            stamp: nextKeyframeTime.current ?? 0,
             semanticTime: SemanticTime.Forward,
             label: "Next Keyed Frame",
           });

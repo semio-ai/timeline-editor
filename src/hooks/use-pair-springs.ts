@@ -6,14 +6,13 @@ import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 
-/*
-  @name usePairSprings
-  @description A hook used to access springs indicating the dimensions of the region between two "static" points in a timeline. Must be used within an AnimationProvider..
-  @param stamp1 The first timestamp.
-  @param stamp2 The second timestamp.
-  @param ignoreZoom A boolean that determines whether the zoom scale should be ignored.
-  @returns An object containing the left, right, and width springs.
-*/
+/**
+ * A hook used to access springs indicating the dimensions of the region between two "static" points in a timeline. Must be used within an AnimationProvider..
+ * @param stamp1 - The first timestamp.
+ * @param stamp2 - The second timestamp.
+ * @param ignoreZoom - A boolean that determines whether the zoom scale should be ignored.
+ * @returns An object containing the left, right, and width springs.
+ */
 export function usePairSprings(
   stamp1: number,
   stamp2: number,

@@ -7,13 +7,12 @@ import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 
-/*
-  @name useStaticZoomedSpring
-  @description A hook used to retrieve a spring representing a static value, scaled to the viewport.
-  @param completion The static value to be scaled to the viewport.
-  @param ignoreZoom If true, the value will not be scaled to the viewport.
-  @returns A spring representing the static value, scaled to the viewport if desired.
-*/
+/**
+ * A hook used to retrieve a spring representing a static value, scaled to the viewport.
+ * @param completion - The static value to be scaled to the viewport.
+ * @param ignoreZoom - If true, the value will not be scaled to the viewport.
+ * @returns A spring representing the static value, scaled to the viewport if desired.
+ */
 export function useStaticZoomedSpring(
   completion: number,
   ignoreZoom?: boolean,

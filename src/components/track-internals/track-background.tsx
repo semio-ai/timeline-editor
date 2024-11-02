@@ -7,12 +7,14 @@ import {
   useTrackContext,
   useStaticZoomedSpring,
   useBoundSprings,
+  useBezierPathSpring,
 } from "../../hooks";
 import { AnimationData } from "../../store-types";
 import { TIMELINE_PADDING } from "../../constants";
 import type { ScaleLinear } from "../../scale-linear";
 
 export interface TrackBackgroundProps {
+  animationId: string;
   trackIds?: string[];
   showLine?: boolean;
   showTicks?: boolean;
@@ -21,6 +23,7 @@ export interface TrackBackgroundProps {
 }
 
 function InnerTrackBackground({
+  animationId,
   trackIds,
   showLine = true,
   showTicks = true,
@@ -30,6 +33,7 @@ function InnerTrackBackground({
   const identifier: string = trackIds?.join("-") ?? `default-${tickHeight.toString()}`;
   const {
     xScale,
+    yScale,
     bounds: { width },
   } = useTrackContext();
 
@@ -39,7 +43,7 @@ function InnerTrackBackground({
     useShallow((state: AnimationData) => state.framerate as number),
   );
   const duration = useAnimationStore(
-    useShallow((state: AnimationData) => state.animations[state.activeAnimation]?.duration ?? 5000),
+    useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );
 
   const { leftSpring, widthSpring } = useBoundSprings(ignoreZoom);
@@ -57,15 +61,17 @@ function InnerTrackBackground({
     [frameCount, identifier, showTicks],
   );
 
+  const activePath = useBezierPathSpring(true, bounds[0], bounds[1], 0.5, 0.5, false, true);
+
   return (
     <>
       <defs>
         {/* Create a bounds mask that can be used elsewhere */}
-        <mask id="boundsMask" className="h-full" width={width}>
+        <mask id="boundsMask" className="h-full" width={width + TIMELINE_PADDING * 2}>
           <animated.rect
             key={`${identifier}-linebg`}
-            x={xScale(0)}
-            width={width}
+            x={0}
+            width={width + TIMELINE_PADDING * 2}
             y={0}
             className="fill-white/50 pointer-events-none h-full"
           />
@@ -77,28 +83,30 @@ function InnerTrackBackground({
           />
         </mask>
         {/* Create a mask for the timeline */}
-        <mask id={`mask-${identifier}`} className="h-full" width={width}>
+        <mask
+          id={`mask-${identifier}`}
+          className="h-full"
+          x={-10}
+          width={width + TIMELINE_PADDING * 2}
+        >
           {showLine && (
             <>
-              <animated.rect
+              <animated.path
                 key={`${identifier}-linebg`}
-                x={xScale(-10)}
-                width={width}
-                y={10.75}
-                height={7.5}
+                d={`M 0 ${yScale(0.5).toString()} L ${(width + TIMELINE_PADDING * 2).toString()} ${yScale(0.5).toString()}`}
+                strokeWidth={4}
                 className={clsx(
-                  "group-hover:fill-transparent group-aria-expanded:fill-transparent",
-                  "fill-white/25 transition-[fill] duration-75 ease-in-out pointer-events-none",
+                  "group-hover:stroke-transparent group-aria-expanded:stroke-transparent",
+                  "stroke-white/25 transition-[stroke] duration-75 ease-in-out pointer-events-none",
                 )}
               />
-              <animated.rect
-                x={leftSpring.to((ls) => xScale(ls))}
-                y={10.75}
-                width={widthSpring.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
-                height={7.5}
+              <animated.path
+                key={`${identifier}-line`}
+                d={activePath}
+                strokeWidth={4}
                 className={clsx(
-                  "group-hover:fill-transparent group-aria-expanded:fill-transparent",
-                  "fill-white transition-[fill] duration-75 ease-in-out pointer-events-none",
+                  "group-hover:stroke-transparent group-aria-expanded:stroke-transparent",
+                  "stroke-white/50 transition-[stroke] duration-75 ease-in-out pointer-events-none",
                 )}
               />
             </>
@@ -148,11 +156,32 @@ function InnerTrackBackground({
             strokeLinejoin="miter"
           />
         </pattern>
+        <pattern id="verticalStripePattern" patternUnits="userSpaceOnUse" width="10" height="10">
+          <rect x="0" y="0" width="10" height="10" className="fill-black" />
+          <line
+            x1="5"
+            y1="0"
+            x2="5"
+            y2="10"
+            className="stroke-white"
+            strokeWidth="4"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+          />
+        </pattern>
         <mask id="diagonalStripe" className="h-full" width={width}>
           <rect
-            x={xScale(0)}
-            width={Math.max(0, xScale(1))}
+            x={0}
+            width={width + TIMELINE_PADDING * 2}
             className="fill-[url(#diagonalStripePattern)]"
+            height="100%"
+          />
+        </mask>
+        <mask id="verticalStripe" className="h-full" width={width}>
+          <rect
+            x={0}
+            width={width + TIMELINE_PADDING * 2}
+            className="fill-[url(#verticalStripePattern)]"
             height="100%"
           />
         </mask>
@@ -160,8 +189,8 @@ function InnerTrackBackground({
 
       {trackIds?.length === 1 && (
         <rect
-          x={xScale(0)}
-          width={Math.max(0, xScale(1))}
+          x={0}
+          width={width + TIMELINE_PADDING * 2}
           mask="url(#boundsMask)"
           className={clsx(
             "h-[calc(100%-0.5px)]",
@@ -173,8 +202,7 @@ function InnerTrackBackground({
 
       <rect
         name="box1"
-        x={xScale(0)}
-        width={Math.max(0, xScale(1))}
+        width={width + TIMELINE_PADDING * 2}
         mask={`url(#mask-${identifier})`}
         className={clsx(
           "transition-[fill] duration-75",
@@ -187,8 +215,8 @@ function InnerTrackBackground({
 
       <rect
         name="box2"
-        x={xScale(0)}
-        width={Math.max(0, xScale(1) - xScale(0))}
+        x={0}
+        width={width + TIMELINE_PADDING * 2}
         mask={`url(#mask-${identifier})`}
         className={clsx(
           "transition-[fill] duration-75 fill-neutral-500",

@@ -4,7 +4,7 @@ import { type RawValue } from "@semio/utils";
  * AnimationInterpolator
  * A collection of Track Interpolators, indexed by id in a Map.
  */
-export type AnimationInterpolator = Map<string, TrackInterpolator>;
+export type AnimationInterpolator = Record<string, TrackInterpolator>;
 
 /**
  * TrackInterpolator

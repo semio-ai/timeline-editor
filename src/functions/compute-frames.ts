@@ -1,31 +1,29 @@
 import type { RawValue } from "@semio/utils";
-import { AnimationCache, InstancedFrameInfo } from "../types";
+import { Track, InstancedFrameInfo } from "../types";
 
-export function computeFrames(animationCache: AnimationCache): InstancedFrameInfo[] {
+export function computeFrames(tracks: Record<string, Track<RawValue>>): InstancedFrameInfo[] {
   const instancedFrameInfo: InstancedFrameInfo[] = [];
 
-  Object.entries(animationCache).forEach(
-    ([trackId, cachedTrackData]: [string, { id: string; stamp: number; value: RawValue }[]]) => {
-      const currentTimes = instancedFrameInfo.map((frame) => frame.stamp);
-      cachedTrackData.forEach((cachedFrame) => {
-        const matchingFrameIndex = currentTimes.indexOf(cachedFrame.stamp);
-        if (matchingFrameIndex >= 0) {
-          instancedFrameInfo[matchingFrameIndex].points.push({
-            id: cachedFrame.id,
-            value: cachedFrame.value,
-            trackId,
-          });
-          instancedFrameInfo[matchingFrameIndex].id = `${trackId}-${cachedFrame.id}`;
-        } else {
-          instancedFrameInfo.push({
-            id: `${trackId}-${cachedFrame.id}`,
-            stamp: cachedFrame.stamp,
-            points: [{ id: cachedFrame.id, value: cachedFrame.value, trackId }],
-          });
-        }
-      });
-    },
-  );
+  Object.entries(tracks).forEach(([trackId, trackData]: [string, Track<RawValue>]) => {
+    const currentTimes = instancedFrameInfo.map((frame) => frame.stamp);
+    trackData.points.forEach((point) => {
+      const matchingFrameIndex = currentTimes.indexOf(point.stamp);
+      if (matchingFrameIndex >= 0) {
+        instancedFrameInfo[matchingFrameIndex].points.push({
+          id: point.id,
+          value: point.value,
+          trackId,
+        });
+        instancedFrameInfo[matchingFrameIndex].id = `${trackId}-${point.id}`;
+      } else {
+        instancedFrameInfo.push({
+          id: `${trackId}-${point.id}`,
+          stamp: point.stamp,
+          points: [{ id: point.id, value: point.value, trackId }],
+        });
+      }
+    });
+  });
 
   return instancedFrameInfo;
 }

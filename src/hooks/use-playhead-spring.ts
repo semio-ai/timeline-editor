@@ -6,12 +6,11 @@ import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 
-/*
-  @name usePlayheadSpring
-  @description A hook used to retrieve a spring representing the current playhead time, scaled to the viewport.
-  @param ignoreZoom If true, the playhead will not be scaled to the viewport.
-  @returns A spring representing the current playhead time, scaled to the viewport if desired.
-*/
+/**
+ * A hook used to retrieve a spring representing the current playhead time, scaled to the viewport.
+ * @param ignoreZoom - If true, the playhead will not be scaled to the viewport.
+ * @returns A spring representing the current playhead time, scaled to the viewport if desired.
+ */
 export function usePlayheadSpring(ignoreZoom?: boolean): SpringValue<number> {
   const store = useContext(AnimationContext);
   if (!store) {

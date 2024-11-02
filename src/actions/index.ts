@@ -1,17 +1,11 @@
 export { addAnimation } from "./add-animation";
-export { createAutoKeyframe } from "./create-auto-keyframe";
 export { createDefaultAnimation } from "./create-default-animation";
 export { createDefaultState } from "./create-default-state";
-export { createKeyframe } from "./create-keyframe";
 export { createKeypoint } from "./create-keypoint";
 export { createTrack } from "./create-track";
-export { moveKeypoint } from "./move-keypoint";
 export { removeAnimation } from "./remove-animation";
-export { removeKeyframe } from "./remove-keyframe";
 export { removeKeypoint } from "./remove-keypoint";
 export { removeTrack } from "./remove-track";
 export { setValue, updateControlColor, createDefaultGraph } from "./temp-duplicate-functions";
-export { updateAnimationKeypoint } from "./update-animation-keypoint";
-export { updateKeyframeStamp } from "./update-keyframe-stamp";
-export { updateKeypointValue } from "./update-keypoint-value";
+export { updateKeypoint } from "./update-keypoint";
 export { updateTrack } from "./update-track";

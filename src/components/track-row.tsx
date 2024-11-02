@@ -2,6 +2,7 @@ import { CSSProperties, type ReactNode, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ParentSize } from "@visx/responsive";
 import type { AnimationData } from "../store-types";
+import { TrackRender } from "../types";
 import { useAnimationStore } from "../hooks";
 import { ControlWidget } from "./control-widget";
 import { Track } from "./track";
@@ -10,10 +11,12 @@ export function TrackRow({
   trackIds,
   animationId,
   namespaceId,
+  trackRender,
 }: {
   trackIds?: string[];
   animationId: string;
   namespaceId: string;
+  trackRender: TrackRender;
 }): ReactNode {
   const [expanded, setExpanded] = useState(false);
   const [emphasis, setEmphasis] = useState(false);
@@ -69,6 +72,7 @@ export function TrackRow({
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
+                    trackRender={trackRender}
                   />
                   <Track
                     animationId={animationId}
@@ -80,6 +84,7 @@ export function TrackRow({
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
+                    trackRender={trackRender}
                   />
                   <Track
                     animationId={animationId}
@@ -91,6 +96,7 @@ export function TrackRow({
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
+                    trackRender={trackRender}
                   />
                   <Track
                     animationId={animationId}
@@ -102,6 +108,7 @@ export function TrackRow({
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
+                    trackRender={trackRender}
                   />
                 </div>
               );
@@ -117,6 +124,7 @@ export function TrackRow({
                   canZoom
                   emphasis={emphasis}
                   onEmphasisChange={setEmphasis}
+                  trackRender={trackRender}
                 />
               );
             }

@@ -11,9 +11,10 @@ export const createDefaultState = (): AnimationData => {
 
   return {
     values: new Map(),
-    trackInterpolators: new Map(),
+    trackInterpolators: {},
     activeAnimation: defaultAnimation.id,
     animations: { [defaultAnimation.id]: defaultAnimation },
+    tracks: {},
     visualizedAnimations: [defaultAnimation.id],
     player: newPlayer(),
     duration: defaultAnimation.duration,
@@ -30,7 +31,6 @@ export const createDefaultState = (): AnimationData => {
     },
     trackSubscribers: [],
     animationSubscribers: [],
-    animationCache: {},
     violations: {},
 
     // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO

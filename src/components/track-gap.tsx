@@ -5,6 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { TrackContext, useAnimationStore } from "../hooks";
 import { TIMELINE_PADDING } from "../constants";
 import { type AnimationData } from "../store-types";
+import { TrackRender } from "../types";
 import {
   TrackBackground,
   GestureDetector,
@@ -13,15 +14,15 @@ import {
   Playhead,
 } from "./track-internals";
 
-export function InnerTrackGap({ count, animationId }: { count: number; animationId: string }) {
-  const height = 30 * count;
-
+export function InnerTrackGap({ animationId, height }: { height: number; animationId: string }) {
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
   const duration = useAnimationStore(
     useShallow((state: AnimationData) => state.animations[state.activeAnimation]?.duration ?? 5000),
   );
+
+  // const viewport = useAnimationStore(useShallow((state: AnimationData) => state.player.viewport));
 
   const frameCount = Math.floor(framerate * (duration / 1000));
 
@@ -38,6 +39,15 @@ export function InnerTrackGap({ count, animationId }: { count: number; animation
   );
 
   const yScale = useMemo(() => scaleLinear({ domain: [0, 1], range: [0, height] }), [height]);
+
+  // const zoomScale = useMemo(
+  //   () =>
+  //     scaleLinear({
+  //       domain: viewport,
+  //       range: [0, 1],
+  //     }),
+  //   [viewport],
+  // );
 
   return (
     <div className="w-full flex flex-row items-center" style={{ height }}>
@@ -59,8 +69,10 @@ export function InnerTrackGap({ count, animationId }: { count: number; animation
             bounds: activeRegionBounds,
             xScale,
             yScale,
+            // zoomScale,
             frameCount,
             color: "#737373",
+            trackRender: TrackRender.Dope,
           }}
         >
           <svg
@@ -75,7 +87,7 @@ export function InnerTrackGap({ count, animationId }: { count: number; animation
               height={height}
             />
 
-            <TrackBackground tickHeight={height} />
+            <TrackBackground tickHeight={height} animationId={animationId} />
 
             {/* Gesture Detector */}
             <GestureDetector height={height} />

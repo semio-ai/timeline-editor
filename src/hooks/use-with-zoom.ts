@@ -1,9 +1,9 @@
-import { useContext, useEffect, useRef, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import { scaleLinear } from "@visx/scale";
-import type { AnimationData, AnimationActions } from "../store-types";
-// import { SemanticTime } from "../store-types";
-import { AnimationContext } from "../context";
+import { shallow } from "zustand/shallow";
+import type { AnimationData } from "../store-types";
 import { type ScaleLinear } from "../scale-linear";
+import { useStoreSubscription } from "./use-store-subscription";
 
 /*
   @name useWithZoom
@@ -14,31 +14,24 @@ import { type ScaleLinear } from "../scale-linear";
 export function useWithZoom(
   ignoreZoom?: boolean,
 ): (withZoomFn: (zoomScale: ScaleLinear) => void) => void {
-  const store = useContext(AnimationContext);
-
-  if (!store) {
-    throw new Error("useWithZoom must be used within an AnimationProvider");
-  }
-
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
-      domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
+      domain: [0, 1],
       range: [0, 1],
     }),
   );
 
-  useEffect(() => {
-    const unsubscribe = store.subscribe(
-      (state: AnimationData & AnimationActions) => state.player.viewport,
-      (viewport) => {
-        zoomScale.current = scaleLinear({
-          domain: ignoreZoom ? [0, 1] : viewport,
-          range: [0, 1],
-        });
-      },
-    );
-    return unsubscribe;
-  }, [ignoreZoom, store]);
+  const callback = useCallback(
+    (viewport: [number, number]) => {
+      zoomScale.current = scaleLinear({
+        domain: ignoreZoom ? [0, 1] : viewport,
+        range: [0, 1],
+      });
+    },
+    [ignoreZoom],
+  );
+
+  useStoreSubscription((state: AnimationData) => state.player.viewport, callback, shallow);
 
   const withZoom = useCallback(
     (withZoomFn: (zoomScale: ScaleLinear) => void) => {

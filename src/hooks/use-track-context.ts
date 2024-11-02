@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import { type RectReadOnly } from "react-use-measure";
 import { ScaleLinear, defaultScaleLinear } from "../scale-linear";
-import type { InstanceInfo } from "../types";
+import { type InstanceInfo, TrackRender } from "../types";
 
 /**
  * The context data for a track.
@@ -22,8 +22,10 @@ export interface TrackContextData {
   bounds: RectReadOnly;
   xScale: ScaleLinear;
   yScale: ScaleLinear;
+  // zoomScale: ScaleLinear;
   frameCount: number;
   color: string;
+  trackRender: TrackRender;
 }
 
 export const TrackContext = createContext<TrackContextData>({
@@ -46,8 +48,10 @@ export const TrackContext = createContext<TrackContextData>({
   },
   xScale: defaultScaleLinear,
   yScale: defaultScaleLinear,
+  // zoomScale: defaultScaleLinear,
   frameCount: 1,
   color: "#737373",
+  trackRender: TrackRender.Dope,
 });
 
 export const useTrackContext = () => {

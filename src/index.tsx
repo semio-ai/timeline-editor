@@ -15,11 +15,16 @@ export * from "./types";
 
 export {
   createKeypoint,
+  updateKeypoint,
   createTrack,
   removeAnimation,
-  updateAnimationKeypoint,
   createDefaultState,
   addAnimation,
 } from "./actions";
 
-export { computeWorldStamp, computeLocalStamp } from "./functions";
+export {
+  computeWorldStamp,
+  computeLocalStamp,
+  computeStoredAnimation,
+  migrateAnimation,
+} from "./functions";

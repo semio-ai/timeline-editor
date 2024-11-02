@@ -1,5 +1,4 @@
-export type { Animation } from "./data/animation";
-export type { AnimationCache } from "./data/animation-cache";
+export type { Animation, StoredAnimation } from "./data/animation";
 export type { InstanceInfo } from "./data/instance-info";
 export type { InstancedFrameInfo } from "./data/instanced-frame-info";
 export type { AnimationInterpolator, TrackInterpolator } from "./data/interpolator";

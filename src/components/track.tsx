@@ -6,11 +6,12 @@ import { useHover } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { pick } from "lodash";
+import { RawValue } from "@semio/utils";
 import { TIMELINE_PADDING } from "../constants";
 import { TrackContext, useAnimationStore } from "../hooks";
 import { AnimationData } from "../store-types";
 import { computeVerticalBounds } from "../functions";
-import { AnimationCache, InstanceInfo, Control } from "../types";
+import { Track as TrackData, InstanceInfo, Control, TrackRender } from "../types";
 import {
   Playhead,
   HoverMarker,
@@ -27,6 +28,7 @@ export interface TrackProps {
   namespaceId: string;
   trackIds?: string[];
   canZoom?: boolean;
+  trackRender: TrackRender;
   showBackground?: boolean;
   showData?: boolean;
   showZoomControls?: boolean;
@@ -43,6 +45,7 @@ export interface TrackProps {
  * @param namespaceId - The namespace of the animation.
  * @param trackIds - The IDs of the tracks to display.
  * @param canZoom - Whether the track can be zoomed.
+ * @param trackRender - The render type for the track (degrades to Dope if multiple tracks are present).
  * @param showBackground - Whether to show the background.
  * @param showData - Whether to show the data.
  * @param showZoomControls - Whether to show the zoom controls.
@@ -55,6 +58,7 @@ export function Track({
   animationId,
   namespaceId,
   trackIds,
+  trackRender,
   canZoom = true,
   showData = true,
   showBackground = true,
@@ -76,19 +80,20 @@ export function Track({
 
   const trackKeys = useAnimationStore(
     useShallow((state: AnimationData) =>
-      (trackIds ?? []).length > 0
-        ? (trackIds ?? [])
-        : Array.from(state.animations[animationId]?.tracks.keys()),
+      (trackIds ?? []).length > 0 ? (trackIds ?? []) : state.animations[animationId]?.tracks,
     ),
   );
 
+  // const viewport = useAnimationStore(useShallow((state: AnimationData) => state.player.viewport));
+
   const verticalBounds: [number, number] = useAnimationStore(
     useShallow((state: AnimationData) => {
-      const tracksCache = pick(state.animationCache, trackKeys) as AnimationCache;
+      if (trackKeys.length !== 1 || trackRender === TrackRender.Dope) return [0, 1];
+      const tracks = pick(state.tracks, trackKeys) as Record<string, TrackData<RawValue>>;
       const animatableValues = Object.values(state.controls)
         .filter((control: Control) => trackKeys.includes(control.writeId))
         .map((control: Control) => state.animatables[control.readId]);
-      return computeVerticalBounds(tracksCache, animatableValues);
+      return computeVerticalBounds(tracks, animatableValues);
     }),
   );
 
@@ -106,9 +111,18 @@ export function Track({
   );
 
   const yScale = useMemo(
-    () => scaleLinear({ domain: verticalBounds, range: [0, 30] }),
+    () => scaleLinear({ domain: verticalBounds, range: [28, 2] }),
     [verticalBounds],
   );
+
+  // const zoomScale = useMemo(
+  //   () =>
+  //     scaleLinear({
+  //       domain: canZoom ? viewport : [0, 1],
+  //       range: [0, 1],
+  //     }),
+  //   [viewport, canZoom],
+  // );
 
   const bind = useHover(({ hovering: h }) => {
     const hovering = h ?? false;
@@ -127,8 +141,10 @@ export function Track({
         bounds: activeRegionBounds,
         xScale,
         yScale,
+        // zoomScale,
         frameCount,
         color,
+        trackRender,
       }}
     >
       <div
@@ -147,6 +163,7 @@ export function Track({
             className="h-[30px]"
           />
           <TrackBackground
+            animationId={animationId}
             showLine={canZoom && showBackground}
             ignoreZoom={!canZoom}
             tickHeight={30}

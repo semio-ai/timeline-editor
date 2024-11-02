@@ -1,30 +1,24 @@
 import { useContext, useEffect, useRef, useCallback } from "react";
 import type { AnimationData, AnimationActions } from "../store-types";
 import { AnimationContext } from "../context";
+import { useStoreSubscription } from "./use-store-subscription";
+import { shallow } from "zustand/shallow";
 
-/*
-  @name useWithBounds
-  @description A hook used to retrieve a function that provides the current bounds to a provided function.
-  @returns A function that provides the current bounds to a function argument.
-*/
+/**
+ * A hook used to retrieve a function that provides the current bounds to a provided function.
+ * @returns A function that provides the current bounds to a function argument.
+ */
 export function useWithBounds(): (withBoundsFn: (bounds: [number, number]) => void) => void {
-  const store = useContext(AnimationContext);
+  const bounds = useRef<[number, number]>([0, 1]);
 
-  if (!store) {
-    throw new Error("useWithBounds must be used within an AnimationProvider");
-  }
+  const callback = useCallback(
+    (currentBounds: [number, number]) => {
+      bounds.current = currentBounds;
+    },
+    [bounds],
+  );
 
-  const bounds = useRef<[number, number]>(store.getState().player.bounds);
-
-  useEffect(() => {
-    const unsubscribe = store.subscribe(
-      (state: AnimationData & AnimationActions) => state.player.bounds,
-      (currentBounds) => {
-        bounds.current = currentBounds;
-      },
-    );
-    return unsubscribe;
-  }, [store]);
+  useStoreSubscription((state: AnimationData) => state.player.bounds, callback, shallow);
 
   const withBounds = useCallback(
     (withBoundsFn: (bounds: [number, number]) => void) => {

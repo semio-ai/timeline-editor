@@ -1,14 +1,9 @@
+import { RawValue } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import type { Track } from "../types";
 
-export function updateTrack(
-  state: AnimationData,
-  animationId: string,
-  trackId: string,
-  data: Omit<Track, "id" | "points">,
-) {
-  const track = state.animations[animationId].tracks.get(trackId);
-  if (track) {
-    state.animations[animationId].tracks.set(trackId, { ...track, ...data });
+export function updateTrack(state: AnimationData, track: Partial<Track<RawValue>>) {
+  if (track.id) {
+    state.tracks = { ...state.tracks, [track.id]: { ...state.tracks[track.id], ...track } };
   }
 }

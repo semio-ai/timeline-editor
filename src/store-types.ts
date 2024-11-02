@@ -5,11 +5,11 @@ import {
   Track,
   Animation,
   AnimationInterpolator,
-  AnimationCache,
   Violation,
   Graph,
   ProcessNode,
   Control,
+  StoredAnimation,
 } from "./types";
 
 export interface AnimationData {
@@ -21,6 +21,8 @@ export interface AnimationData {
   activeAnimation: string;
   // All animations loaded in the project
   animations: Record<string, Animation>;
+  // All tracks loaded in the project
+  tracks: Record<string, Track<RawValue>>;
   // A timer for tracking time.
   player: Player;
   // Selected Keyframe, if any
@@ -53,8 +55,6 @@ export interface AnimationData {
   */
   trackSubscribers: (() => void)[];
   animationSubscribers: (() => void)[];
-  // A cached, simplified version of the animation data for use in computing the interpolators
-  animationCache: AnimationCache;
   // A set of violations that have been detected in the animation, indexed by track id
   violations: Record<string, Violation[]>;
 
@@ -71,47 +71,32 @@ export interface AnimationActions {
   // Update all values in the store
   updateValues: (values: Map<string, RawValue | undefined>) => void;
   // Add a new keyframe to the animation
-  createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string, fillPoints?: boolean) => void;
   createNewDefaultAnimation: () => void;
-  // Add a new keyframe to the animation at the current time;
-  createAutoKeyframe: () => void;
-  // Remove a keyframe from the animation
-  removeKeyframe: (keyframeId: string, animationId?: string) => void;
   // Update the animation data
   addAnimation: (animation: unknown) => void;
   removeAnimation: (animationId: string) => void;
   // Update a keypoint by track and keyframe/time in the animation
-  updateAnimationKeypoint: (
-    keyframeOrTime: string | number,
-    trackId: string,
-    value: RawValue,
-    animationId?: string,
+  updateKeypoint: (trackId: string, keypoint: Partial<Keypoint<RawValue>>) => void;
+  // Remove multiple keypoints at once
+  updateKeypoints: (
+    keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[],
   ) => void;
-  // Update a keyframe time in the animation
-  updateKeyframeStamp: (keyframeId: string, stamp: number, animationId?: string) => void;
-  // Add a new keypoint to a keyframe/track
-  createKeypoint: (
-    trackId: string,
-    point: Partial<Keypoint<RawValue>>,
-    animationId?: string,
+  // Add a new keypoint to a track
+  createKeypoint: (trackId: string, keypoint: Partial<Keypoint<RawValue>>) => void;
+  // Create multiple keypoints at once
+  createKeypoints: (
+    keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[],
   ) => void;
-  // Set a keypoint value
-  updateKeypointValue: (keypointId: string, value: RawValue, animationId?: string) => void;
   // Update a track's data (other than id and points)
-  updateTrack: (trackId: string, data: Omit<Track, "id" | "points">, animationId?: string) => void;
+  updateTrack: (track: Partial<Track<RawValue>>) => void;
   // Remove a keypoint from the animation
-  removeKeypoint: (keypointId: string, animationId?: string) => void;
+  removeKeypoint: (trackId: string, keypointId: string) => void;
+  // Remove multiple keypoints at once
+  removeKeypoints: (keypoints: { trackId: string; keypointId: string }[]) => void;
   // Add a track to the animation
-  createTrack: (track: Partial<Track>, animationId?: string) => void;
+  createTrack: (track: Partial<Track<RawValue>>, animationId?: string) => void;
   // Remove a track from the animation
   removeTrack: (trackId: string, animationId?: string) => void;
-  // Move a waypoint to a new keyframe or track;
-  moveKeypoint: (
-    keypointId: string,
-    keyframeOrTime: string | number,
-    trackId: string,
-    animationId?: string,
-  ) => void;
   // Set the timescale of the animation playback
   updateTimescale: (speed: number) => void;
   // Set the time of the animation
@@ -132,14 +117,20 @@ export interface AnimationActions {
   updatePlayerViewportCenter: (time?: number) => void;
   // Update one bound of the player viewport
   updatePlayerViewportBound: (bound: "start" | "end", time: number) => void;
-  // The current next keyframe time (optionally filter by track)
-  nextKeyframeTime: (state: AnimationData, trackIds?: string[]) => number | undefined;
-  // The current previous keyframe time (optionally filter by track)
-  prevKeyframeTime: (state: AnimationData, trackIds?: string[]) => number | undefined;
   // Skip to the next keyframe (optionally filter by track)
-  skipToNextKeyframe: (trackIds?: string[]) => void;
+  skipToNextKeyframe: (
+    animationId: string,
+    namespaceIds: string[],
+    trackIds: string[],
+    respectBounds?: boolean,
+  ) => void;
   // Skip to the previous keyframe (optionally filter by track)
-  skipToPrevKeyframe: (trackIds?: string[]) => void;
+  skipToPrevKeyframe: (
+    animationId: string,
+    namespaceIds: string[],
+    trackIds: string[],
+    respectBounds?: boolean,
+  ) => void;
   // Skip to the start of the current bounds
   skipToStart: () => void;
   // Skip to the end of the current bounds
@@ -168,9 +159,14 @@ export interface AnimationActions {
   removePreview: (evaluator: (preview: Preview) => boolean) => void;
   // Update a preview in the animation
   updatePreview: (evaluator: (preview: Preview) => boolean, preview: Partial<Preview>) => void;
+  // Getter for the stored animation
+  getStorableAnimation: (animationId: string) => StoredAnimation;
+  // Getter for all stored animations
+  getAnimationsToSave: () => StoredAnimation[];
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
-  setValue: (animatedId: string, namespace: string, value: RawValue) => void;
+  setValue: (animatableId: string, namespace: string, value: RawValue) => void;
+  setValues: (updates: { animatableId: string; namespace: string; value: RawValue }[]) => void;
   updateControlColor: (controlId: string, color: string) => void;
   setPreferences: (preferences: Partial<AnimationData["preferences"]>) => void;
 }

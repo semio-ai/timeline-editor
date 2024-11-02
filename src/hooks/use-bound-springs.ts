@@ -6,12 +6,11 @@ import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 
-/*
-  @name useBoundSprings
-  @description A hook used to retrieve spring values representing the dimensions of the playback region.
-  @param ignoreZoom A boolean that determines whether the zoom scale should be ignored.
-  @returns An object containing the left, right, and width springs.
-*/
+/**
+ * A hook used to retrieve spring values representing the dimensions of the playback region.
+ * @param ignoreZoom - A boolean that determines whether the zoom scale should be ignored.
+ * @returns An object containing the left, right, and width springs.
+ */
 export function useBoundSprings(ignoreZoom?: boolean): {
   leftSpring: SpringValue<number>;
   rightSpring: SpringValue<number>;

@@ -4,11 +4,10 @@ import type { AnimationData } from "../store-types";
 import { springConfig } from "../spring-config";
 import { AnimationContext } from "../context";
 
-/*
-  @name useZoomSprings
-  @description A hook used to retrieve springs representing the left and right bounds of the viewport.
-  @returns An object containing the left and right springs.
-*/
+/**
+ * A hook used to retrieve springs representing the left and right bounds of the viewport.
+ * @returns An object containing the left and right springs.
+ */
 export function useZoomSprings(): {
   leftSpring: SpringValue<number>;
   rightSpring: SpringValue<number>;

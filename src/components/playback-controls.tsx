@@ -1,104 +1,154 @@
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { IconButton, IconPlayerPlay2, Select, Size, Variant } from "@semio/ui";
+import { getLookup, RawValue } from "@semio/utils";
 import { IconPlayerPauseFilled, IconWorld } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
-import { useAnimationStore } from "../hooks";
+import { pick } from "lodash";
+import { useAnimationStore, useStoreSubscription } from "../hooks";
+import { computeLocalStamp, computeStamps } from "../functions";
+import { AnimationInterpolator, Track } from "../types";
 import { AnimationActions, AnimationData, SemanticTime } from "../store-types";
 import { TimeDisplay } from "./time-display";
 import { SkipButton } from "./skip-button";
 import { TrackControl } from "./track-control";
+import { shallow } from "zustand/shallow";
 
 export function PlaybackControls({
   animationId,
-  track,
-  onChangeTrack,
+  allTracks,
+  selection,
+  onChangeSelection,
+  namespaceId,
 }: {
   animationId: string;
-  track: string;
-  onChangeTrack: (track: string) => void;
+  allTracks: string[];
+  selection: string[];
+  onChangeSelection: (tracks: string[]) => void;
+  namespaceId: string;
 }): ReactNode {
   const previews = useAnimationStore(useShallow((state: AnimationData) => state.previews));
   const nonHoverPreviews = previews.filter((p) => p.semanticTime !== SemanticTime.Hover);
+  const instanceInfo = useAnimationStore(
+    useShallow((state) => state.animations[animationId].instances[namespaceId]),
+  );
 
-  const { playPlayer, pausePlayer, running } = useAnimationStore(
+  const { playPlayer, pausePlayer, setValues, removeKeypoints, running } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
       playPlayer: state.playPlayer,
       pausePlayer: state.pausePlayer,
+      setValues: state.setValues,
+      removeKeypoints: state.removeKeypoints,
       running: state.player.running,
     })),
   );
 
-  const selectedFrame = useAnimationStore(
-    useShallow((state: AnimationData) => state.selectedKeyframe),
-  );
+  const trackData = useAnimationStore(
+    useShallow((state) => pick(state.tracks, selection)),
+  ) as Record<string, Track<RawValue>>;
 
-  const pointId: string | undefined = useAnimationStore(
-    useShallow((state) => {
-      if (state.selectedKeyframe) {
-        const frame = state.animations[animationId].frames.get(state.selectedKeyframe);
-        if (frame && track !== "all") {
-          return frame.points.find(
-            (p) => state.animations[animationId].points.get(p)?.track === track,
-          );
-        } else {
-          return undefined;
-        }
-      } else {
-        return undefined;
-      }
-    }),
-  );
-
-  const tracks: { label: string; value: string }[] = useAnimationStore(
-    useShallow((state: AnimationData) =>
-      Array.from(state.animations[animationId].tracks.keys()).map((id) => ({
-        label: state.animations[animationId].tracks.get(id)?.name || "Unknown Track",
-        value: id,
-      })),
+  const interpolators = useAnimationStore(
+    useShallow(
+      (state) =>
+        pick(
+          state.trackInterpolators,
+          selection.map((s) => getLookup(namespaceId, s)), //f2e2e33d-7c3c-4540-9bf0-e6fda5d41d49
+        ) as AnimationInterpolator,
     ),
   );
 
-  useEffect(() => {
-    onChangeTrack("all");
-  }, [animationId, onChangeTrack]);
+  const tracks: { label: string; value: string; animatableId?: string; color: string }[] =
+    useAnimationStore(
+      useShallow((state: AnimationData) =>
+        allTracks.map((id) => {
+          const control = Object.values(state.controls).find((c) => c.writeId === id);
 
-  const [removeKeypoint, removeKeyframe, createKeypoint, createKeyframe] = useAnimationStore(
-    useShallow((state: AnimationActions) => [
-      state.removeKeypoint,
-      state.removeKeyframe,
-      state.createKeypoint,
-      state.createKeyframe,
-    ]),
+          return {
+            label: state.tracks[id]?.name || "Unknown Track",
+            value: id,
+            animatableId: control?.readId,
+            color: control?.settings?.color || "#737373",
+          };
+        }),
+      ),
+    );
+
+  const stamps = useMemo(() => {
+    return computeStamps(trackData, { [namespaceId]: instanceInfo });
+  }, [trackData, instanceInfo, namespaceId]);
+
+  // Use references to avoid rerendering
+  const stamp = useRef<number>(0);
+  const localStamp = useRef<number>(computeLocalStamp(0, instanceInfo));
+  const filled = useRef<boolean>(false);
+
+  // This updates the references when the player's timestamp changes
+  useStoreSubscription(
+    (state) => state.player.stamp,
+    (current) => {
+      stamp.current = current;
+      filled.current = stamps.some((s) => s === current);
+      localStamp.current = computeLocalStamp(current, instanceInfo);
+    },
+    shallow,
   );
 
-  let filled = false;
-  if (pointId) {
-    filled = true;
-  } else if (track === "all" && selectedFrame) {
-    filled = true;
-  }
+  useEffect(() => {
+    onChangeSelection(allTracks);
+  }, [animationId, allTracks, onChangeSelection]);
 
   return (
     <div className="h-[60px] dark:bg-neutral-800 bg-neutral-200">
       <div className="flex flex-1 flex-row items-center h-[30px] ">
         <TrackControl
-          trackIds={track === "all" ? [] : [track]}
-          filled={filled}
+          animationId={animationId}
+          namespaceId={namespaceId}
+          trackIds={selection}
+          filled={filled.current}
           color="#737373"
           onHexClick={() => {
-            if (pointId) {
-              console.log("remove keypoint");
-              removeKeypoint(pointId, animationId);
-            } else if (selectedFrame && track === "all") {
-              console.log("remove keyframe");
-              removeKeyframe(selectedFrame, animationId);
-            } else if (track !== "all") {
-              console.log("create keypoint");
-              createKeypoint(track, { track }, animationId);
+            if (filled.current) {
+              const removals = selection
+                .map((trackId) => {
+                  const matchingKeypoint = trackData[trackId].points.find(
+                    (point) => point.stamp === localStamp.current,
+                  );
+                  return { trackId, keypointId: matchingKeypoint?.id };
+                })
+                .filter((r) => r.keypointId !== undefined) as {
+                trackId: string;
+                keypointId: string;
+              }[];
+              removeKeypoints(removals);
             } else {
-              console.log("create keyframe");
-              createKeyframe({}, animationId, true);
+              const updates = selection
+                .map((trackId) => {
+                  const value = interpolators[trackId]?.(stamp.current);
+                  const animatableId = tracks.find((t) => t.value === trackId)?.animatableId;
+                  return {
+                    trackId,
+                    value,
+                    stamp: localStamp.current,
+                    animatableId,
+                    namespace: namespaceId,
+                  };
+                })
+                .filter((u) => u.value !== undefined && u.animatableId !== undefined) as {
+                trackId: string;
+                value: RawValue;
+                stamp: number;
+                animatableId: string;
+                namespace: string;
+              }[];
+
+              setValues(updates);
+              // selection.forEach((trackId) => {
+              //   const value = interpolators.get(trackId)?.(stamp.current);
+              //   const animatableId = tracks.find((t) => t.value === trackId)?.animatableId;
+              //   if (value !== undefined && animatableId) {
+              //     setValue(animatableId, namespaceId, value);
+              //   }
+              // });
             }
           }}
         />
@@ -111,19 +161,29 @@ export function PlaybackControls({
                 value: "all",
                 label: "All Tracks",
                 icon: <IconWorld size="13px" />,
+                color: "#737373",
               },
               ...tracks,
             ]}
-            value={track}
+            value={selection === allTracks ? "all" : allTracks[0]}
             onChange={(value: string) => {
-              onChangeTrack(value);
+              if (value === "all") {
+                onChangeSelection(allTracks);
+              } else {
+                onChangeSelection([value]);
+              }
             }}
           />
         </div>
       </div>
       <div className="flex flex-1 flex-row h-[30px] items-center">
         <div className="h-[30px] flex flex-row gap-0 px-0 py-1 items-center justify-center w-[44px]">
-          <SkipButton semanticTime={SemanticTime.BoundsStart} />
+          <SkipButton
+            semanticTime={SemanticTime.BoundsStart}
+            animationId={animationId}
+            namespaceIds={[namespaceId]}
+            trackIds={selection}
+          />
           <IconButton
             size="fit"
             onClick={() => {
@@ -137,10 +197,18 @@ export function PlaybackControls({
           >
             {running ? <IconPlayerPauseFilled size="16px" /> : <IconPlayerPlay2 size="16px" />}
           </IconButton>
-          <SkipButton semanticTime={SemanticTime.BoundsEnd} />
+          <SkipButton
+            semanticTime={SemanticTime.BoundsEnd}
+            animationId={animationId}
+            namespaceIds={[namespaceId]}
+            trackIds={selection}
+          />
         </div>
         <div className="flex flex-1 flex-row items-center px-1">
           <TimeDisplay
+            animationId={animationId}
+            trackIds={selection}
+            namespaceIds={[namespaceId]}
             valueOverride={
               nonHoverPreviews.length === 1 &&
               [SemanticTime.Backward, SemanticTime.Forward].includes(

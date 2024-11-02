@@ -17,15 +17,15 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { shallow } from "zustand/shallow";
 import { produce, enableMapSet } from "immer";
 import { create, type StoreApi } from "zustand";
-import { isEqual } from "lodash";
+import { isEqual, pick } from "lodash";
 import {
-  Keyframe,
   Keypoint,
   Track,
   InstanceInfo,
   TrackInterpolator,
   Animation,
   Violation,
+  StoredAnimation,
 } from "./types";
 import {
   AnimationData,
@@ -35,18 +35,12 @@ import {
   Preview,
 } from "./store-types";
 import {
-  createKeyframe,
-  createAutoKeyframe,
-  removeKeyframe,
-  updateKeyframeStamp,
   createKeypoint,
-  updateKeypointValue,
+  updateKeypoint,
   removeKeypoint,
   createTrack,
   removeTrack,
-  moveKeypoint,
   createDefaultState,
-  updateAnimationKeypoint,
   updateTrack,
   addAnimation,
   removeAnimation,
@@ -57,10 +51,10 @@ import {
 import {
   computeTrackViolations,
   computeTrackInterpolator,
-  computeStamps,
-  computeAnimationCache,
+  computeNextTime,
+  computePreviousTime,
+  computeStoredAnimation,
 } from "./functions";
-// import equal from "fast-deep-equal";
 
 enableMapSet();
 
@@ -102,30 +96,6 @@ export const AnimationSlice = (
         }),
       );
     },
-    createKeyframe: (keyframe: Partial<Keyframe>, animationId?: string, fillPoints?: boolean) => {
-      set(
-        produce((state: AnimationData): void => {
-          createKeyframe(state, animationId ?? state.activeAnimation, keyframe, fillPoints);
-        }),
-      );
-    },
-    createAutoKeyframe: () => {
-      set(
-        produce((state: AnimationData): void => {
-          // This is basically the same as the above, but we don't need to
-          // pass in a keyframe, and assume it happens at the current time
-          createAutoKeyframe(state, state.activeAnimation);
-        }),
-      );
-    },
-    removeKeyframe: (keyframeId: string, animationId?: string) => {
-      set(
-        produce((state: AnimationData): void => {
-          // Remove all points associated with the keyframe
-          removeKeyframe(state, animationId ?? state.activeAnimation, keyframeId);
-        }),
-      );
-    },
     setActiveAnimation: (animationId: string) => {
       set({ activeAnimation: animationId });
     },
@@ -145,21 +115,19 @@ export const AnimationSlice = (
         }),
       );
     },
-    updateAnimationKeypoint: (
-      keyframeOrTime: string | number,
-      trackId: string,
-      value: RawValue,
-      animationId?: string,
-    ) => {
+    updateKeypoint: (trackId: string, keypoint: Partial<Keypoint<RawValue>>) => {
       set(
         produce((state: AnimationData): void => {
-          updateAnimationKeypoint(
-            state,
-            animationId ?? state.activeAnimation,
-            keyframeOrTime,
-            trackId,
-            value,
-          );
+          updateKeypoint(state, trackId, keypoint);
+        }),
+      );
+    },
+    updateKeypoints: (keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[]) => {
+      set(
+        produce((state: AnimationData): void => {
+          keypoints.forEach(({ trackId, keypoint }) => {
+            updateKeypoint(state, trackId, keypoint);
+          });
         }),
       );
     },
@@ -177,42 +145,46 @@ export const AnimationSlice = (
         }),
       );
     },
-    updateKeyframeStamp: (keyframeId: string, stamp: number, animationId?: string) => {
+    createKeypoint: (trackId: string, point: Partial<Keypoint<RawValue>>) => {
       set(
         produce((state: AnimationData): void => {
-          updateKeyframeStamp(state, animationId ?? state.activeAnimation, keyframeId, stamp);
+          createKeypoint(state, trackId, point);
         }),
       );
     },
-    createKeypoint: (trackId: string, point: Partial<Keypoint<RawValue>>, animationId?: string) => {
+    createKeypoints: (keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[]) => {
       set(
         produce((state: AnimationData): void => {
-          createKeypoint(state, animationId ?? state.activeAnimation, trackId, point);
+          keypoints.forEach(({ trackId, keypoint }) => {
+            createKeypoint(state, trackId, keypoint);
+          });
         }),
       );
     },
-    updateKeypointValue: (keypointId: string, value: RawValue, animationId?: string) => {
-      set(
-        produce((state: AnimationData): void => {
-          updateKeypointValue(state, animationId ?? state.activeAnimation, keypointId, value);
-        }),
-      );
-    },
-    updateTrack: (trackId: string, data: Omit<Track, "id" | "points">, animationId?: string) => {
+    updateTrack: (track: Partial<Track<RawValue>>) => {
       set(
         produce((state: AnimationData) => {
-          updateTrack(state, animationId || state.activeAnimation, trackId, data);
+          updateTrack(state, track);
         }),
       );
     },
-    removeKeypoint: (keypointId: string, animationId?: string) => {
+    removeKeypoint: (trackId: string, keypointId: string) => {
       set(
         produce((state: AnimationData): void => {
-          removeKeypoint(state, animationId ?? state.activeAnimation, keypointId);
+          removeKeypoint(state, trackId, keypointId);
         }),
       );
     },
-    createTrack: (track: Partial<Track>, animationId?: string) => {
+    removeKeypoints: (keypoints: { trackId: string; keypointId: string }[]) => {
+      set(
+        produce((state: AnimationData): void => {
+          keypoints.forEach(({ trackId, keypointId }) => {
+            removeKeypoint(state, trackId, keypointId);
+          });
+        }),
+      );
+    },
+    createTrack: (track: Partial<Track<RawValue>>, animationId?: string) => {
       set(
         produce((state: AnimationData) => {
           createTrack(state, animationId ?? state.activeAnimation, track);
@@ -223,25 +195,6 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData) => {
           removeTrack(state, animationId ?? state.activeAnimation, trackId);
-        }),
-      );
-    },
-    // Move a waypoint to a new keyframe or track;
-    moveKeypoint: (
-      keypointId: string,
-      keyframeOrTime: string | number,
-      trackId: string,
-      animationId?: string,
-    ) => {
-      set(
-        produce((state: AnimationData) => {
-          moveKeypoint(
-            state,
-            animationId ?? state.activeAnimation,
-            keypointId,
-            keyframeOrTime,
-            trackId,
-          );
         }),
       );
     },
@@ -332,18 +285,25 @@ export const AnimationSlice = (
       });
     },
     // Skip to the next keyframe
-    skipToNextKeyframe: (trackIds?: string[], respectBounds?: boolean) => {
+    skipToNextKeyframe: (
+      animationId: string,
+      namespaceIds: string[],
+      trackIds: string[],
+      respectBounds?: boolean,
+    ) => {
       set(
         produce((state: AnimationData) => {
-          const allStamps = computeStamps(state, state.visualizedAnimations, trackIds || []);
-          const stamp = state.player.stamp;
-          const bounds = state.player.bounds;
-          let nextStamp: number | undefined;
-          if (respectBounds) {
-            nextStamp = allStamps.find((s) => s > stamp && s <= bounds[1]);
-          } else {
-            nextStamp = allStamps.find((s) => s > stamp);
-          }
+          const animation = state.animations[animationId];
+          const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
+          const trackSubset = pick(state.tracks, trackFilter);
+          const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
+          const nextStamp = computeNextTime(
+            trackSubset,
+            instanceInfo,
+            state.player.stamp,
+            state.player.bounds,
+            respectBounds ?? false,
+          );
           if (nextStamp !== undefined) {
             state.player = reset(state.player, nextStamp);
           }
@@ -351,49 +311,30 @@ export const AnimationSlice = (
       );
     },
     // Skip to the previous keyframe
-    skipToPrevKeyframe: (trackIds?: string[], respectBounds?: boolean) => {
+    skipToPrevKeyframe: (
+      animationId: string,
+      namespaceIds: string[],
+      trackIds: string[],
+      respectBounds?: boolean,
+    ) => {
       set(
         produce((state: AnimationData) => {
-          const allStamps = computeStamps(state, state.visualizedAnimations, trackIds || []);
-          const stamp = state.player.stamp;
-          const bounds = state.player.bounds;
-          let prevStamp: number | undefined;
-          if (respectBounds) {
-            prevStamp = allStamps.reverse().find((s) => s < stamp && s >= bounds[0]);
-          } else {
-            prevStamp = allStamps.reverse().find((s) => s < stamp);
-          }
-          if (prevStamp !== undefined) {
-            state.player = reset(state.player, prevStamp);
+          const animation = state.animations[animationId];
+          const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
+          const trackSubset = pick(state.tracks, trackFilter);
+          const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
+          const previousStamp = computePreviousTime(
+            trackSubset,
+            instanceInfo,
+            state.player.stamp,
+            state.player.bounds,
+            respectBounds ?? false,
+          );
+          if (previousStamp !== undefined) {
+            state.player = reset(state.player, previousStamp);
           }
         }),
       );
-    },
-    nextKeyframeTime: (
-      state: AnimationData,
-      trackIds?: string[],
-      respectBounds?: boolean,
-    ): number | undefined => {
-      const allStamps = computeStamps(state, state.visualizedAnimations, trackIds || []);
-      const stamp = state.player.stamp;
-      const bounds = state.player.bounds;
-      const nextStamp = respectBounds
-        ? allStamps.find((s) => s > stamp && s <= bounds[1])
-        : allStamps.find((s) => s > stamp);
-      return nextStamp;
-    },
-    prevKeyframeTime: (
-      state: AnimationData,
-      trackIds?: string[],
-      respectBounds?: boolean,
-    ): number | undefined => {
-      const allStamps = computeStamps(state, state.visualizedAnimations, trackIds || []);
-      const stamp = state.player.stamp;
-      const bounds = state.player.bounds;
-      const nextStamp = respectBounds
-        ? allStamps.reverse().find((s) => s < stamp && s >= bounds[0])
-        : allStamps.reverse().find((s) => s < stamp);
-      return nextStamp;
     },
     // Skip to the start of the current bounds
     skipToStart: () => {
@@ -421,6 +362,18 @@ export const AnimationSlice = (
     setTimeDisplay: (timeDisplay: TimeDisplay) => {
       set({ timeDisplay });
     },
+    getStorableAnimation: (animationId: string) => {
+      const state = get();
+      const stored = computeStoredAnimation(state.animations[animationId], state.tracks);
+      console.log("Storage animation", stored);
+      return stored;
+    },
+    getAnimationsToSave: (): StoredAnimation[] => {
+      const state = get();
+      return Object.keys(state.animations).map((animationId) =>
+        state.getStorableAnimation(animationId),
+      );
+    },
     initAnimationSubscriptions: () => {
       const updatePlayerInner = get().updatePlayer;
       const updateValues = get().updateValues;
@@ -428,30 +381,30 @@ export const AnimationSlice = (
       // If the time changes, check if it matches an existing keyframe and
       // set the current selected keyframe
       const unsubs = [
-        api.subscribe(
-          (state) => ({
-            running: state.player.running,
-            stamp: state.player.stamp,
-            keyframes: state.animations[state.activeAnimation]?.frames,
-          }),
-          ({ running, stamp, keyframes }) => {
-            if (running) {
-              // The animation is running, so don't select any keyframe
-              set({ selectedKeyframe: undefined });
-            } else {
-              // The animation isn't running, so select the keyframe that matches the current time
-              // If none match, return undefined
-              const selectedKeyframe = Array.from(keyframes.values()).find(
-                (keyframe: Keyframe) => keyframe?.stamp === stamp,
-              );
-              set({ selectedKeyframe: selectedKeyframe?.id });
-            }
-          },
-          {
-            equalityFn: (current: StampAndKeyframes, previous: StampAndKeyframes) =>
-              current.stamp === previous.stamp && current.keyframes === previous.keyframes,
-          },
-        ),
+        // api.subscribe(
+        //   (state) => ({
+        //     running: state.player.running,
+        //     stamp: state.player.stamp,
+        //     keyframes: state.animations[state.activeAnimation]?.frames,
+        //   }),
+        //   ({ running, stamp, keyframes }) => {
+        //     if (running) {
+        //       // The animation is running, so don't select any keyframe
+        //       set({ selectedKeyframe: undefined });
+        //     } else {
+        //       // The animation isn't running, so select the keyframe that matches the current time
+        //       // If none match, return undefined
+        //       const selectedKeyframe = Array.from(keyframes.values()).find(
+        //         (keyframe: Keyframe) => keyframe?.stamp === stamp,
+        //       );
+        //       set({ selectedKeyframe: selectedKeyframe?.id });
+        //     }
+        //   },
+        //   {
+        //     equalityFn: (current: StampAndKeyframes, previous: StampAndKeyframes) =>
+        //       current.stamp === previous.stamp && current.keyframes === previous.keyframes,
+        //   },
+        // ),
 
         // If the playing state changes, start or stop the interval that updates the player
         api.subscribe(
@@ -483,7 +436,7 @@ export const AnimationSlice = (
           }),
           ({ trackInterpolators, stamp }) => {
             const result = new Map<string, RawValue | undefined>();
-            Array.from(trackInterpolators.entries()).forEach(([key, trackInterpolator]) => {
+            Object.entries(trackInterpolators).forEach(([key, trackInterpolator]) => {
               result.set(key, trackInterpolator(stamp));
             });
             updateValues(result);
@@ -493,37 +446,37 @@ export const AnimationSlice = (
 
         // Generates an intermediate version of the animation that can be used to more easily
         // identify changes for each track, used for generating track interpolators in unsub4b
-        api.subscribe(
-          (state) => ({
-            animationKeys: Object.keys(state.animations),
-            animationSubscribers: state.animationSubscribers,
-          }),
-          ({ animationKeys, animationSubscribers }) => {
-            // Clear the previous subscriptions for each animation;
-            animationSubscribers.forEach((animationUnsub) => {
-              animationUnsub();
-            });
+        // api.subscribe(
+        //   (state) => ({
+        //     animationKeys: Object.keys(state.animations),
+        //     animationSubscribers: state.animationSubscribers,
+        //   }),
+        //   ({ animationKeys, animationSubscribers }) => {
+        //     // Clear the previous subscriptions for each animation;
+        //     animationSubscribers.forEach((animationUnsub) => {
+        //       animationUnsub();
+        //     });
 
-            const newSubscribes = animationKeys.map((animationId) =>
-              api.subscribe(
-                (state) => state.animations[animationId],
-                (animation: Animation) => {
-                  const cache = computeAnimationCache(animation);
-                  set((state) => ({
-                    animationCache: { ...state.animationCache, ...cache },
-                  }));
-                },
-                { equalityFn: shallow, fireImmediately: true },
-              ),
-            );
+        //     const newSubscribes = animationKeys.map((animationId) =>
+        //       api.subscribe(
+        //         (state) => state.animations[animationId],
+        //         (animation: Animation) => {
+        //           const cache = computeAnimationCache(animation);
+        //           set((state) => ({
+        //             animationCache: { ...state.animationCache, ...cache },
+        //           }));
+        //         },
+        //         { equalityFn: shallow, fireImmediately: true },
+        //       ),
+        //     );
 
-            set({ animationSubscribers: newSubscribes });
-          },
-          {
-            equalityFn: (current, previous) =>
-              isEqual(current.animationKeys, previous.animationKeys),
-          },
-        ),
+        //     set({ animationSubscribers: newSubscribes });
+        //   },
+        //   {
+        //     equalityFn: (current, previous) =>
+        //       isEqual(current.animationKeys, previous.animationKeys),
+        //   },
+        // ),
         api.subscribe(
           (state: AnimationData) => ({
             animations: state.animations,
@@ -537,12 +490,13 @@ export const AnimationSlice = (
             // Creat new subscriptions
             const newSubscribes = Object.entries(animations)
               .map(([animationId, animation]) =>
-                Array.from(animation.tracks.keys()).map((trackId) => {
+                Array.from(animation.tracks).map((trackId) => {
+                  // console.log("subscribing", animationId, trackId, animations);
                   return api.subscribe(
                     // Monitor changes in instances, track, [all] frames and [all] points
                     (state: AnimationData) => ({
                       instances: state.animations[animationId].instances,
-                      cache: state.animationCache[trackId],
+                      track: state.tracks[trackId],
                       duration: state.animations[animationId].duration,
                       animatableValue:
                         state.animatables[
@@ -551,17 +505,17 @@ export const AnimationSlice = (
                           )?.readId ?? ""
                         ],
                     }),
-                    ({ cache, instances, duration, animatableValue }) => {
+                    ({ track, instances, duration, animatableValue }) => {
                       // if (!track) return;
-                      if (!cache) return;
+                      if (!track) return;
 
                       const newVals = new Map<string, RawValue | undefined>();
-                      const newTrackInterpolators = new Map<string, TrackInterpolator>();
+                      const newTrackInterpolators: Record<string, TrackInterpolator> = {};
                       let newViolations: Violation[] = [];
                       Object.keys(instances).forEach((namespace) => {
                         const lookup = getLookup(namespace, trackId);
-                        const trackInterp = computeTrackInterpolator(cache, instances[namespace]);
-                        newTrackInterpolators.set(lookup, trackInterp);
+                        const trackInterp = computeTrackInterpolator(track, instances[namespace]);
+                        newTrackInterpolators[lookup] = trackInterp;
                         newVals.set(lookup, trackInterp(api.getState().player.stamp));
                         newViolations = [
                           ...newViolations,
@@ -575,22 +529,25 @@ export const AnimationSlice = (
                         ];
                       });
                       set((state: AnimationData) => ({
-                        trackInterpolators: new Map([
+                        trackInterpolators: {
                           ...state.trackInterpolators,
                           ...newTrackInterpolators,
-                        ]),
+                        },
                         values: new Map([...state.values, ...newVals]),
                         violations: { ...state.violations, [trackId]: newViolations },
                       }));
                     },
                     {
-                      equalityFn: (current: TrackAndCacheData, previous: TrackAndCacheData) => {
+                      equalityFn: (
+                        current: TrackAndInstanceData,
+                        previous: TrackAndInstanceData,
+                      ) => {
                         // We avoid some computation by subscribing to the cache, isntead of the track
                         // that just computes an intermediate value that is tracked.
                         return (
                           current.duration === previous.duration &&
                           // shallow(current.track, previous.track) &&
-                          shallow(current.cache, previous.cache) &&
+                          shallow(current.track, previous.track) &&
                           shallow(current.instances, previous.instances) &&
                           shallow(current.animatableValue, previous.animatableValue)
                         );
@@ -658,6 +615,15 @@ export const AnimationSlice = (
         }),
       );
     },
+    setValues: (updates: { animatableId: string; namespace: string; value: RawValue }[]) => {
+      set(
+        produce((state: AnimationData) => {
+          updates.forEach(({ animatableId, namespace, value }) =>
+            setValue(state, animatableId, namespace, value),
+          );
+        }),
+      );
+    },
     setPreferences: (preferences: Partial<AnimationData["preferences"]>) => {
       set((state) => ({
         preferences: { ...state.preferences, ...preferences },
@@ -674,20 +640,20 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
 
 export type AnimationStore = typeof useDefaultAnimationStore;
 
-interface StampAndKeyframes {
-  running: boolean;
-  stamp: number;
-  keyframes: Map<string, Keyframe>;
-}
+// interface StampAndKeyframes {
+//   running: boolean;
+//   stamp: number;
+//   keyframes: Map<string, Keyframe>;
+// }
 
 interface AnimationsAndSubscribes {
   animations: Record<string, Animation>;
   subscribes: (() => void)[];
 }
 
-interface TrackAndCacheData {
+interface TrackAndInstanceData {
   // track?: Track;
-  cache?: { stamp: number; value: RawValue }[];
+  track?: Track<RawValue>;
   instances: Record<string, InstanceInfo>;
   duration: number;
   animatableValue?: AnimatableValue;

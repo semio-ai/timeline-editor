@@ -12,12 +12,12 @@ import { useTrackContext } from "./use-track-context";
 import { useAnimationStore } from "./use-animation-store";
 import { useAltKeyPressed } from "./use-alt-key-pressed";
 
-/*
-  @name usePlayheadCartPathSpring
-  @description A hook used to retrieve a spring that contains the path of the svg path for the playhead cart, given current bounds and position.
-
-  @param selector A function that takes the store and returns the value you want to access.
-*/
+/**
+ * A hook used to retrieve a spring that contains the path of the svg path for the playhead cart, given current bounds and position.
+ *
+ * @param selector - A function that takes the store and returns the value you want to access.
+ * @returns The value you want to access.
+ */
 export function usePlayheadCartPathSpring(
   side: "top" | "bottom",
   ignoreZoom?: boolean,

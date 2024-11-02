@@ -7,7 +7,7 @@ export function computeInterpolationSegments(
 ): { start: InstancedFrameInfo; end: InstancedFrameInfo }[] {
   const activeTracks: [number, number][] = [];
   const segments: { start: InstancedFrameInfo; end: InstancedFrameInfo }[] = [];
-  const pairs = pairwise(instancedFrames);
+  const pairs = pairwise(instancedFrames.toSorted((a, b) => a.stamp - b.stamp));
   trackIds.forEach((trackId) => {
     // Find the first and last frame for each track and store it in activeTracks
     const firstFrame = instancedFrames.find((frame) =>
