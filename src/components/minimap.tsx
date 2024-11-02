@@ -1,4 +1,5 @@
 import { ParentSize } from "@visx/responsive";
+import { TrackRender } from "../types";
 import { Track } from "./track";
 
 export function Minimap({ animationId }: { animationId: string }) {
@@ -16,6 +17,7 @@ export function Minimap({ animationId }: { animationId: string }) {
               showZoomControls
               animationId={animationId}
               namespaceId="default"
+              trackRender={TrackRender.Dope}
             />
           );
         }}
