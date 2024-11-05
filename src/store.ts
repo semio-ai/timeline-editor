@@ -509,16 +509,19 @@ export const AnimationSlice = (
             const newSubscribes = trackIds.map((trackId) => {
               return api.subscribe(
                 // Monitor changes in instances, track, [all] frames and [all] points
-                (state: AnimationData) => ({
-                  instances: state.animations[state.activeAnimation].instances,
-                  cache: state.animationCache.get(trackId),
-                  duration: state.animations[state.activeAnimation].duration,
-                  animatableValue:
-                    state.animatables[
-                      Object.values(state.controls).find((control) => control.writeId === trackId)
-                        ?.readId ?? ""
-                    ],
-                }),
+                (state: AnimationData) => {
+                  // Look for the animatable value from which the track is derived
+                  const sourceKey = Object.values(state.controls).find(
+                    (control) => control.writeId === trackId,
+                  )?.readId;
+
+                  return {
+                    instances: state.animations[state.activeAnimation].instances,
+                    cache: state.animationCache.get(trackId),
+                    duration: state.animations[state.activeAnimation].duration,
+                    animatableValue: sourceKey ? state.animatables[sourceKey] : undefined,
+                  };
+                },
                 ({ cache, instances, duration, animatableValue }) => {
                   // if (!track) return;
                   if (!cache) return;
@@ -532,13 +535,15 @@ export const AnimationSlice = (
                     newVals.set(lookup, trackInterp(api.getState().player.stamp));
                     newViolations = [
                       ...newViolations,
-                      ...computeTrackViolations(
-                        trackInterp,
-                        duration,
-                        trackId,
-                        namespace,
-                        animatableValue,
-                      ),
+                      ...(animatableValue
+                        ? computeTrackViolations(
+                            trackInterp,
+                            duration,
+                            trackId,
+                            namespace,
+                            animatableValue,
+                          )
+                        : []),
                     ];
                   });
                   set((state: AnimationData) => ({
