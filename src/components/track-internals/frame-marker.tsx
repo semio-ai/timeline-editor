@@ -9,7 +9,12 @@ import {
   useState,
   useEffect,
 } from "react";
-import { getHexagonPath, closestFrame, getDegenerateHexagonPath } from "@semio/utils";
+import {
+  getHexagonPath,
+  closestFrame,
+  getDegenerateHexagonPath,
+  usePlayerStore,
+} from "@semio/utils";
 import { clamp, uniq } from "lodash";
 import { animated, useSpringValue } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
@@ -45,7 +50,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
 
   const { resolvedTheme } = useTheme();
 
-  const isSelected = useAnimationStore(
+  const isSelected = usePlayerStore(
     useShallow((state) => trackIds.length > 0 && state.player.stamp === data.stamp),
   );
 
@@ -102,7 +107,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
 
   const updateKeypoint = useAnimationStore(useShallow((state) => state.updateKeypoint));
 
-  const resetPlayer = useAnimationStore(useShallow((state) => state.resetPlayer));
+  const resetPlayer = usePlayerStore(useShallow((state) => state.resetPlayer));
 
   const doubleClickHandler = useCallback(
     (event: MouseEvent) => {

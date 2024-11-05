@@ -2,7 +2,7 @@ import { type ReactNode, memo, useRef } from "react";
 import { animated } from "@react-spring/web";
 import { clamp } from "lodash";
 import { clsx } from "clsx";
-import { closestFrame, pointsToPath } from "@semio/utils";
+import { closestFrame, pointsToPath, usePlayerStore, PlayerActions } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import {
   useTrackContext,
@@ -11,7 +11,6 @@ import {
   useZoomGestures,
   useBoundSprings,
 } from "../../hooks";
-import { type AnimationActions } from "../../store-types";
 import { SemanticTime } from "../../store-types";
 import { DRAG_X_CONFIG } from "../../gesture-config";
 
@@ -31,8 +30,8 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
 
   const cartRef = useRef<SVGGElement | null>(null);
 
-  const updatePlayerBounds = useAnimationStore(
-    useShallow((state: AnimationActions) => state.updatePlayerBounds),
+  const updatePlayerBounds = usePlayerStore(
+    useShallow((state: PlayerActions) => state.updatePlayerBounds),
   );
 
   const withBounds = useWithBounds();

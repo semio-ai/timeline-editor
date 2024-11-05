@@ -1,11 +1,11 @@
 import { useRef, useCallback } from "react";
 import { SpringValue, useSpring } from "@react-spring/web";
 import { scaleLinear } from "@visx/scale";
+import { PlayerData } from "@semio/utils";
 import { shallow } from "zustand/shallow";
-import type { AnimationData } from "../store-types";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
-import { useStoreSubscription } from "./use-store-subscription";
+import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
  * A hook used to access springs indicating the dimensions of the region between two "static" points in a timeline. Must be used within an AnimationProvider..
@@ -56,7 +56,7 @@ export function usePairSprings(
     [api, stamp1, stamp2, zoomScale, zoomScaleNoOffset, ignoreZoom],
   );
 
-  useStoreSubscription((state: AnimationData) => state.player.viewport, onViewportChange, shallow);
+  usePlayerSubscription((state: PlayerData) => state.player.viewport, onViewportChange, shallow);
 
   return spring;
 }

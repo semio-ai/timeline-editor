@@ -1,4 +1,4 @@
-import { RawValue } from "@semio/utils";
+import { RawValue, usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import { Keypoint } from "../types";
 
@@ -17,7 +17,7 @@ export function createKeypoint(
   } else {
     const newPoint = {
       id,
-      stamp: point.stamp ?? state.player.stamp,
+      stamp: point.stamp ?? usePlayerStore.getState().player.stamp,
       value: point.value,
     } as Keypoint<RawValue>;
     state.tracks[trackId].points = [...state.tracks[trackId].points, newPoint].toSorted(

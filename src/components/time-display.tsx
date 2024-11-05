@@ -2,8 +2,9 @@ import { Size, TimeDisplay as TimeDisplayMethod, TimeInput, Variant } from "@sem
 import { type ReactNode, memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { pick } from "lodash";
+import { PlayerActions, usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../hooks";
-import type { AnimationData, AnimationActions } from "../store-types";
+import type { AnimationActions } from "../store-types";
 import { SemanticTime } from "../store-types";
 import { computeNextTime, computePreviousTime } from "../functions";
 
@@ -25,6 +26,9 @@ export function InnerTimeDisplay({
   valueOverride,
 }: TimeDisplayProps): ReactNode {
   const timeDisplay = useAnimationStore(useShallow((state) => displayMethod || state.timeDisplay));
+  const updateDuration = useAnimationStore(
+    useShallow((state: AnimationActions) => state.updateDuration),
+  );
 
   const duration = useAnimationStore(useShallow((state) => state.animations[animationId].duration));
 
@@ -33,11 +37,11 @@ export function InnerTimeDisplay({
     useShallow((state) => pick(state.animations[animationId].instances, namespaceIds)),
   );
 
-  const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
+  const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
 
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
 
-  const stamp = useAnimationStore(useShallow((state) => state.player.stamp));
+  const stamp = usePlayerStore(useShallow((state) => state.player.stamp));
 
   const prevKeyframeTime = useMemo(() => {
     return computePreviousTime(tracks, namespaces, stamp, bounds, true);
@@ -47,10 +51,9 @@ export function InnerTimeDisplay({
     return computeNextTime(tracks, namespaces, stamp, bounds, true);
   }, [stamp, bounds, tracks, namespaces]);
 
-  const { resetPlayer, updateDuration, updatePlayerBounds } = useAnimationStore(
-    useShallow((state: AnimationActions & AnimationData) => ({
+  const { resetPlayer, updatePlayerBounds } = usePlayerStore(
+    useShallow((state: PlayerActions) => ({
       resetPlayer: state.resetPlayer,
-      updateDuration: state.updateDuration,
       updatePlayerBounds: state.updatePlayerBounds,
     })),
   );

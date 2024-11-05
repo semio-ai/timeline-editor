@@ -1,5 +1,4 @@
 import { TimeDisplay } from "@semio/ui";
-import { newPlayer } from "@semio/utils";
 import { AnimationData } from "../store-types";
 import { createDefaultAnimation } from "./create-default-animation";
 import { createDefaultGraph } from "./temp-duplicate-functions";
@@ -16,7 +15,6 @@ export const createDefaultState = (): AnimationData => {
     animations: { [defaultAnimation.id]: defaultAnimation },
     tracks: {},
     visualizedAnimations: [defaultAnimation.id],
-    player: newPlayer(),
     duration: defaultAnimation.duration,
     framerate: 24,
     selectedKeyframe: undefined,

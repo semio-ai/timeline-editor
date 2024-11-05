@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef } from "react";
 import { IconButton, IconPlayerPlay2, Select, Size, Variant } from "@semio/ui";
-import { getLookup, RawValue } from "@semio/utils";
+import { getLookup, RawValue, usePlayerStore } from "@semio/utils";
 import { IconPlayerPauseFilled, IconWorld } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
 import { shallow } from "zustand/shallow";
 import { pick } from "lodash";
-import { useAnimationStore, useStoreSubscription } from "../hooks";
+import { useAnimationStore, usePlayerSubscription } from "../hooks";
 import { computeLocalStamp, computeStamps } from "../functions";
 import { AnimationInterpolator, Track } from "../types";
 import { AnimationActions, AnimationData, SemanticTime } from "../store-types";
@@ -32,14 +32,17 @@ export function PlaybackControls({
   const instanceInfo = useAnimationStore(
     useShallow((state) => state.animations[animationId].instances[namespaceId]),
   );
-
-  const { playPlayer, pausePlayer, setValues, removeKeypoints, running } = useAnimationStore(
-    useShallow((state: AnimationActions & AnimationData) => ({
+  const { playPlayer, pausePlayer, running } = usePlayerStore(
+    useShallow((state) => ({
       playPlayer: state.playPlayer,
       pausePlayer: state.pausePlayer,
+      running: state.player.running,
+    })),
+  );
+  const { setValues, removeKeypoints } = useAnimationStore(
+    useShallow((state: AnimationActions & AnimationData) => ({
       setValues: state.setValues,
       removeKeypoints: state.removeKeypoints,
-      running: state.player.running,
     })),
   );
 
@@ -83,7 +86,7 @@ export function PlaybackControls({
   const filled = useRef<boolean>(false);
 
   // This updates the references when the player's timestamp changes
-  useStoreSubscription(
+  usePlayerSubscription(
     (state) => state.player.stamp,
     (current) => {
       stamp.current = current;

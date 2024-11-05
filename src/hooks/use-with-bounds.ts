@@ -1,7 +1,7 @@
 import { useRef, useCallback } from "react";
 import { shallow } from "zustand/shallow";
-import type { AnimationData } from "../store-types";
-import { useStoreSubscription } from "./use-store-subscription";
+import { PlayerData } from "@semio/utils";
+import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
  * A hook used to retrieve a function that provides the current bounds to a provided function.
@@ -17,7 +17,7 @@ export function useWithBounds(): (withBoundsFn: (bounds: [number, number]) => vo
     [bounds],
   );
 
-  useStoreSubscription((state: AnimationData) => state.player.bounds, callback, shallow);
+  usePlayerSubscription((state: PlayerData) => state.player.bounds, callback, shallow);
 
   const withBounds = useCallback(
     (withBoundsFn: (bounds: [number, number]) => void) => {

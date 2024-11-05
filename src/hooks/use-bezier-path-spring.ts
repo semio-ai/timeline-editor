@@ -1,13 +1,12 @@
 import { useRef, useCallback } from "react";
 import { SpringValue, useSpringValue } from "@react-spring/web";
-import { RawValue } from "@semio/utils";
+import { PlayerData, RawValue } from "@semio/utils";
 import { scaleLinear } from "@visx/scale";
 import { shallow } from "zustand/shallow";
-import type { AnimationData } from "../store-types";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 import { useTrackContext } from "./use-track-context";
-import { useStoreSubscription } from "./use-store-subscription";
+import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
  * A hook used to create a path spring based on a bezier curve. For now, always return an easeInOutCubic path.
@@ -83,7 +82,7 @@ export function useBezierPathSpring(
     [pathSpring, stamp1, stamp2, value1, value2, xScale, yScale, pathType, buffer, height],
   );
 
-  useStoreSubscription((state: AnimationData) => state.player.viewport, onViewportChange, shallow);
+  usePlayerSubscription((state: PlayerData) => state.player.viewport, onViewportChange, shallow);
 
   return pathSpring;
 }

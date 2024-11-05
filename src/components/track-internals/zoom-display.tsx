@@ -1,7 +1,7 @@
 import { memo, useState, useRef, MutableRefObject } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { animated, useSpring } from "@react-spring/web";
-import { closestFrame } from "@semio/utils";
+import { closestFrame, usePlayerStore } from "@semio/utils";
 import { clsx } from "clsx";
 import { clamp } from "lodash";
 import { useAnimationStore, useTrackContext, useZoomSprings, useZoomGestures } from "../../hooks";
@@ -24,7 +24,7 @@ function InnerZoomDisplay() {
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  const updateViewport = useAnimationStore(useShallow((state) => state.updatePlayerViewport));
+  const updateViewport = usePlayerStore(useShallow((state) => state.updatePlayerViewport));
 
   const updateHoverpointPreview = useAnimationStore(
     useShallow((state) => state.updateHoverpointPreview),

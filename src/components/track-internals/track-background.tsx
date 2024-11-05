@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { animated } from "@react-spring/web";
+import { usePlayerStore } from "@semio/utils";
 import { clsx } from "clsx";
 import {
   useAnimationStore,
@@ -40,7 +41,7 @@ function InnerTrackBackground({
   const identifier: string =
     trackIds?.join("-") ?? `default-${tickHeight.toString()}${attribute ? `-${attribute}` : ""}`;
 
-  const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
+  const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
 
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),

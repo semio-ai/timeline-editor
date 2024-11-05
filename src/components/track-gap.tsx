@@ -3,7 +3,7 @@ import { scaleLinear } from "@visx/scale";
 import useMeasure from "react-use-measure";
 import { useShallow } from "zustand/react/shallow";
 import { shallow } from "zustand/shallow";
-import { TrackContext, useAnimationStore, useStoreSubscription } from "../hooks";
+import { TrackContext, useAnimationStore, usePlayerSubscription } from "../hooks";
 import { ScaleLinear } from "../scale-linear";
 import { TIMELINE_PADDING } from "../constants";
 import { type AnimationData } from "../store-types";
@@ -24,8 +24,6 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
     useShallow((state: AnimationData) => state.animations[state.activeAnimation]?.duration ?? 5000),
   );
 
-  // const viewport = useAnimationStore(useShallow((state: AnimationData) => state.player.viewport));
-
   const frameCount = Math.floor(framerate * (duration / 1000));
 
   const [containerRef, containerBounds] = useMeasure();
@@ -44,7 +42,7 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
 
   const zoomScale = useRef<ScaleLinear>(scaleLinear({ domain: [0, 1], range: [0, 1] }));
 
-  useStoreSubscription(
+  usePlayerSubscription(
     (state) => state.player.viewport,
     (viewport) => {
       zoomScale.current.domain(viewport);

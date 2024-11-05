@@ -1,7 +1,7 @@
 import { MutableRefObject, useRef, useCallback, MouseEventHandler, memo } from "react";
 import { clamp } from "lodash";
 import { clsx } from "clsx";
-import { closestFrame } from "@semio/utils";
+import { closestFrame, PlayerActions, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { useZoomGestures, useTrackContext, useAnimationStore } from "../../hooks";
 import { AnimationActions, AnimationData } from "../../store-types";
@@ -14,8 +14,8 @@ function InnerGestureDetector({ height = 30 }: { ignoreZoom?: boolean; height?: 
     useShallow((state: AnimationActions) => state.updateHoverpointPreview),
   );
 
-  const { resetPlayer } = useAnimationStore(
-    useShallow((state: AnimationActions) => ({
+  const { resetPlayer } = usePlayerStore(
+    useShallow((state: PlayerActions) => ({
       resetPlayer: state.resetPlayer,
     })),
   );

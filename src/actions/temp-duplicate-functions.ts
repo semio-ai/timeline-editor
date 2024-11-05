@@ -1,11 +1,11 @@
-import { RawValue } from "@semio/utils";
+import { RawValue, usePlayerStore } from "@semio/utils";
 import { type AnimationData } from "../store-types";
 import { Control, ProcessType, ProcessNode, Graph } from "../types";
 import { updateKeypoint } from "./update-keypoint";
 import { createTrack } from "./create-track";
 
 export function setValue(state: AnimationData, id: string, _namespace: string, value: RawValue) {
-  // const lookupId = getLookup(namespace, id);
+  const timestamp = usePlayerStore.getState().player.stamp;
   const control =
     state.latestControl?.readId === id
       ? state.latestControl
@@ -15,7 +15,7 @@ export function setValue(state: AnimationData, id: string, _namespace: string, v
     // Update the existing track
     // We will for now assume that if the control exists, we have already created the track for it
     const trackId = control.writeId;
-    updateKeypoint(state, trackId, { value, stamp: state.player.stamp });
+    updateKeypoint(state, trackId, { value, stamp: timestamp });
     state.latestControl = control;
   } else {
     console.log("control doesn't exist, creating new track and control");
@@ -48,7 +48,7 @@ export function setValue(state: AnimationData, id: string, _namespace: string, v
     state.controls[newControl.id] = newControl;
     state.latestControl = newControl;
 
-    updateKeypoint(state, track.id, { value, stamp: state.player.stamp });
+    updateKeypoint(state, track.id, { value, stamp: timestamp });
   }
   // console.log("Setting value", lookupId, value);
   // state.values.set(lookupId, value);

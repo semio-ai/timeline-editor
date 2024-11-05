@@ -7,6 +7,7 @@ import { SemanticTime } from "../store-types";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 import { useStoreSubscription } from "./use-store-subscription";
+import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
  * A hook used to retrieve a spring value and set it in the store. Must be used within a AnimationProvider.
@@ -61,7 +62,7 @@ export function useHoverSpring(ignoreZoom?: boolean): SpringValue<number | undef
     shallow,
   );
 
-  useStoreSubscription((state) => state.player.viewport, onViewportChange, shallow);
+  usePlayerSubscription((state) => state.player.viewport, onViewportChange, shallow);
 
   return hoverpointSpring;
 }

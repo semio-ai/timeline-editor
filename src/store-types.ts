@@ -1,4 +1,4 @@
-import { type Player, type RawValue, type AnimatableValue } from "@semio/utils";
+import { type RawValue, type AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import {
   Keypoint,
@@ -24,7 +24,7 @@ export interface AnimationData {
   // All tracks loaded in the project
   tracks: Record<string, Track<RawValue>>;
   // A timer for tracking time.
-  player: Player;
+  // player: Player;
   // Selected Keyframe, if any
   selectedKeyframe?: string;
   // Duration of the playback region, in milliseconds
@@ -98,25 +98,25 @@ export interface AnimationActions {
   // Remove a track from the animation
   removeTrack: (trackId: string, animationId?: string) => void;
   // Set the timescale of the animation playback
-  updateTimescale: (speed: number) => void;
+  // updateTimescale: (speed: number) => void;
   // Set the time of the animation
-  resetPlayer: (time?: number) => void;
+  // resetPlayer: (time?: number) => void;
   // Play the animation
-  playPlayer: (speed?: number) => void;
+  // playPlayer: (speed?: number) => void;
   // Pause the animation
-  pausePlayer: () => void;
+  // pausePlayer: () => void;
   // Update the timer
-  updatePlayer: (coldStart?: boolean) => void;
+  // updatePlayer: (coldStart?: boolean) => void;
   // Set the player bounds
-  updatePlayerBounds: (start: number, end: number) => void;
+  // updatePlayerBounds: (start: number, end: number) => void;
   // Update one bound of the player
-  updatePlayerBound: (bound: "start" | "end", time?: number) => void;
+  // updatePlayerBound: (bound: "start" | "end", time?: number) => void;
   // Set the player viewport
-  updatePlayerViewport: (start: number, end: number) => void;
+  // updatePlayerViewport: (start: number, end: number) => void;
   // Seek the viewport to center the player at a time
-  updatePlayerViewportCenter: (time?: number) => void;
+  // updatePlayerViewportCenter: (time?: number) => void;
   // Update one bound of the player viewport
-  updatePlayerViewportBound: (bound: "start" | "end", time: number) => void;
+  // updatePlayerViewportBound: (bound: "start" | "end", time: number) => void;
   // Skip to the next keyframe (optionally filter by track)
   skipToNextKeyframe: (
     animationId: string,

@@ -13,7 +13,7 @@ import { clsx } from "clsx";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
 import { animated } from "@react-spring/web";
-import { closestFrame, useDeep } from "@semio/utils";
+import { closestFrame, PlayerActions, useDeep, usePlayerStore } from "@semio/utils";
 import { TrackedTooltip, useTrackedTooltip } from "@semio/ui";
 import { uniq, clamp } from "lodash";
 import { TIMELINE_PADDING } from "../../constants";
@@ -99,7 +99,7 @@ function InnerViolationSegmentDisplay({
     ignoreZoom,
   );
 
-  const resetPlayer = useAnimationStore(useShallow((state: AnimationActions) => state.resetPlayer));
+  const resetPlayer = usePlayerStore(useShallow((state: PlayerActions) => state.resetPlayer));
 
   const { floatingStyles, elementRefs, context, updateHoverState } = useTrackedTooltip(
     rectRefOrig,

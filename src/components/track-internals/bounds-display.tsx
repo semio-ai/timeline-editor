@@ -1,7 +1,7 @@
 import { useRef, memo, MutableRefObject } from "react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
-import { closestFrame } from "@semio/utils";
+import { closestFrame, usePlayerStore } from "@semio/utils";
 import { clamp } from "lodash";
 import { animated } from "@react-spring/web";
 import { DRAG_X_CONFIG } from "../../gesture-config";
@@ -29,7 +29,7 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
     zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackContext();
-  const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
+  const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
   const [previewLeft, previewRight, removePreview, addPreview] = useAnimationStore(
     useShallow((state) => [
       state.previews.find((p) => p.semanticTime === SemanticTime.BoundsStart),
@@ -42,7 +42,7 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
   // Whether there is a preview for either left or right bounds present.
   const anyPreview = previewLeft !== undefined || previewRight !== undefined;
 
-  const updateBounds = useAnimationStore(useShallow((state) => state.updatePlayerBounds));
+  const updateBounds = usePlayerStore(useShallow((state) => state.updatePlayerBounds));
 
   const withBounds = useWithBounds();
 

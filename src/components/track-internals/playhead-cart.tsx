@@ -4,7 +4,7 @@ import { Text } from "@visx/text";
 import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { clsx } from "clsx";
-import { closestFrame } from "@semio/utils";
+import { closestFrame, PlayerActions, PlayerData, usePlayerStore } from "@semio/utils";
 import { stampToVisualTime } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -14,7 +14,7 @@ import {
   usePlayheadCartPathSpring,
   useAltKeyPressed,
 } from "../../hooks";
-import { AnimationActions, AnimationData } from "../../store-types";
+import { AnimationData } from "../../store-types";
 import { DRAG_X_CONFIG } from "../../gesture-config";
 
 export interface PlayheadCartProps {
@@ -32,10 +32,10 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
 
   const [hovered, setHovered] = useState(false);
 
-  const resetPlayer = useAnimationStore(useShallow((state: AnimationActions) => state.resetPlayer));
+  const resetPlayer = usePlayerStore(useShallow((state: PlayerActions) => state.resetPlayer));
 
-  const seekPlayer = useAnimationStore(
-    useShallow((state: AnimationActions) => state.updatePlayerViewportCenter),
+  const seekPlayer = usePlayerStore(
+    useShallow((state: PlayerActions) => state.updatePlayerViewportCenter),
   );
 
   // const withZoom = useWithZoom(ignoreZoom);
@@ -100,7 +100,7 @@ function PlayheadText({ side, x }: { side: "top" | "bottom"; x: SpringValue<numb
     useShallow((state: AnimationData) => state.animations[state.activeAnimation].duration),
   );
   const framerate = useAnimationStore(useShallow((state: AnimationData) => state.framerate));
-  const stamp = useAnimationStore(useShallow((state: AnimationData) => state.player.stamp));
+  const stamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
   const timeDisplay = useAnimationStore(useShallow((state: AnimationData) => state.timeDisplay));
 
   const altPressed = useAltKeyPressed();

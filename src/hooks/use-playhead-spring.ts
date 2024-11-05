@@ -1,12 +1,12 @@
 import { useContext, useRef } from "react";
 import { SpringValue, useSpringValue } from "@react-spring/web";
+import { PlayerData } from "@semio/utils";
 import { scaleLinear } from "@visx/scale";
 import { shallow } from "zustand/shallow";
-import type { AnimationData } from "../store-types";
 import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
-import { useStoreSubscription } from "./use-store-subscription";
+import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
  * A hook used to retrieve a spring representing the current playhead time, scaled to the viewport.
@@ -32,8 +32,8 @@ export function usePlayheadSpring(ignoreZoom?: boolean): SpringValue<number> {
     config: springConfig,
   });
 
-  useStoreSubscription(
-    (state: AnimationData) => state.player.stamp,
+  usePlayerSubscription(
+    (state: PlayerData) => state.player.stamp,
     (playhead) => {
       void playheadSpring.start(zoomScale.current(playhead));
       storedPlayhead.current = playhead;
@@ -41,8 +41,8 @@ export function usePlayheadSpring(ignoreZoom?: boolean): SpringValue<number> {
     shallow,
   );
 
-  useStoreSubscription(
-    (state: AnimationData) => state.player.viewport,
+  usePlayerSubscription(
+    (state: PlayerData) => state.player.viewport,
     (viewport) => {
       zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
       const playhead = storedPlayhead.current;

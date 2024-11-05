@@ -7,14 +7,15 @@ import {
   useGesture,
 } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
+import { PlayerActions, usePlayerStore } from "@semio/utils";
 import { clamp } from "lodash";
 import { scaleLinear } from "@visx/scale";
-import { AnimationActions, AnimationData } from "../store-types";
+import { AnimationData } from "../store-types";
 import { ScaleLinear } from "../scale-linear";
 import { useTrackContext } from "./use-track-context";
 import { useAnimationStore } from "./use-animation-store";
 import { useShiftKeyPressed } from "./use-shift-key-pressed";
-import { useStoreSubscription } from "./use-store-subscription";
+import { usePlayerSubscription } from "./use-player-subscription";
 
 export const useZoomGestures = (
   ref: MutableRefObject<EventTarget>,
@@ -24,16 +25,17 @@ export const useZoomGestures = (
   // const withZoom = useWithZoom(false);
   const shiftKeyPressed = useShiftKeyPressed();
   const { bounds } = useTrackContext();
-  const { duration, updatePlayerViewport } = useAnimationStore(
-    useShallow((state: AnimationData & AnimationActions) => ({
-      duration: state.animations[state.activeAnimation].duration,
-      updatePlayerViewport: state.updatePlayerViewport,
-    })),
+  const updatePlayerViewport = usePlayerStore(
+    useShallow((state: PlayerActions) => state.updatePlayerViewport),
+  );
+
+  const duration = useAnimationStore(
+    useShallow((state: AnimationData) => state.animations[state.activeAnimation].duration),
   );
 
   const zoomScale = useRef<ScaleLinear>(scaleLinear({ domain: [0, 1], range: [0, 1] }));
 
-  useStoreSubscription(
+  usePlayerSubscription(
     (state) => state.player.viewport,
     (viewport) => zoomScale.current.domain(viewport),
   );

@@ -9,7 +9,7 @@ import { clsx } from "clsx";
 import { pick } from "lodash";
 import { AnimatableValue, RawValue } from "@semio/utils";
 import { TIMELINE_PADDING } from "../constants";
-import { TrackContext, useAnimationStore, useStoreSubscription } from "../hooks";
+import { TrackContext, useAnimationStore, usePlayerSubscription } from "../hooks";
 import { AnimationData } from "../store-types";
 import { computeVerticalBounds } from "../functions";
 import { ScaleLinear } from "../scale-linear";
@@ -157,7 +157,7 @@ export function Track({
 
   const zoomScale = useRef<ScaleLinear>(scaleLinear({ domain: [0, 1], range: [0, 1] }));
 
-  useStoreSubscription(
+  usePlayerSubscription(
     (state) => state.player.viewport,
     (viewport) => {
       zoomScale.current.domain(viewport);

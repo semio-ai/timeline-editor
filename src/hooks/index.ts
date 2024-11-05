@@ -4,6 +4,7 @@ export { useBezierPathSpring } from "./use-bezier-path-spring";
 export { useBoundSprings } from "./use-bound-springs";
 export { useHoverSpring } from "./use-hover-spring";
 export { usePairSprings } from "./use-pair-springs";
+export { usePlayerSubscription } from "./use-player-subscription";
 export { usePlayheadCartPathSpring } from "./use-playhead-cart-path-spring";
 export { usePlayheadSpring } from "./use-playhead-spring";
 export { useShiftKeyPressed } from "./use-shift-key-pressed";

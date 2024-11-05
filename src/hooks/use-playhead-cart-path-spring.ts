@@ -1,17 +1,16 @@
 import { useRef, useMemo, useCallback } from "react";
 import { SpringValue, useSpringValue } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
-import { pointsToPath } from "@semio/utils";
+import { PlayerData, pointsToPath } from "@semio/utils";
 import { stampToVisualTime } from "@semio/ui";
 import { scaleLinear } from "@visx/scale";
 import { shallow } from "zustand/shallow";
-import type { AnimationData } from "../store-types";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 import { useTrackContext } from "./use-track-context";
 import { useAnimationStore } from "./use-animation-store";
 import { useAltKeyPressed } from "./use-alt-key-pressed";
-import { useStoreSubscription } from "./use-store-subscription";
+import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
  * A hook used to retrieve a spring that contains the path of the svg path for the playhead cart, given current bounds and position.
@@ -108,10 +107,10 @@ export function usePlayheadCartPathSpring(
     [ignoreZoom, xScale, playheadCartPathSpring, xSpring, storedPlayhead, side],
   );
 
-  useStoreSubscription((state: AnimationData) => state.player.stamp, handlePlayheadChange, shallow);
+  usePlayerSubscription((state: PlayerData) => state.player.stamp, handlePlayheadChange, shallow);
 
-  useStoreSubscription(
-    (state: AnimationData) => state.player.viewport,
+  usePlayerSubscription(
+    (state: PlayerData) => state.player.viewport,
     handleViewportChange,
     shallow,
   );

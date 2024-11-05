@@ -1,8 +1,8 @@
 import { SpringValue, useSpringValue } from "@react-spring/web";
 import { shallow } from "zustand/shallow";
-import type { AnimationData } from "../store-types";
+import { PlayerData } from "@semio/utils";
 import { springConfig } from "../spring-config";
-import { useStoreSubscription } from "./use-store-subscription";
+import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
  * A hook used to retrieve springs representing the left and right bounds of the viewport.
@@ -23,8 +23,8 @@ export function useZoomSprings(): {
     config: springConfig,
   });
 
-  useStoreSubscription(
-    (state: AnimationData) => state.player.viewport,
+  usePlayerSubscription(
+    (state: PlayerData) => state.player.viewport,
     (bounds) => {
       void leftSpring.set(bounds[0]);
       void rightSpring.set(bounds[1]);

@@ -3,8 +3,9 @@ import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { pick } from "lodash";
 import { IconPlayerPlay, IconButton, IconKey } from "@semio/ui";
+import { usePlayerStore } from "@semio/utils";
 import { shallow } from "zustand/shallow";
-import { useAnimationStore, useStoreSubscription } from "../hooks";
+import { useAnimationStore, usePlayerSubscription } from "../hooks";
 import { computeNextTime, computePreviousTime } from "../functions";
 import { type AnimationData, type AnimationActions } from "../store-types";
 import { SemanticTime } from "../store-types";
@@ -31,12 +32,12 @@ export function TrackControl({
     useShallow((state) => pick(state.animations[animationId].instances, [namespaceId])),
   );
 
-  const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
+  const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
 
   const prevKeyframeTime = useRef<number | undefined>(undefined);
   const nextKeyframeTime = useRef<number | undefined>(undefined);
 
-  useStoreSubscription(
+  usePlayerSubscription(
     (state) => state.player.stamp,
     (stamp) => {
       const prev = computePreviousTime(tracks, namespaces, stamp, bounds, true);

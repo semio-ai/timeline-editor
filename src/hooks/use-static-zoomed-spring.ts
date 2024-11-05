@@ -1,11 +1,11 @@
 import { useRef, useCallback } from "react";
 import { SpringValue, useSpringValue } from "@react-spring/web";
 import { scaleLinear } from "@visx/scale";
+import { PlayerData } from "@semio/utils";
 import { shallow } from "zustand/shallow";
-import type { AnimationData } from "../store-types";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
-import { useStoreSubscription } from "./use-store-subscription";
+import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
  * A hook used to retrieve a spring representing a static value, scaled to the viewport.
@@ -36,7 +36,7 @@ export function useStaticZoomedSpring(
     [zoomedSpring, completion, zoomScale, ignoreZoom],
   );
 
-  useStoreSubscription((state: AnimationData) => state.player.viewport, onViewportChange, shallow);
+  usePlayerSubscription((state: PlayerData) => state.player.viewport, onViewportChange, shallow);
 
   return zoomedSpring;
 }

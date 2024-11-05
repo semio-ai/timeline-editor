@@ -1,11 +1,11 @@
 import { useRef, useCallback } from "react";
 import { SpringValue, useSpringValue } from "@react-spring/web";
+import { PlayerData } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import { scaleLinear } from "@visx/scale";
-import type { AnimationData } from "../store-types";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
-import { useStoreSubscription } from "./use-store-subscription";
+import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
  * A hook used to retrieve spring values representing the dimensions of the playback region.
@@ -40,8 +40,8 @@ export function useBoundSprings(ignoreZoom?: boolean): {
     config: springConfig,
   });
 
-  useStoreSubscription(
-    (state: AnimationData) => state.player.bounds,
+  usePlayerSubscription(
+    (state: PlayerData) => state.player.bounds,
     (bounds) => {
       void leftSpring.set(zoomScale.current(bounds[0]));
       void rightSpring.set(zoomScale.current(bounds[1]));
@@ -69,8 +69,8 @@ export function useBoundSprings(ignoreZoom?: boolean): {
     [leftSpring, rightSpring, widthSpring, ignoreZoom],
   );
 
-  useStoreSubscription(
-    (state: AnimationData) => ({ viewport: state.player.viewport, bounds: state.player.bounds }),
+  usePlayerSubscription(
+    (state: PlayerData) => ({ viewport: state.player.viewport, bounds: state.player.bounds }),
     onViewportChange,
     (current, previous) => shallow(current.viewport, previous.viewport),
   );

@@ -15,7 +15,7 @@ import {
   TrackContext,
   useStaticZoomedSpring,
   useAltKeyPressed,
-  useStoreSubscription,
+  usePlayerSubscription,
 } from "../hooks";
 import { TIMELINE_PADDING } from "../constants";
 import {
@@ -44,7 +44,7 @@ function InnerRuler({
 
   const zoomScale = useRef<ScaleLinear>(scaleLinear({ domain: [0, 1], range: [0, 1] }));
 
-  useStoreSubscription(
+  usePlayerSubscription(
     (state) => state.player.viewport,
     (viewport) => {
       zoomScale.current.domain(side === "top" ? viewport : [0, 1]);

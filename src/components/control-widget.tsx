@@ -21,6 +21,8 @@ import {
   AnimatableValue,
   toDegrees,
   toRadians,
+  usePlayerStore,
+  PlayerData,
 } from "@semio/utils";
 import { IconHash, IconDotsVertical, IconChevronDown } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
@@ -48,7 +50,7 @@ function InnerControlWidget({
   onEmphasisChange,
 }: ControlWidgetProps) {
   const [open, setOpen] = useState(false);
-  const playing = useAnimationStore(useShallow((state: AnimationData) => state.player.running));
+  const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
   const animatableValue = useAnimationStore(
     useShallow((state: AnimationData) => state.animatables[animatableId]),
   );
@@ -75,8 +77,8 @@ function InnerControlWidget({
     }),
   );
 
-  const keypoint = useAnimationStore(
-    useShallow((state: AnimationData) => {
+  const keypoint = usePlayerStore(
+    useShallow((state: PlayerData) => {
       return track?.points.find(
         (p) => computeWorldStamp(p.stamp, instanceInfo) === state.player.stamp,
       );

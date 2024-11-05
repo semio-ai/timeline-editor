@@ -1,16 +1,11 @@
 import {
-  reset,
-  update,
-  play,
-  pause,
-  setBounds,
-  setViewport,
   RawValue,
   Write,
   AnimatableValue,
   StoreSubscribeWithSelector,
-  seek,
   getLookup,
+  usePlayerStore,
+  PlayerData,
 } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -200,91 +195,91 @@ export const AnimationSlice = (
       );
     },
     // Set the timescale of the animation playback
-    updateTimescale: (speed: number) => {
-      set(
-        produce((state: AnimationData) => {
-          state.player.timescale = speed;
-        }),
-      );
-    },
+    // updateTimescale: (speed: number) => {
+    //   set(
+    //     produce((state: AnimationData) => {
+    //       state.player.timescale = speed;
+    //     }),
+    //   );
+    // },
     // Set the time of the animation
-    resetPlayer: (time?: number) => {
-      set((state: AnimationData) => ({ player: reset(state.player, time) }));
-    },
+    // resetPlayer: (time?: number) => {
+    //   set((state: AnimationData) => ({ player: reset(state.player, time) }));
+    // },
     // Play the animation
-    playPlayer: (speed?: number) => {
-      set((state: AnimationData) => ({ player: play(state.player, speed) }));
-    },
+    // playPlayer: (speed?: number) => {
+    //   set((state: AnimationData) => ({ player: play(state.player, speed) }));
+    // },
     // Pause the animation
-    pausePlayer: () => {
-      set((state: AnimationData) => ({ player: pause(state.player) }));
-    },
+    // pausePlayer: () => {
+    //   set((state: AnimationData) => ({ player: pause(state.player) }));
+    // },
     // Update the timer
-    updatePlayer: (coldStart?: boolean) => {
-      set((state: AnimationData) => ({
-        player: update(state.player, state.duration, coldStart ?? false),
-      }));
-    },
+    // updatePlayer: (coldStart?: boolean) => {
+    //   set((state: AnimationData) => ({
+    //     player: update(state.player, state.duration, coldStart ?? false),
+    //   }));
+    // },
     // Set the player bounds
-    updatePlayerBounds: (start: number, end: number) => {
-      set((state: AnimationData) => ({
-        player: setBounds(state.player, [start, end]),
-      }));
-    },
-    updatePlayerBound: (bound: "start" | "end", time?: number) => {
-      set((state: AnimationData) => {
-        const t = time ?? state.player.stamp;
-        if (bound === "start" && state.player.bounds[1] <= t) {
-          return {
-            player: setBounds(state.player, [state.player.bounds[1], t]),
-          };
-        } else if (bound === "end" && state.player.bounds[0] >= t) {
-          return {
-            player: setBounds(state.player, [t, state.player.bounds[0]]),
-          };
-        } else if (bound === "start") {
-          return {
-            player: setBounds(state.player, [t, state.player.bounds[1]]),
-          };
-        } else {
-          return {
-            player: setBounds(state.player, [state.player.bounds[0], t]),
-          };
-        }
-      });
-    },
+    // updatePlayerBounds: (start: number, end: number) => {
+    //   set((state: AnimationData) => ({
+    //     player: setBounds(state.player, [start, end]),
+    //   }));
+    // },
+    // updatePlayerBound: (bound: "start" | "end", time?: number) => {
+    //   set((state: AnimationData) => {
+    //     const t = time ?? state.player.stamp;
+    //     if (bound === "start" && state.player.bounds[1] <= t) {
+    //       return {
+    //         player: setBounds(state.player, [state.player.bounds[1], t]),
+    //       };
+    //     } else if (bound === "end" && state.player.bounds[0] >= t) {
+    //       return {
+    //         player: setBounds(state.player, [t, state.player.bounds[0]]),
+    //       };
+    //     } else if (bound === "start") {
+    //       return {
+    //         player: setBounds(state.player, [t, state.player.bounds[1]]),
+    //       };
+    //     } else {
+    //       return {
+    //         player: setBounds(state.player, [state.player.bounds[0], t]),
+    //       };
+    //     }
+    //   });
+    // },
     // Set the player viewport
-    updatePlayerViewport: (start: number, end: number) => {
-      set((state: AnimationData) => ({
-        player: setViewport(state.player, [start, end]),
-      }));
-    },
-    updatePlayerViewportCenter: (time?: number) => {
-      set((state: AnimationData) => ({
-        player: seek(state.player, time ?? state.player.stamp),
-      }));
-    },
-    updatePlayerViewportBound: (bound: "start" | "end", time: number) => {
-      set((state: AnimationData) => {
-        if (bound === "start" && state.player.viewport[1] <= time) {
-          return {
-            player: setViewport(state.player, [state.player.viewport[1], time]),
-          };
-        } else if (bound === "end" && state.player.viewport[0] >= time) {
-          return {
-            player: setViewport(state.player, [time, state.player.viewport[0]]),
-          };
-        } else if (bound === "start") {
-          return {
-            player: setViewport(state.player, [time, state.player.viewport[1]]),
-          };
-        } else {
-          return {
-            player: setViewport(state.player, [state.player.viewport[0], time]),
-          };
-        }
-      });
-    },
+    // updatePlayerViewport: (start: number, end: number) => {
+    //   set((state: AnimationData) => ({
+    //     player: setViewport(state.player, [start, end]),
+    //   }));
+    // },
+    // updatePlayerViewportCenter: (time?: number) => {
+    //   set((state: AnimationData) => ({
+    //     player: seek(state.player, time ?? state.player.stamp),
+    //   }));
+    // },
+    // updatePlayerViewportBound: (bound: "start" | "end", time: number) => {
+    //   set((state: AnimationData) => {
+    //     if (bound === "start" && state.player.viewport[1] <= time) {
+    //       return {
+    //         player: setViewport(state.player, [state.player.viewport[1], time]),
+    //       };
+    //     } else if (bound === "end" && state.player.viewport[0] >= time) {
+    //       return {
+    //         player: setViewport(state.player, [time, state.player.viewport[0]]),
+    //       };
+    //     } else if (bound === "start") {
+    //       return {
+    //         player: setViewport(state.player, [time, state.player.viewport[1]]),
+    //       };
+    //     } else {
+    //       return {
+    //         player: setViewport(state.player, [state.player.viewport[0], time]),
+    //       };
+    //     }
+    //   });
+    // },
     // Skip to the next keyframe
     skipToNextKeyframe: (
       animationId: string,
@@ -292,24 +287,22 @@ export const AnimationSlice = (
       trackIds: string[],
       respectBounds?: boolean,
     ) => {
-      set(
-        produce((state: AnimationData) => {
-          const animation = state.animations[animationId];
-          const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
-          const trackSubset = pick(state.tracks, trackFilter);
-          const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
-          const nextStamp = computeNextTime(
-            trackSubset,
-            instanceInfo,
-            state.player.stamp,
-            state.player.bounds,
-            respectBounds ?? false,
-          );
-          if (nextStamp !== undefined) {
-            state.player = reset(state.player, nextStamp);
-          }
-        }),
+      const state = get();
+      const playerState = usePlayerStore.getState();
+      const animation = state.animations[animationId];
+      const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
+      const trackSubset = pick(state.tracks, trackFilter);
+      const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
+      const nextStamp = computeNextTime(
+        trackSubset,
+        instanceInfo,
+        playerState.player.stamp,
+        playerState.player.bounds,
+        respectBounds ?? false,
       );
+      if (nextStamp !== undefined) {
+        playerState.resetPlayer(nextStamp);
+      }
     },
     // Skip to the previous keyframe
     skipToPrevKeyframe: (
@@ -318,36 +311,32 @@ export const AnimationSlice = (
       trackIds: string[],
       respectBounds?: boolean,
     ) => {
-      set(
-        produce((state: AnimationData) => {
-          const animation = state.animations[animationId];
-          const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
-          const trackSubset = pick(state.tracks, trackFilter);
-          const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
-          const previousStamp = computePreviousTime(
-            trackSubset,
-            instanceInfo,
-            state.player.stamp,
-            state.player.bounds,
-            respectBounds ?? false,
-          );
-          if (previousStamp !== undefined) {
-            state.player = reset(state.player, previousStamp);
-          }
-        }),
+      const state = get();
+      const playerState = usePlayerStore.getState();
+      const animation = state.animations[animationId];
+      const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
+      const trackSubset = pick(state.tracks, trackFilter);
+      const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
+      const previousStamp = computePreviousTime(
+        trackSubset,
+        instanceInfo,
+        playerState.player.stamp,
+        playerState.player.bounds,
+        respectBounds ?? false,
       );
+      if (previousStamp !== undefined) {
+        playerState.resetPlayer(previousStamp);
+      }
     },
     // Skip to the start of the current bounds
     skipToStart: () => {
-      set((state: AnimationData) => ({
-        player: reset(state.player, state.player.bounds[0]),
-      }));
+      const playerState = usePlayerStore.getState();
+      playerState.resetPlayer(playerState.player.bounds[0]);
     },
     // Skip to the end of the current bounds
     skipToEnd: () => {
-      set((state: AnimationData) => ({
-        player: reset(state.player, state.player.bounds[1]),
-      }));
+      const playerState = usePlayerStore.getState();
+      playerState.resetPlayer(playerState.player.bounds[1]);
     },
     // Set the duration of the animation
     updateDuration: (duration: number) => {
@@ -376,19 +365,19 @@ export const AnimationSlice = (
       );
     },
     initAnimationSubscriptions: () => {
-      const updatePlayerInner = get().updatePlayer;
+      const playerStoreState = usePlayerStore.getState();
+      const updatePlayerInner = playerStoreState.updatePlayer;
+      const updateDuration = playerStoreState.updateDuration;
       const updateValues = get().updateValues;
 
       // If the time changes, check if it matches an existing keyframe and
       // set the current selected keyframe
       const unsubs = [
         // If the playing state changes, start or stop the interval that updates the player
-        api.subscribe(
-          (state: AnimationData) => ({
-            running: state.player.running,
-            interval: state.playerInterval,
-          }),
-          ({ running, interval }) => {
+        usePlayerStore.subscribe(
+          (state: PlayerData) => state.player.running,
+          (running) => {
+            const interval = get().playerInterval;
             if (interval) {
               window.clearInterval(interval);
             }
@@ -401,16 +390,24 @@ export const AnimationSlice = (
               set({ playerInterval: newInterval });
             }
           },
-          { equalityFn: (current, previous) => current.running === previous.running },
+          { equalityFn: shallow },
         ),
 
-        // If the timer's timestamp changes, rerun the interpolators with that time.
+        // If the duration changes, update the duration of the playerStore
         api.subscribe(
-          (state: AnimationData) => ({
-            trackInterpolators: state.trackInterpolators,
-            stamp: state.player.stamp,
-          }),
-          ({ trackInterpolators, stamp }) => {
+          (state: AnimationData) =>
+            state.animations[state.activeAnimation]?.duration ?? state.duration,
+          (duration) => {
+            updateDuration(duration);
+          },
+          { equalityFn: shallow, fireImmediately: true },
+        ),
+
+        // If the interpolators change, rerun the interpolators with the time from the playerStore.
+        api.subscribe(
+          (state: AnimationData) => state.trackInterpolators,
+          (trackInterpolators) => {
+            const stamp = usePlayerStore.getState().player.stamp;
             const result = new Map<string, RawValue | undefined>();
             Object.entries(trackInterpolators).forEach(([key, trackInterpolator]) => {
               result.set(key, trackInterpolator(stamp));
@@ -418,6 +415,20 @@ export const AnimationSlice = (
             updateValues(result);
           },
           { equalityFn: (current, previous) => current.stamp === previous.stamp },
+        ),
+
+        // If the time changes, run the interpolators with the new time
+        usePlayerStore.subscribe(
+          (state: PlayerData) => state.player.stamp,
+          (stamp) => {
+            const trackInterpolators = get().trackInterpolators;
+            const result = new Map<string, RawValue | undefined>();
+            Object.entries(trackInterpolators).forEach(([key, trackInterpolator]) => {
+              result.set(key, trackInterpolator(stamp));
+            });
+            updateValues(result);
+          },
+          { equalityFn: shallow },
         ),
 
         api.subscribe(
@@ -459,7 +470,7 @@ export const AnimationSlice = (
                         const lookup = getLookup(namespace, trackId);
                         const trackInterp = computeTrackInterpolator(track, instances[namespace]);
                         newTrackInterpolators[lookup] = trackInterp;
-                        newVals.set(lookup, trackInterp(api.getState().player.stamp));
+                        newVals.set(lookup, trackInterp(usePlayerStore.getState().player.stamp));
                         newViolations = [
                           ...newViolations,
                           ...computeTrackViolations(

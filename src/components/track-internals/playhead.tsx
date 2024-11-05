@@ -2,9 +2,9 @@ import { type ReactNode, useState, memo } from "react";
 import { animated } from "@react-spring/web";
 import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
-import { closestFrame } from "@semio/utils";
+import { closestFrame, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-import { useTrackContext, useAnimationStore, usePlayheadSpring } from "../../hooks";
+import { useTrackContext, usePlayheadSpring } from "../../hooks";
 import { DRAG_X_CONFIG } from "../../gesture-config";
 
 export interface PlayheadProps {
@@ -22,8 +22,7 @@ function InnerPlayhead({ ignoreZoom = false, height = 30 }: PlayheadProps): Reac
 
   const [hovered, setHovered] = useState(false);
 
-  const resetPlayer = useAnimationStore(useShallow((state) => state.resetPlayer));
-  // const withZoom = useWithZoom(ignoreZoom);
+  const resetPlayer = usePlayerStore(useShallow((state) => state.resetPlayer));
 
   const playheadSpring = usePlayheadSpring(ignoreZoom);
 
