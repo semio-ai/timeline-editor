@@ -71,10 +71,8 @@ export const AnimationSlice = (
         produce((state: AnimationData) => {
           values.forEach?.((value, key) => {
             if (value === undefined) {
-              // console.log("clearing value for key ", key);
               state.values.delete(key);
             } else {
-              // console.log("setting value for key ", key, value);
               state.values.set(key, value);
             }
           });
@@ -194,92 +192,6 @@ export const AnimationSlice = (
         }),
       );
     },
-    // Set the timescale of the animation playback
-    // updateTimescale: (speed: number) => {
-    //   set(
-    //     produce((state: AnimationData) => {
-    //       state.player.timescale = speed;
-    //     }),
-    //   );
-    // },
-    // Set the time of the animation
-    // resetPlayer: (time?: number) => {
-    //   set((state: AnimationData) => ({ player: reset(state.player, time) }));
-    // },
-    // Play the animation
-    // playPlayer: (speed?: number) => {
-    //   set((state: AnimationData) => ({ player: play(state.player, speed) }));
-    // },
-    // Pause the animation
-    // pausePlayer: () => {
-    //   set((state: AnimationData) => ({ player: pause(state.player) }));
-    // },
-    // Update the timer
-    // updatePlayer: (coldStart?: boolean) => {
-    //   set((state: AnimationData) => ({
-    //     player: update(state.player, state.duration, coldStart ?? false),
-    //   }));
-    // },
-    // Set the player bounds
-    // updatePlayerBounds: (start: number, end: number) => {
-    //   set((state: AnimationData) => ({
-    //     player: setBounds(state.player, [start, end]),
-    //   }));
-    // },
-    // updatePlayerBound: (bound: "start" | "end", time?: number) => {
-    //   set((state: AnimationData) => {
-    //     const t = time ?? state.player.stamp;
-    //     if (bound === "start" && state.player.bounds[1] <= t) {
-    //       return {
-    //         player: setBounds(state.player, [state.player.bounds[1], t]),
-    //       };
-    //     } else if (bound === "end" && state.player.bounds[0] >= t) {
-    //       return {
-    //         player: setBounds(state.player, [t, state.player.bounds[0]]),
-    //       };
-    //     } else if (bound === "start") {
-    //       return {
-    //         player: setBounds(state.player, [t, state.player.bounds[1]]),
-    //       };
-    //     } else {
-    //       return {
-    //         player: setBounds(state.player, [state.player.bounds[0], t]),
-    //       };
-    //     }
-    //   });
-    // },
-    // Set the player viewport
-    // updatePlayerViewport: (start: number, end: number) => {
-    //   set((state: AnimationData) => ({
-    //     player: setViewport(state.player, [start, end]),
-    //   }));
-    // },
-    // updatePlayerViewportCenter: (time?: number) => {
-    //   set((state: AnimationData) => ({
-    //     player: seek(state.player, time ?? state.player.stamp),
-    //   }));
-    // },
-    // updatePlayerViewportBound: (bound: "start" | "end", time: number) => {
-    //   set((state: AnimationData) => {
-    //     if (bound === "start" && state.player.viewport[1] <= time) {
-    //       return {
-    //         player: setViewport(state.player, [state.player.viewport[1], time]),
-    //       };
-    //     } else if (bound === "end" && state.player.viewport[0] >= time) {
-    //       return {
-    //         player: setViewport(state.player, [time, state.player.viewport[0]]),
-    //       };
-    //     } else if (bound === "start") {
-    //       return {
-    //         player: setViewport(state.player, [time, state.player.viewport[1]]),
-    //       };
-    //     } else {
-    //       return {
-    //         player: setViewport(state.player, [state.player.viewport[0], time]),
-    //       };
-    //     }
-    //   });
-    // },
     // Skip to the next keyframe
     skipToNextKeyframe: (
       animationId: string,
@@ -445,7 +357,6 @@ export const AnimationSlice = (
             const newSubscribes = Object.entries(animations)
               .map(([animationId, animation]) =>
                 Array.from(animation.tracks).map((trackId) => {
-                  // console.log("subscribing", animationId, trackId, animations);
                   return api.subscribe(
                     // Monitor changes in instances, track, [all] frames and [all] points
                     (state: AnimationData) => ({
@@ -460,7 +371,6 @@ export const AnimationSlice = (
                         ],
                     }),
                     ({ track, instances, duration, animatableValue }) => {
-                      // if (!track) return;
                       if (!track) return;
 
                       const newVals = new Map<string, RawValue | undefined>();
@@ -500,7 +410,6 @@ export const AnimationSlice = (
                         // that just computes an intermediate value that is tracked.
                         return (
                           current.duration === previous.duration &&
-                          // shallow(current.track, previous.track) &&
                           shallow(current.track, previous.track) &&
                           shallow(current.instances, previous.instances) &&
                           shallow(current.animatableValue, previous.animatableValue)
@@ -619,26 +528,14 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
 
 export type AnimationStore = typeof useDefaultAnimationStore;
 
-// interface StampAndKeyframes {
-//   running: boolean;
-//   stamp: number;
-//   keyframes: Map<string, Keyframe>;
-// }
-
 interface AnimationsAndSubscribes {
   animations: Record<string, Animation>;
   subscribes: (() => void)[];
 }
 
 interface TrackAndInstanceData {
-  // track?: Track;
   track?: Track<RawValue>;
   instances: Record<string, InstanceInfo>;
   duration: number;
   animatableValue?: AnimatableValue;
 }
-
-// interface TrackIdsAndSubscribes {
-//   trackIds: string[];
-//   subscribes: (() => void)[];
-// }

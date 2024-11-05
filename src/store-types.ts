@@ -97,26 +97,6 @@ export interface AnimationActions {
   createTrack: (track: Partial<Track<RawValue>>, animationId?: string) => void;
   // Remove a track from the animation
   removeTrack: (trackId: string, animationId?: string) => void;
-  // Set the timescale of the animation playback
-  // updateTimescale: (speed: number) => void;
-  // Set the time of the animation
-  // resetPlayer: (time?: number) => void;
-  // Play the animation
-  // playPlayer: (speed?: number) => void;
-  // Pause the animation
-  // pausePlayer: () => void;
-  // Update the timer
-  // updatePlayer: (coldStart?: boolean) => void;
-  // Set the player bounds
-  // updatePlayerBounds: (start: number, end: number) => void;
-  // Update one bound of the player
-  // updatePlayerBound: (bound: "start" | "end", time?: number) => void;
-  // Set the player viewport
-  // updatePlayerViewport: (start: number, end: number) => void;
-  // Seek the viewport to center the player at a time
-  // updatePlayerViewportCenter: (time?: number) => void;
-  // Update one bound of the player viewport
-  // updatePlayerViewportBound: (bound: "start" | "end", time: number) => void;
   // Skip to the next keyframe (optionally filter by track)
   skipToNextKeyframe: (
     animationId: string,

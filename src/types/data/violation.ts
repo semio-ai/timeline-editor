@@ -1,3 +1,11 @@
+/**
+ * A single instance of a violation that has occurred during a range of time
+ * @param id - The unique identifier of the violation
+ * @param stampRange - The range of time that the violation occurred
+ * @param type - The type of violation that has occurred
+ * @param trackId - The unique identifier of the track that the violation occurred on
+ * @param namespace - The namespace of the violation
+ */
 export interface Violation {
   id: string;
   stampRange: { start: number; end: number };

@@ -1,7 +1,6 @@
 import { RawValue } from "@semio/utils";
 
 /**
-Keypoint
 A single point in time on a track, with a specific value, at a specific time stamp.
 @param id - a unique identifier for the keypoint.
 @param stamp - the time stamp that this keypoint occurs at.

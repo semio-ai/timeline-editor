@@ -22,7 +22,6 @@ export const useZoomGestures = (
   otherGestureHandlers?: GestureHandlers<AnyHandlerEventTypes>,
   config?: UserGestureConfig,
 ) => {
-  // const withZoom = useWithZoom(false);
   const shiftKeyPressed = useShiftKeyPressed();
   const { bounds } = useTrackContext();
   const updatePlayerViewport = usePlayerStore(
@@ -41,17 +40,9 @@ export const useZoomGestures = (
   );
 
   const onPinch = useCallback(
-    ({
-      event,
-      offset: [scale],
-      memo,
-      timeStamp,
-      origin,
-      intentional,
-    }: FullGestureState<"pinch">) => {
+    ({ event, offset: [scale], memo, timeStamp, origin }: FullGestureState<"pinch">) => {
       event.preventDefault();
       event.stopPropagation();
-      if (!intentional) return;
       // Note, timestampSet is returned from this handler,
       // which becomes the memo value for the next pinch event
       let timestampSet: Set<number> = memo ?? new Set<number>();
@@ -71,7 +62,6 @@ export const useZoomGestures = (
         timestampSet.add(timeStamp);
       }
 
-      // withZoom((zoomScale) => {
       const newPosition = clamp(
         zoomScale.current.invert((origin[0] - bounds.left) / bounds.width),
         0,
@@ -85,7 +75,6 @@ export const useZoomGestures = (
         newPosition + newDomainWidth * (1 - newPosition),
       ];
       updatePlayerViewport(newDomain[0], newDomain[1]);
-      // });
       return timestampSet;
     },
     [bounds.width, bounds.left, updatePlayerViewport, zoomScale],
@@ -93,7 +82,6 @@ export const useZoomGestures = (
 
   const onWheel = useCallback(
     ({ shiftKey, delta, event }: FullGestureState<"wheel">) => {
-      // withZoom((zoomScale) => {
       const currentDomain = zoomScale.current.domain();
       const deltaMovement = shiftKey ? delta[1] : delta[0];
       const movement = deltaMovement / bounds.width;
@@ -101,16 +89,19 @@ export const useZoomGestures = (
       const proposedEnd = currentDomain[1] + movement;
       if (proposedStart >= 0 && proposedEnd <= 1) {
         updatePlayerViewport(proposedStart, proposedEnd);
+        event.preventDefault();
+        event.stopPropagation();
       } else if (proposedStart < 0 && proposedEnd <= 1) {
         // fit to the start of the domain
         updatePlayerViewport(0, proposedEnd - proposedStart);
+        event.preventDefault();
+        event.stopPropagation();
       } else if (proposedStart >= 0 && proposedEnd > 1) {
         // fit to the end of the domain
         updatePlayerViewport(proposedStart - (proposedEnd - 1), 1);
+        event.preventDefault();
+        event.stopPropagation();
       }
-      // });
-      event.preventDefault();
-      event.stopPropagation();
     },
     [bounds.width, updatePlayerViewport, zoomScale],
   );

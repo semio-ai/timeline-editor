@@ -1,5 +1,4 @@
 /**
- * Control
  * Links the animatable to the track.
  * @param id - a unique identifier for the control.
  * @param readId - the id of the animatable that this control reads from.
@@ -16,7 +15,6 @@ export interface Control {
 }
 
 /**
- * Graph
  * A collection of nodes that are connected together to form a process graph.
  * @param id - a unique identifier for the graph.
  * @param name - the name of the graph, defined by the user.
@@ -31,7 +29,6 @@ export interface Graph {
 }
 
 /**
- * StoredGraph
  * A collection of nodes that are connected together to form a process graph, reconfigured for storage.
  * @param id - a unique identifier for the graph.
  * @param name - the name of the graph, defined by the user.
@@ -44,7 +41,6 @@ export interface StoredGraph extends Omit<Graph, "instances" | "nodes"> {
 }
 
 /**
- * ProcessNode
  * A node in the process graph that represents a process.
  * @param id - a unique identifier for the node.
  * @param inId - the id of the input node.
@@ -59,10 +55,9 @@ export interface ProcessNode {
 }
 
 /**
-ProcessType
-The type of process that the node represents.
-@param Identity - a process that does nothing to the input and returns it as the output.
-*/
+ * The type of process that the node represents.
+ * @param Identity - a process that does nothing to the input and returns it as the output.
+ */
 export enum ProcessType {
   Identity = "identity",
 }
