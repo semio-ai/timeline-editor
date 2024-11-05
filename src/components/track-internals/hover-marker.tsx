@@ -16,7 +16,7 @@ function InnerHoverMarker({
   offset = 0,
 }: HoverMarkerProps): ReactNode {
   const { xScale } = useTrackContext();
-  const { hoverpoint } = useHoverSpring(ignoreZoom);
+  const hoverpoint = useHoverSpring(ignoreZoom);
   const dashed = useAnimationStore(useShallow((state) => state.preferences.hoverDashedLine));
 
   return (

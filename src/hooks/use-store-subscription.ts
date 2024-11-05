@@ -10,7 +10,7 @@ import { AnimationContext } from "../context";
  */
 export function useStoreSubscription<T>(
   selector: (data: AnimationData) => T,
-  callback: (data: T) => void,
+  callback: (data: T, previous: T) => void,
   equalityFn: (a: T, b: T) => boolean = (a, b) => a === b,
 ) {
   const store = useContext(AnimationContext);

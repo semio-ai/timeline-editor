@@ -11,6 +11,5 @@ export { useStaticZoomedSpring } from "./use-static-zoomed-spring";
 export { useStoreSubscription } from "./use-store-subscription";
 export { useTrackContext, TrackContext } from "./use-track-context";
 export { useWithBounds } from "./use-with-bounds";
-export { useWithZoom } from "./use-with-zoom";
 export { useZoomGestures } from "./use-zoom-gestures";
 export { useZoomSprings } from "./use-zoom-springs";

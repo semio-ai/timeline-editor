@@ -1,10 +1,12 @@
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useRef } from "react";
 import { SpringValue, useSpringValue } from "@react-spring/web";
 import { scaleLinear } from "@visx/scale";
+import { shallow } from "zustand/shallow";
 import type { AnimationData } from "../store-types";
 import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
+import { useStoreSubscription } from "./use-store-subscription";
 
 /**
  * A hook used to retrieve a spring representing the current playhead time, scaled to the viewport.
@@ -19,40 +21,35 @@ export function usePlayheadSpring(ignoreZoom?: boolean): SpringValue<number> {
 
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
-      domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
+      domain: [0, 1],
       range: [0, 1],
     }),
   );
 
-  const storedPlayhead = useRef<number>(store!.getState().player.stamp);
+  const storedPlayhead = useRef<number>(0);
 
-  const playheadSpring = useSpringValue<number>(zoomScale.current(store!.getState().player.stamp), {
+  const playheadSpring = useSpringValue<number>(0, {
     config: springConfig,
   });
-  useEffect(() => {
-    const unsubscribe = store.subscribe(
-      (state: AnimationData) => state.player.stamp,
-      (playhead) => {
-        void playheadSpring.start(zoomScale.current(playhead));
-        storedPlayhead.current = playhead;
-      },
-    );
-    return unsubscribe;
-  });
-  useEffect(() => {
-    const unsubscribe = store.subscribe(
-      (state: AnimationData) => state.player.viewport,
-      (viewport) => {
-        zoomScale.current = scaleLinear({
-          domain: ignoreZoom ? [0, 1] : viewport,
-          range: [0, 1],
-        });
-        const playhead = storedPlayhead.current;
-        void playheadSpring.start(zoomScale.current(playhead));
-      },
-    );
-    return unsubscribe;
-  });
+
+  useStoreSubscription(
+    (state: AnimationData) => state.player.stamp,
+    (playhead) => {
+      void playheadSpring.start(zoomScale.current(playhead));
+      storedPlayhead.current = playhead;
+    },
+    shallow,
+  );
+
+  useStoreSubscription(
+    (state: AnimationData) => state.player.viewport,
+    (viewport) => {
+      zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
+      const playhead = storedPlayhead.current;
+      void playheadSpring.start(zoomScale.current(playhead));
+    },
+    shallow,
+  );
 
   return playheadSpring;
 }

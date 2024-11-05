@@ -10,7 +10,6 @@ import { useShallow } from "zustand/react/shallow";
 import {
   useTrackContext,
   useAnimationStore,
-  useWithZoom,
   usePlayheadSpring,
   usePlayheadCartPathSpring,
   useAltKeyPressed,
@@ -26,6 +25,7 @@ export interface PlayheadCartProps {
 function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
   const {
     xScale,
+    zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     frameCount,
   } = useTrackContext();
@@ -38,7 +38,7 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
     useShallow((state: AnimationActions) => state.updatePlayerViewportCenter),
   );
 
-  const withZoom = useWithZoom(ignoreZoom);
+  // const withZoom = useWithZoom(ignoreZoom);
 
   const playheadSpring = usePlayheadSpring(ignoreZoom);
 
@@ -47,17 +47,17 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
   const gestureBindings = useGesture(
     {
       onDrag: (state) => {
-        withZoom((zoomScale) => {
-          const newPosition = zoomScale.invert(
-            clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
-          );
-          if (state.altKey) {
-            resetPlayer(newPosition);
-          } else {
-            const closest: number = closestFrame(newPosition, frameCount);
-            resetPlayer(closest);
-          }
-        });
+        // withZoom((zoomScale) => {
+        const newPosition = zoomScale.current.invert(
+          clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+        );
+        if (state.altKey) {
+          resetPlayer(newPosition);
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          resetPlayer(closest);
+        }
+        // });
       },
       onHover: (state) => {
         setHovered(state.hovering || false);

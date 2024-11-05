@@ -1,10 +1,11 @@
-import { useContext, useEffect, useRef, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import { SpringValue, useSpring } from "@react-spring/web";
 import { scaleLinear } from "@visx/scale";
+import { shallow } from "zustand/shallow";
 import type { AnimationData } from "../store-types";
-import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
+import { useStoreSubscription } from "./use-store-subscription";
 
 /**
  * A hook used to access springs indicating the dimensions of the region between two "static" points in a timeline. Must be used within an AnimationProvider..
@@ -22,21 +23,15 @@ export function usePairSprings(
   right: SpringValue<number>;
   width: SpringValue<number>;
 } {
-  const store = useContext(AnimationContext);
-
-  if (!store) {
-    throw new Error("useBoundSprings must be used within an AnimationProvider");
-  }
-
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
-      domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
+      domain: [0, 1],
       range: [0, 1],
     }),
   );
   const zoomScaleNoOffset = useRef<ScaleLinear>(
     scaleLinear({
-      domain: ignoreZoom ? [0, 1] : getRebasedViewport(store.getState().player.viewport),
+      domain: [0, 1],
       range: [0, 1],
     }),
   );
@@ -50,43 +45,18 @@ export function usePairSprings(
 
   const onViewportChange = useCallback(
     (viewport: [number, number]) => {
-      const scale = scaleLinear({
-        domain: viewport,
-        range: [0, 1],
-      });
-      const scaleNoOffset = scaleLinear({
-        domain: getRebasedViewport(viewport),
-        range: [0, 1],
-      });
-      zoomScale.current = scale;
-      zoomScaleNoOffset.current = scaleNoOffset;
+      zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
+      zoomScaleNoOffset.current.domain(ignoreZoom ? [0, 1] : getRebasedViewport(viewport));
       void api.start({
-        left: scale(stamp1),
-        right: scale(stamp2),
-        width: scaleNoOffset(Math.max(0, stamp2 - stamp1)),
+        left: zoomScale.current(stamp1),
+        right: zoomScale.current(stamp2),
+        width: zoomScaleNoOffset.current(Math.max(0, stamp2 - stamp1)),
       });
     },
-    [api, stamp1, stamp2],
+    [api, stamp1, stamp2, zoomScale, zoomScaleNoOffset, ignoreZoom],
   );
 
-  useEffect(() => {
-    if (ignoreZoom) {
-      zoomScale.current = scaleLinear({
-        domain: [0, 1],
-        range: [0, 1],
-      });
-      return () => {};
-    } else {
-      const unsubscribe = store.subscribe(
-        (state: AnimationData) => state.player.viewport,
-        onViewportChange,
-      );
-
-      onViewportChange(store.getState().player.viewport);
-
-      return unsubscribe;
-    }
-  }, [ignoreZoom, store, onViewportChange]);
+  useStoreSubscription((state: AnimationData) => state.player.viewport, onViewportChange, shallow);
 
   return spring;
 }

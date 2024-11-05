@@ -1,4 +1,4 @@
-import { useCallback, type MutableRefObject } from "react";
+import { useCallback, useRef, type MutableRefObject } from "react";
 import {
   type AnyHandlerEventTypes,
   FullGestureState,
@@ -8,18 +8,20 @@ import {
 } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
 import { clamp } from "lodash";
+import { scaleLinear } from "@visx/scale";
 import { AnimationActions, AnimationData } from "../store-types";
-import { useWithZoom } from "./use-with-zoom";
+import { ScaleLinear } from "../scale-linear";
 import { useTrackContext } from "./use-track-context";
 import { useAnimationStore } from "./use-animation-store";
 import { useShiftKeyPressed } from "./use-shift-key-pressed";
+import { useStoreSubscription } from "./use-store-subscription";
 
 export const useZoomGestures = (
   ref: MutableRefObject<EventTarget>,
   otherGestureHandlers?: GestureHandlers<AnyHandlerEventTypes>,
   config?: UserGestureConfig,
 ) => {
-  const withZoom = useWithZoom(false);
+  // const withZoom = useWithZoom(false);
   const shiftKeyPressed = useShiftKeyPressed();
   const { bounds } = useTrackContext();
   const { duration, updatePlayerViewport } = useAnimationStore(
@@ -27,6 +29,13 @@ export const useZoomGestures = (
       duration: state.animations[state.activeAnimation].duration,
       updatePlayerViewport: state.updatePlayerViewport,
     })),
+  );
+
+  const zoomScale = useRef<ScaleLinear>(scaleLinear({ domain: [0, 1], range: [0, 1] }));
+
+  useStoreSubscription(
+    (state) => state.player.viewport,
+    (viewport) => zoomScale.current.domain(viewport),
   );
 
   const onPinch = useCallback(
@@ -60,44 +69,48 @@ export const useZoomGestures = (
         timestampSet.add(timeStamp);
       }
 
-      withZoom((zoomScale) => {
-        const newPosition = clamp(zoomScale.invert((origin[0] - bounds.left) / bounds.width), 0, 1);
-        const clampedScale = Math.max(1, scale);
-        const newDomainWidth = 1 / clampedScale;
+      // withZoom((zoomScale) => {
+      const newPosition = clamp(
+        zoomScale.current.invert((origin[0] - bounds.left) / bounds.width),
+        0,
+        1,
+      );
+      const clampedScale = Math.max(1, scale);
+      const newDomainWidth = 1 / clampedScale;
 
-        const newDomain = [
-          newPosition - newDomainWidth * newPosition,
-          newPosition + newDomainWidth * (1 - newPosition),
-        ];
-        updatePlayerViewport(newDomain[0], newDomain[1]);
-      });
+      const newDomain = [
+        newPosition - newDomainWidth * newPosition,
+        newPosition + newDomainWidth * (1 - newPosition),
+      ];
+      updatePlayerViewport(newDomain[0], newDomain[1]);
+      // });
       return timestampSet;
     },
-    [bounds.width, bounds.left, updatePlayerViewport, withZoom],
+    [bounds.width, bounds.left, updatePlayerViewport, zoomScale],
   );
 
   const onWheel = useCallback(
     ({ shiftKey, delta, event }: FullGestureState<"wheel">) => {
-      withZoom((zoomScale) => {
-        const currentDomain = zoomScale.domain();
-        const deltaMovement = shiftKey ? delta[1] : delta[0];
-        const movement = deltaMovement / bounds.width;
-        const proposedStart = currentDomain[0] + movement;
-        const proposedEnd = currentDomain[1] + movement;
-        if (proposedStart >= 0 && proposedEnd <= 1) {
-          updatePlayerViewport(proposedStart, proposedEnd);
-        } else if (proposedStart < 0 && proposedEnd <= 1) {
-          // fit to the start of the domain
-          updatePlayerViewport(0, proposedEnd - proposedStart);
-        } else if (proposedStart >= 0 && proposedEnd > 1) {
-          // fit to the end of the domain
-          updatePlayerViewport(proposedStart - (proposedEnd - 1), 1);
-        }
-      });
+      // withZoom((zoomScale) => {
+      const currentDomain = zoomScale.current.domain();
+      const deltaMovement = shiftKey ? delta[1] : delta[0];
+      const movement = deltaMovement / bounds.width;
+      const proposedStart = currentDomain[0] + movement;
+      const proposedEnd = currentDomain[1] + movement;
+      if (proposedStart >= 0 && proposedEnd <= 1) {
+        updatePlayerViewport(proposedStart, proposedEnd);
+      } else if (proposedStart < 0 && proposedEnd <= 1) {
+        // fit to the start of the domain
+        updatePlayerViewport(0, proposedEnd - proposedStart);
+      } else if (proposedStart >= 0 && proposedEnd > 1) {
+        // fit to the end of the domain
+        updatePlayerViewport(proposedStart - (proposedEnd - 1), 1);
+      }
+      // });
       event.preventDefault();
       event.stopPropagation();
     },
-    [bounds.width, updatePlayerViewport, withZoom],
+    [bounds.width, updatePlayerViewport, zoomScale],
   );
 
   useGesture(

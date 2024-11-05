@@ -7,7 +7,6 @@ import { useShallow } from "zustand/react/shallow";
 import {
   useTrackContext,
   useAnimationStore,
-  useWithZoom,
   useWithBounds,
   useZoomGestures,
   useBoundSprings,
@@ -25,6 +24,7 @@ export interface BoundCartProps {
 function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
   const {
     xScale,
+    zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     frameCount,
   } = useTrackContext();
@@ -35,7 +35,6 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
     useShallow((state: AnimationActions) => state.updatePlayerBounds),
   );
 
-  const withZoom = useWithZoom(ignoreZoom);
   const withBounds = useWithBounds();
   const { leftSpring, rightSpring } = useBoundSprings(ignoreZoom);
   const boundSpring = end === "left" ? leftSpring : rightSpring;
@@ -82,42 +81,40 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
       },
       onDrag: ({ xy, altKey, memo: initialBoundsMemo, dragging }) => {
         let initialBounds = initialBoundsMemo;
-        withZoom((zoomScale) => {
-          withBounds((currentBounds) => {
-            initialBounds = initialBounds ?? currentBounds;
-            const newPosition = zoomScale.invert(
-              clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+        withBounds((currentBounds) => {
+          initialBounds = initialBounds ?? currentBounds;
+          const newPosition = zoomScale.current.invert(
+            clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+          );
+          const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
+          let newBounds: [number, number] = initialBounds;
+          if (end === "left") {
+            newBounds =
+              newValue >= initialBounds[1]
+                ? [initialBounds[1], newValue]
+                : [newValue, initialBounds[1]];
+          } else {
+            newBounds =
+              newValue <= initialBounds[0]
+                ? [newValue, initialBounds[0]]
+                : [initialBounds[0], newValue];
+          }
+          updatePlayerBounds(newBounds[0], newBounds[1]);
+          // If no preview is present, add one when dragging.
+          // If a preview is present and no longer dragging, remove it.
+          if (!anyPreview && dragging) {
+            addPreview({
+              semanticTime: end === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd,
+              stamp: currentBounds[end === "left" ? 0 : 1],
+              label: end === "left" ? "Bounds Start" : "Bounds End",
+            });
+          } else if (anyPreview && !dragging) {
+            removePreview(
+              (p) =>
+                p.semanticTime === SemanticTime.BoundsStart ||
+                p.semanticTime === SemanticTime.BoundsEnd,
             );
-            const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
-            let newBounds: [number, number] = initialBounds;
-            if (end === "left") {
-              newBounds =
-                newValue >= initialBounds[1]
-                  ? [initialBounds[1], newValue]
-                  : [newValue, initialBounds[1]];
-            } else {
-              newBounds =
-                newValue <= initialBounds[0]
-                  ? [newValue, initialBounds[0]]
-                  : [initialBounds[0], newValue];
-            }
-            updatePlayerBounds(newBounds[0], newBounds[1]);
-            // If no preview is present, add one when dragging.
-            // If a preview is present and no longer dragging, remove it.
-            if (!anyPreview && dragging) {
-              addPreview({
-                semanticTime: end === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd,
-                stamp: currentBounds[end === "left" ? 0 : 1],
-                label: end === "left" ? "Bounds Start" : "Bounds End",
-              });
-            } else if (anyPreview && !dragging) {
-              removePreview(
-                (p) =>
-                  p.semanticTime === SemanticTime.BoundsStart ||
-                  p.semanticTime === SemanticTime.BoundsEnd,
-              );
-            }
-          });
+          }
         });
         return initialBounds as [number, number];
       },

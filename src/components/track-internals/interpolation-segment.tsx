@@ -1,7 +1,7 @@
 import { type ReactNode, memo } from "react";
 import { clsx } from "clsx";
 import { animated } from "@react-spring/web";
-import { RawValue } from "@semio/utils";
+import { RawValue, AnimatableValue, RawVector3, RawColor, RawEuler } from "@semio/utils";
 import { useTrackContext, useBezierPathSpring } from "../../hooks";
 import { InstancedFrameInfo, TrackRender } from "../../types";
 
@@ -15,34 +15,44 @@ function InnerInterpolationSegment({
   end,
   pseudoRegion = false,
 }: InterpolationSegmentProps): ReactNode {
-  const { trackIds, trackRender } = useTrackContext();
+  const { trackIds, trackRender, attribute, trackType } = useTrackContext();
 
-  const resolvedTrackRender = trackIds.length === 1 ? trackRender : TrackRender.Dope;
-
-  const { start: startValue, end: endValue } = getStartAndEnd(trackIds, start, end, pseudoRegion);
+  const { start: startValue, end: endValue } = getStartAndEnd(
+    trackIds,
+    start,
+    end,
+    pseudoRegion,
+    trackRender,
+    trackType,
+    attribute,
+  );
 
   const pathLineSpring = useBezierPathSpring(
-    resolvedTrackRender === TrackRender.Dope,
+    trackRender === TrackRender.Dope,
     start.stamp,
     end.stamp,
     startValue,
     endValue,
-    resolvedTrackRender !== TrackRender.Dope,
+    trackRender !== TrackRender.Dope,
     false,
   );
 
   const pathFillSpring = useBezierPathSpring(
-    resolvedTrackRender === TrackRender.Dope,
+    trackRender === TrackRender.Dope,
     start.stamp,
     end.stamp,
     startValue,
     endValue,
-    resolvedTrackRender !== TrackRender.Dope,
+    trackRender !== TrackRender.Dope,
     true,
   );
 
+  if (trackRender === TrackRender.Dope && pseudoRegion) {
+    return null;
+  }
+
   return (
-    <g mask={pseudoRegion ? "url(#verticalStripe)" : undefined}>
+    <g>
       <animated.path
         key="fill"
         d={pathFillSpring}
@@ -56,13 +66,13 @@ function InnerInterpolationSegment({
       />
       <animated.path
         key="line"
-        // strokeDasharray={pseudoRegion ? "5 5" : "none"}
-        // strokeDashoffset={pseudoRegion ? "2.5" : "none"}
+        strokeDasharray={pseudoRegion ? "5 5" : "none"}
+        strokeDashoffset={pseudoRegion ? "2.5" : "none"}
         d={pathLineSpring}
         className={clsx(
           "transition-[colors,stroke] duration-75 pointer-events-none",
           "stroke-transparent fill-transparent",
-          resolvedTrackRender === TrackRender.Dope ? "stroke-[4px]" : "stroke-[1.5px]",
+          getStroke(trackRender, pseudoRegion),
           "group-aria-expanded:stroke-[--track-color] group-hover:stroke-[--track-color]",
         )}
       />
@@ -72,25 +82,46 @@ function InnerInterpolationSegment({
 
 export const InterpolationSegment = memo(InnerInterpolationSegment);
 
-// const getRenderType = (
-//   showPreviews: boolean,
-//   startValue: RawValue | null,
-//   endValue: RawValue | null,
-// ): "line" | "curve" => {
-//   if (!showPreviews) return "line";
-//   if (typeof startValue === "number" && typeof endValue === "number") return "curve";
-//   return "line";
-// };
+function getStroke(trackRender: TrackRender, pseudoRegion: boolean): string {
+  if (trackRender === TrackRender.Dope) {
+    return "stroke-[4px]";
+  } else if (trackRender === TrackRender.Transition && pseudoRegion) {
+    return "stroke-0";
+  }
+  return "stroke-[1.5px]";
+}
 
 function getStartAndEnd(
   trackIds: string[],
   start: InstancedFrameInfo,
   end: InstancedFrameInfo,
   pseudoRegion: boolean,
+  trackRender: TrackRender,
+  trackType: AnimatableValue["type"] | "multiple",
+  attribute?: string,
 ): { start: RawValue; end: RawValue } {
-  if (trackIds.length === 1) {
-    let startValue: RawValue | undefined = start.points?.[0]?.value ?? undefined;
-    let endValue: RawValue | undefined = end.points?.[0]?.value ?? undefined;
+  if (trackRender === TrackRender.Transition) {
+    return {
+      start: 0,
+      end: 1,
+    };
+  }
+  if (trackIds.length === 1 && trackRender === TrackRender.Preview) {
+    let startValue: RawValue | undefined;
+    let endValue: RawValue | undefined;
+    if (trackType === "number") {
+      startValue = start.points?.[0]?.value ?? undefined;
+      endValue = end.points?.[0]?.value ?? undefined;
+    } else if (ComplexTypes.includes(trackType) && attribute) {
+      startValue =
+        (start.points?.[0]?.value as RawVector3 | RawEuler | RawColor | undefined)?.[
+          attribute as ComplexField
+        ] ?? undefined;
+      endValue =
+        (end.points?.[0]?.value as RawVector3 | RawEuler | RawColor | undefined)?.[
+          attribute as ComplexField
+        ] ?? undefined;
+    }
     if (startValue === undefined && endValue !== undefined && pseudoRegion) {
       startValue = endValue;
     } else if (endValue === undefined && startValue !== undefined && pseudoRegion) {
@@ -112,3 +143,7 @@ function getStartAndEnd(
     end: 0.5,
   };
 }
+
+const ComplexTypes = ["vector3", "euler", "rgb", "hsl"];
+type ComplexRawValue = RawVector3 | RawEuler | RawColor;
+type ComplexField = keyof ComplexRawValue;

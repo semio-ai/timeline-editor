@@ -159,6 +159,8 @@ export interface AnimationActions {
   removePreview: (evaluator: (preview: Preview) => boolean) => void;
   // Update a preview in the animation
   updatePreview: (evaluator: (preview: Preview) => boolean, preview: Partial<Preview>) => void;
+  // Macro for updating/removing the hoverpoint preview
+  updateHoverpointPreview: (value: number | null) => void;
   // Getter for the stored animation
   getStorableAnimation: (animationId: string) => StoredAnimation;
   // Getter for all stored animations

@@ -9,14 +9,12 @@ import {
   useState,
   useEffect,
 } from "react";
-import { clsx } from "clsx";
 import { getHexagonPath, closestFrame, getDegenerateHexagonPath } from "@semio/utils";
 import { clamp, uniq } from "lodash";
 import { animated, useSpringValue } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
 import { Theme, useTheme } from "@semio/ui";
 import {
-  useWithZoom,
   useZoomGestures,
   useAnimationStore,
   useTrackContext,
@@ -40,6 +38,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     trackIds,
     instanceInfo,
     xScale,
+    zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     trackRender,
   } = useTrackContext();
@@ -66,17 +65,10 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
 
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const resolvedTrackRender = resolveRender(
-    trackRender,
-    trackIds.length,
-    hovered || dragging || isSelected,
-  );
-  const showLine =
-    resolvedTrackRender === TrackRender.Preview ||
-    (trackRender === TrackRender.Preview && (dragging || isSelected || hovered));
+  const showLine = trackRender !== TrackRender.Dope || dragging || isSelected || hovered;
 
   const pathSpring = useSpringValue<string>(
-    resolvedTrackRender === TrackRender.Preview ? linePath : hexPath,
+    trackRender === TrackRender.Dope || dragging || isSelected || hovered ? hexPath : linePath,
     {
       config: { duration: 10 },
     },
@@ -89,11 +81,14 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
   });
 
   useEffect(() => {
-    void pathSpring.start({ to: resolvedTrackRender === TrackRender.Preview ? linePath : hexPath });
+    void pathSpring.start({
+      to:
+        trackRender === TrackRender.Dope || dragging || isSelected || hovered ? hexPath : linePath,
+    });
     void hexStrokeColorSpring.start({ to: isSelected ? highlightColor : "transparent" });
     void lineStrokeWidth.start({ to: showLine ? 1.5 : 0 });
   }, [
-    resolvedTrackRender,
+    trackRender,
     showLine,
     color,
     highlightColor,
@@ -101,11 +96,10 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     pathSpring,
     hexStrokeColorSpring,
     lineStrokeWidth,
+    dragging,
+    hovered,
   ]);
 
-  const withZoom = useWithZoom(ignoreZoom);
-
-  //const updateKeyframeStamp = useAnimationStore(useShallow((state) => state.updateKeyframeStamp));
   const updateKeypoint = useAnimationStore(useShallow((state) => state.updateKeypoint));
 
   const resetPlayer = useAnimationStore(useShallow((state) => state.resetPlayer));
@@ -122,18 +116,16 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     gestureRef as MutableRefObject<SVGGElement>,
     {
       onDrag: (state) => {
-        withZoom((zoomScale) => {
-          const newPosition = zoomScale.invert(
-            clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
-          );
-          const newStamp = state.shiftKey ? newPosition : closestFrame(newPosition, frameCount);
-          const transformedStamp = computeLocalStamp(newStamp, instanceInfo);
-          data.points.forEach((point) => {
-            updateKeypoint(point.trackId, { ...point, stamp: transformedStamp });
-          });
-          setDragging(state.dragging ?? false);
-          state.event.stopPropagation();
+        const newPosition = zoomScale.current.invert(
+          clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+        );
+        const newStamp = state.shiftKey ? newPosition : closestFrame(newPosition, frameCount);
+        const transformedStamp = computeLocalStamp(newStamp, instanceInfo);
+        data.points.forEach((point) => {
+          updateKeypoint(point.trackId, { ...point, stamp: transformedStamp });
         });
+        setDragging(state.dragging ?? false);
+        state.event.stopPropagation();
       },
     },
     DRAG_X_CONFIG,
@@ -154,37 +146,9 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
       onMouseLeave={() => setHovered(false)}
     >
       <animated.path d={linePath} fill="none" stroke={color} strokeWidth={lineStrokeWidth} />
-      <animated.path
-        d={pathSpring}
-        fill={color}
-        stroke={hexStrokeColorSpring}
-        strokeWidth={1}
-        className={
-          clsx()
-          // "group-hover:scale-x-100 group-aria-expanded:scale-x-100",
-          // "scale-x-[15%]",
-          // "transition-[fill,stroke]",
-          // "group-hover/frame:dark:stroke-default-300 group-hover/frame:stroke-default-700",
-          // "group-aria-selected/frame:dark:stroke-default-300",
-          // "group-aria-selected/frame:stroke-default-700",
-        }
-      />
+      <animated.path d={pathSpring} fill={color} stroke={hexStrokeColorSpring} strokeWidth={1} />
     </animated.g>
   );
 }
 
 export const FrameMarker = memo(InnerFrameMarker);
-
-function resolveRender(
-  renderType: TrackRender,
-  trackCount: number,
-  activity: boolean,
-): TrackRender {
-  if (renderType === TrackRender.Dope) {
-    return renderType;
-  }
-  if (trackCount !== 1) {
-    return TrackRender.Dope;
-  }
-  return activity ? TrackRender.Dope : renderType;
-}

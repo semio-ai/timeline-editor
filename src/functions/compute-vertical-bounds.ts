@@ -1,4 +1,13 @@
-import { AnimatableValue, RawValue } from "@semio/utils";
+import {
+  AnimatableVector3,
+  AnimatableEuler,
+  AnimatableColor,
+  AnimatableValue,
+  RawValue,
+  RawVector3,
+  RawEuler,
+  RawColor,
+} from "@semio/utils";
 import type { Track } from "../types";
 
 /**
@@ -6,11 +15,13 @@ import type { Track } from "../types";
  * Note, the timestamps are the raw, unadjusted (with respect to namespaces) timestamps.
  * @param tracks - A pre-filtered record of tracks
  * @param animatableValues - The animatable values
+ * @param attribute - an optional attribute to filter by
  * @returns - The min and max values
  */
 export function computeVerticalBounds(
   tracks: Record<string, Track<RawValue>>,
   animatableValues: AnimatableValue[],
+  attribute?: string,
 ): [number, number] {
   let min = Number.POSITIVE_INFINITY;
   let max = Number.NEGATIVE_INFINITY;
@@ -21,20 +32,81 @@ export function computeVerticalBounds(
       const constraintMax = animatable.constraints.max ?? Number.NEGATIVE_INFINITY;
       if (constraintMin < min) min = constraintMin;
       if (constraintMax > max) max = constraintMax;
+    } else if (attribute && FilterableTypes.includes(animatable.type)) {
+      const constraintMin = filteredMin(
+        animatable as AnimatableVector3 | AnimatableEuler | AnimatableColor,
+        attribute,
+      );
+      const constraintMax = filteredMax(
+        animatable as AnimatableVector3 | AnimatableEuler | AnimatableColor,
+        attribute,
+      );
+      if (constraintMin < min) min = constraintMin;
+      if (constraintMax > max) max = constraintMax;
     }
   });
 
   // Next, iterate over the track caches to find the min and max values.
-  Object.values(tracks).forEach((track) => {
-    track.points.forEach((point: { id: string; stamp: number; value: RawValue }) => {
-      if (typeof point.value === "number") {
-        if (point.value < min) min = point.value;
-        if (point.value > max) max = point.value;
-      }
-    });
-  });
+  const data = Object.values(tracks).flatMap((track) =>
+    track.points.flatMap((point) => {
+      if (typeof point.value === "number") return point.value;
+      if (attribute && typeof point.value === "object")
+        return point.value[attribute as ComplexField];
+      return 0;
+    }),
+  );
 
-  if (min > max) return [0, 1];
+  min = min === Number.POSITIVE_INFINITY ? Math.min(...data) : min;
+  max = max === Number.NEGATIVE_INFINITY ? Math.max(...data) : max;
 
   return [min, max];
 }
+
+const FilterableTypes = ["vector3", "rgb", "hsl", "euler"];
+
+function filteredMin(
+  animatable: AnimatableVector3 | AnimatableEuler | AnimatableColor,
+  attribute: string,
+): number {
+  let index = -1;
+  let max = Number.POSITIVE_INFINITY;
+  if (animatable.type === "vector3" || animatable.type === "euler") {
+    index = ["x", "y", "z"].indexOf(attribute);
+  } else if (animatable.type === "rgb") {
+    index = ["r", "g", "b"].indexOf(attribute);
+    max = 1;
+  } else if (animatable.type === "hsl") {
+    index = ["h", "s", "l"].indexOf(attribute);
+    max = 1;
+  }
+  if (index === -1) {
+    return max;
+  } else {
+    return animatable.constraints.min?.[index] ?? max;
+  }
+}
+
+function filteredMax(
+  animatable: AnimatableVector3 | AnimatableEuler | AnimatableColor,
+  attribute: string,
+): number {
+  let index = -1;
+  let min = Number.NEGATIVE_INFINITY;
+  if (animatable.type === "vector3" || animatable.type === "euler") {
+    index = ["x", "y", "z"].indexOf(attribute);
+  } else if (animatable.type === "rgb") {
+    index = ["r", "g", "b"].indexOf(attribute);
+    min = 0;
+  } else if (animatable.type === "hsl") {
+    index = ["h", "s", "l"].indexOf(attribute);
+    min = 0;
+  }
+  if (index === -1) {
+    return min;
+  } else {
+    return animatable.constraints.max?.[index] ?? min;
+  }
+}
+
+type ComplexRawValue = RawVector3 | RawEuler | RawColor;
+type ComplexField = keyof ComplexRawValue;

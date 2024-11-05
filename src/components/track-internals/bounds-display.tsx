@@ -9,7 +9,6 @@ import { SemanticTime } from "../../store-types";
 import {
   useAnimationStore,
   useTrackContext,
-  useWithZoom,
   useBoundSprings,
   useWithBounds,
   useZoomGestures,
@@ -27,6 +26,7 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
   const {
     frameCount,
     xScale,
+    zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackContext();
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
@@ -44,7 +44,6 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
 
   const updateBounds = useAnimationStore(useShallow((state) => state.updatePlayerBounds));
 
-  const withZoom = useWithZoom(ignoreZoom);
   const withBounds = useWithBounds();
 
   // Attach gestures to the left and right bounds.
@@ -71,35 +70,35 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
       },
       onDrag: ({ xy, altKey, memo: initialBoundsMemo, dragging }) => {
         let initialBounds = initialBoundsMemo;
-        withZoom((zoomScale) => {
-          withBounds((currentBounds) => {
-            initialBounds = initialBounds ?? currentBounds;
-            const newPosition = zoomScale.invert(
-              clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+
+        withBounds((currentBounds) => {
+          initialBounds = initialBounds ?? currentBounds;
+          const newPosition = zoomScale.current.invert(
+            clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+          );
+          const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
+          const newBounds: [number, number] =
+            newValue >= initialBounds[1]
+              ? [initialBounds[1], newValue]
+              : [newValue, initialBounds[1]];
+          updateBounds(newBounds[0], newBounds[1]);
+          // If no preview is present, add one when dragging.
+          // If a preview is present and no longer dragging, remove it.
+          if (!anyPreview && dragging) {
+            addPreview({
+              semanticTime: SemanticTime.BoundsStart,
+              stamp: newBounds[0],
+              label: "Bounds Start",
+            });
+          } else if (anyPreview && !dragging) {
+            removePreview(
+              (p) =>
+                p.semanticTime === SemanticTime.BoundsStart ||
+                p.semanticTime === SemanticTime.BoundsEnd,
             );
-            const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
-            const newBounds: [number, number] =
-              newValue >= initialBounds[1]
-                ? [initialBounds[1], newValue]
-                : [newValue, initialBounds[1]];
-            updateBounds(newBounds[0], newBounds[1]);
-            // If no preview is present, add one when dragging.
-            // If a preview is present and no longer dragging, remove it.
-            if (!anyPreview && dragging) {
-              addPreview({
-                semanticTime: SemanticTime.BoundsStart,
-                stamp: newBounds[0],
-                label: "Bounds Start",
-              });
-            } else if (anyPreview && !dragging) {
-              removePreview(
-                (p) =>
-                  p.semanticTime === SemanticTime.BoundsStart ||
-                  p.semanticTime === SemanticTime.BoundsEnd,
-              );
-            }
-          });
+          }
         });
+
         return initialBounds as [number, number];
       },
     },
@@ -127,35 +126,35 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
       },
       onDrag: ({ xy, altKey, memo: initialBoundsMemo, dragging }) => {
         let initialBounds = initialBoundsMemo;
-        withZoom((zoomScale) => {
-          withBounds((currentBounds) => {
-            initialBounds = initialBounds ?? currentBounds;
-            const newPosition = zoomScale.invert(
-              clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+
+        withBounds((currentBounds) => {
+          initialBounds = initialBounds ?? currentBounds;
+          const newPosition = zoomScale.current.invert(
+            clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+          );
+          const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
+          const newBounds: [number, number] =
+            newValue <= initialBounds[0]
+              ? [newValue, initialBounds[0]]
+              : [initialBounds[0], newValue];
+          updateBounds(newBounds[0], newBounds[1]);
+          // If no preview is present, add one when dragging.
+          // If a preview is present and no longer dragging, remove it.
+          if (!anyPreview && dragging) {
+            addPreview({
+              semanticTime: SemanticTime.BoundsEnd,
+              stamp: newBounds[1],
+              label: "Bounds End",
+            });
+          } else if (anyPreview && !dragging) {
+            removePreview(
+              (p) =>
+                p.semanticTime === SemanticTime.BoundsStart ||
+                p.semanticTime === SemanticTime.BoundsEnd,
             );
-            const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
-            const newBounds: [number, number] =
-              newValue <= initialBounds[0]
-                ? [newValue, initialBounds[0]]
-                : [initialBounds[0], newValue];
-            updateBounds(newBounds[0], newBounds[1]);
-            // If no preview is present, add one when dragging.
-            // If a preview is present and no longer dragging, remove it.
-            if (!anyPreview && dragging) {
-              addPreview({
-                semanticTime: SemanticTime.BoundsEnd,
-                stamp: newBounds[1],
-                label: "Bounds End",
-              });
-            } else if (anyPreview && !dragging) {
-              removePreview(
-                (p) =>
-                  p.semanticTime === SemanticTime.BoundsStart ||
-                  p.semanticTime === SemanticTime.BoundsEnd,
-              );
-            }
-          });
+          }
         });
+
         return initialBounds as [number, number];
       },
     },

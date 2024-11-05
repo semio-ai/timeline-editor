@@ -1,16 +1,17 @@
-import { useContext, useEffect, useRef, useMemo, useCallback } from "react";
+import { useRef, useMemo, useCallback } from "react";
 import { SpringValue, useSpringValue } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
 import { pointsToPath } from "@semio/utils";
 import { stampToVisualTime } from "@semio/ui";
 import { scaleLinear } from "@visx/scale";
+import { shallow } from "zustand/shallow";
 import type { AnimationData } from "../store-types";
-import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 import { useTrackContext } from "./use-track-context";
 import { useAnimationStore } from "./use-animation-store";
 import { useAltKeyPressed } from "./use-alt-key-pressed";
+import { useStoreSubscription } from "./use-store-subscription";
 
 /**
  * A hook used to retrieve a spring that contains the path of the svg path for the playhead cart, given current bounds and position.
@@ -25,13 +26,7 @@ export function usePlayheadCartPathSpring(
   d: SpringValue<string>;
   x: SpringValue<number>;
 } {
-  const store = useContext(AnimationContext);
-
-  if (!store) {
-    throw new Error("useHoverSpring must be used within a StudioProvider");
-  }
-
-  const storedPlayhead = useRef<number>(store!.getState().player.stamp);
+  const storedPlayhead = useRef<number>(0);
 
   const { duration, framerate, timeDisplay } = useAnimationStore(
     useShallow((state) => ({
@@ -48,7 +43,7 @@ export function usePlayheadCartPathSpring(
 
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
-      domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
+      domain: [0, 1],
       range: [0, 1],
     }),
   );
@@ -103,10 +98,7 @@ export function usePlayheadCartPathSpring(
 
   const handleViewportChange = useCallback(
     (viewport: [number, number]) => {
-      zoomScale.current = scaleLinear({
-        domain: ignoreZoom ? [0, 1] : viewport,
-        range: [0, 1],
-      });
+      zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
       const playhead = storedPlayhead.current;
       const bufferVals = valsToBuffer(xScale, zoomScale.current, playhead);
       const [path, offset] = distanceToPath(...bufferVals, storedCharCount.current, side);
@@ -116,22 +108,13 @@ export function usePlayheadCartPathSpring(
     [ignoreZoom, xScale, playheadCartPathSpring, xSpring, storedPlayhead, side],
   );
 
-  useEffect(() => {
-    const unsubscribe = store.subscribe(
-      (state: AnimationData) => state.player.stamp,
-      handlePlayheadChange,
-    );
-    handlePlayheadChange(store.getState().player.stamp);
-    return unsubscribe;
-  });
-  useEffect(() => {
-    const unsubscribe = store.subscribe(
-      (state: AnimationData) => state.player.viewport,
-      handleViewportChange,
-    );
-    handleViewportChange(store.getState().player.viewport);
-    return unsubscribe;
-  });
+  useStoreSubscription((state: AnimationData) => state.player.stamp, handlePlayheadChange, shallow);
+
+  useStoreSubscription(
+    (state: AnimationData) => state.player.viewport,
+    handleViewportChange,
+    shallow,
+  );
 
   return { d: playheadCartPathSpring, x: xSpring };
 }

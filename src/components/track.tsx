@@ -1,16 +1,18 @@
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import useMeasure from "react-use-measure";
 import { scaleLinear } from "@visx/scale";
 import { useHover } from "@use-gesture/react";
 import { useShallow } from "zustand/react/shallow";
+import { shallow } from "zustand/shallow";
 import { clsx } from "clsx";
 import { pick } from "lodash";
-import { RawValue } from "@semio/utils";
+import { AnimatableValue, RawValue } from "@semio/utils";
 import { TIMELINE_PADDING } from "../constants";
-import { TrackContext, useAnimationStore } from "../hooks";
+import { TrackContext, useAnimationStore, useStoreSubscription } from "../hooks";
 import { AnimationData } from "../store-types";
 import { computeVerticalBounds } from "../functions";
+import { ScaleLinear } from "../scale-linear";
 import { Track as TrackData, InstanceInfo, Control, TrackRender } from "../types";
 import {
   Playhead,
@@ -27,6 +29,7 @@ export interface TrackProps {
   animationId: string;
   namespaceId: string;
   trackIds?: string[];
+  attribute?: string;
   canZoom?: boolean;
   trackRender: TrackRender;
   showBackground?: boolean;
@@ -44,6 +47,7 @@ export interface TrackProps {
  * @param animationId - The ID of the animation.
  * @param namespaceId - The namespace of the animation.
  * @param trackIds - The IDs of the tracks to display.
+ * @param attribute - The attribute to display, used with complex datatypes.
  * @param canZoom - Whether the track can be zoomed.
  * @param trackRender - The render type for the track (degrades to Dope if multiple tracks are present).
  * @param showBackground - Whether to show the background.
@@ -58,6 +62,7 @@ export function Track({
   animationId,
   namespaceId,
   trackIds,
+  attribute,
   trackRender,
   canZoom = true,
   showData = true,
@@ -84,18 +89,53 @@ export function Track({
     ),
   );
 
-  // const viewport = useAnimationStore(useShallow((state: AnimationData) => state.player.viewport));
+  const tracks = useAnimationStore(
+    useShallow((state: AnimationData) => pick(state.tracks, trackKeys)),
+  ) as Record<string, TrackData<RawValue>>;
 
-  const verticalBounds: [number, number] = useAnimationStore(
-    useShallow((state: AnimationData) => {
-      if (trackKeys.length !== 1 || trackRender === TrackRender.Dope) return [0, 1];
-      const tracks = pick(state.tracks, trackKeys) as Record<string, TrackData<RawValue>>;
-      const animatableValues = Object.values(state.controls)
-        .filter((control: Control) => trackKeys.includes(control.writeId))
-        .map((control: Control) => state.animatables[control.readId]);
-      return computeVerticalBounds(tracks, animatableValues);
-    }),
+  // const viewport = useAnimationStore(useShallow((state: AnimationData) => state.player.viewport));
+  const [allControls, allAnimatables] = useAnimationStore(
+    useShallow((state: AnimationData) => [state.controls, state.animatables]),
   );
+
+  const verticalBounds = useMemo(() => {
+    if (
+      trackKeys.length !== 1 ||
+      trackRender === TrackRender.Dope ||
+      trackRender === TrackRender.Transition
+    )
+      return [0, 1];
+    const animatableValues = Object.values(allControls)
+      .filter((control: Control) => trackKeys.includes(control.writeId))
+      .map((control: Control) => allAnimatables[control.readId]);
+    return computeVerticalBounds(tracks, animatableValues, attribute);
+  }, [trackKeys, trackRender, tracks, allControls, allAnimatables, attribute]);
+
+  const trackType = useMemo(() => {
+    if (trackKeys.length !== 1) {
+      const types = new Set<AnimatableValue["type"]>();
+      Object.values(allControls)
+        .filter((control: Control) => trackKeys.includes(control.writeId))
+        .forEach((control: Control) =>
+          types.add(allAnimatables[control.readId].type as AnimatableValue["type"]),
+        );
+      return types.size === 1
+        ? types.values().next().value!
+        : ("multiple" as AnimatableValue["type"] | "multiple");
+    } else {
+      const control = Object.values(allControls).find((c: Control) => trackKeys[0] === c.writeId);
+      if (!control) return "multiple";
+
+      return allAnimatables[control.readId].type;
+    }
+  }, [allAnimatables, allControls, trackKeys]);
+
+  const resolvedRender = useMemo(() => {
+    if (trackKeys.length !== 1) return TrackRender.Dope;
+    if (trackType === "number") return trackRender;
+    if (attribute && ["vector3", "euler", "rgb", "hsl"].includes(trackType)) return trackRender;
+    return TrackRender.Dope;
+  }, [trackKeys, trackRender, trackType, attribute]);
 
   const frameCount = Math.floor(framerate * (duration / 1000));
 
@@ -115,14 +155,15 @@ export function Track({
     [verticalBounds],
   );
 
-  // const zoomScale = useMemo(
-  //   () =>
-  //     scaleLinear({
-  //       domain: canZoom ? viewport : [0, 1],
-  //       range: [0, 1],
-  //     }),
-  //   [viewport, canZoom],
-  // );
+  const zoomScale = useRef<ScaleLinear>(scaleLinear({ domain: [0, 1], range: [0, 1] }));
+
+  useStoreSubscription(
+    (state) => state.player.viewport,
+    (viewport) => {
+      zoomScale.current.domain(viewport);
+    },
+    shallow,
+  );
 
   const bind = useHover(({ hovering: h }) => {
     const hovering = h ?? false;
@@ -137,14 +178,16 @@ export function Track({
         animationId,
         namespaceId,
         instanceInfo,
+        attribute,
         trackIds: trackKeys,
         bounds: activeRegionBounds,
         xScale,
         yScale,
-        // zoomScale,
+        zoomScale,
         frameCount,
         color,
-        trackRender,
+        trackRender: resolvedRender,
+        trackType,
       }}
     >
       <div

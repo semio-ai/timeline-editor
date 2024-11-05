@@ -1,15 +1,22 @@
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useRef } from "react";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
 import { animated } from "@react-spring/web";
 import { stampToVisualTime } from "@semio/ui";
+import { shallow } from "zustand/shallow";
 import { useShallow } from "zustand/react/shallow";
 import useMeasure from "react-use-measure";
 import { clsx } from "clsx";
 import { TrackRender } from "../types";
 import type { AnimationData } from "../store-types";
 import { type ScaleLinear } from "../scale-linear";
-import { useAnimationStore, TrackContext, useStaticZoomedSpring, useAltKeyPressed } from "../hooks";
+import {
+  useAnimationStore,
+  TrackContext,
+  useStaticZoomedSpring,
+  useAltKeyPressed,
+  useStoreSubscription,
+} from "../hooks";
 import { TIMELINE_PADDING } from "../constants";
 import {
   PlayheadCart,
@@ -35,16 +42,15 @@ function InnerRuler({
     useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );
 
-  // const viewport = useAnimationStore(useShallow((state: AnimationData) => state.player.viewport));
+  const zoomScale = useRef<ScaleLinear>(scaleLinear({ domain: [0, 1], range: [0, 1] }));
 
-  // const zoomScale = useMemo(
-  //   () =>
-  //     scaleLinear({
-  //       domain: side === "top" ? viewport : [0, 1],
-  //       range: [0, 1],
-  //     }),
-  //   [viewport, side],
-  // );
+  useStoreSubscription(
+    (state) => state.player.viewport,
+    (viewport) => {
+      zoomScale.current.domain(side === "top" ? viewport : [0, 1]);
+    },
+    shallow,
+  );
 
   const xScale = useMemo(
     () =>
@@ -82,10 +88,11 @@ function InnerRuler({
         bounds: activeRegionBounds,
         xScale,
         yScale,
-        // zoomScale,
+        zoomScale,
         frameCount,
         color: "#737373",
         trackRender: TrackRender.Dope,
+        trackType: "multiple",
       }}
     >
       <div className={clsx("h-6 relative")}>

@@ -30,12 +30,15 @@ function InnerTrackBackground({
   ignoreZoom = false,
   tickHeight = 210,
 }: TrackBackgroundProps) {
-  const identifier: string = trackIds?.join("-") ?? `default-${tickHeight.toString()}`;
   const {
     xScale,
     yScale,
+    attribute,
     bounds: { width },
   } = useTrackContext();
+
+  const identifier: string =
+    trackIds?.join("-") ?? `default-${tickHeight.toString()}${attribute ? `-${attribute}` : ""}`;
 
   const bounds = useAnimationStore(useShallow((state) => state.player.bounds));
 

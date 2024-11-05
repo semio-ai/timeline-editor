@@ -97,7 +97,6 @@ export function InnerSheet(): ReactNode {
                 value: TrackRender.Transition,
                 label: "Transition View",
                 icon: <IconLine size="11px" />,
-                disabled: true,
               },
               {
                 value: TrackRender.Curve,
@@ -149,9 +148,14 @@ export function InnerSheet(): ReactNode {
                 animationId={activeAnimation}
                 namespaceId="default"
                 trackRender={
-                  ([TrackRender.Dope, TrackRender.Preview].includes(trackRender)
+                  ([TrackRender.Dope, TrackRender.Preview, TrackRender.Transition].includes(
+                    trackRender,
+                  )
                     ? trackRender
-                    : TrackRender.Dope) as TrackRender.Dope | TrackRender.Preview
+                    : TrackRender.Dope) as
+                    | TrackRender.Dope
+                    | TrackRender.Preview
+                    | TrackRender.Transition
                 }
               />
               <div className="w-full h-[30px] items-center text-black dark:text-white">

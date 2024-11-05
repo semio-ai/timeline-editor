@@ -1,8 +1,10 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useRef } from "react";
 import { scaleLinear } from "@visx/scale";
 import useMeasure from "react-use-measure";
 import { useShallow } from "zustand/react/shallow";
-import { TrackContext, useAnimationStore } from "../hooks";
+import { shallow } from "zustand/shallow";
+import { TrackContext, useAnimationStore, useStoreSubscription } from "../hooks";
+import { ScaleLinear } from "../scale-linear";
 import { TIMELINE_PADDING } from "../constants";
 import { type AnimationData } from "../store-types";
 import { TrackRender } from "../types";
@@ -40,14 +42,15 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
 
   const yScale = useMemo(() => scaleLinear({ domain: [0, 1], range: [0, height] }), [height]);
 
-  // const zoomScale = useMemo(
-  //   () =>
-  //     scaleLinear({
-  //       domain: viewport,
-  //       range: [0, 1],
-  //     }),
-  //   [viewport],
-  // );
+  const zoomScale = useRef<ScaleLinear>(scaleLinear({ domain: [0, 1], range: [0, 1] }));
+
+  useStoreSubscription(
+    (state) => state.player.viewport,
+    (viewport) => {
+      zoomScale.current.domain(viewport);
+    },
+    shallow,
+  );
 
   return (
     <div className="w-full flex flex-row items-center" style={{ height }}>
@@ -69,10 +72,11 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
             bounds: activeRegionBounds,
             xScale,
             yScale,
-            // zoomScale,
+            zoomScale,
             frameCount,
             color: "#737373",
             trackRender: TrackRender.Dope,
+            trackType: "multiple",
           }}
         >
           <svg

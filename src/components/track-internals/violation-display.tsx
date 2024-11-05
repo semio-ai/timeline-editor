@@ -17,14 +17,7 @@ import { closestFrame, useDeep } from "@semio/utils";
 import { TrackedTooltip, useTrackedTooltip } from "@semio/ui";
 import { uniq, clamp } from "lodash";
 import { TIMELINE_PADDING } from "../../constants";
-import {
-  useAnimationStore,
-  useZoomGestures,
-  useTrackContext,
-  usePairSprings,
-  useHoverSpring,
-  useWithZoom,
-} from "../../hooks";
+import { useAnimationStore, useZoomGestures, useTrackContext, usePairSprings } from "../../hooks";
 import { ViolationSet, Violation, ViolationType, Control } from "../../types";
 import { AnimationData, AnimationActions } from "../../store-types";
 
@@ -95,14 +88,17 @@ function InnerViolationSegmentDisplay({
   const rectRefOrig = useRef<SVGRectElement>(null);
   const floatingRefOrig = useRef<HTMLDivElement>(null);
 
-  const { xScale, bounds, frameCount, color: defaultTrackColor } = useTrackContext();
+  const updateHoverpointPreview = useAnimationStore(
+    useShallow((state: AnimationActions) => state.updateHoverpointPreview),
+  );
+
+  const { xScale, zoomScale, bounds, frameCount, color: defaultTrackColor } = useTrackContext();
   const { left, width } = usePairSprings(
     segment.stampRange.start,
     segment.stampRange.end,
     ignoreZoom,
   );
-  const { setHoverpoint, clearHoverpoint } = useHoverSpring(ignoreZoom);
-  const withZoom = useWithZoom(ignoreZoom);
+
   const resetPlayer = useAnimationStore(useShallow((state: AnimationActions) => state.resetPlayer));
 
   const { floatingStyles, elementRefs, context, updateHoverState } = useTrackedTooltip(
@@ -115,21 +111,21 @@ function InnerViolationSegmentDisplay({
 
   const doubleClickHandler = useCallback(
     (event: MouseEvent) => {
-      withZoom((zoomScale) => {
-        const newPosition = clamp(
-          zoomScale.invert(((event.clientX ?? 0) - bounds.left) / bounds.width),
-          0,
-          1,
-        );
-        if (event.altKey) {
-          resetPlayer(newPosition);
-        } else {
-          const closest: number = closestFrame(newPosition, frameCount);
-          resetPlayer(closest);
-        }
-      });
+      // withZoom((zoomScale) => {
+      const newPosition = clamp(
+        zoomScale.current.invert(((event.clientX ?? 0) - bounds.left) / bounds.width),
+        0,
+        1,
+      );
+      if (event.altKey) {
+        resetPlayer(newPosition);
+      } else {
+        const closest: number = closestFrame(newPosition, frameCount);
+        resetPlayer(closest);
+      }
+      // });
     },
-    [bounds, frameCount, resetPlayer, withZoom],
+    [bounds, frameCount, resetPlayer, zoomScale],
   );
 
   const [uniqueTracks, color] = useMemo(() => {
@@ -147,21 +143,21 @@ function InnerViolationSegmentDisplay({
   useZoomGestures(rectRefOrig as MutableRefObject<EventTarget>, {
     onHover: ({ xy, hovering }) => {
       if (!hovering) {
-        clearHoverpoint();
+        updateHoverpointPreview(null);
       }
       updateHoverState(...xy, hovering ?? false);
     },
     onMove: (state) => {
-      withZoom((zoomScale) => {
-        const newPosition = zoomScale.invert(((state.xy[0] || 0) - bounds.left) / bounds.width);
-        if (state.altKey) {
-          setHoverpoint(newPosition);
-        } else {
-          const closest: number = closestFrame(newPosition, frameCount);
-          setHoverpoint(closest);
-        }
-        updateHoverState(...state.xy, state.hovering ?? false);
-      });
+      const newPosition = zoomScale.current.invert(
+        ((state.xy[0] || 0) - bounds.left) / bounds.width,
+      );
+      if (state.altKey) {
+        updateHoverpointPreview(newPosition);
+      } else {
+        const closest: number = closestFrame(newPosition, frameCount);
+        updateHoverpointPreview(closest);
+      }
+      updateHoverState(...state.xy, state.hovering ?? false);
     },
   });
 

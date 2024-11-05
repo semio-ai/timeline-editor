@@ -77,6 +77,7 @@ export function TrackRow({
                   <Track
                     animationId={animationId}
                     namespaceId={namespaceId}
+                    attribute="x"
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
@@ -89,6 +90,7 @@ export function TrackRow({
                   <Track
                     animationId={animationId}
                     namespaceId={namespaceId}
+                    attribute="y"
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
@@ -101,6 +103,7 @@ export function TrackRow({
                   <Track
                     animationId={animationId}
                     namespaceId={namespaceId}
+                    attribute="z"
                     width={width}
                     trackIds={trackIds}
                     useCustomColor

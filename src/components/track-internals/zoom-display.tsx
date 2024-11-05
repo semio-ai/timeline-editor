@@ -4,14 +4,7 @@ import { animated, useSpring } from "@react-spring/web";
 import { closestFrame } from "@semio/utils";
 import { clsx } from "clsx";
 import { clamp } from "lodash";
-import {
-  useAnimationStore,
-  useTrackContext,
-  useZoomSprings,
-  useHoverSpring,
-  useWithZoom,
-  useZoomGestures,
-} from "../../hooks";
+import { useAnimationStore, useTrackContext, useZoomSprings, useZoomGestures } from "../../hooks";
 import { TIMELINE_PADDING } from "../../constants";
 import { easeConfig } from "../../spring-config";
 import { DRAG_X_CONFIG } from "../../gesture-config";
@@ -24,17 +17,18 @@ function InnerZoomDisplay() {
   const {
     frameCount,
     xScale,
+    zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackContext();
 
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  const { setHoverpoint, clearHoverpoint } = useHoverSpring(true);
-
   const updateViewport = useAnimationStore(useShallow((state) => state.updatePlayerViewport));
 
-  const withZoom = useWithZoom(false);
+  const updateHoverpointPreview = useAnimationStore(
+    useShallow((state) => state.updateHoverpointPreview),
+  );
 
   const { leftSpring, rightSpring, widthSpring } = useZoomSprings();
 
@@ -59,23 +53,23 @@ function InnerZoomDisplay() {
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
-        withZoom((zoomScale) => {
-          const currentViewport = zoomScale.domain();
-          let offset = state.delta[0] / timelineWidth;
-          if (currentViewport[0] + offset < 0) {
-            offset = -currentViewport[0];
-          } else if (currentViewport[1] + offset > 1) {
-            offset = 1 - currentViewport[1];
-          }
-          const newValues = currentViewport.map((v) => clamp(v + offset, 0, 1));
-          if (state.altKey) {
-            updateViewport(newValues[0], newValues[1]);
-          } else {
-            const newFrameValues = newValues.map((v) => closestFrame(v, frameCount));
-            updateViewport(newFrameValues[0], newFrameValues[1]);
-          }
-          state.event.stopPropagation();
-        });
+        // withZoom((zoomScale) => {
+        const currentViewport = zoomScale.current.domain();
+        let offset = state.delta[0] / timelineWidth;
+        if (currentViewport[0] + offset < 0) {
+          offset = -currentViewport[0];
+        } else if (currentViewport[1] + offset > 1) {
+          offset = 1 - currentViewport[1];
+        }
+        const newValues = currentViewport.map((v) => clamp(v + offset, 0, 1));
+        if (state.altKey) {
+          updateViewport(newValues[0], newValues[1]);
+        } else {
+          const newFrameValues = newValues.map((v) => closestFrame(v, frameCount));
+          updateViewport(newFrameValues[0], newFrameValues[1]);
+        }
+        state.event.stopPropagation();
+        // });
       },
       onClick: (state) => {
         state.event.stopPropagation();
@@ -83,16 +77,16 @@ function InnerZoomDisplay() {
       onHover: ({ hovering }) => {
         setHovered(hovering ?? false);
         if (!hovering) {
-          clearHoverpoint();
+          updateHoverpointPreview(null);
         }
       },
       onMove: (state) => {
         const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
         if (state.altKey) {
-          setHoverpoint(newPosition);
+          updateHoverpointPreview(newPosition);
         } else {
           const closest: number = closestFrame(newPosition, frameCount);
-          setHoverpoint(closest);
+          updateHoverpointPreview(closest);
         }
       },
     },
@@ -105,17 +99,17 @@ function InnerZoomDisplay() {
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
-        withZoom((zoomScale) => {
-          const currentViewport = zoomScale.domain();
-          const newPosition = clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1);
-          const newValue = state.altKey ? newPosition : closestFrame(newPosition, frameCount);
-          const vals =
-            newValue >= currentViewport[1]
-              ? [currentViewport[1], newValue]
-              : [newValue, currentViewport[1]];
-          updateViewport(vals[0], vals[1]);
-          state.event.stopPropagation();
-        });
+        // withZoom((zoomScale) => {
+        const currentViewport = zoomScale.current.domain();
+        const newPosition = clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1);
+        const newValue = state.altKey ? newPosition : closestFrame(newPosition, frameCount);
+        const vals =
+          newValue >= currentViewport[1]
+            ? [currentViewport[1], newValue]
+            : [newValue, currentViewport[1]];
+        updateViewport(vals[0], vals[1]);
+        state.event.stopPropagation();
+        // });
       },
       onClick: (state) => {
         state.event.stopPropagation();
@@ -123,16 +117,16 @@ function InnerZoomDisplay() {
       onHover: ({ hovering }) => {
         setHovered(hovering ?? false);
         if (!hovering) {
-          clearHoverpoint();
+          updateHoverpointPreview(null);
         }
       },
       onMove: (state) => {
         const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
         if (state.altKey) {
-          setHoverpoint(newPosition);
+          updateHoverpointPreview(newPosition);
         } else {
           const closest: number = closestFrame(newPosition, frameCount);
-          setHoverpoint(closest);
+          updateHoverpointPreview(closest);
         }
       },
     },
@@ -145,17 +139,17 @@ function InnerZoomDisplay() {
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
-        withZoom((zoomScale) => {
-          const currentViewport = zoomScale.domain();
-          const newPosition = clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1);
-          const newValue = state.shiftKey ? newPosition : closestFrame(newPosition, frameCount);
-          const vals =
-            newValue <= currentViewport[0]
-              ? [newValue, currentViewport[0]]
-              : [currentViewport[0], newValue];
-          updateViewport(vals[0], vals[1]);
-          state.event.stopPropagation();
-        });
+        // withZoom((zoomScale) => {
+        const currentViewport = zoomScale.current.domain();
+        const newPosition = clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1);
+        const newValue = state.shiftKey ? newPosition : closestFrame(newPosition, frameCount);
+        const vals =
+          newValue <= currentViewport[0]
+            ? [newValue, currentViewport[0]]
+            : [currentViewport[0], newValue];
+        updateViewport(vals[0], vals[1]);
+        state.event.stopPropagation();
+        // });
       },
       onClick: (state) => {
         state.event.stopPropagation();
@@ -163,16 +157,16 @@ function InnerZoomDisplay() {
       onHover: ({ hovering }) => {
         setHovered(hovering ?? false);
         if (!hovering) {
-          clearHoverpoint();
+          updateHoverpointPreview(null);
         }
       },
       onMove: (state) => {
         const newPosition = ((state.xy[0] || 0) - timelineLeft) / timelineWidth;
         if (state.altKey) {
-          setHoverpoint(newPosition);
+          updateHoverpointPreview(newPosition);
         } else {
           const closest: number = closestFrame(newPosition, frameCount);
-          setHoverpoint(closest);
+          updateHoverpointPreview(closest);
         }
       },
     },

@@ -3,28 +3,16 @@ import { clamp } from "lodash";
 import { clsx } from "clsx";
 import { closestFrame } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-import {
-  useZoomGestures,
-  useTrackContext,
-  useHoverSpring,
-  useWithZoom,
-  useAnimationStore,
-} from "../../hooks";
+import { useZoomGestures, useTrackContext, useAnimationStore } from "../../hooks";
 import { AnimationActions, AnimationData } from "../../store-types";
 
-function InnerGestureDetector({
-  ignoreZoom,
-  height = 30,
-}: {
-  ignoreZoom?: boolean;
-  height?: number;
-}) {
+function InnerGestureDetector({ height = 30 }: { ignoreZoom?: boolean; height?: number }) {
   const gestureRef = useRef<SVGRectElement>();
-  const { xScale, bounds, animationId } = useTrackContext();
+  const { xScale, zoomScale, bounds, animationId } = useTrackContext();
 
-  const withZoom = useWithZoom(ignoreZoom);
-
-  const { setHoverpoint, clearHoverpoint } = useHoverSpring(ignoreZoom);
+  const updateHoverpointPreview = useAnimationStore(
+    useShallow((state: AnimationActions) => state.updateHoverpointPreview),
+  );
 
   const { resetPlayer } = useAnimationStore(
     useShallow((state: AnimationActions) => ({
@@ -43,39 +31,37 @@ function InnerGestureDetector({
 
   const doubleClickHandler = useCallback(
     (event: MouseEvent) => {
-      withZoom((zoomScale) => {
-        const newPosition = clamp(
-          zoomScale.invert(((event.clientX ?? 0) - bounds.left) / bounds.width),
-          0,
-          1,
-        );
-        if (event.altKey) {
-          resetPlayer(newPosition);
-        } else {
-          const closest: number = closestFrame(newPosition, frameCount);
-          resetPlayer(closest);
-        }
-      });
+      const newPosition = clamp(
+        zoomScale.current.invert(((event.clientX ?? 0) - bounds.left) / bounds.width),
+        0,
+        1,
+      );
+      if (event.altKey) {
+        resetPlayer(newPosition);
+      } else {
+        const closest: number = closestFrame(newPosition, frameCount);
+        resetPlayer(closest);
+      }
     },
-    [bounds, frameCount, resetPlayer, withZoom],
+    [bounds, frameCount, resetPlayer, zoomScale],
   );
 
   useZoomGestures(gestureRef as MutableRefObject<EventTarget>, {
     onHover: (state) => {
       if (!state.hovering) {
-        clearHoverpoint();
+        updateHoverpointPreview(null);
       }
     },
     onMove: (state) => {
-      withZoom((zoomScale) => {
-        const newPosition = zoomScale.invert(((state.xy[0] || 0) - bounds.left) / bounds.width);
-        if (state.altKey) {
-          setHoverpoint(newPosition);
-        } else {
-          const closest: number = closestFrame(newPosition, frameCount);
-          setHoverpoint(closest);
-        }
-      });
+      const newPosition = zoomScale.current.invert(
+        ((state.xy[0] || 0) - bounds.left) / bounds.width,
+      );
+      if (state.altKey) {
+        updateHoverpointPreview(newPosition);
+      } else {
+        const closest: number = closestFrame(newPosition, frameCount);
+        updateHoverpointPreview(closest);
+      }
     },
   });
 

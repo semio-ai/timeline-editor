@@ -1,5 +1,6 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, MutableRefObject, createRef } from "react";
 import { type RectReadOnly } from "react-use-measure";
+import type { AnimatableValue } from "@semio/utils";
 import { ScaleLinear, defaultScaleLinear } from "../scale-linear";
 import { type InstanceInfo, TrackRender } from "../types";
 
@@ -7,6 +8,7 @@ import { type InstanceInfo, TrackRender } from "../types";
  * The context data for a track.
  * @param animationId - The id of the animation.
  * @param namespaceId - The id of the namespace.
+ * @param attribute - The subset of the animatable value (when complex)
  * @param instanceInfo - The instance info ({@link InstanceInfo}).
  * @param bounds - The bounds of the track.
  * @param xScale - The x-scale of the track ({@link ScaleLinear}).
@@ -17,15 +19,17 @@ import { type InstanceInfo, TrackRender } from "../types";
 export interface TrackContextData {
   animationId: string;
   namespaceId: string;
+  attribute?: string;
   instanceInfo: InstanceInfo;
   trackIds: string[];
   bounds: RectReadOnly;
   xScale: ScaleLinear;
   yScale: ScaleLinear;
-  // zoomScale: ScaleLinear;
+  zoomScale: MutableRefObject<ScaleLinear>;
   frameCount: number;
   color: string;
   trackRender: TrackRender;
+  trackType: AnimatableValue["type"] | "multiple";
 }
 
 export const TrackContext = createContext<TrackContextData>({
@@ -48,10 +52,11 @@ export const TrackContext = createContext<TrackContextData>({
   },
   xScale: defaultScaleLinear,
   yScale: defaultScaleLinear,
-  // zoomScale: defaultScaleLinear,
+  zoomScale: createRef<ScaleLinear>() as MutableRefObject<ScaleLinear>,
   frameCount: 1,
   color: "#737373",
   trackRender: TrackRender.Dope,
+  trackType: "number",
 });
 
 export const useTrackContext = () => {

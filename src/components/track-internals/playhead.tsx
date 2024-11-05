@@ -4,7 +4,7 @@ import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { closestFrame } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-import { useTrackContext, useAnimationStore, useWithZoom, usePlayheadSpring } from "../../hooks";
+import { useTrackContext, useAnimationStore, usePlayheadSpring } from "../../hooks";
 import { DRAG_X_CONFIG } from "../../gesture-config";
 
 export interface PlayheadProps {
@@ -15,6 +15,7 @@ export interface PlayheadProps {
 function InnerPlayhead({ ignoreZoom = false, height = 30 }: PlayheadProps): ReactNode {
   const {
     xScale,
+    zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     frameCount,
   } = useTrackContext();
@@ -22,24 +23,24 @@ function InnerPlayhead({ ignoreZoom = false, height = 30 }: PlayheadProps): Reac
   const [hovered, setHovered] = useState(false);
 
   const resetPlayer = useAnimationStore(useShallow((state) => state.resetPlayer));
-  const withZoom = useWithZoom(ignoreZoom);
+  // const withZoom = useWithZoom(ignoreZoom);
 
   const playheadSpring = usePlayheadSpring(ignoreZoom);
 
   const gestureBindings = useGesture(
     {
       onDrag: (state) => {
-        withZoom((zoomScale) => {
-          const newPosition = zoomScale.invert(
-            clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
-          );
-          if (state.altKey) {
-            resetPlayer(newPosition);
-          } else {
-            const closest: number = closestFrame(newPosition, frameCount);
-            resetPlayer(closest);
-          }
-        });
+        // withZoom((zoomScale) => {
+        const newPosition = zoomScale.current.invert(
+          clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+        );
+        if (state.altKey) {
+          resetPlayer(newPosition);
+        } else {
+          const closest: number = closestFrame(newPosition, frameCount);
+          resetPlayer(closest);
+        }
+        // });
       },
       onHover: (state) => {
         setHovered(state.hovering || false);

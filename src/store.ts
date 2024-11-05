@@ -26,6 +26,7 @@ import {
   Animation,
   Violation,
   StoredAnimation,
+  SemanticTime,
 } from "./types";
 import {
   AnimationData,
@@ -381,31 +382,6 @@ export const AnimationSlice = (
       // If the time changes, check if it matches an existing keyframe and
       // set the current selected keyframe
       const unsubs = [
-        // api.subscribe(
-        //   (state) => ({
-        //     running: state.player.running,
-        //     stamp: state.player.stamp,
-        //     keyframes: state.animations[state.activeAnimation]?.frames,
-        //   }),
-        //   ({ running, stamp, keyframes }) => {
-        //     if (running) {
-        //       // The animation is running, so don't select any keyframe
-        //       set({ selectedKeyframe: undefined });
-        //     } else {
-        //       // The animation isn't running, so select the keyframe that matches the current time
-        //       // If none match, return undefined
-        //       const selectedKeyframe = Array.from(keyframes.values()).find(
-        //         (keyframe: Keyframe) => keyframe?.stamp === stamp,
-        //       );
-        //       set({ selectedKeyframe: selectedKeyframe?.id });
-        //     }
-        //   },
-        //   {
-        //     equalityFn: (current: StampAndKeyframes, previous: StampAndKeyframes) =>
-        //       current.stamp === previous.stamp && current.keyframes === previous.keyframes,
-        //   },
-        // ),
-
         // If the playing state changes, start or stop the interval that updates the player
         api.subscribe(
           (state: AnimationData) => ({
@@ -444,39 +420,6 @@ export const AnimationSlice = (
           { equalityFn: (current, previous) => current.stamp === previous.stamp },
         ),
 
-        // Generates an intermediate version of the animation that can be used to more easily
-        // identify changes for each track, used for generating track interpolators in unsub4b
-        // api.subscribe(
-        //   (state) => ({
-        //     animationKeys: Object.keys(state.animations),
-        //     animationSubscribers: state.animationSubscribers,
-        //   }),
-        //   ({ animationKeys, animationSubscribers }) => {
-        //     // Clear the previous subscriptions for each animation;
-        //     animationSubscribers.forEach((animationUnsub) => {
-        //       animationUnsub();
-        //     });
-
-        //     const newSubscribes = animationKeys.map((animationId) =>
-        //       api.subscribe(
-        //         (state) => state.animations[animationId],
-        //         (animation: Animation) => {
-        //           const cache = computeAnimationCache(animation);
-        //           set((state) => ({
-        //             animationCache: { ...state.animationCache, ...cache },
-        //           }));
-        //         },
-        //         { equalityFn: shallow, fireImmediately: true },
-        //       ),
-        //     );
-
-        //     set({ animationSubscribers: newSubscribes });
-        //   },
-        //   {
-        //     equalityFn: (current, previous) =>
-        //       isEqual(current.animationKeys, previous.animationKeys),
-        //   },
-        // ),
         api.subscribe(
           (state: AnimationData) => ({
             animations: state.animations,
@@ -600,6 +543,31 @@ export const AnimationSlice = (
       set((state: AnimationData) => ({
         previews: state.previews.map((p) => (evaluator(p) ? { ...p, ...preview } : p)),
       }));
+    },
+    updateHoverpointPreview: (value: number | null) => {
+      set((state: AnimationData) => {
+        if (value !== null) {
+          const currentIdx = state.previews.findIndex((p) => p.semanticTime === SemanticTime.Hover);
+          if (currentIdx < 0) {
+            return {
+              previews: [
+                ...state.previews,
+                { semanticTime: SemanticTime.Hover, stamp: value, label: "Hover" },
+              ],
+            };
+          } else {
+            return {
+              previews: state.previews.map((p, idx) =>
+                idx === currentIdx
+                  ? { semanticTime: SemanticTime.Hover, stamp: value, label: "Hover" }
+                  : p,
+              ),
+            };
+          }
+        } else {
+          return { previews: state.previews.filter((p) => p.semanticTime !== SemanticTime.Hover) };
+        }
+      });
     },
     updateControlColor: (controlId: string, color: string) => {
       set(
