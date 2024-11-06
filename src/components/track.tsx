@@ -101,7 +101,7 @@ export function Track({
   const verticalBounds = useMemo(() => {
     if (
       trackKeys.length !== 1 ||
-      trackRender === TrackRender.Dope ||
+      trackRender === TrackRender.Key ||
       trackRender === TrackRender.Transition
     )
       return [0, 1];
@@ -131,10 +131,10 @@ export function Track({
   }, [allAnimatables, allControls, trackKeys]);
 
   const resolvedRender = useMemo(() => {
-    if (trackKeys.length !== 1) return TrackRender.Dope;
+    if (trackKeys.length !== 1) return TrackRender.Key;
     if (trackType === "number") return trackRender;
     if (attribute && ["vector3", "euler", "rgb", "hsl"].includes(trackType)) return trackRender;
-    return TrackRender.Dope;
+    return TrackRender.Key;
   }, [trackKeys, trackRender, trackType, attribute]);
 
   const frameCount = Math.floor(framerate * (duration / 1000));

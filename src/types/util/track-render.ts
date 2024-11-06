@@ -1,7 +1,7 @@
 export enum TrackRender {
   Preview = "preview",
-  Dope = "dope",
+  Key = "key",
   Transition = "transition",
   Data = "data",
-  Curve = "curve",
+  Graph = "graph",
 }

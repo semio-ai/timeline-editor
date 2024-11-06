@@ -2,15 +2,15 @@ import type { ReactNode } from "react";
 import { useContext, memo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
-import { ToggleGroup, Size, ToggleSquare, Variant } from "@semio/ui";
 import {
-  IconArrowUpRight,
-  IconChevronDown,
-  IconEaseInOut,
-  IconEaseInOutControlPoints,
-  IconLine,
-  IconTable,
-} from "@tabler/icons-react";
+  ToggleGroup,
+  Size,
+  ToggleSquare,
+  Variant,
+  IconGraphView,
+  IconPreviewView,
+} from "@semio/ui";
+import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
 import { TrackRender } from "../types";
@@ -41,7 +41,7 @@ export function InnerSheet(): ReactNode {
   const allTracks = useAnimationStore(
     useShallow((state) => state.animations[activeAnimation].tracks),
   );
-  const [trackRender, setTrackRender] = useState<TrackRender>(TrackRender.Dope);
+  const [trackRender, setTrackRender] = useState<TrackRender>(TrackRender.Key);
   const [selectedTracks, setSelectedTracks] = useState<string[]>(allTracks);
   return (
     <div
@@ -84,14 +84,9 @@ export function InnerSheet(): ReactNode {
             }}
             options={[
               {
-                value: TrackRender.Dope,
-                label: "Dope Sheet",
+                value: TrackRender.Key,
+                label: "Key View",
                 icon: <IconLine size="11px" className="rotate-45" />,
-              },
-              {
-                value: TrackRender.Preview,
-                label: "Preview View",
-                icon: <IconEaseInOut size="11px" />,
               },
               {
                 value: TrackRender.Transition,
@@ -99,9 +94,15 @@ export function InnerSheet(): ReactNode {
                 icon: <IconLine size="11px" />,
               },
               {
-                value: TrackRender.Curve,
-                label: "Curve View",
-                icon: <IconEaseInOutControlPoints size="11px" />,
+                value: TrackRender.Preview,
+                label: "Preview View",
+                // icon: <IconEaseInOut size="11px" />,
+                icon: <IconPreviewView size="11px" />,
+              },
+              {
+                value: TrackRender.Graph,
+                label: "Graph View",
+                icon: <IconGraphView size="11px" />,
                 disabled: true,
               },
               {
@@ -148,12 +149,12 @@ export function InnerSheet(): ReactNode {
                 animationId={activeAnimation}
                 namespaceId="default"
                 trackRender={
-                  ([TrackRender.Dope, TrackRender.Preview, TrackRender.Transition].includes(
+                  ([TrackRender.Key, TrackRender.Preview, TrackRender.Transition].includes(
                     trackRender,
                   )
                     ? trackRender
-                    : TrackRender.Dope) as
-                    | TrackRender.Dope
+                    : TrackRender.Key) as
+                    | TrackRender.Key
                     | TrackRender.Preview
                     | TrackRender.Transition
                 }

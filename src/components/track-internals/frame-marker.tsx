@@ -70,14 +70,8 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
 
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const showLine = trackRender !== TrackRender.Dope || dragging || isSelected || hovered;
+  const showLine = trackRender !== TrackRender.Key || dragging || isSelected || hovered;
 
-  const pathSpring = useSpringValue<string>(
-    trackRender === TrackRender.Dope || dragging || isSelected || hovered ? hexPath : linePath,
-    {
-      config: { duration: 10 },
-    },
-  );
   const hexStrokeColorSpring = useSpringValue<string>(isSelected ? highlightColor : "transparent", {
     config: { duration: 10 },
   });
@@ -86,10 +80,6 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
   });
 
   useEffect(() => {
-    void pathSpring.start({
-      to:
-        trackRender === TrackRender.Dope || dragging || isSelected || hovered ? hexPath : linePath,
-    });
     void hexStrokeColorSpring.start({ to: isSelected ? highlightColor : "transparent" });
     void lineStrokeWidth.start({ to: showLine ? 1.5 : 0 });
   }, [
@@ -98,7 +88,6 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     color,
     highlightColor,
     isSelected,
-    pathSpring,
     hexStrokeColorSpring,
     lineStrokeWidth,
     dragging,
@@ -151,7 +140,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
       onMouseLeave={() => setHovered(false)}
     >
       <animated.path d={linePath} fill="none" stroke={color} strokeWidth={lineStrokeWidth} />
-      <animated.path d={pathSpring} fill={color} stroke={hexStrokeColorSpring} strokeWidth={1} />
+      <animated.path d={hexPath} fill={color} stroke={hexStrokeColorSpring} strokeWidth={1} />
     </animated.g>
   );
 }

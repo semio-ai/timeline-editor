@@ -28,26 +28,26 @@ function InnerInterpolationSegment({
   );
 
   const pathLineSpring = useBezierPathSpring(
-    trackRender === TrackRender.Dope,
+    trackRender === TrackRender.Key,
     start.stamp,
     end.stamp,
     startValue,
     endValue,
-    trackRender !== TrackRender.Dope,
+    trackRender !== TrackRender.Key,
     false,
   );
 
   const pathFillSpring = useBezierPathSpring(
-    trackRender === TrackRender.Dope,
+    trackRender === TrackRender.Key,
     start.stamp,
     end.stamp,
     startValue,
     endValue,
-    trackRender !== TrackRender.Dope,
+    trackRender !== TrackRender.Key,
     true,
   );
 
-  if (trackRender === TrackRender.Dope && pseudoRegion) {
+  if (trackRender === TrackRender.Key && pseudoRegion) {
     return null;
   }
 
@@ -83,7 +83,7 @@ function InnerInterpolationSegment({
 export const InterpolationSegment = memo(InnerInterpolationSegment);
 
 function getStroke(trackRender: TrackRender, pseudoRegion: boolean): string {
-  if (trackRender === TrackRender.Dope) {
+  if (trackRender === TrackRender.Key) {
     return "stroke-[4px]";
   } else if (trackRender === TrackRender.Transition && pseudoRegion) {
     return "stroke-0";

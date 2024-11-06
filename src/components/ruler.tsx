@@ -91,7 +91,7 @@ function InnerRuler({
         zoomScale,
         frameCount,
         color: "#737373",
-        trackRender: TrackRender.Dope,
+        trackRender: TrackRender.Key,
         trackType: "multiple",
       }}
     >

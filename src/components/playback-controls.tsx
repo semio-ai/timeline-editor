@@ -145,13 +145,6 @@ export function PlaybackControls({
               }[];
 
               setValues(updates);
-              // selection.forEach((trackId) => {
-              //   const value = interpolators.get(trackId)?.(stamp.current);
-              //   const animatableId = tracks.find((t) => t.value === trackId)?.animatableId;
-              //   if (value !== undefined && animatableId) {
-              //     setValue(animatableId, namespaceId, value);
-              //   }
-              // });
             }
           }}
         />
@@ -168,7 +161,7 @@ export function PlaybackControls({
               },
               ...tracks,
             ]}
-            value={selection === allTracks ? "all" : allTracks[0]}
+            value={selection === allTracks ? "all" : selection[0]}
             onChange={(value: string) => {
               if (value === "all") {
                 onChangeSelection(allTracks);

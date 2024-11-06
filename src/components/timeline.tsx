@@ -9,7 +9,7 @@ export interface TimelineProps {
   animationId: string;
   trackIds?: string[];
   namespaceId: string;
-  trackRender: TrackRender.Dope | TrackRender.Preview | TrackRender.Transition;
+  trackRender: TrackRender.Key | TrackRender.Preview | TrackRender.Transition;
 }
 
 /**

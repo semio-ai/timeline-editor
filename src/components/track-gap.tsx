@@ -73,7 +73,7 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
             zoomScale,
             frameCount,
             color: "#737373",
-            trackRender: TrackRender.Dope,
+            trackRender: TrackRender.Key,
             trackType: "multiple",
           }}
         >
