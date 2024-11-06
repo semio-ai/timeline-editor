@@ -17,7 +17,7 @@ export function Minimap({ animationId }: { animationId: string }) {
               showZoomControls
               animationId={animationId}
               namespaceId="default"
-              trackRender={TrackRender.Dope}
+              trackRender={TrackRender.Key}
             />
           );
         }}
