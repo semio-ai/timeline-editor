@@ -435,8 +435,8 @@ function InnerWrappedTrackControl({
       filled={keypoint !== undefined}
       color={control?.settings?.color}
       onHexClick={() => {
-        if (keypoint) {
-          removeKeypoint(keypoint.id, animationId);
+        if (keypoint && track) {
+          removeKeypoint(track.id, keypoint.id);
         } else {
           const value = rawValue || animatableValue.default;
           setValue(animatableValue.id, namespace, value);
