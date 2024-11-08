@@ -53,7 +53,6 @@ function InnerZoomDisplay() {
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
-        // withZoom((zoomScale) => {
         const currentViewport = zoomScale.current.domain();
         let offset = state.delta[0] / timelineWidth;
         if (currentViewport[0] + offset < 0) {
@@ -69,7 +68,6 @@ function InnerZoomDisplay() {
           updateViewport(newFrameValues[0], newFrameValues[1]);
         }
         state.event.stopPropagation();
-        // });
       },
       onClick: (state) => {
         state.event.stopPropagation();
@@ -99,7 +97,6 @@ function InnerZoomDisplay() {
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
-        // withZoom((zoomScale) => {
         const currentViewport = zoomScale.current.domain();
         const newPosition = clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1);
         const newValue = state.altKey ? newPosition : closestFrame(newPosition, frameCount);
@@ -109,7 +106,6 @@ function InnerZoomDisplay() {
             : [newValue, currentViewport[1]];
         updateViewport(vals[0], vals[1]);
         state.event.stopPropagation();
-        // });
       },
       onClick: (state) => {
         state.event.stopPropagation();
@@ -139,7 +135,6 @@ function InnerZoomDisplay() {
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
-        // withZoom((zoomScale) => {
         const currentViewport = zoomScale.current.domain();
         const newPosition = clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1);
         const newValue = state.shiftKey ? newPosition : closestFrame(newPosition, frameCount);
@@ -149,7 +144,6 @@ function InnerZoomDisplay() {
             : [currentViewport[0], newValue];
         updateViewport(vals[0], vals[1]);
         state.event.stopPropagation();
-        // });
       },
       onClick: (state) => {
         state.event.stopPropagation();

@@ -6,6 +6,14 @@ import type { InstanceInfo, Track } from "../types";
 import { easeInOutCubic } from "../easings/ease-in-out-cubic";
 import { computeWorldStamp } from "./compute-instance-time";
 
+/**
+ * Computes an interpolator function for a given track and instance information.
+ * The returned function takes a time value and returns the interpolated value at that time.
+ *
+ * @param track - The track containing points with time stamps and values.
+ * @param instanceInfo - Information about the instance to compute world stamps.
+ * @returns A function that takes a time value (number) and returns the interpolated value (RawValue) at that time, or undefined if the track has no points.
+ */
 export function computeTrackInterpolator(
   track: Track<RawValue>,
   instanceInfo: InstanceInfo,

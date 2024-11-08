@@ -78,6 +78,15 @@ export function useBoundSprings(ignoreZoom?: boolean): {
   return { leftSpring, rightSpring, widthSpring };
 }
 
+/**
+ * Adjusts the given viewport to be based at zero.
+ *
+ * This function takes a viewport represented as a tuple of two numbers,
+ * and returns a new viewport where the starting point is set to zero.
+ *
+ * @param viewport - A tuple representing the viewport, where the first element is the starting point and the second element is the ending point.
+ * @returns A new viewport tuple where the starting point is zero and the ending point is adjusted accordingly.
+ */
 const getBasedZeroViewport = (viewport: [number, number]) => {
   return [0, viewport[1] - viewport[0]];
 };

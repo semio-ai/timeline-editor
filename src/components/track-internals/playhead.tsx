@@ -29,7 +29,6 @@ function InnerPlayhead({ ignoreZoom = false, height = 30 }: PlayheadProps): Reac
   const gestureBindings = useGesture(
     {
       onDrag: (state) => {
-        // withZoom((zoomScale) => {
         const newPosition = zoomScale.current.invert(
           clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
         );
@@ -39,7 +38,6 @@ function InnerPlayhead({ ignoreZoom = false, height = 30 }: PlayheadProps): Reac
           const closest: number = closestFrame(newPosition, frameCount);
           resetPlayer(closest);
         }
-        // });
       },
       onHover: (state) => {
         setHovered(state.hovering || false);

@@ -5,6 +5,7 @@ import { AnimationContext } from "../context";
 
 /**
  * A hook used to access values in the store. Must be used within a AnimationProvider. See the AnimationData for the attributes and the AnimationActions for the methods that can be accessed.
+ *
  * @param selector - A function that takes the store and returns the value you want to access.
  * @returns The value returned by the selector.
  */

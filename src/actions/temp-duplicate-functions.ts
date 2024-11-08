@@ -4,6 +4,16 @@ import { Control, ProcessType, ProcessNode, Graph } from "../types";
 import { updateKeypoint } from "./update-keypoint";
 import { createTrack } from "./create-track";
 
+/**
+ * Sets the value for a given control in the animation state. If the control already exists,
+ * it updates the existing track with the new value. If the control does not exist, it creates
+ * a new track and control, and then updates the track with the new value.
+ *
+ * @param state - The current animation state.
+ * @param id - The identifier for the control.
+ * @param _namespace - The namespace for the control (currently unused).
+ * @param value - The new value to set for the control.
+ */
 export function setValue(state: AnimationData, id: string, _namespace: string, value: RawValue) {
   const timestamp = usePlayerStore.getState().player.stamp;
   const control =
@@ -11,18 +21,13 @@ export function setValue(state: AnimationData, id: string, _namespace: string, v
       ? state.latestControl
       : Object.values(state.controls).find((ctrl) => ctrl.readId === id);
   if (control) {
-    console.log("control already exists, reusing");
-    // Update the existing track
     // We will for now assume that if the control exists, we have already created the track for it
     const trackId = control.writeId;
     updateKeypoint(state, trackId, { value, stamp: timestamp });
     state.latestControl = control;
   } else {
-    console.log("control doesn't exist, creating new track and control");
-    // fetch the source animatable
     const sourceAnimatable = state.animatables[id];
 
-    // Create a new track
     const track = createTrack(state, state.activeAnimation, {
       name: sourceAnimatable.name,
     });
@@ -33,8 +38,6 @@ export function setValue(state: AnimationData, id: string, _namespace: string, v
       writeId: track.id,
       settings: {},
     };
-
-    // Create a new node
 
     const newNode: ProcessNode = {
       id: crypto.randomUUID(),
@@ -50,16 +53,26 @@ export function setValue(state: AnimationData, id: string, _namespace: string, v
 
     updateKeypoint(state, track.id, { value, stamp: timestamp });
   }
-  // console.log("Setting value", lookupId, value);
-  // state.values.set(lookupId, value);
 }
 
+/**
+ * Updates the color setting of a specific control in the animation state.
+ *
+ * @param state - The current animation state containing controls.
+ * @param controlId - The unique identifier of the control to update.
+ * @param color - The new color to set for the control.
+ */
 export function updateControlColor(state: AnimationData, controlId: string, color: string) {
   if (state.controls[controlId]) {
     state.controls[controlId].settings.color = color;
   }
 }
 
+/**
+ * Creates a default graph object with predefined properties.
+ *
+ * @returns [Graph] The default graph object with an id, name, empty nodes array, and default instances set to null.
+ */
 export function createDefaultGraph(): Graph {
   return {
     id: "Unsaved Default Graph",

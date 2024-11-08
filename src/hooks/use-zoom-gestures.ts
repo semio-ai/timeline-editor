@@ -17,6 +17,34 @@ import { useAnimationStore } from "./use-animation-store";
 import { useShiftKeyPressed } from "./use-shift-key-pressed";
 import { usePlayerSubscription } from "./use-player-subscription";
 
+/**
+ * Custom hook to handle zoom gestures on a given reference element.
+ *
+ * @param ref - A mutable reference object pointing to the target event element.
+ * @param otherGestureHandlers - Optional additional gesture handlers to be merged with the default handlers.
+ * @param config - Optional configuration object for gesture handling.
+ *
+ * @returns void
+ *
+ * This hook sets up pinch and wheel gesture handlers to manage zooming functionality.
+ * It uses the `useGesture` hook to bind the handlers to the target element.
+ *
+ * The `onPinch` handler manages pinch gestures, updating the viewport based on the pinch scale and origin.
+ * It also addresses duplicate events in Safari by maintaining a set of timestamps.
+ *
+ * The `onWheel` handler manages wheel gestures, updating the viewport based on the wheel delta and shift key state.
+ * It ensures the viewport remains within valid bounds.
+ *
+ * The hook also subscribes to player viewport updates and adjusts the zoom scale domain accordingly.
+ *
+ * Dependencies:
+ * - `useShiftKeyPressed`: Custom hook to track the state of the shift key.
+ * - `useTrackContext`: Custom hook to access track context, including bounds.
+ * - `usePlayerStore`: Custom hook to access and update player store state.
+ * - `useAnimationStore`: Custom hook to access animation store state.
+ * - `usePlayerSubscription`: Custom hook to subscribe to player state changes.
+ * - `useGesture`: Hook from `@use-gesture/react` to bind gesture handlers.
+ */
 export const useZoomGestures = (
   ref: MutableRefObject<EventTarget>,
   otherGestureHandlers?: GestureHandlers<AnyHandlerEventTypes>,

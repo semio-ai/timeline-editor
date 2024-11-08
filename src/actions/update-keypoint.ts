@@ -2,6 +2,14 @@ import { RawValue, usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import { Keypoint } from "../types";
 
+/**
+ * Updates or adds a keypoint in the specified track within the animation state.
+ *
+ * @param state - The current animation data state.
+ * @param trackId - The ID of the track to update.
+ * @param keypoint - The keypoint data to update or add. If updating, it should match by id or stamp.
+ * @returns The updated or newly added keypoint, or undefined if the track does not exist.
+ */
 export function updateKeypoint(
   state: AnimationData,
   trackId: string,

@@ -64,6 +64,18 @@ export function computeVerticalBounds(
 
 const FilterableTypes = ["vector3", "rgb", "hsl", "euler"];
 
+/**
+ * Computes the minimum value for a given attribute of an animatable object.
+ *
+ * @param animatable - The animatable object which can be of type `AnimatableVector3`, `AnimatableEuler`, or `AnimatableColor`.
+ * @param attribute - The attribute for which the minimum value is to be computed.
+ *                    It can be "x", "y", "z" for `AnimatableVector3` and `AnimatableEuler`,
+ *                    "r", "g", "b" for `AnimatableColor` of type "rgb",
+ *                    or "h", "s", "l" for `AnimatableColor` of type "hsl".
+ * @returns The minimum value for the specified attribute. If the attribute is not found,
+ *          it returns `Number.POSITIVE_INFINITY` for `AnimatableVector3` and `AnimatableEuler`,
+ *          and `1` for `AnimatableColor`.
+ */
 function filteredMin(
   animatable: AnimatableVector3 | AnimatableEuler | AnimatableColor,
   attribute: string,
@@ -86,6 +98,15 @@ function filteredMin(
   }
 }
 
+/**
+ * Computes the maximum constraint value for a given attribute of an animatable object.
+ *
+ * @param animatable - The animatable object which can be of type `AnimatableVector3`, `AnimatableEuler`, or `AnimatableColor`.
+ * @param attribute - The attribute for which the maximum constraint value is to be computed.
+ *                    It can be "x", "y", "z" for vector3/euler types, "r", "g", "b" for rgb type,
+ *                    and "h", "s", "l" for hsl type.
+ * @returns The maximum constraint value for the specified attribute, or a default value if the attribute is not found.
+ */
 function filteredMax(
   animatable: AnimatableVector3 | AnimatableEuler | AnimatableColor,
   attribute: string,

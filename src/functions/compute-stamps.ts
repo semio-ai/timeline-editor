@@ -3,6 +3,13 @@ import { RawValue } from "@semio/utils";
 import type { Track, InstanceInfo } from "../types";
 import { computeWorldStamp } from "./compute-instance-time";
 
+/**
+ * Computes a sorted array of unique timestamps (stamps) based on the provided tracks and instances.
+ *
+ * @param tracks - A record of track objects, where each track contains points with stamps.
+ * @param instances - A record of instance information objects.
+ * @returns An array of unique timestamps sorted in ascending order.
+ */
 export function computeStamps(
   tracks: Record<string, Track<RawValue>>,
   instances: Record<string, InstanceInfo>,

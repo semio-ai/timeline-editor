@@ -38,8 +38,6 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
     useShallow((state: PlayerActions) => state.updatePlayerViewportCenter),
   );
 
-  // const withZoom = useWithZoom(ignoreZoom);
-
   const playheadSpring = usePlayheadSpring(ignoreZoom);
 
   const { d: playheadCartPath, x } = usePlayheadCartPathSpring(side, ignoreZoom);
@@ -47,7 +45,6 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
   const gestureBindings = useGesture(
     {
       onDrag: (state) => {
-        // withZoom((zoomScale) => {
         const newPosition = zoomScale.current.invert(
           clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
         );
@@ -57,7 +54,6 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
           const closest: number = closestFrame(newPosition, frameCount);
           resetPlayer(closest);
         }
-        // });
       },
       onHover: (state) => {
         setHovered(state.hovering || false);

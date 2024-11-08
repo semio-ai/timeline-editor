@@ -1,5 +1,6 @@
 /**
  * Defines the interpolation between two keypoint values.
+ *
  * @param id - a unique identifier for the transition.
  * @param keypoints - a collection of two keypoint ids that this transition interpolates between.
  * @param variant - the type of transition function to use.

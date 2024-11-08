@@ -26,6 +26,16 @@ export interface Animation {
   instances: Record<string, InstanceInfo>;
 }
 
+/**
+ * A collection of tracks, keyframes, and transitions that can be played back to create a visual effect.
+ * @param id - a unique identifier for the animation
+ * @param name - the name of the animation
+ * @param tracks - a collection of track ids specific to this animation.
+ * @param groups - a collection of track group ids specific to this animation.
+ * @param transitions - a collection of transition objects.
+ * @param duration - the total duration of the animation in milliseconds.
+ * @param instances - a collection of instance info objects.
+ */
 export interface StoredAnimationV2 {
   id: string;
   name: string;

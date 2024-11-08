@@ -1,6 +1,16 @@
 import type { RawValue } from "@semio/utils";
 import { Track, InstancedFrameInfo } from "../types";
 
+/**
+ * Computes the frames from the given tracks.
+ *
+ * This function processes the provided tracks and generates an array of `InstancedFrameInfo` objects.
+ * Each `InstancedFrameInfo` object contains a unique identifier, a timestamp, and an array of points
+ * that belong to that frame.
+ *
+ * @param tracks - A record of track IDs to `Track` objects. Each `Track` object contains an array of points.
+ * @returns An array of `InstancedFrameInfo` objects, each representing a frame with its associated points.
+ */
 export function computeFrames(tracks: Record<string, Track<RawValue>>): InstancedFrameInfo[] {
   const instancedFrameInfo: InstancedFrameInfo[] = [];
 

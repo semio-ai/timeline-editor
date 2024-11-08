@@ -118,6 +118,14 @@ export function usePlayheadCartPathSpring(
   return { d: playheadCartPathSpring, x: xSpring };
 }
 
+/**
+ * Calculates the buffer values for the playhead position based on the given scales.
+ *
+ * @param xScale - A linear scale function for the x-axis.
+ * @param zoomScale - A linear scale function for the zoom level.
+ * @param playhead - The current position of the playhead.
+ * @returns A tuple containing the buffer values [leftBuffer, rightBuffer].
+ */
 const valsToBuffer = (
   xScale: ScaleLinear,
   zoomScale: ScaleLinear,
@@ -129,12 +137,28 @@ const valsToBuffer = (
   return zoomed;
 };
 
+/**
+ * A linear scale function that maps a domain of [-4, 0] to a range of [3.5, 0].
+ * The output values are clamped to the specified range.
+ *
+ * @param value - The input value to be scaled.
+ * @returns - The scaled value within the range [3.5, 0].
+ */
 const corner = scaleLinear({
   domain: [-4, 0],
   range: [3.5, 0],
   clamp: true,
 });
 
+/**
+ * Calculates the path and center point for a flag based on distances and character count.
+ *
+ * @param distanceLeft - The distance from the left side.
+ * @param distanceRight - The distance from the right side.
+ * @param charCount - The number of characters in the flag.
+ * @param side - The side of the flag, either "top" or "bottom".
+ * @returns A tuple containing the SVG path string and the center point.
+ */
 function distanceToPath(
   distanceLeft: number,
   distanceRight: number,

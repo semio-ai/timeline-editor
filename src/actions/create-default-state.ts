@@ -3,6 +3,17 @@ import { AnimationData } from "../store-types";
 import { createDefaultAnimation } from "./create-default-animation";
 import { createDefaultGraph } from "./temp-duplicate-functions";
 
+/**
+ * Creates the default state for an animation.
+ *
+ * This function initializes and returns an object representing the default state
+ * of an animation, including various properties such as values, track interpolators,
+ * active animation, animations, tracks, visualized animations, duration, framerate,
+ * selected keyframe, expanded state, time display, player interval, hover point,
+ * previews, preferences, track subscribers, animation subscribers, and violations.
+ *
+ * @returns [AnimationData] The default state of the animation.
+ */
 export const createDefaultState = (): AnimationData => {
   const defaultAnimation = createDefaultAnimation();
 
