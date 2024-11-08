@@ -12,23 +12,26 @@ export function updateKeypoint(
     return;
   }
   // Match by id or stamp
-  const existingPoint = state.tracks[trackId].points.find(
+  const points = track.points;
+  const existingPoint = points.find(
     (point) => point.id === keypoint.id || point.stamp === keypoint.stamp,
   );
   if (existingPoint) {
-    state.tracks[trackId].points = track.points
-      .map((point) => (point.id === existingPoint.id ? { ...existingPoint, ...keypoint } : point))
-      .toSorted((a, b) => a.stamp - b.stamp);
-    return state.tracks[trackId].points.find((point) => point.id === existingPoint.id);
+    Object.assign(existingPoint, keypoint);
+    return existingPoint as Keypoint<RawValue>;
   } else if (keypoint.value) {
     const newPoint = {
       id: crypto.randomUUID(),
       stamp: usePlayerStore.getState().player.stamp,
       ...keypoint,
     } as Keypoint<RawValue>;
-    state.tracks[trackId].points = [...state.tracks[trackId].points, newPoint].toSorted(
-      (a, b) => a.stamp - b.stamp,
-    );
+
+    const index = points.findIndex((point) => point.stamp > newPoint.stamp);
+    if (index === -1) {
+      points.push(newPoint);
+    } else {
+      points.splice(index, 0, newPoint);
+    }
     return newPoint;
   }
 }
