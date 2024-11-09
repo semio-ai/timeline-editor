@@ -421,11 +421,10 @@ function InnerWrappedTrackControl({
       return state.values.get(rawValueId);
     }),
   );
-
-  const [removeKeypoint, setValue] = useAnimationStore((state) => [
-    state.removeKeypoint,
-    state.setValue,
-  ]);
+  const setValue = useAnimationStore(useShallow((state: AnimationActions) => state.setValue));
+  const removeKeypoint = useAnimationStore(
+    useShallow((state: AnimationActions) => state.removeKeypoint),
+  );
 
   return (
     <TrackControl
