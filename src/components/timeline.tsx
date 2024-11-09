@@ -17,6 +17,7 @@ export interface TimelineProps {
  * @param animationId - The id of the animation to render.
  * @param trackIds - The ids of the tracks to render. If empty, it displays all tracks.
  * @param namespace - The namespace of the animation to render.
+ * @param trackRender - The render type for the track.
  */
 export function Timeline({
   animationId,

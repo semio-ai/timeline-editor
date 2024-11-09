@@ -93,7 +93,6 @@ export function Track({
     useShallow((state: AnimationData) => pick(state.tracks, trackKeys)),
   ) as Record<string, TrackData<RawValue>>;
 
-  // const viewport = useAnimationStore(useShallow((state: AnimationData) => state.player.viewport));
   const [allControls, allAnimatables] = useAnimationStore(
     useShallow((state: AnimationData) => [state.controls, state.animatables]),
   );
