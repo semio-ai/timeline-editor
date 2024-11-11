@@ -3,7 +3,7 @@ import { SpringValue, useSpringValue } from "@react-spring/web";
 import { scaleLinear } from "@visx/scale";
 import { shallow } from "zustand/shallow";
 import type { AnimationData } from "../store-types";
-import { SemanticTime } from "../store-types";
+import { SemanticTime } from "../types";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 import { useStoreSubscription } from "./use-store-subscription";

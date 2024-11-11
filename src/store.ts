@@ -22,13 +22,13 @@ import {
   Violation,
   StoredAnimation,
   SemanticTime,
+  Preview,
 } from "./types";
 import {
   AnimationData,
   AnimationActions,
   AnimationStoreGetter,
   AnimationStoreSetter,
-  Preview,
 } from "./store-types";
 import {
   createKeypoint,

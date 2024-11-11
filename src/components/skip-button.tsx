@@ -3,7 +3,7 @@ import { IconPlayerPlay } from "@tabler/icons-react";
 import { IconButton, IconPlayerEndBounds } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import type { AnimationActions } from "../store-types";
-import { SemanticTime } from "../store-types";
+import { SemanticTime } from "../types";
 import { useAnimationStore } from "../hooks";
 
 export interface SkipButtonProps {

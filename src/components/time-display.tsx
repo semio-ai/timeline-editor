@@ -5,7 +5,7 @@ import { pick } from "lodash";
 import { PlayerActions, usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../hooks";
 import type { AnimationActions } from "../store-types";
-import { SemanticTime } from "../store-types";
+import { SemanticTime } from "../types";
 import { computeNextTime, computePreviousTime } from "../functions";
 
 export interface TimeDisplayProps {

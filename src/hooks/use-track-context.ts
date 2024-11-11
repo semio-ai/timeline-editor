@@ -55,7 +55,7 @@ export const TrackContext = createContext<TrackContextData>({
   zoomScale: createRef<ScaleLinear>() as MutableRefObject<ScaleLinear>,
   frameCount: 1,
   color: "#737373",
-  trackRender: TrackRender.Dope,
+  trackRender: TrackRender.Key,
   trackType: "number",
 });
 

@@ -1,30 +1,11 @@
 import "./styles.css";
 
 export { ControlWidget, AnimationSheet, TrackControl, type TrackControlProps } from "./components";
-export { AnimationContext } from "./context";
-export type {
-  AnimationData,
-  AnimationActions,
-  AnimationStoreGetter,
-  AnimationStoreSetter,
-  Preview,
-} from "./store-types";
-export { AnimationSlice } from "./store";
-export type { AnimationStore } from "./store";
+export * from "./context";
+export * from "./store-types";
+export * from "./store";
 export * from "./types";
 
-export {
-  createKeypoint,
-  updateKeypoint,
-  createTrack,
-  removeAnimation,
-  createDefaultState,
-  addAnimation,
-} from "./actions";
+export * from "./actions";
 
-export {
-  computeWorldStamp,
-  computeLocalStamp,
-  computeStoredAnimation,
-  migrateAnimation,
-} from "./functions";
+export * from "./functions";

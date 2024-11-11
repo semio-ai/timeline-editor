@@ -10,6 +10,7 @@ import {
   ProcessNode,
   Control,
   StoredAnimation,
+  Preview,
 } from "./types";
 
 /**
@@ -333,34 +334,3 @@ export type AnimationStoreSetter = (
  * Type representing the getter function for the animation store.
  */
 export type AnimationStoreGetter = () => AnimationData & AnimationActions;
-
-/**
- * Interface representing a preview in the animation.
- */
-export interface Preview {
-  /**
-   * The timestamp of the preview.
-   */
-  stamp: number;
-  /**
-   * The label of the preview.
-   */
-  label: string;
-  /**
-   * The semantic time of the preview.
-   */
-  semanticTime: SemanticTime;
-}
-
-/**
- * Enum representing the semantic time in the animation.
- */
-export enum SemanticTime {
-  Current = "current",
-  Duration = "duration",
-  Forward = "forward",
-  Backward = "backward",
-  BoundsStart = "bounds-start",
-  BoundsEnd = "bounds-end",
-  Hover = "hover",
-}

@@ -11,7 +11,7 @@ import {
   useZoomGestures,
   useBoundSprings,
 } from "../../hooks";
-import { SemanticTime } from "../../store-types";
+import { SemanticTime } from "../../types";
 import { DRAG_X_CONFIG } from "../../gesture-config";
 
 export interface BoundCartProps {

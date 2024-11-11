@@ -8,7 +8,7 @@ import { shallow } from "zustand/shallow";
 import { useAnimationStore, usePlayerSubscription } from "../hooks";
 import { computeNextTime, computePreviousTime } from "../functions";
 import { type AnimationData, type AnimationActions } from "../store-types";
-import { SemanticTime } from "../store-types";
+import { SemanticTime } from "../types";
 
 export interface TrackControlProps {
   color?: string;

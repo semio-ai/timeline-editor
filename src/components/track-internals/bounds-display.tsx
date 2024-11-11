@@ -5,7 +5,7 @@ import { closestFrame, usePlayerStore } from "@semio/utils";
 import { clamp } from "lodash";
 import { animated } from "@react-spring/web";
 import { DRAG_X_CONFIG } from "../../gesture-config";
-import { SemanticTime } from "../../store-types";
+import { SemanticTime } from "../../types";
 import {
   useAnimationStore,
   useTrackContext,
