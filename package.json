@@ -25,7 +25,7 @@
     "@semio/ui": "*",
     "@semio/utils": "*",
     "@tabler/icons-react": "^2.46.0",
-    "@use-gesture/react": "^10.3.0",
+    "@use-gesture/react": "^10.3.1",
     "@visx/drag": "^3.3.0",
     "@visx/responsive": "^3.3.0",
     "@visx/scale": "^3.5.0",

@@ -1,14 +1,19 @@
 export const springConfig = {
-  // tension: 400,
-  // friction: 20,
-  // clamp: true,
   duration: 0,
 };
 
 type EasingFunction = (t: number) => number;
 
+/**
+ * Creates a cubic bezier easing function.
+ *
+ * @param _p0 - The first control point (not used).
+ * @param p1 - The second control point.
+ * @param _p2 - The third control point (not used).
+ * @param p3 - The fourth control point.
+ * @returns An easing function that takes a time value `t` (ranging from 0 to 1) and returns the corresponding eased value.
+ */
 const cubicBezier = (_p0: number, p1: number, _p2: number, p3: number): EasingFunction => {
-  // return a cubic bezier function with the above parameters (equivalent to css cubic-bezier)
   return (t: number): number => {
     const cy = 3 * p1;
     const by = 3 * (p3 - p1) - cy;

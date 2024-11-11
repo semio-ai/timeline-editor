@@ -1,35 +1,41 @@
-import { RawValue } from "@semio/utils";
+import { RawValue, usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import { Keypoint } from "../types";
-import { createKeyframe } from "./create-keyframe";
 
+/**
+ * Creates a keypoint in the specified track of the animation state.
+ *
+ * If a keypoint with the same ID already exists, it updates the existing keypoint with the
+ * provided properties. Otherwise, it creates a new keypoint with a
+ * generated ID and the provided properties, and inserts it into the
+ * track's points array in sorted order by stamp.
+ *
+ * @param state - The animation state containing tracks and keypoints.
+ * @param trackId - The ID of the track where the keypoint should be created or updated.
+ * @param point - The properties of the keypoint to create or update. If updating, the ID should match an existing keypoint.
+ * @returns The created or updated keypoint.
+ */
 export function createKeypoint(
   state: AnimationData,
-  animationId: string,
   trackId: string,
   point: Partial<Keypoint<RawValue>>,
 ): Keypoint<RawValue> {
   const id = crypto.randomUUID();
-  const keyframeId = point.frame ?? state.selectedKeyframe ?? crypto.randomUUID();
-  const frame =
-    state.animations[animationId].frames.get(keyframeId) ??
-    createKeyframe(state, animationId, { id: keyframeId });
-  frame.points.push(id);
-  state.animations[animationId].frames.set(frame.id, frame);
-  const newPoint = {
-    id,
-    value: state.values.get(trackId) ?? 0,
-    frame: frame.id,
-    track: trackId,
-    ...point,
-  };
-
-  state.animations[animationId].points.set(newPoint.id, newPoint);
-
-  const track = state.animations[animationId].tracks.get(trackId);
-  if (track && "points" in track) {
-    track.points.push(newPoint.id);
-    state.animations[animationId].tracks.set(trackId, track);
+  const existingPoint = state.tracks[trackId].points.find((p) => p.id === point.id);
+  if (existingPoint) {
+    state.tracks[trackId].points = state.tracks[trackId].points.map((p) =>
+      p.id === id ? { ...p, ...point } : p,
+    );
+    return existingPoint;
+  } else {
+    const newPoint = {
+      id,
+      stamp: point.stamp ?? usePlayerStore.getState().player.stamp,
+      value: point.value,
+    } as Keypoint<RawValue>;
+    state.tracks[trackId].points = [...state.tracks[trackId].points, newPoint].toSorted(
+      (a, b) => a.stamp - b.stamp,
+    );
+    return newPoint;
   }
-  return newPoint;
 }

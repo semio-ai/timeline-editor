@@ -1,9 +1,19 @@
 import { TimeDisplay } from "@semio/ui";
-import { newPlayer } from "@semio/utils";
 import { AnimationData } from "../store-types";
 import { createDefaultAnimation } from "./create-default-animation";
 import { createDefaultGraph } from "./temp-duplicate-functions";
 
+/**
+ * Creates the default state for an animation.
+ *
+ * This function initializes and returns an object representing the default state
+ * of an animation, including various properties such as values, track interpolators,
+ * active animation, animations, tracks, visualized animations, duration, framerate,
+ * selected keyframe, expanded state, time display, player interval, hover point,
+ * previews, preferences, track subscribers, animation subscribers, and violations.
+ *
+ * @returns [AnimationData] The default state of the animation.
+ */
 export const createDefaultState = (): AnimationData => {
   const defaultAnimation = createDefaultAnimation();
 
@@ -11,11 +21,11 @@ export const createDefaultState = (): AnimationData => {
 
   return {
     values: new Map(),
-    trackInterpolators: new Map(),
+    trackInterpolators: {},
     activeAnimation: defaultAnimation.id,
     animations: { [defaultAnimation.id]: defaultAnimation },
+    tracks: {},
     visualizedAnimations: [defaultAnimation.id],
-    player: newPlayer(),
     duration: defaultAnimation.duration,
     framerate: 24,
     selectedKeyframe: undefined,
@@ -26,9 +36,10 @@ export const createDefaultState = (): AnimationData => {
     previews: [],
     preferences: {
       hoverDashedLine: false,
+      dataPreviews: true,
     },
     trackSubscribers: [],
-    animationCache: new Map(),
+    animationSubscribers: [],
     violations: {},
 
     // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO

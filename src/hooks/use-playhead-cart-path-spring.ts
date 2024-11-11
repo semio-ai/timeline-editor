@@ -1,23 +1,23 @@
-import { useContext, useEffect, useRef, useMemo, useCallback } from "react";
+import { useRef, useMemo, useCallback } from "react";
 import { SpringValue, useSpringValue } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
-import { pointsToPath } from "@semio/utils";
+import { PlayerData, pointsToPath } from "@semio/utils";
 import { stampToVisualTime } from "@semio/ui";
 import { scaleLinear } from "@visx/scale";
-import type { AnimationData } from "../store-types";
-import { AnimationContext } from "../context";
+import { shallow } from "zustand/shallow";
 import { type ScaleLinear } from "../scale-linear";
 import { springConfig } from "../spring-config";
 import { useTrackContext } from "./use-track-context";
 import { useAnimationStore } from "./use-animation-store";
 import { useAltKeyPressed } from "./use-alt-key-pressed";
+import { usePlayerSubscription } from "./use-player-subscription";
 
-/*
-  @name usePlayheadCartPathSpring
-  @description A hook used to retrieve a spring that contains the path of the svg path for the playhead cart, given current bounds and position.
-
-  @param selector A function that takes the store and returns the value you want to access.
-*/
+/**
+ * A hook used to retrieve a spring that contains the path of the svg path for the playhead cart, given current bounds and position.
+ *
+ * @param selector - A function that takes the store and returns the value you want to access.
+ * @returns The value you want to access.
+ */
 export function usePlayheadCartPathSpring(
   side: "top" | "bottom",
   ignoreZoom?: boolean,
@@ -25,13 +25,7 @@ export function usePlayheadCartPathSpring(
   d: SpringValue<string>;
   x: SpringValue<number>;
 } {
-  const store = useContext(AnimationContext);
-
-  if (!store) {
-    throw new Error("useHoverSpring must be used within a StudioProvider");
-  }
-
-  const storedPlayhead = useRef<number>(store!.getState().player.stamp);
+  const storedPlayhead = useRef<number>(0);
 
   const { duration, framerate, timeDisplay } = useAnimationStore(
     useShallow((state) => ({
@@ -44,11 +38,11 @@ export function usePlayheadCartPathSpring(
     stampToVisualTime(storedPlayhead.current, duration, framerate, timeDisplay).length,
   );
 
-  const { scale: xScale } = useTrackContext();
+  const { xScale } = useTrackContext();
 
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
-      domain: ignoreZoom ? [0, 1] : store.getState().player.viewport,
+      domain: [0, 1],
       range: [0, 1],
     }),
   );
@@ -103,10 +97,7 @@ export function usePlayheadCartPathSpring(
 
   const handleViewportChange = useCallback(
     (viewport: [number, number]) => {
-      zoomScale.current = scaleLinear({
-        domain: ignoreZoom ? [0, 1] : viewport,
-        range: [0, 1],
-      });
+      zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
       const playhead = storedPlayhead.current;
       const bufferVals = valsToBuffer(xScale, zoomScale.current, playhead);
       const [path, offset] = distanceToPath(...bufferVals, storedCharCount.current, side);
@@ -116,26 +107,25 @@ export function usePlayheadCartPathSpring(
     [ignoreZoom, xScale, playheadCartPathSpring, xSpring, storedPlayhead, side],
   );
 
-  useEffect(() => {
-    const unsubscribe = store.subscribe(
-      (state: AnimationData) => state.player.stamp,
-      handlePlayheadChange,
-    );
-    handlePlayheadChange(store.getState().player.stamp);
-    return unsubscribe;
-  });
-  useEffect(() => {
-    const unsubscribe = store.subscribe(
-      (state: AnimationData) => state.player.viewport,
-      handleViewportChange,
-    );
-    handleViewportChange(store.getState().player.viewport);
-    return unsubscribe;
-  });
+  usePlayerSubscription((state: PlayerData) => state.player.stamp, handlePlayheadChange, shallow);
+
+  usePlayerSubscription(
+    (state: PlayerData) => state.player.viewport,
+    handleViewportChange,
+    shallow,
+  );
 
   return { d: playheadCartPathSpring, x: xSpring };
 }
 
+/**
+ * Calculates the buffer values for the playhead position based on the given scales.
+ *
+ * @param xScale - A linear scale function for the x-axis.
+ * @param zoomScale - A linear scale function for the zoom level.
+ * @param playhead - The current position of the playhead.
+ * @returns A tuple containing the buffer values [leftBuffer, rightBuffer].
+ */
 const valsToBuffer = (
   xScale: ScaleLinear,
   zoomScale: ScaleLinear,
@@ -147,12 +137,28 @@ const valsToBuffer = (
   return zoomed;
 };
 
+/**
+ * A linear scale function that maps a domain of [-4, 0] to a range of [3.5, 0].
+ * The output values are clamped to the specified range.
+ *
+ * @param value - The input value to be scaled.
+ * @returns - The scaled value within the range [3.5, 0].
+ */
 const corner = scaleLinear({
   domain: [-4, 0],
   range: [3.5, 0],
   clamp: true,
 });
 
+/**
+ * Calculates the path and center point for a flag based on distances and character count.
+ *
+ * @param distanceLeft - The distance from the left side.
+ * @param distanceRight - The distance from the right side.
+ * @param charCount - The number of characters in the flag.
+ * @param side - The side of the flag, either "top" or "bottom".
+ * @returns A tuple containing the SVG path string and the center point.
+ */
 function distanceToPath(
   distanceLeft: number,
   distanceRight: number,

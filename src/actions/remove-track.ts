@@ -1,17 +1,18 @@
-import { RawValue } from "@semio/utils";
+import { omit } from "lodash";
 import type { AnimationData } from "../store-types";
-import { Keypoint } from "../types";
 
+/**
+ * Removes a track from the specified animation and the global tracks list.
+ *
+ * @param state - The current animation state.
+ * @param animationId - The ID of the animation from which the track will be removed.
+ * @param trackId - The ID of the track to be removed.
+ */
 export function removeTrack(state: AnimationData, animationId: string, trackId: string) {
-  const originalPoints = Object.values(state.animations[animationId].points);
-  originalPoints.forEach((originalPoint: Keypoint<RawValue>) => {
-    if (originalPoint.track === trackId) {
-      const parentFrame = state.animations[animationId].frames.get(originalPoint.frame);
-      if (parentFrame) {
-        parentFrame.points = parentFrame.points.filter((pointId) => pointId !== originalPoint.id);
-        state.animations[animationId].frames.set(originalPoint.frame, parentFrame);
-      }
-      state.animations[animationId].points.delete(originalPoint.id);
-    }
-  });
+  state.animations[animationId].tracks = state.animations[animationId].tracks.filter(
+    (track) => track !== trackId,
+  );
+  if (trackId in state.tracks) {
+    state.tracks = omit(state.tracks, trackId);
+  }
 }
