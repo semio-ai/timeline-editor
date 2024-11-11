@@ -4,6 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { closestFrame, usePlayerStore } from "@semio/utils";
 import { clamp } from "lodash";
 import { animated } from "@react-spring/web";
+import { FullGestureState } from "@use-gesture/react";
 import { DRAG_X_CONFIG } from "../../gesture-config";
 import { SemanticTime } from "../../types";
 import {
@@ -46,61 +47,81 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
 
   const withBounds = useWithBounds();
 
+  const handleHover =
+    (side: "left" | "right") =>
+    ({ hovering, dragging, event }: FullGestureState<"hover">) => {
+      const semanticTime = side === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd;
+      const boundsIndex = side === "left" ? 0 : 1;
+      const label = side === "left" ? "Bounds Start" : "Bounds End";
+
+      if (hovering && !dragging && !anyPreview) {
+        addPreview({
+          semanticTime,
+          stamp: bounds[boundsIndex],
+          label,
+        });
+      } else if (!hovering && !dragging && anyPreview) {
+        removePreview((p) => p.semanticTime === semanticTime);
+      }
+      event.stopPropagation();
+    };
+
+  const handleDrag =
+    (side: "left" | "right") =>
+    ({ xy, altKey, memo: initialBoundsMemo, dragging }: FullGestureState<"drag">) => {
+      let initialBounds = initialBoundsMemo;
+      const semanticTime = side === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd;
+      const boundsIndex = side === "left" ? 0 : 1;
+      const label = side === "left" ? "Bounds Start" : "Bounds End";
+
+      withBounds((currentBounds) => {
+        initialBounds = initialBounds ?? currentBounds;
+        const newPosition = zoomScale.current.invert(
+          clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+        );
+        const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
+        let newBounds: [number, number];
+        if (side === "left") {
+          newBounds =
+            newValue >= initialBounds[1]
+              ? [initialBounds[1], newValue]
+              : [newValue, initialBounds[1]];
+        } else {
+          // right
+          newBounds =
+            newValue <= initialBounds[0]
+              ? [newValue, initialBounds[0]]
+              : [initialBounds[0], newValue];
+        }
+        updateBounds(newBounds[0], newBounds[1]);
+        // If no preview is present, add one when dragging.
+        // If a preview is present and no longer dragging, remove it.
+        if (!anyPreview && dragging) {
+          addPreview({
+            semanticTime,
+            stamp: newBounds[boundsIndex],
+            label,
+          });
+        } else if (anyPreview && !dragging) {
+          removePreview(
+            (p) =>
+              p.semanticTime === SemanticTime.BoundsStart ||
+              p.semanticTime === SemanticTime.BoundsEnd,
+          );
+        }
+      });
+
+      return initialBounds as [number, number];
+    };
+
   // Attach gestures to the left and right bounds.
   // We use the custom useZoomGestures hook so that it
   // also responds to standard gestures for zooming/panning.
   useZoomGestures(
     leftBoundsRef as MutableRefObject<EventTarget>,
     {
-      onHover: ({ hovering, dragging, event }) => {
-        // Show a preview when hovering over the left bounds,
-        // or if the left bounds are being dragged.
-        // Remove the preview if there is a preview and no longer
-        // hovering or dragging.
-        if (hovering && !dragging && !anyPreview) {
-          addPreview({
-            semanticTime: SemanticTime.BoundsStart,
-            stamp: bounds[0],
-            label: "Bounds Start",
-          });
-        } else if (!hovering && !dragging && anyPreview) {
-          removePreview((p) => p.semanticTime === SemanticTime.BoundsStart);
-        }
-        event.stopPropagation();
-      },
-      onDrag: ({ xy, altKey, memo: initialBoundsMemo, dragging }) => {
-        let initialBounds = initialBoundsMemo;
-
-        withBounds((currentBounds) => {
-          initialBounds = initialBounds ?? currentBounds;
-          const newPosition = zoomScale.current.invert(
-            clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
-          );
-          const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
-          const newBounds: [number, number] =
-            newValue >= initialBounds[1]
-              ? [initialBounds[1], newValue]
-              : [newValue, initialBounds[1]];
-          updateBounds(newBounds[0], newBounds[1]);
-          // If no preview is present, add one when dragging.
-          // If a preview is present and no longer dragging, remove it.
-          if (!anyPreview && dragging) {
-            addPreview({
-              semanticTime: SemanticTime.BoundsStart,
-              stamp: newBounds[0],
-              label: "Bounds Start",
-            });
-          } else if (anyPreview && !dragging) {
-            removePreview(
-              (p) =>
-                p.semanticTime === SemanticTime.BoundsStart ||
-                p.semanticTime === SemanticTime.BoundsEnd,
-            );
-          }
-        });
-
-        return initialBounds as [number, number];
-      },
+      onHover: handleHover("left"),
+      onDrag: handleDrag("left"),
     },
     DRAG_X_CONFIG,
   );
@@ -108,55 +129,8 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
   useZoomGestures(
     rightBoundsRef as MutableRefObject<EventTarget>,
     {
-      onHover: ({ hovering, dragging, event }) => {
-        // Show a preview when hovering over the right bounds,
-        // or if the right bounds are being dragged.
-        // Remove the preview if there is a preview and no longer
-        // hovering or dragging.
-        if (hovering && !dragging && !anyPreview) {
-          addPreview({
-            semanticTime: SemanticTime.BoundsEnd,
-            stamp: bounds[1],
-            label: "Bounds End",
-          });
-        } else if (!hovering && !dragging && anyPreview) {
-          removePreview((p) => p.semanticTime === SemanticTime.BoundsEnd);
-        }
-        event.stopPropagation();
-      },
-      onDrag: ({ xy, altKey, memo: initialBoundsMemo, dragging }) => {
-        let initialBounds = initialBoundsMemo;
-
-        withBounds((currentBounds) => {
-          initialBounds = initialBounds ?? currentBounds;
-          const newPosition = zoomScale.current.invert(
-            clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
-          );
-          const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
-          const newBounds: [number, number] =
-            newValue <= initialBounds[0]
-              ? [newValue, initialBounds[0]]
-              : [initialBounds[0], newValue];
-          updateBounds(newBounds[0], newBounds[1]);
-          // If no preview is present, add one when dragging.
-          // If a preview is present and no longer dragging, remove it.
-          if (!anyPreview && dragging) {
-            addPreview({
-              semanticTime: SemanticTime.BoundsEnd,
-              stamp: newBounds[1],
-              label: "Bounds End",
-            });
-          } else if (anyPreview && !dragging) {
-            removePreview(
-              (p) =>
-                p.semanticTime === SemanticTime.BoundsStart ||
-                p.semanticTime === SemanticTime.BoundsEnd,
-            );
-          }
-        });
-
-        return initialBounds as [number, number];
-      },
+      onHover: handleHover("right"),
+      onDrag: handleDrag("right"),
     },
     DRAG_X_CONFIG,
   );
