@@ -1,6 +1,6 @@
 import { MouseEventHandler, type ReactNode, useCallback } from "react";
 import { IconPlayerPlay } from "@tabler/icons-react";
-import { IconButton, IconPlayerEndBounds } from "@semio/ui";
+import { Button, IconPlayerEndBounds } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import type { AnimationActions } from "../store-types";
 import { SemanticTime } from "../types";
@@ -58,7 +58,7 @@ export function SkipButton({
   );
 
   return (
-    <IconButton
+    <Button
       size="fit"
       color="#737373"
       onClick={() => skip?.()}
@@ -70,9 +70,8 @@ export function SkipButton({
         onMouseLeave?.(e);
         removePreview((p) => p.semanticTime === semanticTime);
       }}
-    >
-      {ICONS[semanticTime]}
-    </IconButton>
+      leftIcon={ICONS[semanticTime]}
+    />
   );
 }
 

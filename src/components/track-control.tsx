@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { pick } from "lodash";
-import { IconPlayerPlay, IconButton, IconKey } from "@semio/ui";
+import { IconPlayerPlay, Button, IconKey } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import { useAnimationStore, usePlayerSubscription } from "../hooks";
@@ -77,7 +77,7 @@ export function TrackControl({
         "w-fit h-5 flex flex-row gap-0 pl-1 pr-1 pt-2 pb-2 items-center justify-between",
       )}
     >
-      <IconButton
+      <Button
         size="fit"
         color={color}
         disabled={!enabledBack}
@@ -92,25 +92,27 @@ export function TrackControl({
         onMouseLeave={() => {
           removePreview((p) => p.semanticTime === SemanticTime.Backward);
         }}
-      >
-        <IconPlayerPlay className="rotate-180" size="10px" />
-      </IconButton>
-      <IconButton
+        leftIcon={<IconPlayerPlay className="rotate-180" size="10px" />}
+        invert
+      />
+      <Button
         size="fit"
         color={color}
         onClick={onHexClick}
         deemphasize={!trackIds}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-      >
-        <IconKey
-          size="16px"
-          fillOpacity={getFillOpacity(hovered, filled)}
-          dashed={!filled && dashed}
-          center={center}
-        />
-      </IconButton>
-      <IconButton
+        leftIcon={
+          <IconKey
+            size="16px"
+            fillOpacity={getFillOpacity(hovered, filled)}
+            dashed={!filled && dashed}
+            center={center}
+          />
+        }
+        invert
+      />
+      <Button
         size="fit"
         color={color}
         disabled={!enabledForward}
@@ -125,9 +127,9 @@ export function TrackControl({
         onMouseLeave={() => {
           removePreview((p) => p.semanticTime === SemanticTime.Forward);
         }}
-      >
-        <IconPlayerPlay size="10px" />
-      </IconButton>
+        leftIcon={<IconPlayerPlay size="10px" />}
+        invert
+      />
     </div>
   );
 }

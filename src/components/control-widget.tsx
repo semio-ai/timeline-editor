@@ -2,7 +2,7 @@ import { useState, memo } from "react";
 import {
   SliderNumberField,
   Size,
-  IconButton,
+  Button,
   StaticIcon,
   Variant,
   TextField,
@@ -108,9 +108,15 @@ function InnerControlWidget({
         <div className="flex flex-1 flex-row items-center">
           {animatableValue.type === "vector3" || animatableValue.type === "euler" ? (
             <CollapsibleTrigger asChild>
-              <IconButton size="fit" color={control?.settings?.color} className="w-3 h-3 pl-2">
-                <IconChevronDown size="13px" className={open ? "rotate-180" : "rotate-0"} />
-              </IconButton>
+              <Button
+                size="fit"
+                invert
+                color={control?.settings?.color}
+                className="w-3 h-3 pl-2"
+                leftIcon={
+                  <IconChevronDown size="13px" className={open ? "rotate-180" : "rotate-0"} />
+                }
+              />
             </CollapsibleTrigger>
           ) : (
             <StaticIcon size="fit" className="w-3 h-3 pl-2" color={control?.settings?.color}>
@@ -135,9 +141,12 @@ function InnerControlWidget({
               variant={Variant.Info}
               trigger={
                 <span>
-                  <IconButton className="flex w-4 items-center justify-center">
-                    <IconDotsVertical size="14px" className="text-gray-400" />
-                  </IconButton>
+                  <Button
+                    size="fit"
+                    className="flex w-4 items-center justify-center"
+                    invert
+                    leftIcon={<IconDotsVertical size="14px" className="text-gray-400" />}
+                  />
                 </span>
               }
             >
