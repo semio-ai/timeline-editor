@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef } from "react";
-import { IconButton, IconPlayerPlay2, Select, Size, Variant } from "@semio/ui";
+import { Button, IconPlayerPlay2, Select, Size, Variant } from "@semio/ui";
 import { getLookup, RawValue, usePlayerStore } from "@semio/utils";
 import { IconPlayerPauseFilled, IconWorld } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
@@ -181,7 +181,7 @@ export function PlaybackControls({
             namespaceIds={[namespaceId]}
             trackIds={selection}
           />
-          <IconButton
+          <Button
             size="fit"
             onClick={() => {
               if (running) {
@@ -191,9 +191,11 @@ export function PlaybackControls({
               }
             }}
             color="#737373"
-          >
-            {running ? <IconPlayerPauseFilled size="16px" /> : <IconPlayerPlay2 size="16px" />}
-          </IconButton>
+            leftIcon={
+              running ? <IconPlayerPauseFilled size="16px" /> : <IconPlayerPlay2 size="16px" />
+            }
+            invert
+          />
           <SkipButton
             semanticTime={SemanticTime.BoundsEnd}
             animationId={animationId}
