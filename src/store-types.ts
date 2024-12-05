@@ -327,7 +327,7 @@ export type AnimationStoreSetter = (
     | ((
         state: AnimationData & AnimationActions,
       ) => (AnimationData & AnimationActions) | Partial<AnimationData & AnimationActions>),
-  replace?: boolean | undefined,
+  replace?: false | undefined,
 ) => void;
 
 /**
