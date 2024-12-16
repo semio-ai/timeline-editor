@@ -1,36 +1,25 @@
 import { uniq } from "lodash";
-import type { AnimationData } from "../store-types";
+import { RawValue } from "@semio/utils";
+import type { Track, InstanceInfo } from "../types";
 import { computeWorldStamp } from "./compute-instance-time";
 
+/**
+ * Computes a sorted array of unique timestamps (stamps) based on the provided tracks and instances.
+ *
+ * @param tracks - A record of track objects, where each track contains points with stamps.
+ * @param instances - A record of instance information objects.
+ * @returns An array of unique timestamps sorted in ascending order.
+ */
 export function computeStamps(
-  state: AnimationData,
-  animationIds: string[],
-  trackIds: string[],
+  tracks: Record<string, Track<RawValue>>,
+  instances: Record<string, InstanceInfo>,
 ): number[] {
-  let stamps: number[] = [];
-  // console.log("DEBUG", animationIds, state.animations);
-  animationIds.forEach((animationId) => {
-    // console.log(state.animations[animationId]);
-    Object.values(state.animations[animationId]?.instances || {}).forEach((instanceInfo) => {
-      stamps = [
-        ...stamps,
-        ...state.animations[animationId].frameOrder
-          .filter((frameId) => {
-            if (trackIds.length === 0) return true;
-            const frame = state.animations[animationId].frames.get(frameId);
-            const points = frame?.points || [];
-            return points.some((pointId) => {
-              const point = state.animations[animationId].points.get(pointId);
-              return trackIds.includes(point?.track || "");
-            });
-          })
-          .map((frameId) =>
-            computeWorldStamp(
-              state.animations[animationId].frames.get(frameId)?.stamp ?? 0,
-              instanceInfo,
-            ),
-          ),
-      ];
+  const stamps: number[] = [];
+  Object.values(instances).forEach((instanceInfo) => {
+    Object.values(tracks).forEach((track) => {
+      track.points.forEach((point) => {
+        stamps.push(computeWorldStamp(point.stamp, instanceInfo));
+      });
     });
   });
   return uniq(stamps.sort((a, b) => a - b));

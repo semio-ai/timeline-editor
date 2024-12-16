@@ -1,83 +1,39 @@
-import type { AnimationData } from "../store-types";
-import { InstanceInfo, Keyframe } from "../types";
-import { computeWorldStamp } from "./compute-instance-time";
+import type { RawValue } from "@semio/utils";
+import { Track, InstancedFrameInfo } from "../types";
 
-export interface InstancedFrameInfo {
-  id: string;
-  stamp: number;
-  frame: string;
-  animation: string;
-  namespace: string;
-  instanceInfo: InstanceInfo;
-}
+/**
+ * Computes the frames from the given tracks.
+ *
+ * This function processes the provided tracks and generates an array of `InstancedFrameInfo` objects.
+ * Each `InstancedFrameInfo` object contains a unique identifier, a timestamp, and an array of points
+ * that belong to that frame.
+ *
+ * @param tracks - A record of track IDs to `Track` objects. Each `Track` object contains an array of points.
+ * @returns An array of `InstancedFrameInfo` objects, each representing a frame with its associated points.
+ */
+export function computeFrames(tracks: Record<string, Track<RawValue>>): InstancedFrameInfo[] {
+  const instancedFrameInfo: InstancedFrameInfo[] = [];
 
-export function computeFrames(
-  state: AnimationData,
-  animationIds: string[],
-  filter?: string[],
-): {
-  active: Record<string, InstancedFrameInfo>;
-  passive: Record<string, InstancedFrameInfo>;
-} {
-  const activeFrames: Record<string, InstancedFrameInfo> = {};
-  const passiveFrames: Record<string, InstancedFrameInfo> = {};
-
-  animationIds.forEach((animationId) => {
-    const active = animationId === state.activeAnimation;
-    const animation = state.animations[animationId];
-    if (!animation) {
-      return;
-    }
-    const uniqueInstances: InstanceInfo[] = [];
-    const uniqueInstanceKeys: string[] = [];
-    Object.keys(state.animations[animationId]?.instances || {}).forEach((instanceKey: string) => {
-      const instanceInfo = animation.instances[instanceKey];
-      const existingInstance = uniqueInstances.find(
-        (i) => i.offset === instanceInfo.offset && i.timescale === instanceInfo.timescale,
-      );
-      if (!existingInstance) {
-        uniqueInstances.push(instanceInfo);
-        uniqueInstanceKeys.push(instanceKey);
+  Object.entries(tracks).forEach(([trackId, trackData]: [string, Track<RawValue>]) => {
+    const currentTimes = instancedFrameInfo.map((frame) => frame.stamp);
+    trackData.points.forEach((point) => {
+      const matchingFrameIndex = currentTimes.indexOf(point.stamp);
+      if (matchingFrameIndex >= 0) {
+        instancedFrameInfo[matchingFrameIndex].points.push({
+          id: point.id,
+          value: point.value,
+          trackId,
+        });
+        instancedFrameInfo[matchingFrameIndex].id = `${trackId}-${point.id}`;
+      } else {
+        instancedFrameInfo.push({
+          id: `${trackId}-${point.id}`,
+          stamp: point.stamp,
+          points: [{ id: point.id, value: point.value, trackId }],
+        });
       }
     });
-    uniqueInstanceKeys.forEach((uniqueInstanceKey, i) => {
-      animation.frames.forEach?.((frame) => {
-        if (
-          !filter ||
-          filter.length === 0 ||
-          filter.some((t: string) => frameHasKeysInTrack(state, frame, t, animationId))
-        ) {
-          const entryKey = `${frame.id}-${uniqueInstanceKey}`;
-          const worldStamp = computeWorldStamp(frame.stamp, uniqueInstances[i]);
-          const instancedFrameInfo = {
-            id: entryKey,
-            stamp: worldStamp,
-            frame: frame.id,
-            animation: animationId,
-            namespace: uniqueInstanceKey,
-            instanceInfo: uniqueInstances[i],
-          };
-          if (active) {
-            activeFrames[entryKey] = instancedFrameInfo;
-          } else {
-            passiveFrames[entryKey] = instancedFrameInfo;
-          }
-        }
-      });
-    });
   });
-  return { active: activeFrames, passive: passiveFrames };
-}
 
-function frameHasKeysInTrack(
-  state: AnimationData,
-  frame: Keyframe,
-  trackId: string,
-  animationId: string,
-): boolean {
-  const points = frame.points || [];
-  return points.some((pointId) => {
-    const point = state.animations[animationId].points.get(pointId);
-    return point?.track === trackId;
-  });
+  return instancedFrameInfo;
 }

@@ -1,38 +1,32 @@
-import { type RawValue } from "@semio/utils";
 import { AnimationData } from "../store-types";
-import {
-  Animation,
-  InstanceInfo,
-  Keyframe,
-  Keypoint,
-  Track,
-  TrackGroup,
-  Transition,
-} from "../types";
+import { StoredAnimation } from "../types";
+import { migrateAnimation } from "../functions/migrate-animation";
 
+/**
+ * Adds an animation to the state.
+ *
+ * This function takes the provided animation data, migrates it to the current format,
+ * and updates the state with the new animation and its tracks. If the animation ID is
+ * not provided, it uses the active animation ID from the state. The function also
+ * ensures that the animation is added to the list of visualized animations and sets
+ * it as the active animation.
+ *
+ * @param state - The current state of the animation data.
+ * @param animationData - The data of the animation to be added. It should be an object
+ *                        containing the animation details.
+ */
 export function addAnimation(state: AnimationData, animationData: unknown) {
   if (animationData && typeof animationData === "object") {
     const animationId = (animationData as { id?: string }).id ?? state.activeAnimation;
-    const animation: Animation = {
-      id: animationId,
-      name: (animationData as { name: string }).name,
-      duration: (animationData as { duration: number }).duration,
-      tracks: (animationData as { tracks: Map<string, Track> }).tracks,
-      points: (animationData as { points: Map<string, Keypoint<RawValue>> }).points,
-      frames: (animationData as { frames: Map<string, Keyframe> }).frames,
-      groups: (animationData as { groups: Map<string, TrackGroup> }).groups,
-      transitions: (animationData as { transitions: Map<string, Transition> }).transitions,
-      frameOrder: (animationData as { frameOrder: string[] }).frameOrder,
-      trackOrder: (animationData as { trackOrder: string[] }).trackOrder,
-      instances: (animationData as { instances: Record<string, InstanceInfo> }).instances,
-    };
+    const { animation, tracks } = migrateAnimation(animationData as StoredAnimation);
+
     state.animations[animationId] = {
       ...animation,
     };
+    state.tracks = { ...state.tracks, ...tracks };
     if (animationId && !state.visualizedAnimations.includes(animationId)) {
       state.visualizedAnimations.push(animationId);
     }
     state.activeAnimation = animationId;
   }
-  // console.log("Updated animations now include", state.animations);
 }

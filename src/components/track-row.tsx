@@ -1,0 +1,139 @@
+import { CSSProperties, type ReactNode, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { ParentSize } from "@visx/responsive";
+import type { AnimationData } from "../store-types";
+import { TrackRender } from "../types";
+import { useAnimationStore } from "../hooks";
+import { ControlWidget } from "./control-widget";
+import { Track } from "./track";
+
+export function TrackRow({
+  trackIds,
+  animationId,
+  namespaceId,
+  trackRender,
+}: {
+  trackIds?: string[];
+  animationId: string;
+  namespaceId: string;
+  trackRender: TrackRender;
+}): ReactNode {
+  const [expanded, setExpanded] = useState(false);
+  const [emphasis, setEmphasis] = useState(false);
+
+  const track: string = trackIds?.[0] ?? "all";
+
+  const control = useAnimationStore(
+    useShallow((state: AnimationData) => {
+      if (track && track !== "all") {
+        return Object.values(state.controls).filter((c) => c.writeId === track)[0];
+      } else {
+        return undefined;
+      }
+    }),
+  );
+
+  if (!control) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-row items-center">
+      <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] flex flex-row">
+        <ControlWidget
+          animationId={animationId}
+          animatableId={control.readId}
+          namespace="default"
+          onExpandedChange={setExpanded}
+          emphasis={emphasis}
+          onEmphasisChange={setEmphasis}
+        />
+      </div>
+      <div
+        className="cursor-pointer items-center flex flex-1"
+        style={
+          {
+            "--track-color": control.settings.color || "#737373",
+          } as CSSProperties
+        }
+      >
+        <ParentSize debounceTime={10}>
+          {({ width }) => {
+            if (expanded) {
+              return (
+                <div className="flex-1 flex flex-col">
+                  <Track
+                    animationId={animationId}
+                    namespaceId={namespaceId}
+                    width={width}
+                    trackIds={trackIds}
+                    useCustomColor
+                    color={control.settings.color || "#737373"}
+                    canZoom
+                    emphasis={emphasis}
+                    onEmphasisChange={setEmphasis}
+                    trackRender={trackRender}
+                  />
+                  <Track
+                    animationId={animationId}
+                    namespaceId={namespaceId}
+                    attribute="x"
+                    width={width}
+                    trackIds={trackIds}
+                    useCustomColor
+                    color={control.settings.color || "#737373"}
+                    canZoom
+                    emphasis={emphasis}
+                    onEmphasisChange={setEmphasis}
+                    trackRender={trackRender}
+                  />
+                  <Track
+                    animationId={animationId}
+                    namespaceId={namespaceId}
+                    attribute="y"
+                    width={width}
+                    trackIds={trackIds}
+                    useCustomColor
+                    color={control.settings.color || "#737373"}
+                    canZoom
+                    emphasis={emphasis}
+                    onEmphasisChange={setEmphasis}
+                    trackRender={trackRender}
+                  />
+                  <Track
+                    animationId={animationId}
+                    namespaceId={namespaceId}
+                    attribute="z"
+                    width={width}
+                    trackIds={trackIds}
+                    useCustomColor
+                    color={control.settings.color || "#737373"}
+                    canZoom
+                    emphasis={emphasis}
+                    onEmphasisChange={setEmphasis}
+                    trackRender={trackRender}
+                  />
+                </div>
+              );
+            } else {
+              return (
+                <Track
+                  animationId={animationId}
+                  namespaceId={namespaceId}
+                  width={width}
+                  trackIds={trackIds}
+                  useCustomColor
+                  color={control.settings.color || "#737373"}
+                  canZoom
+                  emphasis={emphasis}
+                  onEmphasisChange={setEmphasis}
+                  trackRender={trackRender}
+                />
+              );
+            }
+          }}
+        </ParentSize>
+      </div>
+    </div>
+  );
+}

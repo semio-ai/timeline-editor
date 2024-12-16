@@ -2,25 +2,33 @@ import { piecewise } from "d3-interpolate";
 import { scaleLinear } from "d3-scale";
 import { isEmpty } from "lodash";
 import type { RawValue } from "@semio/utils";
-import type { InstanceInfo } from "../types";
+import type { InstanceInfo, Track } from "../types";
 import { easeInOutCubic } from "../easings/ease-in-out-cubic";
 import { computeWorldStamp } from "./compute-instance-time";
 
+/**
+ * Computes an interpolator function for a given track and instance information.
+ * The returned function takes a time value and returns the interpolated value at that time.
+ *
+ * @param track - The track containing points with time stamps and values.
+ * @param instanceInfo - Information about the instance to compute world stamps.
+ * @returns A function that takes a time value (number) and returns the interpolated value (RawValue) at that time, or undefined if the track has no points.
+ */
 export function computeTrackInterpolator(
-  cache: { stamp: number; value: RawValue }[],
+  track: Track<RawValue>,
   instanceInfo: InstanceInfo,
 ): (time: number) => RawValue | undefined {
   // If the animation has zero points, always return undefined.
-  if (isEmpty(cache)) {
+  if (isEmpty(track.points)) {
     return (_time: number) => undefined;
   }
   // If the animation has one point, always return that point's value.
-  else if (cache.length === 1) {
-    return (_time: number) => cache[0].value;
+  else if (track.points.length === 1) {
+    return (_time: number) => track.points[0].value;
   }
 
   let valuesByTime = Array<[number, RawValue]>();
-  cache.forEach((point) => {
+  track.points.forEach((point) => {
     valuesByTime.push([computeWorldStamp(point.stamp, instanceInfo), point.value]);
   });
 

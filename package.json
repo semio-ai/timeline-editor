@@ -25,7 +25,7 @@
     "@semio/ui": "*",
     "@semio/utils": "*",
     "@tabler/icons-react": "^2.46.0",
-    "@use-gesture/react": "^10.3.0",
+    "@use-gesture/react": "^10.3.1",
     "@visx/drag": "^3.3.0",
     "@visx/responsive": "^3.3.0",
     "@visx/scale": "^3.5.0",
@@ -36,9 +36,9 @@
     "fast-deep-equal": "^3.1.3",
     "immer": "^10.0.3",
     "lodash": "^4.17.21",
-    "react": "^18.3.0",
+    "react": "^18.3.1",
     "react-use-measure": "^2.1.1",
-    "zustand": "^4.5.1"
+    "zustand": "^5.0.2"
   },
   "peerDependencies": {
     "@tabler/icons-react": "^2.46.0"
@@ -55,7 +55,7 @@
     "autoprefixer": "^10.4.19",
     "eslint": "^8.57.1",
     "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.9",
+    "tailwindcss": "^3.4.13",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3",
     "vitest": "^1.3.1"
