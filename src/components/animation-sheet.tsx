@@ -52,7 +52,7 @@ export function InnerSheet(): ReactNode {
       )}
     >
       {/* Expand Toggle/Ruler */}
-      <div className={clsx("h-6 relative z-10", "w-full flex flex-row text-xs")}>
+      <div className={clsx("h-6 relative", "w-full flex flex-row text-xs")}>
         <div
           className={clsx(
             "w-[calc(100vw-40px)] xs:w-64 transition-[width] duration-75",
@@ -166,7 +166,7 @@ export function InnerSheet(): ReactNode {
           </div>
         </div>
       </div>
-      <div className={clsx("z-50 h-6 bg-transparent w-full flex flex-row text-xs")}>
+      <div className={clsx("h-6 bg-transparent w-full flex flex-row text-xs")}>
         <div
           className={clsx(
             "w-[calc(100vw-40px)] xs:w-64 transition-[width] duration-75 h-6",
