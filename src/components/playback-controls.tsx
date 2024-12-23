@@ -102,7 +102,7 @@ export function PlaybackControls({
   }, [animationId, allTracks, onChangeSelection]);
 
   return (
-    <div className="h-[60px] dark:bg-neutral-800 bg-neutral-200">
+    <div className="h-[60px]">
       <div className="flex flex-1 flex-row items-center h-[30px] ">
         <TrackControl
           animationId={animationId}
@@ -151,6 +151,7 @@ export function PlaybackControls({
         />
         <div className="w-full items-center px-1">
           <Select
+            label="Select Track"
             variant={Variant.Default}
             size={Size.Xs}
             options={[

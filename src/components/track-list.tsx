@@ -18,7 +18,7 @@ export function TrackList({
     useShallow((state) => Array.from(state.animations[animationId].tracks)),
   );
   return (
-    <ScrollArea className="dark:bg-neutral-900/50 bg-neutral-100 h-[240px]">
+    <ScrollArea className="dark:bg-layout-darkdeepinset bg-[#ededed] h-[240px]">
       <div ref={contentRef}>
         {tracks.map((track) => (
           <TrackRow

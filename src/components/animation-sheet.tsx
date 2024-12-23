@@ -47,7 +47,7 @@ export function InnerSheet(): ReactNode {
     <div
       aria-expanded={expanded}
       className={clsx(
-        "flex flex-col group w-full dark:bg-neutral-800 bg-neutral-200",
+        "flex flex-col group w-full dark:bg-layout-darkinset bg-layout-lightinset",
         "divide-y divide-transparent",
       )}
     >
