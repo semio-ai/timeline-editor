@@ -267,7 +267,6 @@ export const AnimationSlice = (
     getStorableAnimation: (animationId: string) => {
       const state = get();
       const stored = computeStoredAnimation(state.animations[animationId], state.tracks);
-      console.log("Storage animation", stored);
       return stored;
     },
     getAnimationsToSave: (): StoredAnimation[] => {
@@ -406,6 +405,7 @@ export const AnimationSlice = (
                       }));
                     },
                     {
+                      fireImmediately: true,
                       equalityFn: (
                         current: TrackAndInstanceData,
                         previous: TrackAndInstanceData,
