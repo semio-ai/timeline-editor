@@ -23,17 +23,17 @@ export function TrackRow({
 
   const track: string = trackIds?.[0] ?? "all";
 
-  const control = useAnimationStore(
+  const trackObject = useAnimationStore(
     useShallow((state: AnimationData) => {
       if (track && track !== "all") {
-        return Object.values(state.controls).filter((c) => c.writeId === track)[0];
+        return state.tracks[track];
       } else {
         return undefined;
       }
     }),
   );
 
-  if (!control) {
+  if (!trackObject) {
     return null;
   }
 
@@ -42,7 +42,7 @@ export function TrackRow({
       <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] flex flex-row">
         <ControlWidget
           animationId={animationId}
-          animatableId={control.readId}
+          animatableId={trackObject.animatableId}
           namespace="default"
           onExpandedChange={setExpanded}
           emphasis={emphasis}
@@ -53,7 +53,7 @@ export function TrackRow({
         className="cursor-pointer items-center flex flex-1"
         style={
           {
-            "--track-color": control.settings.color || "#737373",
+            "--track-color": trackObject.settings?.color || "#737373",
           } as CSSProperties
         }
       >
@@ -68,7 +68,7 @@ export function TrackRow({
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
-                    color={control.settings.color || "#737373"}
+                    color={trackObject.settings?.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -81,7 +81,7 @@ export function TrackRow({
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
-                    color={control.settings.color || "#737373"}
+                    color={trackObject.settings?.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -94,7 +94,7 @@ export function TrackRow({
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
-                    color={control.settings.color || "#737373"}
+                    color={trackObject.settings?.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -107,7 +107,7 @@ export function TrackRow({
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
-                    color={control.settings.color || "#737373"}
+                    color={trackObject.settings?.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -123,7 +123,7 @@ export function TrackRow({
                   width={width}
                   trackIds={trackIds}
                   useCustomColor
-                  color={control.settings.color || "#737373"}
+                  color={trackObject.settings?.color || "#737373"}
                   canZoom
                   emphasis={emphasis}
                   onEmphasisChange={setEmphasis}

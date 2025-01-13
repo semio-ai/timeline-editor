@@ -15,44 +15,67 @@ import { createTrack } from "./create-track";
  * @param value - The new value to set for the control.
  */
 export function setValue(state: AnimationData, id: string, _namespace: string, value: RawValue) {
+  console.log("(Animation) Setting value for control", id);
   const timestamp = usePlayerStore.getState().player.stamp;
-  const control =
-    state.latestControl?.readId === id
-      ? state.latestControl
-      : Object.values(state.controls).find((ctrl) => ctrl.readId === id);
-  if (control) {
-    // We will for now assume that if the control exists, we have already created the track for it
-    const trackId = control.writeId;
-    updateKeypoint(state, trackId, { value, stamp: timestamp });
-    state.latestControl = control;
+
+  const activeAnimationId = state.activeAnimation;
+  const activeAnimationData = state.animations[activeAnimationId];
+  const activeAnimationTracks = activeAnimationData.tracks;
+  const activeAnimationTrackDatas = activeAnimationTracks.map((trackId) => state.tracks[trackId]);
+  const activeAnimationTrackData = activeAnimationTrackDatas.find(
+    (track) => track.animatableId === id,
+  );
+  if (activeAnimationTrackData) {
+    console.log("Updating existing track for control");
+    updateKeypoint(state, activeAnimationTrackData.id, { value, stamp: timestamp });
+    // return;
   } else {
+    console.log("Creating new track for control");
     const sourceAnimatable = state.animatables[id];
 
-    const track = createTrack(state, state.activeAnimation, id, {
-      name: sourceAnimatable.name,
-    });
-
-    const newControl: Control = {
-      id: crypto.randomUUID(),
-      readId: id,
-      writeId: track.id,
-      settings: {},
-    };
-
-    const newNode: ProcessNode = {
-      id: crypto.randomUUID(),
-      type: ProcessType.Identity,
-      inId: track.id,
-      outId: id,
-    };
-    state.nodes[newNode.id] = newNode;
-    state.nodes = { ...state.nodes, [newNode.id]: newNode };
-    state.graphs[state.activeGraph].nodes.push(newNode.id);
-    state.controls[newControl.id] = newControl;
-    state.latestControl = newControl;
-
-    updateKeypoint(state, track.id, { value, stamp: timestamp });
+    const newTrack = createTrack(state, id, activeAnimationId, { name: sourceAnimatable.name });
+    updateKeypoint(state, newTrack.id, { value, stamp: timestamp });
   }
+  // const control =
+  //   state.latestControl?.readId === id
+  //     ? state.latestControl
+  //     : Object.values(state.controls).find((ctrl) => ctrl.readId === id);
+
+  // if (control) {
+  //   // We will for now assume that if the control exists, we have already created the track for it
+  //   const trackId = control.writeId;
+  //   updateKeypoint(state, trackId, { value, stamp: timestamp });
+  //   state.latestControl = control;
+  // } else {
+  //   // If the control does not exist, create a new track
+  //   const sourceAnimatable = state.animatables[id];
+
+  //   const track = createTrack(state, id, state.activeAnimation, {
+  //     name: sourceAnimatable.name,
+  //   });
+
+  //   /////////////////////////////////////////////
+  //   const newControl: Control = {
+  //     id: crypto.randomUUID(),
+  //     readId: id,
+  //     writeId: track.id,
+  //     settings: {},
+  //   };
+
+  //   const newNode: ProcessNode = {
+  //     id: crypto.randomUUID(),
+  //     type: ProcessType.Identity,
+  //     inId: track.id,
+  //     outId: id,
+  //   };
+  //   state.nodes[newNode.id] = newNode;
+  //   state.nodes = { ...state.nodes, [newNode.id]: newNode };
+  //   state.graphs[state.activeGraph].nodes.push(newNode.id);
+  //   state.controls[newControl.id] = newControl;
+  //   state.latestControl = newControl;
+
+  //   updateKeypoint(state, track.id, { value, stamp: timestamp });
+  // }
 }
 
 /**
