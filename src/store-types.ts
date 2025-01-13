@@ -126,7 +126,7 @@ export interface AnimationActions {
    * Remove an animation by its ID.
    * @param animationId - The ID of the animation to remove.
    */
-  removeAnimation: (animationId: string) => void;
+  removeAnimation: (animationId: string, removeTracks?: boolean) => void;
   /**
    * Update a keypoint by track and keyframe/time in the animation.
    * @param trackId - The ID of the track.

@@ -15,26 +15,26 @@ import { createDefaultAnimation } from "./create-default-animation";
  * @param state - The current state of animations.
  * @param animationId - The ID of the animation to be removed.
  */
-export function removeAnimation(state: AnimationData, animationId: string) {
+export function removeAnimation(state: AnimationData, animationId: string, removeTracks = true) {
   if (animationId in state.animations) {
-    console.log("removeAnimation -> Removing animation", animationId);
     const { [animationId]: animation, ...newAnimations } = state.animations;
-    state.animations = newAnimations;
-    // Remove the tracks for that animation
-    animation.tracks.forEach((trackId) => {
-      console.log("Removing track", trackId);
-      state.tracks = omit(state.tracks, [trackId]);
-    });
     state.visualizedAnimations = state.visualizedAnimations.filter((id) => id !== animationId);
     if (state.activeAnimation === animationId) {
       if (state.visualizedAnimations.length > 0) {
         state.activeAnimation = state.visualizedAnimations[0];
-      } else if (Object.keys(state.animations).length > 0) {
-        state.activeAnimation = Object.keys(state.animations)[0];
+      } else if (Object.keys(state.animations).length > 1) {
+        state.activeAnimation = Object.keys(state.animations)[1];
       } else if (animationId !== DEFAULT_ANIMATION_ID) {
         const newAnimation = createDefaultAnimation();
         addAnimation(state, newAnimation);
       }
     }
+    state.animations = newAnimations;
+    // Remove the tracks for that animation
+    animation.tracks.forEach((trackId) => {
+      if (removeTracks) {
+        state.tracks = omit(state.tracks, [trackId]);
+      }
+    });
   }
 }

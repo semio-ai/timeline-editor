@@ -132,10 +132,10 @@ export const AnimationSlice = (
         }),
       );
     },
-    removeAnimation: (animationId: string) => {
+    removeAnimation: (animationId: string, removeTracks = true) => {
       set(
         produce((state: AnimationData): void => {
-          removeAnimation(state, animationId);
+          removeAnimation(state, animationId, removeTracks);
         }),
       );
     },
@@ -353,16 +353,19 @@ export const AnimationSlice = (
               trackUnsub();
             });
             // Creat new subscriptions
+            console.log("Creating new subscriptions", animations);
             const newSubscribes = Object.entries(animations)
               .map(([animationId, animation]) =>
                 Array.from(animation.tracks).map((trackId) => {
                   return api.subscribe(
                     // Monitor changes in instances, track, [all] frames and [all] points
                     (state: AnimationData) => {
+                      // console.log("adding subscribers", state.animations, animation, animationId);
+                      // if (!state.animations[animationId]) return;
                       return {
-                        instances: state.animations[animationId].instances,
+                        instances: animation.instances,
                         track: state.tracks[trackId],
-                        duration: state.animations[animationId].duration,
+                        duration: animation.duration,
                         animatableValue:
                           state.animatables[
                             Object.values(state.controls).find(
