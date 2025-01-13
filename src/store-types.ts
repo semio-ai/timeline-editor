@@ -174,7 +174,11 @@ export interface AnimationActions {
    * @param track - The track data to create.
    * @param animationId - The ID of the animation to add the track to.
    */
-  createTrack: (track: Partial<Track<RawValue>>, animationId?: string) => void;
+  createTrack: (
+    track: Partial<Track<RawValue>>,
+    animatableId: string,
+    animationId?: string,
+  ) => void;
   /**
    * Remove a track from the animation.
    * @param trackId - The ID of the track to remove.

@@ -178,10 +178,10 @@ export const AnimationSlice = (
         }),
       );
     },
-    createTrack: (track: Partial<Track<RawValue>>, animationId?: string) => {
+    createTrack: (track: Partial<Track<RawValue>>, animatableId: string, animationId?: string) => {
       set(
         produce((state: AnimationData) => {
-          createTrack(state, animationId ?? state.activeAnimation, track);
+          createTrack(state, animatableId, animationId ?? state.activeAnimation, track);
         }),
       );
     },
@@ -378,7 +378,7 @@ export const AnimationSlice = (
                       const newTrackInterpolators: Record<string, TrackInterpolator> = {};
                       let newViolations: Violation[] = [];
                       Object.keys(instances).forEach((namespace) => {
-                        const lookup = getLookup(namespace, trackId);
+                        const lookup = getLookup(namespace, track.animatableId);
                         const trackInterp = computeTrackInterpolator(track, instances[namespace]);
                         newTrackInterpolators[lookup] = trackInterp;
                         newVals.set(lookup, trackInterp(usePlayerStore.getState().player.stamp));

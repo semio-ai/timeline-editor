@@ -28,7 +28,7 @@ export function setValue(state: AnimationData, id: string, _namespace: string, v
   } else {
     const sourceAnimatable = state.animatables[id];
 
-    const track = createTrack(state, state.activeAnimation, {
+    const track = createTrack(state, state.activeAnimation, id, {
       name: sourceAnimatable.name,
     });
 

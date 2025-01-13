@@ -12,6 +12,7 @@ import { Track } from "../types";
  */
 export function createTrack(
   state: AnimationData,
+  animatableId: string,
   animationId: string,
   track: Partial<Track<RawValue>>,
 ): Track<RawValue> {
@@ -20,9 +21,10 @@ export function createTrack(
     id,
     name: "New Track",
     points: [],
+    animatableId,
     ...track,
   };
   state.tracks[id] = newTrack;
-  state.animations[animationId].tracks.push(id);
+  state.animations[animationId].tracks.push(id); // is tracks defined here?
   return newTrack;
 }
