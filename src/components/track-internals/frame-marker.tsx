@@ -2,7 +2,6 @@ import {
   type ReactNode,
   type MutableRefObject,
   type MouseEventHandler,
-  useMemo,
   memo,
   useRef,
   useCallback,
@@ -15,7 +14,7 @@ import {
   getDegenerateHexagonPath,
   usePlayerStore,
 } from "@semio/utils";
-import { clamp, uniq } from "lodash";
+import { clamp } from "lodash";
 import { animated, useSpringValue } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
 import { Theme, useTheme } from "@semio/ui";

@@ -13,7 +13,7 @@ import { TrackContext, useAnimationStore, usePlayerSubscription } from "../hooks
 import { AnimationData } from "../store-types";
 import { computeVerticalBounds } from "../functions";
 import { ScaleLinear } from "../scale-linear";
-import { Track as TrackData, InstanceInfo, Control, TrackRender } from "../types";
+import { Track as TrackData, InstanceInfo, TrackRender } from "../types";
 import {
   Playhead,
   HoverMarker,
