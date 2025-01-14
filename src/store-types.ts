@@ -35,10 +35,6 @@ export interface AnimationData {
    */
   tracks: Record<string, Track<RawValue>>;
   /**
-   * Selected Keyframe, if any.
-   */
-  selectedKeyframe?: string;
-  /**
    * Duration of the playback region, in milliseconds.
    */
   duration: number;
@@ -113,7 +109,7 @@ export interface AnimationActions {
    * Update the animation data.
    * @param animation - The animation data to add.
    */
-  addAnimation: (animation: unknown) => void;
+  addAnimation: (animation: StoredAnimation) => void;
   /**
    * Remove an animation by its ID.
    * @param animationId - The ID of the animation to remove.

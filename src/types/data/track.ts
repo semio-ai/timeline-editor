@@ -15,12 +15,3 @@ export interface Track<DataType extends RawValue> {
     color?: string;
   };
 }
-
-/**
-Old version of Tracks
-*/
-export interface TrackV1 {
-  id: string;
-  name: string;
-  points: string[];
-}

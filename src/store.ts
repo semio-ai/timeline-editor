@@ -83,9 +83,7 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData) => {
           const defaultAnimation = createDefaultAnimation();
-          state.activeAnimation = defaultAnimation.id;
-          state.animations[defaultAnimation.id] = defaultAnimation;
-          state.visualizedAnimations.push(defaultAnimation.id);
+          addAnimation(state, defaultAnimation);
           state.duration = defaultAnimation.duration;
         }),
       );
@@ -125,7 +123,7 @@ export const AnimationSlice = (
         }),
       );
     },
-    addAnimation: (animation: unknown) => {
+    addAnimation: (animation: StoredAnimation) => {
       set(
         produce((state: AnimationData): void => {
           addAnimation(state, animation);
