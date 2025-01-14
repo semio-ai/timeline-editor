@@ -1,9 +1,9 @@
-import { InstanceInfo } from "../types";
+import { AnimationInstance } from "../types";
 
-export function computeWorldStamp(localStamp: number, instanceInfo: InstanceInfo): number {
-  return localStamp / instanceInfo.timescale + instanceInfo.offset;
+export function computeWorldStamp(localStamp: number, instanceInfo: AnimationInstance): number {
+  return localStamp / instanceInfo.settings.timescale + instanceInfo.settings.offset;
 }
 
-export function computeLocalStamp(worldStamp: number, instanceInfo: InstanceInfo): number {
-  return (worldStamp - instanceInfo.offset) * instanceInfo.timescale;
+export function computeLocalStamp(worldStamp: number, instanceInfo: AnimationInstance): number {
+  return (worldStamp - instanceInfo.settings.offset) * instanceInfo.settings.timescale;
 }

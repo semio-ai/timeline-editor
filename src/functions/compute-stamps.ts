@@ -1,6 +1,6 @@
 import { uniq } from "lodash";
 import { RawValue } from "@semio/utils";
-import type { Track, InstanceInfo } from "../types";
+import type { Track, AnimationInstance } from "../types";
 import { computeWorldStamp } from "./compute-instance-time";
 
 /**
@@ -12,7 +12,7 @@ import { computeWorldStamp } from "./compute-instance-time";
  */
 export function computeStamps(
   tracks: Record<string, Track<RawValue>>,
-  instances: Record<string, InstanceInfo>,
+  instances: Record<string, AnimationInstance>,
 ): number[] {
   const stamps: number[] = [];
   Object.values(instances).forEach((instanceInfo) => {

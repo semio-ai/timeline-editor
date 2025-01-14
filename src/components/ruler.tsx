@@ -78,11 +78,15 @@ function InnerRuler({
   return (
     <TrackContext.Provider
       value={{
-        animationId,
-        namespaceId: "default",
-        instanceInfo: {
-          offset: 0,
-          timescale: 1,
+        instance: {
+          animationInstanceId: "",
+          animationId,
+          namespace: "default",
+          settings: {
+            active: true,
+            offset: 0,
+            timescale: 1,
+          },
         },
         trackIds: [],
         bounds: activeRegionBounds,

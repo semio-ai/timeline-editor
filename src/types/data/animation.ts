@@ -2,7 +2,6 @@ import { RawValue } from "@semio/utils";
 import type { Transition } from "./transition";
 import type { Track } from "./track";
 import type { TrackGroup } from "./track-group";
-import type { InstanceInfo } from "./instance-info";
 
 /**
  * A collection of tracks, keyframes, and transitions that can be played back to create a visual effect.
@@ -21,7 +20,7 @@ export interface Animation {
   groups: Map<string, TrackGroup>;
   transitions: Map<string, Transition>;
   duration: number;
-  instances: Record<string, InstanceInfo>;
+  instances: Record<string, AnimationInstance>;
 }
 
 /**
@@ -41,5 +40,16 @@ export interface StoredAnimation {
   groups: Map<string, TrackGroup>;
   transitions: Map<string, Transition>;
   duration: number;
-  instances: Record<string, InstanceInfo>;
+  instances: Record<string, AnimationInstance>;
+}
+
+export interface AnimationInstance {
+  animationInstanceId: string;
+  animationId: string; // Matches id of an animation document
+  namespace: string; // Matches id of an entity instance document {entityId}.{entityInstanceId}
+  settings: {
+    active: boolean;
+    offset: number;
+    timescale: number;
+  };
 }

@@ -13,7 +13,7 @@ import { TrackContext, useAnimationStore, usePlayerSubscription } from "../hooks
 import { AnimationData } from "../store-types";
 import { computeVerticalBounds } from "../functions";
 import { ScaleLinear } from "../scale-linear";
-import { Track as TrackData, InstanceInfo, TrackRender } from "../types";
+import { Track as TrackData, AnimationInstance, TrackRender } from "../types";
 import {
   Playhead,
   HoverMarker,
@@ -79,8 +79,11 @@ export function Track({
     useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );
 
-  const instanceInfo: InstanceInfo = useAnimationStore(
-    useShallow((state: AnimationData) => state.animations[animationId]?.instances[namespaceId]),
+  const instance: AnimationInstance = useAnimationStore(
+    useShallow((state: AnimationData) => {
+      const instances = Object.values(state.animations[animationId]?.instances);
+      return instances.find((i) => i.namespace === namespaceId) ?? instances[0];
+    }),
   );
 
   const trackKeys = useAnimationStore(
@@ -168,9 +171,7 @@ export function Track({
   return (
     <TrackContext.Provider
       value={{
-        animationId,
-        namespaceId,
-        instanceInfo,
+        instance,
         attribute,
         trackIds: trackKeys,
         bounds: activeRegionBounds,

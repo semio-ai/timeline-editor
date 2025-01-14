@@ -15,8 +15,14 @@ export function createDefaultAnimation(): StoredAnimation {
     transitions: new Map(),
     instances: {
       default: {
-        offset: 0,
-        timescale: 1,
+        animationInstanceId: "",
+        animationId: DEFAULT_ANIMATION_ID,
+        namespace: "default",
+        settings: {
+          active: true,
+          offset: 0,
+          timescale: 1,
+        },
       },
     },
     duration: 5000,

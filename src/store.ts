@@ -16,7 +16,7 @@ import { isEqual, pick } from "lodash";
 import {
   Keypoint,
   Track,
-  InstanceInfo,
+  AnimationInstance,
   TrackInterpolator,
   Animation,
   Violation,
@@ -535,7 +535,7 @@ interface AnimationsAndSubscribes {
 
 interface TrackAndInstanceData {
   track?: Track<RawValue>;
-  instances: Record<string, InstanceInfo>;
+  instances: Record<string, AnimationInstance>;
   duration: number;
   animatableValue?: AnimatableValue;
 }

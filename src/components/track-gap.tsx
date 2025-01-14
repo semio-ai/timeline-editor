@@ -60,11 +60,15 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
       >
         <TrackContext.Provider
           value={{
-            animationId,
-            namespaceId: "default",
-            instanceInfo: {
-              offset: 0,
-              timescale: 1,
+            instance: {
+              animationInstanceId: "",
+              animationId,
+              namespace: "default",
+              settings: {
+                active: true,
+                offset: 0,
+                timescale: 1,
+              },
             },
             trackIds: [],
             bounds: activeRegionBounds,

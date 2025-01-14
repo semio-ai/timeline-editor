@@ -40,7 +40,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
   const {
     frameCount,
     trackIds,
-    instanceInfo,
+    instance,
     xScale,
     zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
@@ -115,7 +115,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
           clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
         );
         const newStamp = state.shiftKey ? newPosition : closestFrame(newPosition, frameCount);
-        const transformedStamp = computeLocalStamp(newStamp, instanceInfo);
+        const transformedStamp = computeLocalStamp(newStamp, instance);
         data.points.forEach((point) => {
           updateKeypoint(point.trackId, { ...point, stamp: transformedStamp });
         });
