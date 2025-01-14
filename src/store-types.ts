@@ -6,9 +6,6 @@ import {
   Animation,
   AnimationInterpolator,
   Violation,
-  Graph,
-  ProcessNode,
-  Control,
   StoredAnimation,
   Preview,
 } from "./types";
@@ -96,11 +93,6 @@ export interface AnimationData {
   violations: Record<string, Violation[]>;
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
-  activeGraph: string;
-  graphs: Record<string, Graph>;
-  nodes: Record<string, ProcessNode>;
-  controls: Record<string, Control>;
-  latestControl?: Control;
   animatables: Record<string, AnimatableValue>;
 }
 

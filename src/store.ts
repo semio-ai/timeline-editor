@@ -355,7 +355,7 @@ export const AnimationSlice = (
             // Creat new subscriptions
             console.log("Creating new subscriptions", animations);
             const newSubscribes = Object.entries(animations)
-              .map(([animationId, animation]) =>
+              .map(([_animationId, animation]) =>
                 Array.from(animation.tracks).map((trackId) => {
                   return api.subscribe(
                     // Monitor changes in instances, track, [all] frames and [all] points
@@ -366,12 +366,7 @@ export const AnimationSlice = (
                         instances: animation.instances,
                         track: state.tracks[trackId],
                         duration: animation.duration,
-                        animatableValue:
-                          state.animatables[
-                            Object.values(state.controls).find(
-                              (control) => control.writeId === trackId,
-                            )?.readId ?? ""
-                          ],
+                        animatableValue: state.animatables[state.tracks[trackId].animatableId],
                       };
                     },
                     ({ track, instances, duration, animatableValue }) => {

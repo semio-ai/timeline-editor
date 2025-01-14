@@ -26,7 +26,7 @@ import {
 } from "@semio/utils";
 import { IconHash, IconDotsVertical, IconChevronDown } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
-import { type Keypoint, type Track, type Control } from "../types";
+import { type Keypoint, type Track } from "../types";
 import { useAnimationStore } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { computeWorldStamp } from "../functions";
@@ -65,15 +65,9 @@ function InnerControlWidget({
     useShallow((state: AnimationActions) => state.updateControlColor),
   );
 
-  const control = useAnimationStore(
-    useShallow((state: AnimationData) =>
-      Object.values(state.controls).find((c: Control) => c.readId === animatableId),
-    ),
-  );
-
   const track: Track<RawValue> | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {
-      return state.tracks[control?.writeId || ""] || undefined;
+      return Object.values(state.tracks).find((t) => t.animatableId === animatableId) || undefined;
     }),
   );
 
@@ -103,7 +97,6 @@ function InnerControlWidget({
           keypoint={keypoint}
           rawValueId={rawValueId}
           track={track}
-          control={control}
         />
         <div className="flex flex-1 flex-row items-center">
           {animatableValue.type === "vector3" || animatableValue.type === "euler" ? (
@@ -111,7 +104,7 @@ function InnerControlWidget({
               <Button
                 size="fit"
                 invert
-                color={control?.settings?.color}
+                color={track?.settings?.color}
                 className="w-3 h-3 pl-2"
                 leftIcon={
                   <IconChevronDown size="13px" className={open ? "rotate-180" : "rotate-0"} />
@@ -119,7 +112,7 @@ function InnerControlWidget({
               />
             </CollapsibleTrigger>
           ) : (
-            <StaticIcon size="fit" className="w-3 h-3 pl-2" color={control?.settings?.color}>
+            <StaticIcon size="fit" className="w-3 h-3 pl-2" color={track?.settings?.color}>
               {animatableValue.type === "number" && <IconHash size="13px" />}
             </StaticIcon>
           )}
@@ -127,7 +120,6 @@ function InnerControlWidget({
             <Editor
               animationId={animationId}
               animatableValue={animatableValue}
-              control={control}
               rawValueId={rawValueId}
               playing={playing}
               track={track}
@@ -153,10 +145,10 @@ function InnerControlWidget({
               <NestedLabel>Control Settings</NestedLabel>
               <NestedColorPicker
                 variant={Variant.Info}
-                disabled={!control}
-                value={control?.settings?.color || "#737373"}
+                disabled={!track}
+                value={track?.settings?.color || "#737373"}
                 onChange={(v) => {
-                  updateControlColor(control?.id || "", v);
+                  updateControlColor(track?.id || "", v);
                 }}
               />
             </Dropdown>
@@ -169,11 +161,7 @@ function InnerControlWidget({
             {["x", "y", "z"].map((prop) => (
               <div key={prop} className="flex p-1 items-center h-[30px]">
                 <div className="w-11" />
-                <StaticIcon
-                  size="fit"
-                  className="w-3 h-3 pl-1 pr-2"
-                  color={control?.settings?.color}
-                >
+                <StaticIcon size="fit" className="w-3 h-3 pl-1 pr-2" color={track?.settings?.color}>
                   <IconHash size="13px" />
                 </StaticIcon>
 
@@ -181,7 +169,6 @@ function InnerControlWidget({
                   <Editor
                     animationId={animationId}
                     animatableValue={animatableValue}
-                    control={control}
                     rawValueId={rawValueId}
                     playing={playing}
                     track={track}
@@ -212,7 +199,6 @@ const vectorIndexLookup = {
 interface EditorProps {
   animationId: string;
   animatableValue: AnimatableValue;
-  control?: Control;
   rawValueId: string;
   namespace: string;
   prop?: string;
@@ -224,7 +210,6 @@ interface EditorProps {
 
 function InnerEditor({
   animatableValue,
-  control,
   rawValueId,
   playing,
   track,
@@ -260,7 +245,7 @@ function InnerEditor({
         value={(rawValue as number) ?? (animatableValue.default as number)}
         min={animatableValue.constraints.min}
         max={animatableValue.constraints.max}
-        color={control?.settings?.color}
+        color={track?.settings?.color}
         onChange={(v) => {
           setValue(animatableId, namespace, v);
         }}
@@ -317,7 +302,7 @@ function InnerEditor({
         }
         min={animatableValue.constraints?.min?.[index] ?? undefined}
         max={animatableValue.constraints?.max?.[index] ?? undefined}
-        color={control?.settings?.color}
+        color={track?.settings?.color}
         onChange={(v) => {
           if (prop === "x") {
             setValue(animatableId, namespace, {
@@ -371,7 +356,7 @@ function InnerEditor({
             ? toDegrees(animatableValue.constraints?.max?.[index])
             : undefined
         }
-        color={control?.settings?.color}
+        color={track?.settings?.color}
         onChange={(v) => {
           const vr = toRadians(v);
           if (prop === "x") {
@@ -409,7 +394,6 @@ const Editor = memo(InnerEditor);
 interface WrappedTrackControlProps {
   animationId: string;
   track?: Track<RawValue>;
-  control?: Control;
   namespace: string;
   keypoint?: Keypoint<RawValue>;
   rawValueId: string;
@@ -419,7 +403,6 @@ interface WrappedTrackControlProps {
 function InnerWrappedTrackControl({
   animationId,
   track,
-  control,
   namespace,
   keypoint,
   rawValueId,
@@ -441,7 +424,7 @@ function InnerWrappedTrackControl({
       namespaceId={namespace}
       trackIds={track ? [track.id] : []}
       filled={keypoint !== undefined}
-      color={control?.settings?.color}
+      color={track?.settings?.color}
       onHexClick={() => {
         if (keypoint && track) {
           removeKeypoint(track.id, keypoint.id);

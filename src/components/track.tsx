@@ -93,8 +93,10 @@ export function Track({
     useShallow((state: AnimationData) => pick(state.tracks, trackKeys)),
   ) as Record<string, TrackData<RawValue>>;
 
-  const [allControls, allAnimatables] = useAnimationStore(
-    useShallow((state: AnimationData) => [state.controls, state.animatables]),
+  const animatableIds = Object.values(tracks).map((track) => track.animatableId);
+
+  const [allAnimatables] = useAnimationStore(
+    useShallow((state: AnimationData) => [state.animatables]),
   );
 
   const verticalBounds = useMemo(() => {
@@ -104,30 +106,22 @@ export function Track({
       trackRender === TrackRender.Transition
     )
       return [0, 1];
-    const animatableValues = Object.values(allControls)
-      .filter((control: Control) => trackKeys.includes(control.writeId))
-      .map((control: Control) => allAnimatables[control.readId]);
+
+    const animatableValues = Object.values(allAnimatables).filter((animatable) =>
+      animatableIds.includes(animatable.id),
+    );
+
     return computeVerticalBounds(tracks, animatableValues, attribute);
-  }, [trackKeys, trackRender, tracks, allControls, allAnimatables, attribute]);
+  }, [trackKeys.length, trackRender, allAnimatables, tracks, attribute, animatableIds]);
 
   const trackType = useMemo(() => {
-    if (trackKeys.length !== 1) {
-      const types = new Set<AnimatableValue["type"]>();
-      Object.values(allControls)
-        .filter((control: Control) => trackKeys.includes(control.writeId))
-        .forEach((control: Control) =>
-          types.add(allAnimatables[control.readId].type as AnimatableValue["type"]),
-        );
-      return types.size === 1
-        ? types.values().next().value!
-        : ("multiple" as AnimatableValue["type"] | "multiple");
-    } else {
-      const control = Object.values(allControls).find((c: Control) => trackKeys[0] === c.writeId);
-      if (!control) return "multiple";
+    const types = new Set<AnimatableValue["type"]>();
+    animatableIds.forEach((id) => types.add(allAnimatables[id].type as AnimatableValue["type"]));
 
-      return allAnimatables[control.readId].type;
-    }
-  }, [allAnimatables, allControls, trackKeys]);
+    return types.size === 1
+      ? types.values().next().value!
+      : ("multiple" as AnimatableValue["type"] | "multiple");
+  }, [allAnimatables, animatableIds]);
 
   const resolvedRender = useMemo(() => {
     if (trackKeys.length !== 1) return TrackRender.Key;

@@ -60,21 +60,19 @@ export function PlaybackControls({
     ),
   );
 
-  const controls = useAnimationStore(useShallow((state) => state.controls));
   const stateTracks = useAnimationStore(useShallow((state) => state.tracks));
 
   const tracks = useMemo(
     () =>
       allTracks.map((id) => {
-        const control = Object.values(controls).find((c) => c.writeId === id);
         return {
           label: stateTracks[id]?.name || "Unknown Track",
           value: id,
-          animatableId: control?.readId,
-          color: control?.settings?.color || "#737373",
+          animatableId: stateTracks[id].animatableId,
+          color: stateTracks[id]?.settings?.color || "#737373",
         };
       }),
-    [allTracks, controls, stateTracks],
+    [allTracks, stateTracks],
   );
 
   const stamps = useMemo(() => {

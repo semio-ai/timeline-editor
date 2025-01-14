@@ -27,7 +27,7 @@ import {
 } from "../../hooks";
 import { computeLocalStamp } from "../../functions";
 import { DRAG_X_CONFIG } from "../../gesture-config";
-import { Control, InstancedFrameInfo, TrackRender } from "../../types";
+import { InstancedFrameInfo, TrackRender } from "../../types";
 
 const linePath = getDegenerateHexagonPath(0, 15, 12, 30);
 const hexPath = getHexagonPath(0, 15, 12, 30);
@@ -54,17 +54,19 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     useShallow((state) => trackIds.length > 0 && state.player.stamp === data.stamp),
   );
 
-  const uniqueTracks = useMemo(() => uniq(data.points.map((p) => p.trackId)), [data.points]);
+  // const uniqueTracks = useMemo(() => uniq(data.points.map((p) => p.trackId)), [data.points]);
 
-  const color = useAnimationStore(
-    useShallow((state) => {
-      if (uniqueTracks.length !== 1) return "#737373";
-      return (
-        Object.values(state.controls).find((c: Control) => c.writeId === uniqueTracks[0])?.settings
-          ?.color ?? "#737373"
-      );
-    }),
-  );
+  // const color = useAnimationStore(
+  //   useShallow((state) => {
+  //     if (uniqueTracks.length !== 1) return "#737373";
+  //     return (
+  //       Object.values(state.controls).find((c: Control) => c.writeId === uniqueTracks[0])?.settings
+  //         ?.color ?? "#737373"
+  //     );
+  //   }),
+  // );
+
+  const color = "#737373";
 
   const highlightColor = resolvedTheme === Theme.Dark ? "white" : "black";
 

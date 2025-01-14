@@ -2,14 +2,7 @@ import type { ReactNode } from "react";
 import { useContext, memo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
-import {
-  ToggleGroup,
-  Size,
-  ToggleSquare,
-  Variant,
-  IconGraphView,
-  IconPreviewView,
-} from "@semio/ui";
+import { ToggleGroup, Size, ToggleSquare, Variant, IconPreviewView } from "@semio/ui";
 import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
@@ -98,12 +91,6 @@ export function InnerSheet(): ReactNode {
                 label: "Preview View",
                 // icon: <IconEaseInOut size="11px" />,
                 icon: <IconPreviewView size="11px" />,
-              },
-              {
-                value: TrackRender.Graph,
-                label: "Graph View",
-                icon: <IconGraphView size="11px" />,
-                disabled: true,
               },
               {
                 value: TrackRender.Data,

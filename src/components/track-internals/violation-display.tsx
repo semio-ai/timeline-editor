@@ -18,7 +18,7 @@ import { TrackedTooltip, useTrackedTooltip } from "@semio/ui";
 import { uniq, clamp } from "lodash";
 import { TIMELINE_PADDING } from "../../constants";
 import { useAnimationStore, useZoomGestures, useTrackContext, usePairSprings } from "../../hooks";
-import { ViolationSet, Violation, ViolationType, Control } from "../../types";
+import { ViolationSet, Violation, ViolationType } from "../../types";
 import { AnimationData, AnimationActions } from "../../store-types";
 
 export interface ViolationDisplayProps {
@@ -39,15 +39,10 @@ function InnerViolationDisplay({
     useDeep((state: AnimationData) => {
       const l: Record<string, { color: string; name: string }> = {};
       trackIds.forEach((trackId: string) => {
-        const control = Object.values(state.controls).find(
-          (ctrl: Control) => ctrl.writeId === trackId,
-        );
-        if (control) {
-          l[trackId] = {
-            color: control.settings.color ?? "#737373",
-            name: state.tracks[trackId]?.name ?? "Unknown Track",
-          };
-        }
+        l[trackId] = {
+          color: state.tracks[trackId]?.settings?.color ?? "#737373",
+          name: state.tracks[trackId]?.name ?? "Unknown Track",
+        };
       });
       return l;
     }),

@@ -1,6 +1,5 @@
 import { RawValue, usePlayerStore } from "@semio/utils";
 import { type AnimationData } from "../store-types";
-import { Control, ProcessType, ProcessNode, Graph } from "../types";
 import { updateKeypoint } from "./update-keypoint";
 import { createTrack } from "./create-track";
 
@@ -36,73 +35,20 @@ export function setValue(state: AnimationData, id: string, _namespace: string, v
     const newTrack = createTrack(state, id, activeAnimationId, { name: sourceAnimatable.name });
     updateKeypoint(state, newTrack.id, { value, stamp: timestamp });
   }
-  // const control =
-  //   state.latestControl?.readId === id
-  //     ? state.latestControl
-  //     : Object.values(state.controls).find((ctrl) => ctrl.readId === id);
-
-  // if (control) {
-  //   // We will for now assume that if the control exists, we have already created the track for it
-  //   const trackId = control.writeId;
-  //   updateKeypoint(state, trackId, { value, stamp: timestamp });
-  //   state.latestControl = control;
-  // } else {
-  //   // If the control does not exist, create a new track
-  //   const sourceAnimatable = state.animatables[id];
-
-  //   const track = createTrack(state, id, state.activeAnimation, {
-  //     name: sourceAnimatable.name,
-  //   });
-
-  //   /////////////////////////////////////////////
-  //   const newControl: Control = {
-  //     id: crypto.randomUUID(),
-  //     readId: id,
-  //     writeId: track.id,
-  //     settings: {},
-  //   };
-
-  //   const newNode: ProcessNode = {
-  //     id: crypto.randomUUID(),
-  //     type: ProcessType.Identity,
-  //     inId: track.id,
-  //     outId: id,
-  //   };
-  //   state.nodes[newNode.id] = newNode;
-  //   state.nodes = { ...state.nodes, [newNode.id]: newNode };
-  //   state.graphs[state.activeGraph].nodes.push(newNode.id);
-  //   state.controls[newControl.id] = newControl;
-  //   state.latestControl = newControl;
-
-  //   updateKeypoint(state, track.id, { value, stamp: timestamp });
-  // }
 }
 
 /**
  * Updates the color setting of a specific control in the animation state.
  *
  * @param state - The current animation state containing controls.
- * @param controlId - The unique identifier of the control to update.
+ * @param trackId - The unique identifier of the control to update.
  * @param color - The new color to set for the control.
  */
-export function updateControlColor(state: AnimationData, controlId: string, color: string) {
-  if (state.controls[controlId]) {
-    state.controls[controlId].settings.color = color;
+export function updateControlColor(state: AnimationData, trackId: string, color: string) {
+  if (state.tracks[trackId]) {
+    if (!state.tracks[trackId].settings) {
+      state.tracks[trackId].settings = {};
+    }
+    state.tracks[trackId].settings.color = color;
   }
-}
-
-/**
- * Creates a default graph object with predefined properties.
- *
- * @returns [Graph] The default graph object with an id, name, empty nodes array, and default instances set to null.
- */
-export function createDefaultGraph(): Graph {
-  return {
-    id: "Unsaved Default Graph",
-    name: "New Graph",
-    nodes: [],
-    instances: {
-      default: null,
-    },
-  };
 }

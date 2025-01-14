@@ -27,8 +27,8 @@ export function Timeline({
 }: TimelineProps): ReactNode {
   const color = useAnimationStore((state: AnimationData) => {
     if (trackIds === undefined || trackIds?.length === 0 || trackIds?.length > 1) return "#737373";
-    const control = Object.values(state.controls).find((ctrl) => ctrl.writeId === trackIds[0]);
-    return control?.settings?.color || "#737373";
+    const track = state.tracks[trackIds[0]];
+    return track?.settings?.color || "#737373";
   });
   return (
     <div
