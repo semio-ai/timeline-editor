@@ -61,7 +61,7 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
         <TrackContext.Provider
           value={{
             instance: {
-              animationInstanceId: "",
+              id: "",
               animationId,
               namespace: "default",
               settings: {

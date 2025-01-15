@@ -44,7 +44,7 @@ export interface StoredAnimation {
 }
 
 export interface AnimationInstance {
-  animationInstanceId: string;
+  id: string;
   animationId: string; // Matches id of an animation document
   namespace: string; // Matches id of an entity instance document {entityId}.{entityInstanceId}
   settings: {

@@ -79,7 +79,7 @@ function InnerRuler({
     <TrackContext.Provider
       value={{
         instance: {
-          animationInstanceId: "",
+          id: "",
           animationId,
           namespace: "default",
           settings: {

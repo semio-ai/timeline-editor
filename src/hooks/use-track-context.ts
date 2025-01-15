@@ -32,7 +32,7 @@ export interface TrackContextData {
 
 export const TrackContext = createContext<TrackContextData>({
   instance: {
-    animationInstanceId: "",
+    id: "",
     animationId: "",
     namespace: "",
     settings: {
