@@ -15,7 +15,7 @@ export function createDefaultAnimation(): StoredAnimation {
     transitions: new Map(),
     instances: {
       default: {
-        animationInstanceId: "",
+        id: "",
         animationId: DEFAULT_ANIMATION_ID,
         namespace: "default",
         settings: {
