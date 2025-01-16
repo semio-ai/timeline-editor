@@ -72,9 +72,9 @@ function InnerControlWidget({
           return undefined;
         }
       }
+      return state.animatables[animatableId ?? ""];
     }),
   );
-
   const rawValueId = getLookup(namespace, animatableValue?.id ?? "");
 
   const updateControlColor = useAnimationStore(
@@ -270,7 +270,7 @@ function InnerEditor({
   onEmphasisChange,
   handleValueChange,
 }: EditorProps) {
-  console.log("InnerEditor namespace", namespace);
+  void namespace;
 
   const rawValue: RawValue | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {

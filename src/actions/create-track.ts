@@ -17,10 +17,11 @@ export function createTrack(
   animationId: string,
   track: Partial<Track<RawValue>>,
 ): Track<RawValue> {
+  const animatable = state.animatables[animatableId];
   const id = crypto.randomUUID();
   const newTrack: Track<RawValue> = {
     id,
-    name: "New Track",
+    name: animatable.name ?? "New Track",
     points: [],
     animatableId,
     ...track,
