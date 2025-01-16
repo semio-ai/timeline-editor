@@ -13,7 +13,7 @@ import { TrackContext, useAnimationStore, usePlayerSubscription } from "../hooks
 import { AnimationData } from "../store-types";
 import { computeVerticalBounds } from "../functions";
 import { ScaleLinear } from "../scale-linear";
-import { Track as TrackData, AnimationInstance, TrackRender } from "../types";
+import { Track as TrackData, TrackRender, AnimationInstanceSettings } from "../types";
 import {
   Playhead,
   HoverMarker,
@@ -28,6 +28,7 @@ export interface TrackProps {
   width: number;
   animationId: string;
   namespaceId: string;
+  instanceSettings: AnimationInstanceSettings;
   trackIds?: string[];
   attribute?: string;
   canZoom?: boolean;
@@ -46,6 +47,7 @@ export interface TrackProps {
  * @param width - The width of the track.
  * @param animationId - The ID of the animation.
  * @param namespaceId - The namespace of the animation.
+ * @param instanceSettings - The offset/timescale information
  * @param trackIds - The IDs of the tracks to display.
  * @param attribute - The attribute to display, used with complex datatypes.
  * @param canZoom - Whether the track can be zoomed.
@@ -60,7 +62,7 @@ export interface TrackProps {
 export function Track({
   width,
   animationId,
-  namespaceId,
+  instanceSettings,
   trackIds,
   attribute,
   trackRender,
@@ -77,13 +79,6 @@ export function Track({
   );
   const duration = useAnimationStore(
     useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
-  );
-
-  const instance: AnimationInstance = useAnimationStore(
-    useShallow((state: AnimationData) => {
-      const instances = Object.values(state.animations[animationId]?.instances);
-      return instances.find((i) => i.namespace === namespaceId) ?? instances[0];
-    }),
   );
 
   const trackKeys = useAnimationStore(
@@ -116,10 +111,12 @@ export function Track({
 
     return computeVerticalBounds(tracks, animatableValues, attribute);
   }, [trackKeys.length, trackRender, allAnimatables, tracks, attribute, animatableIds]);
+  // console.log("animatableIds", animatableIds, allAnimatables);
 
   const trackType = useMemo(() => {
     const types = new Set<AnimatableValue["type"]>();
-    animatableIds.forEach((id) => types.add(allAnimatables[id].type as AnimatableValue["type"]));
+    // console.log("animatableIds", animatableIds, allAnimatables);
+    animatableIds.forEach((id) => types.add(allAnimatables[id]?.type as AnimatableValue["type"]));
 
     return types.size === 1
       ? types.values().next().value!
@@ -171,7 +168,8 @@ export function Track({
   return (
     <TrackContext.Provider
       value={{
-        instance,
+        animationId,
+        instanceSettings,
         attribute,
         trackIds: trackKeys,
         bounds: activeRegionBounds,
@@ -200,12 +198,10 @@ export function Track({
             className="h-[30px]"
           />
           <TrackBackground
-            animationId={animationId}
             showLine={canZoom && showBackground}
             ignoreZoom={!canZoom}
             tickHeight={30}
             showTicks={canZoom}
-            trackIds={trackIds}
           />
 
           {/* Gesture Detector */}

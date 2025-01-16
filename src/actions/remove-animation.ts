@@ -33,6 +33,7 @@ export function removeAnimation(state: AnimationData, animationId: string, remov
     // Remove the tracks for that animation
     animation.tracks.forEach((trackId) => {
       if (removeTracks) {
+        console.log("removing track", trackId);
         state.tracks = omit(state.tracks, [trackId]);
       }
     });

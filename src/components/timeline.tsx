@@ -1,7 +1,7 @@
 import { CSSProperties, type ReactNode } from "react";
 import { ParentSize } from "@visx/responsive";
 import { AnimationData } from "../store-types";
-import { TrackRender } from "../types";
+import { AnimationInstanceSettings, TrackRender } from "../types";
 import { useAnimationStore } from "../hooks";
 import { Track } from "./track";
 
@@ -9,6 +9,7 @@ export interface TimelineProps {
   animationId: string;
   trackIds?: string[];
   namespaceId: string;
+  instanceSettings: AnimationInstanceSettings;
   trackRender: TrackRender.Key | TrackRender.Preview | TrackRender.Transition;
 }
 
@@ -23,6 +24,7 @@ export function Timeline({
   animationId,
   trackIds,
   namespaceId,
+  instanceSettings,
   trackRender,
 }: TimelineProps): ReactNode {
   const color = useAnimationStore((state: AnimationData) => {
@@ -44,6 +46,7 @@ export function Timeline({
             animationId={animationId}
             namespaceId={namespaceId}
             trackRender={trackRender}
+            instanceSettings={instanceSettings}
           />
         )}
       </ParentSize>

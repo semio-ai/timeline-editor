@@ -8,7 +8,7 @@ import { AnimationActions, AnimationData } from "../../store-types";
 
 function InnerGestureDetector({ height = 30 }: { ignoreZoom?: boolean; height?: number }) {
   const gestureRef = useRef<SVGRectElement>();
-  const { xScale, zoomScale, bounds, instance } = useTrackContext();
+  const { xScale, zoomScale, bounds, animationId } = useTrackContext();
 
   const updateHoverpointPreview = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateHoverpointPreview),
@@ -24,7 +24,7 @@ function InnerGestureDetector({ height = 30 }: { ignoreZoom?: boolean; height?: 
     useShallow((state: AnimationData) => state.framerate as number),
   );
   const duration = useAnimationStore(
-    useShallow((state: AnimationData) => state.animations[instance.animationId]?.duration ?? 5000),
+    useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );
 
   const frameCount = Math.floor(framerate * (duration / 1000));

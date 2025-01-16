@@ -43,13 +43,19 @@ export interface StoredAnimation {
   instances: Record<string, AnimationInstance>;
 }
 
+export interface AnimationDriver {
+  type: "animation";
+  animationInstances: Record<string, AnimationInstance>;
+}
+
 export interface AnimationInstance {
   id: string;
   animationId: string; // Matches id of an animation document
-  namespace: string; // Matches id of an entity instance document {entityId}.{entityInstanceId}
-  settings: {
-    active: boolean;
-    offset: number;
-    timescale: number;
-  };
+  settings: AnimationInstanceSettings;
+}
+
+export interface AnimationInstanceSettings {
+  active: boolean;
+  offset: number;
+  timescale: number;
 }

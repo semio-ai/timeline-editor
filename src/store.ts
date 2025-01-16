@@ -41,7 +41,6 @@ import {
   addAnimation,
   removeAnimation,
   createDefaultAnimation,
-  setValue,
   updateControlColor,
 } from "./actions";
 import {
@@ -493,22 +492,6 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           updateControlColor(state, controlId, color);
-        }),
-      );
-    },
-    setValue: (id: string, namespace: string, value: RawValue) => {
-      set(
-        produce((state: AnimationData) => {
-          setValue(state, id, namespace, value);
-        }),
-      );
-    },
-    setValues: (updates: { animatableId: string; namespace: string; value: RawValue }[]) => {
-      set(
-        produce((state: AnimationData) => {
-          updates.forEach(({ animatableId, namespace, value }) =>
-            setValue(state, animatableId, namespace, value),
-          );
         }),
       );
     },

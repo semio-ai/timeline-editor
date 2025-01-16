@@ -29,7 +29,10 @@ export function computeTrackInterpolator(
 
   let valuesByTime = Array<[number, RawValue]>();
   track.points.forEach((point) => {
-    valuesByTime.push([computeWorldStamp(point.stamp, instanceInfo), point.value]);
+    valuesByTime.push([
+      computeWorldStamp(point.stamp, instanceInfo.settings.timescale, instanceInfo.settings.offset),
+      point.value,
+    ]);
   });
 
   // Sort the entries to confirm that they are in order of time.

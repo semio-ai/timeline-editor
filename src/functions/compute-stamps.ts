@@ -18,7 +18,13 @@ export function computeStamps(
   Object.values(instances).forEach((instanceInfo) => {
     Object.values(tracks).forEach((track) => {
       track.points.forEach((point) => {
-        stamps.push(computeWorldStamp(point.stamp, instanceInfo));
+        stamps.push(
+          computeWorldStamp(
+            point.stamp,
+            instanceInfo.settings.offset,
+            instanceInfo.settings.timescale,
+          ),
+        );
       });
     });
   });

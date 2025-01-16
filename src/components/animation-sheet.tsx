@@ -6,7 +6,7 @@ import { ToggleGroup, Size, ToggleSquare, Variant, IconPreviewView } from "@semi
 import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
-import { TrackRender } from "../types";
+import { TrackRender, AnimationInstance } from "../types";
 import { useAnimationStore } from "../hooks";
 import { PlaybackControls } from "./playback-controls";
 import { Timeline } from "./timeline";
@@ -14,21 +14,32 @@ import { TrackList } from "./track-list";
 import { Minimap } from "./minimap";
 import { Ruler } from "./ruler";
 
-export function AnimationSheet(): ReactNode {
+export interface AnimationSheetProps {
+  namespaceId: string;
+  animationInstances: Record<string, AnimationInstance>;
+}
+
+export function AnimationSheet({
+  namespaceId,
+  animationInstances,
+}: AnimationSheetProps): ReactNode {
   const ctx = useContext(AnimationContext);
   if (ctx) {
-    return <MemoizedInnerSheet />;
+    return <MemoizedInnerSheet namespaceId={namespaceId} animationInstances={animationInstances} />;
   } else {
     return (
       <AnimationContext.Provider value={useDefaultAnimationStore}>
-        <MemoizedInnerSheet />
+        <MemoizedInnerSheet namespaceId={namespaceId} animationInstances={animationInstances} />
       </AnimationContext.Provider>
     );
   }
 }
 
-export function InnerSheet(): ReactNode {
-  const activeAnimation = useAnimationStore(useShallow((state) => state.activeAnimation));
+export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetProps): ReactNode {
+  // TODO: Eventually we will allow seleciton of different animation instances to view. For now we assume there is only one instance per set.
+  const activeAnimationInstance = Object.values(animationInstances)[0];
+  const activeAnimation = activeAnimationInstance.animationId;
+  const instanceSettings = activeAnimationInstance.settings;
   const expanded = useAnimationStore(useShallow((state) => state.expanded));
   const setExpanded = useAnimationStore(useShallow((state) => state.setExpanded));
   const allTracks = useAnimationStore(
@@ -116,14 +127,22 @@ export function InnerSheet(): ReactNode {
             "transition-[height] duration-75 h-0",
           )}
         >
-          {expanded && <TrackList animationId={activeAnimation} trackRender={trackRender} />}
+          {expanded && (
+            <TrackList
+              animationId={activeAnimation}
+              namespaceId={namespaceId}
+              trackRender={trackRender}
+              instanceSettings={instanceSettings}
+            />
+          )}
         </div>
         {/* Content */}
         <div className="flex flex-row group ">
           <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-[60px]">
             <PlaybackControls
               animationId={activeAnimation}
-              namespaceId="default"
+              namespaceId={namespaceId}
+              instanceSettings={instanceSettings}
               selection={selectedTracks}
               allTracks={allTracks}
               onChangeSelection={setSelectedTracks}
@@ -134,7 +153,8 @@ export function InnerSheet(): ReactNode {
               <Timeline
                 trackIds={selectedTracks}
                 animationId={activeAnimation}
-                namespaceId="default"
+                namespaceId={namespaceId}
+                instanceSettings={instanceSettings}
                 trackRender={
                   ([TrackRender.Key, TrackRender.Preview, TrackRender.Transition].includes(
                     trackRender,
@@ -147,7 +167,7 @@ export function InnerSheet(): ReactNode {
                 }
               />
               <div className="w-full h-[30px] items-center text-black dark:text-white">
-                <Minimap animationId={activeAnimation} />
+                <Minimap animationId={activeAnimation} instanceSettings={instanceSettings} />
               </div>
             </div>
           </div>

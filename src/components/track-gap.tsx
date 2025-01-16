@@ -60,15 +60,11 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
       >
         <TrackContext.Provider
           value={{
-            instance: {
-              id: "",
-              animationId,
-              namespace: "default",
-              settings: {
-                active: true,
-                offset: 0,
-                timescale: 1,
-              },
+            animationId,
+            instanceSettings: {
+              active: true,
+              offset: 0,
+              timescale: 1,
             },
             trackIds: [],
             bounds: activeRegionBounds,
@@ -93,7 +89,7 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
               height={height}
             />
 
-            <TrackBackground tickHeight={height} animationId={animationId} />
+            <TrackBackground tickHeight={height} />
 
             {/* Gesture Detector */}
             <GestureDetector height={height} />

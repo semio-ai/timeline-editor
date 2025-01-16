@@ -6,6 +6,7 @@ import { Track } from "../types";
  * Creates a new track and adds it to the specified animation.
  *
  * @param state - The current animation data state.
+ * @param animatableId - The id of the animatable value to pair to
  * @param animationId - The ID of the animation to which the track will be added.
  * @param track - Partial track data to initialize the new track.
  * @returns The newly created track.

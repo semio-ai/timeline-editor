@@ -2,7 +2,7 @@ import { CSSProperties, type ReactNode, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ParentSize } from "@visx/responsive";
 import type { AnimationData } from "../store-types";
-import { TrackRender } from "../types";
+import { TrackRender, AnimationInstanceSettings } from "../types";
 import { useAnimationStore } from "../hooks";
 import { ControlWidget } from "./control-widget";
 import { Track } from "./track";
@@ -11,11 +11,13 @@ export function TrackRow({
   trackIds,
   animationId,
   namespaceId,
+  instanceSettings,
   trackRender,
 }: {
   trackIds?: string[];
   animationId: string;
   namespaceId: string;
+  instanceSettings: AnimationInstanceSettings;
   trackRender: TrackRender;
 }): ReactNode {
   const [expanded, setExpanded] = useState(false);
@@ -43,7 +45,8 @@ export function TrackRow({
         <ControlWidget
           animationId={animationId}
           animatableId={trackObject.animatableId}
-          namespace="default"
+          namespace={namespaceId}
+          instanceSettings={instanceSettings}
           onExpandedChange={setExpanded}
           emphasis={emphasis}
           onEmphasisChange={setEmphasis}
@@ -65,6 +68,7 @@ export function TrackRow({
                   <Track
                     animationId={animationId}
                     namespaceId={namespaceId}
+                    instanceSettings={instanceSettings}
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
@@ -77,6 +81,7 @@ export function TrackRow({
                   <Track
                     animationId={animationId}
                     namespaceId={namespaceId}
+                    instanceSettings={instanceSettings}
                     attribute="x"
                     width={width}
                     trackIds={trackIds}
@@ -90,6 +95,7 @@ export function TrackRow({
                   <Track
                     animationId={animationId}
                     namespaceId={namespaceId}
+                    instanceSettings={instanceSettings}
                     attribute="y"
                     width={width}
                     trackIds={trackIds}
@@ -103,6 +109,7 @@ export function TrackRow({
                   <Track
                     animationId={animationId}
                     namespaceId={namespaceId}
+                    instanceSettings={instanceSettings}
                     attribute="z"
                     width={width}
                     trackIds={trackIds}
@@ -120,6 +127,7 @@ export function TrackRow({
                 <Track
                   animationId={animationId}
                   namespaceId={namespaceId}
+                  instanceSettings={instanceSettings}
                   width={width}
                   trackIds={trackIds}
                   useCustomColor

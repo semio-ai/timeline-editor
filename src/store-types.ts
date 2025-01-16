@@ -282,20 +282,6 @@ export interface AnimationActions {
    * Getter for all stored animations.
    */
   getAnimationsToSave: () => StoredAnimation[];
-
-  // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
-  /**
-   * Set the value of an animatable.
-   * @param animatableId - The ID of the animatable.
-   * @param namespace - The namespace of the value.
-   * @param value - The value to set.
-   */
-  setValue: (animatableId: string, namespace: string, value: RawValue) => void;
-  /**
-   * Set multiple values of animatables.
-   * @param updates - An array of updates to set.
-   */
-  setValues: (updates: { animatableId: string; namespace: string; value: RawValue }[]) => void;
   /**
    * Update the color of a control.
    * @param controlId - The ID of the control.

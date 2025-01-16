@@ -17,7 +17,6 @@ export function createDefaultAnimation(): StoredAnimation {
       default: {
         id: "",
         animationId: DEFAULT_ANIMATION_ID,
-        namespace: "default",
         settings: {
           active: true,
           offset: 0,
