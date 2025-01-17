@@ -37,11 +37,18 @@ export function AnimationSheet({
 
 export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetProps): ReactNode {
   // TODO: Eventually we will allow seleciton of different animation instances to view. For now we assume there is only one instance per set.
-  const activeAnimationInstance = Object.values(animationInstances)[0];
-  const activeAnimation = activeAnimationInstance.animationId;
-  const instanceSettings = activeAnimationInstance.settings;
   const expanded = useAnimationStore(useShallow((state) => state.expanded));
   const setExpanded = useAnimationStore(useShallow((state) => state.setExpanded));
+
+  const activeAnimationInstance = Object.values(animationInstances)[0];
+  console.log("activeAnimationInstance", activeAnimationInstance);
+  const activeAnimation = activeAnimationInstance.animationId;
+  console.log("activeAnimation", activeAnimation);
+  const instanceSettings = activeAnimationInstance.settings;
+
+  const animations = useAnimationStore(useShallow((state) => state.animations));
+  console.log("animations", animations);
+
   const allTracks = useAnimationStore(
     useShallow((state) => state.animations[activeAnimation].tracks),
   );

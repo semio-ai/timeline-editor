@@ -76,6 +76,7 @@ function InnerControlWidget({
     }),
   );
   const rawValueId = getLookup(namespace, animatableValue?.id ?? "");
+  // console.log("InnerControlWidget", rawValueId);
 
   const updateControlColor = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateControlColor),
