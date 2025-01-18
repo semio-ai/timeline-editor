@@ -350,7 +350,7 @@ export const AnimationSlice = (
             subscribes.forEach((trackUnsub) => {
               trackUnsub();
             });
-            console.log(namespaceInfo, animations, subscribes);
+            // console.log(namespaceInfo, animations, subscribes);
             // for each namespace -> for each instance -> for each track in the instance's aninimation subscribe... to namespace/track
             if (!namespaceInfo) return;
 
@@ -365,10 +365,10 @@ export const AnimationSlice = (
                 }
               });
             });
-            console.log("Namespace Track Pairs", namespaceTrackPairs);
+            // console.log("Namespace Track Pairs", namespaceTrackPairs);
 
             // Creat new subscriptions
-            console.log("Creating new subscriptions", animations);
+            // console.log("Creating new subscriptions", animations);
             // return;
 
             const newSubscribes = namespaceTrackPairs.map(
@@ -385,7 +385,7 @@ export const AnimationSlice = (
                     let newViolations: Violation[] = [];
 
                     const lookup = getLookup(namespace, track.animatableId);
-                    console.log("Lookup", lookup);
+                    // console.log("Lookup", lookup);
 
                     const trackInterp = computeTrackInterpolator(track, instance);
 

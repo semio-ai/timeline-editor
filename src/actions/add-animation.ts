@@ -15,7 +15,7 @@ import { StoredAnimation } from "../types";
  *                        containing the animation details.
  */
 export function addAnimation(state: AnimationData, animationData: StoredAnimation) {
-  console.log("Adding animation", animationData);
+  // console.log("Adding animation", animationData);
   if (animationData && typeof animationData === "object") {
     const animationId = (animationData as { id?: string }).id ?? state.activeAnimation;
     const { animation, tracks } = {

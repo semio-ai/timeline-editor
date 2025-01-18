@@ -41,13 +41,13 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
   const setExpanded = useAnimationStore(useShallow((state) => state.setExpanded));
 
   const activeAnimationInstance = Object.values(animationInstances)[0];
-  console.log("activeAnimationInstance", activeAnimationInstance);
+  // console.log("activeAnimationInstance", activeAnimationInstance);
   const activeAnimation = activeAnimationInstance.animationId;
-  console.log("activeAnimation", activeAnimation);
+  // console.log("activeAnimation", activeAnimation);
   const instanceSettings = activeAnimationInstance.settings;
 
   const animations = useAnimationStore(useShallow((state) => state.animations));
-  console.log("animations", animations);
+  // console.log("animations", animations);
 
   const allTracks = useAnimationStore(
     useShallow((state) => state.animations[activeAnimation].tracks),
