@@ -17,7 +17,7 @@ import {
   Keypoint,
   Track,
   AnimationInstance,
-  TrackInterpolator,
+  // TrackInterpolator,
   Animation,
   Violation,
   StoredAnimation,
@@ -341,84 +341,81 @@ export const AnimationSlice = (
 
         api.subscribe(
           (state: AnimationData) => ({
+            namespaceInfo: state.namespaceInfo,
             animations: state.animations,
             subscribes: state.trackSubscribers,
           }),
-          ({ animations, subscribes }) => {
+          ({ namespaceInfo, animations, subscribes }) => {
             // Clear the previous subscriptions for each track
             subscribes.forEach((trackUnsub) => {
               trackUnsub();
             });
+            console.log(namespaceInfo, animations, subscribes);
+            // for each namespace -> for each instance -> for each track in the instance's aninimation subscribe... to namespace/track
+            if (!namespaceInfo) return;
+
+            const namespaceTrackPairs: [string, string, number, AnimationInstance][] = [];
+            Object.entries(namespaceInfo).forEach(([namespace, instances]) => {
+              Object.entries(instances).forEach(([_instanceId, instance]) => {
+                const animation = animations[instance.animationId];
+                if (animation) {
+                  animation.tracks.forEach((trackId) => {
+                    namespaceTrackPairs.push([namespace, trackId, animation.duration, instance]);
+                  });
+                }
+              });
+            });
+            console.log("Namespace Track Pairs", namespaceTrackPairs);
+
             // Creat new subscriptions
             console.log("Creating new subscriptions", animations);
-            const newSubscribes = Object.entries(animations)
-              .map(([_animationId, animation]) =>
-                Array.from(animation.tracks).map((trackId) => {
-                  return api.subscribe(
-                    // Monitor changes in instances, track, [all] frames and [all] points
-                    (state: AnimationData) => {
-                      // console.log("adding subscribers", state.animations, animation, animationId);
-                      // if (!state.animations[animationId]) return;
-                      return {
-                        instances: animation.instances,
-                        track: state.tracks[trackId],
-                        duration: animation.duration,
-                        animatableValue: state.animatables[state.tracks[trackId].animatableId],
-                      };
-                    },
-                    ({ track, instances, duration, animatableValue }) => {
-                      if (!track) return;
+            // return;
 
-                      const newVals = new Map<string, RawValue | undefined>();
-                      const newTrackInterpolators: Record<string, TrackInterpolator> = {};
-                      let newViolations: Violation[] = [];
-                      Object.keys(instances).forEach((namespace) => {
-                        const lookup = getLookup(namespace, track.animatableId);
-                        const trackInterp = computeTrackInterpolator(track, instances[namespace]);
-                        newTrackInterpolators[lookup] = trackInterp;
-                        newVals.set(lookup, trackInterp(usePlayerStore.getState().player.stamp));
-                        newViolations = [
-                          ...newViolations,
-                          ...(animatableValue
-                            ? computeTrackViolations(
-                                trackInterp,
-                                duration,
-                                trackId,
-                                namespace,
-                                animatableValue,
-                              )
-                            : []),
-                        ];
-                      });
-                      set((state: AnimationData) => ({
-                        trackInterpolators: {
-                          ...state.trackInterpolators,
-                          ...newTrackInterpolators,
-                        },
-                        values: new Map([...state.values, ...newVals]),
-                        violations: { ...state.violations, [trackId]: newViolations },
-                      }));
-                    },
-                    {
-                      fireImmediately: true,
-                      equalityFn: (
-                        current: TrackAndInstanceData,
-                        previous: TrackAndInstanceData,
-                      ) => {
-                        // We avoid some computation by subscribing to the cache, isntead of the track
-                        // that just computes an intermediate value that is tracked.
-                        return (
-                          current.duration === previous.duration &&
-                          shallow(current.track, previous.track) &&
-                          shallow(current.instances, previous.instances) &&
-                          shallow(current.animatableValue, previous.animatableValue)
-                        );
+            const newSubscribes = namespaceTrackPairs.map(
+              ([namespace, trackId, duration, instance]) => {
+                return api.subscribe(
+                  (state: AnimationData) => ({
+                    track: state.tracks[trackId],
+                    animatableValue: state.animatables[state.tracks[trackId].animatableId],
+                  }),
+                  ({ track, animatableValue }) => {
+                    if (!track) return;
+
+                    const newVals = new Map<string, RawValue | undefined>();
+                    let newViolations: Violation[] = [];
+
+                    const lookup = getLookup(namespace, track.animatableId);
+                    console.log("Lookup", lookup);
+
+                    const trackInterp = computeTrackInterpolator(track, instance);
+
+                    newVals.set(lookup, trackInterp(usePlayerStore.getState().player.stamp));
+                    newViolations = [
+                      ...newViolations,
+                      ...(animatableValue
+                        ? computeTrackViolations(
+                            trackInterp,
+                            duration,
+                            trackId,
+                            namespace,
+                            animatableValue,
+                          )
+                        : []),
+                    ];
+
+                    set((state: AnimationData) => ({
+                      trackInterpolators: {
+                        ...state.trackInterpolators,
+                        [lookup]: trackInterp,
                       },
-                    },
-                  );
-                }),
-              )
-              .flat();
+                      values: new Map([...state.values, ...newVals]),
+                      violations: { ...state.violations, [trackId]: newViolations },
+                    }));
+                  },
+                  { fireImmediately: true, equalityFn: shallow },
+                );
+              },
+            );
 
             set({ trackSubscribers: newSubscribes });
           },
@@ -435,7 +432,10 @@ export const AnimationSlice = (
                   .map((a) => a.tracks.keys())
                   .flat(),
               );
-              return isEqual(allCurrent, allPrevious);
+              return (
+                isEqual(allCurrent, allPrevious) &&
+                shallow(current.namespaceInfo, previous.namespaceInfo)
+              );
             },
           },
         ),
@@ -512,13 +512,7 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
 export type AnimationStore = typeof useDefaultAnimationStore;
 
 interface AnimationsAndSubscribes {
+  namespaceInfo: Record<string, Record<string, AnimationInstance>>;
   animations: Record<string, Animation>;
   subscribes: (() => void)[];
-}
-
-interface TrackAndInstanceData {
-  track?: Track<RawValue>;
-  instances: Record<string, AnimationInstance>;
-  duration: number;
-  animatableValue?: AnimatableValue;
 }

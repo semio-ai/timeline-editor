@@ -5,6 +5,7 @@ import {
   Track,
   Animation,
   AnimationInterpolator,
+  AnimationInstance,
   Violation,
   StoredAnimation,
   Preview,
@@ -26,6 +27,12 @@ export interface AnimationData {
    * Active animation.
    */
   activeAnimation: string;
+  /**
+   * A record of animation instances and their namespaces, used for specifying how
+   * values are written into state.values without overriding others.
+   * { namespace } { animationInstanceId } { animationInstance }
+   */
+  namespaceInfo: Record<string, Record<string, AnimationInstance>>;
   /**
    * All animations loaded in the project.
    */
