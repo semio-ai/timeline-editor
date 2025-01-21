@@ -13,7 +13,7 @@ import { clsx } from "clsx";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
 import { animated } from "@react-spring/web";
-import { closestFrame, PlayerActions, useDeep, usePlayerStore } from "@semio/utils";
+import { closestFrame, PlayerActions, useDeepSelector, usePlayerStore } from "@semio/utils";
 import { TrackedTooltip, useTrackedTooltip } from "@semio/ui";
 import { uniq, clamp } from "lodash";
 import { TIMELINE_PADDING } from "../../constants";
@@ -36,7 +36,7 @@ function InnerViolationDisplay({
   );
 
   const lookup: Record<string, { color: string; name: string }> = useAnimationStore(
-    useDeep((state: AnimationData) => {
+    useDeepSelector((state: AnimationData) => {
       const l: Record<string, { color: string; name: string }> = {};
       trackIds.forEach((trackId: string) => {
         l[trackId] = {
