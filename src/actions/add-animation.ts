@@ -26,7 +26,6 @@ export function addAnimation(state: AnimationData, animationData: StoredAnimatio
         groups: animationData.groups,
         transitions: animationData.transitions,
         duration: animationData.duration,
-        instances: animationData.instances,
       },
       tracks: animationData.tracks.reduce((acc, track) => ({ ...acc, [track.id]: track }), {}),
     };

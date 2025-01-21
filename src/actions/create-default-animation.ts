@@ -13,17 +13,6 @@ export function createDefaultAnimation(): StoredAnimation {
     tracks: [],
     groups: new Map(),
     transitions: new Map(),
-    instances: {
-      default: {
-        id: "",
-        animationId: DEFAULT_ANIMATION_ID,
-        settings: {
-          active: true,
-          offset: 0,
-          timescale: 1,
-        },
-      },
-    },
     duration: 5000,
   };
 }

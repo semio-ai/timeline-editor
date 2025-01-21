@@ -30,7 +30,7 @@ export interface AnimationData {
   /**
    * A record of animation instances and their namespaces, used for specifying how
    * values are written into state.values without overriding others.
-   * { namespace } { animationInstanceId } { animationInstance }
+   * namespaceInfo: { [namespace]: { [animationInstanceId]: animationInstance } }
    */
   namespaceInfo: Record<string, Record<string, AnimationInstance>>;
   /**

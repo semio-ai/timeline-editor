@@ -8,7 +8,7 @@ import { shallow } from "zustand/shallow";
 import { useAnimationStore, usePlayerSubscription } from "../hooks";
 import { computeNextTime, computePreviousTime } from "../functions";
 import { type AnimationData, type AnimationActions } from "../store-types";
-import { SemanticTime } from "../types";
+import { AnimationInstance, SemanticTime } from "../types";
 
 export interface TrackControlProps {
   color?: string;
@@ -28,8 +28,17 @@ export function TrackControl({
   trackIds,
 }: TrackControlProps) {
   const tracks = useAnimationStore(useShallow((state) => pick(state.tracks, trackIds)));
-  const namespaces = useAnimationStore(
-    useShallow((state) => pick(state.animations[animationId].instances, [namespaceId])),
+  const instances = useAnimationStore(
+    useShallow((state) => {
+      const instanceInfo: Record<string, AnimationInstance> = {};
+      Object.entries(state.namespaceInfo).forEach(([namespace, instances]) => {
+        if (namespaceId === namespace) {
+          Object.assign(instanceInfo, instances);
+        }
+      });
+      return instanceInfo;
+      // pick(state.animations[animationId].instances, [namespaceId])
+    }),
   );
 
   const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
@@ -40,8 +49,8 @@ export function TrackControl({
   usePlayerSubscription(
     (state) => state.player.stamp,
     (stamp) => {
-      const prev = computePreviousTime(tracks, namespaces, stamp, bounds, true);
-      const next = computeNextTime(tracks, namespaces, stamp, bounds, true);
+      const prev = computePreviousTime(tracks, instances, stamp, bounds, true);
+      const next = computeNextTime(tracks, instances, stamp, bounds, true);
       prevKeyframeTime.current = prev;
       nextKeyframeTime.current = next;
     },

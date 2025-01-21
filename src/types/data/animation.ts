@@ -20,7 +20,6 @@ export interface Animation {
   groups: Map<string, TrackGroup>;
   transitions: Map<string, Transition>;
   duration: number;
-  instances: Record<string, AnimationInstance>;
 }
 
 /**
@@ -40,7 +39,6 @@ export interface StoredAnimation {
   groups: Map<string, TrackGroup>;
   transitions: Map<string, Transition>;
   duration: number;
-  instances: Record<string, AnimationInstance>;
 }
 
 export interface AnimationDriver {

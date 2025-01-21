@@ -201,7 +201,13 @@ export const AnimationSlice = (
       const animation = state.animations[animationId];
       const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
       const trackSubset = pick(state.tracks, trackFilter);
-      const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
+      const instanceInfo: Record<string, AnimationInstance> = {};
+      Object.entries(state.namespaceInfo).forEach(([namespace, instances]) => {
+        if (namespaceIds.includes(namespace)) {
+          Object.assign(instanceInfo, instances);
+        }
+      });
+      // const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
       const nextStamp = computeNextTime(
         trackSubset,
         instanceInfo,
@@ -225,7 +231,13 @@ export const AnimationSlice = (
       const animation = state.animations[animationId];
       const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
       const trackSubset = pick(state.tracks, trackFilter);
-      const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
+      const instanceInfo: Record<string, AnimationInstance> = {};
+      Object.entries(state.namespaceInfo).forEach(([namespace, instances]) => {
+        if (namespaceIds.includes(namespace)) {
+          Object.assign(instanceInfo, instances);
+        }
+      });
+      // const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
       const previousStamp = computePreviousTime(
         trackSubset,
         instanceInfo,
