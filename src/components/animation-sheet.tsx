@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState } from "react";
+import { useContext, memo, useState, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { ToggleGroup, Size, ToggleSquare, Variant, IconPreviewView } from "@semio/ui";
@@ -37,18 +37,33 @@ export function AnimationSheet({
 
 export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetProps): ReactNode {
   // TODO: Eventually we will allow seleciton of different animation instances to view. For now we assume there is only one instance per set.
-  const expanded = useAnimationStore(useShallow((state) => state.expanded));
-  const setExpanded = useAnimationStore(useShallow((state) => state.setExpanded));
+  const [trackRender, setTrackRender] = useState<TrackRender>(TrackRender.Key);
+  const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
+  const { expanded, setExpanded, animations } = useAnimationStore(
+    useShallow((state) => {
+      return {
+        expanded: state.expanded,
+        setExpanded: state.setExpanded,
+        animations: state.animations,
+      };
+    }),
+  );
 
   const activeAnimationInstance = Object.values(animationInstances)[0];
   const activeAnimation = activeAnimationInstance.animationId;
   const instanceSettings = activeAnimationInstance.settings;
+  useEffect(() => {
+    if (!activeAnimation || !animations[activeAnimation]) {
+      return;
+    }
+    setSelectedTracks(animations[activeAnimation].tracks);
+  }, [activeAnimation, animations]);
 
-  const allTracks = useAnimationStore(
-    useShallow((state) => state.animations[activeAnimation].tracks),
-  );
-  const [trackRender, setTrackRender] = useState<TrackRender>(TrackRender.Key);
-  const [selectedTracks, setSelectedTracks] = useState<string[]>(allTracks);
+  if (!activeAnimation || !animations[activeAnimation]) {
+    return null;
+  }
+  const allTracks = animations[activeAnimation].tracks;
+
   return (
     <div
       aria-expanded={expanded}
