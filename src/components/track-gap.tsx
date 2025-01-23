@@ -21,7 +21,7 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
     useShallow((state: AnimationData) => state.framerate as number),
   );
   const duration = useAnimationStore(
-    useShallow((state: AnimationData) => state.animations[state.activeAnimation]?.duration ?? 5000),
+    useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );
 
   const frameCount = Math.floor(framerate * (duration / 1000));

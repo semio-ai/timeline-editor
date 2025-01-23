@@ -83,12 +83,8 @@ export const AnimationSlice = (
         produce((state: AnimationData) => {
           const defaultAnimation = createDefaultAnimation();
           addAnimation(state, defaultAnimation);
-          state.duration = defaultAnimation.duration;
         }),
       );
-    },
-    setActiveAnimation: (animationId: string) => {
-      set({ activeAnimation: animationId });
     },
     visualizeAnimation: (animationId: string) => {
       set(
@@ -175,17 +171,17 @@ export const AnimationSlice = (
         }),
       );
     },
-    createTrack: (track: Partial<Track<RawValue>>, animatableId: string, animationId?: string) => {
+    createTrack: (track: Partial<Track<RawValue>>, animatableId: string, animationId: string) => {
       set(
         produce((state: AnimationData) => {
-          createTrack(state, animatableId, animationId ?? state.activeAnimation, track);
+          createTrack(state, animatableId, animationId, track);
         }),
       );
     },
-    removeTrack: (trackId: string, animationId?: string) => {
+    removeTrack: (trackId: string, animationId: string) => {
       set(
         produce((state: AnimationData) => {
-          removeTrack(state, animationId ?? state.activeAnimation, trackId);
+          removeTrack(state, animationId, trackId);
         }),
       );
     },
@@ -287,7 +283,6 @@ export const AnimationSlice = (
     initAnimationSubscriptions: () => {
       const playerStoreState = usePlayerStore.getState();
       const updatePlayerInner = playerStoreState.updatePlayer;
-      const updateDuration = playerStoreState.updateDuration;
       const updateValues = get().updateValues;
 
       // If the time changes, check if it matches an existing keyframe and
@@ -314,14 +309,14 @@ export const AnimationSlice = (
         ),
 
         // If the duration changes, update the duration of the playerStore
-        api.subscribe(
-          (state: AnimationData) =>
-            state.animations[state.activeAnimation]?.duration ?? state.duration,
-          (duration) => {
-            updateDuration(duration);
-          },
-          { equalityFn: shallow, fireImmediately: true },
-        ),
+        // api.subscribe(
+        //   (state: AnimationData) =>
+        //     state.animations[state.activeAnimation]?.duration ?? state.duration,
+        //   (duration) => {
+        //     updateDuration(duration);
+        //   },
+        //   { equalityFn: shallow, fireImmediately: true },
+        // ),
 
         // If the interpolators change, rerun the interpolators with the time from the playerStore.
         api.subscribe(
@@ -377,11 +372,6 @@ export const AnimationSlice = (
                 }
               });
             });
-            // console.log("Namespace Track Pairs", namespaceTrackPairs);
-
-            // Creat new subscriptions
-            // console.log("Creating new subscriptions", animations);
-            // return;
 
             const newSubscribes = namespaceTrackPairs.map(
               ([namespace, trackId, duration, instance]) => {
@@ -397,7 +387,6 @@ export const AnimationSlice = (
                     let newViolations: Violation[] = [];
 
                     const lookup = getLookup(namespace, track.animatableId);
-                    // console.log("Lookup", lookup);
 
                     const trackInterp = computeTrackInterpolator(track, instance);
 
@@ -434,19 +423,12 @@ export const AnimationSlice = (
           {
             equalityFn: (current: AnimationsAndSubscribes, previous: AnimationsAndSubscribes) => {
               // We only care about cases where the individual track ids change across all animations
-              const allCurrent = new Set(
-                ...Object.values(current.animations)
-                  .map((a) => a.tracks.keys())
-                  .flat(),
-              );
-              const allPrevious = new Set(
-                ...Object.values(previous.animations)
-                  .map((a) => a.tracks.keys())
-                  .flat(),
-              );
+              const allCurrent = new Set(Object.values(current.animations).map((a) => a.tracks));
+              const allPrevious = new Set(Object.values(previous.animations).map((a) => a.tracks));
               return (
                 isEqual(allCurrent, allPrevious) &&
-                shallow(current.namespaceInfo, previous.namespaceInfo)
+                shallow(current.namespaceInfo, previous.namespaceInfo) &&
+                isEqual(current.subscribes.length, previous.subscribes.length)
               );
             },
           },

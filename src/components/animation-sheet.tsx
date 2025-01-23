@@ -39,30 +39,32 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
   // TODO: Eventually we will allow seleciton of different animation instances to view. For now we assume there is only one instance per set.
   const [trackRender, setTrackRender] = useState<TrackRender>(TrackRender.Key);
   const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
-  const { expanded, setExpanded, animations } = useAnimationStore(
+  const { expanded, setExpanded, animations, updateDuration } = useAnimationStore(
     useShallow((state) => {
       return {
         expanded: state.expanded,
         setExpanded: state.setExpanded,
         animations: state.animations,
+        updateDuration: state.updateDuration,
       };
     }),
   );
 
-  const activeAnimationInstance = Object.values(animationInstances)[0];
-  const activeAnimation = activeAnimationInstance.animationId;
-  const instanceSettings = activeAnimationInstance.settings;
+  const currentAnimationInstance = Object.values(animationInstances)[0];
+  const currentAnimation = currentAnimationInstance.animationId;
+  const instanceSettings = currentAnimationInstance.settings;
   useEffect(() => {
-    if (!activeAnimation || !animations[activeAnimation]) {
+    if (!currentAnimation || !animations[currentAnimation]) {
       return;
     }
-    setSelectedTracks(animations[activeAnimation].tracks);
-  }, [activeAnimation, animations]);
+    setSelectedTracks(animations[currentAnimation].tracks);
+    updateDuration(animations[currentAnimation].duration);
+  }, [currentAnimation, animations, updateDuration]);
 
-  if (!activeAnimation || !animations[activeAnimation]) {
+  if (!currentAnimation || !animations[currentAnimation]) {
     return null;
   }
-  const allTracks = animations[activeAnimation].tracks;
+  const allTracks = animations[currentAnimation].tracks;
 
   return (
     <div
@@ -133,7 +135,7 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
           </ToggleSquare>
         </div>
         <div className="flex-1 xs:w-64 transition-[width] h-6 text-black dark:text-white">
-          <Ruler side="top" animationId={activeAnimation} />
+          <Ruler side="top" animationId={currentAnimation} />
         </div>
       </div>
       <div>
@@ -146,7 +148,7 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
         >
           {expanded && (
             <TrackList
-              animationId={activeAnimation}
+              animationId={currentAnimation}
               namespaceId={namespaceId}
               trackRender={trackRender}
               instanceSettings={instanceSettings}
@@ -157,7 +159,7 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
         <div className="flex flex-row group ">
           <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-[60px]">
             <PlaybackControls
-              animationId={activeAnimation}
+              animationId={currentAnimation}
               namespaceId={namespaceId}
               instanceSettings={instanceSettings}
               selection={selectedTracks}
@@ -169,7 +171,7 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
             <div className="h-[60px]">
               <Timeline
                 trackIds={selectedTracks}
-                animationId={activeAnimation}
+                animationId={currentAnimation}
                 namespaceId={namespaceId}
                 instanceSettings={instanceSettings}
                 trackRender={
@@ -184,7 +186,7 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
                 }
               />
               <div className="w-full h-[30px] items-center text-black dark:text-white">
-                <Minimap animationId={activeAnimation} instanceSettings={instanceSettings} />
+                <Minimap animationId={currentAnimation} instanceSettings={instanceSettings} />
               </div>
             </div>
           </div>
@@ -198,7 +200,7 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
           )}
         />
         <div className="flex-1 xs:w-64 transition-[width] h-6 text-black dark:text-white">
-          <Ruler side="bottom" animationId={activeAnimation} />
+          <Ruler side="bottom" animationId={currentAnimation} />
         </div>
       </div>
     </div>

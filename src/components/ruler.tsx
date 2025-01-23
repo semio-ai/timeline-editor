@@ -123,6 +123,7 @@ function InnerRuler({
                 framerate={framerate}
                 idx={i}
                 ignoreZoom={side === "bottom"}
+                duration={duration}
               />
             ))}
           </g>
@@ -134,7 +135,7 @@ function InnerRuler({
           />
           <BoundCart side={side} end="left" ignoreZoom={side === "bottom"} />
           <BoundCart side={side} end="right" ignoreZoom={side === "bottom"} />
-          <PlayheadCart side={side} ignoreZoom={side === "bottom"} />
+          <PlayheadCart side={side} ignoreZoom={side === "bottom"} duration={duration} />
         </svg>
       </div>
     </TrackContext.Provider>
@@ -148,6 +149,7 @@ function Tick({
   side,
   framerate,
   idx,
+  duration,
 }: {
   completion: number;
   ignoreZoom?: boolean;
@@ -155,13 +157,11 @@ function Tick({
   side: "top" | "bottom";
   framerate: number;
   idx: number;
+  duration: number;
 }) {
   const zoomedCompletion = useStaticZoomedSpring(completion, ignoreZoom);
-  const [duration, timeDisplay] = useAnimationStore(
-    useShallow((state: AnimationData) => [
-      state.animations[state.activeAnimation]?.duration ?? 5000,
-      state.timeDisplay,
-    ]),
+  const [timeDisplay] = useAnimationStore(
+    useShallow((state: AnimationData) => [state.timeDisplay]),
   );
   const altPressed = useAltKeyPressed();
   const visualTime = stampToVisualTime(completion, duration, framerate, timeDisplay, altPressed);

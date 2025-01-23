@@ -17,7 +17,7 @@ import { StoredAnimation } from "../types";
 export function addAnimation(state: AnimationData, animationData: StoredAnimation) {
   // console.log("Adding animation", animationData);
   if (animationData && typeof animationData === "object") {
-    const animationId = (animationData as { id?: string }).id ?? state.activeAnimation;
+    const animationId = (animationData as { id: string }).id;
     const { animation, tracks } = {
       animation: {
         id: animationData.id,
@@ -37,6 +37,5 @@ export function addAnimation(state: AnimationData, animationData: StoredAnimatio
     if (animationId && !state.visualizedAnimations.includes(animationId)) {
       state.visualizedAnimations.push(animationId);
     }
-    state.activeAnimation = animationId;
   }
 }

@@ -19,7 +19,5 @@ export function setTrackValue(state: AnimationData, trackId: string, value: RawV
     updateKeypoint(state, trackId, { value, stamp: timestamp });
   } else {
     console.error("Track does not exist!", trackId);
-    // const newTrack = createTrack(state, id, activeAnimationId, { name: sourceAnimatable.name });
-    // updateKeypoint(state, newTrack.id, { value, stamp: timestamp });
   }
 }
