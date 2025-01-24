@@ -1,7 +1,6 @@
 import {
   RawValue,
   Write,
-  AnimatableValue,
   StoreSubscribeWithSelector,
   getLookup,
   usePlayerStore,
@@ -257,6 +256,8 @@ export const AnimationSlice = (
     },
     // Set the duration of the animation
     updateDuration: (duration: number) => {
+      const playerState = usePlayerStore.getState();
+      playerState.updateDuration(duration);
       set({ duration });
     },
     // Set the frame rate of the animation
