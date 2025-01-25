@@ -55,6 +55,7 @@ function InnerControlWidget({
 }: ControlWidgetProps) {
   const [open, setOpen] = useState(false);
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
+  const animation = useAnimationStore(useShallow((state) => state.animations[animationId]));
 
   const loadedTrack: Track<RawValue> | undefined = useAnimationStore(
     useShallow((state) => state.tracks[trackId ?? ""]),
@@ -85,7 +86,10 @@ function InnerControlWidget({
   const track: Track<RawValue> | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {
       return (
-        loadedTrack ?? Object.values(state.tracks).find((t) => t.animatableId === animatableId)
+        loadedTrack ??
+        Object.values(state.tracks)
+          .filter((t) => animation.tracks.includes(t.id))
+          .find((t) => t.animatableId === animatableId)
       );
     }),
   );
@@ -108,9 +112,12 @@ function InnerControlWidget({
   const handleValueChange = useCallback(
     (value: RawValue) => {
       const currentStamp = usePlayerStore.getState().player.stamp;
+      console.log("Setting value in ", animation, namespace, value);
       if (track) {
+        console.log("Updating track", track);
         updateKeypoint(track.id, { stamp: currentStamp, value });
       } else if (animatableValue) {
+        console.log("Creating track");
         createTrack(
           {
             animatableId: animatableValue.id,
@@ -121,7 +128,7 @@ function InnerControlWidget({
         );
       }
     },
-    [track, animatableValue, updateKeypoint, createTrack, animationId],
+    [track, animatableValue, updateKeypoint, createTrack, animationId, animation],
   );
 
   if (!animatableValue) {
