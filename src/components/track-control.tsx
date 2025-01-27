@@ -28,37 +28,28 @@ export function TrackControl({
   trackIds,
 }: TrackControlProps) {
   const tracks = useAnimationStore(useShallow((state) => pick(state.tracks, trackIds)));
-  const instances = useAnimationStore(
-    useShallow((state) => {
-      const instanceInfo: Record<string, AnimationInstance> = {};
-      Object.entries(state.namespaceInfo).forEach(([namespace, instances]) => {
-        if (namespaceId === namespace) {
-          Object.assign(instanceInfo, instances);
-        }
-      });
-      return instanceInfo;
-      // pick(state.animations[animationId].instances, [namespaceId])
-    }),
-  );
+  const instances = useAnimationStore(useShallow((state) => state.namespaceInfo[namespaceId]));
 
   const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
 
-  const prevKeyframeTime = useRef<number | undefined>(undefined);
-  const nextKeyframeTime = useRef<number | undefined>(undefined);
+  const [prevKeyframeTime, setPrevKeyframeTime] = useState<number | undefined>(undefined);
+  const [nextKeyframeTime, setNextKeyframeTime] = useState<number | undefined>(undefined);
 
   usePlayerSubscription(
     (state) => state.player.stamp,
     (stamp) => {
       const prev = computePreviousTime(tracks, instances, stamp, bounds, true);
       const next = computeNextTime(tracks, instances, stamp, bounds, true);
-      prevKeyframeTime.current = prev;
-      nextKeyframeTime.current = next;
+
+      console.log("rerunning", prev, next);
+      setPrevKeyframeTime(prev);
+      setNextKeyframeTime(next);
     },
     shallow,
   );
 
-  const enabledBack = prevKeyframeTime.current !== undefined;
-  const enabledForward = nextKeyframeTime.current !== undefined;
+  const enabledBack = prevKeyframeTime !== undefined;
+  const enabledForward = nextKeyframeTime !== undefined;
 
   const [backFn, forwardFn] = useAnimationStore(
     useShallow((state: AnimationData & AnimationActions) => [
@@ -93,7 +84,7 @@ export function TrackControl({
         onClick={() => backFn(animationId, [namespaceId], trackIds, true)}
         onMouseEnter={() => {
           addPreview({
-            stamp: prevKeyframeTime.current ?? 0,
+            stamp: prevKeyframeTime ?? 0,
             semanticTime: SemanticTime.Backward,
             label: "Previous Keyed Frame",
           });
@@ -128,7 +119,7 @@ export function TrackControl({
         onClick={() => forwardFn(animationId, [namespaceId], trackIds, true)}
         onMouseEnter={() => {
           addPreview({
-            stamp: nextKeyframeTime.current ?? 0,
+            stamp: nextKeyframeTime ?? 0,
             semanticTime: SemanticTime.Forward,
             label: "Next Keyed Frame",
           });

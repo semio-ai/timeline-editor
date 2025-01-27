@@ -191,6 +191,7 @@ export const AnimationSlice = (
       trackIds: string[],
       respectBounds?: boolean,
     ) => {
+      console.log("skipping to next keyframe");
       const state = get();
       const playerState = usePlayerStore.getState();
       const animation = state.animations[animationId];
@@ -210,6 +211,7 @@ export const AnimationSlice = (
         playerState.player.bounds,
         respectBounds ?? false,
       );
+      console.log("next stamp", nextStamp);
       if (nextStamp !== undefined) {
         playerState.resetPlayer(nextStamp);
       }

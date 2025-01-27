@@ -3,6 +3,7 @@ import {
   type MutableRefObject,
   type MouseEventHandler,
   memo,
+  useMemo,
   useRef,
   useCallback,
   useState,
@@ -14,7 +15,7 @@ import {
   getDegenerateHexagonPath,
   usePlayerStore,
 } from "@semio/utils";
-import { clamp } from "lodash";
+import { clamp, uniq } from "lodash";
 import { animated, useSpringValue } from "@react-spring/web";
 import { useShallow } from "zustand/react/shallow";
 import { Theme, useTheme } from "@semio/ui";
@@ -53,19 +54,14 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     useShallow((state) => trackIds.length > 0 && state.player.stamp === data.stamp),
   );
 
-  // const uniqueTracks = useMemo(() => uniq(data.points.map((p) => p.trackId)), [data.points]);
+  const uniqueTracks = useMemo(() => uniq(data.points.map((p) => p.trackId)), [data.points]);
 
-  // const color = useAnimationStore(
-  //   useShallow((state) => {
-  //     if (uniqueTracks.length !== 1) return "#737373";
-  //     return (
-  //       Object.values(state.controls).find((c: Control) => c.writeId === uniqueTracks[0])?.settings
-  //         ?.color ?? "#737373"
-  //     );
-  //   }),
-  // );
-
-  const color = "#737373";
+  const color = useAnimationStore(
+    useShallow((state) => {
+      if (uniqueTracks.length !== 1) return "#737373";
+      return state.tracks[uniqueTracks[0]]?.settings?.color ?? "#737373";
+    }),
+  );
 
   const highlightColor = resolvedTheme === Theme.Dark ? "white" : "black";
 

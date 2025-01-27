@@ -21,8 +21,8 @@ export function computeStamps(
         stamps.push(
           computeWorldStamp(
             point.stamp,
-            instanceInfo.settings.offset,
             instanceInfo.settings.timescale,
+            instanceInfo.settings.offset,
           ),
         );
       });
