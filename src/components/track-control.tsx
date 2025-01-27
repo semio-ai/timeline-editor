@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { pick } from "lodash";
@@ -8,7 +8,7 @@ import { shallow } from "zustand/shallow";
 import { useAnimationStore, usePlayerSubscription } from "../hooks";
 import { computeNextTime, computePreviousTime } from "../functions";
 import { type AnimationData, type AnimationActions } from "../store-types";
-import { AnimationInstance, SemanticTime } from "../types";
+import { SemanticTime } from "../types";
 
 export interface TrackControlProps {
   color?: string;

@@ -389,7 +389,7 @@ export const AnimationSlice = (
                     const newVals = new Map<string, RawValue | undefined>();
                     let newViolations: Violation[] = [];
 
-                    const lookup = getLookup(namespace, track.animatableId);
+                    const lookup = getLookup(namespace, track.animatableId ?? trackId);
 
                     const trackInterp = computeTrackInterpolator(track, instance);
 
