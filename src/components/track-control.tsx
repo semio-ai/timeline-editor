@@ -40,8 +40,6 @@ export function TrackControl({
     (stamp) => {
       const prev = computePreviousTime(tracks, instances, stamp, bounds, true);
       const next = computeNextTime(tracks, instances, stamp, bounds, true);
-
-      console.log("rerunning", prev, next);
       setPrevKeyframeTime(prev);
       setNextKeyframeTime(next);
     },

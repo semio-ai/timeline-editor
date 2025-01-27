@@ -112,12 +112,9 @@ function InnerControlWidget({
   const handleValueChange = useCallback(
     (value: RawValue) => {
       const currentStamp = usePlayerStore.getState().player.stamp;
-      console.log("Setting value in ", animation, namespace, value);
       if (track) {
-        console.log("Updating track", track);
         updateKeypoint(track.id, { stamp: currentStamp, value });
       } else if (animatableValue) {
-        console.log("Creating track");
         createTrack(
           {
             animatableId: animatableValue.id,
@@ -128,7 +125,7 @@ function InnerControlWidget({
         );
       }
     },
-    [track, animatableValue, updateKeypoint, createTrack, animationId, animation],
+    [track, animatableValue, updateKeypoint, createTrack, animationId],
   );
 
   if (!animatableValue) {
@@ -356,6 +353,8 @@ function InnerEditor({
         }
         min={animatableValue.constraints?.min?.[index] ?? undefined}
         max={animatableValue.constraints?.max?.[index] ?? undefined}
+        visualMin={animatableValue.constraints?.min?.[index] ?? 0}
+        visualMax={animatableValue.constraints?.max?.[index] ?? 1}
         color={track?.settings?.color}
         onChange={(v) => {
           if (prop === "x") {
@@ -396,6 +395,8 @@ function InnerEditor({
           animatableValue.constraints?.min?.[index] !== undefined &&
           animatableValue.constraints?.max?.[index] !== undefined
         }
+        visualMin={0}
+        visualMax={360}
         disabled={playing}
         value={toDegrees(
           (rawValue as RawEuler | undefined)?.[prop] || (animatableValue.default[prop] as number),
