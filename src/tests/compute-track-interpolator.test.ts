@@ -1,22 +1,30 @@
 import { test, expect } from "vitest";
 import { RawValue } from "@semio/utils";
-import type { Animation, Track } from "../types";
+import type { Track } from "../types";
 import { computeTrackInterpolator } from "../functions/compute-track-interpolator";
 
 test("should return the interpolated values for each track", () => {
   // Define the animation data structure
-  const animation: Animation = {
-    id: "animation1",
-    name: "Animation 1",
-    tracks: ["track1", "track2"],
-    groups: new Map(),
-    transitions: new Map(),
-    duration: 2,
-    instances: {
-      default: { offset: 0, timescale: 1 },
-      doublespeed: { offset: 0, timescale: 2 },
-      offset: { offset: 0.5, timescale: 1 },
-      offsetDoublespeed: { offset: 0.5, timescale: 2 },
+  const instances = {
+    default: {
+      id: "some",
+      animationId: "thing",
+      settings: { offset: 0, timescale: 1, active: true },
+    },
+    doublespeed: {
+      id: "some",
+      animationId: "thing",
+      settings: { offset: 0, timescale: 2, active: true },
+    },
+    offset: {
+      id: "some",
+      animationId: "thing",
+      settings: { offset: 0.5, timescale: 1, active: true },
+    },
+    offsetDoublespeed: {
+      id: "some",
+      animationId: "thing",
+      settings: { offset: 0.5, timescale: 2, active: true },
     },
   };
 
@@ -24,6 +32,7 @@ test("should return the interpolated values for each track", () => {
     track1: {
       id: "track1",
       name: "Track 1",
+      animatableId: "animatable1",
       points: [
         { id: "point1", stamp: 0.1, value: 10 },
         { id: "point2", stamp: 0.3, value: 15 },
@@ -33,6 +42,7 @@ test("should return the interpolated values for each track", () => {
     track2: {
       id: "track2",
       name: "Track 2",
+      animatableId: "animatable1",
       points: [
         { id: "point4", stamp: 0.1, value: 1.2 },
         { id: "point5", stamp: 0.9, value: 2.1 },
@@ -40,26 +50,17 @@ test("should return the interpolated values for each track", () => {
     },
   };
 
-  const defaultTrack1Interpolator = computeTrackInterpolator(
-    tracks.track1,
-    animation.instances.default,
-  );
+  const defaultTrack1Interpolator = computeTrackInterpolator(tracks.track1, instances.default);
 
-  const defaultTrack2Interpolator = computeTrackInterpolator(
-    tracks.track2,
-    animation.instances.default,
-  );
+  const defaultTrack2Interpolator = computeTrackInterpolator(tracks.track2, instances.default);
   const doublespeedTrack1Interpolator = computeTrackInterpolator(
     tracks.track1,
-    animation.instances.doublespeed,
+    instances.doublespeed,
   );
-  const offsetTrack1Interpolator = computeTrackInterpolator(
-    tracks.track1,
-    animation.instances.offset,
-  );
+  const offsetTrack1Interpolator = computeTrackInterpolator(tracks.track1, instances.offset);
   const offsetDoublespeedTrack1Interpolator = computeTrackInterpolator(
     tracks.track1,
-    animation.instances.offsetDoublespeed,
+    instances.offsetDoublespeed,
   );
 
   // Test the interpolated values at different times
