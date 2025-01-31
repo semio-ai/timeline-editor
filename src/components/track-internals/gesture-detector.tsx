@@ -6,7 +6,13 @@ import { useShallow } from "zustand/react/shallow";
 import { useZoomGestures, useTrackContext, useAnimationStore } from "../../hooks";
 import { AnimationActions, AnimationData } from "../../store-types";
 
-function InnerGestureDetector({ height = 30 }: { ignoreZoom?: boolean; height?: number }) {
+function InnerGestureDetector({
+  height = 30,
+  ignoreZoom = false,
+}: {
+  ignoreZoom?: boolean;
+  height?: number;
+}) {
   const gestureRef = useRef<SVGRectElement>();
   const { xScale, zoomScale, bounds, animationId } = useTrackContext();
 
@@ -31,11 +37,8 @@ function InnerGestureDetector({ height = 30 }: { ignoreZoom?: boolean; height?: 
 
   const doubleClickHandler = useCallback(
     (event: MouseEvent) => {
-      const newPosition = clamp(
-        zoomScale.current.invert(((event.clientX ?? 0) - bounds.left) / bounds.width),
-        0,
-        1,
-      );
+      const coords = ((event.clientX ?? 0) - bounds.left) / bounds.width;
+      const newPosition = clamp(ignoreZoom ? coords : zoomScale.current.invert(coords), 0, 1);
       if (event.altKey) {
         resetPlayer(newPosition);
       } else {
@@ -43,7 +46,7 @@ function InnerGestureDetector({ height = 30 }: { ignoreZoom?: boolean; height?: 
         resetPlayer(closest);
       }
     },
-    [bounds, frameCount, resetPlayer, zoomScale],
+    [bounds, frameCount, resetPlayer, zoomScale, ignoreZoom],
   );
 
   useZoomGestures(gestureRef as MutableRefObject<EventTarget>, {
@@ -53,9 +56,8 @@ function InnerGestureDetector({ height = 30 }: { ignoreZoom?: boolean; height?: 
       }
     },
     onMove: (state) => {
-      const newPosition = zoomScale.current.invert(
-        ((state.xy[0] || 0) - bounds.left) / bounds.width,
-      );
+      const coords = ((state.xy[0] || 0) - bounds.left) / bounds.width;
+      const newPosition = clamp(ignoreZoom ? coords : zoomScale.current.invert(coords), 0, 1);
       if (state.altKey) {
         updateHoverpointPreview(newPosition);
       } else {
