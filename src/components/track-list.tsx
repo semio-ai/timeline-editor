@@ -2,15 +2,19 @@ import { ScrollArea } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import useMeasure from "react-use-measure";
 import { useAnimationStore } from "../hooks";
-import { TrackRender } from "../types";
+import { TrackRender, AnimationInstanceSettings } from "../types";
 import { TrackRow } from "./track-row";
 import { TrackGap } from "./track-gap";
 
 export function TrackList({
   animationId,
+  namespaceId,
+  instanceSettings,
   trackRender,
 }: {
   animationId: string;
+  namespaceId: string;
+  instanceSettings: AnimationInstanceSettings;
   trackRender: TrackRender;
 }) {
   const [contentRef, contentBounds] = useMeasure();
@@ -25,7 +29,8 @@ export function TrackList({
             key={track}
             animationId={animationId}
             trackIds={[track]}
-            namespaceId="default"
+            namespaceId={namespaceId}
+            instanceSettings={instanceSettings}
             trackRender={trackRender}
           />
         ))}

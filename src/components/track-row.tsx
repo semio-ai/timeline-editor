@@ -2,7 +2,7 @@ import { CSSProperties, type ReactNode, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ParentSize } from "@visx/responsive";
 import type { AnimationData } from "../store-types";
-import { TrackRender } from "../types";
+import { TrackRender, AnimationInstanceSettings } from "../types";
 import { useAnimationStore } from "../hooks";
 import { ControlWidget } from "./control-widget";
 import { Track } from "./track";
@@ -11,11 +11,13 @@ export function TrackRow({
   trackIds,
   animationId,
   namespaceId,
+  instanceSettings,
   trackRender,
 }: {
   trackIds?: string[];
   animationId: string;
   namespaceId: string;
+  instanceSettings: AnimationInstanceSettings;
   trackRender: TrackRender;
 }): ReactNode {
   const [expanded, setExpanded] = useState(false);
@@ -23,17 +25,17 @@ export function TrackRow({
 
   const track: string = trackIds?.[0] ?? "all";
 
-  const control = useAnimationStore(
+  const trackObject = useAnimationStore(
     useShallow((state: AnimationData) => {
       if (track && track !== "all") {
-        return Object.values(state.controls).filter((c) => c.writeId === track)[0];
+        return state.tracks[track];
       } else {
         return undefined;
       }
     }),
   );
 
-  if (!control) {
+  if (!trackObject) {
     return null;
   }
 
@@ -42,8 +44,9 @@ export function TrackRow({
       <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] flex flex-row">
         <ControlWidget
           animationId={animationId}
-          animatableId={control.readId}
-          namespace="default"
+          animatableId={trackObject.animatableId}
+          namespace={namespaceId}
+          instanceSettings={instanceSettings}
           onExpandedChange={setExpanded}
           emphasis={emphasis}
           onEmphasisChange={setEmphasis}
@@ -53,7 +56,7 @@ export function TrackRow({
         className="cursor-pointer items-center flex flex-1"
         style={
           {
-            "--track-color": control.settings.color || "#737373",
+            "--track-color": trackObject.settings?.color || "#737373",
           } as CSSProperties
         }
       >
@@ -65,10 +68,11 @@ export function TrackRow({
                   <Track
                     animationId={animationId}
                     namespaceId={namespaceId}
+                    instanceSettings={instanceSettings}
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
-                    color={control.settings.color || "#737373"}
+                    color={trackObject.settings?.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -77,11 +81,12 @@ export function TrackRow({
                   <Track
                     animationId={animationId}
                     namespaceId={namespaceId}
+                    instanceSettings={instanceSettings}
                     attribute="x"
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
-                    color={control.settings.color || "#737373"}
+                    color={trackObject.settings?.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -90,11 +95,12 @@ export function TrackRow({
                   <Track
                     animationId={animationId}
                     namespaceId={namespaceId}
+                    instanceSettings={instanceSettings}
                     attribute="y"
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
-                    color={control.settings.color || "#737373"}
+                    color={trackObject.settings?.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -103,11 +109,12 @@ export function TrackRow({
                   <Track
                     animationId={animationId}
                     namespaceId={namespaceId}
+                    instanceSettings={instanceSettings}
                     attribute="z"
                     width={width}
                     trackIds={trackIds}
                     useCustomColor
-                    color={control.settings.color || "#737373"}
+                    color={trackObject.settings?.color || "#737373"}
                     canZoom
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasis}
@@ -120,10 +127,11 @@ export function TrackRow({
                 <Track
                   animationId={animationId}
                   namespaceId={namespaceId}
+                  instanceSettings={instanceSettings}
                   width={width}
                   trackIds={trackIds}
                   useCustomColor
-                  color={control.settings.color || "#737373"}
+                  color={trackObject.settings?.color || "#737373"}
                   canZoom
                   emphasis={emphasis}
                   onEmphasisChange={setEmphasis}

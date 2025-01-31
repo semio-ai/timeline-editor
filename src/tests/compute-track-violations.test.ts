@@ -6,15 +6,21 @@ import { ViolationType } from "../types";
 test("An animation that shifts from within to outside bounds gets a bounds error at the midpoint", () => {
   const track1 = {
     id: "track1",
+    animatableId: "animatable1",
     name: "Track 1",
     points: [
       { id: "point1", stamp: 0, value: -1 },
       { id: "point2", stamp: 1, value: 1 },
     ],
   };
+  const defaultInstance = {
+    id: "some",
+    animationId: "thing",
+    settings: { offset: 0, timescale: 1, active: true },
+  };
 
   // Create the animation interpolator
-  const track1Interpolator = computeTrackInterpolator(track1, { offset: 0, timescale: 1 });
+  const track1Interpolator = computeTrackInterpolator(track1, defaultInstance);
 
   // Compute the track violations
   const violations = computeTrackViolations(track1Interpolator, 2000, "track1", "default", {
@@ -38,6 +44,7 @@ test("An animation that shifts from within to outside bounds gets a bounds error
 test("An animation with a velocity limit of 0 returns a violation for the entire change duration", () => {
   const track1 = {
     id: "track1",
+    animatableId: "animatable1",
     name: "Track 1",
     points: [
       { id: "point1", stamp: 0, value: -1 },
@@ -46,9 +53,14 @@ test("An animation with a velocity limit of 0 returns a violation for the entire
       { id: "point4", stamp: 1, value: 1 },
     ],
   };
+  const defaultInstance = {
+    id: "some",
+    animationId: "thing",
+    settings: { offset: 0, timescale: 1, active: true },
+  };
 
   // Create the animation interpolator
-  const track1Interpolator = computeTrackInterpolator(track1, { offset: 0, timescale: 1 });
+  const track1Interpolator = computeTrackInterpolator(track1, defaultInstance);
 
   // Compute the track violations
   const violations = computeTrackViolations(track1Interpolator, 2000, "track1", "default", {

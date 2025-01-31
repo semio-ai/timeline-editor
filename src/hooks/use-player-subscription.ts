@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { PlayerData, usePlayerStore } from "@semio/utils";
 
 /**
@@ -13,6 +13,20 @@ export function usePlayerSubscription<T>(
   equalityFn: (a: T, b: T) => boolean = (a, b) => a === b,
 ) {
   useEffect(() => {
+    const unsubscribe = usePlayerStore.subscribe(selector, callback, {
+      equalityFn,
+      fireImmediately: true,
+    });
+    return unsubscribe;
+  }, [selector, callback, equalityFn]);
+}
+
+export function useLayoutPlayerSubscription<T>(
+  selector: (data: PlayerData) => T,
+  callback: (data: T, previous: T) => void,
+  equalityFn: (a: T, b: T) => boolean = (a, b) => a === b,
+) {
+  useLayoutEffect(() => {
     const unsubscribe = usePlayerStore.subscribe(selector, callback, {
       equalityFn,
       fireImmediately: true,

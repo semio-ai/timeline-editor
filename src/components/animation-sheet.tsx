@@ -1,19 +1,12 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState } from "react";
+import { useContext, memo, useState, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
-import {
-  ToggleGroup,
-  Size,
-  ToggleSquare,
-  Variant,
-  IconGraphView,
-  IconPreviewView,
-} from "@semio/ui";
+import { ToggleGroup, Size, ToggleSquare, Variant, IconPreviewView } from "@semio/ui";
 import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
-import { TrackRender } from "../types";
+import { TrackRender, AnimationInstance } from "../types";
 import { useAnimationStore } from "../hooks";
 import { PlaybackControls } from "./playback-controls";
 import { Timeline } from "./timeline";
@@ -21,28 +14,58 @@ import { TrackList } from "./track-list";
 import { Minimap } from "./minimap";
 import { Ruler } from "./ruler";
 
-export function AnimationSheet(): ReactNode {
+export interface AnimationSheetProps {
+  namespaceId: string;
+  animationInstances: Record<string, AnimationInstance>;
+}
+
+export function AnimationSheet({
+  namespaceId,
+  animationInstances,
+}: AnimationSheetProps): ReactNode {
   const ctx = useContext(AnimationContext);
   if (ctx) {
-    return <MemoizedInnerSheet />;
+    return <MemoizedInnerSheet namespaceId={namespaceId} animationInstances={animationInstances} />;
   } else {
     return (
       <AnimationContext.Provider value={useDefaultAnimationStore}>
-        <MemoizedInnerSheet />
+        <MemoizedInnerSheet namespaceId={namespaceId} animationInstances={animationInstances} />
       </AnimationContext.Provider>
     );
   }
 }
 
-export function InnerSheet(): ReactNode {
-  const activeAnimation = useAnimationStore(useShallow((state) => state.activeAnimation));
-  const expanded = useAnimationStore(useShallow((state) => state.expanded));
-  const setExpanded = useAnimationStore(useShallow((state) => state.setExpanded));
-  const allTracks = useAnimationStore(
-    useShallow((state) => state.animations[activeAnimation].tracks),
-  );
+export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetProps): ReactNode {
+  // TODO: Eventually we will allow seleciton of different animation instances to view. For now we assume there is only one instance per set.
   const [trackRender, setTrackRender] = useState<TrackRender>(TrackRender.Key);
-  const [selectedTracks, setSelectedTracks] = useState<string[]>(allTracks);
+  const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
+  const { expanded, setExpanded, animations, updateDuration } = useAnimationStore(
+    useShallow((state) => {
+      return {
+        expanded: state.expanded,
+        setExpanded: state.setExpanded,
+        animations: state.animations,
+        updateDuration: state.updateDuration,
+      };
+    }),
+  );
+
+  const currentAnimationInstance = Object.values(animationInstances)[0];
+  const currentAnimation = currentAnimationInstance.animationId;
+  const instanceSettings = currentAnimationInstance.settings;
+  useEffect(() => {
+    if (!currentAnimation || !animations[currentAnimation]) {
+      return;
+    }
+    setSelectedTracks(animations[currentAnimation].tracks);
+    updateDuration(animations[currentAnimation].duration);
+  }, [currentAnimation, animations, updateDuration]);
+
+  if (!currentAnimation || !animations[currentAnimation]) {
+    return null;
+  }
+  const allTracks = animations[currentAnimation].tracks;
+
   return (
     <div
       aria-expanded={expanded}
@@ -100,12 +123,6 @@ export function InnerSheet(): ReactNode {
                 icon: <IconPreviewView size="11px" />,
               },
               {
-                value: TrackRender.Graph,
-                label: "Graph View",
-                icon: <IconGraphView size="11px" />,
-                disabled: true,
-              },
-              {
                 value: TrackRender.Data,
                 label: "Data View",
                 icon: <IconTable size="11px" />,
@@ -118,7 +135,7 @@ export function InnerSheet(): ReactNode {
           </ToggleSquare>
         </div>
         <div className="flex-1 xs:w-64 transition-[width] h-6 text-black dark:text-white">
-          <Ruler side="top" animationId={activeAnimation} />
+          <Ruler side="top" animationId={currentAnimation} />
         </div>
       </div>
       <div>
@@ -129,14 +146,22 @@ export function InnerSheet(): ReactNode {
             "transition-[height] duration-75 h-0",
           )}
         >
-          {expanded && <TrackList animationId={activeAnimation} trackRender={trackRender} />}
+          {expanded && (
+            <TrackList
+              animationId={currentAnimation}
+              namespaceId={namespaceId}
+              trackRender={trackRender}
+              instanceSettings={instanceSettings}
+            />
+          )}
         </div>
         {/* Content */}
         <div className="flex flex-row group ">
           <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-[60px]">
             <PlaybackControls
-              animationId={activeAnimation}
-              namespaceId="default"
+              animationId={currentAnimation}
+              namespaceId={namespaceId}
+              instanceSettings={instanceSettings}
               selection={selectedTracks}
               allTracks={allTracks}
               onChangeSelection={setSelectedTracks}
@@ -146,8 +171,9 @@ export function InnerSheet(): ReactNode {
             <div className="h-[60px]">
               <Timeline
                 trackIds={selectedTracks}
-                animationId={activeAnimation}
-                namespaceId="default"
+                animationId={currentAnimation}
+                namespaceId={namespaceId}
+                instanceSettings={instanceSettings}
                 trackRender={
                   ([TrackRender.Key, TrackRender.Preview, TrackRender.Transition].includes(
                     trackRender,
@@ -160,7 +186,7 @@ export function InnerSheet(): ReactNode {
                 }
               />
               <div className="w-full h-[30px] items-center text-black dark:text-white">
-                <Minimap animationId={activeAnimation} />
+                <Minimap animationId={currentAnimation} instanceSettings={instanceSettings} />
               </div>
             </div>
           </div>
@@ -174,7 +200,7 @@ export function InnerSheet(): ReactNode {
           )}
         />
         <div className="flex-1 xs:w-64 transition-[width] h-6 text-black dark:text-white">
-          <Ruler side="bottom" animationId={activeAnimation} />
+          <Ruler side="bottom" animationId={currentAnimation} />
         </div>
       </div>
     </div>

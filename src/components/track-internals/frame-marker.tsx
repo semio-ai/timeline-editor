@@ -2,8 +2,8 @@ import {
   type ReactNode,
   type MutableRefObject,
   type MouseEventHandler,
-  useMemo,
   memo,
+  useMemo,
   useRef,
   useCallback,
   useState,
@@ -27,7 +27,7 @@ import {
 } from "../../hooks";
 import { computeLocalStamp } from "../../functions";
 import { DRAG_X_CONFIG } from "../../gesture-config";
-import { Control, InstancedFrameInfo, TrackRender } from "../../types";
+import { InstancedFrameInfo, TrackRender } from "../../types";
 
 const linePath = getDegenerateHexagonPath(0, 15, 12, 30);
 const hexPath = getHexagonPath(0, 15, 12, 30);
@@ -41,7 +41,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
   const {
     frameCount,
     trackIds,
-    instanceInfo,
+    instanceSettings,
     xScale,
     zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
@@ -59,10 +59,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
   const color = useAnimationStore(
     useShallow((state) => {
       if (uniqueTracks.length !== 1) return "#737373";
-      return (
-        Object.values(state.controls).find((c: Control) => c.writeId === uniqueTracks[0])?.settings
-          ?.color ?? "#737373"
-      );
+      return state.tracks[uniqueTracks[0]]?.settings?.color ?? "#737373";
     }),
   );
 
@@ -114,7 +111,11 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
           clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
         );
         const newStamp = state.shiftKey ? newPosition : closestFrame(newPosition, frameCount);
-        const transformedStamp = computeLocalStamp(newStamp, instanceInfo);
+        const transformedStamp = computeLocalStamp(
+          newStamp,
+          instanceSettings.timescale,
+          instanceSettings.offset,
+        );
         data.points.forEach((point) => {
           updateKeypoint(point.trackId, { ...point, stamp: transformedStamp });
         });

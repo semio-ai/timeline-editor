@@ -2,7 +2,7 @@ import { piecewise } from "d3-interpolate";
 import { scaleLinear } from "d3-scale";
 import { isEmpty } from "lodash";
 import type { RawValue } from "@semio/utils";
-import type { InstanceInfo, Track } from "../types";
+import type { AnimationInstance, Track } from "../types";
 import { easeInOutCubic } from "../easings/ease-in-out-cubic";
 import { computeWorldStamp } from "./compute-instance-time";
 
@@ -16,7 +16,7 @@ import { computeWorldStamp } from "./compute-instance-time";
  */
 export function computeTrackInterpolator(
   track: Track<RawValue>,
-  instanceInfo: InstanceInfo,
+  instanceInfo: AnimationInstance,
 ): (time: number) => RawValue | undefined {
   // If the animation has zero points, always return undefined.
   if (isEmpty(track.points)) {
@@ -29,7 +29,10 @@ export function computeTrackInterpolator(
 
   let valuesByTime = Array<[number, RawValue]>();
   track.points.forEach((point) => {
-    valuesByTime.push([computeWorldStamp(point.stamp, instanceInfo), point.value]);
+    valuesByTime.push([
+      computeWorldStamp(point.stamp, instanceInfo.settings.timescale, instanceInfo.settings.offset),
+      point.value,
+    ]);
   });
 
   // Sort the entries to confirm that they are in order of time.

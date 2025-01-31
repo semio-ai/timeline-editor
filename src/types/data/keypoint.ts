@@ -11,13 +11,3 @@ export interface Keypoint<DataType extends RawValue> {
   stamp: number;
   value: DataType;
 }
-
-/**
-Old version of the keypoint data
-*/
-export interface KeypointV1<Datatype> {
-  id: string;
-  frame: string;
-  track: string;
-  value: Datatype;
-}

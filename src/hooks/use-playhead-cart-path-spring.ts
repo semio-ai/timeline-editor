@@ -20,6 +20,7 @@ import { usePlayerSubscription } from "./use-player-subscription";
  */
 export function usePlayheadCartPathSpring(
   side: "top" | "bottom",
+  duration: number,
   ignoreZoom?: boolean,
 ): {
   d: SpringValue<string>;
@@ -27,9 +28,8 @@ export function usePlayheadCartPathSpring(
 } {
   const storedPlayhead = useRef<number>(0);
 
-  const { duration, framerate, timeDisplay } = useAnimationStore(
+  const { framerate, timeDisplay } = useAnimationStore(
     useShallow((state) => ({
-      duration: state.animations[state.activeAnimation].duration,
       framerate: state.framerate,
       timeDisplay: state.timeDisplay,
     })),

@@ -7,8 +7,8 @@ import { useShallow } from "zustand/react/shallow";
 import { shallow } from "zustand/shallow";
 import { pick } from "lodash";
 import { useAnimationStore, usePlayerSubscription } from "../hooks";
-import { computeLocalStamp, computeStamps } from "../functions";
-import { AnimationInterpolator, Track, SemanticTime } from "../types";
+import { computeLocalStamp, computeWorldStamp } from "../functions";
+import { AnimationInterpolator, Track, SemanticTime, AnimationInstanceSettings } from "../types";
 import { AnimationActions, AnimationData } from "../store-types";
 import { TimeDisplay } from "./time-display";
 import { SkipButton } from "./skip-button";
@@ -19,9 +19,11 @@ export function PlaybackControls({
   allTracks,
   selection,
   onChangeSelection,
+  instanceSettings,
   namespaceId,
 }: {
   animationId: string;
+  instanceSettings: AnimationInstanceSettings;
   allTracks: string[];
   selection: string[];
   onChangeSelection: (tracks: string[]) => void;
@@ -29,9 +31,6 @@ export function PlaybackControls({
 }): ReactNode {
   const previews = useAnimationStore(useShallow((state: AnimationData) => state.previews));
   const nonHoverPreviews = previews.filter((p) => p.semanticTime !== SemanticTime.Hover);
-  const instanceInfo = useAnimationStore(
-    useShallow((state) => state.animations[animationId].instances[namespaceId]),
-  );
   const { playPlayer, pausePlayer, running } = usePlayerStore(
     useShallow((state) => ({
       playPlayer: state.playPlayer,
@@ -39,9 +38,9 @@ export function PlaybackControls({
       running: state.player.running,
     })),
   );
-  const { setValues, removeKeypoints } = useAnimationStore(
+  const { updateKeypoints, removeKeypoints } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
-      setValues: state.setValues,
+      updateKeypoints: state.updateKeypoints,
       removeKeypoints: state.removeKeypoints,
     })),
   );
@@ -60,30 +59,36 @@ export function PlaybackControls({
     ),
   );
 
-  const controls = useAnimationStore(useShallow((state) => state.controls));
   const stateTracks = useAnimationStore(useShallow((state) => state.tracks));
 
   const tracks = useMemo(
     () =>
       allTracks.map((id) => {
-        const control = Object.values(controls).find((c) => c.writeId === id);
         return {
           label: stateTracks[id]?.name || "Unknown Track",
           value: id,
-          animatableId: control?.readId,
-          color: control?.settings?.color || "#737373",
+          animatableId: stateTracks[id].animatableId,
+          color: stateTracks[id]?.settings?.color || "#737373",
         };
       }),
-    [allTracks, controls, stateTracks],
+    [allTracks, stateTracks],
   );
 
   const stamps = useMemo(() => {
-    return computeStamps(trackData, { [namespaceId]: instanceInfo });
-  }, [trackData, instanceInfo, namespaceId]);
+    const s: number[] = [];
+    Object.values(trackData).forEach((track) => {
+      track.points.forEach((point) => {
+        s.push(computeWorldStamp(point.stamp, instanceSettings.offset, instanceSettings.timescale));
+      });
+    });
+    return s;
+  }, [trackData, instanceSettings]);
 
   // Use references to avoid rerendering
   const stamp = useRef<number>(0);
-  const localStamp = useRef<number>(computeLocalStamp(0, instanceInfo));
+  const localStamp = useRef<number>(
+    computeLocalStamp(0, instanceSettings.timescale, instanceSettings.offset),
+  );
   const filled = useRef<boolean>(false);
 
   // This updates the references when the player's timestamp changes
@@ -92,7 +97,11 @@ export function PlaybackControls({
     (current) => {
       stamp.current = current;
       filled.current = stamps.some((s) => s === current);
-      localStamp.current = computeLocalStamp(current, instanceInfo);
+      localStamp.current = computeLocalStamp(
+        current,
+        instanceSettings.timescale,
+        instanceSettings.offset,
+      );
     },
     shallow,
   );
@@ -128,24 +137,17 @@ export function PlaybackControls({
               const updates = selection
                 .map((trackId) => {
                   const value = interpolators[trackId]?.(stamp.current);
-                  const animatableId = tracks.find((t) => t.value === trackId)?.animatableId;
                   return {
                     trackId,
-                    value,
-                    stamp: localStamp.current,
-                    animatableId,
-                    namespace: namespaceId,
+                    keypoint: {
+                      value,
+                      stamp: localStamp.current,
+                    },
                   };
                 })
-                .filter((u) => u.value !== undefined && u.animatableId !== undefined) as {
-                trackId: string;
-                value: RawValue;
-                stamp: number;
-                animatableId: string;
-                namespace: string;
-              }[];
+                .filter((u) => u.keypoint.value !== undefined);
 
-              setValues(updates);
+              updateKeypoints(updates);
             }
           }}
         />

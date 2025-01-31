@@ -1,10 +1,7 @@
 import { RawValue } from "@semio/utils";
 import type { Transition } from "./transition";
-import type { Track, TrackV1 } from "./track";
+import type { Track } from "./track";
 import type { TrackGroup } from "./track-group";
-import type { KeypointV1 } from "./keypoint";
-import type { Keyframe } from "./keyframe";
-import type { InstanceInfo } from "./instance-info";
 
 /**
  * A collection of tracks, keyframes, and transitions that can be played back to create a visual effect.
@@ -23,7 +20,6 @@ export interface Animation {
   groups: Map<string, TrackGroup>;
   transitions: Map<string, Transition>;
   duration: number;
-  instances: Record<string, InstanceInfo>;
 }
 
 /**
@@ -36,31 +32,28 @@ export interface Animation {
  * @param duration - the total duration of the animation in milliseconds.
  * @param instances - a collection of instance info objects.
  */
-export interface StoredAnimationV2 {
+export interface StoredAnimation {
   id: string;
   name: string;
   tracks: Track<RawValue>[];
   groups: Map<string, TrackGroup>;
   transitions: Map<string, Transition>;
   duration: number;
-  instances: Record<string, InstanceInfo>;
 }
 
-export type StoredAnimation = StoredAnimationV2 | AnimationV1;
+export interface AnimationDriver {
+  type: "animation";
+  animationInstances: Record<string, AnimationInstance>;
+}
 
-/**
-Old version of Animation format
-*/
-export interface AnimationV1 {
+export interface AnimationInstance {
   id: string;
-  name: string;
-  points: Map<string, KeypointV1<RawValue>>;
-  frames: Map<string, Keyframe>;
-  tracks: Map<string, TrackV1>;
-  groups: Map<string, TrackGroup>;
-  transitions: Map<string, Transition>;
-  frameOrder: string[];
-  trackOrder: string[];
-  duration: number;
-  instances: Record<string, InstanceInfo>;
+  animationId: string; // Matches id of an animation document
+  settings: AnimationInstanceSettings;
+}
+
+export interface AnimationInstanceSettings {
+  active: boolean;
+  offset: number;
+  timescale: number;
 }

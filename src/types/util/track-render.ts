@@ -3,5 +3,4 @@ export enum TrackRender {
   Key = "key",
   Transition = "transition",
   Data = "data",
-  Graph = "graph",
 }
