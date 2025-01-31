@@ -115,7 +115,6 @@ export function Track({
 
   const trackType = useMemo(() => {
     const types = new Set<AnimatableValue["type"]>();
-    // console.log("animatableIds", animatableIds, allAnimatables);
     animatableIds.forEach((id) => types.add(allAnimatables[id]?.type as AnimatableValue["type"]));
 
     return types.size === 1
