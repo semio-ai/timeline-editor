@@ -1,5 +1,6 @@
+import { RawValue } from "@semio/utils";
 import { AnimationData } from "../store-types";
-import { StoredAnimation } from "../types";
+import { StoredAnimation, Track } from "../types";
 
 /**
  * Adds an animation to the state.
@@ -29,6 +30,13 @@ export function addAnimation(state: AnimationData, animationData: StoredAnimatio
       },
       tracks: animationData.tracks.reduce((acc, track) => ({ ...acc, [track.id]: track }), {}),
     };
+
+    Object.values(tracks as Record<string, Track<RawValue>>).forEach((track: Track<RawValue>) => {
+      if (track.settings && track.animatableId && state.animatables[track.animatableId]?.pub) {
+        // Update the color for the animatable if necessary
+        state.animatables[track.animatableId].pub!.color = track.settings.color;
+      }
+    });
 
     state.animations[animationId] = {
       ...animation,

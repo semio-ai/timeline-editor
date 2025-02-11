@@ -13,5 +13,9 @@ export function updateControlColor(state: AnimationData, trackId: string, color:
       state.tracks[trackId].settings = {};
     }
     state.tracks[trackId].settings.color = color;
+    const animatable = state.tracks[trackId].animatableId;
+    if (animatable && state.animatables[animatable]?.pub) {
+      state.animatables[animatable].pub.color = color;
+    }
   }
 }
