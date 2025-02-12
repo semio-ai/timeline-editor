@@ -77,6 +77,15 @@ export const AnimationSlice = (
         }),
       );
     },
+    setValue: (id: string, namespace: string, value: RawValue) => {
+      set(
+        produce((state) => {
+          console.log("(Scene) Setting value", id, namespace, value);
+          const lookupId = getLookup(namespace, id);
+          state.values.set(lookupId, value);
+        }),
+      );
+    },
     createNewDefaultAnimation: () => {
       set(
         produce((state: AnimationData) => {

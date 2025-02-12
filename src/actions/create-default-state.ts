@@ -1,6 +1,6 @@
 import { TimeDisplay } from "@semio/ui";
 import { AnimationData } from "../store-types";
-import { createDefaultAnimation } from "./create-default-animation";
+// import { createDefaultAnimation } from "./create-default-animation";
 
 /**
  * Creates the default state for an animation.
@@ -14,16 +14,16 @@ import { createDefaultAnimation } from "./create-default-animation";
  * @returns [AnimationData] The default state of the animation.
  */
 export const createDefaultState = (): AnimationData => {
-  const defaultAnimation = createDefaultAnimation();
+  // const defaultAnimation = createDefaultAnimation();
 
   return {
     values: new Map(),
     trackInterpolators: {},
     namespaceInfo: {},
-    animations: { [defaultAnimation.id]: { ...defaultAnimation, tracks: [] } },
+    animations: {},
     tracks: {},
-    visualizedAnimations: [defaultAnimation.id],
-    duration: defaultAnimation.duration,
+    visualizedAnimations: [],
+    duration: 5000,
     framerate: 24,
     expanded: false,
     timeDisplay: TimeDisplay.Frames,

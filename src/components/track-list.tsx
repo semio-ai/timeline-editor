@@ -35,7 +35,7 @@ export function TrackList({
           />
         ))}
       </div>
-      {contentBounds.height < 240 && (
+      {tracks.length !== 0 && contentBounds.height < 240 && (
         <TrackGap animationId={animationId} height={240 - contentBounds.height} />
       )}
       {tracks.length === 0 && (

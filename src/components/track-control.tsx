@@ -14,9 +14,10 @@ export interface TrackControlProps {
   color?: string;
   filled?: boolean;
   onHexClick?: () => void;
-  animationId: string;
+  animationId?: string;
   namespaceId: string;
   trackIds: string[];
+  disabled?: boolean;
 }
 
 export function TrackControl({
@@ -26,6 +27,7 @@ export function TrackControl({
   animationId,
   namespaceId,
   trackIds,
+  disabled,
 }: TrackControlProps) {
   const tracks = useAnimationStore(useShallow((state) => pick(state.tracks, trackIds)));
   const instances = useAnimationStore(useShallow((state) => state.namespaceInfo[namespaceId]));
@@ -48,6 +50,7 @@ export function TrackControl({
 
   const enabledBack = prevKeyframeTime !== undefined;
   const enabledForward = nextKeyframeTime !== undefined;
+  const widgetDisabled = disabled || !animationId;
 
   const [backFn, forwardFn] = useAnimationStore(
     useShallow((state: AnimationData & AnimationActions) => [
@@ -78,9 +81,10 @@ export function TrackControl({
       <Button
         size="fit"
         color={color}
-        disabled={!enabledBack}
-        onClick={() => backFn(animationId, [namespaceId], trackIds, true)}
+        disabled={!enabledBack || widgetDisabled}
+        onClick={widgetDisabled ? noOp : () => backFn(animationId, [namespaceId], trackIds, true)}
         onMouseEnter={() => {
+          if (widgetDisabled) return;
           addPreview({
             stamp: prevKeyframeTime ?? 0,
             semanticTime: SemanticTime.Backward,
@@ -88,6 +92,7 @@ export function TrackControl({
           });
         }}
         onMouseLeave={() => {
+          if (widgetDisabled) return;
           removePreview((p) => p.semanticTime === SemanticTime.Backward);
         }}
         leftIcon={<IconPlayerPlay className="rotate-180" size="10px" />}
@@ -95,10 +100,11 @@ export function TrackControl({
       />
       <Button
         size="fit"
+        disabled={widgetDisabled}
         color={color}
-        onClick={onHexClick}
+        onClick={widgetDisabled ? noOp : onHexClick}
         deemphasize={!trackIds}
-        onMouseEnter={() => setHovered(true)}
+        onMouseEnter={() => setHovered(!disabled)}
         onMouseLeave={() => setHovered(false)}
         leftIcon={
           <IconKey
@@ -113,9 +119,12 @@ export function TrackControl({
       <Button
         size="fit"
         color={color}
-        disabled={!enabledForward}
-        onClick={() => forwardFn(animationId, [namespaceId], trackIds, true)}
+        disabled={!enabledForward || widgetDisabled}
+        onClick={
+          widgetDisabled ? noOp : () => forwardFn(animationId, [namespaceId], trackIds, true)
+        }
         onMouseEnter={() => {
+          if (widgetDisabled) return;
           addPreview({
             stamp: nextKeyframeTime ?? 0,
             semanticTime: SemanticTime.Forward,
@@ -123,6 +132,7 @@ export function TrackControl({
           });
         }}
         onMouseLeave={() => {
+          if (widgetDisabled) return;
           removePreview((p) => p.semanticTime === SemanticTime.Forward);
         }}
         leftIcon={<IconPlayerPlay size="10px" />}
@@ -151,3 +161,5 @@ function getFillOpacity(hovered: boolean, filled: boolean): number {
     return 0;
   }
 }
+
+function noOp() {}

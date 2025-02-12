@@ -105,6 +105,13 @@ export interface AnimationActions {
    */
   updateValues: (values: Map<string, RawValue | undefined>) => void;
   /**
+   * Set an individual value
+   * @param id - The ID of the value to set.
+   * @param namespace - The namespace of the value to set.
+   * @param value - The value to set.
+   */
+  setValue: (id: string, namespace: string, value: RawValue) => void;
+  /**
    * Add a new keyframe to the animation.
    */
   createNewDefaultAnimation: () => void;

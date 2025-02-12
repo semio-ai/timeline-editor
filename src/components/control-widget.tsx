@@ -1,4 +1,4 @@
-import { useState, memo, useCallback } from "react";
+import { useState, memo, useCallback, ReactNode } from "react";
 import {
   SliderNumberField,
   Size,
@@ -24,16 +24,27 @@ import {
   usePlayerStore,
   PlayerData,
 } from "@semio/utils";
-import { IconHash, IconDotsVertical, IconChevronDown } from "@tabler/icons-react";
+import {
+  IconHash,
+  IconDotsVertical,
+  IconChevronDown,
+  IconAngle,
+  IconRuler2,
+} from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
-import { type Keypoint, type Track, type AnimationInstanceSettings } from "../types";
+import {
+  type Keypoint,
+  type Track,
+  type AnimationInstanceSettings,
+  type Animation,
+} from "../types";
 import { useAnimationStore } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { computeWorldStamp } from "../functions";
 import { TrackControl } from "./track-control";
 
 export interface ControlWidgetProps {
-  animationId: string;
+  animationId?: string;
   animatableId?: string;
   instanceSettings: AnimationInstanceSettings;
   trackId?: string;
@@ -55,7 +66,9 @@ function InnerControlWidget({
 }: ControlWidgetProps) {
   const [open, setOpen] = useState(false);
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
-  const animation = useAnimationStore(useShallow((state) => state.animations[animationId]));
+  const animation: Animation | undefined = useAnimationStore(
+    useShallow((state) => (animationId ? state.animations[animationId] : undefined)),
+  );
 
   const loadedTrack: Track<RawValue> | undefined = useAnimationStore(
     useShallow((state) => state.tracks[trackId ?? ""]),
@@ -82,9 +95,11 @@ function InnerControlWidget({
   const updateControlColor = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateControlColor),
   );
+  const setValue = useAnimationStore(useShallow((state) => state.setValue));
 
   const track: Track<RawValue> | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {
+      if (!animation) return undefined;
       return (
         loadedTrack ??
         Object.values(state.tracks)
@@ -112,6 +127,12 @@ function InnerControlWidget({
   const handleValueChange = useCallback(
     (value: RawValue) => {
       const currentStamp = usePlayerStore.getState().player.stamp;
+      if (!animationId) {
+        if (animatableValue) {
+          setValue(animatableValue.id, namespace, value);
+        }
+        return;
+      }
       if (track) {
         updateKeypoint(track.id, { stamp: currentStamp, value });
       } else if (animatableValue) {
@@ -125,7 +146,7 @@ function InnerControlWidget({
         );
       }
     },
-    [track, animatableValue, updateKeypoint, createTrack, animationId],
+    [track, animatableValue, updateKeypoint, createTrack, animationId, setValue, namespace],
   );
 
   if (!animatableValue) {
@@ -169,7 +190,7 @@ function InnerControlWidget({
             </CollapsibleTrigger>
           ) : (
             <StaticIcon size="fit" className="w-3 h-3 pl-2" color={track?.settings?.color}>
-              {animatableValue.type === "number" && <IconHash size="13px" />}
+              {getIcon(animatableValue.pub?.units as string | undefined)}
             </StaticIcon>
           )}
           <div className="flex-1 p-2">
@@ -218,7 +239,7 @@ function InnerControlWidget({
               <div key={prop} className="flex p-1 items-center h-[30px]">
                 <div className="w-11" />
                 <StaticIcon size="fit" className="w-3 h-3 pl-1 pr-2" color={track?.settings?.color}>
-                  <IconHash size="13px" />
+                  {getIcon(animatableValue.pub?.units as string | undefined)}
                 </StaticIcon>
 
                 <div className="flex-1">
@@ -286,6 +307,18 @@ function InnerEditor({
   const updateTrack = useAnimationStore(useShallow((state: AnimationActions) => state.updateTrack));
 
   if (animatableValue.type === "number") {
+    const renderTransformer = animatableValue.pub?.units === "rad" ? toDegrees : (v: number) => v;
+    const renderInverse = animatableValue.pub?.units === "rad" ? toRadians : (v: number) => v;
+
+    const min =
+      animatableValue.constraints.min !== undefined
+        ? renderTransformer(animatableValue.constraints.min)
+        : undefined;
+    const max =
+      animatableValue.constraints.max !== undefined
+        ? renderTransformer(animatableValue.constraints.max)
+        : undefined;
+
     return (
       <SliderNumberField
         size={Size.Xs}
@@ -297,14 +330,15 @@ function InnerEditor({
           animatableValue.constraints.max !== Infinity
         }
         disabled={playing}
-        value={(rawValue as number) ?? (animatableValue.default as number)}
-        min={animatableValue.constraints.min}
-        max={animatableValue.constraints.max}
+        value={renderTransformer((rawValue as number) ?? (animatableValue.default as number))}
+        min={min}
+        max={max}
         color={track?.settings?.color}
-        onChange={(v) => handleValueChange(v)}
+        onChange={(v) => handleValueChange(renderInverse(v))}
         label={track ? track.name : animatableValue.name}
         onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
         emphasis={emphasis}
+        units={animatableValue.pub?.units === "rad" ? "°" : animatableValue.pub?.units}
         onEmphasisChange={onEmphasisChange}
       />
     );
@@ -377,6 +411,7 @@ function InnerEditor({
             });
           }
         }}
+        units={animatableValue.pub?.units}
         label={prop}
         emphasis={emphasis}
         onEmphasisChange={onEmphasisChange}
@@ -447,7 +482,7 @@ function InnerEditor({
 const Editor = memo(InnerEditor);
 
 interface WrappedTrackControlProps {
-  animationId: string;
+  animationId?: string;
   track?: Track<RawValue>;
   namespace: string;
   keypoint?: Keypoint<RawValue>;
@@ -476,6 +511,7 @@ function InnerWrappedTrackControl({
 
   return (
     <TrackControl
+      disabled={!animationId}
       animationId={animationId}
       namespaceId={namespace}
       trackIds={track ? [track.id] : []}
@@ -494,3 +530,13 @@ function InnerWrappedTrackControl({
 }
 
 const WrappedTrackControl = memo(InnerWrappedTrackControl);
+
+function getIcon(unitString: string | undefined): ReactNode {
+  if (unitString === "rad") {
+    return <IconAngle size="13px" />;
+  } else if (unitString === "m") {
+    return <IconRuler2 size="13px" />;
+  } else {
+    return <IconHash size="13px" />;
+  }
+}
