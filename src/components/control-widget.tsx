@@ -23,6 +23,7 @@ import {
   toRadians,
   usePlayerStore,
   PlayerData,
+  RawRGB,
 } from "@semio/utils";
 import {
   IconHash,
@@ -161,9 +162,7 @@ function InnerControlWidget({
         setOpen(v);
         onExpandedChange?.(v);
       }}
-      disabled={
-        !animatableValue || (animatableValue.type !== "vector3" && animatableValue.type !== "euler")
-      }
+      disabled={!animatableValue || !collapsibleTypes.includes(animatableValue.type)}
     >
       <div className="flex flex-1 flex-row items-center h-[30px] overflow-hidden">
         <WrappedTrackControl
@@ -176,7 +175,7 @@ function InnerControlWidget({
           handleValueChange={handleValueChange}
         />
         <div className="flex flex-1 flex-row items-center">
-          {animatableValue.type === "vector3" || animatableValue.type === "euler" ? (
+          {collapsibleTypes.includes(animatableValue.type) ? (
             <CollapsibleTrigger asChild>
               <Button
                 size="fit"
@@ -260,6 +259,60 @@ function InnerControlWidget({
             ))}
           </>
         )}
+        {animatableValue.type === "rgb" && (
+          <>
+            {["r", "g", "b"].map((prop) => (
+              <div key={prop} className="flex p-1 items-center h-[30px]">
+                <div className="w-11" />
+                <StaticIcon size="fit" className="w-3 h-3 pl-1 pr-2" color={track?.settings?.color}>
+                  {getIcon(animatableValue.pub?.units as string | undefined)}
+                </StaticIcon>
+
+                <div className="flex-1">
+                  <Editor
+                    animatableValue={animatableValue}
+                    rawValueId={rawValueId}
+                    playing={playing}
+                    track={track}
+                    prop={prop}
+                    namespace={namespace}
+                    emphasis={emphasis}
+                    onEmphasisChange={onEmphasisChange}
+                    handleValueChange={handleValueChange}
+                  />
+                </div>
+                <div className="min-w-8" />
+              </div>
+            ))}
+          </>
+        )}
+        {animatableValue.type === "hsl" && (
+          <>
+            {["h", "s", "l"].map((prop) => (
+              <div key={prop} className="flex p-1 items-center h-[30px]">
+                <div className="w-11" />
+                <StaticIcon size="fit" className="w-3 h-3 pl-1 pr-2" color={track?.settings?.color}>
+                  {getIcon(animatableValue.pub?.units as string | undefined)}
+                </StaticIcon>
+
+                <div className="flex-1">
+                  <Editor
+                    animatableValue={animatableValue}
+                    rawValueId={rawValueId}
+                    playing={playing}
+                    track={track}
+                    prop={prop}
+                    namespace={namespace}
+                    emphasis={emphasis}
+                    onEmphasisChange={onEmphasisChange}
+                    handleValueChange={handleValueChange}
+                  />
+                </div>
+                <div className="min-w-8" />
+              </div>
+            ))}
+          </>
+        )}
       </CollapsibleContent>
     </CollapsibleRoot>
   );
@@ -271,7 +324,15 @@ const vectorIndexLookup = {
   x: 0,
   y: 1,
   z: 2,
+  r: 0,
+  g: 1,
+  b: 2,
+  h: 0,
+  s: 1,
+  l: 2,
 };
+
+const collapsibleTypes = ["vector3", "euler", "rgb", "hsl"];
 
 interface EditorProps {
   animatableValue: AnimatableValue;
@@ -351,16 +412,7 @@ function InnerEditor({
         onChange={(v) => handleValueChange(v)}
       />
     );
-  } else if (animatableValue.type === "vector3" && !prop) {
-    return (
-      <TextField
-        value={track ? track.name : animatableValue.name}
-        readOnly={playing || !track}
-        size={Size.Xs}
-        onChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
-      />
-    );
-  } else if (animatableValue.type === "euler" && !prop) {
+  } else if (collapsibleTypes.includes(animatableValue.type) && !prop) {
     return (
       <TextField
         value={track ? track.name : animatableValue.name}
@@ -469,6 +521,50 @@ function InnerEditor({
             });
           }
         }}
+        label={prop}
+        emphasis={emphasis}
+        onEmphasisChange={onEmphasisChange}
+      />
+    );
+  } else if (animatableValue.type === "rgb" && (prop === "r" || prop === "g" || prop === "b")) {
+    const index = vectorIndexLookup[prop];
+    return (
+      <SliderNumberField
+        size={Size.Xs}
+        strictText
+        strictSlider
+        disabled={playing}
+        value={
+          (rawValue as RawRGB | undefined)?.[prop] ||
+          ((animatableValue.default as RawRGB)[prop] as number)
+        }
+        min={animatableValue.constraints?.min?.[index] ?? undefined}
+        max={animatableValue.constraints?.max?.[index] ?? undefined}
+        visualMin={animatableValue.constraints?.min?.[index] ?? 0}
+        visualMax={animatableValue.constraints?.max?.[index] ?? 1}
+        color={track?.settings?.color}
+        onChange={(v) => {
+          if (prop === "r") {
+            handleValueChange({
+              r: v,
+              g: (rawValue as RawRGB)?.g || 0,
+              b: (rawValue as RawRGB)?.b || 0,
+            });
+          } else if (prop === "g") {
+            handleValueChange({
+              r: (rawValue as RawRGB)?.r || 0,
+              g: v,
+              b: (rawValue as RawRGB)?.b || 0,
+            });
+          } else if (prop === "b") {
+            handleValueChange({
+              r: (rawValue as RawRGB)?.r || 0,
+              g: (rawValue as RawRGB)?.g || 0,
+              b: v,
+            });
+          }
+        }}
+        units={animatableValue.pub?.units}
         label={prop}
         emphasis={emphasis}
         onEmphasisChange={onEmphasisChange}
