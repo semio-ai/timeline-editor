@@ -446,19 +446,19 @@ function InnerEditor({
           if (prop === "x") {
             handleValueChange({
               x: v,
-              y: (rawValue as RawVector3)?.y || 0,
-              z: (rawValue as RawVector3)?.z || 0,
+              y: (rawValue as RawVector3)?.y ?? animatableValue.default.y,
+              z: (rawValue as RawVector3)?.z ?? animatableValue.default.z,
             });
           } else if (prop === "y") {
             handleValueChange({
-              x: (rawValue as RawVector3)?.x || 0,
+              x: (rawValue as RawVector3)?.x ?? animatableValue.default.x,
               y: v,
-              z: (rawValue as RawVector3)?.z || 0,
+              z: (rawValue as RawVector3)?.z ?? animatableValue.default.z,
             });
           } else if (prop === "z") {
             handleValueChange({
-              x: (rawValue as RawVector3)?.x || 0,
-              y: (rawValue as RawVector3)?.y || 0,
+              x: (rawValue as RawVector3)?.x ?? animatableValue.default.x,
+              y: (rawValue as RawVector3)?.y ?? animatableValue.default.z,
               z: v,
             });
           }
