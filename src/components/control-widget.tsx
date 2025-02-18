@@ -195,7 +195,6 @@ function InnerControlWidget({
           <div className="flex-1 p-2">
             <Editor
               animatableValue={animatableValue}
-              rawValueId={rawValueId}
               playing={playing}
               track={track}
               namespace={namespace}
@@ -244,7 +243,6 @@ function InnerControlWidget({
                 <div className="flex-1">
                   <Editor
                     animatableValue={animatableValue}
-                    rawValueId={rawValueId}
                     playing={playing}
                     track={track}
                     prop={prop}
@@ -271,7 +269,6 @@ function InnerControlWidget({
                 <div className="flex-1">
                   <Editor
                     animatableValue={animatableValue}
-                    rawValueId={rawValueId}
                     playing={playing}
                     track={track}
                     prop={prop}
@@ -298,7 +295,6 @@ function InnerControlWidget({
                 <div className="flex-1">
                   <Editor
                     animatableValue={animatableValue}
-                    rawValueId={rawValueId}
                     playing={playing}
                     track={track}
                     prop={prop}
@@ -336,7 +332,6 @@ const collapsibleTypes = ["vector3", "euler", "rgb", "hsl"];
 
 interface EditorProps {
   animatableValue: AnimatableValue;
-  rawValueId: string;
   namespace: string;
   prop?: string;
   playing: boolean;
@@ -348,7 +343,6 @@ interface EditorProps {
 
 function InnerEditor({
   animatableValue,
-  rawValueId,
   playing,
   track,
   namespace,
@@ -357,7 +351,7 @@ function InnerEditor({
   onEmphasisChange,
   handleValueChange,
 }: EditorProps) {
-  void namespace;
+  const rawValueId = getLookup(namespace, animatableValue.id);
 
   const rawValue: RawValue | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {
@@ -435,7 +429,7 @@ function InnerEditor({
         }
         disabled={playing}
         value={
-          (rawValue as RawVector3 | undefined)?.[prop] || (animatableValue.default[prop] as number)
+          (rawValue as RawVector3 | undefined)?.[prop] ?? (animatableValue.default[prop] as number)
         }
         min={animatableValue.constraints?.min?.[index] ?? undefined}
         max={animatableValue.constraints?.max?.[index] ?? undefined}
@@ -486,7 +480,7 @@ function InnerEditor({
         visualMax={360}
         disabled={playing}
         value={toDegrees(
-          (rawValue as RawEuler | undefined)?.[prop] || (animatableValue.default[prop] as number),
+          (rawValue as RawEuler | undefined)?.[prop] ?? (animatableValue.default[prop] as number),
         )}
         min={
           animatableValue.constraints?.min?.[index]
@@ -504,19 +498,19 @@ function InnerEditor({
           if (prop === "x") {
             handleValueChange({
               x: vr,
-              y: (rawValue as RawEuler)?.y || animatableValue.default.y,
-              z: (rawValue as RawEuler)?.z || animatableValue.default.z,
+              y: (rawValue as RawEuler)?.y ?? animatableValue.default.y,
+              z: (rawValue as RawEuler)?.z ?? animatableValue.default.z,
             });
           } else if (prop === "y") {
             handleValueChange({
-              x: (rawValue as RawEuler)?.x || animatableValue.default.x,
+              x: (rawValue as RawEuler)?.x ?? animatableValue.default.x,
               y: vr,
-              z: (rawValue as RawEuler)?.z || animatableValue.default.z,
+              z: (rawValue as RawEuler)?.z ?? animatableValue.default.z,
             });
           } else if (prop === "z") {
             handleValueChange({
-              x: (rawValue as RawEuler)?.x || animatableValue.default.x,
-              y: (rawValue as RawEuler)?.y || animatableValue.default.y,
+              x: (rawValue as RawEuler)?.x ?? animatableValue.default.x,
+              y: (rawValue as RawEuler)?.y ?? animatableValue.default.y,
               z: vr,
             });
           }
@@ -535,7 +529,7 @@ function InnerEditor({
         strictSlider
         disabled={playing}
         value={
-          (rawValue as RawRGB | undefined)?.[prop] ||
+          (rawValue as RawRGB | undefined)?.[prop] ??
           ((animatableValue.default as RawRGB)[prop] as number)
         }
         min={animatableValue.constraints?.min?.[index] ?? undefined}
@@ -547,19 +541,19 @@ function InnerEditor({
           if (prop === "r") {
             handleValueChange({
               r: v,
-              g: (rawValue as RawRGB)?.g || 0,
-              b: (rawValue as RawRGB)?.b || 0,
+              g: (rawValue as RawRGB)?.g ?? (animatableValue.default as RawRGB).g,
+              b: (rawValue as RawRGB)?.b ?? (animatableValue.default as RawRGB).b,
             });
           } else if (prop === "g") {
             handleValueChange({
-              r: (rawValue as RawRGB)?.r || 0,
+              r: (rawValue as RawRGB)?.r ?? (animatableValue.default as RawRGB).r,
               g: v,
-              b: (rawValue as RawRGB)?.b || 0,
+              b: (rawValue as RawRGB)?.b ?? (animatableValue.default as RawRGB).b,
             });
           } else if (prop === "b") {
             handleValueChange({
-              r: (rawValue as RawRGB)?.r || 0,
-              g: (rawValue as RawRGB)?.g || 0,
+              r: (rawValue as RawRGB)?.r ?? (animatableValue.default as RawRGB).r,
+              g: (rawValue as RawRGB)?.g ?? (animatableValue.default as RawRGB).g,
               b: v,
             });
           }
