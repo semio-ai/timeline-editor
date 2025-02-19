@@ -86,7 +86,7 @@ function InnerAnimatableEditor({
         value={renderTransformer((rawValue as number) ?? (animatableValue.default as number))}
         min={min}
         max={max}
-        color={track?.settings?.color}
+        color={track?.settings?.color ?? animatableValue?.pub?.color}
         onChange={(v) => handleValueChange(renderInverse(v))}
         label={track ? track.name : animatableValue.name}
         onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}

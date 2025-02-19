@@ -40,7 +40,10 @@ function InnerViolationDisplay({
       const l: Record<string, { color: string; name: string }> = {};
       trackIds.forEach((trackId: string) => {
         l[trackId] = {
-          color: state.tracks[trackId]?.settings?.color ?? "#737373",
+          color:
+            state.tracks[trackId]?.settings?.color ??
+            state.animatables[state.tracks[trackId].animatableId]?.pub?.color ??
+            "#737373",
           name: state.tracks[trackId]?.name ?? "Unknown Track",
         };
       });

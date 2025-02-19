@@ -59,7 +59,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
   const color = useAnimationStore(
     useShallow((state) => {
       if (uniqueTracks.length !== 1) return "#737373";
-      return state.tracks[uniqueTracks[0]]?.settings?.color ?? "#737373";
+      return state.tracks[uniqueTracks[0]]?.settings?.color ?? "var(--track-color)";
     }),
   );
 
