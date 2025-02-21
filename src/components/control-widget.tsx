@@ -77,7 +77,7 @@ function InnerControlWidget({
       return state.animatables[animatableId ?? ""];
     }),
   );
-  const rawValueId = getLookup(namespace, animatableValue?.id ?? loadedTrack?.id ?? "");
+  // const rawValueId = getLookup(namespace, animatableValue?.id ?? loadedTrack?.id ?? "");
   // console.log("InnerControlWidget", rawValueId);
 
   const updateControlColor = useAnimationStore(
@@ -122,6 +122,7 @@ function InnerControlWidget({
         return;
       }
       if (track) {
+        console.log("updating keypoint with updateKeypoint", value);
         updateKeypoint(track.id, { stamp: currentStamp, value });
       } else if (animatableValue) {
         createTrack(
@@ -157,7 +158,6 @@ function InnerControlWidget({
           animatableValue={animatableValue}
           namespace={namespace}
           keypoint={keypoint}
-          rawValueId={rawValueId}
           track={track}
           handleValueChange={handleValueChange}
         />
@@ -314,7 +314,6 @@ interface WrappedTrackControlProps {
   track?: Track<RawValue>;
   namespace: string;
   keypoint?: Keypoint<RawValue>;
-  rawValueId: string;
   handleValueChange: (value: RawValue) => void;
   animatableValue: AnimatableValue;
 }
@@ -324,10 +323,10 @@ function InnerWrappedTrackControl({
   track,
   namespace,
   keypoint,
-  rawValueId,
   handleValueChange,
   animatableValue,
 }: WrappedTrackControlProps) {
+  const rawValueId = getLookup(namespace, animatableValue.id);
   const rawValue: RawValue | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {
       return state.values.get(rawValueId);
@@ -349,7 +348,7 @@ function InnerWrappedTrackControl({
         if (keypoint && track) {
           removeKeypoint(track.id, keypoint.id);
         } else {
-          const value = rawValue || animatableValue.default;
+          const value = rawValue ?? animatableValue.default;
           handleValueChange(value);
         }
       }}
