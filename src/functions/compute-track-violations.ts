@@ -4,15 +4,18 @@ import {
   RawEuler,
   RawValue,
   RawVector3,
+  RawVector2,
   RawRGB,
   RawHSL,
   AnimatableVector3,
+  AnimatableVector2,
   AnimatableEuler,
   AnimatableColor,
   AnimatableNumber,
   AnimatableString,
   AnimatableBoolean,
   instanceOfRawVector3,
+  instanceOfRawVector2,
   instanceOfRawEuler,
   instanceOfRawRGB,
   instanceOfRawHSL,
@@ -23,13 +26,15 @@ import { ViolationType } from "../types";
 import type { Violation, TrackInterpolator } from "../types";
 
 export type InterpolatorCache = Map<string, Map<string, RawValue | undefined>>;
-type VecConstraints = (AnimatableVector3 | AnimatableEuler)["constraints"];
+type Vec3Constraints = (AnimatableVector3 | AnimatableEuler)["constraints"];
+type Vec2Constraints = AnimatableVector2["constraints"];
 type NumberConstraints = AnimatableNumber["constraints"];
 type StringConstraints = AnimatableString["constraints"];
 type BooleanConstraints = AnimatableBoolean["constraints"];
 type ColorConstraints = AnimatableColor["constraints"];
 type Constraints =
-  | VecConstraints
+  | Vec3Constraints
+  | Vec2Constraints
   | NumberConstraints
   | StringConstraints
   | BooleanConstraints
@@ -133,11 +138,20 @@ function valueHasUpperBoundError(value: RawValue, constraints: Constraints): boo
   }
   if (
     instanceOfRawVector3(value) ||
-    (instanceOfRawEuler(value) && (constraints as VecConstraints).max !== undefined)
+    (instanceOfRawEuler(value) && (constraints as Vec3Constraints).max !== undefined)
   ) {
     return ["x", "y", "z"].some((dim, i) => {
       const dimValue = value[dim as keyof RawVector3 | keyof RawEuler];
-      return (dimValue as number) > ((constraints as VecConstraints).max?.[i] ?? Infinity);
+      return (dimValue as number) > ((constraints as Vec3Constraints).max?.[i] ?? Infinity);
+    });
+  }
+  if (
+    instanceOfRawVector2(value) ||
+    (instanceOfRawEuler(value) && (constraints as Vec3Constraints).max !== undefined)
+  ) {
+    return ["x", "y"].some((dim, i) => {
+      const dimValue = value[dim as keyof RawVector2];
+      return (dimValue as number) > ((constraints as Vec2Constraints).max?.[i] ?? Infinity);
     });
   }
   if (instanceOfRawColor(value) && (constraints as ColorConstraints).max !== undefined) {
@@ -165,11 +179,20 @@ function valueHasLowerBoundError(value: RawValue, constraints: Constraints): boo
   }
   if (
     instanceOfRawVector3(value) ||
-    (instanceOfRawEuler(value) && (constraints as VecConstraints).min !== undefined)
+    (instanceOfRawEuler(value) && (constraints as Vec3Constraints).min !== undefined)
   ) {
     return ["x", "y", "z"].some((dim, i) => {
       const dimValue = value[dim as keyof RawVector3 | keyof RawEuler];
-      return (dimValue as number) < ((constraints as VecConstraints).min?.[i] ?? -Infinity);
+      return (dimValue as number) < ((constraints as Vec3Constraints).min?.[i] ?? -Infinity);
+    });
+  }
+  if (
+    instanceOfRawVector2(value) ||
+    (instanceOfRawEuler(value) && (constraints as Vec3Constraints).min !== undefined)
+  ) {
+    return ["x", "y"].some((dim, i) => {
+      const dimValue = value[dim as keyof RawVector2];
+      return (dimValue as number) < ((constraints as Vec2Constraints).min?.[i] ?? -Infinity);
     });
   }
   if (instanceOfRawColor(value) && (constraints as ColorConstraints).min !== undefined) {

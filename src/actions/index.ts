@@ -6,6 +6,6 @@ export * from "./create-track";
 export * from "./remove-animation";
 export * from "./remove-keypoint";
 export * from "./remove-track";
-export * from "./temp-duplicate-functions";
+export * from "./set-track-color";
 export * from "./update-keypoint";
 export * from "./update-track";

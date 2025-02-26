@@ -10,13 +10,8 @@ export interface Track<DataType extends RawValue> {
   id: string;
   name: string;
   points: Keypoint<DataType>[];
-}
-
-/**
-Old version of Tracks
-*/
-export interface TrackV1 {
-  id: string;
-  name: string;
-  points: string[];
+  animatableId: string;
+  settings?: {
+    color?: string;
+  };
 }

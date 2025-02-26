@@ -15,8 +15,6 @@ import { TIMELINE_PADDING } from "../../constants";
 import type { ScaleLinear } from "../../scale-linear";
 
 export interface TrackBackgroundProps {
-  animationId: string;
-  trackIds?: string[];
   showLine?: boolean;
   showTicks?: boolean;
   ignoreZoom?: boolean;
@@ -24,8 +22,6 @@ export interface TrackBackgroundProps {
 }
 
 function InnerTrackBackground({
-  animationId,
-  trackIds,
   showLine = true,
   showTicks = true,
   ignoreZoom = false,
@@ -38,6 +34,7 @@ function InnerTrackBackground({
     bounds: { width },
   } = useTrackContext();
 
+  const { animationId, trackIds } = useTrackContext();
   const identifier: string =
     trackIds?.join("-") ?? `default-${tickHeight.toString()}${attribute ? `-${attribute}` : ""}`;
 

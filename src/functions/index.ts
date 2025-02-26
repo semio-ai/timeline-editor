@@ -8,4 +8,3 @@ export * from "./compute-track-interpolator";
 export * from "./compute-track-violations";
 export * from "./compute-vertical-bounds";
 export * from "./compute-violation-set";
-export * from "./migrate-animation";

@@ -1,7 +1,7 @@
 import { memo, useMemo } from "react";
 import { pick } from "lodash";
 import { useShallow } from "zustand/react/shallow";
-import { RawValue, useDeep } from "@semio/utils";
+import { RawValue, useDeepSelector } from "@semio/utils";
 import { useAnimationStore, useTrackContext } from "../../hooks";
 import { AnimationData } from "../../store-types";
 import { computeFrames, computeViolationSet, computeInterpolationSegments } from "../../functions";
@@ -19,7 +19,7 @@ function InnerDataDisplay({ ignoreZoom = false }: DataDisplayProps) {
   const { trackIds } = useTrackContext();
 
   const tracks: Record<string, Track<RawValue>> = useAnimationStore(
-    useDeep(
+    useDeepSelector(
       (state: AnimationData) => pick(state.tracks, trackIds) as Record<string, Track<RawValue>>,
     ),
   );

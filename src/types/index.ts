@@ -1,16 +1,12 @@
-export type { Animation, StoredAnimation } from "./data/animation";
-export type { InstanceInfo } from "./data/instance-info";
-export type { InstancedFrameInfo } from "./data/instanced-frame-info";
-export type { AnimationInterpolator, TrackInterpolator } from "./data/interpolator";
-export type { Keyframe } from "./data/keyframe";
-export type { Keypoint } from "./data/keypoint";
-export type { Track } from "./data/track";
-export type { TrackGroup } from "./data/track-group";
-export type { Transition } from "./data/transition";
-export { TransitionVariant } from "./data/transition";
-export type { Violation } from "./data/violation";
-export type { ViolationSet } from "./data/violation-set";
-export { ViolationType } from "./data/violation";
+export type * from "./data/animation";
+export type * from "./data/instanced-frame-info";
+export type * from "./data/interpolator";
+export type * from "./data/keypoint";
+export type * from "./data/track";
+export type * from "./data/track-group";
+export type * from "./data/transition";
+export * from "./data/transition";
+export type * from "./data/violation";
+export type * from "./data/violation-set";
+export * from "./data/violation";
 export * from "./util";
-
-export * from "./data/temp-duplicate-types";

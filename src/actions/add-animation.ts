@@ -1,11 +1,11 @@
+import { RawValue } from "@semio/utils";
 import { AnimationData } from "../store-types";
-import { StoredAnimation } from "../types";
-import { migrateAnimation } from "../functions/migrate-animation";
+import { StoredAnimation, Track } from "../types";
 
 /**
  * Adds an animation to the state.
  *
- * This function takes the provided animation data, migrates it to the current format,
+ * This function takes the provided animation data,
  * and updates the state with the new animation and its tracks. If the animation ID is
  * not provided, it uses the active animation ID from the state. The function also
  * ensures that the animation is added to the list of visualized animations and sets
@@ -15,10 +15,28 @@ import { migrateAnimation } from "../functions/migrate-animation";
  * @param animationData - The data of the animation to be added. It should be an object
  *                        containing the animation details.
  */
-export function addAnimation(state: AnimationData, animationData: unknown) {
+export function addAnimation(state: AnimationData, animationData: StoredAnimation) {
+  // console.log("Adding animation", animationData);
   if (animationData && typeof animationData === "object") {
-    const animationId = (animationData as { id?: string }).id ?? state.activeAnimation;
-    const { animation, tracks } = migrateAnimation(animationData as StoredAnimation);
+    const animationId = (animationData as { id: string }).id;
+    const { animation, tracks } = {
+      animation: {
+        id: animationData.id,
+        name: animationData.name,
+        tracks: animationData.tracks.map((t) => t.id),
+        groups: animationData.groups,
+        transitions: animationData.transitions,
+        duration: animationData.duration,
+      },
+      tracks: animationData.tracks.reduce((acc, track) => ({ ...acc, [track.id]: track }), {}),
+    };
+
+    Object.values(tracks as Record<string, Track<RawValue>>).forEach((track: Track<RawValue>) => {
+      if (track.settings && track.animatableId && state.animatables[track.animatableId]?.pub) {
+        // Update the color for the animatable if necessary
+        state.animatables[track.animatableId].pub!.color = track.settings.color;
+      }
+    });
 
     state.animations[animationId] = {
       ...animation,
@@ -27,6 +45,5 @@ export function addAnimation(state: AnimationData, animationData: unknown) {
     if (animationId && !state.visualizedAnimations.includes(animationId)) {
       state.visualizedAnimations.push(animationId);
     }
-    state.activeAnimation = animationId;
   }
 }

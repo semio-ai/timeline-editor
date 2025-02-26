@@ -19,10 +19,11 @@ import { DRAG_X_CONFIG } from "../../gesture-config";
 
 export interface PlayheadCartProps {
   side: "top" | "bottom";
+  duration: number;
   ignoreZoom?: boolean;
 }
 
-function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
+function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): ReactNode {
   const {
     xScale,
     zoomScale,
@@ -40,7 +41,7 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
 
   const playheadSpring = usePlayheadSpring(ignoreZoom);
 
-  const { d: playheadCartPath, x } = usePlayheadCartPathSpring(side, ignoreZoom);
+  const { d: playheadCartPath, x } = usePlayheadCartPathSpring(side, duration, ignoreZoom);
 
   const gestureBindings = useGesture(
     {
@@ -86,15 +87,20 @@ function InnerPlayheadCart({ side, ignoreZoom }: PlayheadCartProps): ReactNode {
         )}
         y={side === "top" ? 20.5 : 0}
       />
-      <PlayheadText side={side} x={x} />
+      <PlayheadText side={side} x={x} duration={duration} />
     </animated.g>
   );
 }
 
-function PlayheadText({ side, x }: { side: "top" | "bottom"; x: SpringValue<number> }): ReactNode {
-  const duration = useAnimationStore(
-    useShallow((state: AnimationData) => state.animations[state.activeAnimation].duration),
-  );
+function PlayheadText({
+  side,
+  x,
+  duration,
+}: {
+  side: "top" | "bottom";
+  x: SpringValue<number>;
+  duration: number;
+}): ReactNode {
   const framerate = useAnimationStore(useShallow((state: AnimationData) => state.framerate));
   const stamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
   const timeDisplay = useAnimationStore(useShallow((state: AnimationData) => state.timeDisplay));
