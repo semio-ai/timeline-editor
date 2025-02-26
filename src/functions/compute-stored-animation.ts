@@ -19,6 +19,5 @@ export function computeStoredAnimation(
     groups: animation.groups,
     transitions: animation.transitions,
     duration: animation.duration,
-    instances: animation.instances,
   };
 }

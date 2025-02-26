@@ -27,7 +27,7 @@ export function updateKeypoint(
   if (existingPoint) {
     Object.assign(existingPoint, keypoint);
     return existingPoint as Keypoint<RawValue>;
-  } else if (keypoint.value) {
+  } else if (keypoint.value !== undefined) {
     const newPoint = {
       id: crypto.randomUUID(),
       stamp: usePlayerStore.getState().player.stamp,

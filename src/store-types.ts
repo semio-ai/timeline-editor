@@ -5,10 +5,8 @@ import {
   Track,
   Animation,
   AnimationInterpolator,
+  AnimationInstance,
   Violation,
-  Graph,
-  ProcessNode,
-  Control,
   StoredAnimation,
   Preview,
 } from "./types";
@@ -26,9 +24,11 @@ export interface AnimationData {
    */
   trackInterpolators: AnimationInterpolator;
   /**
-   * Active animation.
+   * A record of animation instances and their namespaces, used for specifying how
+   * values are written into state.values without overriding others.
+   * namespaceInfo: { [namespace]: { [animationInstanceId]: animationInstance } }
    */
-  activeAnimation: string;
+  namespaceInfo: Record<string, Record<string, AnimationInstance>>;
   /**
    * All animations loaded in the project.
    */
@@ -38,13 +38,9 @@ export interface AnimationData {
    */
   tracks: Record<string, Track<RawValue>>;
   /**
-   * Selected Keyframe, if any.
-   */
-  selectedKeyframe?: string;
-  /**
    * Duration of the playback region, in milliseconds.
    */
-  duration: number;
+  duration?: number;
   /**
    * Overall Framerate of all animations.
    */
@@ -96,11 +92,6 @@ export interface AnimationData {
   violations: Record<string, Violation[]>;
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
-  activeGraph: string;
-  graphs: Record<string, Graph>;
-  nodes: Record<string, ProcessNode>;
-  controls: Record<string, Control>;
-  latestControl?: Control;
   animatables: Record<string, AnimatableValue>;
 }
 
@@ -114,6 +105,13 @@ export interface AnimationActions {
    */
   updateValues: (values: Map<string, RawValue | undefined>) => void;
   /**
+   * Set an individual value
+   * @param id - The ID of the value to set.
+   * @param namespace - The namespace of the value to set.
+   * @param value - The value to set.
+   */
+  setValue: (id: string, namespace: string, value: RawValue) => void;
+  /**
    * Add a new keyframe to the animation.
    */
   createNewDefaultAnimation: () => void;
@@ -121,12 +119,12 @@ export interface AnimationActions {
    * Update the animation data.
    * @param animation - The animation data to add.
    */
-  addAnimation: (animation: unknown) => void;
+  addAnimation: (animation: StoredAnimation) => void;
   /**
    * Remove an animation by its ID.
    * @param animationId - The ID of the animation to remove.
    */
-  removeAnimation: (animationId: string) => void;
+  removeAnimation: (animationId: string, removeTracks?: boolean) => void;
   /**
    * Update a keypoint by track and keyframe/time in the animation.
    * @param trackId - The ID of the track.
@@ -174,13 +172,13 @@ export interface AnimationActions {
    * @param track - The track data to create.
    * @param animationId - The ID of the animation to add the track to.
    */
-  createTrack: (track: Partial<Track<RawValue>>, animationId?: string) => void;
+  createTrack: (track: Partial<Track<RawValue>>, animatableId: string, animationId: string) => void;
   /**
    * Remove a track from the animation.
    * @param trackId - The ID of the track to remove.
    * @param animationId - The ID of the animation to remove the track from.
    */
-  removeTrack: (trackId: string, animationId?: string) => void;
+  removeTrack: (trackId: string, animationId: string) => void;
   /**
    * Skip to the next keyframe (optionally filter by track).
    * @param animationId - The ID of the animation.
@@ -256,11 +254,6 @@ export interface AnimationActions {
    */
   unvisualizeAnimation: (animationId: string) => void;
   /**
-   * Set the active animation.
-   * @param animationId - The ID of the animation to set as active.
-   */
-  setActiveAnimation: (animationId: string) => void;
-  /**
    * Add a preview to the animation.
    * @param preview - The preview to add.
    */
@@ -290,20 +283,6 @@ export interface AnimationActions {
    * Getter for all stored animations.
    */
   getAnimationsToSave: () => StoredAnimation[];
-
-  // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
-  /**
-   * Set the value of an animatable.
-   * @param animatableId - The ID of the animatable.
-   * @param namespace - The namespace of the value.
-   * @param value - The value to set.
-   */
-  setValue: (animatableId: string, namespace: string, value: RawValue) => void;
-  /**
-   * Set multiple values of animatables.
-   * @param updates - An array of updates to set.
-   */
-  setValues: (updates: { animatableId: string; namespace: string; value: RawValue }[]) => void;
   /**
    * Update the color of a control.
    * @param controlId - The ID of the control.

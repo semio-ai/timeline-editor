@@ -51,13 +51,13 @@ export const useZoomGestures = (
   config?: UserGestureConfig,
 ) => {
   const shiftKeyPressed = useShiftKeyPressed();
-  const { bounds } = useTrackContext();
+  const { bounds, animationId } = useTrackContext();
   const updatePlayerViewport = usePlayerStore(
     useShallow((state: PlayerActions) => state.updatePlayerViewport),
   );
 
   const duration = useAnimationStore(
-    useShallow((state: AnimationData) => state.animations[state.activeAnimation].duration),
+    useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );
 
   const zoomScale = useRef<ScaleLinear>(scaleLinear({ domain: [0, 1], range: [0, 1] }));

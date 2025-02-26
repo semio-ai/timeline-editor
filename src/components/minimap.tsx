@@ -1,8 +1,14 @@
 import { ParentSize } from "@visx/responsive";
-import { TrackRender } from "../types";
+import { AnimationInstanceSettings, TrackRender } from "../types";
 import { Track } from "./track";
 
-export function Minimap({ animationId }: { animationId: string }) {
+export function Minimap({
+  animationId,
+  instanceSettings,
+}: {
+  animationId: string;
+  instanceSettings: AnimationInstanceSettings;
+}) {
   return (
     <div className="flex-1">
       <ParentSize debounceTime={10}>
@@ -18,6 +24,7 @@ export function Minimap({ animationId }: { animationId: string }) {
               animationId={animationId}
               namespaceId="default"
               trackRender={TrackRender.Key}
+              instanceSettings={instanceSettings}
             />
           );
         }}

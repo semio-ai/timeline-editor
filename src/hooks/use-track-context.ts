@@ -2,14 +2,14 @@ import { createContext, useContext, MutableRefObject, createRef } from "react";
 import { type RectReadOnly } from "react-use-measure";
 import type { AnimatableValue } from "@semio/utils";
 import { ScaleLinear, defaultScaleLinear } from "../scale-linear";
-import { type InstanceInfo, TrackRender } from "../types";
+import { type AnimationInstanceSettings, TrackRender } from "../types";
 
 /**
  * The context data for a track.
  * @param animationId - The id of the animation.
  * @param namespaceId - The id of the namespace.
  * @param attribute - The subset of the animatable value (when complex)
- * @param instanceInfo - The instance info ({@link InstanceInfo}).
+ * @param instanceInfo - The instance info ({@link AnimationInstanceSettings}).
  * @param bounds - The bounds of the track.
  * @param xScale - The x-scale of the track ({@link ScaleLinear}).
  * @param yScale - The y-scale of the track ({@link ScaleLinear}).
@@ -18,9 +18,8 @@ import { type InstanceInfo, TrackRender } from "../types";
  */
 export interface TrackContextData {
   animationId: string;
-  namespaceId: string;
+  instanceSettings: AnimationInstanceSettings;
   attribute?: string;
-  instanceInfo: InstanceInfo;
   trackIds: string[];
   bounds: RectReadOnly;
   xScale: ScaleLinear;
@@ -34,8 +33,8 @@ export interface TrackContextData {
 
 export const TrackContext = createContext<TrackContextData>({
   animationId: "",
-  namespaceId: "",
-  instanceInfo: {
+  instanceSettings: {
+    active: true,
     offset: 0,
     timescale: 1,
   },

@@ -2,15 +2,19 @@ import { ScrollArea } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import useMeasure from "react-use-measure";
 import { useAnimationStore } from "../hooks";
-import { TrackRender } from "../types";
+import { TrackRender, AnimationInstanceSettings } from "../types";
 import { TrackRow } from "./track-row";
 import { TrackGap } from "./track-gap";
 
 export function TrackList({
   animationId,
+  namespaceId,
+  instanceSettings,
   trackRender,
 }: {
   animationId: string;
+  namespaceId: string;
+  instanceSettings: AnimationInstanceSettings;
   trackRender: TrackRender;
 }) {
   const [contentRef, contentBounds] = useMeasure();
@@ -18,19 +22,20 @@ export function TrackList({
     useShallow((state) => Array.from(state.animations[animationId].tracks)),
   );
   return (
-    <ScrollArea className="dark:bg-neutral-900/50 bg-neutral-100 h-[240px]">
+    <ScrollArea className="dark:bg-layout-darkdeepinset bg-[#ededed] h-[240px]">
       <div ref={contentRef}>
         {tracks.map((track) => (
           <TrackRow
             key={track}
             animationId={animationId}
             trackIds={[track]}
-            namespaceId="default"
+            namespaceId={namespaceId}
+            instanceSettings={instanceSettings}
             trackRender={trackRender}
           />
         ))}
       </div>
-      {contentBounds.height < 240 && (
+      {tracks.length !== 0 && contentBounds.height < 240 && (
         <TrackGap animationId={animationId} height={240 - contentBounds.height} />
       )}
       {tracks.length === 0 && (

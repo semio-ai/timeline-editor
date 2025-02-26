@@ -13,7 +13,7 @@ import { TrackContext, useAnimationStore, usePlayerSubscription } from "../hooks
 import { AnimationData } from "../store-types";
 import { computeVerticalBounds } from "../functions";
 import { ScaleLinear } from "../scale-linear";
-import { Track as TrackData, InstanceInfo, Control, TrackRender } from "../types";
+import { Track as TrackData, TrackRender, AnimationInstanceSettings } from "../types";
 import {
   Playhead,
   HoverMarker,
@@ -28,6 +28,7 @@ export interface TrackProps {
   width: number;
   animationId: string;
   namespaceId: string;
+  instanceSettings: AnimationInstanceSettings;
   trackIds?: string[];
   attribute?: string;
   canZoom?: boolean;
@@ -46,6 +47,7 @@ export interface TrackProps {
  * @param width - The width of the track.
  * @param animationId - The ID of the animation.
  * @param namespaceId - The namespace of the animation.
+ * @param instanceSettings - The offset/timescale information
  * @param trackIds - The IDs of the tracks to display.
  * @param attribute - The attribute to display, used with complex datatypes.
  * @param canZoom - Whether the track can be zoomed.
@@ -60,7 +62,7 @@ export interface TrackProps {
 export function Track({
   width,
   animationId,
-  namespaceId,
+  instanceSettings,
   trackIds,
   attribute,
   trackRender,
@@ -79,10 +81,6 @@ export function Track({
     useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );
 
-  const instanceInfo: InstanceInfo = useAnimationStore(
-    useShallow((state: AnimationData) => state.animations[animationId]?.instances[namespaceId]),
-  );
-
   const trackKeys = useAnimationStore(
     useShallow((state: AnimationData) =>
       (trackIds ?? []).length > 0 ? (trackIds ?? []) : state.animations[animationId]?.tracks,
@@ -93,8 +91,10 @@ export function Track({
     useShallow((state: AnimationData) => pick(state.tracks, trackKeys)),
   ) as Record<string, TrackData<RawValue>>;
 
-  const [allControls, allAnimatables] = useAnimationStore(
-    useShallow((state: AnimationData) => [state.controls, state.animatables]),
+  const animatableIds = Object.values(tracks).map((track) => track.animatableId);
+
+  const [allAnimatables] = useAnimationStore(
+    useShallow((state: AnimationData) => [state.animatables]),
   );
 
   const verticalBounds = useMemo(() => {
@@ -104,30 +104,23 @@ export function Track({
       trackRender === TrackRender.Transition
     )
       return [0, 1];
-    const animatableValues = Object.values(allControls)
-      .filter((control: Control) => trackKeys.includes(control.writeId))
-      .map((control: Control) => allAnimatables[control.readId]);
+
+    const animatableValues = Object.values(allAnimatables).filter((animatable) =>
+      animatableIds.includes(animatable.id),
+    );
+
     return computeVerticalBounds(tracks, animatableValues, attribute);
-  }, [trackKeys, trackRender, tracks, allControls, allAnimatables, attribute]);
+  }, [trackKeys.length, trackRender, allAnimatables, tracks, attribute, animatableIds]);
+  // console.log("animatableIds", animatableIds, allAnimatables);
 
   const trackType = useMemo(() => {
-    if (trackKeys.length !== 1) {
-      const types = new Set<AnimatableValue["type"]>();
-      Object.values(allControls)
-        .filter((control: Control) => trackKeys.includes(control.writeId))
-        .forEach((control: Control) =>
-          types.add(allAnimatables[control.readId].type as AnimatableValue["type"]),
-        );
-      return types.size === 1
-        ? types.values().next().value!
-        : ("multiple" as AnimatableValue["type"] | "multiple");
-    } else {
-      const control = Object.values(allControls).find((c: Control) => trackKeys[0] === c.writeId);
-      if (!control) return "multiple";
+    const types = new Set<AnimatableValue["type"]>();
+    animatableIds.forEach((id) => types.add(allAnimatables[id]?.type as AnimatableValue["type"]));
 
-      return allAnimatables[control.readId].type;
-    }
-  }, [allAnimatables, allControls, trackKeys]);
+    return types.size === 1
+      ? types.values().next().value!
+      : ("multiple" as AnimatableValue["type"] | "multiple");
+  }, [allAnimatables, animatableIds]);
 
   const resolvedRender = useMemo(() => {
     if (trackKeys.length !== 1) return TrackRender.Key;
@@ -175,8 +168,7 @@ export function Track({
     <TrackContext.Provider
       value={{
         animationId,
-        namespaceId,
-        instanceInfo,
+        instanceSettings,
         attribute,
         trackIds: trackKeys,
         bounds: activeRegionBounds,
@@ -205,12 +197,10 @@ export function Track({
             className="h-[30px]"
           />
           <TrackBackground
-            animationId={animationId}
             showLine={canZoom && showBackground}
             ignoreZoom={!canZoom}
             tickHeight={30}
             showTicks={canZoom}
-            trackIds={trackIds}
           />
 
           {/* Gesture Detector */}

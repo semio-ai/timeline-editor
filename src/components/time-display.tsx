@@ -5,7 +5,7 @@ import { pick } from "lodash";
 import { PlayerActions, usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../hooks";
 import type { AnimationActions } from "../store-types";
-import { SemanticTime } from "../types";
+import { AnimationInstance, SemanticTime } from "../types";
 import { computeNextTime, computePreviousTime } from "../functions";
 
 export interface TimeDisplayProps {
@@ -33,8 +33,17 @@ export function InnerTimeDisplay({
   const duration = useAnimationStore(useShallow((state) => state.animations[animationId].duration));
 
   const tracks = useAnimationStore(useShallow((state) => pick(state.tracks, trackIds)));
-  const namespaces = useAnimationStore(
-    useShallow((state) => pick(state.animations[animationId].instances, namespaceIds)),
+  const instances = useAnimationStore(
+    useShallow((state) => {
+      const instanceInfo: Record<string, AnimationInstance> = {};
+      Object.entries(state.namespaceInfo).forEach(([n, i]) => {
+        if (namespaceIds.includes(n)) {
+          Object.assign(instanceInfo, i);
+        }
+      });
+      return instanceInfo;
+      // pick(state.animations[animationId].instances, namespaceIds)),
+    }),
   );
 
   const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
@@ -44,12 +53,12 @@ export function InnerTimeDisplay({
   const stamp = usePlayerStore(useShallow((state) => state.player.stamp));
 
   const prevKeyframeTime = useMemo(() => {
-    return computePreviousTime(tracks, namespaces, stamp, bounds, true);
-  }, [stamp, bounds, tracks, namespaces]);
+    return computePreviousTime(tracks, instances, stamp, bounds, true);
+  }, [stamp, bounds, tracks, instances]);
 
   const nextKeyframeTime = useMemo(() => {
-    return computeNextTime(tracks, namespaces, stamp, bounds, true);
-  }, [stamp, bounds, tracks, namespaces]);
+    return computeNextTime(tracks, instances, stamp, bounds, true);
+  }, [stamp, bounds, tracks, instances]);
 
   const { resetPlayer, updatePlayerBounds } = usePlayerStore(
     useShallow((state: PlayerActions) => ({

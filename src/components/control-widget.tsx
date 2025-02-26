@@ -1,11 +1,8 @@
-import { useState, memo } from "react";
+import { useState, memo, useCallback, ReactNode } from "react";
 import {
-  SliderNumberField,
-  Size,
   Button,
   StaticIcon,
   Variant,
-  TextField,
   Dropdown,
   NestedLabel,
   NestedColorPicker,
@@ -13,28 +10,32 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@semio/ui";
+import { getLookup, RawValue, AnimatableValue, usePlayerStore, PlayerData } from "@semio/utils";
 import {
-  getLookup,
-  RawValue,
-  RawVector3,
-  RawEuler,
-  AnimatableValue,
-  toDegrees,
-  toRadians,
-  usePlayerStore,
-  PlayerData,
-} from "@semio/utils";
-import { IconHash, IconDotsVertical, IconChevronDown } from "@tabler/icons-react";
+  IconHash,
+  IconDotsVertical,
+  IconChevronDown,
+  IconAngle,
+  IconRuler2,
+} from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
-import { type Keypoint, type Track, type Control } from "../types";
+import {
+  type Keypoint,
+  type Track,
+  type AnimationInstanceSettings,
+  type Animation,
+} from "../types";
 import { useAnimationStore } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { computeWorldStamp } from "../functions";
 import { TrackControl } from "./track-control";
+import { AnimatableEditor } from "./animatable-editor";
 
 export interface ControlWidgetProps {
-  animationId: string;
-  animatableId: string;
+  animationId?: string;
+  animatableId?: string;
+  instanceSettings: AnimationInstanceSettings;
+  trackId?: string;
   namespace: string;
   onExpandedChange?: (expanded: boolean) => void;
   emphasis?: boolean;
@@ -44,6 +45,8 @@ export interface ControlWidgetProps {
 function InnerControlWidget({
   animationId,
   animatableId,
+  instanceSettings,
+  trackId,
   namespace,
   onExpandedChange,
   emphasis,
@@ -51,39 +54,93 @@ function InnerControlWidget({
 }: ControlWidgetProps) {
   const [open, setOpen] = useState(false);
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
+  const animation: Animation | undefined = useAnimationStore(
+    useShallow((state) => (animationId ? state.animations[animationId] : undefined)),
+  );
+
+  const loadedTrack: Track<RawValue> | undefined = useAnimationStore(
+    useShallow((state) => state.tracks[trackId ?? ""]),
+  );
+
   const animatableValue = useAnimationStore(
-    useShallow((state: AnimationData) => state.animatables[animatableId]),
+    useShallow((state: AnimationData) => {
+      if (loadedTrack) {
+        const animatableByTrack = state.animatables[loadedTrack.animatableId ?? ""];
+        if (animatableByTrack) {
+          return animatableByTrack;
+        } else if (state.animatables[animatableId ?? ""]) {
+          return state.animatables[animatableId ?? ""];
+        } else {
+          return undefined;
+        }
+      }
+      return state.animatables[animatableId ?? ""];
+    }),
   );
-
-  const instanceInfo = useAnimationStore(
-    useShallow((state: AnimationData) => state.animations[animationId].instances[namespace]),
-  );
-
-  const rawValueId = getLookup(namespace, animatableId);
+  // const rawValueId = getLookup(namespace, animatableValue?.id ?? loadedTrack?.id ?? "");
+  // console.log("InnerControlWidget", rawValueId);
 
   const updateControlColor = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateControlColor),
   );
-
-  const control = useAnimationStore(
-    useShallow((state: AnimationData) =>
-      Object.values(state.controls).find((c: Control) => c.readId === animatableId),
-    ),
-  );
+  const setValue = useAnimationStore(useShallow((state) => state.setValue));
 
   const track: Track<RawValue> | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {
-      return state.tracks[control?.writeId || ""] || undefined;
+      if (!animation) return undefined;
+      return (
+        loadedTrack ??
+        Object.values(state.tracks)
+          .filter((t) => animation.tracks.includes(t.id))
+          .find((t) => t.animatableId === animatableId)
+      );
     }),
   );
 
   const keypoint = usePlayerStore(
     useShallow((state: PlayerData) => {
       return track?.points.find(
-        (p) => computeWorldStamp(p.stamp, instanceInfo) === state.player.stamp,
+        (p) =>
+          computeWorldStamp(p.stamp, instanceSettings.timescale, instanceSettings.offset) ===
+          state.player.stamp,
       );
     }),
   );
+
+  const createTrack = useAnimationStore(useShallow((state: AnimationActions) => state.createTrack));
+  const updateKeypoint = useAnimationStore(
+    useShallow((state: AnimationActions) => state.updateKeypoint),
+  );
+
+  const handleValueChange = useCallback(
+    (value: RawValue) => {
+      const currentStamp = usePlayerStore.getState().player.stamp;
+      if (!animationId) {
+        if (animatableValue) {
+          setValue(animatableValue.id, namespace, value);
+        }
+        return;
+      }
+      if (track) {
+        console.log("updating keypoint with updateKeypoint", value);
+        updateKeypoint(track.id, { stamp: currentStamp, value });
+      } else if (animatableValue) {
+        createTrack(
+          {
+            animatableId: animatableValue.id,
+            points: [{ id: crypto.randomUUID(), stamp: currentStamp, value }],
+          },
+          animatableValue.id,
+          animationId,
+        );
+      }
+    },
+    [track, animatableValue, updateKeypoint, createTrack, animationId, setValue, namespace],
+  );
+
+  if (!animatableValue) {
+    return <div> No animatable value</div>;
+  }
 
   return (
     <CollapsibleRoot
@@ -93,7 +150,7 @@ function InnerControlWidget({
         setOpen(v);
         onExpandedChange?.(v);
       }}
-      disabled={animatableValue.type !== "vector3" && animatableValue.type !== "euler"}
+      disabled={!animatableValue || !collapsibleTypes.includes(animatableValue.type)}
     >
       <div className="flex flex-1 flex-row items-center h-[30px] overflow-hidden">
         <WrappedTrackControl
@@ -101,17 +158,16 @@ function InnerControlWidget({
           animatableValue={animatableValue}
           namespace={namespace}
           keypoint={keypoint}
-          rawValueId={rawValueId}
           track={track}
-          control={control}
+          handleValueChange={handleValueChange}
         />
         <div className="flex flex-1 flex-row items-center">
-          {animatableValue.type === "vector3" || animatableValue.type === "euler" ? (
+          {collapsibleTypes.includes(animatableValue.type) ? (
             <CollapsibleTrigger asChild>
               <Button
                 size="fit"
                 invert
-                color={control?.settings?.color}
+                color={track?.settings?.color ?? animatableValue.pub?.color}
                 className="w-3 h-3 pl-2"
                 leftIcon={
                   <IconChevronDown size="13px" className={open ? "rotate-180" : "rotate-0"} />
@@ -119,21 +175,23 @@ function InnerControlWidget({
               />
             </CollapsibleTrigger>
           ) : (
-            <StaticIcon size="fit" className="w-3 h-3 pl-2" color={control?.settings?.color}>
-              {animatableValue.type === "number" && <IconHash size="13px" />}
+            <StaticIcon
+              size="fit"
+              className="w-3 h-3 pl-2"
+              color={track?.settings?.color ?? animatableValue.pub?.color}
+            >
+              {getIcon(animatableValue.pub?.units as string | undefined)}
             </StaticIcon>
           )}
           <div className="flex-1 p-2">
-            <Editor
-              animationId={animationId}
+            <AnimatableEditor
               animatableValue={animatableValue}
-              control={control}
-              rawValueId={rawValueId}
               playing={playing}
               track={track}
               namespace={namespace}
               emphasis={emphasis}
               onEmphasisChange={onEmphasisChange}
+              handleValueChange={handleValueChange}
             />
           </div>
           <div className="min-w-6 flex items-center justify-around mr-1">
@@ -153,10 +211,10 @@ function InnerControlWidget({
               <NestedLabel>Control Settings</NestedLabel>
               <NestedColorPicker
                 variant={Variant.Info}
-                disabled={!control}
-                value={control?.settings?.color || "#737373"}
+                disabled={!track}
+                value={track?.settings?.color || "#737373"}
                 onChange={(v) => {
-                  updateControlColor(control?.id || "", v);
+                  updateControlColor(track?.id || "", v);
                 }}
               />
             </Dropdown>
@@ -169,26 +227,72 @@ function InnerControlWidget({
             {["x", "y", "z"].map((prop) => (
               <div key={prop} className="flex p-1 items-center h-[30px]">
                 <div className="w-11" />
-                <StaticIcon
-                  size="fit"
-                  className="w-3 h-3 pl-1 pr-2"
-                  color={control?.settings?.color}
-                >
-                  <IconHash size="13px" />
+                <StaticIcon size="fit" className="w-3 h-3 pl-1 pr-2" color={track?.settings?.color}>
+                  {getIcon(animatableValue.pub?.units as string | undefined)}
                 </StaticIcon>
 
                 <div className="flex-1">
-                  <Editor
-                    animationId={animationId}
+                  <AnimatableEditor
                     animatableValue={animatableValue}
-                    control={control}
-                    rawValueId={rawValueId}
                     playing={playing}
                     track={track}
                     prop={prop}
                     namespace={namespace}
                     emphasis={emphasis}
                     onEmphasisChange={onEmphasisChange}
+                    handleValueChange={handleValueChange}
+                  />
+                </div>
+                <div className="min-w-8" />
+              </div>
+            ))}
+          </>
+        )}
+        {animatableValue.type === "rgb" && (
+          <>
+            {["r", "g", "b"].map((prop) => (
+              <div key={prop} className="flex p-1 items-center h-[30px]">
+                <div className="w-11" />
+                <StaticIcon size="fit" className="w-3 h-3 pl-1 pr-2" color={track?.settings?.color}>
+                  {getIcon(animatableValue.pub?.units as string | undefined)}
+                </StaticIcon>
+
+                <div className="flex-1">
+                  <AnimatableEditor
+                    animatableValue={animatableValue}
+                    playing={playing}
+                    track={track}
+                    prop={prop}
+                    namespace={namespace}
+                    emphasis={emphasis}
+                    onEmphasisChange={onEmphasisChange}
+                    handleValueChange={handleValueChange}
+                  />
+                </div>
+                <div className="min-w-8" />
+              </div>
+            ))}
+          </>
+        )}
+        {animatableValue.type === "hsl" && (
+          <>
+            {["h", "s", "l"].map((prop) => (
+              <div key={prop} className="flex p-1 items-center h-[30px]">
+                <div className="w-11" />
+                <StaticIcon size="fit" className="w-3 h-3 pl-1 pr-2" color={track?.settings?.color}>
+                  {getIcon(animatableValue.pub?.units as string | undefined)}
+                </StaticIcon>
+
+                <div className="flex-1">
+                  <AnimatableEditor
+                    animatableValue={animatableValue}
+                    playing={playing}
+                    track={track}
+                    prop={prop}
+                    namespace={namespace}
+                    emphasis={emphasis}
+                    onEmphasisChange={onEmphasisChange}
+                    handleValueChange={handleValueChange}
                   />
                 </div>
                 <div className="min-w-8" />
@@ -203,251 +307,49 @@ function InnerControlWidget({
 
 export const ControlWidget = memo(InnerControlWidget);
 
-const vectorIndexLookup = {
-  x: 0,
-  y: 1,
-  z: 2,
-};
-
-interface EditorProps {
-  animationId: string;
-  animatableValue: AnimatableValue;
-  control?: Control;
-  rawValueId: string;
-  namespace: string;
-  prop?: string;
-  playing: boolean;
-  track?: Track<RawValue>;
-  emphasis?: boolean;
-  onEmphasisChange?: (v: boolean) => void;
-}
-
-function InnerEditor({
-  animatableValue,
-  control,
-  rawValueId,
-  playing,
-  track,
-  namespace,
-  prop,
-  emphasis,
-  onEmphasisChange,
-}: EditorProps) {
-  const animatableId = animatableValue.id;
-
-  const rawValue: RawValue | undefined = useAnimationStore(
-    useShallow((state: AnimationData) => {
-      return state.values.get(rawValueId);
-    }),
-  );
-
-  const setValue = useAnimationStore(useShallow((state: AnimationActions) => state.setValue));
-
-  const updateTrack = useAnimationStore(useShallow((state: AnimationActions) => state.updateTrack));
-
-  if (animatableValue.type === "number") {
-    return (
-      <SliderNumberField
-        size={Size.Xs}
-        strictText={false}
-        strictSlider={
-          animatableValue.constraints.min !== undefined &&
-          animatableValue.constraints.max !== undefined &&
-          animatableValue.constraints.min !== -Infinity &&
-          animatableValue.constraints.max !== Infinity
-        }
-        disabled={playing}
-        value={(rawValue as number) ?? (animatableValue.default as number)}
-        min={animatableValue.constraints.min}
-        max={animatableValue.constraints.max}
-        color={control?.settings?.color}
-        onChange={(v) => {
-          setValue(animatableId, namespace, v);
-        }}
-        label={track ? track.name : animatableValue.name}
-        onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
-        emphasis={emphasis}
-        onEmphasisChange={onEmphasisChange}
-      />
-    );
-  } else if (animatableValue.type === "string") {
-    return (
-      <TextField
-        value={(rawValue as string) || (animatableValue.default as string)}
-        readOnly={playing}
-        size={Size.Xs}
-        onChange={(v) => {
-          setValue(animatableId, namespace, v);
-        }}
-      />
-    );
-  } else if (animatableValue.type === "vector3" && !prop) {
-    return (
-      <TextField
-        value={track ? track.name : animatableValue.name}
-        readOnly={playing || !track}
-        size={Size.Xs}
-        onChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
-      />
-    );
-  } else if (animatableValue.type === "euler" && !prop) {
-    return (
-      <TextField
-        value={track ? track.name : animatableValue.name}
-        readOnly={playing || !track}
-        size={Size.Xs}
-        onChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
-      />
-    );
-  } else if (animatableValue.type === "vector3" && (prop === "x" || prop === "y" || prop === "z")) {
-    const index = vectorIndexLookup[prop];
-    return (
-      <SliderNumberField
-        size={Size.Xs}
-        strictText={false}
-        strictSlider={
-          animatableValue.constraints?.min?.[index] !== -Infinity &&
-          animatableValue.constraints?.max?.[index] !== Infinity &&
-          animatableValue.constraints?.min?.[index] !== undefined &&
-          animatableValue.constraints?.max?.[index] !== undefined
-        }
-        disabled={playing}
-        value={
-          (rawValue as RawVector3 | undefined)?.[prop] || (animatableValue.default[prop] as number)
-        }
-        min={animatableValue.constraints?.min?.[index] ?? undefined}
-        max={animatableValue.constraints?.max?.[index] ?? undefined}
-        color={control?.settings?.color}
-        onChange={(v) => {
-          if (prop === "x") {
-            setValue(animatableId, namespace, {
-              x: v,
-              y: (rawValue as RawVector3)?.y || 0,
-              z: (rawValue as RawVector3)?.z || 0,
-            });
-          } else if (prop === "y") {
-            setValue(animatableId, namespace, {
-              x: (rawValue as RawVector3)?.x || 0,
-              y: v,
-              z: (rawValue as RawVector3)?.z || 0,
-            });
-          } else if (prop === "z") {
-            setValue(animatableId, namespace, {
-              x: (rawValue as RawVector3)?.x || 0,
-              y: (rawValue as RawVector3)?.y || 0,
-              z: v,
-            });
-          }
-        }}
-        label={prop}
-        emphasis={emphasis}
-        onEmphasisChange={onEmphasisChange}
-      />
-    );
-  } else if (animatableValue.type === "euler" && (prop === "x" || prop === "y" || prop === "z")) {
-    const index = vectorIndexLookup[prop];
-    return (
-      <SliderNumberField
-        size={Size.Xs}
-        units="°"
-        strictText={false}
-        strictSlider={
-          animatableValue.constraints?.min?.[index] !== -Infinity &&
-          animatableValue.constraints?.max?.[index] !== Infinity &&
-          animatableValue.constraints?.min?.[index] !== undefined &&
-          animatableValue.constraints?.max?.[index] !== undefined
-        }
-        disabled={playing}
-        value={toDegrees(
-          (rawValue as RawEuler | undefined)?.[prop] || (animatableValue.default[prop] as number),
-        )}
-        min={
-          animatableValue.constraints?.min?.[index]
-            ? toDegrees(animatableValue.constraints?.min?.[index])
-            : undefined
-        }
-        max={
-          animatableValue.constraints?.max?.[index]
-            ? toDegrees(animatableValue.constraints?.max?.[index])
-            : undefined
-        }
-        color={control?.settings?.color}
-        onChange={(v) => {
-          const vr = toRadians(v);
-          if (prop === "x") {
-            setValue(animatableId, namespace, {
-              x: vr,
-              y: (rawValue as RawEuler)?.y || animatableValue.default.y,
-              z: (rawValue as RawEuler)?.z || animatableValue.default.z,
-            });
-          } else if (prop === "y") {
-            setValue(animatableId, namespace, {
-              x: (rawValue as RawEuler)?.x || animatableValue.default.x,
-              y: vr,
-              z: (rawValue as RawEuler)?.z || animatableValue.default.z,
-            });
-          } else if (prop === "z") {
-            setValue(animatableId, namespace, {
-              x: (rawValue as RawEuler)?.x || animatableValue.default.x,
-              y: (rawValue as RawEuler)?.y || animatableValue.default.y,
-              z: vr,
-            });
-          }
-        }}
-        label={prop}
-        emphasis={emphasis}
-        onEmphasisChange={onEmphasisChange}
-      />
-    );
-  } else {
-    return null;
-  }
-}
-
-const Editor = memo(InnerEditor);
+const collapsibleTypes = ["vector3", "euler", "rgb", "hsl"];
 
 interface WrappedTrackControlProps {
-  animationId: string;
+  animationId?: string;
   track?: Track<RawValue>;
-  control?: Control;
   namespace: string;
   keypoint?: Keypoint<RawValue>;
-  rawValueId: string;
+  handleValueChange: (value: RawValue) => void;
   animatableValue: AnimatableValue;
 }
 
 function InnerWrappedTrackControl({
   animationId,
   track,
-  control,
   namespace,
   keypoint,
-  rawValueId,
+  handleValueChange,
   animatableValue,
 }: WrappedTrackControlProps) {
+  const rawValueId = getLookup(namespace, animatableValue.id);
   const rawValue: RawValue | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {
       return state.values.get(rawValueId);
     }),
   );
-  const setValue = useAnimationStore(useShallow((state: AnimationActions) => state.setValue));
   const removeKeypoint = useAnimationStore(
     useShallow((state: AnimationActions) => state.removeKeypoint),
   );
 
   return (
     <TrackControl
+      disabled={!animationId}
       animationId={animationId}
       namespaceId={namespace}
       trackIds={track ? [track.id] : []}
       filled={keypoint !== undefined}
-      color={control?.settings?.color}
+      color={track?.settings?.color ?? animatableValue.pub?.color}
       onHexClick={() => {
         if (keypoint && track) {
           removeKeypoint(track.id, keypoint.id);
         } else {
-          const value = rawValue || animatableValue.default;
-          setValue(animatableValue.id, namespace, value);
+          const value = rawValue ?? animatableValue.default;
+          handleValueChange(value);
         }
       }}
     />
@@ -455,3 +357,13 @@ function InnerWrappedTrackControl({
 }
 
 const WrappedTrackControl = memo(InnerWrappedTrackControl);
+
+function getIcon(unitString: string | undefined): ReactNode {
+  if (unitString === "rad") {
+    return <IconAngle size="13px" />;
+  } else if (unitString === "m") {
+    return <IconRuler2 size="13px" />;
+  } else {
+    return <IconHash size="13px" />;
+  }
+}

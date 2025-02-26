@@ -1,12 +1,12 @@
 import { RawValue } from "@semio/utils";
-import type { Track, InstanceInfo } from "../types";
+import type { Track, AnimationInstance } from "../types";
 import { computeStamps } from "./compute-stamps";
 
 /**
  * Computes the next timestamp based on the provided tracks, instances, and current timestamp.
  *
  * @param tracks - A record of track objects, where each key is a string identifier and the value is a Track of RawValue.
- * @param instances - A record of instance information, where each key is a string identifier and the value is an InstanceInfo object.
+ * @param instances - A record of instance information, where each key is a string identifier and the value is an AnimationInstance object.
  * @param stamp - The current timestamp from which to compute the next timestamp.
  * @param bounds - A tuple representing the lower and upper bounds for the timestamps.
  * @param respectBounds - A boolean indicating whether to respect the upper bound when computing the next timestamp.
@@ -14,7 +14,7 @@ import { computeStamps } from "./compute-stamps";
  */
 export function computeNextTime(
   tracks: Record<string, Track<RawValue>>,
-  instances: Record<string, InstanceInfo>,
+  instances: Record<string, AnimationInstance>,
   stamp: number,
   bounds: [number, number],
   respectBounds: boolean,
@@ -30,7 +30,7 @@ export function computeNextTime(
  * Computes the previous timestamp from a given stamp within the provided tracks and instances.
  *
  * @param tracks - A record of track objects, where each key is a string identifier and the value is a Track of RawValue.
- * @param instances - A record of instance information, where each key is a string identifier and the value is an InstanceInfo object.
+ * @param instances - A record of instance information, where each key is a string identifier and the value is an AnimationInstance object.
  * @param stamp - The current timestamp from which to compute the previous time.
  * @param bounds - A tuple representing the lower and upper bounds within which the previous timestamp should be found.
  * @param respectBounds - A boolean indicating whether to respect the bounds when finding the previous timestamp.
@@ -38,7 +38,7 @@ export function computeNextTime(
  */
 export function computePreviousTime(
   tracks: Record<string, Track<RawValue>>,
-  instances: Record<string, InstanceInfo>,
+  instances: Record<string, AnimationInstance>,
   stamp: number,
   bounds: [number, number],
   respectBounds: boolean,
