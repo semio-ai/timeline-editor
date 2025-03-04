@@ -294,6 +294,13 @@ export interface AnimationActions {
    * @param preferences - The preferences to set.
    */
   setPreferences: (preferences: Partial<AnimationData["preferences"]>) => void;
+  /**
+   * Update the duration of an animation.
+   * @param animationId - The ID of the animation.
+   * @param duration - The duration to set.
+   * @param rescale - Whether to rescale the animation.
+   */
+  updateAnimationDuration: (animationId: string, duration: number, rescale: boolean) => void;
 }
 
 /**
