@@ -1,10 +1,9 @@
 import { useRef, useCallback } from "react";
-import { SpringValue, useSpringValue } from "@react-spring/web";
+import { MotionValue, useMotionValue } from "motion/react";
 import { PlayerData, RawValue } from "@semio/utils";
 import { scaleLinear } from "@visx/scale";
 import { shallow } from "zustand/shallow";
 import { type ScaleLinear } from "../scale-linear";
-import { springConfig } from "../spring-config";
 import { useTrackContext } from "./use-track-context";
 import { usePlayerSubscription } from "./use-player-subscription";
 
@@ -30,7 +29,7 @@ export function useBezierPathSpring(
   value2: RawValue,
   removeBuffer?: boolean,
   filled?: boolean,
-): SpringValue<string> {
+): MotionValue<string> {
   let pathType: PathType = showAsLine ? PathType.Line : PathType.Bezier;
   if (filled && pathType === PathType.Bezier) {
     pathType = PathType.BezierFilled;
@@ -51,7 +50,7 @@ export function useBezierPathSpring(
     }),
   );
 
-  const pathSpring = useSpringValue<string>(
+  const pathSpring = useMotionValue<string>(
     getPath(
       pathType,
       xScale(zoomScale.current(stamp1)) + buffer,
@@ -60,7 +59,6 @@ export function useBezierPathSpring(
       yScale(pathType === PathType.Line ? 0.5 : (value2 as number)),
       height,
     ),
-    { config: springConfig },
   );
 
   const onViewportChange = useCallback(
@@ -70,7 +68,7 @@ export function useBezierPathSpring(
         range: [0, 1],
       });
       zoomScale.current = scale;
-      void pathSpring.set(
+      pathSpring.jump(
         getPath(
           pathType,
           xScale(zoomScale.current(stamp1)) + buffer,

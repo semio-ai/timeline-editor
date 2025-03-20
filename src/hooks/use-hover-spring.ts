@@ -1,11 +1,10 @@
 import { useRef, useCallback } from "react";
-import { SpringValue, useSpringValue } from "@react-spring/web";
+import { MotionValue, useMotionValue } from "motion/react";
 import { scaleLinear } from "@visx/scale";
 import { shallow } from "zustand/shallow";
 import type { AnimationData } from "../store-types";
 import { SemanticTime } from "../types";
 import { type ScaleLinear } from "../scale-linear";
-import { springConfig } from "../spring-config";
 import { useStoreSubscription } from "./use-store-subscription";
 import { usePlayerSubscription } from "./use-player-subscription";
 
@@ -14,7 +13,7 @@ import { usePlayerSubscription } from "./use-player-subscription";
  * @param ignoreZoom - A boolean that determines if the zoom should be ignored when setting the hoverpoint.
  * @returns An object containing the hoverpoint spring, a setter for the hoverpoint, and a function to clear the hoverpoint.
  */
-export function useHoverSpring(ignoreZoom?: boolean): SpringValue<number | undefined> {
+export function useHoverSpring(ignoreZoom?: boolean): MotionValue<number | undefined> {
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
       domain: [0, 1],
@@ -24,9 +23,7 @@ export function useHoverSpring(ignoreZoom?: boolean): SpringValue<number | undef
 
   const storedHoverpoint = useRef<number | undefined>(undefined);
 
-  const hoverpointSpring = useSpringValue<number | undefined>(undefined, {
-    config: springConfig,
-  });
+  const hoverpointSpring = useMotionValue<number | undefined>(undefined);
 
   const onViewportChange = useCallback(
     (viewport: [number, number]) => {
@@ -36,9 +33,9 @@ export function useHoverSpring(ignoreZoom?: boolean): SpringValue<number | undef
       });
       zoomScale.current = scale;
       if (storedHoverpoint.current) {
-        void hoverpointSpring.start(scale(storedHoverpoint.current));
+        hoverpointSpring.jump(scale(storedHoverpoint.current));
       } else {
-        void hoverpointSpring.set(undefined);
+        hoverpointSpring.jump(undefined);
       }
     },
     [hoverpointSpring, zoomScale, ignoreZoom],
@@ -49,13 +46,13 @@ export function useHoverSpring(ignoreZoom?: boolean): SpringValue<number | undef
       state.previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp,
     (hoverpoint: number | undefined, pastHoverpoint: number | undefined) => {
       if (pastHoverpoint === undefined && hoverpoint !== undefined) {
-        void hoverpointSpring.set(zoomScale.current(hoverpoint));
+        hoverpointSpring.jump(zoomScale.current(hoverpoint));
         storedHoverpoint.current = hoverpoint;
       } else if (hoverpoint !== undefined) {
-        void hoverpointSpring.start(zoomScale.current(hoverpoint));
+        hoverpointSpring.jump(zoomScale.current(hoverpoint));
         storedHoverpoint.current = hoverpoint;
       } else {
-        void hoverpointSpring.set(undefined);
+        hoverpointSpring.jump(undefined);
         storedHoverpoint.current = hoverpoint;
       }
     },

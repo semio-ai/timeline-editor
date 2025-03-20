@@ -1,4 +1,3 @@
-export * from "./animated-text";
 export * from "./bounds-cart";
 export * from "./bounds-display";
 export * from "./data-display";

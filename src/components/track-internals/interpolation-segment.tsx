@@ -1,6 +1,6 @@
 import { type ReactNode, memo } from "react";
 import { clsx } from "clsx";
-import { animated } from "@react-spring/web";
+import { motion } from "motion/react";
 import { RawValue, AnimatableValue, RawVector3, RawColor, RawEuler } from "@semio/utils";
 import { useTrackContext, useBezierPathSpring } from "../../hooks";
 import { InstancedFrameInfo, TrackRender } from "../../types";
@@ -53,7 +53,7 @@ function InnerInterpolationSegment({
 
   return (
     <g>
-      <animated.path
+      <motion.path
         key="fill"
         d={pathFillSpring}
         className={clsx(
@@ -64,7 +64,7 @@ function InnerInterpolationSegment({
           "group-aria-expanded:opacity-50 group-hover:opacity-50",
         )}
       />
-      <animated.path
+      <motion.path
         key="line"
         strokeDasharray={pseudoRegion ? "5 5" : "none"}
         strokeDashoffset={pseudoRegion ? "2.5" : "none"}

@@ -12,7 +12,7 @@ import {
 import { clsx } from "clsx";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
-import { animated } from "@react-spring/web";
+import { motion, useTransform } from "motion/react";
 import { closestFrame, PlayerActions, useDeepSelector, usePlayerStore } from "@semio/utils";
 import { TrackedTooltip, useTrackedTooltip } from "@semio/ui";
 import { uniq, clamp } from "lodash";
@@ -159,6 +159,9 @@ function InnerViolationSegmentDisplay({
     },
   });
 
+  const x = useTransform(left, (ls) => xScale(ls));
+  const w = useTransform(width, (ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING));
+
   return (
     <>
       <TrackedTooltip
@@ -231,11 +234,11 @@ function InnerViolationSegmentDisplay({
           </div>
         </div>
       </TrackedTooltip>
-      <animated.rect
+      <motion.rect
         ref={elementRefs.triggerRef}
-        x={left.to((ls) => xScale(ls))}
+        x={x}
         onDoubleClick={doubleClickHandler as any as MouseEventHandler}
-        width={width.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
+        width={w}
         y={0}
         fill={color}
         className={clsx("h-full opacity-50 hover:opacity-75")}

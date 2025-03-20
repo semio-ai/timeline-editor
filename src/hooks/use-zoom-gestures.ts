@@ -1,4 +1,4 @@
-import { useCallback, useRef, type MutableRefObject } from "react";
+import { useCallback, useRef, type RefObject } from "react";
 import {
   type AnyHandlerEventTypes,
   FullGestureState,
@@ -46,7 +46,7 @@ import { usePlayerSubscription } from "./use-player-subscription";
  * - `useGesture`: Hook from `@use-gesture/react` to bind gesture handlers.
  */
 export const useZoomGestures = (
-  ref: MutableRefObject<EventTarget>,
+  ref: RefObject<EventTarget>,
   otherGestureHandlers?: GestureHandlers<AnyHandlerEventTypes>,
   config?: UserGestureConfig,
 ) => {

@@ -1,18 +1,17 @@
-import { memo, useState, useRef, MutableRefObject } from "react";
+import { memo, useState, useRef, MutableRefObject, RefObject } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { animated, useSpring } from "@react-spring/web";
+import { motion, useTransform } from "motion/react";
 import { closestFrame, usePlayerStore } from "@semio/utils";
 import { clsx } from "clsx";
 import { clamp } from "lodash";
 import { useAnimationStore, useTrackContext, useZoomSprings, useZoomGestures } from "../../hooks";
 import { TIMELINE_PADDING } from "../../constants";
-import { easeConfig } from "../../spring-config";
 import { DRAG_X_CONFIG } from "../../gesture-config";
 
 function InnerZoomDisplay() {
-  const mainGestureRef = useRef<SVGRectElement>();
-  const leftGestureRef = useRef<SVGPathElement>();
-  const rightGestureRef = useRef<SVGPathElement>();
+  const mainGestureRef = useRef<SVGLineElement>(null);
+  const leftGestureRef = useRef<SVGPathElement>(null);
+  const rightGestureRef = useRef<SVGPathElement>(null);
 
   const {
     frameCount,
@@ -32,24 +31,9 @@ function InnerZoomDisplay() {
 
   const { leftSpring, rightSpring, widthSpring } = useZoomSprings();
 
-  const [{ leftPath, rightPath }] = useSpring(
-    {
-      leftPath:
-        hovered || dragging
-          ? `M0 3.8 L0 26.2 L-7 21.6 L-7 8.4 Z`
-          : `M0 12.2 L0 17.8 L-7 17.8 L-7 12.2 Z`,
-      rightPath:
-        hovered || dragging
-          ? `M0 3.8 L0 26.2 L7 21.6 L7 8.4 Z`
-          : `M0 12.2 L0 17.8 L7 17.8 L7 12.2 Z`,
-      config: easeConfig,
-    },
-    [xScale, leftSpring, rightSpring, hovered, dragging],
-  );
-
   // Handlers for the main zoom gesture
   useZoomGestures(
-    mainGestureRef as MutableRefObject<SVGRectElement>,
+    mainGestureRef as RefObject<SVGLineElement>,
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
@@ -93,7 +77,7 @@ function InnerZoomDisplay() {
 
   // Handlers for the left zoom endpoint element
   useZoomGestures(
-    leftGestureRef as MutableRefObject<SVGPathElement>,
+    leftGestureRef as RefObject<SVGPathElement>,
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
@@ -131,7 +115,7 @@ function InnerZoomDisplay() {
 
   // Handlers for the right zoom endpoint element
   useZoomGestures(
-    rightGestureRef as MutableRefObject<SVGPathElement>,
+    rightGestureRef as RefObject<SVGPathElement>,
     {
       onDrag: (state) => {
         setDragging(state.dragging ?? false);
@@ -167,54 +151,86 @@ function InnerZoomDisplay() {
     DRAG_X_CONFIG,
   );
 
+  const x = useTransform(leftSpring, (v) => xScale(v));
+  const w = useTransform(widthSpring, (v) => Math.max(0, xScale(v) - TIMELINE_PADDING));
+  const transformL = useTransform(leftSpring, (v) => `translate(${xScale(v).toString()} 0)`);
+  const transformR = useTransform(rightSpring, (v) => `translate(${xScale(v).toString()} 0)`);
+
+  transformL.on("change", (v) => {
+    leftGestureRef.current?.setAttribute("transform", v);
+  });
+
+  transformR.on("change", (v) => {
+    rightGestureRef.current?.setAttribute("transform", v);
+  });
+
+  const x2 = useTransform(() => x.get() + w.get());
+
   return (
     <g className="group/zoom" aria-selected={dragging || hovered}>
-      <animated.rect
-        ref={mainGestureRef as MutableRefObject<SVGRectElement>}
+      <motion.line
+        ref={mainGestureRef as MutableRefObject<SVGLineElement>}
         className={clsx(
-          "transition-[transform,fill]",
-          "group-hover/zoom:fill-neutral-500/50",
-          "group-aria-selected/zoom:fill-neutral-500/50",
-          "group-hover/zoom:translate-y-[3.8px] group-hover/zoom:scale-y-100",
-          "group-aria-selected/zoom:translate-y-[3.8px] group-aria-selected/zoom:scale-y-100",
-          "fill-neutral-500/25 cursor-pointer touch-none",
-          "scale-y-[25%] translate-y-[12.2px]",
+          "transition-[transform,stroke]",
+          "group-hover/zoom:stroke-neutral-500/50",
+          "group-aria-selected/zoom:stroke-neutral-500/50",
+          // "group-hover/zoom:translate-y-[3.8px] group-hover/zoom:scale-y-100",
+          // "group-aria-selected/zoom:translate-y-[3.8px] group-aria-selected/zoom:scale-y-100",
+          "stroke-neutral-500/25 cursor-pointer touch-none",
+          // "scale-y-[25%] translate-y-[12.2px]",
         )}
-        x={leftSpring.to((v) => xScale(v))}
+        x1={x}
+        x2={x2}
+        y1={15}
+        y2={15}
         // y={3.8}
-        width={widthSpring.to((v) => Math.max(0, xScale(v) - TIMELINE_PADDING))}
-        height={22.4}
+        initial={{ strokeWidth: 5.6 }}
+        variants={{
+          active: { strokeWidth: 22.4 },
+          inactive: { strokeWidth: 5.6 },
+        }}
+        transition={{ duration: 0.1 }}
+        animate={hovered || dragging ? "active" : "inactive"}
+        // height={22.4}
       />
-      <animated.g
+      <motion.g
         ref={leftGestureRef as MutableRefObject<SVGPathElement>}
         className="touch-none"
-        style={{
-          transform: leftSpring.to((ls) => `translateX(${xScale(ls).toString()}px)`),
-        }}
+        transform={transformL.get()}
       >
-        <animated.path
+        <motion.path
           className={clsx(
             "transition-[fill] fill-neutral-500/25 cursor-ew-resize touch-none",
             "group-hover/zoom:fill-neutral-500 group-aria-selected/zoom:fill-neutral-500",
           )}
-          d={leftPath}
+          transition={{ duration: 0.1 }}
+          animate={hovered || dragging ? "active" : "inactive"}
+          initial={{ d: "M0 12.2 L0 17.8 L-7 17.8 L-7 12.2 Z" }}
+          variants={{
+            active: { d: "M0 3.8 L0 26.2 L-7 21.6 L-7 8.4 Z" },
+            inactive: { d: "M0 12.2 L0 17.8 L-7 17.8 L-7 12.2 Z" },
+          }}
         />
-      </animated.g>
-      <animated.g
+      </motion.g>
+      <motion.g
         ref={rightGestureRef as MutableRefObject<SVGPathElement>}
         className="touch-none"
-        style={{
-          transform: rightSpring.to((rs) => `translateX(${xScale(rs).toString()}px)`),
-        }}
+        transform={transformR.get()}
       >
-        <animated.path
+        <motion.path
           className={clsx(
             "transition-[fill] fill-neutral-500/25 cursor-ew-resize touch-none",
             "group-hover/zoom:fill-neutral-500 group-aria-selected/zoom:fill-neutral-500",
           )}
-          d={rightPath}
+          transition={{ duration: 0.1 }}
+          initial={{ d: "M0 12.2 L0 17.8 L7 17.8 L7 12.2 Z" }}
+          variants={{
+            active: { d: "M0 3.8 L0 26.2 L7 21.6 L7 8.4 Z" },
+            inactive: { d: "M0 12.2 L0 17.8 L7 17.8 L7 12.2 Z" },
+          }}
+          animate={hovered || dragging ? "active" : "inactive"}
         />
-      </animated.g>
+      </motion.g>
     </g>
   );
 }

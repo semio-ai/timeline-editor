@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { animated } from "@react-spring/web";
+import { motion, useTransform } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
 import { clsx } from "clsx";
 import {
@@ -64,22 +64,25 @@ function InnerTrackBackground({
 
   const activePath = useBezierPathSpring(true, bounds[0], bounds[1], 0.5, 0.5, false, true);
 
+  const rectX = useTransform(leftSpring, (ls) => xScale(ls));
+  const rectWidth = useTransform(widthSpring, (ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING));
+
   return (
     <>
       <defs>
         {/* Create a bounds mask that can be used elsewhere */}
         <mask id="boundsMask" className="h-full" width={width + TIMELINE_PADDING * 2}>
-          <animated.rect
+          <rect
             key={`${identifier}-linebg`}
             x={0}
             width={width + TIMELINE_PADDING * 2}
             y={0}
             className="fill-white/50 pointer-events-none h-full"
           />
-          <animated.rect
-            x={leftSpring.to((ls) => xScale(ls))}
+          <motion.rect
+            x={rectX}
             y={0}
-            width={widthSpring.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
+            width={rectWidth}
             className="fill-white pointer-events-none h-full"
           />
         </mask>
@@ -92,7 +95,7 @@ function InnerTrackBackground({
         >
           {showLine && (
             <>
-              <animated.path
+              <path
                 key={`${identifier}-linebg`}
                 d={`M 0 ${yScale(0.5).toString()} L ${(width + TIMELINE_PADDING * 2).toString()} ${yScale(0.5).toString()}`}
                 strokeWidth={4}
@@ -101,7 +104,7 @@ function InnerTrackBackground({
                   "stroke-white/25 transition-[stroke] duration-75 ease-in-out pointer-events-none",
                 )}
               />
-              <animated.path
+              {/* <motion.path
                 key={`${identifier}-line`}
                 d={activePath}
                 strokeWidth={4}
@@ -109,7 +112,7 @@ function InnerTrackBackground({
                   "group-hover:stroke-transparent group-aria-expanded:stroke-transparent",
                   "stroke-white/50 transition-[stroke] duration-75 ease-in-out pointer-events-none",
                 )}
-              />
+              /> */}
             </>
           )}
 
@@ -243,9 +246,10 @@ function Tick({
   tickHeight: number;
 }) {
   const zoomedCompletion = useStaticZoomedSpring(completion, ignoreZoom);
+  const x = useTransform(zoomedCompletion, (c) => xScale(c) - 1);
   return (
-    <animated.rect
-      x={zoomedCompletion.to((c) => xScale(c) - 1)}
+    <motion.rect
+      x={x}
       y={0}
       width={2}
       className={clsx(

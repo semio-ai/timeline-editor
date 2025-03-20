@@ -1,7 +1,7 @@
-import { type ReactNode, memo } from "react";
+import { type ReactNode, memo, useRef } from "react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
-import { animated } from "@react-spring/web";
+import { motion, useTransform } from "motion/react";
 import { useTrackContext, useHoverSpring, useAnimationStore } from "../../hooks";
 
 export interface HoverMarkerProps {
@@ -19,15 +19,25 @@ function InnerHoverMarker({
   const hoverpoint = useHoverSpring(ignoreZoom);
   const dashed = useAnimationStore(useShallow((state) => state.preferences.hoverDashedLine));
 
+  const strokeWidth = useTransform(hoverpoint, (hoverXval) => (hoverXval === undefined ? 0 : 1));
+  const transform = useTransform(
+    hoverpoint,
+    (hoverXval) => `translate(${xScale(hoverXval ?? 0).toString()} 0)`,
+  );
+
+  const pathRef = useRef<SVGPathElement>(null);
+
+  transform.on("change", (v) => {
+    pathRef.current?.setAttribute("transform", v);
+  });
+
   return (
-    <animated.path
+    <motion.path
+      ref={pathRef}
       style={{
         strokeDasharray: dashed ? "5 5" : "none",
         strokeDashoffset: dashed ? "2.5" : "none",
-        strokeWidth: hoverpoint.to((hoverXval) => (hoverXval === undefined ? 0 : 1)),
-        transform: hoverpoint.to(
-          (hoverXval) => `translateX(${xScale(hoverXval ?? 0).toString()}px)`,
-        ),
+        strokeWidth,
       }}
       className={clsx(
         "touch-none stroke-transparent pointer-events-none",

@@ -1,5 +1,5 @@
-import { type ReactNode, useState, memo } from "react";
-import { animated, SpringValue } from "@react-spring/web";
+import { type ReactNode, useState, memo, useRef } from "react";
+import { motion, useTransform, type MotionValue } from "motion/react";
 import { Text } from "@visx/text";
 import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
@@ -43,7 +43,9 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
 
   const { d: playheadCartPath, x } = usePlayheadCartPathSpring(side, duration, ignoreZoom);
 
-  const gestureBindings = useGesture(
+  const gRef = useRef<SVGGElement>(null);
+
+  useGesture(
     {
       onDrag: (state) => {
         const newPosition = zoomScale.current.invert(
@@ -64,22 +66,23 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
         state.event.stopPropagation();
       },
     },
-    DRAG_X_CONFIG,
+    { ...DRAG_X_CONFIG, target: gRef },
   );
 
+  const transform = useTransform(
+    playheadSpring,
+    (c) =>
+      `translate(${clamp(xScale(c), xScale(0), xScale(1)).toString()}  ${side === "top" ? "-3.5" : "3.5"})`,
+  );
+
+  transform.on("change", (v) => {
+    gRef.current?.setAttribute("transform", v);
+  });
+
   return (
-    <animated.g
-      className="touch-none"
-      {...gestureBindings()}
-      style={{
-        transform: playheadSpring.to(
-          (c) =>
-            `translate(${clamp(xScale(c), xScale(0), xScale(1)).toString()}px, ${side === "top" ? "-3.5" : "3.5"}px)`,
-        ),
-      }}
-    >
+    <motion.g ref={gRef} className="touch-none" transform={transform.get()}>
       {/* Cart path */}
-      <animated.path
+      <motion.path
         d={playheadCartPath}
         className={clsx(
           "touch-none",
@@ -88,7 +91,7 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
         y={side === "top" ? 20.5 : 0}
       />
       <PlayheadText side={side} x={x} duration={duration} />
-    </animated.g>
+    </motion.g>
   );
 }
 
@@ -98,7 +101,7 @@ function PlayheadText({
   duration,
 }: {
   side: "top" | "bottom";
-  x: SpringValue<number>;
+  x: MotionValue<number>;
   duration: number;
 }): ReactNode {
   const framerate = useAnimationStore(useShallow((state: AnimationData) => state.framerate));
@@ -108,14 +111,19 @@ function PlayheadText({
   const altPressed = useAltKeyPressed();
   const visualTime = stampToVisualTime(stamp, duration, framerate, timeDisplay, altPressed);
 
+  const transform = useTransform(
+    x,
+    (value) => `translate(${value.toString()} ${(side === "top" ? 8.5 : 11.5).toString()})`,
+  );
+
+  const gRef = useRef<SVGGElement>(null);
+
+  transform.on("change", (v) => {
+    gRef.current?.setAttribute("transform", v);
+  });
+
   return (
-    <animated.g
-      style={{
-        transform: x.to(
-          (c) => `translate(${c.toString()}px, ${(side === "top" ? 8.5 : 11.5).toString()}px)`,
-        ),
-      }}
-    >
+    <motion.g ref={gRef} transform={transform.get()}>
       <Text
         textAnchor="middle"
         verticalAnchor="start"
@@ -124,7 +132,7 @@ function PlayheadText({
       >
         {visualTime}
       </Text>
-    </animated.g>
+    </motion.g>
   );
 }
 

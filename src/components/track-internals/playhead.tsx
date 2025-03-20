@@ -1,5 +1,5 @@
-import { type ReactNode, useState, memo } from "react";
-import { animated } from "@react-spring/web";
+import { type ReactNode, useState, memo, useRef } from "react";
+import { useTransform } from "motion/react";
 import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { closestFrame, usePlayerStore } from "@semio/utils";
@@ -26,7 +26,9 @@ function InnerPlayhead({ ignoreZoom = false, height = 30 }: PlayheadProps): Reac
 
   const playheadSpring = usePlayheadSpring(ignoreZoom);
 
-  const gestureBindings = useGesture(
+  const gRef = useRef<SVGGElement>(null);
+
+  useGesture(
     {
       onDrag: (state) => {
         const newPosition = zoomScale.current.invert(
@@ -43,21 +45,25 @@ function InnerPlayhead({ ignoreZoom = false, height = 30 }: PlayheadProps): Reac
         setHovered(state.hovering || false);
       },
     },
-    DRAG_X_CONFIG,
+    { ...DRAG_X_CONFIG, target: gRef },
   );
 
+  const transform = useTransform(
+    playheadSpring,
+    (value) => `translate(${xScale(value).toString()} 0)`,
+  );
+
+  transform.on("change", (v) => {
+    gRef.current?.setAttribute("transform", v);
+  });
+
   return (
-    <animated.g
-      style={{
-        transform: playheadSpring.to((c) => `translateX(${xScale(c).toString()}px`),
-      }}
-      {...gestureBindings()}
-    >
+    <g ref={gRef} transform={transform.get()}>
       {/* This is an element that makes a slightly larger hitbox */}
       <rect x={-2.5} y={0} width={5} height={height} className="fill-transparent" />
 
       <path d={`M 0 0 L 0 ${height.toString()}`} className={getStyle(hovered)} />
-    </animated.g>
+    </g>
   );
 }
 

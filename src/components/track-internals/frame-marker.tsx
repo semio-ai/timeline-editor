@@ -16,7 +16,7 @@ import {
   usePlayerStore,
 } from "@semio/utils";
 import { clamp, uniq } from "lodash";
-import { animated, useSpringValue } from "@react-spring/web";
+import { motion, useSpring, useTransform } from "motion/react";
 import { useShallow } from "zustand/react/shallow";
 import { Theme, useTheme } from "@semio/ui";
 import {
@@ -69,16 +69,12 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
   const [dragging, setDragging] = useState(false);
   const showLine = trackRender !== TrackRender.Key || dragging || isSelected || hovered;
 
-  const hexStrokeColorSpring = useSpringValue<string>(isSelected ? highlightColor : "transparent", {
-    config: { duration: 10 },
-  });
-  const lineStrokeWidth = useSpringValue<number>(showLine ? 1.5 : 0, {
-    config: { duration: 10 },
-  });
+  const hexStrokeColorSpring = useSpring(isSelected ? highlightColor : "transparent");
+  const lineStrokeWidth = useSpring(showLine ? 1.5 : 0);
 
   useEffect(() => {
-    void hexStrokeColorSpring.start({ to: isSelected ? highlightColor : "transparent" });
-    void lineStrokeWidth.start({ to: showLine ? 1.5 : 0 });
+    hexStrokeColorSpring.set(isSelected ? highlightColor : "transparent");
+    lineStrokeWidth.set(showLine ? 1.5 : 0);
   }, [
     trackRender,
     showLine,
@@ -128,21 +124,28 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
 
   const zoomedStamp = useStaticZoomedSpring(data.stamp, ignoreZoom);
 
+  const transform = useTransform(zoomedStamp, (zoom) => `translate(${xScale(zoom).toString()} 0)`);
+
+  transform.on("change", (v) => {
+    gestureRef.current?.setAttribute("transform", v);
+  });
+
   return (
-    <animated.g
+    <motion.g
       ref={gestureRef as MutableRefObject<SVGGElement>}
       onDoubleClick={doubleClickHandler as any as MouseEventHandler}
       className="group/frame touch-none pointer-events-boundary"
       aria-selected={isSelected}
-      style={{
-        transform: zoomedStamp.to((zs) => `translateX(${xScale(zs).toString()}px`),
-      }}
+      transform={transform.get()}
+      // style={{
+      //   transform,
+      // }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <animated.path d={linePath} fill="none" stroke={color} strokeWidth={lineStrokeWidth} />
-      <animated.path d={hexPath} fill={color} stroke={hexStrokeColorSpring} strokeWidth={1} />
-    </animated.g>
+      <motion.path d={linePath} fill="none" stroke={color} strokeWidth={lineStrokeWidth} />
+      <motion.path d={hexPath} fill={color} stroke={hexStrokeColorSpring} strokeWidth={1} />
+    </motion.g>
   );
 }
 

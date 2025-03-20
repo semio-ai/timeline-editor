@@ -1,10 +1,9 @@
 import { useRef, useCallback } from "react";
-import { SpringValue, useSpringValue } from "@react-spring/web";
+import { MotionValue, useMotionValue } from "motion/react";
 import { scaleLinear } from "@visx/scale";
 import { PlayerData } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import { type ScaleLinear } from "../scale-linear";
-import { springConfig } from "../spring-config";
 import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
@@ -17,7 +16,7 @@ import { usePlayerSubscription } from "./use-player-subscription";
 export function useStaticZoomedSpring(
   completion: number,
   ignoreZoom?: boolean,
-): SpringValue<number> {
+): MotionValue<number> {
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
       domain: [0, 1],
@@ -25,14 +24,12 @@ export function useStaticZoomedSpring(
     }),
   );
 
-  const zoomedSpring = useSpringValue<number>(zoomScale.current(completion), {
-    config: springConfig,
-  });
+  const zoomedSpring = useMotionValue<number>(zoomScale.current(completion));
 
   const onViewportChange = useCallback(
     (viewport: [number, number]) => {
       zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
-      void zoomedSpring.start(zoomScale.current(completion));
+      zoomedSpring.jump(zoomScale.current(completion));
     },
     [zoomedSpring, completion, zoomScale, ignoreZoom],
   );

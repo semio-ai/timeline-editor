@@ -3,7 +3,7 @@ import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
 import { closestFrame, usePlayerStore } from "@semio/utils";
 import { clamp } from "lodash";
-import { animated } from "@react-spring/web";
+import { motion, useTransform } from "motion/react";
 import { FullGestureState } from "@use-gesture/react";
 import { DRAG_X_CONFIG } from "../../gesture-config";
 import { SemanticTime } from "../../types";
@@ -137,13 +137,18 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
 
   const { leftSpring, rightSpring, widthSpring } = useBoundSprings(ignoreZoom);
 
+  const xLeft = useTransform(leftSpring, (ls) => xScale(ls));
+  const xLeftRect = useTransform(leftSpring, (ls) => xScale(ls) - 0.5);
+  const xRightRect = useTransform(rightSpring, (rs) => xScale(rs) - 0.5);
+  const width = useTransform(widthSpring, (ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING));
+
   return (
     <>
-      <animated.rect
+      <motion.rect
         name="bounds-rect"
-        x={leftSpring.to((ls) => xScale(ls))}
+        x={xLeft}
         y={0}
-        width={widthSpring.to((ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING))}
+        width={width}
         className={clsx(
           "fill-transparent pointer-events-none transition-[fill] h-full",
           anyPreview && "group-hover:cursor-ew-resize group-hover:fill-neutral-600/25",
@@ -152,8 +157,8 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
         )}
       />
       <g ref={leftBoundsRef} name="bounds-left-stroke" className="group/bound">
-        <animated.rect
-          x={leftSpring.to((ls) => xScale(ls) - 0.5)}
+        <motion.rect
+          x={xLeftRect}
           width={1}
           className={clsx(
             "transition-fill duration-75 h-full",
@@ -163,8 +168,8 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
       </g>
 
       <g ref={rightBoundsRef} name="bounds-right-stroke" className="group/bound">
-        <animated.rect
-          x={rightSpring.to((rs) => xScale(rs) - 0.5)}
+        <motion.rect
+          x={xRightRect}
           width={1}
           className={clsx(
             "transition-fill duration-75 h-full",
