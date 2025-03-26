@@ -74,7 +74,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
 
   useEffect(() => {
     hexStrokeColorSpring.set(isSelected ? highlightColor : "transparent");
-    lineStrokeWidth.set(showLine ? 1.5 : 0);
+    lineStrokeWidth.jump(showLine ? 1.5 : 0);
   }, [
     trackRender,
     showLine,

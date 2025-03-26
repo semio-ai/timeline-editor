@@ -104,7 +104,7 @@ function InnerTrackBackground({
                   "stroke-white/25 transition-[stroke] duration-75 ease-in-out pointer-events-none",
                 )}
               />
-              {/* <motion.path
+              <motion.path
                 key={`${identifier}-line`}
                 d={activePath}
                 strokeWidth={4}
@@ -112,7 +112,7 @@ function InnerTrackBackground({
                   "group-hover:stroke-transparent group-aria-expanded:stroke-transparent",
                   "stroke-white/50 transition-[stroke] duration-75 ease-in-out pointer-events-none",
                 )}
-              /> */}
+              />
             </>
           )}
 
