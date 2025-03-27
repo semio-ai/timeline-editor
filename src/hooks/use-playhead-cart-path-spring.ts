@@ -77,7 +77,6 @@ export function usePlayheadCartPathSpring(
       leftBuffer.jump(bufferVals[0]);
       rightBuffer.jump(bufferVals[1]);
       storedCharCountSpring.jump(charCount);
-      // playheadCartPathSpring.jump(path);
       xSpring.jump(offset);
       storedCharCount.current = charCount;
     },
