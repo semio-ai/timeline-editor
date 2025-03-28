@@ -1,10 +1,9 @@
 import { useRef, useCallback } from "react";
-import { SpringValue, useSpringValue } from "@react-spring/web";
+import { MotionValue, useMotionValue } from "motion/react";
 import { PlayerData } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import { scaleLinear } from "@visx/scale";
 import { type ScaleLinear } from "../scale-linear";
-import { springConfig } from "../spring-config";
 import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
@@ -13,9 +12,9 @@ import { usePlayerSubscription } from "./use-player-subscription";
  * @returns An object containing the left, right, and width springs.
  */
 export function useBoundSprings(ignoreZoom?: boolean): {
-  leftSpring: SpringValue<number>;
-  rightSpring: SpringValue<number>;
-  widthSpring: SpringValue<number>;
+  leftSpring: MotionValue<number>;
+  rightSpring: MotionValue<number>;
+  widthSpring: MotionValue<number>;
 } {
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
@@ -30,22 +29,16 @@ export function useBoundSprings(ignoreZoom?: boolean): {
     }),
   );
 
-  const leftSpring = useSpringValue<number>(zoomScale.current(0), {
-    config: springConfig,
-  });
-  const rightSpring = useSpringValue<number>(zoomScale.current(1), {
-    config: springConfig,
-  });
-  const widthSpring = useSpringValue<number>(zoomBaseZeroScale.current(1), {
-    config: springConfig,
-  });
+  const leftSpring = useMotionValue<number>(zoomScale.current(0));
+  const rightSpring = useMotionValue<number>(zoomScale.current(1));
+  const widthSpring = useMotionValue<number>(zoomBaseZeroScale.current(1));
 
   usePlayerSubscription(
     (state: PlayerData) => state.player.bounds,
     (bounds) => {
-      void leftSpring.set(zoomScale.current(bounds[0]));
-      void rightSpring.set(zoomScale.current(bounds[1]));
-      void widthSpring.set(zoomBaseZeroScale.current(Math.max(0, bounds[1] - bounds[0])));
+      leftSpring.jump(zoomScale.current(bounds[0]));
+      rightSpring.jump(zoomScale.current(bounds[1]));
+      widthSpring.jump(zoomBaseZeroScale.current(Math.max(0, bounds[1] - bounds[0])));
     },
     shallow,
   );
@@ -62,9 +55,9 @@ export function useBoundSprings(ignoreZoom?: boolean): {
       });
       zoomScale.current = scale;
       zoomBaseZeroScale.current = baseZeroScale;
-      void leftSpring.start(scale(bounds[0]));
-      void rightSpring.start(scale(bounds[1]));
-      void widthSpring.start(baseZeroScale(Math.max(0, bounds[1] - bounds[0])));
+      leftSpring.jump(scale(bounds[0]));
+      rightSpring.jump(scale(bounds[1]));
+      widthSpring.jump(baseZeroScale(Math.max(0, bounds[1] - bounds[0])));
     },
     [leftSpring, rightSpring, widthSpring, ignoreZoom],
   );

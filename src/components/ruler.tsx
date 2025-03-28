@@ -1,7 +1,8 @@
 import { type ReactNode, useMemo, useRef } from "react";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
-import { animated } from "@react-spring/web";
+import { Text } from "@visx/text";
+import { motion, useTransform } from "motion/react";
 import { stampToVisualTime } from "@semio/ui";
 import { shallow } from "zustand/shallow";
 import { useShallow } from "zustand/react/shallow";
@@ -18,13 +19,7 @@ import {
   usePlayerSubscription,
 } from "../hooks";
 import { TIMELINE_PADDING } from "../constants";
-import {
-  PlayheadCart,
-  HoverMarker,
-  BoundCart,
-  AnimatedText,
-  GestureDetector,
-} from "./track-internals";
+import { PlayheadCart, HoverMarker, BoundCart, GestureDetector } from "./track-internals";
 
 function InnerRuler({
   width,
@@ -167,9 +162,11 @@ function Tick({
   const visualTime = stampToVisualTime(completion, duration, framerate, timeDisplay, altPressed);
   const major = idx % framerate === 0;
 
+  const translateX = useTransform(zoomedCompletion, (s) => xScale(s));
+
   return (
-    <animated.g style={{ translateX: zoomedCompletion.to((s) => xScale(s)) }}>
-      <animated.rect
+    <motion.g style={{ translateX }}>
+      <motion.rect
         y={getY(side, major)}
         x={major ? -1 : -0.5}
         width={major ? 2 : 1}
@@ -183,7 +180,7 @@ function Tick({
         )}
       />
       {major && (
-        <AnimatedText
+        <Text
           textAnchor="middle"
           verticalAnchor="start"
           x={0}
@@ -195,9 +192,9 @@ function Tick({
           )}
         >
           {visualTime}
-        </AnimatedText>
+        </Text>
       )}
-    </animated.g>
+    </motion.g>
   );
 }
 

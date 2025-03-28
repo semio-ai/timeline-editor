@@ -1,5 +1,5 @@
 import { type ReactNode, memo, useRef } from "react";
-import { animated } from "@react-spring/web";
+import { motion, useTransform } from "motion/react";
 import { clamp } from "lodash";
 import { clsx } from "clsx";
 import { closestFrame, pointsToPath, usePlayerStore, PlayerActions } from "@semio/utils";
@@ -124,18 +124,25 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
     DRAG_X_CONFIG,
   );
 
+  const transform = useTransform(boundSpring, (value) => {
+    return `translate(${xScale(value).toString()}  ${side === "top" ? "-3.5" : "3.5"})`;
+  });
+
+  transform.on("change", (v) => {
+    cartRef.current?.setAttribute("transform", v);
+  });
+
   return (
-    <animated.g
+    <motion.g
       ref={cartRef}
       className="touch-none"
-      style={{
-        transform: boundSpring.to(
-          (c) => `translate(${xScale(c).toString()}px, ${side === "top" ? "-3.5" : "3.5"}px)`,
-        ),
-      }}
+      transform={transform.get()}
+      // style={{
+      //   transform,
+      // }}
     >
       {/* Cart path */}
-      <animated.path
+      <motion.path
         d={getCartPath(side, end)}
         className={clsx(
           "touch-none",
@@ -144,7 +151,7 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
         )}
         y={side === "top" ? 20.5 : 0}
       />
-    </animated.g>
+    </motion.g>
   );
 }
 

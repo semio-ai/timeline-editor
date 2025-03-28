@@ -1,12 +1,11 @@
 import { useRef, useMemo, useCallback } from "react";
-import { SpringValue, useSpringValue } from "@react-spring/web";
+import { MotionValue, useMotionValue, useSpring, useTransform } from "motion/react";
 import { useShallow } from "zustand/react/shallow";
 import { PlayerData, pointsToPath } from "@semio/utils";
 import { stampToVisualTime } from "@semio/ui";
 import { scaleLinear } from "@visx/scale";
 import { shallow } from "zustand/shallow";
 import { type ScaleLinear } from "../scale-linear";
-import { springConfig } from "../spring-config";
 import { useTrackContext } from "./use-track-context";
 import { useAnimationStore } from "./use-animation-store";
 import { useAltKeyPressed } from "./use-alt-key-pressed";
@@ -23,8 +22,8 @@ export function usePlayheadCartPathSpring(
   duration: number,
   ignoreZoom?: boolean,
 ): {
-  d: SpringValue<string>;
-  x: SpringValue<number>;
+  d: MotionValue<string>;
+  x: MotionValue<number>;
 } {
   const storedPlayhead = useRef<number>(0);
 
@@ -47,21 +46,19 @@ export function usePlayheadCartPathSpring(
     }),
   );
 
-  const [initialPath, initialX] = useMemo(() => {
+  const [_initialPath, initialX] = useMemo(() => {
     return distanceToPath(0, 200, storedCharCount.current, side);
   }, [side]);
 
-  const playheadCartPathSpring = useSpringValue<string>(initialPath, {
-    config: {
-      tension: 180,
-      friction: 12,
-      clamp: true,
-    },
-  });
+  const leftBuffer = useMotionValue(0);
+  const rightBuffer = useMotionValue(200);
+  const storedCharCountSpring = useMotionValue(storedCharCount.current);
 
-  const xSpring = useSpringValue<number>(initialX, {
-    config: springConfig,
-  });
+  const playheadCartPathSpring = useTransform(
+    () => distanceToPath(leftBuffer.get(), rightBuffer.get(), storedCharCountSpring.get(), side)[0],
+  );
+
+  const xSpring = useSpring(initialX);
 
   const altPressed = useAltKeyPressed();
 
@@ -76,15 +73,16 @@ export function usePlayheadCartPathSpring(
         timeDisplay,
         altPressed,
       ).length;
-      const [path, offset] = distanceToPath(...bufferVals, charCount, side);
-      void playheadCartPathSpring.start(path);
-      void xSpring.start(offset);
+      const [_path, offset] = distanceToPath(...bufferVals, charCount, side);
+      leftBuffer.jump(bufferVals[0]);
+      rightBuffer.jump(bufferVals[1]);
+      storedCharCountSpring.jump(charCount);
+      xSpring.jump(offset);
       storedCharCount.current = charCount;
     },
     [
       storedPlayhead,
       xSpring,
-      playheadCartPathSpring,
       xScale,
       zoomScale,
       duration,
@@ -92,6 +90,10 @@ export function usePlayheadCartPathSpring(
       timeDisplay,
       altPressed,
       side,
+      leftBuffer,
+      rightBuffer,
+      storedCharCountSpring,
+      storedCharCount,
     ],
   );
 
@@ -100,11 +102,12 @@ export function usePlayheadCartPathSpring(
       zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
       const playhead = storedPlayhead.current;
       const bufferVals = valsToBuffer(xScale, zoomScale.current, playhead);
-      const [path, offset] = distanceToPath(...bufferVals, storedCharCount.current, side);
-      void playheadCartPathSpring.start(path);
-      void xSpring.start(offset);
+      const [_path, offset] = distanceToPath(...bufferVals, storedCharCount.current, side);
+      leftBuffer.jump(bufferVals[0]);
+      rightBuffer.jump(bufferVals[1]);
+      xSpring.jump(offset);
     },
-    [ignoreZoom, xScale, playheadCartPathSpring, xSpring, storedPlayhead, side],
+    [ignoreZoom, xScale, xSpring, storedPlayhead, side, leftBuffer, rightBuffer, storedCharCount],
   );
 
   usePlayerSubscription((state: PlayerData) => state.player.stamp, handlePlayheadChange, shallow);

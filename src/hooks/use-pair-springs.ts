@@ -1,10 +1,9 @@
 import { useRef, useCallback } from "react";
-import { SpringValue, useSpring } from "@react-spring/web";
+import { MotionValue, useMotionValue } from "motion/react";
 import { scaleLinear } from "@visx/scale";
 import { PlayerData } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import { type ScaleLinear } from "../scale-linear";
-import { springConfig } from "../spring-config";
 import { usePlayerSubscription } from "./use-player-subscription";
 
 /**
@@ -19,9 +18,9 @@ export function usePairSprings(
   stamp2: number,
   ignoreZoom?: boolean,
 ): {
-  left: SpringValue<number>;
-  right: SpringValue<number>;
-  width: SpringValue<number>;
+  left: MotionValue<number>;
+  right: MotionValue<number>;
+  width: MotionValue<number>;
 } {
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
@@ -36,29 +35,33 @@ export function usePairSprings(
     }),
   );
 
-  const [spring, api] = useSpring(() => ({
-    left: stamp1,
-    right: stamp2,
-    width: Math.max(0, stamp2 - stamp2),
-    config: springConfig,
-  }));
+  const leftSpring = useMotionValue<number>(stamp1);
+  const rightSpring = useMotionValue<number>(stamp2);
+  const widthSpring = useMotionValue<number>(Math.max(0, stamp2 - stamp2));
 
   const onViewportChange = useCallback(
     (viewport: [number, number]) => {
       zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
       zoomScaleNoOffset.current.domain(ignoreZoom ? [0, 1] : getRebasedViewport(viewport));
-      void api.start({
-        left: zoomScale.current(stamp1),
-        right: zoomScale.current(stamp2),
-        width: zoomScaleNoOffset.current(Math.max(0, stamp2 - stamp1)),
-      });
+      leftSpring.jump(zoomScale.current(stamp1));
+      rightSpring.jump(zoomScale.current(stamp2));
+      widthSpring.jump(zoomScaleNoOffset.current(Math.max(0, stamp2 - stamp1)));
     },
-    [api, stamp1, stamp2, zoomScale, zoomScaleNoOffset, ignoreZoom],
+    [
+      stamp1,
+      stamp2,
+      zoomScale,
+      zoomScaleNoOffset,
+      ignoreZoom,
+      leftSpring,
+      rightSpring,
+      widthSpring,
+    ],
   );
 
   usePlayerSubscription((state: PlayerData) => state.player.viewport, onViewportChange, shallow);
 
-  return spring;
+  return { left: leftSpring, right: rightSpring, width: widthSpring };
 }
 
 function getRebasedViewport(viewport: [number, number]): [number, number] {

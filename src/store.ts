@@ -271,6 +271,23 @@ export const AnimationSlice = (
       playerState.updateDuration(duration);
       set({ duration });
     },
+    updateAnimationDuration: (animationId: string, duration: number, rescale: boolean) => {
+      set(
+        produce((state: AnimationData) => {
+          const oldDuration = state.animations[animationId].duration;
+          state.animations[animationId].duration = duration;
+          if (!rescale) {
+            // Adjust the stamps (percentage of completion) to match the new duration's range
+            state.animations[animationId].tracks.forEach((trackId) => {
+              state.tracks[trackId].points = state.tracks[trackId].points.map((point) => ({
+                ...point,
+                stamp: (point.stamp * oldDuration) / duration,
+              }));
+            });
+          }
+        }),
+      );
+    },
     // Set the frame rate of the animation
     updateFramerate: (framerate: number) => {
       set({ framerate });
