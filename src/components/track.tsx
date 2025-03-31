@@ -7,7 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 import { shallow } from "zustand/shallow";
 import { clsx } from "clsx";
 import { pick } from "lodash";
-import { AnimatableValue, RawValue } from "@semio/utils";
+import { AnimatableValue, RawValue, usePlayerStore } from "@semio/utils";
 import { TIMELINE_PADDING } from "../constants";
 import { TrackContext, useAnimationStore, usePlayerSubscription } from "../hooks";
 import { AnimationData } from "../store-types";
@@ -77,7 +77,9 @@ export function Track({
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
-  const duration = useAnimationStore(
+
+  const playerDuration = usePlayerStore((state) => state.player.duration);
+  const animationDuration = useAnimationStore(
     useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );
 
@@ -129,17 +131,17 @@ export function Track({
     return TrackRender.Key;
   }, [trackKeys, trackRender, trackType, attribute]);
 
-  const frameCount = Math.floor(framerate * (duration / 1000));
+  const frameCount = Math.floor(framerate * (animationDuration / 1000));
 
   const [activeRegionRef, activeRegionBounds] = useMeasure();
 
   const xScale = useMemo(
     () =>
       scaleLinear({
-        domain: [0, 1],
+        domain: [0, playerDuration],
         range: [TIMELINE_PADDING, width - TIMELINE_PADDING],
       }),
-    [width],
+    [width, playerDuration],
   );
 
   const yScale = useMemo(
@@ -196,6 +198,7 @@ export function Track({
             width={Math.max(0, width - TIMELINE_PADDING * 2)}
             className="h-[30px]"
           />
+
           <TrackBackground
             showLine={canZoom && showBackground}
             ignoreZoom={!canZoom}

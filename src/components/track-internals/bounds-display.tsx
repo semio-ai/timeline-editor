@@ -137,16 +137,15 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
 
   const { leftSpring, rightSpring, widthSpring } = useBoundSprings(ignoreZoom);
 
-  const xLeft = useTransform(leftSpring, (ls) => xScale(ls));
-  const xLeftRect = useTransform(leftSpring, (ls) => xScale(ls) - 0.5);
-  const xRightRect = useTransform(rightSpring, (rs) => xScale(rs) - 0.5);
-  const width = useTransform(widthSpring, (ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING));
+  const xLeftRect = useTransform(leftSpring, (ls) => ls - 0.5);
+  const xRightRect = useTransform(rightSpring, (rs) => rs - 0.5);
+  const width = useTransform(widthSpring, (ws) => Math.max(0, ws - TIMELINE_PADDING));
 
   return (
     <>
       <motion.rect
         name="bounds-rect"
-        x={xLeft}
+        x={leftSpring}
         y={0}
         width={width}
         className={clsx(

@@ -1,8 +1,14 @@
-import { type ReactNode, memo } from "react";
+import { type ReactNode, memo, useMemo } from "react";
 import { clsx } from "clsx";
 import { motion } from "motion/react";
 import { RawValue, AnimatableValue, RawVector3, RawColor, RawEuler } from "@semio/utils";
-import { useTrackContext, useBezierPathSpring } from "../../hooks";
+import {
+  useTrackContext,
+  useBezierPathSpring,
+  useAnimationStore,
+  PathType,
+  getPath,
+} from "../../hooks";
 import { InstancedFrameInfo, TrackRender } from "../../types";
 
 export interface InterpolationSegmentProps {
@@ -15,7 +21,20 @@ function InnerInterpolationSegment({
   end,
   pseudoRegion = false,
 }: InterpolationSegmentProps): ReactNode {
-  const { trackIds, trackRender, attribute, trackType } = useTrackContext();
+  const {
+    trackIds,
+    trackRender,
+    attribute,
+    trackType,
+    animationId,
+    xScale,
+    yScale,
+    bounds: { height },
+  } = useTrackContext();
+
+  const animationDuration = useAnimationStore(
+    (state) => state.animations[animationId]?.duration ?? 5000,
+  );
 
   const { start: startValue, end: endValue } = getStartAndEnd(
     trackIds,
@@ -27,48 +46,78 @@ function InnerInterpolationSegment({
     attribute,
   );
 
-  const pathLineSpring = useBezierPathSpring(
-    trackRender === TrackRender.Key,
+  // const pathLineSpring = useBezierPathSpring(
+  //   start.stamp * animationDuration,
+  //   end.stamp * animationDuration,
+  //   startValue,
+  //   endValue,
+  //   trackRender === TrackRender.Preview || trackRender === TrackRender.Transition
+  //     ? PathType.Bezier
+  //     : PathType.Line,
+  // );
+  //
+  const pathLine = useMemo(() => {
+    const pathType =
+      trackRender === TrackRender.Preview || trackRender === TrackRender.Transition
+        ? PathType.Bezier
+        : PathType.Line;
+    const path = getPath(
+      pathType,
+      xScale(start.stamp * animationDuration),
+      yScale(typeof startValue === "number" ? startValue : 0.5),
+      xScale(end.stamp * animationDuration),
+      yScale(typeof endValue === "number" ? endValue : 0.5),
+      height,
+    );
+    return path;
+  }, [
+    height,
     start.stamp,
     end.stamp,
+    trackRender,
     startValue,
     endValue,
-    trackRender !== TrackRender.Key,
-    false,
-  );
+    animationDuration,
+    xScale,
+    yScale,
+  ]);
 
   const pathFillSpring = useBezierPathSpring(
-    trackRender === TrackRender.Key,
-    start.stamp,
-    end.stamp,
+    start.stamp * animationDuration,
+    end.stamp * animationDuration,
     startValue,
     endValue,
-    trackRender !== TrackRender.Key,
-    true,
+    trackRender === TrackRender.Preview || trackRender === TrackRender.Transition
+      ? PathType.BezierFilled
+      : PathType.Line,
   );
 
   if (trackRender === TrackRender.Key && pseudoRegion) {
     return null;
   }
 
+  // pathLineSpring.on("change", console.log);
+
   return (
     <g>
-      <motion.path
-        key="fill"
-        d={pathFillSpring}
-        className={clsx(
-          "transition-[colors,fill] duration-75 pointer-events-none",
-          "fill-transparent stroke-transparent",
-          !pseudoRegion &&
-            "group-aria-expanded:fill-[--track-color] group-hover:fill-[--track-color]",
-          "group-aria-expanded:opacity-50 group-hover:opacity-50",
-        )}
-      />
-      <motion.path
+      {(trackRender === TrackRender.Preview || trackRender === TrackRender.Transition) && (
+        <motion.path
+          key="fill"
+          d={pathFillSpring}
+          className={clsx(
+            "transition-[colors,fill] duration-75 pointer-events-none",
+            "fill-transparent stroke-transparent",
+            !pseudoRegion &&
+              "group-aria-expanded:fill-[--track-color] group-hover:fill-[--track-color]",
+            "group-aria-expanded:opacity-50 group-hover:opacity-50",
+          )}
+        />
+      )}
+      <path
         key="line"
         strokeDasharray={pseudoRegion ? "5 5" : "none"}
         strokeDashoffset={pseudoRegion ? "2.5" : "none"}
-        d={pathLineSpring}
+        d={pathLine}
         className={clsx(
           "transition-[colors,stroke] duration-75 pointer-events-none",
           "stroke-transparent fill-transparent",

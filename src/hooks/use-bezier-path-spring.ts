@@ -10,32 +10,22 @@ import { usePlayerSubscription } from "./use-player-subscription";
 /**
  * A hook used to create a path spring based on a bezier curve. For now, always return an easeInOutCubic path.
  *
- * @param showAsLine - A boolean that determines whether the path should be shown as a line.
  * @param stamp1 - The first timestamp.
  * @param stamp2 - The second timestamp.
  * @param value1 - The first value.
  * @param value2 - The second value.
- * @param ignoreZoom - A boolean that determines whether the zoom scale should be ignored.
- * @param removeBuffer - A boolean that determines whether the buffer should be removed.
- * @param filled - A boolean that determines whether the path should be filled.
+ * @param pathType - The type of path to create.
  *
  * @returns A spring value wrapping a path string.
  */
 export function useBezierPathSpring(
-  showAsLine: boolean,
   stamp1: number,
   stamp2: number,
   value1: RawValue,
   value2: RawValue,
-  removeBuffer?: boolean,
-  filled?: boolean,
+  pathType: PathType,
 ): MotionValue<string> {
-  let pathType: PathType = showAsLine ? PathType.Line : PathType.Bezier;
-  if (filled && pathType === PathType.Bezier) {
-    pathType = PathType.BezierFilled;
-  }
-  const buffer =
-    removeBuffer || pathType === PathType.Bezier || pathType === PathType.BezierFilled ? 0 : 6;
+  const buffer = pathType === PathType.Bezier || pathType === PathType.BezierFilled ? 0 : 60;
 
   const {
     yScale,
@@ -43,46 +33,46 @@ export function useBezierPathSpring(
     bounds: { height },
   } = useTrackContext();
 
-  const zoomScale = useRef<ScaleLinear>(
-    scaleLinear({
-      domain: [0, 1],
-      range: [0, 1],
-    }),
-  );
+  // const zoomScale = useRef<ScaleLinear>(
+  //   scaleLinear({
+  //     domain: [0, 1],
+  //     range: [0, 1],
+  //   }),
+  // );
 
   const pathSpring = useMotionValue<string>(
     getPath(
       pathType,
-      xScale(zoomScale.current(stamp1)) + buffer,
+      xScale(stamp1),
       yScale(pathType === PathType.Line ? 0.5 : (value1 as number)),
-      xScale(zoomScale.current(stamp2)) - buffer,
+      xScale(stamp2),
       yScale(pathType === PathType.Line ? 0.5 : (value2 as number)),
       height,
     ),
   );
 
-  const onViewportChange = useCallback(
-    (viewport: [number, number]) => {
-      const scale = scaleLinear({
-        domain: viewport,
-        range: [0, 1],
-      });
-      zoomScale.current = scale;
-      pathSpring.jump(
-        getPath(
-          pathType,
-          xScale(zoomScale.current(stamp1)) + buffer,
-          yScale(pathType === PathType.Line ? 0.5 : (value1 as number)),
-          xScale(zoomScale.current(stamp2)) - buffer,
-          yScale(pathType === PathType.Line ? 0.5 : (value2 as number)),
-          height,
-        ),
-      );
-    },
-    [pathSpring, stamp1, stamp2, value1, value2, xScale, yScale, pathType, buffer, height],
-  );
+  // const onViewportChange = useCallback(
+  //   (viewport: [number, number]) => {
+  //     // const scale = scaleLinear({
+  //     //   domain: viewport,
+  //     //   range: [0, 1],
+  //     // });
+  //     // zoomScale.current = scale;
+  //     pathSpring.jump(
+  //       getPath(
+  //         pathType,
+  //         stamp1,
+  //         yScale(pathType === PathType.Line ? 0.5 : (value1 as number)),
+  //         stamp2,
+  //         yScale(pathType === PathType.Line ? 0.5 : (value2 as number)),
+  //         height,
+  //       ),
+  //     );
+  //   },
+  //   [pathSpring, stamp1, stamp2, value1, value2, yScale, pathType, height],
+  // );
 
-  usePlayerSubscription((state: PlayerData) => state.player.viewport, onViewportChange, shallow);
+  // usePlayerSubscription((state: PlayerData) => state.player.viewport, onViewportChange, shallow);
 
   return pathSpring;
 }
@@ -145,7 +135,7 @@ function getLine(x1: number, y1: number, x2: number, y2: number): string {
  * @param yRoot - The y-coordinate of the root point (used only for BezierFilled).
  * @returns The generated path string.
  */
-function getPath(
+export function getPath(
   pathType: PathType,
   x1: number,
   y1: number,
@@ -163,7 +153,7 @@ function getPath(
   }
 }
 
-enum PathType {
+export enum PathType {
   Line = "line",
   Bezier = "bezier",
   BezierFilled = "bezierFilled",

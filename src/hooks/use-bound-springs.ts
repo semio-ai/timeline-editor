@@ -1,10 +1,11 @@
 import { useRef, useCallback } from "react";
 import { MotionValue, useMotionValue } from "motion/react";
-import { PlayerData } from "@semio/utils";
-import { shallow } from "zustand/shallow";
+import { PlayerData, usePlayerStore } from "@semio/utils";
+import { shallow, useShallow } from "zustand/shallow";
 import { scaleLinear } from "@visx/scale";
 import { type ScaleLinear } from "../scale-linear";
 import { usePlayerSubscription } from "./use-player-subscription";
+import { useTrackContext } from "./use-track-context";
 
 /**
  * A hook used to retrieve spring values representing the dimensions of the playback region.
@@ -16,6 +17,10 @@ export function useBoundSprings(ignoreZoom?: boolean): {
   rightSpring: MotionValue<number>;
   widthSpring: MotionValue<number>;
 } {
+  const { xScale } = useTrackContext();
+
+  const playerDuration = usePlayerStore(useShallow((state) => state.player.duration));
+
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
       domain: [0, 1],
@@ -45,21 +50,26 @@ export function useBoundSprings(ignoreZoom?: boolean): {
 
   const onViewportChange = useCallback(
     ({ viewport, bounds }: { viewport: [number, number]; bounds: [number, number] }) => {
-      const scale = scaleLinear({
-        domain: ignoreZoom ? [0, 1] : viewport,
-        range: [0, 1],
-      });
-      const baseZeroScale = scaleLinear({
-        domain: getBasedZeroViewport(viewport),
-        range: [0, 1],
-      });
-      zoomScale.current = scale;
-      zoomBaseZeroScale.current = baseZeroScale;
-      leftSpring.jump(scale(bounds[0]));
-      rightSpring.jump(scale(bounds[1]));
-      widthSpring.jump(baseZeroScale(Math.max(0, bounds[1] - bounds[0])));
+      if (ignoreZoom) {
+        leftSpring.jump(xScale(playerDuration * bounds[0]));
+        rightSpring.jump(xScale(playerDuration * bounds[1]));
+        widthSpring.jump(
+          Math.max(0, xScale(playerDuration * bounds[1]) - xScale(playerDuration * bounds[0])),
+        );
+      } else {
+        zoomScale.current = zoomScale.current?.domain(viewport)?.range([0, 1]);
+        leftSpring.jump(xScale(playerDuration * zoomScale.current(bounds[0])));
+        rightSpring.jump(xScale(playerDuration * zoomScale.current(bounds[1])));
+        widthSpring.jump(
+          Math.max(
+            0,
+            xScale(playerDuration * zoomScale.current(bounds[1])) -
+              xScale(playerDuration * zoomScale.current(bounds[0])),
+          ),
+        );
+      }
     },
-    [leftSpring, rightSpring, widthSpring, ignoreZoom],
+    [leftSpring, rightSpring, widthSpring, ignoreZoom, playerDuration, xScale],
   );
 
   usePlayerSubscription(
@@ -70,16 +80,3 @@ export function useBoundSprings(ignoreZoom?: boolean): {
 
   return { leftSpring, rightSpring, widthSpring };
 }
-
-/**
- * Adjusts the given viewport to be based at zero.
- *
- * This function takes a viewport represented as a tuple of two numbers,
- * and returns a new viewport where the starting point is set to zero.
- *
- * @param viewport - A tuple representing the viewport, where the first element is the starting point and the second element is the ending point.
- * @returns A new viewport tuple where the starting point is zero and the ending point is adjusted accordingly.
- */
-const getBasedZeroViewport = (viewport: [number, number]) => {
-  return [0, viewport[1] - viewport[0]];
-};

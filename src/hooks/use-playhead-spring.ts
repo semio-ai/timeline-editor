@@ -6,6 +6,7 @@ import { shallow } from "zustand/shallow";
 import { AnimationContext } from "../context";
 import { type ScaleLinear } from "../scale-linear";
 import { usePlayerSubscription } from "./use-player-subscription";
+import { useTrackContext } from "./use-track-context";
 
 /**
  * A hook used to retrieve a spring representing the current playhead time, scaled to the viewport.
@@ -17,6 +18,8 @@ export function usePlayheadSpring(ignoreZoom?: boolean): MotionValue<number> {
   if (!store) {
     throw new Error("useHoverSpring must be used within a StudioProvider");
   }
+
+  const { xScale } = useTrackContext();
 
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
@@ -30,20 +33,20 @@ export function usePlayheadSpring(ignoreZoom?: boolean): MotionValue<number> {
   const playheadSpring = useMotionValue<number>(0);
 
   usePlayerSubscription(
-    (state: PlayerData) => state.player.stamp,
-    (playhead) => {
-      playheadSpring.jump(zoomScale.current(playhead));
-      storedPlayhead.current = playhead;
+    (state: PlayerData) => ({ stamp: state.player.stamp, duration: state.player.duration }),
+    ({ stamp, duration }) => {
+      playheadSpring.jump(xScale(duration * zoomScale.current(stamp)));
+      storedPlayhead.current = stamp;
     },
     shallow,
   );
 
   usePlayerSubscription(
-    (state: PlayerData) => state.player.viewport,
-    (viewport) => {
-      zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
+    (state: PlayerData) => ({ viewport: state.player.viewport, duration: state.player.duration }),
+    ({ viewport, duration }) => {
+      zoomScale.current = zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
       const playhead = storedPlayhead.current;
-      playheadSpring.jump(zoomScale.current(playhead));
+      playheadSpring.jump(xScale(duration * zoomScale.current(playhead)));
     },
     shallow,
   );

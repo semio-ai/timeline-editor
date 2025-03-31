@@ -69,10 +69,12 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
     { ...DRAG_X_CONFIG, target: gRef },
   );
 
+  const playerDuration = usePlayerStore((state) => state.player.duration);
+
   const transform = useTransform(
     playheadSpring,
     (c) =>
-      `translate(${clamp(xScale(c), xScale(0), xScale(1)).toString()}  ${side === "top" ? "-3.5" : "3.5"})`,
+      `translate(${clamp(c, xScale(0), xScale(playerDuration)).toString()}  ${side === "top" ? "-3.5" : "3.5"})`,
   );
 
   transform.on("change", (v) => {
