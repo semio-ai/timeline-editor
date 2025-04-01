@@ -2,21 +2,24 @@ import { type ReactNode, useMemo, useRef } from "react";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
 import { Text } from "@visx/text";
-import { motion, useTransform } from "motion/react";
+import { motion, MotionValue, useTransform } from "motion/react";
 import { stampToVisualTime } from "@semio/ui";
 import { shallow } from "zustand/shallow";
 import { useShallow } from "zustand/react/shallow";
 import useMeasure from "react-use-measure";
 import { clsx } from "clsx";
+import { usePlayerStore } from "@semio/utils";
 import { TrackRender } from "../types";
 import type { AnimationData } from "../store-types";
 import { type ScaleLinear } from "../scale-linear";
 import {
   useAnimationStore,
   TrackContext,
-  useStaticZoomedSpring,
   useAltKeyPressed,
   usePlayerSubscription,
+  useTrackTransformSpring,
+  useScaleInverseSpring,
+  useTrackContext,
 } from "../hooks";
 import { TIMELINE_PADDING } from "../constants";
 import { PlayheadCart, HoverMarker, BoundCart, GestureDetector } from "./track-internals";
@@ -30,11 +33,9 @@ function InnerRuler({
   side: "top" | "bottom";
   animationId: string;
 }) {
+  const duration = usePlayerStore(useShallow((state) => state.player.duration));
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
-  );
-  const duration = useAnimationStore(
-    useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );
 
   const zoomScale = useRef<ScaleLinear>(scaleLinear({ domain: [0, 1], range: [0, 1] }));
@@ -50,25 +51,16 @@ function InnerRuler({
   const xScale = useMemo(
     () =>
       scaleLinear({
-        domain: [0, 1],
+        domain: [0, duration],
         range: [TIMELINE_PADDING, width - TIMELINE_PADDING],
       }),
-    [width],
+    [width, duration],
   );
 
   const yScale = useMemo(() => scaleLinear({ domain: [0, 1], range: [0, 6] }), []);
 
   const frameCount = Math.floor(framerate * (duration / 1000));
   const [activeRegionRef, activeRegionBounds] = useMeasure();
-
-  const timedFrames: { stamp: number; key: string }[] = useMemo(
-    () =>
-      Array.from({ length: frameCount + 1 }, (_v, i) => ({
-        stamp: i / frameCount,
-        key: `${side}-frame-${i.toString()}`,
-      })),
-    [frameCount, side],
-  );
 
   return (
     <TrackContext.Provider
@@ -79,6 +71,7 @@ function InnerRuler({
           offset: 0,
           timescale: 1,
         },
+        animationDuration: duration,
         trackIds: [],
         bounds: activeRegionBounds,
         xScale,
@@ -109,18 +102,7 @@ function InnerRuler({
               width={Math.max(0, width - TIMELINE_PADDING * 2)}
               className="h-[24px] pointer-events-none"
             />
-            {timedFrames.map((tick, i) => (
-              <Tick
-                key={tick.key}
-                completion={tick.stamp}
-                xScale={xScale}
-                side={side}
-                framerate={framerate}
-                idx={i}
-                ignoreZoom={side === "bottom"}
-                duration={duration}
-              />
-            ))}
+            <TickRegion ignoreZoom={side === "bottom"} side={side} />
           </g>
 
           <HoverMarker
@@ -137,64 +119,150 @@ function InnerRuler({
   );
 }
 
+function TickRegion({ ignoreZoom, side }: { ignoreZoom: boolean; side: "top" | "bottom" }) {
+  const { xScale } = useTrackContext();
+  const tickRef = useRef<SVGGElement>(null);
+  const framerate = useAnimationStore(
+    useShallow((state: AnimationData) => state.framerate as number),
+  );
+  const playerDuration = usePlayerStore(useShallow((state) => state.player.duration));
+  const frameCount = Math.floor(framerate * (playerDuration / 1000));
+
+  const timedFrames: { stamp: number; key: string }[] = useMemo(
+    () =>
+      Array.from({ length: frameCount + 1 }, (_v, i) => ({
+        stamp: i / frameCount,
+        key: `${side}-frame-${i.toString()}`,
+      })),
+    [frameCount, side],
+  );
+
+  const transformSpring = useTrackTransformSpring(ignoreZoom, false);
+
+  transformSpring.on("change", (t) => {
+    tickRef.current?.setAttribute("transform", t);
+  });
+
+  const inverseScaleSpring = useScaleInverseSpring(ignoreZoom);
+
+  const strokeWidthSpring = useTransform(inverseScaleSpring, (scale) => scale * 2);
+
+  return (
+    <motion.g ref={tickRef} transform={transformSpring.get()}>
+      {timedFrames.map((tick, idx) => (
+        <Tick
+          key={tick.key}
+          widthSpring={strokeWidthSpring}
+          completion={tick.stamp}
+          xScale={xScale}
+          playerDuration={playerDuration}
+          framerate={framerate}
+          ignoreZoom={ignoreZoom}
+          side={side}
+          idx={idx}
+        />
+      ))}
+    </motion.g>
+  );
+}
+
 function Tick({
   ignoreZoom = false,
   completion,
   xScale,
   side,
-  framerate,
+  playerDuration,
+  widthSpring,
   idx,
-  duration,
+  framerate,
 }: {
   completion: number;
   ignoreZoom?: boolean;
   xScale: ScaleLinear;
   side: "top" | "bottom";
   framerate: number;
+  playerDuration: number;
+  widthSpring: MotionValue<number>;
   idx: number;
-  duration: number;
 }) {
-  const zoomedCompletion = useStaticZoomedSpring(completion, ignoreZoom);
   const [timeDisplay] = useAnimationStore(
     useShallow((state: AnimationData) => [state.timeDisplay]),
   );
   const altPressed = useAltKeyPressed();
-  const visualTime = stampToVisualTime(completion, duration, framerate, timeDisplay, altPressed);
+  const visualTime = stampToVisualTime(
+    completion,
+    playerDuration,
+    framerate,
+    timeDisplay,
+    altPressed,
+  );
   const major = idx % framerate === 0;
 
-  const translateX = useTransform(zoomedCompletion, (s) => xScale(s));
+  const transform = `translate(${xScale(completion * playerDuration).toString()} 0)`;
+  const y1 = getY(side, major);
+  const y2 = y1 + (major ? 6 : 4);
+
+  const width = useTransform(widthSpring, (w) => w * (major ? 1 : 0.5));
 
   return (
-    <motion.g style={{ translateX }}>
-      <motion.rect
-        y={getY(side, major)}
-        x={major ? -1 : -0.5}
-        width={major ? 2 : 1}
-        height={major ? 6 : 4}
+    <g transform={transform}>
+      <motion.line
+        x1={0}
+        x2={0}
+        y1={y1}
+        y2={y2}
+        strokeWidth={width}
         className={clsx(
-          "transition-[fill,transform] duration-75 ease-in-out",
-          "fill-transparent pointer-events-none",
+          "transition-[stroke,transform] duration-75 ease-in-out pointer-events-none",
           major
-            ? "group-hover:fill-black group-hover:dark:fill-white group-aria-expanded:fill-black group-aria-expanded:dark:fill-white"
-            : "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
+            ? "group-hover:stroke-black group-hover:dark:stroke-white group-aria-expanded:stroke-black group-aria-expanded:dark:stroke-white"
+            : "group-hover:stroke-black/50 dark:group-hover:stroke-white/50 group-aria-expanded:stroke-black/50 dark:group-aria-expanded:stroke-white/50",
         )}
       />
       {major && (
-        <Text
-          textAnchor="middle"
-          verticalAnchor="start"
-          x={0}
-          y={side === "top" ? 5 : 15.5}
-          fontSize={10}
-          className={clsx(
-            "font-mono font-light pointer-events-none",
-            "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
-          )}
-        >
+        <ScaledText ignoreZoom={ignoreZoom} x={0} y={side === "top" ? 5 : 15.5}>
           {visualTime}
-        </Text>
+        </ScaledText>
       )}
-    </motion.g>
+    </g>
+  );
+}
+
+function ScaledText({
+  children,
+  ignoreZoom,
+  x,
+  y,
+}: {
+  children: string;
+  ignoreZoom: boolean;
+  x: number;
+  y: number;
+}) {
+  const textRef = useRef<SVGTextElement>(null);
+
+  const scaleSpring = useScaleInverseSpring(ignoreZoom);
+
+  const transform = useTransform(scaleSpring, (scale) => `scale(${scale.toString()} 1)`);
+
+  transform.on("change", (t) => textRef.current?.setAttribute("transform", t));
+
+  return (
+    <Text
+      innerTextRef={textRef}
+      textAnchor="middle"
+      verticalAnchor="start"
+      transform={transform.get()}
+      x={x}
+      y={y}
+      fontSize={10}
+      className={clsx(
+        "font-mono font-light pointer-events-none",
+        "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
+      )}
+    >
+      {children}
+    </Text>
   );
 }
 

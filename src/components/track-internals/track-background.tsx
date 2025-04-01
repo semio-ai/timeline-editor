@@ -7,24 +7,20 @@ import {
   useAnimationStore,
   useTrackContext,
   useBoundSprings,
-  useBezierPathSpring,
   useTrackTransformSpring,
   useScaleInverseSpring,
-  PathType,
 } from "../../hooks";
 import { AnimationData } from "../../store-types";
 import { TIMELINE_PADDING } from "../../constants";
 import type { ScaleLinear } from "../../scale-linear";
 
 export interface TrackBackgroundProps {
-  showLine?: boolean;
   showTicks?: boolean;
   ignoreZoom?: boolean;
   tickHeight?: number;
 }
 
 function InnerTrackBackground({
-  showLine = true,
   showTicks = true,
   ignoreZoom = false,
   tickHeight = 210,
@@ -32,7 +28,6 @@ function InnerTrackBackground({
   const {
     trackIds,
     xScale,
-    yScale,
     attribute,
     bounds: { width },
   } = useTrackContext();
@@ -61,14 +56,6 @@ function InnerTrackBackground({
           }))
         : [],
     [frameCount, identifier, showTicks],
-  );
-
-  const activePath = useBezierPathSpring(
-    xScale(bounds[0] * playerDuration),
-    xScale(bounds[1] * playerDuration),
-    0.5,
-    0.5,
-    PathType.Line,
   );
 
   const tickRef = useRef<SVGGElement>(null);
@@ -109,36 +96,12 @@ function InnerTrackBackground({
           x={-10}
           width={width + TIMELINE_PADDING * 2}
         >
-          {showLine && (
-            <>
-              <path
-                key={`${identifier}-linebg`}
-                d={`M 0 ${yScale(0.5).toString()} L ${(width + TIMELINE_PADDING * 2).toString()} ${yScale(0.5).toString()}`}
-                strokeWidth={4}
-                className={clsx(
-                  "group-hover:stroke-transparent group-aria-expanded:stroke-transparent",
-                  "stroke-white/25 transition-[stroke] duration-75 ease-in-out pointer-events-none",
-                )}
-              />
-              <motion.path
-                key={`${identifier}-line`}
-                d={activePath}
-                strokeWidth={4}
-                className={clsx(
-                  "group-hover:stroke-transparent group-aria-expanded:stroke-transparent",
-                  "stroke-white/50 transition-[stroke] duration-75 ease-in-out pointer-events-none",
-                )}
-              />
-            </>
-          )}
-
           <motion.g ref={tickRef} transform={transformSpring.get()}>
             {timedFrames.map((tick) => (
               <Tick
                 key={tick.key}
                 widthSpring={strokeWidthSpring}
                 completion={tick.stamp}
-                ignoreZoom={ignoreZoom}
                 xScale={xScale}
                 outsideBounds={tick.stamp < bounds[0] || tick.stamp > bounds[1]}
                 tickHeight={tickHeight}
@@ -258,7 +221,6 @@ function Tick({
   xScale,
   outsideBounds,
   widthSpring,
-  ignoreZoom,
   tickHeight,
   playerDuration,
 }: {
@@ -266,7 +228,6 @@ function Tick({
   xScale: ScaleLinear;
   outsideBounds: boolean;
   widthSpring: MotionValue<number>;
-  ignoreZoom?: boolean;
   tickHeight: number;
   playerDuration: number;
 }) {
@@ -276,7 +237,7 @@ function Tick({
       x1={x}
       x2={x}
       y1={0}
-      y2={30}
+      y2={tickHeight}
       strokeWidth={widthSpring}
       className={clsx(
         "h-full",

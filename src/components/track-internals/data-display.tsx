@@ -9,14 +9,14 @@ import { InstancedFrameInfo, Track } from "../../types";
 import { InterpolationSegment } from "./interpolation-segment";
 import { ViolationDisplay } from "./violation-display";
 import { FrameMarker } from "./frame-marker";
-import { FrameMarkerMasker } from "./frame-marker-masker";
 
 export interface DataDisplayProps {
   ignoreZoom?: boolean;
   useCustomColor?: boolean;
+  showFullLine?: boolean;
 }
 
-function InnerDataDisplay({ ignoreZoom = false }: DataDisplayProps) {
+function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisplayProps) {
   const { trackIds } = useTrackContext();
 
   const groupRef = useRef<SVGSVGElement>(null);
@@ -54,34 +54,31 @@ function InnerDataDisplay({ ignoreZoom = false }: DataDisplayProps) {
     <g mask="url(#boundsMask)">
       <g ref={groupRef} transform={transformSpring.get()}>
         <ViolationDisplay violationSet={violationSet} ignoreZoom={ignoreZoom} />
-        <g>
+        <g mask="url(#keyMask)">
           {paddedInterps.map(
-            ({
-              start,
-              end,
-              buffer,
-            }: {
-              start: InstancedFrameInfo;
-              end: InstancedFrameInfo;
-              buffer?: boolean;
-            }) => (
+            (
+              {
+                start,
+                end,
+                buffer,
+              }: {
+                start: InstancedFrameInfo;
+                end: InstancedFrameInfo;
+                buffer?: boolean;
+              },
+              idx: number,
+            ) => (
               <InterpolationSegment
                 key={`${start.id}-${end.id}`}
                 start={start}
                 end={end}
                 pseudoRegion={buffer}
+                isInitial={idx === 0}
+                isFinal={idx === paddedInterps.length - 1}
+                showFullLine={showFullLine}
               />
             ),
           )}
-        </g>
-        <g id="key-mask">
-          {frameData.map((frameInstance: InstancedFrameInfo) => (
-            <FrameMarkerMasker
-              key={frameInstance.id}
-              data={frameInstance}
-              ignoreZoom={ignoreZoom}
-            />
-          ))}
         </g>
         {frameData.map((frameInstance: InstancedFrameInfo) => (
           <FrameMarker key={frameInstance.id} data={frameInstance} ignoreZoom={ignoreZoom} />

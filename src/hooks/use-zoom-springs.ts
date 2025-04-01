@@ -1,4 +1,4 @@
-import { MotionValue, useMotionValue } from "motion/react";
+import { MotionValue, useSpring, useTransform } from "motion/react";
 import { shallow } from "zustand/shallow";
 import { PlayerData } from "@semio/utils";
 import { usePlayerSubscription } from "./use-player-subscription";
@@ -14,16 +14,18 @@ export function useZoomSprings(): {
   widthSpring: MotionValue<number>;
 } {
   const { xScale } = useTrackContext();
-  const leftSpring = useMotionValue<number>(0);
-  const rightSpring = useMotionValue<number>(1);
-  const widthSpring = useMotionValue<number>(1);
+  const leftSpring = useSpring(0, { mass: 0.001, bounce: 0.1, stiffness: 200 });
+  const rightSpring = useSpring(1, { mass: 0.001, bounce: 0.1, stiffness: 200 });
+  const widthSpring = useTransform<number, number>(
+    [leftSpring, rightSpring],
+    ([left, right]) => right - left,
+  );
 
   usePlayerSubscription(
     (state: PlayerData) => ({ viewport: state.player.viewport, duration: state.player.duration }),
     ({ viewport, duration }) => {
-      leftSpring.jump(xScale(viewport[0] * duration));
-      rightSpring.jump(xScale(viewport[1] * duration));
-      widthSpring.jump(xScale(viewport[1] * duration) - xScale(viewport[0] * duration));
+      leftSpring.set(xScale(viewport[0] * duration));
+      rightSpring.set(xScale(viewport[1] * duration));
     },
     shallow,
   );

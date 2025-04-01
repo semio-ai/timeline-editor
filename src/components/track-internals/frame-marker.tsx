@@ -46,12 +46,8 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     trackRender,
-    animationId,
+    animationDuration,
   } = useTrackContext();
-
-  const animationDuration = useAnimationStore(
-    (state) => state.animations[animationId].duration ?? 5000,
-  );
 
   const { resolvedTheme } = useTheme();
 
@@ -92,7 +88,9 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     hovered,
   ]);
 
-  const updateKeypoint = useAnimationStore(useShallow((state) => state.updateKeypoint));
+  const [updateKeypoint, updateHoverpointPreview] = useAnimationStore(
+    useShallow((state) => [state.updateKeypoint, state.updateHoverpointPreview]),
+  );
 
   const resetPlayer = usePlayerStore(useShallow((state) => state.resetPlayer));
 
@@ -107,6 +105,15 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
   useZoomGestures(
     gestureRef as MutableRefObject<SVGGElement>,
     {
+      onHover: (state) => {
+        setHovered(state.hovering ?? false);
+        if (!state.hovering) {
+          updateHoverpointPreview(null);
+        }
+      },
+      onMove: () => {
+        updateHoverpointPreview(data.stamp);
+      },
       onDrag: (state) => {
         const newPosition = zoomScale.current.invert(
           clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
@@ -144,8 +151,6 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
       aria-selected={isSelected}
       transformOrigin="center"
       transform={transformSpring.get()}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       <motion.path d={linePath} fill="none" stroke={color} strokeWidth={lineStrokeWidth} />
       <motion.path d={hexPath} fill={color} stroke={hexStrokeColorSpring} strokeWidth={1} />

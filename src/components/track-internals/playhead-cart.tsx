@@ -44,6 +44,11 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
   const { d: playheadCartPath, x } = usePlayheadCartPathSpring(side, duration, ignoreZoom);
 
   const gRef = useRef<SVGGElement>(null);
+  const playheadCartPathRef = useRef<SVGPathElement>(null);
+
+  playheadCartPath.on("change", (d) => {
+    playheadCartPathRef.current?.setAttribute("d", d);
+  });
 
   useGesture(
     {
@@ -85,6 +90,7 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
     <motion.g ref={gRef} className="touch-none" transform={transform.get()}>
       {/* Cart path */}
       <motion.path
+        ref={playheadCartPathRef}
         d={playheadCartPath}
         className={clsx(
           "touch-none",

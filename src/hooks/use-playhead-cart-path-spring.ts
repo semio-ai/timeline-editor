@@ -50,22 +50,22 @@ export function usePlayheadCartPathSpring(
     return distanceToPath(0, 200, storedCharCount.current, side);
   }, [side]);
 
-  const leftBuffer = useMotionValue(0);
-  const rightBuffer = useMotionValue(200);
-  const storedCharCountSpring = useMotionValue(storedCharCount.current);
+  const leftBuffer = useSpring(0, { mass: 0.001, bounce: 0.1, stiffness: 200 });
+  const rightBuffer = useSpring(1000, { mass: 0.001, bounce: 0.1, stiffness: 200 });
+  const storedCharCountSpring = useSpring(storedCharCount.current);
 
   const playheadCartPathSpring = useTransform(
     () => distanceToPath(leftBuffer.get(), rightBuffer.get(), storedCharCountSpring.get(), side)[0],
   );
 
-  const xSpring = useSpring(initialX);
+  const xSpring = useMotionValue(initialX);
 
   const altPressed = useAltKeyPressed();
 
   const handlePlayheadChange = useCallback(
     (playhead: number) => {
       storedPlayhead.current = playhead;
-      const bufferVals = valsToBuffer(xScale, zoomScale.current, playhead);
+      const bufferVals = valsToBuffer(xScale, zoomScale.current, playhead, duration);
       const charCount = stampToVisualTime(
         playhead,
         duration,
@@ -74,9 +74,9 @@ export function usePlayheadCartPathSpring(
         altPressed,
       ).length;
       const [_path, offset] = distanceToPath(...bufferVals, charCount, side);
-      leftBuffer.jump(bufferVals[0]);
-      rightBuffer.jump(bufferVals[1]);
-      storedCharCountSpring.jump(charCount);
+      leftBuffer.set(bufferVals[0]);
+      rightBuffer.set(bufferVals[1]);
+      storedCharCountSpring.set(charCount);
       xSpring.jump(offset);
       storedCharCount.current = charCount;
     },
@@ -99,15 +99,25 @@ export function usePlayheadCartPathSpring(
 
   const handleViewportChange = useCallback(
     (viewport: [number, number]) => {
-      zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
+      zoomScale.current = zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
       const playhead = storedPlayhead.current;
-      const bufferVals = valsToBuffer(xScale, zoomScale.current, playhead);
+      const bufferVals = valsToBuffer(xScale, zoomScale.current, playhead, duration);
       const [_path, offset] = distanceToPath(...bufferVals, storedCharCount.current, side);
-      leftBuffer.jump(bufferVals[0]);
-      rightBuffer.jump(bufferVals[1]);
+      leftBuffer.set(bufferVals[0]);
+      rightBuffer.set(bufferVals[1]);
       xSpring.jump(offset);
     },
-    [ignoreZoom, xScale, xSpring, storedPlayhead, side, leftBuffer, rightBuffer, storedCharCount],
+    [
+      ignoreZoom,
+      xScale,
+      xSpring,
+      storedPlayhead,
+      side,
+      leftBuffer,
+      rightBuffer,
+      storedCharCount,
+      duration,
+    ],
   );
 
   usePlayerSubscription((state: PlayerData) => state.player.stamp, handlePlayheadChange, shallow);
@@ -133,10 +143,13 @@ const valsToBuffer = (
   xScale: ScaleLinear,
   zoomScale: ScaleLinear,
   playhead: number,
+  duration: number,
 ): [number, number] => {
-  const xrange = xScale.range();
-  const scaledPlayhead = xScale(zoomScale(playhead));
-  const zoomed: [number, number] = [scaledPlayhead - xrange[0], xrange[1] - scaledPlayhead];
+  const bounds = zoomScale.domain();
+  const scaledPlayhead = xScale(playhead * duration);
+  const leftPos = xScale(bounds[0] * duration);
+  const rightPos = xScale(bounds[1] * duration);
+  const zoomed: [number, number] = [scaledPlayhead - leftPos, rightPos - scaledPlayhead];
   return zoomed;
 };
 

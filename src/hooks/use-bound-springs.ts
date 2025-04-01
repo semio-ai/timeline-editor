@@ -1,5 +1,5 @@
 import { useRef, useCallback } from "react";
-import { MotionValue, useMotionValue } from "motion/react";
+import { MotionValue, useMotionValue, useTransform } from "motion/react";
 import { PlayerData, usePlayerStore } from "@semio/utils";
 import { shallow, useShallow } from "zustand/shallow";
 import { scaleLinear } from "@visx/scale";
@@ -36,14 +36,16 @@ export function useBoundSprings(ignoreZoom?: boolean): {
 
   const leftSpring = useMotionValue<number>(zoomScale.current(0));
   const rightSpring = useMotionValue<number>(zoomScale.current(1));
-  const widthSpring = useMotionValue<number>(zoomBaseZeroScale.current(1));
+
+  const widthSpring = useTransform<number, number>([leftSpring, rightSpring], ([left, right]) =>
+    Math.max(0, right - left),
+  );
 
   usePlayerSubscription(
     (state: PlayerData) => state.player.bounds,
     (bounds) => {
       leftSpring.jump(zoomScale.current(bounds[0]));
       rightSpring.jump(zoomScale.current(bounds[1]));
-      widthSpring.jump(zoomBaseZeroScale.current(Math.max(0, bounds[1] - bounds[0])));
     },
     shallow,
   );
@@ -53,23 +55,13 @@ export function useBoundSprings(ignoreZoom?: boolean): {
       if (ignoreZoom) {
         leftSpring.jump(xScale(playerDuration * bounds[0]));
         rightSpring.jump(xScale(playerDuration * bounds[1]));
-        widthSpring.jump(
-          Math.max(0, xScale(playerDuration * bounds[1]) - xScale(playerDuration * bounds[0])),
-        );
       } else {
         zoomScale.current = zoomScale.current?.domain(viewport)?.range([0, 1]);
         leftSpring.jump(xScale(playerDuration * zoomScale.current(bounds[0])));
         rightSpring.jump(xScale(playerDuration * zoomScale.current(bounds[1])));
-        widthSpring.jump(
-          Math.max(
-            0,
-            xScale(playerDuration * zoomScale.current(bounds[1])) -
-              xScale(playerDuration * zoomScale.current(bounds[0])),
-          ),
-        );
       }
     },
-    [leftSpring, rightSpring, widthSpring, ignoreZoom, playerDuration, xScale],
+    [leftSpring, rightSpring, ignoreZoom, playerDuration, xScale],
   );
 
   usePlayerSubscription(

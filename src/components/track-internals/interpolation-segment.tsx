@@ -1,13 +1,13 @@
 import { type ReactNode, memo, useMemo } from "react";
 import { clsx } from "clsx";
-import { motion } from "motion/react";
+import { motion, useTransform } from "motion/react";
 import { RawValue, AnimatableValue, RawVector3, RawColor, RawEuler } from "@semio/utils";
 import {
   useTrackContext,
   useBezierPathSpring,
-  useAnimationStore,
   PathType,
   getPath,
+  useScaleInverseSpring,
 } from "../../hooks";
 import { InstancedFrameInfo, TrackRender } from "../../types";
 
@@ -15,26 +15,28 @@ export interface InterpolationSegmentProps {
   start: InstancedFrameInfo;
   end: InstancedFrameInfo;
   pseudoRegion?: boolean;
+  isInitial?: boolean;
+  isFinal?: boolean;
+  showFullLine?: boolean;
 }
 function InnerInterpolationSegment({
   start,
   end,
   pseudoRegion = false,
+  isInitial = false,
+  isFinal = false,
+  showFullLine = false,
 }: InterpolationSegmentProps): ReactNode {
   const {
     trackIds,
     trackRender,
     attribute,
     trackType,
-    animationId,
     xScale,
     yScale,
     bounds: { height },
+    animationDuration,
   } = useTrackContext();
-
-  const animationDuration = useAnimationStore(
-    (state) => state.animations[animationId]?.duration ?? 5000,
-  );
 
   const { start: startValue, end: endValue } = getStartAndEnd(
     trackIds,
@@ -46,23 +48,24 @@ function InnerInterpolationSegment({
     attribute,
   );
 
-  // const pathLineSpring = useBezierPathSpring(
-  //   start.stamp * animationDuration,
-  //   end.stamp * animationDuration,
-  //   startValue,
-  //   endValue,
-  //   trackRender === TrackRender.Preview || trackRender === TrackRender.Transition
-  //     ? PathType.Bezier
-  //     : PathType.Line,
-  // );
-  //
-  const pathLine = useMemo(() => {
-    const pathType =
-      trackRender === TrackRender.Preview || trackRender === TrackRender.Transition
-        ? PathType.Bezier
-        : PathType.Line;
+  const pathType =
+    trackRender === TrackRender.Preview || trackRender === TrackRender.Transition
+      ? PathType.Bezier
+      : PathType.Line;
+
+  const pathLineSpring = useBezierPathSpring(
+    start.stamp,
+    end.stamp,
+    startValue,
+    endValue,
+    pathType,
+    pseudoRegion && isInitial,
+    pseudoRegion && isFinal,
+  );
+
+  const pathFill = useMemo(() => {
     const path = getPath(
-      pathType,
+      pathType === PathType.Bezier ? PathType.BezierFilled : pathType,
       xScale(start.stamp * animationDuration),
       yScale(typeof startValue === "number" ? startValue : 0.5),
       xScale(end.stamp * animationDuration),
@@ -74,36 +77,36 @@ function InnerInterpolationSegment({
     height,
     start.stamp,
     end.stamp,
-    trackRender,
     startValue,
     endValue,
     animationDuration,
     xScale,
     yScale,
+    pathType,
   ]);
 
-  const pathFillSpring = useBezierPathSpring(
-    start.stamp * animationDuration,
-    end.stamp * animationDuration,
-    startValue,
-    endValue,
-    trackRender === TrackRender.Preview || trackRender === TrackRender.Transition
-      ? PathType.BezierFilled
-      : PathType.Line,
-  );
+  const inverseScale = useScaleInverseSpring(false);
 
-  if (trackRender === TrackRender.Key && pseudoRegion) {
-    return null;
-  }
+  const strokeDashArray = useTransform(inverseScale, (scale) => {
+    if (pseudoRegion && trackRender !== TrackRender.Key) {
+      const val = (scale * 5).toString();
+      return `${val} ${val}`;
+    } else {
+      return "none";
+    }
+  });
 
-  // pathLineSpring.on("change", console.log);
+  // if (trackRender === TrackRender.Key && pseudoRegion) {
+  //   return null;
+  // }
+  const pseudoRegionOpacityClass = showFullLine ? "opacity-50" : "opacity-0";
 
   return (
     <g>
       {(trackRender === TrackRender.Preview || trackRender === TrackRender.Transition) && (
         <motion.path
           key="fill"
-          d={pathFillSpring}
+          d={pathFill}
           className={clsx(
             "transition-[colors,fill] duration-75 pointer-events-none",
             "fill-transparent stroke-transparent",
@@ -113,16 +116,18 @@ function InnerInterpolationSegment({
           )}
         />
       )}
-      <path
+      <motion.path
         key="line"
-        strokeDasharray={pseudoRegion ? "5 5" : "none"}
-        strokeDashoffset={pseudoRegion ? "2.5" : "none"}
-        d={pathLine}
+        strokeDasharray={strokeDashArray}
+        strokeDashoffset={pseudoRegion ? inverseScale : "none"}
+        d={pathLineSpring}
         className={clsx(
           "transition-[colors,stroke] duration-75 pointer-events-none",
-          "stroke-transparent fill-transparent",
+          "fill-transparent stroke-[--track-color]",
+          trackRender === TrackRender.Key && pseudoRegion
+            ? pseudoRegionOpacityClass
+            : "opacity-100",
           getStroke(trackRender, pseudoRegion),
-          "group-aria-expanded:stroke-[--track-color] group-hover:stroke-[--track-color]",
         )}
       />
     </g>

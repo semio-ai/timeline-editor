@@ -26,7 +26,6 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
   const rightBoundsRef = useRef<SVGGElement>(null);
   const {
     frameCount,
-    xScale,
     zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackContext();

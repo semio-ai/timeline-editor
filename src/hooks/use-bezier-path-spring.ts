@@ -1,11 +1,7 @@
-import { useRef, useCallback } from "react";
-import { MotionValue, useMotionValue } from "motion/react";
-import { PlayerData, RawValue } from "@semio/utils";
-import { scaleLinear } from "@visx/scale";
-import { shallow } from "zustand/shallow";
-import { type ScaleLinear } from "../scale-linear";
+import { MotionValue, useTransform } from "motion/react";
+import { RawValue } from "@semio/utils";
 import { useTrackContext } from "./use-track-context";
-import { usePlayerSubscription } from "./use-player-subscription";
+import { useScaleInverseSpring } from "./use-scale-inverse-spring";
 
 /**
  * A hook used to create a path spring based on a bezier curve. For now, always return an easeInOutCubic path.
@@ -15,6 +11,8 @@ import { usePlayerSubscription } from "./use-player-subscription";
  * @param value1 - The first value.
  * @param value2 - The second value.
  * @param pathType - The type of path to create.
+ * @param ignoreBufferLeft - Whether to ignore a buffer to the left side of the curve (only applied for line path types)
+ * @param ignoreBufferRight - Whether to ignore a buffer to the right side of the curve (only applied for line path types)
  *
  * @returns A spring value wrapping a path string.
  */
@@ -24,14 +22,23 @@ export function useBezierPathSpring(
   value1: RawValue,
   value2: RawValue,
   pathType: PathType,
+  ignoreBufferLeft?: boolean,
+  ignoreBufferRight?: boolean,
 ): MotionValue<string> {
-  const buffer = pathType === PathType.Bezier || pathType === PathType.BezierFilled ? 0 : 60;
+  const [leftBuffer, rightBuffer] = getBuffers(
+    pathType,
+    ignoreBufferLeft ?? false,
+    ignoreBufferRight ?? false,
+  );
 
   const {
     yScale,
     xScale,
     bounds: { height },
+    animationDuration,
   } = useTrackContext();
+
+  const scaling = useScaleInverseSpring(false);
 
   // const zoomScale = useRef<ScaleLinear>(
   //   scaleLinear({
@@ -40,13 +47,13 @@ export function useBezierPathSpring(
   //   }),
   // );
 
-  const pathSpring = useMotionValue<string>(
+  const pathSpring = useTransform(scaling, (s) =>
     getPath(
       pathType,
-      xScale(stamp1),
-      yScale(pathType === PathType.Line ? 0.5 : (value1 as number)),
-      xScale(stamp2),
-      yScale(pathType === PathType.Line ? 0.5 : (value2 as number)),
+      xScale(stamp1 * animationDuration) + s * leftBuffer,
+      yScale(typeof value1 === "number" ? value1 : 0.5),
+      xScale(stamp2 * animationDuration) - s * rightBuffer,
+      yScale(typeof value2 === "number" ? value2 : 0.5),
       height,
     ),
   );
@@ -157,4 +164,15 @@ export enum PathType {
   Line = "line",
   Bezier = "bezier",
   BezierFilled = "bezierFilled",
+}
+
+function getBuffers(
+  pathType: PathType,
+  ignoreBufferLeft: boolean,
+  ignoreBufferRight: boolean,
+): [number, number] {
+  const buffer = pathType === PathType.Bezier || pathType === PathType.BezierFilled ? 0 : 6.5;
+  return pathType === PathType.Line
+    ? [ignoreBufferLeft ? 0 : buffer, ignoreBufferRight ? 0 : buffer]
+    : [buffer, buffer];
 }

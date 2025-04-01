@@ -1,6 +1,7 @@
 import { useRef, useCallback } from "react";
 import { MotionValue, useMotionValue } from "motion/react";
 import { scaleLinear } from "@visx/scale";
+import { usePlayerStore } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import type { AnimationData } from "../store-types";
 import { SemanticTime } from "../types";
@@ -8,7 +9,6 @@ import { type ScaleLinear } from "../scale-linear";
 import { useStoreSubscription } from "./use-store-subscription";
 import { usePlayerSubscription } from "./use-player-subscription";
 import { useTrackContext } from "./use-track-context";
-import { usePlayerStore } from "@semio/utils";
 
 /**
  * A hook used to retrieve a spring value and set it in the store. Must be used within a AnimationProvider.
