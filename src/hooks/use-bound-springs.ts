@@ -27,12 +27,6 @@ export function useBoundSprings(ignoreZoom?: boolean): {
       range: [0, 1],
     }),
   );
-  const zoomBaseZeroScale = useRef<ScaleLinear>(
-    scaleLinear({
-      domain: [0, 1],
-      range: [0, 1],
-    }),
-  );
 
   const leftSpring = useMotionValue<number>(zoomScale.current(0));
   const rightSpring = useMotionValue<number>(zoomScale.current(1));
@@ -67,7 +61,6 @@ export function useBoundSprings(ignoreZoom?: boolean): {
   usePlayerSubscription(
     (state: PlayerData) => ({ viewport: state.player.viewport, bounds: state.player.bounds }),
     onViewportChange,
-    (current, previous) => shallow(current.viewport, previous.viewport),
   );
 
   return { leftSpring, rightSpring, widthSpring };
