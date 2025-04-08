@@ -178,14 +178,14 @@ function InnerViolationSegmentDisplay({
           <div
             className={clsx(
               "px-2 py-1.5 bg-neutral-50/50 dark:bg-neutral-950/50",
-              "text-[--track-color] flex-row flex justify-between items-center",
+              "text-(--track-color) flex-row flex justify-between items-center",
             )}
           >
             <div className="flex-row flex items-center">
               <IconAlertTriangle size={20} className="mr-2" />
               {uniqueTracks.length > 1 ? "Multiple Tracks" : dataLookup[uniqueTracks[0]].name}
             </div>
-            <div className="bg-[--track-color] text-black min-w-6 text-center">
+            <div className="bg-(--track-color) text-black min-w-6 text-center">
               {segment.violations.length}
             </div>
           </div>

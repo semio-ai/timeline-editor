@@ -175,7 +175,7 @@ function Tick({
           "transition-[fill,transform] duration-75 ease-in-out",
           "fill-transparent pointer-events-none",
           major
-            ? "group-hover:fill-black group-hover:dark:fill-white group-aria-expanded:fill-black group-aria-expanded:dark:fill-white"
+            ? "group-hover:fill-black dark:group-hover:fill-white group-aria-expanded:fill-black dark:group-aria-expanded:fill-white"
             : "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
         )}
       />

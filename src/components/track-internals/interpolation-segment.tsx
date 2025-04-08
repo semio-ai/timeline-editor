@@ -60,7 +60,7 @@ function InnerInterpolationSegment({
           "transition-[colors,fill] duration-75 pointer-events-none",
           "fill-transparent stroke-transparent",
           !pseudoRegion &&
-            "group-aria-expanded:fill-[--track-color] group-hover:fill-[--track-color]",
+            "group-aria-expanded:fill-(--track-color) group-hover:fill-(--track-color)",
           "group-aria-expanded:opacity-50 group-hover:opacity-50",
         )}
       />
@@ -73,7 +73,7 @@ function InnerInterpolationSegment({
           "transition-[colors,stroke] duration-75 pointer-events-none",
           "stroke-transparent fill-transparent",
           getStroke(trackRender, pseudoRegion),
-          "group-aria-expanded:stroke-[--track-color] group-hover:stroke-[--track-color]",
+          "group-aria-expanded:stroke-(--track-color) group-hover:stroke-(--track-color)",
         )}
       />
     </g>
