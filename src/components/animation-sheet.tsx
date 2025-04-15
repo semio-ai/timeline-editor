@@ -70,7 +70,7 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
     <div
       aria-expanded={expanded}
       className={clsx(
-        "flex flex-col group w-full dark:bg-layout-darkinset bg-layout-lightinset",
+        "flex flex-col group w-full dark:bg-layout-dark-inset bg-layout-light-inset",
         "divide-y divide-transparent",
       )}
     >
