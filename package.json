@@ -48,7 +48,6 @@
   },
   "devDependencies": {
     "@semio/eslint-config": "*",
-    "@semio/tailwind-config": "*",
     "@semio/typescript-config": "*",
     "@types/d3-interpolate": "^3.0.4",
     "@types/d3-scale": "^4.0.8",
