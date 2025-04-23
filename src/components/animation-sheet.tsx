@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useContext, memo, useState, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
-import { ToggleGroup, Size, ToggleSquare, Variant, IconPreviewView } from "@semio/ui";
+import { ToggleGroup, Size, ToggleSquare, IconPreviewView } from "@semio/ui";
 import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
@@ -98,8 +98,8 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
           </ToggleSquare>
 
           <ToggleGroup
+            visuals="icons"
             size={Size.Xs}
-            variant={Variant.Default}
             value={trackRender}
             onChange={(v: string) => {
               console.log(`Updating Track Render from ${trackRender} to ${v}`);
