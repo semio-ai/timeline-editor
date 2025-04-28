@@ -1,5 +1,5 @@
 import { useRef, useMemo, useCallback } from "react";
-import { MotionValue, useMotionValue, useSpring, useTransform } from "motion/react";
+import { MotionValue, useMotionValue, useTransform } from "motion/react";
 import { useShallow } from "zustand/react/shallow";
 import { PlayerData, pointsToPath } from "@semio/utils";
 import { stampToVisualTime } from "@semio/ui";
@@ -50,9 +50,14 @@ export function usePlayheadCartPathSpring(
     return distanceToPath(0, 200, storedCharCount.current, side);
   }, [side]);
 
-  const leftBuffer = useSpring(0, { mass: 0.001, bounce: 0.1, stiffness: 200 });
-  const rightBuffer = useSpring(1000, { mass: 0.001, bounce: 0.1, stiffness: 200 });
-  const storedCharCountSpring = useSpring(storedCharCount.current);
+  // Trying to replace the spring behavior with simple motion values
+  // const leftBuffer = useSpring(0, { mass: 0.001, bounce: 0.1, stiffness: 200 });
+  // const rightBuffer = useSpring(1000, { mass: 0.001, bounce: 0.1, stiffness: 200 });
+  // const storedCharCountSpring = useSpring(storedCharCount.current);
+
+  const leftBuffer = useMotionValue(0);
+  const rightBuffer = useMotionValue(1000);
+  const storedCharCountSpring = useMotionValue(storedCharCount.current);
 
   const playheadCartPathSpring = useTransform(
     () => distanceToPath(leftBuffer.get(), rightBuffer.get(), storedCharCountSpring.get(), side)[0],
@@ -74,9 +79,9 @@ export function usePlayheadCartPathSpring(
         altPressed,
       ).length;
       const [_path, offset] = distanceToPath(...bufferVals, charCount, side);
-      leftBuffer.set(bufferVals[0]);
-      rightBuffer.set(bufferVals[1]);
-      storedCharCountSpring.set(charCount);
+      leftBuffer.jump(bufferVals[0]);
+      rightBuffer.jump(bufferVals[1]);
+      storedCharCountSpring.jump(charCount);
       xSpring.jump(offset);
       storedCharCount.current = charCount;
     },
@@ -103,8 +108,8 @@ export function usePlayheadCartPathSpring(
       const playhead = storedPlayhead.current;
       const bufferVals = valsToBuffer(xScale, zoomScale.current, playhead, duration);
       const [_path, offset] = distanceToPath(...bufferVals, storedCharCount.current, side);
-      leftBuffer.set(bufferVals[0]);
-      rightBuffer.set(bufferVals[1]);
+      leftBuffer.jump(bufferVals[0]);
+      rightBuffer.jump(bufferVals[1]);
       xSpring.jump(offset);
     },
     [
