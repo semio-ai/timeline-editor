@@ -40,13 +40,6 @@ export function useBezierPathSpring(
 
   const scaling = useScaleInverseSpring(false);
 
-  // const zoomScale = useRef<ScaleLinear>(
-  //   scaleLinear({
-  //     domain: [0, 1],
-  //     range: [0, 1],
-  //   }),
-  // );
-
   const pathSpring = useTransform(scaling, (s) =>
     getPath(
       pathType,
@@ -57,29 +50,6 @@ export function useBezierPathSpring(
       height,
     ),
   );
-
-  // const onViewportChange = useCallback(
-  //   (viewport: [number, number]) => {
-  //     // const scale = scaleLinear({
-  //     //   domain: viewport,
-  //     //   range: [0, 1],
-  //     // });
-  //     // zoomScale.current = scale;
-  //     pathSpring.jump(
-  //       getPath(
-  //         pathType,
-  //         stamp1,
-  //         yScale(pathType === PathType.Line ? 0.5 : (value1 as number)),
-  //         stamp2,
-  //         yScale(pathType === PathType.Line ? 0.5 : (value2 as number)),
-  //         height,
-  //       ),
-  //     );
-  //   },
-  //   [pathSpring, stamp1, stamp2, value1, value2, yScale, pathType, height],
-  // );
-
-  // usePlayerSubscription((state: PlayerData) => state.player.viewport, onViewportChange, shallow);
 
   return pathSpring;
 }

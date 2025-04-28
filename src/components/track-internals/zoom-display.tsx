@@ -149,7 +149,6 @@ function InnerZoomDisplay() {
     DRAG_X_CONFIG,
   );
 
-  // const w = useTransform(widthSpring, (v) => Math.max(0, v - TIMELINE_PADDING));
   const transformL = useTransform(leftSpring, (v) => `translate(${v.toString()} 0)`);
   const transformR = useTransform(rightSpring, (v) => `translate(${v.toString()} 0)`);
 
@@ -177,7 +176,6 @@ function InnerZoomDisplay() {
         x2={x2}
         y1={15}
         y2={15}
-        // y={3.8}
         initial={{ strokeWidth: 5.6 }}
         variants={{
           active: { strokeWidth: 22.4 },

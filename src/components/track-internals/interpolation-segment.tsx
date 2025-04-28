@@ -96,9 +96,6 @@ function InnerInterpolationSegment({
     }
   });
 
-  // if (trackRender === TrackRender.Key && pseudoRegion) {
-  //   return null;
-  // }
   const pseudoRegionOpacityClass = showFullLine ? "opacity-50" : "opacity-0";
 
   return (

@@ -30,8 +30,6 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
 
   const cartRef = useRef<SVGPathElement | null>(null);
 
-  // const playerDuration = usePlayerStore(useShallow((state) => state.player.duration));
-
   const updateBounds = usePlayerStore(useShallow((state) => state.updatePlayerBounds));
 
   const withBounds = useWithBounds();
@@ -160,18 +158,12 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
     cartRef.current?.setAttribute("transform", v);
   });
 
-  // console.log("rerendering cart");
-
   return (
     <path
       ref={cartRef}
       transform={transform.get()}
       d={cartPath}
-      className={clsx(
-        "touch-none",
-        // "transition-[fill]",
-        anyPreview ? "fill-neutral-500" : "fill-neutral-500/60",
-      )}
+      className={clsx("touch-none", anyPreview ? "fill-neutral-500" : "fill-neutral-500/60")}
       x={0}
       y={side === "top" ? 20.5 : 0}
     />
