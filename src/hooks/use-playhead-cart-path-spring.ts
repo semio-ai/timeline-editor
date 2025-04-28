@@ -50,11 +50,6 @@ export function usePlayheadCartPathSpring(
     return distanceToPath(0, 200, storedCharCount.current, side);
   }, [side]);
 
-  // Trying to replace the spring behavior with simple motion values
-  // const leftBuffer = useSpring(0, { mass: 0.001, bounce: 0.1, stiffness: 200 });
-  // const rightBuffer = useSpring(1000, { mass: 0.001, bounce: 0.1, stiffness: 200 });
-  // const storedCharCountSpring = useSpring(storedCharCount.current);
-
   const leftBuffer = useMotionValue(0);
   const rightBuffer = useMotionValue(1000);
   const storedCharCountSpring = useMotionValue(storedCharCount.current);
