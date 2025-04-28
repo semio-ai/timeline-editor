@@ -1,8 +1,9 @@
 import { type ReactNode, memo, useCallback, useMemo, useRef } from "react";
-import { motion, useTransform } from "motion/react";
+import { useTransform } from "motion/react";
+import { FullGestureState } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { clsx } from "clsx";
-import { closestFrame, pointsToPath, usePlayerStore, PlayerActions } from "@semio/utils";
+import { closestFrame, pointsToPath, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import {
   useTrackContext,
@@ -13,7 +14,6 @@ import {
 } from "../../hooks";
 import { SemanticTime } from "../../types";
 import { DRAG_X_CONFIG } from "../../gesture-config";
-import { FullGestureState } from "@use-gesture/react";
 
 export interface BoundCartProps {
   side: "top" | "bottom";

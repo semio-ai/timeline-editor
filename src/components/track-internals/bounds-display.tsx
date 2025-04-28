@@ -14,7 +14,6 @@ import {
   useWithBounds,
   useZoomGestures,
 } from "../../hooks";
-import { TIMELINE_PADDING } from "../../constants";
 
 export interface BoundsDisplayProps {
   ignoreZoom?: boolean;
