@@ -152,9 +152,6 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
   const cartPath = useMemo(() => getCartPath(side, end), [side, end]);
 
   transform.on("change", (v) => {
-    if (side === "top" && end === "left") {
-      console.log(`transform ${side} ${end}`, v);
-    }
     cartRef.current?.setAttribute("transform", v);
   });
 
