@@ -149,7 +149,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
       onDoubleClick={doubleClickHandler as any as MouseEventHandler}
       className="group/frame touch-none pointer-events-boundary"
       aria-selected={isSelected}
-      transformOrigin="center"
+      style={{ transformOrigin: "center" }}
       transform={transformSpring.get()}
     >
       <motion.path d={linePath} fill="none" stroke={color} strokeWidth={lineStrokeWidth} />
