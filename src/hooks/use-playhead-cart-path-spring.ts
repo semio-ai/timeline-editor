@@ -1,4 +1,4 @@
-import { useRef, useMemo, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import { MotionValue, useMotionValue, useTransform } from "motion/react";
 import { useShallow } from "zustand/react/shallow";
 import { PlayerData, pointsToPath } from "@semio/utils";
