@@ -32,10 +32,10 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
   const xScale = useMemo(
     () =>
       scaleLinear({
-        domain: [0, 1],
+        domain: [0, duration],
         range: [TIMELINE_PADDING, containerBounds.width - TIMELINE_PADDING],
       }),
-    [containerBounds.width],
+    [containerBounds.width, duration],
   );
 
   const yScale = useMemo(() => scaleLinear({ domain: [0, 1], range: [0, height] }), [height]);
@@ -66,6 +66,7 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
               offset: 0,
               timescale: 1,
             },
+            animationDuration: duration,
             trackIds: [],
             bounds: activeRegionBounds,
             xScale,

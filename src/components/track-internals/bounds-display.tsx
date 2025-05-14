@@ -1,4 +1,4 @@
-import { useRef, memo, MutableRefObject } from "react";
+import { useRef, memo, MutableRefObject, useCallback } from "react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
 import { closestFrame, usePlayerStore } from "@semio/utils";
@@ -14,7 +14,6 @@ import {
   useWithBounds,
   useZoomGestures,
 } from "../../hooks";
-import { TIMELINE_PADDING } from "../../constants";
 
 export interface BoundsDisplayProps {
   ignoreZoom?: boolean;
@@ -26,7 +25,6 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
   const rightBoundsRef = useRef<SVGGElement>(null);
   const {
     frameCount,
-    xScale,
     zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackContext();
@@ -66,53 +64,65 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
       event.stopPropagation();
     };
 
-  const handleDrag =
+  const handleDrag = useCallback(
     (side: "left" | "right") =>
-    ({ xy, altKey, memo: initialBoundsMemo, dragging }: FullGestureState<"drag">) => {
-      let initialBounds = initialBoundsMemo;
-      const semanticTime = side === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd;
-      const boundsIndex = side === "left" ? 0 : 1;
-      const label = side === "left" ? "Bounds Start" : "Bounds End";
+      ({ xy, altKey, memo: initialBoundsMemo, dragging }: FullGestureState<"drag">) => {
+        let initialBounds = initialBoundsMemo;
+        const semanticTime = side === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd;
+        const boundsIndex = side === "left" ? 0 : 1;
+        const label = side === "left" ? "Bounds Start" : "Bounds End";
 
-      withBounds((currentBounds) => {
-        initialBounds = initialBounds ?? currentBounds;
-        const newPosition = zoomScale.current.invert(
-          clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
-        );
-        const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
-        let newBounds: [number, number];
-        if (side === "left") {
-          newBounds =
-            newValue >= initialBounds[1]
-              ? [initialBounds[1], newValue]
-              : [newValue, initialBounds[1]];
-        } else {
-          // right
-          newBounds =
-            newValue <= initialBounds[0]
-              ? [newValue, initialBounds[0]]
-              : [initialBounds[0], newValue];
-        }
-        updateBounds(newBounds[0], newBounds[1]);
-        // If no preview is present, add one when dragging.
-        // If a preview is present and no longer dragging, remove it.
-        if (!anyPreview && dragging) {
-          addPreview({
-            semanticTime,
-            stamp: newBounds[boundsIndex],
-            label,
-          });
-        } else if (anyPreview && !dragging) {
-          removePreview(
-            (p) =>
-              p.semanticTime === SemanticTime.BoundsStart ||
-              p.semanticTime === SemanticTime.BoundsEnd,
+        withBounds((currentBounds) => {
+          initialBounds = initialBounds ?? currentBounds;
+          const newPosition = zoomScale.current.invert(
+            clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
           );
-        }
-      });
+          const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
+          let newBounds: [number, number];
+          if (side === "left") {
+            newBounds =
+              newValue >= initialBounds[1]
+                ? [initialBounds[1], newValue]
+                : [newValue, initialBounds[1]];
+          } else {
+            // right
+            newBounds =
+              newValue <= initialBounds[0]
+                ? [newValue, initialBounds[0]]
+                : [initialBounds[0], newValue];
+          }
+          updateBounds(newBounds[0], newBounds[1]);
+          // If no preview is present, add one when dragging.
+          // If a preview is present and no longer dragging, remove it.
+          if (!anyPreview && dragging) {
+            addPreview({
+              semanticTime,
+              stamp: newBounds[boundsIndex],
+              label,
+            });
+          } else if (anyPreview && !dragging) {
+            removePreview(
+              (p) =>
+                p.semanticTime === SemanticTime.BoundsStart ||
+                p.semanticTime === SemanticTime.BoundsEnd,
+            );
+          }
+        });
 
-      return initialBounds as [number, number];
-    };
+        return initialBounds as [number, number];
+      },
+    [
+      updateBounds,
+      addPreview,
+      removePreview,
+      anyPreview,
+      frameCount,
+      timelineLeft,
+      timelineWidth,
+      withBounds,
+      zoomScale,
+    ],
+  );
 
   // Attach gestures to the left and right bounds.
   // We use the custom useZoomGestures hook so that it
@@ -137,18 +147,16 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
 
   const { leftSpring, rightSpring, widthSpring } = useBoundSprings(ignoreZoom);
 
-  const xLeft = useTransform(leftSpring, (ls) => xScale(ls));
-  const xLeftRect = useTransform(leftSpring, (ls) => xScale(ls) - 0.5);
-  const xRightRect = useTransform(rightSpring, (rs) => xScale(rs) - 0.5);
-  const width = useTransform(widthSpring, (ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING));
+  const xLeftRect = useTransform(leftSpring, (ls) => ls - 0.5);
+  const xRightRect = useTransform(rightSpring, (rs) => rs - 0.5);
 
   return (
     <>
       <motion.rect
         name="bounds-rect"
-        x={xLeft}
+        x={leftSpring}
         y={0}
-        width={width}
+        width={widthSpring}
         className={clsx(
           "fill-transparent pointer-events-none transition-[fill] h-full",
           anyPreview && "group-hover:cursor-ew-resize group-hover:fill-neutral-600/25",
@@ -156,24 +164,30 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
             "group-aria-expanded:cursor-ew-resize group-aria-expanded:fill-neutral-600/25",
         )}
       />
-      <g ref={leftBoundsRef} name="bounds-left-stroke" className="group/bound">
-        <motion.rect
-          x={xLeftRect}
+      <g ref={leftBoundsRef} name="bounds-left-stroke" className="group/bound touch-none">
+        <motion.line
+          x1={xLeftRect}
+          x2={xLeftRect}
+          y1={0}
+          y2={30}
           width={1}
           className={clsx(
-            "transition-fill duration-75 h-full",
-            anyPreview ? "fill-neutral-500" : "fill-transparent",
+            "transition-stroke duration-75 h-full",
+            anyPreview ? "stroke-neutral-500" : "stroke-transparent",
           )}
         />
       </g>
 
-      <g ref={rightBoundsRef} name="bounds-right-stroke" className="group/bound">
-        <motion.rect
-          x={xRightRect}
+      <g ref={rightBoundsRef} name="bounds-right-stroke" className="group/bound touch-none">
+        <motion.line
+          x1={xRightRect}
+          x2={xRightRect}
+          y1={0}
+          y2={30}
           width={1}
           className={clsx(
-            "transition-fill duration-75 h-full",
-            anyPreview ? "fill-neutral-500" : "fill-transparent",
+            "transition-stroke duration-75 h-full",
+            anyPreview ? "stroke-neutral-500" : "stroke-transparent",
           )}
         />
       </g>

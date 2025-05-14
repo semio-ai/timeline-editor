@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useMemo, useRef } from "react";
 import useMeasure from "react-use-measure";
 import { scaleLinear } from "@visx/scale";
@@ -7,7 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 import { shallow } from "zustand/shallow";
 import { clsx } from "clsx";
 import { pick } from "lodash";
-import { AnimatableValue, RawValue } from "@semio/utils";
+import { alpha, AnimatableValue, RawValue, usePlayerStore } from "@semio/utils";
 import { TIMELINE_PADDING } from "../constants";
 import { TrackContext, useAnimationStore, usePlayerSubscription } from "../hooks";
 import { AnimationData } from "../store-types";
@@ -33,10 +33,10 @@ export interface TrackProps {
   attribute?: string;
   canZoom?: boolean;
   trackRender: TrackRender;
-  showBackground?: boolean;
   showData?: boolean;
   showZoomControls?: boolean;
   useCustomColor?: boolean;
+  showFullLine?: boolean;
   color?: string;
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
@@ -52,9 +52,9 @@ export interface TrackProps {
  * @param attribute - The attribute to display, used with complex datatypes.
  * @param canZoom - Whether the track can be zoomed.
  * @param trackRender - The render type for the track (degrades to Dope if multiple tracks are present).
- * @param showBackground - Whether to show the background.
  * @param showData - Whether to show the data.
  * @param showZoomControls - Whether to show the zoom controls.
+ * @param showFullLine - Whether to show the full line when rendering with TrackRender.Line
  * @param emphasis - Whether the track is in an emphasized state.
  * @param color - The color of the track.
  * @param onEmphasisChange - Callback for when the emphasis state changes.
@@ -68,7 +68,7 @@ export function Track({
   trackRender,
   canZoom = true,
   showData = true,
-  showBackground = true,
+  showFullLine = false,
   showZoomControls = false,
   emphasis = false,
   color = "#737373",
@@ -77,7 +77,9 @@ export function Track({
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
-  const duration = useAnimationStore(
+
+  const playerDuration = usePlayerStore((state) => state.player.duration);
+  const animationDuration = useAnimationStore(
     useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );
 
@@ -129,17 +131,17 @@ export function Track({
     return TrackRender.Key;
   }, [trackKeys, trackRender, trackType, attribute]);
 
-  const frameCount = Math.floor(framerate * (duration / 1000));
+  const frameCount = Math.floor(framerate * (animationDuration / 1000));
 
   const [activeRegionRef, activeRegionBounds] = useMeasure();
 
   const xScale = useMemo(
     () =>
       scaleLinear({
-        domain: [0, 1],
+        domain: [0, playerDuration],
         range: [TIMELINE_PADDING, width - TIMELINE_PADDING],
       }),
-    [width],
+    [width, playerDuration],
   );
 
   const yScale = useMemo(
@@ -169,6 +171,7 @@ export function Track({
       value={{
         animationId,
         instanceSettings,
+        animationDuration,
         attribute,
         trackIds: trackKeys,
         bounds: activeRegionBounds,
@@ -184,6 +187,12 @@ export function Track({
       <div
         {...bind()}
         className={clsx("relative h-[30px] w-full group/track", emphasis && "has-emphasis")}
+        style={
+          {
+            "--track-color": color,
+            "--track-color-partial": alpha(color, 0.6),
+          } as CSSProperties
+        }
       >
         <svg
           height={30}
@@ -196,12 +205,8 @@ export function Track({
             width={Math.max(0, width - TIMELINE_PADDING * 2)}
             className="h-[30px]"
           />
-          <TrackBackground
-            showLine={canZoom && showBackground}
-            ignoreZoom={!canZoom}
-            tickHeight={30}
-            showTicks={canZoom}
-          />
+
+          <TrackBackground ignoreZoom={!canZoom} tickHeight={30} showTicks={canZoom} />
 
           {/* Gesture Detector */}
           <GestureDetector ignoreZoom={!canZoom} />
@@ -212,7 +217,7 @@ export function Track({
 
           <Playhead ignoreZoom={showZoomControls} />
 
-          {showData && <DataDisplay ignoreZoom={!canZoom} />}
+          {showData && <DataDisplay ignoreZoom={!canZoom} showFullLine={showFullLine} />}
         </svg>
       </div>
     </TrackContext.Provider>

@@ -10,6 +10,7 @@ import { type AnimationInstanceSettings, TrackRender } from "../types";
  * @param namespaceId - The id of the namespace.
  * @param attribute - The subset of the animatable value (when complex)
  * @param instanceInfo - The instance info ({@link AnimationInstanceSettings}).
+ * @param animationDuration - The duration of the animation.
  * @param bounds - The bounds of the track.
  * @param xScale - The x-scale of the track ({@link ScaleLinear}).
  * @param yScale - The y-scale of the track ({@link ScaleLinear}).
@@ -19,6 +20,7 @@ import { type AnimationInstanceSettings, TrackRender } from "../types";
 export interface TrackContextData {
   animationId: string;
   instanceSettings: AnimationInstanceSettings;
+  animationDuration: number;
   attribute?: string;
   trackIds: string[];
   bounds: RectReadOnly;
@@ -38,6 +40,7 @@ export const TrackContext = createContext<TrackContextData>({
     offset: 0,
     timescale: 1,
   },
+  animationDuration: 1000,
   trackIds: [],
   bounds: {
     left: 0,

@@ -48,6 +48,7 @@ import {
   computeNextTime,
   computePreviousTime,
   computeStoredAnimation,
+  computeWorldStamp,
 } from "./functions";
 
 enableMapSet();
@@ -312,6 +313,7 @@ export const AnimationSlice = (
     initAnimationSubscriptions: () => {
       const playerStoreState = usePlayerStore.getState();
       const updatePlayerInner = playerStoreState.updatePlayer;
+      const updateDuration = playerStoreState.updateDuration;
       const updateValues = get().updateValues;
 
       // If the time changes, check if it matches an existing keyframe and
@@ -337,15 +339,31 @@ export const AnimationSlice = (
           { equalityFn: shallow },
         ),
 
-        // If the duration changes, update the duration of the playerStore
-        // api.subscribe(
-        //   (state: AnimationData) =>
-        //     state.animations[state.activeAnimation]?.duration ?? state.duration,
-        //   (duration) => {
-        //     updateDuration(duration);
-        //   },
-        //   { equalityFn: shallow, fireImmediately: true },
-        // ),
+        // If the maximum duration (with scaling/offset applied) changes, update the duration of the playerStore
+        api.subscribe(
+          (state: AnimationData) => ({
+            animations: state.animations,
+            instances: state.namespaceInfo.instances,
+          }),
+          ({ animations, instances }) => {
+            const maxDuration = Math.max(
+              // Require that the player duration is at least 1000ms
+              1000,
+              ...Object.values(instances ?? {}).map(
+                (instance) =>
+                  animations[instance.animationId]?.duration *
+                  computeWorldStamp(
+                    1,
+                    instance.settings.timescale ?? 1,
+                    instance.settings.offset ?? 0,
+                  ),
+              ),
+            );
+            updateDuration(maxDuration);
+            api.setState({ duration: maxDuration });
+          },
+          { equalityFn: shallow, fireImmediately: true },
+        ),
 
         // If the interpolators change, rerun the interpolators with the time from the playerStore.
         api.subscribe(

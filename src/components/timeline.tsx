@@ -47,6 +47,7 @@ export function Timeline({
             namespaceId={namespaceId}
             trackRender={trackRender}
             instanceSettings={instanceSettings}
+            showFullLine
           />
         )}
       </ParentSize>

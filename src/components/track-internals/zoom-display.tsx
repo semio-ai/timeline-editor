@@ -5,7 +5,6 @@ import { closestFrame, usePlayerStore } from "@semio/utils";
 import { clsx } from "clsx";
 import { clamp } from "lodash";
 import { useAnimationStore, useTrackContext, useZoomSprings, useZoomGestures } from "../../hooks";
-import { TIMELINE_PADDING } from "../../constants";
 import { DRAG_X_CONFIG } from "../../gesture-config";
 
 function InnerZoomDisplay() {
@@ -15,7 +14,6 @@ function InnerZoomDisplay() {
 
   const {
     frameCount,
-    xScale,
     zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
   } = useTrackContext();
@@ -151,10 +149,8 @@ function InnerZoomDisplay() {
     DRAG_X_CONFIG,
   );
 
-  const x = useTransform(leftSpring, (v) => xScale(v));
-  const w = useTransform(widthSpring, (v) => Math.max(0, xScale(v) - TIMELINE_PADDING));
-  const transformL = useTransform(leftSpring, (v) => `translate(${xScale(v).toString()} 0)`);
-  const transformR = useTransform(rightSpring, (v) => `translate(${xScale(v).toString()} 0)`);
+  const transformL = useTransform(leftSpring, (v) => `translate(${v.toString()} 0)`);
+  const transformR = useTransform(rightSpring, (v) => `translate(${v.toString()} 0)`);
 
   transformL.on("change", (v) => {
     leftGestureRef.current?.setAttribute("transform", v);
@@ -164,7 +160,7 @@ function InnerZoomDisplay() {
     rightGestureRef.current?.setAttribute("transform", v);
   });
 
-  const x2 = useTransform(() => x.get() + w.get());
+  const x2 = useTransform(() => leftSpring.get() + widthSpring.get());
 
   return (
     <g className="group/zoom" aria-selected={dragging || hovered}>
@@ -174,16 +170,12 @@ function InnerZoomDisplay() {
           "transition-[transform,stroke]",
           "group-hover/zoom:stroke-neutral-500/50",
           "group-aria-selected/zoom:stroke-neutral-500/50",
-          // "group-hover/zoom:translate-y-[3.8px] group-hover/zoom:scale-y-100",
-          // "group-aria-selected/zoom:translate-y-[3.8px] group-aria-selected/zoom:scale-y-100",
           "stroke-neutral-500/25 cursor-pointer touch-none",
-          // "scale-y-[25%] translate-y-[12.2px]",
         )}
-        x1={x}
+        x1={leftSpring}
         x2={x2}
         y1={15}
         y2={15}
-        // y={3.8}
         initial={{ strokeWidth: 5.6 }}
         variants={{
           active: { strokeWidth: 22.4 },
@@ -191,7 +183,6 @@ function InnerZoomDisplay() {
         }}
         transition={{ duration: 0.1 }}
         animate={hovered || dragging ? "active" : "inactive"}
-        // height={22.4}
       />
       <motion.g
         ref={leftGestureRef as MutableRefObject<SVGPathElement>}
