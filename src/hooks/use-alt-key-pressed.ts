@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 
+/**
+ * A hook that returns a status of whether the alt-key is pressed.
+ */
 export const useAltKeyPressed = (): boolean => {
   const [isAltPressed, setIsAltPressed] = useState(false);
 

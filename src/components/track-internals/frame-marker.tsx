@@ -147,9 +147,8 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     <motion.g
       ref={gestureRef as MutableRefObject<SVGGElement>}
       onDoubleClick={doubleClickHandler as any as MouseEventHandler}
-      className="group/frame touch-none pointer-events-boundary"
+      className="group/frame touch-none pointer-events-boundary origin-left"
       aria-selected={isSelected}
-      transformOrigin="center"
       transform={transformSpring.get()}
     >
       <motion.path d={linePath} fill="none" stroke={color} strokeWidth={lineStrokeWidth} />

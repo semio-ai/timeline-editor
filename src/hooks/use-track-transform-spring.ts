@@ -5,6 +5,14 @@ import { useTrackContext } from "./use-track-context";
 import { useAnimationStore } from "./use-animation-store";
 import { usePlayerSubscription } from "./use-player-subscription";
 
+/**
+ * A hook that returns a string motion value for a transform style.
+ * This transform positions an individual track within the viewport
+ * according to its instance settings and the viewport configuration.
+ * @param ignoreZoom
+ * @param ignoreInstance
+ * @returns
+ */
 export function useTrackTransformSpring(
   ignoreZoom: boolean,
   ignoreInstance: boolean,

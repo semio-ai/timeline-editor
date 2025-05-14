@@ -3,6 +3,12 @@ import { shallow } from "zustand/shallow";
 import { useTrackContext } from "./use-track-context";
 import { usePlayerSubscription } from "./use-player-subscription";
 
+/**
+ * A hook that returns a string motion value for a transform style that
+ * undoes the zoom-related transforms incurred by the higher-level viewport zoom
+ * and instance settings, so that the elements visually maintain the same size/proportions.
+ * @param ignoreZoom - whether to ignore the zoom from the viewport
+ */
 export function useScaleInverseSpring(ignoreZoom: boolean): MotionValue<number> {
   const { instanceSettings } = useTrackContext();
 

@@ -11,12 +11,26 @@ import { useAnimationStore } from "./use-animation-store";
 import { useAltKeyPressed } from "./use-alt-key-pressed";
 import { usePlayerSubscription } from "./use-player-subscription";
 
+// Initialize the parameters so that the cart has the settings of sitting
+// at the beginning of the timeline (no padding on left, extra padding on right)
 const INITIAL_BUFFER = [0, 1000];
 
+// Constants that define the proportions of the cart;
+const TOTAL_CART_HEIGHT = 30;
+const VERTICAL_BUFFER = 1.5;
+const VERTICAL_PADDING = 3.5;
+const CARET_HALF_WIDTH = 6;
+// The caret element is the same height as each half is wide;
+// The remainder reduces the visible height of the cart.
+const VISUAL_CART_HEIGHT = TOTAL_CART_HEIGHT - CARET_HALF_WIDTH;
+
 /**
- * A hook used to retrieve a spring that contains the path of the svg path for the playhead cart, given current bounds and position.
+ * A hook used to retrieve a spring that contains the path of the svg path for the playhead cart,
+ * given current bounds and position.
  *
- * @param selector - A function that takes the store and returns the value you want to access.
+ * @param side - Whether the cart should be configured for top or bottom visuals
+ * @param duration - The duration of the timeline (not the track/animation)
+ * @param ignoreZoom - Whether to ignore zoom from the viewport
  * @returns The value you want to access.
  */
 export function usePlayheadCartPathSpring(
@@ -164,11 +178,11 @@ const valsToBuffer = (
  * The output values are clamped to the specified range.
  *
  * @param value - The input value to be scaled.
- * @returns - The scaled value within the range [3.5, 0].
+ * @returns - The scaled value within the range [VERTICAL_PADDING, 0].
  */
 const corner = scaleLinear({
   domain: [-4, 0],
-  range: [3.5, 0],
+  range: [VERTICAL_PADDING, 0],
   clamp: true,
 });
 
@@ -200,34 +214,51 @@ function distanceToPath(
   const offscreenL = corner(distanceLeft);
   const offscreenR = corner(distanceRight);
 
-  const leftX = Math.min(leftP - 6, Math.max(0, distanceRight) - flagWidth);
-  const rightX = Math.max(Math.min(0, -1 * distanceLeft) + flagWidth, rightP + 6);
+  const leftX = Math.min(leftP - CARET_HALF_WIDTH, Math.max(0, distanceRight) - flagWidth);
+  const rightX = Math.max(Math.min(0, -1 * distanceLeft) + flagWidth, rightP + CARET_HALF_WIDTH);
 
-  const pTLC: [number, number] = [leftX, 3.5 + offscreenL + VERTICAL_BUFFER];
-  const pTLT: [number, number] = [-6, 3.5 + offscreenL + VERTICAL_BUFFER];
+  // Define a set of coordinates in the form of [X,Y] going clockwise around the element
+  const pTLC: [number, number] = [leftX, VERTICAL_PADDING + offscreenL + VERTICAL_BUFFER];
+  const pTLT: [number, number] = [
+    -1 * CARET_HALF_WIDTH,
+    VERTICAL_PADDING + offscreenL + VERTICAL_BUFFER,
+  ];
   const pTCTl: [number, number] = [
     -0.5,
-    (side === "top" ? 3.5 : 0 + Math.max(offscreenL, offscreenR)) + VERTICAL_BUFFER,
+    (side === "top" ? VERTICAL_PADDING : 0 + Math.max(offscreenL, offscreenR)) + VERTICAL_BUFFER,
   ];
   const pTCTr: [number, number] = [
     0.5,
-    (side === "top" ? 3.5 : 0 + Math.max(offscreenL, offscreenR)) + VERTICAL_BUFFER,
+    (side === "top" ? VERTICAL_PADDING : 0 + Math.max(offscreenL, offscreenR)) + VERTICAL_BUFFER,
   ];
-  const pTRT: [number, number] = [+6, 3.5 + offscreenR + VERTICAL_BUFFER];
-  const pTRC: [number, number] = [rightX, 3.5 + offscreenR + VERTICAL_BUFFER];
+  const pTRT: [number, number] = [
+    CARET_HALF_WIDTH,
+    VERTICAL_PADDING + offscreenR + VERTICAL_BUFFER,
+  ];
+  const pTRC: [number, number] = [rightX, VERTICAL_PADDING + offscreenR + VERTICAL_BUFFER];
 
-  const pBRC: [number, number] = [rightX, 24 - offscreenR - VERTICAL_BUFFER];
-  const pBRT: [number, number] = [+6, 24 - offscreenR - VERTICAL_BUFFER];
+  const pBRC: [number, number] = [rightX, VISUAL_CART_HEIGHT - offscreenR - VERTICAL_BUFFER];
+  const pBRT: [number, number] = [
+    CARET_HALF_WIDTH,
+    VISUAL_CART_HEIGHT - offscreenR - VERTICAL_BUFFER,
+  ];
   const pBCTr: [number, number] = [
     0.5,
-    (side === "bottom" ? 24 : 27.5 - Math.max(offscreenL, offscreenR)) - VERTICAL_BUFFER,
+    (side === "bottom"
+      ? VISUAL_CART_HEIGHT
+      : TOTAL_CART_HEIGHT - VERTICAL_PADDING - Math.max(offscreenL, offscreenR)) - VERTICAL_BUFFER,
   ];
   const pBCTl: [number, number] = [
     -0.5,
-    (side === "bottom" ? 24 : 27.5 - Math.max(offscreenL, offscreenR)) - VERTICAL_BUFFER,
+    (side === "bottom"
+      ? VISUAL_CART_HEIGHT
+      : TOTAL_CART_HEIGHT - VERTICAL_PADDING - Math.max(offscreenL, offscreenR)) - VERTICAL_BUFFER,
   ];
-  const pBLT: [number, number] = [-6, 24 - offscreenL - VERTICAL_BUFFER];
-  const pBLC: [number, number] = [leftX, 24 - offscreenL - VERTICAL_BUFFER];
+  const pBLT: [number, number] = [
+    -1 * CARET_HALF_WIDTH,
+    VISUAL_CART_HEIGHT - offscreenL - VERTICAL_BUFFER,
+  ];
+  const pBLC: [number, number] = [leftX, VISUAL_CART_HEIGHT - offscreenL - VERTICAL_BUFFER];
 
   const points = [pTLC, pTLT, pTCTl, pTCTr, pTRT, pTRC, pBRC, pBRT, pBCTr, pBCTl, pBLT, pBLC];
   const path = pointsToPath(points, true);
@@ -252,10 +283,8 @@ function distanceToOffset(distanceLeft: number, distanceRight: number, charCount
   // These are ordered clockwise around the shape
   const leftP = -1 * boundScale(distanceLeft);
   const rightP = boundScale(distanceRight);
-  const leftX = Math.min(leftP - 6, Math.max(0, distanceRight) - flagWidth);
-  const rightX = Math.max(Math.min(0, -1 * distanceLeft) + flagWidth, rightP + 6);
+  const leftX = Math.min(leftP - CARET_HALF_WIDTH, Math.max(0, distanceRight) - flagWidth);
+  const rightX = Math.max(Math.min(0, -1 * distanceLeft) + flagWidth, rightP + CARET_HALF_WIDTH);
 
   return (leftX + rightX) / 2;
 }
-
-const VERTICAL_BUFFER = 1.5;
