@@ -16,7 +16,6 @@ export function Minimap({
           return (
             <Track
               showData={false}
-              showBackground={false}
               canZoom={false}
               width={width}
               trackIds={[]}

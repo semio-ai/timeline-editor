@@ -1,40 +1,39 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { motion, useTransform } from "motion/react";
+import { motion, MotionValue, useTransform } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
 import { clsx } from "clsx";
 import {
   useAnimationStore,
   useTrackContext,
-  useStaticZoomedSpring,
   useBoundSprings,
-  useBezierPathSpring,
+  useTrackTransformSpring,
+  useScaleInverseSpring,
 } from "../../hooks";
 import { AnimationData } from "../../store-types";
 import { TIMELINE_PADDING } from "../../constants";
 import type { ScaleLinear } from "../../scale-linear";
 
 export interface TrackBackgroundProps {
-  showLine?: boolean;
   showTicks?: boolean;
   ignoreZoom?: boolean;
   tickHeight?: number;
 }
 
 function InnerTrackBackground({
-  showLine = true,
   showTicks = true,
   ignoreZoom = false,
   tickHeight = 210,
 }: TrackBackgroundProps) {
   const {
+    trackIds,
     xScale,
-    yScale,
     attribute,
     bounds: { width },
   } = useTrackContext();
 
-  const { animationId, trackIds } = useTrackContext();
+  const playerDuration = usePlayerStore(useShallow((state) => state.player.duration));
+
   const identifier: string =
     trackIds?.join("-") ?? `default-${tickHeight.toString()}${attribute ? `-${attribute}` : ""}`;
 
@@ -43,13 +42,10 @@ function InnerTrackBackground({
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
-  const duration = useAnimationStore(
-    useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
-  );
 
   const { leftSpring, widthSpring } = useBoundSprings(ignoreZoom);
 
-  const frameCount = Math.floor(framerate * (duration / 1000));
+  const frameCount = Math.floor(framerate * (playerDuration / 1000));
 
   const timedFrames: { stamp: number; key: string }[] = useMemo(
     () =>
@@ -62,10 +58,17 @@ function InnerTrackBackground({
     [frameCount, identifier, showTicks],
   );
 
-  const activePath = useBezierPathSpring(true, bounds[0], bounds[1], 0.5, 0.5, false, true);
+  const tickRef = useRef<SVGGElement>(null);
 
-  const rectX = useTransform(leftSpring, (ls) => xScale(ls));
-  const rectWidth = useTransform(widthSpring, (ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING));
+  const transformSpring = useTrackTransformSpring(ignoreZoom, true);
+
+  transformSpring.on("change", (t) => {
+    tickRef.current?.setAttribute("transform", t);
+  });
+
+  const inverseScaleSpring = useScaleInverseSpring(ignoreZoom);
+
+  const strokeWidthSpring = useTransform(inverseScaleSpring, (scale) => scale * 2);
 
   return (
     <>
@@ -80,9 +83,9 @@ function InnerTrackBackground({
             className="fill-white/50 pointer-events-none h-full"
           />
           <motion.rect
-            x={rectX}
+            x={leftSpring}
             y={0}
-            width={rectWidth}
+            width={widthSpring}
             className="fill-white pointer-events-none h-full"
           />
         </mask>
@@ -93,39 +96,19 @@ function InnerTrackBackground({
           x={-10}
           width={width + TIMELINE_PADDING * 2}
         >
-          {showLine && (
-            <>
-              <path
-                key={`${identifier}-linebg`}
-                d={`M 0 ${yScale(0.5).toString()} L ${(width + TIMELINE_PADDING * 2).toString()} ${yScale(0.5).toString()}`}
-                strokeWidth={4}
-                className={clsx(
-                  "group-hover:stroke-transparent group-aria-expanded:stroke-transparent",
-                  "stroke-white/25 transition-[stroke] duration-75 ease-in-out pointer-events-none",
-                )}
+          <motion.g ref={tickRef} transform={transformSpring.get()}>
+            {timedFrames.map((tick) => (
+              <Tick
+                key={tick.key}
+                widthSpring={strokeWidthSpring}
+                completion={tick.stamp}
+                xScale={xScale}
+                outsideBounds={tick.stamp < bounds[0] || tick.stamp > bounds[1]}
+                tickHeight={tickHeight}
+                playerDuration={playerDuration}
               />
-              <motion.path
-                key={`${identifier}-line`}
-                d={activePath}
-                strokeWidth={4}
-                className={clsx(
-                  "group-hover:stroke-transparent group-aria-expanded:stroke-transparent",
-                  "stroke-white/50 transition-[stroke] duration-75 ease-in-out pointer-events-none",
-                )}
-              />
-            </>
-          )}
-
-          {timedFrames.map((tick) => (
-            <Tick
-              key={tick.key}
-              completion={tick.stamp}
-              ignoreZoom={ignoreZoom}
-              xScale={xScale}
-              outsideBounds={tick.stamp < bounds[0] || tick.stamp > bounds[1]}
-              tickHeight={tickHeight}
-            />
-          ))}
+            ))}
+          </motion.g>
         </mask>
         <pattern id="diagonalStripePattern" patternUnits="userSpaceOnUse" width="20" height="10">
           <rect x="0" y="0" width="20" height="10" className="fill-neutral-500" />
@@ -237,26 +220,30 @@ function Tick({
   completion,
   xScale,
   outsideBounds,
-  ignoreZoom,
+  widthSpring,
+  tickHeight,
+  playerDuration,
 }: {
   completion: number;
   xScale: ScaleLinear;
   outsideBounds: boolean;
-  ignoreZoom?: boolean;
+  widthSpring: MotionValue<number>;
   tickHeight: number;
+  playerDuration: number;
 }) {
-  const zoomedCompletion = useStaticZoomedSpring(completion, ignoreZoom);
-  const x = useTransform(zoomedCompletion, (c) => xScale(c) - 1);
+  const x = xScale(completion * playerDuration);
   return (
-    <motion.rect
-      x={x}
-      y={0}
-      width={2}
+    <motion.line
+      x1={x}
+      x2={x}
+      y1={0}
+      y2={tickHeight}
+      strokeWidth={widthSpring}
       className={clsx(
         "h-full",
-        "transition-[fill,transform] duration-75 ease-in-out fill-transparent pointer-events-none",
-        !outsideBounds && "group-aria-expanded:fill-neutral-300 group-hover:fill-neutral-300",
-        outsideBounds && "group-aria-expanded:fill-neutral-700 group-hover:fill-neutral-700",
+        "transition-[stroke,transform] duration-75 ease-in-out stroke-transparent pointer-events-none",
+        !outsideBounds && "group-aria-expanded:stroke-neutral-300 group-hover:stroke-neutral-300",
+        outsideBounds && "group-aria-expanded:stroke-neutral-700 group-hover:stroke-neutral-700",
       )}
     />
   );

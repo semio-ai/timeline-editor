@@ -1,8 +1,9 @@
-import { type ReactNode, memo, useRef } from "react";
-import { motion, useTransform } from "motion/react";
+import { type ReactNode, memo, useCallback, useMemo, useRef } from "react";
+import { useTransform } from "motion/react";
+import { FullGestureState } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { clsx } from "clsx";
-import { closestFrame, pointsToPath, usePlayerStore, PlayerActions } from "@semio/utils";
+import { closestFrame, pointsToPath, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import {
   useTrackContext,
@@ -22,17 +23,14 @@ export interface BoundCartProps {
 
 function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
   const {
-    xScale,
     zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     frameCount,
   } = useTrackContext();
 
-  const cartRef = useRef<SVGGElement | null>(null);
+  const cartRef = useRef<SVGPathElement | null>(null);
 
-  const updatePlayerBounds = usePlayerStore(
-    useShallow((state: PlayerActions) => state.updatePlayerBounds),
-  );
+  const updateBounds = usePlayerStore(useShallow((state) => state.updatePlayerBounds));
 
   const withBounds = useWithBounds();
   const { leftSpring, rightSpring } = useBoundSprings(ignoreZoom);
@@ -50,6 +48,67 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
 
   // Whether there is a preview for either left or right bounds present.
   const anyPreview = previewLeft !== undefined || previewRight !== undefined;
+
+  // Callback to execute when dragging bounds
+  const handleDrag = useCallback(
+    ({ xy, altKey, memo: initialBoundsMemo, dragging }: FullGestureState<"drag">) => {
+      let initialBounds = initialBoundsMemo;
+      const semanticTime = end === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd;
+      const boundsIndex = end === "left" ? 0 : 1;
+      const label = end === "left" ? "Bounds Start" : "Bounds End";
+
+      withBounds((currentBounds) => {
+        initialBounds = initialBounds ?? currentBounds;
+        const newPosition = zoomScale.current.invert(
+          clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
+        );
+        const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
+        let newBounds: [number, number];
+        if (end === "left") {
+          newBounds =
+            newValue >= initialBounds[1]
+              ? [initialBounds[1], newValue]
+              : [newValue, initialBounds[1]];
+        } else {
+          // right
+          newBounds =
+            newValue <= initialBounds[0]
+              ? [newValue, initialBounds[0]]
+              : [initialBounds[0], newValue];
+        }
+        updateBounds(newBounds[0], newBounds[1]);
+        // If no preview is present, add one when dragging.
+        // If a preview is present and no longer dragging, remove it.
+        if (!anyPreview && dragging) {
+          addPreview({
+            semanticTime,
+            stamp: newBounds[boundsIndex],
+            label,
+          });
+        } else if (anyPreview && !dragging) {
+          removePreview(
+            (p) =>
+              p.semanticTime === SemanticTime.BoundsStart ||
+              p.semanticTime === SemanticTime.BoundsEnd,
+          );
+        }
+      });
+
+      return initialBounds as [number, number];
+    },
+    [
+      updateBounds,
+      addPreview,
+      removePreview,
+      anyPreview,
+      frameCount,
+      timelineLeft,
+      timelineWidth,
+      withBounds,
+      zoomScale,
+      end,
+    ],
+  );
 
   // Attach gestures to the current bound.
   // We use the custom useZoomGestures hook so that it
@@ -78,45 +137,7 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
           );
         }
       },
-      onDrag: ({ xy, altKey, memo: initialBoundsMemo, dragging }) => {
-        let initialBounds = initialBoundsMemo;
-        withBounds((currentBounds) => {
-          initialBounds = initialBounds ?? currentBounds;
-          const newPosition = zoomScale.current.invert(
-            clamp(((xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
-          );
-          const newValue = altKey ? newPosition : closestFrame(newPosition, frameCount);
-          let newBounds: [number, number] = initialBounds;
-          if (end === "left") {
-            newBounds =
-              newValue >= initialBounds[1]
-                ? [initialBounds[1], newValue]
-                : [newValue, initialBounds[1]];
-          } else {
-            newBounds =
-              newValue <= initialBounds[0]
-                ? [newValue, initialBounds[0]]
-                : [initialBounds[0], newValue];
-          }
-          updatePlayerBounds(newBounds[0], newBounds[1]);
-          // If no preview is present, add one when dragging.
-          // If a preview is present and no longer dragging, remove it.
-          if (!anyPreview && dragging) {
-            addPreview({
-              semanticTime: end === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd,
-              stamp: currentBounds[end === "left" ? 0 : 1],
-              label: end === "left" ? "Bounds Start" : "Bounds End",
-            });
-          } else if (anyPreview && !dragging) {
-            removePreview(
-              (p) =>
-                p.semanticTime === SemanticTime.BoundsStart ||
-                p.semanticTime === SemanticTime.BoundsEnd,
-            );
-          }
-        });
-        return initialBounds as [number, number];
-      },
+      onDrag: handleDrag,
       onDoubleClick: (state) => {
         state.event.stopPropagation();
       },
@@ -125,33 +146,24 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
   );
 
   const transform = useTransform(boundSpring, (value) => {
-    return `translate(${xScale(value).toString()}  ${side === "top" ? "-3.5" : "3.5"})`;
+    return `translate(${value.toString()} ${side === "top" ? "-3.5" : "3.5"})`;
   });
+
+  const cartPath = useMemo(() => getCartPath(side, end), [side, end]);
 
   transform.on("change", (v) => {
     cartRef.current?.setAttribute("transform", v);
   });
 
   return (
-    <motion.g
+    <path
       ref={cartRef}
-      className="touch-none"
       transform={transform.get()}
-      // style={{
-      //   transform,
-      // }}
-    >
-      {/* Cart path */}
-      <motion.path
-        d={getCartPath(side, end)}
-        className={clsx(
-          "touch-none",
-          "transition-[fill]",
-          anyPreview ? "fill-neutral-500" : "fill-neutral-500/60",
-        )}
-        y={side === "top" ? 20.5 : 0}
-      />
-    </motion.g>
+      d={cartPath}
+      className={clsx("touch-none", anyPreview ? "fill-neutral-500" : "fill-neutral-500/60")}
+      x={0}
+      y={side === "top" ? 20.5 : 0}
+    />
   );
 }
 

@@ -1,8 +1,8 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useRef } from "react";
 import { pick } from "lodash";
 import { useShallow } from "zustand/react/shallow";
 import { RawValue, useDeepSelector } from "@semio/utils";
-import { useAnimationStore, useTrackContext } from "../../hooks";
+import { useAnimationStore, useTrackContext, useTrackTransformSpring } from "../../hooks";
 import { AnimationData } from "../../store-types";
 import { computeFrames, computeViolationSet, computeInterpolationSegments } from "../../functions";
 import { InstancedFrameInfo, Track } from "../../types";
@@ -13,10 +13,13 @@ import { FrameMarker } from "./frame-marker";
 export interface DataDisplayProps {
   ignoreZoom?: boolean;
   useCustomColor?: boolean;
+  showFullLine?: boolean;
 }
 
-function InnerDataDisplay({ ignoreZoom = false }: DataDisplayProps) {
+function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisplayProps) {
   const { trackIds } = useTrackContext();
+
+  const groupRef = useRef<SVGSVGElement>(null);
 
   const tracks: Record<string, Track<RawValue>> = useAnimationStore(
     useDeepSelector(
@@ -41,30 +44,46 @@ function InnerDataDisplay({ ignoreZoom = false }: DataDisplayProps) {
 
   const paddedInterps = padInterps(interps);
 
+  const transformSpring = useTrackTransformSpring(ignoreZoom, false);
+
+  transformSpring.on("change", (t) => {
+    groupRef.current?.setAttribute("transform", t);
+  });
+
   return (
     <g mask="url(#boundsMask)">
-      <ViolationDisplay violationSet={violationSet} ignoreZoom={ignoreZoom} />
-      {paddedInterps.map(
-        ({
-          start,
-          end,
-          buffer,
-        }: {
-          start: InstancedFrameInfo;
-          end: InstancedFrameInfo;
-          buffer?: boolean;
-        }) => (
-          <InterpolationSegment
-            key={`${start.id}-${end.id}`}
-            start={start}
-            end={end}
-            pseudoRegion={buffer}
-          />
-        ),
-      )}
-      {frameData.map((frameInstance: InstancedFrameInfo) => (
-        <FrameMarker key={frameInstance.id} data={frameInstance} ignoreZoom={ignoreZoom} />
-      ))}
+      <g ref={groupRef} transform={transformSpring.get()}>
+        <ViolationDisplay violationSet={violationSet} ignoreZoom={ignoreZoom} />
+        <g mask="url(#keyMask)">
+          {paddedInterps.map(
+            (
+              {
+                start,
+                end,
+                buffer,
+              }: {
+                start: InstancedFrameInfo;
+                end: InstancedFrameInfo;
+                buffer?: boolean;
+              },
+              idx: number,
+            ) => (
+              <InterpolationSegment
+                key={`${start.id}-${end.id}`}
+                start={start}
+                end={end}
+                pseudoRegion={buffer}
+                isInitial={idx === 0}
+                isFinal={idx === paddedInterps.length - 1}
+                showFullLine={showFullLine}
+              />
+            ),
+          )}
+        </g>
+        {frameData.map((frameInstance: InstancedFrameInfo) => (
+          <FrameMarker key={frameInstance.id} data={frameInstance} ignoreZoom={ignoreZoom} />
+        ))}
+      </g>
     </g>
   );
 }

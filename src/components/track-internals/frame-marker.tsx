@@ -23,7 +23,7 @@ import {
   useZoomGestures,
   useAnimationStore,
   useTrackContext,
-  useStaticZoomedSpring,
+  useScaleInverseSpring,
 } from "../../hooks";
 import { computeLocalStamp } from "../../functions";
 import { DRAG_X_CONFIG } from "../../gesture-config";
@@ -46,6 +46,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     trackRender,
+    animationDuration,
   } = useTrackContext();
 
   const { resolvedTheme } = useTheme();
@@ -87,7 +88,9 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     hovered,
   ]);
 
-  const updateKeypoint = useAnimationStore(useShallow((state) => state.updateKeypoint));
+  const [updateKeypoint, updateHoverpointPreview] = useAnimationStore(
+    useShallow((state) => [state.updateKeypoint, state.updateHoverpointPreview]),
+  );
 
   const resetPlayer = usePlayerStore(useShallow((state) => state.resetPlayer));
 
@@ -102,6 +105,15 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
   useZoomGestures(
     gestureRef as MutableRefObject<SVGGElement>,
     {
+      onHover: (state) => {
+        setHovered(state.hovering ?? false);
+        if (!state.hovering) {
+          updateHoverpointPreview(null);
+        }
+      },
+      onMove: () => {
+        updateHoverpointPreview(data.stamp);
+      },
       onDrag: (state) => {
         const newPosition = zoomScale.current.invert(
           clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
@@ -122,26 +134,22 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     DRAG_X_CONFIG,
   );
 
-  const zoomedStamp = useStaticZoomedSpring(data.stamp, ignoreZoom);
+  const inverseScaleSpring = useScaleInverseSpring(ignoreZoom);
+  const transformSpring = useTransform(inverseScaleSpring, (scaleSpring) => {
+    return `translate(${xScale(data.stamp * animationDuration).toString()} 0) scale(${scaleSpring.toString()} 1)`;
+  });
 
-  const transform = useTransform(zoomedStamp, (zoom) => `translate(${xScale(zoom).toString()} 0)`);
-
-  transform.on("change", (v) => {
-    gestureRef.current?.setAttribute("transform", v);
+  transformSpring.on("change", (ts) => {
+    gestureRef.current?.setAttribute("transform", ts);
   });
 
   return (
     <motion.g
       ref={gestureRef as MutableRefObject<SVGGElement>}
       onDoubleClick={doubleClickHandler as any as MouseEventHandler}
-      className="group/frame touch-none pointer-events-boundary"
+      className="group/frame touch-none pointer-events-boundary origin-left"
       aria-selected={isSelected}
-      transform={transform.get()}
-      // style={{
-      //   transform,
-      // }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      transform={transformSpring.get()}
     >
       <motion.path d={linePath} fill="none" stroke={color} strokeWidth={lineStrokeWidth} />
       <motion.path d={hexPath} fill={color} stroke={hexStrokeColorSpring} strokeWidth={1} />

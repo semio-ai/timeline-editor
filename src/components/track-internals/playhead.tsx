@@ -14,7 +14,6 @@ export interface PlayheadProps {
 
 function InnerPlayhead({ ignoreZoom = false, height = 30 }: PlayheadProps): ReactNode {
   const {
-    xScale,
     zoomScale,
     bounds: { width: timelineWidth, left: timelineLeft },
     frameCount,
@@ -48,10 +47,7 @@ function InnerPlayhead({ ignoreZoom = false, height = 30 }: PlayheadProps): Reac
     { ...DRAG_X_CONFIG, target: gRef },
   );
 
-  const transform = useTransform(
-    playheadSpring,
-    (value) => `translate(${xScale(value).toString()} 0)`,
-  );
+  const transform = useTransform(playheadSpring, (value) => `translate(${value.toString()} 0)`);
 
   transform.on("change", (v) => {
     gRef.current?.setAttribute("transform", v);

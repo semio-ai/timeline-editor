@@ -14,7 +14,7 @@ function InnerGestureDetector({
   height?: number;
 }) {
   const gestureRef = useRef<SVGRectElement>();
-  const { xScale, zoomScale, bounds, animationId } = useTrackContext();
+  const { xScale, zoomScale, bounds, animationDuration } = useTrackContext();
 
   const updateHoverpointPreview = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateHoverpointPreview),
@@ -29,11 +29,8 @@ function InnerGestureDetector({
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
-  const duration = useAnimationStore(
-    useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
-  );
 
-  const frameCount = Math.floor(framerate * (duration / 1000));
+  const frameCount = Math.floor(framerate * (animationDuration / 1000));
 
   const doubleClickHandler = useCallback(
     (event: MouseEvent) => {

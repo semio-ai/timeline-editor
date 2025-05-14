@@ -1,12 +1,14 @@
 import { useRef, useCallback } from "react";
 import { MotionValue, useMotionValue } from "motion/react";
 import { scaleLinear } from "@visx/scale";
+import { usePlayerStore } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import type { AnimationData } from "../store-types";
 import { SemanticTime } from "../types";
 import { type ScaleLinear } from "../scale-linear";
 import { useStoreSubscription } from "./use-store-subscription";
 import { usePlayerSubscription } from "./use-player-subscription";
+import { useTrackContext } from "./use-track-context";
 
 /**
  * A hook used to retrieve a spring value and set it in the store. Must be used within a AnimationProvider.
@@ -14,6 +16,10 @@ import { usePlayerSubscription } from "./use-player-subscription";
  * @returns An object containing the hoverpoint spring, a setter for the hoverpoint, and a function to clear the hoverpoint.
  */
 export function useHoverSpring(ignoreZoom?: boolean): MotionValue<number | undefined> {
+  const { xScale } = useTrackContext();
+
+  const playerDuration = usePlayerStore((state) => state.player.duration);
+
   const zoomScale = useRef<ScaleLinear>(
     scaleLinear({
       domain: [0, 1],
@@ -26,19 +32,15 @@ export function useHoverSpring(ignoreZoom?: boolean): MotionValue<number | undef
   const hoverpointSpring = useMotionValue<number | undefined>(undefined);
 
   const onViewportChange = useCallback(
-    (viewport: [number, number]) => {
-      const scale = scaleLinear({
-        domain: ignoreZoom ? [0, 1] : viewport,
-        range: [0, 1],
-      });
-      zoomScale.current = scale;
+    ({ viewport, duration }: { viewport: [number, number]; duration: number }) => {
+      zoomScale.current = zoomScale.current.domain(ignoreZoom ? [0, 1] : viewport);
       if (storedHoverpoint.current) {
-        hoverpointSpring.jump(scale(storedHoverpoint.current));
+        hoverpointSpring.jump(xScale(duration * zoomScale.current(storedHoverpoint.current)));
       } else {
         hoverpointSpring.jump(undefined);
       }
     },
-    [hoverpointSpring, zoomScale, ignoreZoom],
+    [hoverpointSpring, zoomScale, xScale, ignoreZoom],
   );
 
   useStoreSubscription(
@@ -46,10 +48,10 @@ export function useHoverSpring(ignoreZoom?: boolean): MotionValue<number | undef
       state.previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp,
     (hoverpoint: number | undefined, pastHoverpoint: number | undefined) => {
       if (pastHoverpoint === undefined && hoverpoint !== undefined) {
-        hoverpointSpring.jump(zoomScale.current(hoverpoint));
+        hoverpointSpring.jump(xScale(playerDuration * zoomScale.current(hoverpoint)));
         storedHoverpoint.current = hoverpoint;
       } else if (hoverpoint !== undefined) {
-        hoverpointSpring.jump(zoomScale.current(hoverpoint));
+        hoverpointSpring.jump(xScale(playerDuration * zoomScale.current(hoverpoint)));
         storedHoverpoint.current = hoverpoint;
       } else {
         hoverpointSpring.jump(undefined);
@@ -59,7 +61,11 @@ export function useHoverSpring(ignoreZoom?: boolean): MotionValue<number | undef
     shallow,
   );
 
-  usePlayerSubscription((state) => state.player.viewport, onViewportChange, shallow);
+  usePlayerSubscription(
+    (state) => ({ viewport: state.player.viewport, duration: state.player.duration }),
+    onViewportChange,
+    shallow,
+  );
 
   return hoverpointSpring;
 }

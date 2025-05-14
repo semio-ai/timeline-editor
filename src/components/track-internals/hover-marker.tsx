@@ -2,7 +2,7 @@ import { type ReactNode, memo, useRef } from "react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
 import { motion, useTransform } from "motion/react";
-import { useTrackContext, useHoverSpring, useAnimationStore } from "../../hooks";
+import { useHoverSpring, useAnimationStore } from "../../hooks";
 
 export interface HoverMarkerProps {
   ignoreZoom?: boolean;
@@ -15,14 +15,13 @@ function InnerHoverMarker({
   height = 30,
   offset = 0,
 }: HoverMarkerProps): ReactNode {
-  const { xScale } = useTrackContext();
   const hoverpoint = useHoverSpring(ignoreZoom);
   const dashed = useAnimationStore(useShallow((state) => state.preferences.hoverDashedLine));
 
   const strokeWidth = useTransform(hoverpoint, (hoverXval) => (hoverXval === undefined ? 0 : 1));
   const transform = useTransform(
     hoverpoint,
-    (hoverXval) => `translate(${xScale(hoverXval ?? 0).toString()} 0)`,
+    (hoverXval) => `translate(${(hoverXval ?? 0).toString()} 0)`,
   );
 
   const pathRef = useRef<SVGPathElement>(null);

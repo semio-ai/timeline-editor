@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 
+/**
+ * A hook that returns a status of whether the shift-key is pressed.
+ */
 export const useShiftKeyPressed = (): boolean => {
   const [isShiftPressed, setIsShiftPressed] = useState(false);
 
