@@ -75,7 +75,8 @@ export function TrackControl({
   return (
     <div
       className={clsx(
-        "w-fit h-5 flex flex-row gap-0 pl-1 pr-1 pt-2 pb-2 items-center justify-between",
+        "min-w-16 h-7 rounded-xs grid grid-cols-3 items-center justify-between",
+        // "dark:bg-layout-dark-base bg-layout-light-base",
       )}
     >
       <Button
@@ -95,7 +96,7 @@ export function TrackControl({
           if (widgetDisabled) return;
           removePreview((p) => p.semanticTime === SemanticTime.Backward);
         }}
-        leftIcon={<IconPlayerPlay className="rotate-180" size="10px" />}
+        leftIcon={<IconPlayerPlay className="rotate-180" size="14px" />}
         invert
       />
       <Button
@@ -108,7 +109,7 @@ export function TrackControl({
         onMouseLeave={() => setHovered(false)}
         leftIcon={
           <IconKey
-            size="16px"
+            size="18px"
             fillOpacity={getFillOpacity(hovered, filled)}
             dashed={!filled && dashed}
             center={center}
@@ -135,7 +136,7 @@ export function TrackControl({
           if (widgetDisabled) return;
           removePreview((p) => p.semanticTime === SemanticTime.Forward);
         }}
-        leftIcon={<IconPlayerPlay size="10px" />}
+        leftIcon={<IconPlayerPlay size="14px" />}
         invert
       />
     </div>

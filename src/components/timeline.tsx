@@ -11,6 +11,7 @@ export interface TimelineProps {
   namespaceId: string;
   instanceSettings: AnimationInstanceSettings;
   trackRender: TrackRender.Key | TrackRender.Preview | TrackRender.Transition;
+  height?: number;
 }
 
 /**
@@ -26,6 +27,7 @@ export function Timeline({
   namespaceId,
   instanceSettings,
   trackRender,
+  height = 30,
 }: TimelineProps): ReactNode {
   const color = useAnimationStore((state: AnimationData) => {
     if (trackIds === undefined || trackIds?.length === 0 || trackIds?.length > 1) return "#737373";
@@ -48,6 +50,7 @@ export function Timeline({
             trackRender={trackRender}
             instanceSettings={instanceSettings}
             showFullLine
+            height={height}
           />
         )}
       </ParentSize>

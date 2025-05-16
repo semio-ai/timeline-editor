@@ -67,99 +67,198 @@ export function InnerTimeDisplay({
     })),
   );
 
-  return (
-    <>
-      {/* Current Time Display */}
-      <TimeInput
-        value={stamp * duration}
-        onChange={(v) => resetPlayer(v / duration)}
-        label="Current Time"
-        min={0}
-        size={Size.Xs}
-        max={duration}
-        display={timeDisplay}
-        framerate={framerate}
-        variant={Variant.Default}
-        hidden={semanticTime !== SemanticTime.Current}
-      />
-      {/* Bounds Start Display */}
-      <TimeInput
-        value={bounds[0] * duration}
-        onChange={(v) => {
-          const vals = [v / duration, bounds[1]].sort((a, b) => a - b);
-          updatePlayerBounds(vals[0], vals[1]);
-        }}
-        label="Bounds Start"
-        min={0}
-        size={Size.Xs}
-        max={duration}
-        display={timeDisplay}
-        framerate={framerate}
-        variant={Variant.Success}
-        hidden={semanticTime !== SemanticTime.BoundsStart}
-      />
-      {/* Bounds End Display */}
-      <TimeInput
-        value={bounds[1] * duration}
-        onChange={(v) => {
-          const vals = [bounds[0], v / duration].sort((a, b) => a - b);
-          updatePlayerBounds(vals[0], vals[1]);
-        }}
-        label="Bounds End"
-        min={0}
-        size={Size.Xs}
-        max={duration}
-        display={timeDisplay}
-        framerate={framerate}
-        variant={Variant.Error}
-        hidden={semanticTime !== SemanticTime.BoundsEnd}
-      />
-      {/* Prev Keyframe Display */}
-      <TimeInput
-        value={valueOverride !== undefined ? valueOverride * duration : prevKeyframeTime}
-        onChange={() => {}}
-        label="Previous Keyed Frame"
-        min={0}
-        disabled
-        size={Size.Xs}
-        max={duration}
-        display={timeDisplay}
-        framerate={framerate}
-        variant={Variant.Primary}
-        hidden={semanticTime !== SemanticTime.Backward}
-      />
-      {/* Next Keyframe Display */}
-      <TimeInput
-        value={valueOverride !== undefined ? valueOverride * duration : nextKeyframeTime}
-        onChange={() => {}}
-        label="Next Keyed Frame"
-        min={0}
-        disabled
-        size={Size.Xs}
-        max={duration}
-        display={timeDisplay}
-        framerate={framerate}
-        variant={Variant.Primary}
-        hidden={semanticTime !== SemanticTime.Forward}
-      />
-      {/* Duration Display */}
-      <TimeInput
-        value={duration}
-        onChange={(v) => {
-          updateDuration(v, animationId);
-        }}
-        label="Duration"
-        min={0}
-        disabled
-        size={Size.Xs}
-        max={duration * 2}
-        display={timeDisplay}
-        framerate={framerate}
-        variant={Variant.Default}
-        hidden={semanticTime !== SemanticTime.Duration}
-      />
-    </>
-  );
+  switch (semanticTime) {
+    case SemanticTime.BoundsStart:
+      return (
+        <TimeInput
+          value={bounds[0] * duration}
+          onChange={(v) => {
+            const vals = [v / duration, bounds[1]].sort((a, b) => a - b);
+            updatePlayerBounds(vals[0], vals[1]);
+          }}
+          label="Bounds Start"
+          min={0}
+          size={Size.Sm}
+          max={duration}
+          display={timeDisplay}
+          framerate={framerate}
+          variant={Variant.Success}
+        />
+      );
+    case SemanticTime.BoundsEnd:
+      return (
+        <TimeInput
+          value={bounds[1] * duration}
+          onChange={(v) => {
+            const vals = [bounds[0], v / duration].sort((a, b) => a - b);
+            updatePlayerBounds(vals[0], vals[1]);
+          }}
+          label="Bounds End"
+          min={0}
+          size={Size.Sm}
+          max={duration}
+          display={timeDisplay}
+          framerate={framerate}
+          variant={Variant.Error}
+        />
+      );
+    case SemanticTime.Backward:
+      return (
+        <TimeInput
+          value={valueOverride !== undefined ? valueOverride * duration : prevKeyframeTime}
+          onChange={() => {}}
+          label="Previous Keyed Frame"
+          min={0}
+          disabled
+          size={Size.Sm}
+          max={duration}
+          display={timeDisplay}
+          framerate={framerate}
+          variant={Variant.Primary}
+        />
+      );
+    case SemanticTime.Forward:
+      return (
+        <TimeInput
+          value={valueOverride !== undefined ? valueOverride * duration : nextKeyframeTime}
+          onChange={() => {}}
+          label="Next Keyed Frame"
+          min={0}
+          disabled
+          size={Size.Sm}
+          max={duration}
+          display={timeDisplay}
+          framerate={framerate}
+          variant={Variant.Primary}
+        />
+      );
+    case SemanticTime.Duration:
+      return (
+        <TimeInput
+          value={duration}
+          onChange={(v) => {
+            updateDuration(v, animationId);
+          }}
+          label="Duration"
+          min={0}
+          disabled
+          size={Size.Sm}
+          max={duration * 2}
+          display={timeDisplay}
+          framerate={framerate}
+          variant={Variant.Default}
+        />
+      );
+    case SemanticTime.Current:
+    default:
+      return (
+        <TimeInput
+          value={stamp * duration}
+          onChange={(v) => resetPlayer(v / duration)}
+          label="Current Time"
+          min={0}
+          size={Size.Sm}
+          max={duration}
+          display={timeDisplay}
+          framerate={framerate}
+          variant={Variant.Default}
+        />
+      );
+  }
+
+  // return (
+  //   <>
+  //     {/* Current Time Display */}
+  //     <TimeInput
+  //       value={stamp * duration}
+  //       onChange={(v) => resetPlayer(v / duration)}
+  //       label="Current Time"
+  //       min={0}
+  //       size={Size.Sm}
+  //       max={duration}
+  //       display={timeDisplay}
+  //       framerate={framerate}
+  //       variant={Variant.Default}
+  //       className={semanticTime !== SemanticTime.Current ? "hidden" : ""}
+  //     />
+  //     {/* Bounds Start Display */}
+  //     <TimeInput
+  //       value={bounds[0] * duration}
+  //       onChange={(v) => {
+  //         const vals = [v / duration, bounds[1]].sort((a, b) => a - b);
+  //         updatePlayerBounds(vals[0], vals[1]);
+  //       }}
+  //       label="Bounds Start"
+  //       min={0}
+  //       size={Size.Sm}
+  //       max={duration}
+  //       display={timeDisplay}
+  //       framerate={framerate}
+  //       variant={Variant.Success}
+  //       className={semanticTime !== SemanticTime.BoundsStart ? "hidden" : ""}
+  //     />
+  //     {/* Bounds End Display */}
+  //     <TimeInput
+  //       value={bounds[1] * duration}
+  //       onChange={(v) => {
+  //         const vals = [bounds[0], v / duration].sort((a, b) => a - b);
+  //         updatePlayerBounds(vals[0], vals[1]);
+  //       }}
+  //       label="Bounds End"
+  //       min={0}
+  //       size={Size.Sm}
+  //       max={duration}
+  //       display={timeDisplay}
+  //       framerate={framerate}
+  //       variant={Variant.Error}
+  //       className={semanticTime !== SemanticTime.BoundsEnd ? "hidden" : ""}
+  //     />
+  //     {/* Prev Keyframe Display */}
+  //     <TimeInput
+  //       value={valueOverride !== undefined ? valueOverride * duration : prevKeyframeTime}
+  //       onChange={() => {}}
+  //       label="Previous Keyed Frame"
+  //       min={0}
+  //       disabled
+  //       size={Size.Sm}
+  //       max={duration}
+  //       display={timeDisplay}
+  //       framerate={framerate}
+  //       variant={Variant.Primary}
+  //       className={semanticTime !== SemanticTime.Backward ? "hidden" : ""}
+  //     />
+  //     {/* Next Keyframe Display */}
+  //     <TimeInput
+  //       value={valueOverride !== undefined ? valueOverride * duration : nextKeyframeTime}
+  //       onChange={() => {}}
+  //       label="Next Keyed Frame"
+  //       min={0}
+  //       disabled
+  //       size={Size.Sm}
+  //       max={duration}
+  //       display={timeDisplay}
+  //       framerate={framerate}
+  //       variant={Variant.Primary}
+  //       className={semanticTime !== SemanticTime.Forward ? "hidden" : ""}
+  //     />
+  //     {/* Duration Display */}
+  //     <TimeInput
+  //       value={duration}
+  //       onChange={(v) => {
+  //         updateDuration(v, animationId);
+  //       }}
+  //       label="Duration"
+  //       min={0}
+  //       disabled
+  //       size={Size.Sm}
+  //       max={duration * 2}
+  //       display={timeDisplay}
+  //       framerate={framerate}
+  //       variant={Variant.Default}
+  //       className={semanticTime !== SemanticTime.Duration ? "hidden" : ""}
+  //     />
+  //   </>
+  // );
 }
 
 InnerTimeDisplay.displayName = "TimeDisplay";

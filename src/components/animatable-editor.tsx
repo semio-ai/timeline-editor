@@ -74,7 +74,7 @@ function InnerAnimatableEditor({
 
     return (
       <SliderNumberField
-        size={Size.Xs}
+        size={Size.Sm}
         strictText={false}
         strictSlider={
           animatableValue.constraints.min !== undefined &&
@@ -90,9 +90,11 @@ function InnerAnimatableEditor({
         onChange={(v) => handleValueChange(renderInverse(v))}
         label={track ? track.name : animatableValue.name}
         onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
-        emphasis={emphasis}
+        highlight={emphasis}
         units={animatableValue.pub?.units === "rad" ? "°" : animatableValue.pub?.units}
-        onEmphasisChange={onEmphasisChange}
+        onHighlightChange={onEmphasisChange}
+        wrapperClassName="flex-1"
+        className="flex-1"
       />
     );
   } else if (animatableValue.type === "string") {
@@ -100,7 +102,7 @@ function InnerAnimatableEditor({
       <TextField
         value={(rawValue as string) || (animatableValue.default as string)}
         readOnly={playing}
-        size={Size.Xs}
+        size={Size.Sm}
         onChange={(v) => handleValueChange(v)}
       />
     );
@@ -109,7 +111,7 @@ function InnerAnimatableEditor({
       <TextField
         value={track ? track.name : animatableValue.name}
         readOnly={playing || !track}
-        size={Size.Xs}
+        size={Size.Sm}
         onChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
       />
     );
@@ -117,7 +119,7 @@ function InnerAnimatableEditor({
     const index = vectorIndexLookup[prop];
     return (
       <SliderNumberField
-        size={Size.Xs}
+        size={Size.Sm}
         strictText={false}
         strictSlider={
           animatableValue.constraints?.min?.[index] !== -Infinity &&
@@ -157,15 +159,15 @@ function InnerAnimatableEditor({
         }}
         units={animatableValue.pub?.units}
         label={prop}
-        emphasis={emphasis}
-        onEmphasisChange={onEmphasisChange}
+        highlight={emphasis}
+        onHighlightChange={onEmphasisChange}
       />
     );
   } else if (animatableValue.type === "euler" && (prop === "x" || prop === "y" || prop === "z")) {
     const index = vectorIndexLookup[prop];
     return (
       <SliderNumberField
-        size={Size.Xs}
+        size={Size.Sm}
         units="°"
         strictText={false}
         strictSlider={
@@ -214,15 +216,15 @@ function InnerAnimatableEditor({
           }
         }}
         label={prop}
-        emphasis={emphasis}
-        onEmphasisChange={onEmphasisChange}
+        highlight={emphasis}
+        onHighlightChange={onEmphasisChange}
       />
     );
   } else if (animatableValue.type === "rgb" && (prop === "r" || prop === "g" || prop === "b")) {
     const index = vectorIndexLookup[prop];
     return (
       <SliderNumberField
-        size={Size.Xs}
+        size={Size.Sm}
         strictText
         strictSlider
         disabled={playing}
@@ -258,8 +260,8 @@ function InnerAnimatableEditor({
         }}
         units={animatableValue.pub?.units}
         label={prop}
-        emphasis={emphasis}
-        onEmphasisChange={onEmphasisChange}
+        highlight={emphasis}
+        onHighlightChange={onEmphasisChange}
       />
     );
   } else {

@@ -8,11 +8,15 @@ import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
 import { TrackRender, AnimationInstance } from "../types";
 import { useAnimationStore } from "../hooks";
-import { PlaybackControls } from "./playback-controls";
 import { Timeline } from "./timeline";
 import { TrackList } from "./track-list";
 import { Minimap } from "./minimap";
 import { Ruler } from "./ruler";
+import { TimelineControl } from "./timeline-control";
+import { TimeControls } from "./time-controls";
+
+const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
+// const TRACK_MAIN_BG = "dark:bg-red-500 bg-red-500";
 
 export interface AnimationSheetProps {
   namespaceId: string;
@@ -64,85 +68,78 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
   if (!currentAnimation || !animations[currentAnimation]) {
     return null;
   }
+  console.log(animations[currentAnimation]);
   const allTracks = animations[currentAnimation].tracks;
 
   return (
     <div
       aria-expanded={expanded}
       className={clsx(
-        "flex flex-col group w-full dark:bg-layout-dark-inset bg-layout-light-inset",
-        "divide-y divide-transparent",
+        "grid grid-cols-[298px_1fr] group w-full gap-x-1 pr-0.5 pb-0.5",
+        // "dark:bg-layout-dark-inset bg-layout-light-inset",
       )}
     >
       {/* Expand Toggle/Ruler */}
-      <div className={clsx("h-6 relative", "w-full flex flex-row text-xs")}>
-        <div
-          className={clsx(
-            "w-[calc(100vw-40px)] xs:w-64 transition-[width] duration-75",
-            "h-full flex items-center pl-3 pr-2 justify-between",
-          )}
-        >
-          <ToggleSquare
-            size={Size.Xs}
-            value={expanded}
-            onChange={setExpanded}
-            label="Expand Tracks"
-          >
-            <IconChevronDown
-              size="11px"
-              className={clsx(
-                expanded ? "rotate-0" : "rotate-180",
-                "transition-transform ease-in-out",
-              )}
-            />
-          </ToggleSquare>
-
-          <ToggleGroup
-            visuals="icons"
-            size={Size.Xs}
-            value={trackRender}
-            onChange={(v: string) => {
-              console.log(`Updating Track Render from ${trackRender} to ${v}`);
-              setTrackRender(v as TrackRender);
-            }}
-            options={[
-              {
-                value: TrackRender.Key,
-                label: "Key View",
-                icon: <IconLine size="11px" className="rotate-45" />,
-              },
-              {
-                value: TrackRender.Transition,
-                label: "Transition View",
-                icon: <IconLine size="11px" />,
-              },
-              {
-                value: TrackRender.Preview,
-                label: "Preview View",
-                // icon: <IconEaseInOut size="11px" />,
-                icon: <IconPreviewView size="11px" />,
-              },
-              {
-                value: TrackRender.Data,
-                label: "Data View",
-                icon: <IconTable size="11px" />,
-                disabled: true,
-              },
-            ]}
+      {/* <div className={clsx("h-6 relative", "w-full flex flex-row text-xs")}> */}
+      <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between pl-1")}>
+        <ToggleSquare size={Size.Sm} value={expanded} onChange={setExpanded} label="Expand Tracks">
+          <IconChevronDown
+            size="11px"
+            className={clsx(
+              expanded ? "rotate-0" : "rotate-180",
+              "transition-transform ease-in-out",
+            )}
           />
-          <ToggleSquare size={Size.Xs} value={false} onChange={() => {}} label="Pop Out" disabled>
-            <IconArrowUpRight size="11px" />
-          </ToggleSquare>
-        </div>
-        <div className="flex-1 xs:w-64 transition-[width] h-6 text-black dark:text-white">
-          <Ruler side="top" animationId={currentAnimation} />
-        </div>
+        </ToggleSquare>
+
+        <ToggleGroup
+          bg
+          visuals="icons"
+          size={Size.Sm}
+          value={trackRender}
+          onChange={(v: string) => {
+            console.log(`Updating Track Render from ${trackRender} to ${v}`);
+            setTrackRender(v as TrackRender);
+          }}
+          options={[
+            {
+              value: TrackRender.Key,
+              label: "Key View",
+              icon: <IconLine size="11px" className="rotate-45" />,
+            },
+            {
+              value: TrackRender.Transition,
+              label: "Transition View",
+              icon: <IconLine size="11px" />,
+            },
+            {
+              value: TrackRender.Preview,
+              label: "Preview View",
+              // icon: <IconEaseInOut size="11px" />,
+              icon: <IconPreviewView size="11px" />,
+            },
+            {
+              value: TrackRender.Data,
+              label: "Data View",
+              icon: <IconTable size="11px" />,
+              disabled: true,
+            },
+          ]}
+        />
+        <ToggleSquare size={Size.Sm} value={false} onChange={() => {}} label="Pop Out" disabled>
+          <IconArrowUpRight size="11px" />
+        </ToggleSquare>
+        {/* </div> */}
       </div>
-      <div>
+      <div className={clsx("flex-1 h-8 text-black dark:text-white rounded-t-sm", TRACK_MAIN_BG)}>
+        <Ruler side="top" animationId={currentAnimation} height={32} />
+      </div>
+
+      <div className="col-span-2">
         {/* Tracks */}
         <div
           className={clsx(
-            "group-aria-expanded:xs:h-[240px] overflow-hidden",
+            "group-aria-expanded:h-[240px] overflow-hidden",
             "transition-[height] duration-75 h-0",
           )}
         >
@@ -155,53 +152,50 @@ export function InnerSheet({ namespaceId, animationInstances }: AnimationSheetPr
             />
           )}
         </div>
-        {/* Content */}
-        <div className="flex flex-row group ">
-          <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width] h-[60px]">
-            <PlaybackControls
-              animationId={currentAnimation}
-              namespaceId={namespaceId}
-              instanceSettings={instanceSettings}
-              selection={selectedTracks}
-              allTracks={allTracks}
-              onChangeSelection={setSelectedTracks}
-            />
-          </div>
-          <div className="flex-1 overflow-hidden h-[60px] flex-col flex">
-            <div className="h-[60px]">
-              <Timeline
-                trackIds={selectedTracks}
-                animationId={currentAnimation}
-                namespaceId={namespaceId}
-                instanceSettings={instanceSettings}
-                trackRender={
-                  ([TrackRender.Key, TrackRender.Preview, TrackRender.Transition].includes(
-                    trackRender,
-                  )
-                    ? trackRender
-                    : TrackRender.Key) as
-                    | TrackRender.Key
-                    | TrackRender.Preview
-                    | TrackRender.Transition
-                }
-              />
-              <div className="w-full h-[30px] items-center text-black dark:text-white">
-                <Minimap animationId={currentAnimation} instanceSettings={instanceSettings} />
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
-      <div className={clsx("h-6 bg-transparent w-full flex flex-row text-xs")}>
-        <div
-          className={clsx(
-            "w-[calc(100vw-40px)] xs:w-64 transition-[width] duration-75 h-6",
-            "flex items-center justify-center",
-          )}
+
+      <TimelineControl
+        animationId={currentAnimation}
+        namespaceId={namespaceId}
+        instanceSettings={instanceSettings}
+        selection={selectedTracks}
+        allTracks={allTracks}
+        onChangeSelection={setSelectedTracks}
+      />
+
+      <div className={clsx("w-full", TRACK_MAIN_BG)}>
+        <Timeline
+          height={32}
+          trackIds={selectedTracks}
+          animationId={currentAnimation}
+          namespaceId={namespaceId}
+          instanceSettings={instanceSettings}
+          trackRender={
+            ([TrackRender.Key, TrackRender.Preview, TrackRender.Transition].includes(trackRender)
+              ? trackRender
+              : TrackRender.Key) as TrackRender.Key | TrackRender.Preview | TrackRender.Transition
+          }
         />
-        <div className="flex-1 xs:w-64 transition-[width] h-6 text-black dark:text-white">
-          <Ruler side="bottom" animationId={currentAnimation} />
-        </div>
+      </div>
+
+      <TimeControls
+        animationId={currentAnimation}
+        namespaceId={namespaceId}
+        instanceSettings={instanceSettings}
+        selection={selectedTracks}
+        allTracks={allTracks}
+        onChangeSelection={setSelectedTracks}
+      />
+
+      <div
+        className={clsx("w-full h-[32px] items-center text-black dark:text-white", TRACK_MAIN_BG)}
+      >
+        <Minimap animationId={currentAnimation} instanceSettings={instanceSettings} />
+      </div>
+
+      <div className={clsx("w-full duration-75 h-8", "flex items-center justify-center")} />
+      <div className={clsx("flex-1 h-8 text-black dark:text-white rounded-b-sm", TRACK_MAIN_BG)}>
+        <Ruler side="bottom" animationId={currentAnimation} height={32} />
       </div>
     </div>
   );

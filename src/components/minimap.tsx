@@ -1,4 +1,4 @@
-import { ParentSize } from "@visx/responsive";
+import useMeasure from "react-use-measure";
 import { AnimationInstanceSettings, TrackRender } from "../types";
 import { Track } from "./track";
 
@@ -9,25 +9,21 @@ export function Minimap({
   animationId: string;
   instanceSettings: AnimationInstanceSettings;
 }) {
+  const [boundRef, bounds] = useMeasure();
   return (
-    <div className="flex-1">
-      <ParentSize debounceTime={10}>
-        {({ width }) => {
-          return (
-            <Track
-              showData={false}
-              canZoom={false}
-              width={width}
-              trackIds={[]}
-              showZoomControls
-              animationId={animationId}
-              namespaceId="default"
-              trackRender={TrackRender.Key}
-              instanceSettings={instanceSettings}
-            />
-          );
-        }}
-      </ParentSize>
+    <div ref={boundRef} className="flex-1 w-full">
+      <Track
+        showData={false}
+        canZoom={false}
+        height={32}
+        width={bounds.width}
+        trackIds={[]}
+        showZoomControls
+        animationId={animationId}
+        namespaceId="default"
+        trackRender={TrackRender.Key}
+        instanceSettings={instanceSettings}
+      />
     </div>
   );
 }

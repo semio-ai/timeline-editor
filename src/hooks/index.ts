@@ -5,7 +5,6 @@ export * from "./use-bound-springs";
 export * from "./use-hover-spring";
 export * from "./use-pair-springs";
 export * from "./use-player-subscription";
-export * from "./use-playhead-cart-path-spring";
 export * from "./use-playhead-spring";
 export * from "./use-scale-inverse-spring";
 export * from "./use-shift-key-pressed";

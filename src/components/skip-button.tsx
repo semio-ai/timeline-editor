@@ -59,8 +59,9 @@ export function SkipButton({
 
   return (
     <Button
+      invert
       size="fit"
-      color="#737373"
+      // color="#737373"
       onClick={() => skip?.()}
       onMouseEnter={(e) => {
         onMouseEnter?.(e);
@@ -78,8 +79,8 @@ export function SkipButton({
 const ICONS: Record<SemanticTime, ReactNode> = {
   [SemanticTime.Forward]: <IconPlayerPlay className="rotate-0" size="10px" />,
   [SemanticTime.Backward]: <IconPlayerPlay className="rotate-180" size="10px" />,
-  [SemanticTime.BoundsStart]: <IconPlayerEndBounds className="rotate-180" size="12px" />,
-  [SemanticTime.BoundsEnd]: <IconPlayerEndBounds size="12px" />,
+  [SemanticTime.BoundsStart]: <IconPlayerEndBounds className="rotate-180 mt-0.5" size="16px" />,
+  [SemanticTime.BoundsEnd]: <IconPlayerEndBounds size="16px" />,
   [SemanticTime.Duration]: <IconPlayerPlay size="10px" />,
   [SemanticTime.Current]: <IconPlayerPlay size="10px" />,
   [SemanticTime.Hover]: <IconPlayerPlay size="10px" />,

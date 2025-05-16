@@ -26,6 +26,7 @@ import {
 
 export interface TrackProps {
   width: number;
+  height?: number;
   animationId: string;
   namespaceId: string;
   instanceSettings: AnimationInstanceSettings;
@@ -45,6 +46,7 @@ export interface TrackProps {
 /**
  * Track component that renders the background, data, and zoom controls for a single animation.
  * @param width - The width of the track.
+ * @param height - The height of the track (default is 30px).
  * @param animationId - The ID of the animation.
  * @param namespaceId - The namespace of the animation.
  * @param instanceSettings - The offset/timescale information
@@ -61,6 +63,7 @@ export interface TrackProps {
  */
 export function Track({
   width,
+  height = 32,
   animationId,
   instanceSettings,
   trackIds,
@@ -145,8 +148,8 @@ export function Track({
   );
 
   const yScale = useMemo(
-    () => scaleLinear({ domain: verticalBounds, range: [28, 2] }),
-    [verticalBounds],
+    () => scaleLinear({ domain: verticalBounds, range: [height - 2, 2] }),
+    [verticalBounds, height],
   );
 
   const zoomScale = useRef<ScaleLinear>(scaleLinear({ domain: [0, 1], range: [0, 1] }));
@@ -186,16 +189,17 @@ export function Track({
     >
       <div
         {...bind()}
-        className={clsx("relative h-[30px] w-full group/track", emphasis && "has-emphasis")}
+        className={clsx("relative w-full group/track", emphasis && "has-emphasis")}
         style={
           {
+            height,
             "--track-color": color,
             "--track-color-partial": alpha(color, 0.6),
           } as CSSProperties
         }
       >
         <svg
-          height={30}
+          height={height}
           className="touch-none fill-transparent w-full"
           width={width < 0 ? 0 : width}
         >
@@ -203,10 +207,10 @@ export function Track({
             ref={activeRegionRef}
             x={xScale(0)}
             width={Math.max(0, width - TIMELINE_PADDING * 2)}
-            className="h-[30px]"
+            height={height}
           />
 
-          <TrackBackground ignoreZoom={!canZoom} tickHeight={30} showTicks={canZoom} />
+          <TrackBackground ignoreZoom={!canZoom} tickHeight={height} showTicks={canZoom} />
 
           {/* Gesture Detector */}
           <GestureDetector ignoreZoom={!canZoom} />

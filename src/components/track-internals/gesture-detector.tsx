@@ -6,13 +6,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useZoomGestures, useTrackContext, useAnimationStore } from "../../hooks";
 import { AnimationActions, AnimationData } from "../../store-types";
 
-function InnerGestureDetector({
-  height = 30,
-  ignoreZoom = false,
-}: {
-  ignoreZoom?: boolean;
-  height?: number;
-}) {
+function InnerGestureDetector({ ignoreZoom = false }: { ignoreZoom?: boolean; height?: number }) {
   const gestureRef = useRef<SVGRectElement>();
   const { xScale, zoomScale, bounds, animationDuration } = useTrackContext();
 
@@ -85,9 +79,10 @@ function InnerGestureDetector({
         e.stopPropagation();
       }}
       x={xScale(0)}
-      height={height}
+      y={0}
+      height={bounds.height - 1}
       width={Math.max(0, bounds.width)}
-      className={clsx("pointer-events-auto touch-none")}
+      className={clsx("pointer-events-auto touch-none fill-transparent")}
     />
   );
 }
