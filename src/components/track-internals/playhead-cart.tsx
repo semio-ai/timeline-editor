@@ -91,8 +91,6 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
     gRef.current?.setAttribute("transform", v);
   });
 
-  console.log(pointerMode);
-
   return (
     <motion.g ref={gRef} className="touch-none group/cart" transform={transform.get()}>
       {/* Cart path */}

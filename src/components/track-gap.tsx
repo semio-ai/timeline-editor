@@ -51,11 +51,11 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
   );
 
   return (
-    <div className="w-full flex flex-row items-center" style={{ height }}>
-      <div className="w-[calc(100vw-40px)] xs:w-64 transition-[width]" style={{ height }} />
+    <div className="grid grid-cols-[298px_1fr] gap-1">
+      <div />
       <div
         ref={containerRef}
-        className="cursor-pointer items-center flex flex-1"
+        className="cursor-pointer items-center flex flex-1 dark:bg-black bg-neutral-100"
         style={{ height }}
       >
         <TrackContext.Provider
@@ -96,9 +96,9 @@ export function InnerTrackGap({ animationId, height }: { height: number; animati
             <GestureDetector height={height} />
 
             <BoundsDisplay />
-            <HoverMarker height={height} />
+            <HoverMarker />
 
-            <Playhead height={height} />
+            <Playhead />
           </svg>
         </TrackContext.Provider>
       </div>

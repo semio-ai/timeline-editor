@@ -100,7 +100,7 @@ export function TimelineControl({
   }, [animationId, allTracks, onChangeSelection]);
 
   return (
-    <div className="flex flex-1 flex-row items-center h-8 gap-1 pl-1">
+    <div className="flex flex-1 flex-row items-center h-9 gap-1 pl-1">
       <TrackControl
         animationId={animationId}
         namespaceId={namespaceId}

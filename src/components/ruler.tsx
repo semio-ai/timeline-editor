@@ -25,14 +25,15 @@ import { PlayheadCart, HoverMarker, BoundCart, GestureDetector } from "./track-i
 
 function InnerRuler({
   height = 32,
+  width = 2 * TIMELINE_PADDING,
   side,
   animationId,
 }: {
   height?: number;
+  width?: number;
   side: "top" | "bottom";
   animationId: string;
 }) {
-  const [svgRef, svgBounds] = useMeasure();
   const duration = usePlayerStore(useShallow((state) => state.player.duration));
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
@@ -52,9 +53,9 @@ function InnerRuler({
     () =>
       scaleLinear({
         domain: [0, duration],
-        range: [TIMELINE_PADDING, svgBounds.width - TIMELINE_PADDING],
+        range: [TIMELINE_PADDING, width - TIMELINE_PADDING],
       }),
-    [svgBounds.width, duration],
+    [width, duration],
   );
 
   const yScale = useMemo(() => scaleLinear({ domain: [0, 1], range: [0, height] }), [height]);
@@ -83,18 +84,18 @@ function InnerRuler({
         trackType: "multiple",
       }}
     >
-      <svg ref={svgRef} height={height} className={clsx("touch-none w-full")}>
+      <svg height={height} className={clsx("touch-none w-full focus:outline-none")}>
         {/* Gesture Detector */}
         <GestureDetector ignoreZoom={side === "bottom"} />
         <rect
           ref={activeRegionRef}
           x={TIMELINE_PADDING}
-          height={svgBounds.height}
-          width={Math.max(0, svgBounds.width - TIMELINE_PADDING * 2)}
+          height={height}
+          width={Math.max(0, width - TIMELINE_PADDING * 2)}
           className="pointer-events-none fill-transparent"
         />
         <TickRegion ignoreZoom={side === "bottom"} side={side} />
-        <HoverMarker ignoreZoom={side === "bottom"} height={height} />
+        <HoverMarker ignoreZoom={side === "bottom"} />
         <BoundCart side={side} end="left" ignoreZoom={side === "bottom"} />
         <BoundCart side={side} end="right" ignoreZoom={side === "bottom"} />
         <PlayheadCart side={side} ignoreZoom={side === "bottom"} duration={duration} />
@@ -188,6 +189,10 @@ function Tick({
   );
   const major = idx % framerate === 0;
 
+  if (!major) {
+    return null;
+  }
+
   const transform = `translate(${xScale(completion * playerDuration).toString()} 0)`;
   const y1 = side === "bottom" ? 1 : height - 1;
   const y2 = getY2(side, major, height);
@@ -202,9 +207,9 @@ function Tick({
         strokeWidth={widthSpring}
         className={clsx(
           "transition-[stroke,transform] duration-75 ease-in-out pointer-events-none",
-          major
-            ? "group-hover:stroke-black dark:group-hover:stroke-white group-aria-expanded:stroke-black group-aria-expanded:dark:stroke-white"
-            : "group-hover:stroke-neutral-300 dark:group-hover:stroke-neutral-700 group-aria-expanded:stroke-neutral-300 dark:group-aria-expanded:stroke-neutral-700",
+          "stroke-neutral-500",
+          "group-hover/sheet:stroke-black dark:group-hover/sheet:stroke-white",
+          "group-aria-expanded/sheet:stroke-black group-aria-expanded/sheet:dark:stroke-white",
         )}
       />
       {major && (
@@ -245,8 +250,10 @@ function ScaledText({
       y={y}
       fontSize={10}
       className={clsx(
-        "font-mono font-light pointer-events-none fill-transparent transition-colors",
-        "group-hover:fill-black/50 dark:group-hover:fill-white/50 group-aria-expanded:fill-black/50 dark:group-aria-expanded:fill-white/50",
+        "font-mono font-light pointer-events-none transition-colors",
+        "fill-neutral-500",
+        "group-hover/sheet:fill-black dark:group-hover/sheet:fill-white",
+        "group-aria-expanded/sheet:fill-black group-aria-expanded/sheet:dark:fill-white",
       )}
     >
       {children}
@@ -254,6 +261,7 @@ function ScaledText({
   );
 }
 
+// Gets the y2 value for the tick line based on the side and whether it's a major or minor tick
 function getY2(side: "top" | "bottom", major: boolean, height = 30) {
   if (side === "bottom") {
     return 1 + (major ? MAJOR_TICK_HEIGHT : MINOR_TICK_HEIGHT);

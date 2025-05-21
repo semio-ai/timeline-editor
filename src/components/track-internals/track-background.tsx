@@ -1,6 +1,6 @@
-import { memo, useMemo, useRef } from "react";
+import { memo, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { motion, MotionValue, useTransform } from "motion/react";
+import { motion } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
 import { clsx } from "clsx";
 import {
@@ -9,19 +9,21 @@ import {
   useBoundSprings,
   useTrackTransformSpring,
   useScaleInverseSpring,
+  useColors,
 } from "../../hooks";
 import { AnimationData } from "../../store-types";
 import { TIMELINE_PADDING } from "../../constants";
-import type { ScaleLinear } from "../../scale-linear";
 
 export interface TrackBackgroundProps {
   showTicks?: boolean;
+  showBackground?: boolean;
   ignoreZoom?: boolean;
   tickHeight?: number;
 }
 
 function InnerTrackBackground({
   showTicks = true,
+  showBackground = true,
   ignoreZoom = false,
   tickHeight = 210,
 }: TrackBackgroundProps) {
@@ -29,15 +31,16 @@ function InnerTrackBackground({
     trackIds,
     xScale,
     attribute,
-    bounds: { width },
+    bounds: { width, height },
   } = useTrackContext();
+
+  const color = useColors(trackIds);
 
   const playerDuration = usePlayerStore(useShallow((state) => state.player.duration));
 
-  const identifier: string =
-    trackIds?.join("-") ?? `default-${tickHeight.toString()}${attribute ? `-${attribute}` : ""}`;
+  const trackSet = trackIds === undefined || trackIds.length === 0 ? ["empty"] : trackIds;
 
-  const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
+  const identifier = `${trackSet.join("-")}${attribute ? `-${attribute}` : "-all"}`;
 
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
@@ -45,71 +48,64 @@ function InnerTrackBackground({
 
   const { leftSpring, widthSpring } = useBoundSprings(ignoreZoom);
 
-  const frameCount = Math.floor(framerate * (playerDuration / 1000));
-
-  const timedFrames: { stamp: number; key: string }[] = useMemo(
-    () =>
-      showTicks
-        ? Array.from({ length: frameCount + 1 }, (_v, i) => ({
-            stamp: i / frameCount,
-            key: `${identifier}-frame-${i.toString()}`,
-          }))
-        : [],
-    [frameCount, identifier, showTicks],
-  );
-
-  const tickRef = useRef<SVGGElement>(null);
+  const ticksRef = useRef<SVGRectElement>(null);
 
   const transformSpring = useTrackTransformSpring(ignoreZoom, true);
 
   transformSpring.on("change", (t) => {
-    tickRef.current?.setAttribute("transform", t);
+    ticksRef.current?.setAttribute("transform", t);
   });
 
   const inverseScaleSpring = useScaleInverseSpring(ignoreZoom);
-
-  const strokeWidthSpring = useTransform(inverseScaleSpring, (scale) => scale * 2);
 
   return (
     <>
       <defs>
         {/* Create a bounds mask that can be used elsewhere */}
-        <mask id="boundsMask" className="h-full" width={width + TIMELINE_PADDING * 2}>
+        <mask id="boundsMask" height={height} width={width + TIMELINE_PADDING * 2}>
+          {/* A full-width spanning element at a 50% color */}
           <rect
             key={`${identifier}-linebg`}
             x={0}
+            height={height}
             width={width + TIMELINE_PADDING * 2}
             y={0}
-            className="fill-white/50 pointer-events-none h-full"
+            className="fill-neutral-500 pointer-events-none"
           />
+          {/* A full-opacity (white) region of the mask for the active region */}
           <motion.rect
             x={leftSpring}
             y={0}
+            height={height}
             width={widthSpring}
-            className="fill-white pointer-events-none h-full"
+            className="fill-white pointer-events-none"
           />
         </mask>
-        {/* Create a mask for the timeline */}
-        <mask
-          id={`mask-${identifier}`}
-          className="h-full"
-          x={-10}
-          width={width + TIMELINE_PADDING * 2}
+
+        <pattern
+          id="tickPattern"
+          patternUnits="userSpaceOnUse"
+          height={height <= 0 ? 1 : height}
+          width={(width * 1000) / (framerate * playerDuration)}
         >
-          <motion.g ref={tickRef} transform={transformSpring.get()}>
-            {timedFrames.map((tick) => (
-              <Tick
-                key={tick.key}
-                widthSpring={strokeWidthSpring}
-                completion={tick.stamp}
-                xScale={xScale}
-                outsideBounds={tick.stamp < bounds[0] || tick.stamp > bounds[1]}
-                tickHeight={tickHeight}
-                playerDuration={playerDuration}
-              />
-            ))}
-          </motion.g>
-        </mask>
+          {showTicks && (
+            <motion.line
+              x1={xScale(1 / framerate)}
+              x2={xScale(1 / framerate)}
+              y1={0}
+              y2={tickHeight}
+              strokeWidth={inverseScaleSpring}
+              className={clsx(
+                "h-full",
+                "transition-[stroke] duration-75 ease-in-out pointer-events-none",
+                "stroke-neutral-300 dark:stroke-neutral-700",
+                "group-aria-expanded:stroke-neutral-400 group-hover:stroke-neutral-400",
+                "group-aria-expanded:dark:stroke-neutral-600 group-hover:dark:stroke-neutral-600",
+              )}
+            />
+          )}
+        </pattern>
+
         <pattern id="diagonalStripePattern" patternUnits="userSpaceOnUse" width="20" height="10">
           <rect x="0" y="0" width="20" height="10" className="fill-neutral-500" />
           <line
@@ -174,7 +170,40 @@ function InnerTrackBackground({
         </mask>
       </defs>
 
-      {trackIds?.length === 1 && (
+      {/* Show the ticks */}
+
+      <rect
+        name="ticks-display"
+        ref={ticksRef}
+        transform={transformSpring.get()}
+        width="100%"
+        height="100%"
+        // fill="red"
+        fill="url(#tickPattern)"
+        mask="url(#boundsMask)"
+      />
+
+      {/* Show the colored background (if necessary) */}
+      {showBackground && (
+        <rect
+          name="track-colored-background"
+          width={width + TIMELINE_PADDING * 2}
+          fill={color}
+          mask="url(#boundsMask)"
+          // mask={`url(#mask-${identifier})`}
+          className={clsx(
+            "transition-[fill] duration-75",
+            "translate-y-[0.5px]",
+            "h-[calc(100%-0.5px)]",
+            "group-hover/track:opacity-35 group-data-[highlighted]:opacity-35 opacity-20",
+            "pointer-events-none",
+          )}
+        />
+      )}
+      {/* <rect width="100%" height="100%" fill="url(#tickPattern)" /> */}
+
+      {/* Render the track color as a background when there is a single track */}
+      {/* {trackIds?.length === 1 && (
         <rect
           x={0}
           width={width + TIMELINE_PADDING * 2}
@@ -185,12 +214,13 @@ function InnerTrackBackground({
             "translate-y-[0.5px] opacity-20 group-[.has-emphasis]/track:opacity-30",
           )}
         />
-      )}
+      )} */}
 
-      <rect
-        name="box1"
+      {/* Show regions indicating the padding areas */}
+      {/* <rect
+        name="box-l-bounds"
         width={width + TIMELINE_PADDING * 2}
-        mask={`url(#mask-${identifier})`}
+        // mask={`url(#mask-${identifier})`}
         className={clsx(
           "transition-[fill] duration-75",
           "translate-y-[0.5px]",
@@ -199,53 +229,19 @@ function InnerTrackBackground({
           "pointer-events-none fill-black/10 dark:fill-white/10",
         )}
       />
-
       <rect
-        name="box2"
+        name="box-r-bounds"
         x={0}
         width={width + TIMELINE_PADDING * 2}
-        mask={`url(#mask-${identifier})`}
+        // mask={`url(#mask-${identifier})`}
         className={clsx(
           "transition-[fill] duration-75 fill-neutral-500",
           "h-[calc(100%-0.5px)]",
           "translate-y-[0.5px] pointer-events-none",
           "group-aria-expanded:opacity-0 group-hover:opacity-0 opacity-100",
         )}
-      />
+      /> */}
     </>
-  );
-}
-
-function Tick({
-  completion,
-  xScale,
-  outsideBounds,
-  widthSpring,
-  tickHeight,
-  playerDuration,
-}: {
-  completion: number;
-  xScale: ScaleLinear;
-  outsideBounds: boolean;
-  widthSpring: MotionValue<number>;
-  tickHeight: number;
-  playerDuration: number;
-}) {
-  const x = xScale(completion * playerDuration);
-  return (
-    <motion.line
-      x1={x}
-      x2={x}
-      y1={0}
-      y2={tickHeight}
-      strokeWidth={widthSpring}
-      className={clsx(
-        "h-full",
-        "transition-[stroke,transform] duration-75 ease-in-out stroke-transparent pointer-events-none",
-        !outsideBounds && "group-aria-expanded:stroke-neutral-300 group-hover:stroke-neutral-300",
-        outsideBounds && "group-aria-expanded:stroke-neutral-700 group-hover:stroke-neutral-700",
-      )}
-    />
   );
 }
 

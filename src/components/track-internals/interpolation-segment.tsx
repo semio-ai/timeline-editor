@@ -8,6 +8,7 @@ import {
   PathType,
   getPath,
   useScaleInverseSpring,
+  useColors,
 } from "../../hooks";
 import { InstancedFrameInfo, TrackRender } from "../../types";
 
@@ -47,6 +48,8 @@ function InnerInterpolationSegment({
     trackType,
     attribute,
   );
+
+  const color = useColors(trackIds);
 
   const pathType =
     trackRender === TrackRender.Preview || trackRender === TrackRender.Transition
@@ -104,12 +107,11 @@ function InnerInterpolationSegment({
         <motion.path
           key="fill"
           d={pathFill}
+          fill={pseudoRegion ? "#737373" : color}
           className={clsx(
             "transition-[colors,fill] duration-75 pointer-events-none",
-            "fill-transparent stroke-transparent",
-            !pseudoRegion &&
-              "group-aria-expanded:fill-(--track-color) group-hover:fill-(--track-color)",
-            "group-aria-expanded:opacity-50 group-hover:opacity-50",
+            "stroke-transparent",
+            "group-aria-expanded/sheet:opacity-50 group-hover/sheet:opacity-50",
           )}
         />
       )}
@@ -118,14 +120,15 @@ function InnerInterpolationSegment({
         strokeDasharray={strokeDashArray}
         strokeDashoffset={pseudoRegion ? inverseScale : "none"}
         d={pathLineSpring}
+        stroke={color}
         className={clsx(
           "transition-[colors,stroke] duration-75 pointer-events-none",
-          "fill-transparent stroke-(--track-color)",
+          "fill-transparent",
           trackRender === TrackRender.Key && pseudoRegion
             ? pseudoRegionOpacityClass
             : "opacity-100",
           getStroke(trackRender, pseudoRegion),
-          "group-aria-expanded:stroke-(--track-color) group-hover:stroke-(--track-color)",
+          // "stroke-red-500",
         )}
       />
     </g>

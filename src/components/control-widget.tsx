@@ -26,7 +26,7 @@ import {
   type AnimationInstanceSettings,
   type Animation,
 } from "../types";
-import { useAnimationStore } from "../hooks";
+import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { computeWorldStamp } from "../functions";
 import { TrackControl } from "./track-control";
@@ -139,6 +139,8 @@ function InnerControlWidget({
     [track, animatableValue, updateKeypoint, createTrack, animationId, setValue, namespace],
   );
 
+  const color = useColors(trackId ?? animatableId ?? "");
+
   if (!animatableValue) {
     return <div> No animatable value</div>;
   }
@@ -168,18 +170,14 @@ function InnerControlWidget({
             <Button
               size="fit"
               invert
-              color={track?.settings?.color ?? animatableValue.pub?.color}
+              color={color}
               leftIcon={
                 <IconChevronDown className={open ? "rotate-180 size-3" : "rotate-0 size-3"} />
               }
             />
           </CollapsibleTrigger>
         ) : (
-          <StaticIcon
-            size="fit"
-            className="size-3"
-            color={track?.settings?.color ?? animatableValue.pub?.color}
-          >
+          <StaticIcon size="fit" className="size-3" color={color}>
             {getIcon(animatableValue.pub?.units as string | undefined)}
           </StaticIcon>
         )}
@@ -338,6 +336,8 @@ function InnerWrappedTrackControl({
     useShallow((state: AnimationActions) => state.removeKeypoint),
   );
 
+  const color = useColors(track?.id ?? animatableValue.id);
+
   return (
     <TrackControl
       disabled={!animationId}
@@ -345,7 +345,7 @@ function InnerWrappedTrackControl({
       namespaceId={namespace}
       trackIds={track ? [track.id] : []}
       filled={keypoint !== undefined}
-      color={track?.settings?.color ?? animatableValue.pub?.color}
+      color={color}
       onHexClick={() => {
         if (keypoint && track) {
           removeKeypoint(track.id, keypoint.id);

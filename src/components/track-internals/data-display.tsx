@@ -6,6 +6,7 @@ import { useAnimationStore, useTrackContext, useTrackTransformSpring } from "../
 import { AnimationData } from "../../store-types";
 import { computeFrames, computeViolationSet, computeInterpolationSegments } from "../../functions";
 import { InstancedFrameInfo, Track } from "../../types";
+import { TIMELINE_PADDING } from "../../constants";
 import { InterpolationSegment } from "./interpolation-segment";
 import { ViolationDisplay } from "./violation-display";
 import { FrameMarker } from "./frame-marker";
@@ -17,7 +18,7 @@ export interface DataDisplayProps {
 }
 
 function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisplayProps) {
-  const { trackIds } = useTrackContext();
+  const { trackIds, bounds } = useTrackContext();
 
   const groupRef = useRef<SVGSVGElement>(null);
 
@@ -52,8 +53,18 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
 
   return (
     <g mask="url(#boundsMask)">
+      {/* We have to put in a dummy rectangle so that the bounds mask applies correctly */}
+      <rect
+        x={0}
+        height={bounds.height}
+        width={bounds.width + TIMELINE_PADDING * 2}
+        y={0}
+        fill="transparent"
+        className="pointer-events-none"
+      />
       <g ref={groupRef} transform={transformSpring.get()}>
         <ViolationDisplay violationSet={violationSet} ignoreZoom={ignoreZoom} />
+
         <g mask="url(#keyMask)">
           {paddedInterps.map(
             (
@@ -80,6 +91,7 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
             ),
           )}
         </g>
+
         {frameData.map((frameInstance: InstancedFrameInfo) => (
           <FrameMarker key={frameInstance.id} data={frameInstance} ignoreZoom={ignoreZoom} />
         ))}
@@ -95,7 +107,13 @@ function padInterps(
 ): InstancePair[] {
   const paddedInterps: InstancePair[] = [...interps];
   if (paddedInterps.length === 0) {
-    return paddedInterps;
+    return [
+      {
+        start: { stamp: 0, id: "left-padding", points: [] },
+        end: { stamp: 1, id: "right-padding", points: [] },
+        buffer: true,
+      },
+    ];
   }
   if (paddedInterps[0].start?.stamp !== 0) {
     paddedInterps.unshift({

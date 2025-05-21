@@ -12,7 +12,7 @@ import {
 } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { type Track } from "../types";
-import { useAnimationStore } from "../hooks";
+import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 
 const collapsibleTypes = ["vector3", "euler", "rgb", "hsl"];
@@ -51,6 +51,8 @@ function InnerAnimatableEditor({
 }: AnimatableEditorProps) {
   const rawValueId = getLookup(namespace, animatableValue.id);
 
+  const color = useColors(track?.id ?? animatableValue.id);
+
   const rawValue: RawValue | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {
       return state.values.get(rawValueId);
@@ -86,7 +88,7 @@ function InnerAnimatableEditor({
         value={renderTransformer((rawValue as number) ?? (animatableValue.default as number))}
         min={min}
         max={max}
-        color={track?.settings?.color ?? animatableValue?.pub?.color}
+        color={color}
         onChange={(v) => handleValueChange(renderInverse(v))}
         label={track ? track.name : animatableValue.name}
         onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
@@ -135,7 +137,7 @@ function InnerAnimatableEditor({
         max={animatableValue.constraints?.max?.[index] ?? undefined}
         visualMin={animatableValue.constraints?.min?.[index] ?? 0}
         visualMax={animatableValue.constraints?.max?.[index] ?? 1}
-        color={track?.settings?.color}
+        color={color}
         onChange={(v) => {
           if (prop === "x") {
             handleValueChange({
@@ -192,7 +194,7 @@ function InnerAnimatableEditor({
             ? toDegrees(animatableValue.constraints?.max?.[index])
             : undefined
         }
-        color={track?.settings?.color}
+        color={color}
         onChange={(v) => {
           const vr = toRadians(v);
           if (prop === "x") {
@@ -236,7 +238,7 @@ function InnerAnimatableEditor({
         max={animatableValue.constraints?.max?.[index] ?? undefined}
         visualMin={animatableValue.constraints?.min?.[index] ?? 0}
         visualMax={animatableValue.constraints?.max?.[index] ?? 1}
-        color={track?.settings?.color}
+        color={color}
         onChange={(v) => {
           if (prop === "r") {
             handleValueChange({

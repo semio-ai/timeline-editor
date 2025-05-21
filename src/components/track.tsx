@@ -9,7 +9,7 @@ import { clsx } from "clsx";
 import { pick } from "lodash";
 import { alpha, AnimatableValue, RawValue, usePlayerStore } from "@semio/utils";
 import { TIMELINE_PADDING } from "../constants";
-import { TrackContext, useAnimationStore, usePlayerSubscription } from "../hooks";
+import { TrackContext, useAnimationStore, usePlayerSubscription, useColors } from "../hooks";
 import { AnimationData } from "../store-types";
 import { computeVerticalBounds } from "../functions";
 import { ScaleLinear } from "../scale-linear";
@@ -36,11 +36,11 @@ export interface TrackProps {
   trackRender: TrackRender;
   showData?: boolean;
   showZoomControls?: boolean;
+  showBackground?: boolean;
   useCustomColor?: boolean;
   showFullLine?: boolean;
-  color?: string;
-  emphasis?: boolean;
-  onEmphasisChange?: (emphasis: boolean) => void;
+  highlighted?: boolean;
+  onHighlightChange?: (highlight: boolean) => void;
 }
 
 /**
@@ -57,9 +57,8 @@ export interface TrackProps {
  * @param showData - Whether to show the data.
  * @param showZoomControls - Whether to show the zoom controls.
  * @param showFullLine - Whether to show the full line when rendering with TrackRender.Line
- * @param emphasis - Whether the track is in an emphasized state.
- * @param color - The color of the track.
- * @param onEmphasisChange - Callback for when the emphasis state changes.
+ * @param highlighted - Whether the track is in an emphasized state.
+ * @param onHighlightChange - Callback for when the emphasis state changes.
  */
 export function Track({
   width,
@@ -73,13 +72,15 @@ export function Track({
   showData = true,
   showFullLine = false,
   showZoomControls = false,
-  emphasis = false,
-  color = "#737373",
-  onEmphasisChange,
+  showBackground = true,
+  highlighted = false,
+  onHighlightChange,
 }: TrackProps): ReactNode {
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
+
+  const color = useColors(trackIds ?? []);
 
   const playerDuration = usePlayerStore((state) => state.player.duration);
   const animationDuration = useAnimationStore(
@@ -164,9 +165,7 @@ export function Track({
 
   const bind = useHover(({ hovering: h }) => {
     const hovering = h ?? false;
-    if (onEmphasisChange) {
-      onEmphasisChange(hovering);
-    }
+    onHighlightChange?.(hovering);
   });
 
   return (
@@ -189,14 +188,9 @@ export function Track({
     >
       <div
         {...bind()}
-        className={clsx("relative w-full group/track", emphasis && "has-emphasis")}
-        style={
-          {
-            height,
-            "--track-color": color,
-            "--track-color-partial": alpha(color, 0.6),
-          } as CSSProperties
-        }
+        data-highlighted={highlighted ? "" : undefined}
+        className={clsx("relative w-full group/track focus:outline-none")}
+        style={{ height }}
       >
         <svg
           height={height}
@@ -209,8 +203,12 @@ export function Track({
             width={Math.max(0, width - TIMELINE_PADDING * 2)}
             height={height}
           />
-
-          <TrackBackground ignoreZoom={!canZoom} tickHeight={height} showTicks={canZoom} />
+          <TrackBackground
+            ignoreZoom={!canZoom}
+            tickHeight={height}
+            showTicks={canZoom}
+            showBackground={showBackground}
+          />
 
           {/* Gesture Detector */}
           <GestureDetector ignoreZoom={!canZoom} />

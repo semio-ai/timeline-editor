@@ -7,7 +7,6 @@ import {
   useRef,
   useCallback,
   useState,
-  useEffect,
 } from "react";
 import {
   getHexagonPath,
@@ -15,8 +14,8 @@ import {
   getDegenerateHexagonPath,
   usePlayerStore,
 } from "@semio/utils";
-import { clamp, uniq } from "lodash";
-import { motion, useSpring, useTransform } from "motion/react";
+import { clamp } from "lodash";
+import { motion, useTransform } from "motion/react";
 import { useShallow } from "zustand/react/shallow";
 import { Theme, useTheme } from "@semio/ui";
 import {
@@ -28,9 +27,7 @@ import {
 import { computeLocalStamp } from "../../functions";
 import { DRAG_X_CONFIG } from "../../gesture-config";
 import { InstancedFrameInfo, TrackRender } from "../../types";
-
-const linePath = getDegenerateHexagonPath(0, 15, 12, 30);
-const hexPath = getHexagonPath(0, 15, 12, 30);
+import { useColors } from "../../hooks/use-colors";
 
 export interface FrameMarkerProps {
   data: InstancedFrameInfo;
@@ -44,7 +41,7 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     instanceSettings,
     xScale,
     zoomScale,
-    bounds: { width: timelineWidth, left: timelineLeft },
+    bounds: { width: timelineWidth, left: timelineLeft, height: timelineHeight },
     trackRender,
     animationDuration,
   } = useTrackContext();
@@ -55,38 +52,17 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     useShallow((state) => trackIds.length > 0 && state.player.stamp === data.stamp),
   );
 
-  const uniqueTracks = useMemo(() => uniq(data.points.map((p) => p.trackId)), [data.points]);
+  const color = useColors(data.points.map((p) => p.trackId));
 
-  const color = useAnimationStore(
-    useShallow((state) => {
-      if (uniqueTracks.length !== 1) return "#737373";
-      return state.tracks[uniqueTracks[0]]?.settings?.color ?? "var(--track-color)";
-    }),
-  );
-
-  const highlightColor = resolvedTheme === Theme.Dark ? "white" : "black";
+  const [linePath, hexPath] = useMemo(() => {
+    const lPath = getDegenerateHexagonPath(0, timelineHeight / 2, 12, timelineHeight);
+    const hPath = getHexagonPath(0, timelineHeight / 2, 12, timelineHeight);
+    return [lPath, hPath];
+  }, [timelineHeight]);
 
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
   const showLine = trackRender !== TrackRender.Key || dragging || isSelected || hovered;
-
-  const hexStrokeColorSpring = useSpring(isSelected ? highlightColor : "transparent");
-  const lineStrokeWidth = useSpring(showLine ? 1.5 : 0);
-
-  useEffect(() => {
-    hexStrokeColorSpring.set(isSelected ? highlightColor : "transparent");
-    lineStrokeWidth.jump(showLine ? 1.5 : 0);
-  }, [
-    trackRender,
-    showLine,
-    color,
-    highlightColor,
-    isSelected,
-    hexStrokeColorSpring,
-    lineStrokeWidth,
-    dragging,
-    hovered,
-  ]);
 
   const [updateKeypoint, updateHoverpointPreview] = useAnimationStore(
     useShallow((state) => [state.updateKeypoint, state.updateHoverpointPreview]),
@@ -151,8 +127,28 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
       aria-selected={isSelected}
       transform={transformSpring.get()}
     >
-      <motion.path d={linePath} fill="none" stroke={color} strokeWidth={lineStrokeWidth} />
-      <motion.path d={hexPath} fill={color} stroke={hexStrokeColorSpring} strokeWidth={1} />
+      <motion.path
+        d={linePath}
+        fill="none"
+        stroke={color}
+        animate={showLine ? "withLine" : "withoutLine"}
+        variants={{
+          withLine: { strokeWidth: 1.5 },
+          withoutLine: { strokeWidth: 0 },
+        }}
+        initial={{ strokeWidth: 0 }}
+      />
+      <motion.path
+        d={hexPath}
+        fill={color}
+        initial={{ stroke: "transparent" }}
+        variants={{
+          selected: { stroke: resolvedTheme === Theme.Dark ? "white" : "black" },
+          unselected: { stroke: "transparent" },
+        }}
+        animate={isSelected ? "selected" : "unselected"}
+        strokeWidth={1}
+      />
     </motion.g>
   );
 }

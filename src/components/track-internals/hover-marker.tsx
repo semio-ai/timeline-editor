@@ -2,19 +2,16 @@ import { type ReactNode, memo, useRef } from "react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
 import { motion, useTransform } from "motion/react";
-import { useHoverSpring, useAnimationStore } from "../../hooks";
+import { useHoverSpring, useAnimationStore, useTrackContext } from "../../hooks";
 
 export interface HoverMarkerProps {
   ignoreZoom?: boolean;
-  height?: number;
-  offset?: number;
 }
 
-function InnerHoverMarker({
-  ignoreZoom = false,
-  height = 30,
-  offset = 0,
-}: HoverMarkerProps): ReactNode {
+function InnerHoverMarker({ ignoreZoom = false }: HoverMarkerProps): ReactNode {
+  const {
+    bounds: { height },
+  } = useTrackContext();
   const hoverpoint = useHoverSpring(ignoreZoom);
   const dashed = useAnimationStore(useShallow((state) => state.preferences.hoverDashedLine));
 
@@ -40,12 +37,12 @@ function InnerHoverMarker({
       }}
       className={clsx(
         "touch-none stroke-transparent pointer-events-none",
-        "group-hover:stroke-black/50 dark:group-hover:stroke-white/50",
+        "group-hover/sheet:stroke-black/50 dark:group-hover/sheet:stroke-white/50",
         "aria-selected:stroke-transparent",
       )}
       rx={1}
       // vertical line
-      d={`M 0 ${offset.toString()} L 0 ${height.toString()}`}
+      d={`M 0 0 L 0 ${height.toString()}`}
     />
   );
 }
