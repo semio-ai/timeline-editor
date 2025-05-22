@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useMemo, useRef } from "react";
 import useMeasure from "react-use-measure";
 import { scaleLinear } from "@visx/scale";
@@ -7,7 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 import { shallow } from "zustand/shallow";
 import { clsx } from "clsx";
 import { pick } from "lodash";
-import { alpha, AnimatableValue, RawValue, usePlayerStore } from "@semio/utils";
+import { AnimatableValue, RawValue, usePlayerStore } from "@semio/utils";
 import { TIMELINE_PADDING } from "../constants";
 import { TrackContext, useAnimationStore, usePlayerSubscription, useColors } from "../hooks";
 import { AnimationData } from "../store-types";
