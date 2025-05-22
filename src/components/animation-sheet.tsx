@@ -8,7 +8,7 @@ import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
 import { TrackRender, AnimationInstance } from "../types";
-import { useAnimationStore } from "../hooks";
+import { useAnimationStore, ColorContextProvider } from "../hooks";
 import { DEFAULT_TRACK_HEIGHT } from "../constants";
 import { Timeline } from "./timeline";
 import { TrackList } from "./track-list";
@@ -16,7 +16,6 @@ import { Minimap } from "./minimap";
 import { Ruler } from "./ruler";
 import { TimelineControl } from "./timeline-control";
 import { TimeControls } from "./time-controls";
-import { ColorContextProvider } from "./color-provider";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
 const MIN_SHEET_HEIGHT = 134;
@@ -160,12 +159,6 @@ export function InnerSheet({
 
         <div className="col-span-2">
           {/* Tracks */}
-          {/* <div
-          className={clsx(
-            "group-aria-expanded:h-full overflow-hidden",
-            "transition-[height] duration-75 h-0",
-          )}
-        > */}
           <TrackList
             animationId={currentAnimation}
             namespaceId={namespaceId}
@@ -175,7 +168,6 @@ export function InnerSheet({
             // Subtract the height of the other elements from the total height
             height={height - 134}
           />
-          {/* </div> */}
         </div>
 
         <TimelineControl

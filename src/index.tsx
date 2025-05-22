@@ -5,7 +5,7 @@ export {
   type TrackControlProps,
   type AnimationSheetProps,
 } from "./components";
-export * from "./components/color-provider";
+export * from "./hooks";
 export * from "./context";
 export * from "./store-types";
 export * from "./store";

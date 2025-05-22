@@ -80,7 +80,7 @@ function InnerGestureDetector({ ignoreZoom = false }: { ignoreZoom?: boolean; he
       }}
       x={xScale(0)}
       y={0}
-      height={bounds.height - 1}
+      height={Math.max(0, bounds.height - 1)}
       width={Math.max(0, bounds.width)}
       className={clsx("pointer-events-auto touch-none fill-transparent")}
     />
