@@ -73,12 +73,7 @@ export function TrackControl({
   const center = getCenter(hovered, filled);
 
   return (
-    <div
-      className={clsx(
-        "min-w-16 h-7 rounded-xs grid grid-cols-3 items-center justify-between",
-        // "dark:bg-layout-dark-base bg-layout-light-base",
-      )}
-    >
+    <div className={clsx("min-w-16 h-7 rounded-xs grid grid-cols-3 items-center justify-between")}>
       <Button
         size="fit"
         color={color}

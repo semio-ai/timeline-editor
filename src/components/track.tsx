@@ -117,7 +117,6 @@ export function Track({
 
     return computeVerticalBounds(tracks, animatableValues, attribute);
   }, [trackKeys.length, trackRender, allAnimatables, tracks, attribute, animatableIds]);
-  // console.log("animatableIds", animatableIds, allAnimatables);
 
   const trackType = useMemo(() => {
     const types = new Set<AnimatableValue["type"]>();

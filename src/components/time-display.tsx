@@ -42,7 +42,6 @@ export function InnerTimeDisplay({
         }
       });
       return instanceInfo;
-      // pick(state.animations[animationId].instances, namespaceIds)),
     }),
   );
 
@@ -165,100 +164,6 @@ export function InnerTimeDisplay({
         />
       );
   }
-
-  // return (
-  //   <>
-  //     {/* Current Time Display */}
-  //     <TimeInput
-  //       value={stamp * duration}
-  //       onChange={(v) => resetPlayer(v / duration)}
-  //       label="Current Time"
-  //       min={0}
-  //       size={Size.Sm}
-  //       max={duration}
-  //       display={timeDisplay}
-  //       framerate={framerate}
-  //       variant={Variant.Default}
-  //       className={semanticTime !== SemanticTime.Current ? "hidden" : ""}
-  //     />
-  //     {/* Bounds Start Display */}
-  //     <TimeInput
-  //       value={bounds[0] * duration}
-  //       onChange={(v) => {
-  //         const vals = [v / duration, bounds[1]].sort((a, b) => a - b);
-  //         updatePlayerBounds(vals[0], vals[1]);
-  //       }}
-  //       label="Bounds Start"
-  //       min={0}
-  //       size={Size.Sm}
-  //       max={duration}
-  //       display={timeDisplay}
-  //       framerate={framerate}
-  //       variant={Variant.Success}
-  //       className={semanticTime !== SemanticTime.BoundsStart ? "hidden" : ""}
-  //     />
-  //     {/* Bounds End Display */}
-  //     <TimeInput
-  //       value={bounds[1] * duration}
-  //       onChange={(v) => {
-  //         const vals = [bounds[0], v / duration].sort((a, b) => a - b);
-  //         updatePlayerBounds(vals[0], vals[1]);
-  //       }}
-  //       label="Bounds End"
-  //       min={0}
-  //       size={Size.Sm}
-  //       max={duration}
-  //       display={timeDisplay}
-  //       framerate={framerate}
-  //       variant={Variant.Error}
-  //       className={semanticTime !== SemanticTime.BoundsEnd ? "hidden" : ""}
-  //     />
-  //     {/* Prev Keyframe Display */}
-  //     <TimeInput
-  //       value={valueOverride !== undefined ? valueOverride * duration : prevKeyframeTime}
-  //       onChange={() => {}}
-  //       label="Previous Keyed Frame"
-  //       min={0}
-  //       disabled
-  //       size={Size.Sm}
-  //       max={duration}
-  //       display={timeDisplay}
-  //       framerate={framerate}
-  //       variant={Variant.Primary}
-  //       className={semanticTime !== SemanticTime.Backward ? "hidden" : ""}
-  //     />
-  //     {/* Next Keyframe Display */}
-  //     <TimeInput
-  //       value={valueOverride !== undefined ? valueOverride * duration : nextKeyframeTime}
-  //       onChange={() => {}}
-  //       label="Next Keyed Frame"
-  //       min={0}
-  //       disabled
-  //       size={Size.Sm}
-  //       max={duration}
-  //       display={timeDisplay}
-  //       framerate={framerate}
-  //       variant={Variant.Primary}
-  //       className={semanticTime !== SemanticTime.Forward ? "hidden" : ""}
-  //     />
-  //     {/* Duration Display */}
-  //     <TimeInput
-  //       value={duration}
-  //       onChange={(v) => {
-  //         updateDuration(v, animationId);
-  //       }}
-  //       label="Duration"
-  //       min={0}
-  //       disabled
-  //       size={Size.Sm}
-  //       max={duration * 2}
-  //       display={timeDisplay}
-  //       framerate={framerate}
-  //       variant={Variant.Default}
-  //       className={semanticTime !== SemanticTime.Duration ? "hidden" : ""}
-  //     />
-  //   </>
-  // );
 }
 
 InnerTimeDisplay.displayName = "TimeDisplay";

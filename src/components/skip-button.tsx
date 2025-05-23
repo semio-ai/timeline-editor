@@ -61,7 +61,6 @@ export function SkipButton({
     <Button
       invert
       size="fit"
-      // color="#737373"
       onClick={() => skip?.()}
       onMouseEnter={(e) => {
         onMouseEnter?.(e);

@@ -103,18 +103,19 @@ function InnerInterpolationSegment({
 
   return (
     <g>
-      {(trackRender === TrackRender.Preview || trackRender === TrackRender.Transition) && (
-        <motion.path
-          key="fill"
-          d={pathFill}
-          fill={pseudoRegion ? "#737373" : color}
-          className={clsx(
-            "transition-[colors,fill] duration-75 pointer-events-none",
-            "stroke-transparent",
-            "group-aria-expanded/sheet:opacity-50 group-hover/sheet:opacity-50",
-          )}
-        />
-      )}
+      {(trackRender === TrackRender.Preview || trackRender === TrackRender.Transition) &&
+        !pseudoRegion && (
+          <motion.path
+            key="fill"
+            d={pathFill}
+            fill={color}
+            className={clsx(
+              "transition-[colors,fill] duration-75 pointer-events-none",
+              "stroke-transparent",
+              "opacity-50",
+            )}
+          />
+        )}
       <motion.path
         key="line"
         strokeDasharray={strokeDashArray}
@@ -128,7 +129,6 @@ function InnerInterpolationSegment({
             ? pseudoRegionOpacityClass
             : "opacity-100",
           getStroke(trackRender, pseudoRegion),
-          // "stroke-red-500",
         )}
       />
     </g>

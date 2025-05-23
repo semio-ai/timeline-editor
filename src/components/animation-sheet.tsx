@@ -90,11 +90,9 @@ export function InnerSheet({
         className={clsx(
           "grid grid-cols-[298px_1fr] group/sheet w-full gap-x-1 pr-0.5 pb-0.5",
           "grid-rows-[32px_1fr_36px_32px_32px]",
-          // "dark:bg-layout-dark-inset bg-layout-light-inset",
         )}
       >
         {/* Expand Toggle/Ruler */}
-        {/* <div className={clsx("h-6 relative", "w-full flex flex-row text-xs")}> */}
         <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between pl-1")}>
           <ToggleSquare
             size={Size.Sm}
@@ -148,7 +146,6 @@ export function InnerSheet({
           <ToggleSquare size={Size.Sm} value={false} onChange={() => {}} label="Pop Out" disabled>
             <IconArrowUpRight size="11px" />
           </ToggleSquare>
-          {/* </div> */}
         </div>
         <div
           ref={trackRegion}

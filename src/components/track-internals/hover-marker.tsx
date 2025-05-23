@@ -21,14 +21,14 @@ function InnerHoverMarker({ ignoreZoom = false }: HoverMarkerProps): ReactNode {
     (hoverXval) => `translate(${(hoverXval ?? 0).toString()} 0)`,
   );
 
-  const pathRef = useRef<SVGPathElement>(null);
+  const pathRef = useRef<SVGLineElement>(null);
 
   transform.on("change", (v) => {
     pathRef.current?.setAttribute("transform", v);
   });
 
   return (
-    <motion.path
+    <motion.line
       ref={pathRef}
       style={{
         strokeDasharray: dashed ? "5 5" : "none",
@@ -41,8 +41,10 @@ function InnerHoverMarker({ ignoreZoom = false }: HoverMarkerProps): ReactNode {
         "aria-selected:stroke-transparent",
       )}
       rx={1}
-      // vertical line
-      d={`M 0 0 L 0 ${height.toString()}`}
+      x1={0}
+      x2={0}
+      y1={0}
+      y2={height}
     />
   );
 }

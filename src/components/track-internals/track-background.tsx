@@ -171,7 +171,6 @@ function InnerTrackBackground({
       </defs>
 
       {/* Show the ticks */}
-
       <rect
         name="ticks-display"
         ref={ticksRef}
@@ -190,7 +189,6 @@ function InnerTrackBackground({
           width={width + TIMELINE_PADDING * 2}
           fill={color}
           mask="url(#boundsMask)"
-          // mask={`url(#mask-${identifier})`}
           className={clsx(
             "transition-[fill] duration-75",
             "translate-y-[0.5px]",
@@ -200,47 +198,6 @@ function InnerTrackBackground({
           )}
         />
       )}
-      {/* <rect width="100%" height="100%" fill="url(#tickPattern)" /> */}
-
-      {/* Render the track color as a background when there is a single track */}
-      {/* {trackIds?.length === 1 && (
-        <rect
-          x={0}
-          width={width + TIMELINE_PADDING * 2}
-          mask="url(#boundsMask)"
-          className={clsx(
-            "h-[calc(100%-0.5px)]",
-            "transition-[fill,opacity] duration-75 fill-(--track-color) pointer-events-none",
-            "translate-y-[0.5px] opacity-20 group-[.has-emphasis]/track:opacity-30",
-          )}
-        />
-      )} */}
-
-      {/* Show regions indicating the padding areas */}
-      {/* <rect
-        name="box-l-bounds"
-        width={width + TIMELINE_PADDING * 2}
-        // mask={`url(#mask-${identifier})`}
-        className={clsx(
-          "transition-[fill] duration-75",
-          "translate-y-[0.5px]",
-          "h-[calc(100%-0.5px)]",
-          "group-aria-expanded:opacity-100 group-hover:opacity-100 opacity-0",
-          "pointer-events-none fill-black/10 dark:fill-white/10",
-        )}
-      />
-      <rect
-        name="box-r-bounds"
-        x={0}
-        width={width + TIMELINE_PADDING * 2}
-        // mask={`url(#mask-${identifier})`}
-        className={clsx(
-          "transition-[fill] duration-75 fill-neutral-500",
-          "h-[calc(100%-0.5px)]",
-          "translate-y-[0.5px] pointer-events-none",
-          "group-aria-expanded:opacity-0 group-hover:opacity-0 opacity-100",
-        )}
-      /> */}
     </>
   );
 }

@@ -109,7 +109,6 @@ function InnerViolationSegmentDisplay({
 
   const doubleClickHandler = useCallback(
     (event: MouseEvent) => {
-      // withZoom((zoomScale) => {
       const newPosition = clamp(
         zoomScale.current.invert(((event.clientX ?? 0) - bounds.left) / bounds.width),
         0,
@@ -121,7 +120,6 @@ function InnerViolationSegmentDisplay({
         const closest: number = closestFrame(newPosition, frameCount);
         resetPlayer(closest);
       }
-      // });
     },
     [bounds, frameCount, resetPlayer, zoomScale],
   );

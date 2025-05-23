@@ -82,10 +82,7 @@ export function TimeControls({
   return (
     <div className="flex flex-1 flex-row h-8 items-center gap-1 pl-1">
       <div
-        className={clsx(
-          "min-w-16 h-7 rounded-xs grid grid-cols-3 items-center justify-between",
-          // "dark:bg-layout-dark-base bg-layout-light-base",
-        )}
+        className={clsx("min-w-16 h-7 rounded-xs grid grid-cols-3 items-center justify-between")}
       >
         <SkipButton
           semanticTime={SemanticTime.BoundsStart}
@@ -102,7 +99,6 @@ export function TimeControls({
               playPlayer(1);
             }
           }}
-          // color="#737373"
           leftIcon={
             running ? <IconPlayerPauseFilled size="18px" /> : <IconPlayerPlay2 size="18px" />
           }
