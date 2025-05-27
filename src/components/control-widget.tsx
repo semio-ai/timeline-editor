@@ -167,7 +167,7 @@ function InnerControlWidget({
           <CollapsibleTrigger asChild>
             <Button
               size="fit"
-              invert
+              visuals="inverted"
               color={color}
               leftIcon={
                 <IconChevronDown className={open ? "rotate-180 size-3" : "rotate-0 size-3"} />
@@ -198,7 +198,7 @@ function InnerControlWidget({
                 <Button
                   size={Size.Xs}
                   className="flex items-center justify-center"
-                  invert
+                  visuals="inverted"
                   leftIcon={<IconDotsVertical className="size-3/5" />}
                 />
               </span>

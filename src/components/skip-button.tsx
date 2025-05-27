@@ -59,7 +59,7 @@ export function SkipButton({
 
   return (
     <Button
-      invert
+      visuals="inverted"
       size="fit"
       onClick={() => skip?.()}
       onMouseEnter={(e) => {

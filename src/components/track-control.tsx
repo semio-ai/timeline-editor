@@ -92,7 +92,7 @@ export function TrackControl({
           removePreview((p) => p.semanticTime === SemanticTime.Backward);
         }}
         leftIcon={<IconPlayerPlay className="rotate-180" size="14px" />}
-        invert
+        visuals="inverted"
       />
       <Button
         size="fit"
@@ -110,7 +110,7 @@ export function TrackControl({
             center={center}
           />
         }
-        invert
+        visuals="inverted"
       />
       <Button
         size="fit"
@@ -132,7 +132,7 @@ export function TrackControl({
           removePreview((p) => p.semanticTime === SemanticTime.Forward);
         }}
         leftIcon={<IconPlayerPlay size="14px" />}
-        invert
+        visuals="inverted"
       />
     </div>
   );
