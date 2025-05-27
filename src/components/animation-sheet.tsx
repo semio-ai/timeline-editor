@@ -95,6 +95,7 @@ export function InnerSheet({
         {/* Expand Toggle/Ruler */}
         <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between pl-1")}>
           <ToggleSquare
+            sizing="inner"
             size={Size.Sm}
             value={expanded}
             onChange={(v) => onToggleExpand?.(v)}
@@ -143,7 +144,14 @@ export function InnerSheet({
               },
             ]}
           />
-          <ToggleSquare size={Size.Sm} value={false} onChange={() => {}} label="Pop Out" disabled>
+          <ToggleSquare
+            sizing="inner"
+            size={Size.Sm}
+            value={false}
+            onChange={() => {}}
+            label="Pop Out"
+            disabled
+          >
             <IconArrowUpRight size="11px" />
           </ToggleSquare>
         </div>
