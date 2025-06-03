@@ -102,7 +102,7 @@ export function TimeControls({
           leftIcon={
             running ? <IconPlayerPauseFilled size="18px" /> : <IconPlayerPlay2 size="18px" />
           }
-          invert
+          visuals="inverted"
         />
         <SkipButton
           semanticTime={SemanticTime.BoundsEnd}

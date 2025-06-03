@@ -107,12 +107,18 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
           "group-hover/cart:fill-black fill-neutral-700",
         )}
       />
-      <line
+      <motion.line
         x1={0}
         x2={0}
-        y1={side === "top" ? 2 : 0}
-        y2={side === "top" ? timelineHeight : timelineHeight - 2}
         strokeWidth={2}
+        variants={{
+          vertical: {
+            y1: side === "top" ? 2 : 0,
+            y2: side === "top" ? timelineHeight : timelineHeight - 2,
+          },
+          horizontal: { y1: side === "top" ? 2 : 0, y2: side === "top" ? 2 : 0 },
+        }}
+        animate={pointerMode}
         className={clsx(
           "touch-none pointer-events-none",
           "dark:group-hover/cart:stroke-white dark:stroke-neutral-300",
