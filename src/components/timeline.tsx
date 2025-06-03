@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { DEFAULT_TRACK_HEIGHT, TIMELINE_PADDING } from "../constants";
 import { AnimationInstanceSettings, TrackRender } from "../types";
-import { Track } from "./track";
+import { TrackVisualizer } from "./track-visualizer";
 
 export interface TimelineProps {
   animationId: string;
@@ -30,7 +30,7 @@ export function Timeline({
   width = 2 * TIMELINE_PADDING,
 }: TimelineProps): ReactNode {
   return (
-    <Track
+    <TrackVisualizer
       width={width}
       trackIds={trackIds}
       canZoom

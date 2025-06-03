@@ -64,8 +64,8 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
   const [dragging, setDragging] = useState(false);
   const showLine = trackRender !== TrackRender.Key || dragging || isSelected || hovered;
 
-  const [updateKeypoint, updateHoverpointPreview] = useAnimationStore(
-    useShallow((state) => [state.updateKeypoint, state.updateHoverpointPreview]),
+  const [updateKeypoints, updateHoverpointPreview] = useAnimationStore(
+    useShallow((state) => [state.updateKeypoints, state.updateHoverpointPreview]),
   );
 
   const resetPlayer = usePlayerStore(useShallow((state) => state.resetPlayer));
@@ -100,9 +100,14 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
           instanceSettings.timescale,
           instanceSettings.offset,
         );
-        data.points.forEach((point) => {
-          updateKeypoint(point.trackId, { ...point, stamp: transformedStamp });
-        });
+        // Bulk-update keypoints for all tracks/keys;
+        updateKeypoints(
+          data.points.map((p) => ({
+            trackId: p.trackId,
+            keypoint: { id: p.id, stamp: transformedStamp },
+          })),
+          !state.dragging,
+        );
         setDragging(state.dragging ?? false);
         state.event.stopPropagation();
       },

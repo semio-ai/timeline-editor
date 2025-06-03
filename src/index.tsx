@@ -2,8 +2,10 @@ export {
   ControlWidget,
   AnimationSheet,
   TrackControl,
+  TrackVisualizer,
   type TrackControlProps,
   type AnimationSheetProps,
+  type TrackVisualizerProps,
 } from "./components";
 export * from "./hooks";
 export * from "./context";

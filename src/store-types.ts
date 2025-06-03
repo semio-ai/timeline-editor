@@ -129,14 +129,21 @@ export interface AnimationActions {
    * Update a keypoint by track and keyframe/time in the animation.
    * @param trackId - The ID of the track.
    * @param keypoint - The keypoint data to update.
+   * @param canMerge - Whether to allow merging of keypoints by stamp.
    */
-  updateKeypoint: (trackId: string, keypoint: Partial<Keypoint<RawValue>>) => void;
+  updateKeypoint: (
+    trackId: string,
+    keypoint: Partial<Keypoint<RawValue>>,
+    canMerge?: boolean,
+  ) => void;
   /**
-   * Remove multiple keypoints at once.
+   * Update multiple keypoints at once.
    * @param keypoints - An array of keypoints to update.
+   * @param canMerge - Whether to allow merging of keypoints by stamp
    */
   updateKeypoints: (
     keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[],
+    canMerge?: boolean,
   ) => void;
   /**
    * Add a new keypoint to a track.

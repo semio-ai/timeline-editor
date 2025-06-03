@@ -35,7 +35,7 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
     return computeViolationSet(filteredViolations);
   }, [violations, trackIds]);
 
-  const frameData = useMemo(() => {
+  const frameData: InstancedFrameInfo[] = useMemo(() => {
     return computeFrames(tracks);
   }, [tracks]);
 
