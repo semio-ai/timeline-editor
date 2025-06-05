@@ -5,7 +5,7 @@ import type { AnimationData } from "../store-types";
 import { TrackRender, AnimationInstanceSettings } from "../types";
 import { useAnimationStore } from "../hooks";
 import { ControlWidget } from "./control-widget";
-import { Track } from "./track";
+import { TrackVisualizer } from "./track-visualizer";
 
 export function TrackRow({
   trackIds,
@@ -56,7 +56,7 @@ export function TrackRow({
       />
       {expanded ? (
         <div className="flex-1 flex flex-col">
-          <Track
+          <TrackVisualizer
             animationId={animationId}
             namespaceId={namespaceId}
             instanceSettings={instanceSettings}
@@ -69,7 +69,7 @@ export function TrackRow({
             trackRender={trackRender}
             height={height}
           />
-          <Track
+          <TrackVisualizer
             animationId={animationId}
             namespaceId={namespaceId}
             instanceSettings={instanceSettings}
@@ -83,7 +83,7 @@ export function TrackRow({
             trackRender={trackRender}
             height={height}
           />
-          <Track
+          <TrackVisualizer
             animationId={animationId}
             namespaceId={namespaceId}
             instanceSettings={instanceSettings}
@@ -97,7 +97,7 @@ export function TrackRow({
             trackRender={trackRender}
             height={height}
           />
-          <Track
+          <TrackVisualizer
             animationId={animationId}
             namespaceId={namespaceId}
             instanceSettings={instanceSettings}
@@ -113,7 +113,7 @@ export function TrackRow({
           />
         </div>
       ) : (
-        <Track
+        <TrackVisualizer
           animationId={animationId}
           namespaceId={namespaceId}
           instanceSettings={instanceSettings}

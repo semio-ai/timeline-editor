@@ -1,6 +1,6 @@
 import { AnimationInstanceSettings, TrackRender } from "../types";
 import { TIMELINE_PADDING } from "../constants";
-import { Track } from "./track";
+import { TrackVisualizer } from "./track-visualizer";
 
 export function Minimap({
   animationId,
@@ -14,7 +14,7 @@ export function Minimap({
   width?: number;
 }) {
   return (
-    <Track
+    <TrackVisualizer
       showData={false}
       canZoom={false}
       height={height}

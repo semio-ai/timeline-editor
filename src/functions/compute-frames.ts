@@ -35,5 +35,5 @@ export function computeFrames(tracks: Record<string, Track<RawValue>>): Instance
     });
   });
 
-  return instancedFrameInfo;
+  return instancedFrameInfo.toSorted((a, b) => a.stamp - b.stamp);
 }

@@ -6,7 +6,7 @@ export * from "./ruler";
 export * from "./skip-button";
 export * from "./time-display";
 export * from "./timeline";
-export * from "./track";
+export * from "./track-visualizer";
 export * from "./track-control";
 export * from "./track-gap";
 export * from "./track-list";

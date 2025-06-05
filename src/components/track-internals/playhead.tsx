@@ -53,7 +53,7 @@ function InnerPlayhead({ ignoreZoom = false }: PlayheadProps): ReactNode {
   });
 
   return (
-    <g ref={gRef} transform={transform.get()}>
+    <g ref={gRef} transform={transform.get()} className="touch-none">
       {/* This is an element that makes a slightly larger hitbox */}
       <rect x={-2.5} y={0} width={5} height={timelineHeight} className="fill-transparent" />
 

@@ -24,7 +24,7 @@ import {
   ZoomDisplay,
 } from "./track-internals";
 
-export interface TrackProps {
+export interface TrackVisualizerProps {
   width: number;
   height?: number;
   animationId: string;
@@ -60,7 +60,7 @@ export interface TrackProps {
  * @param highlighted - Whether the track is in an emphasized state.
  * @param onHighlightChange - Callback for when the emphasis state changes.
  */
-export function Track({
+export function TrackVisualizer({
   width,
   height = 32,
   animationId,
@@ -75,14 +75,15 @@ export function Track({
   showBackground = true,
   highlighted = false,
   onHighlightChange,
-}: TrackProps): ReactNode {
+}: TrackVisualizerProps): ReactNode {
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
 
   const color = useColors(trackIds ?? []);
 
-  const playerDuration = usePlayerStore((state) => state.player.duration);
+  const playerDuration = usePlayerStore(useShallow((state) => state.player.duration));
+
   const animationDuration = useAnimationStore(
     useShallow((state: AnimationData) => state.animations[animationId]?.duration ?? 5000),
   );

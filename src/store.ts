@@ -111,18 +111,25 @@ export const AnimationSlice = (
         }),
       );
     },
-    updateKeypoint: (trackId: string, keypoint: Partial<Keypoint<RawValue>>) => {
+    updateKeypoint: (
+      trackId: string,
+      keypoint: Partial<Keypoint<RawValue>>,
+      canMerge?: boolean,
+    ) => {
       set(
         produce((state: AnimationData): void => {
-          updateKeypoint(state, trackId, keypoint);
+          updateKeypoint(state, trackId, keypoint, canMerge);
         }),
       );
     },
-    updateKeypoints: (keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[]) => {
+    updateKeypoints: (
+      keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[],
+      canMerge?: boolean,
+    ) => {
       set(
         produce((state: AnimationData): void => {
           keypoints.forEach(({ trackId, keypoint }) => {
-            updateKeypoint(state, trackId, keypoint);
+            updateKeypoint(state, trackId, keypoint, canMerge);
           });
         }),
       );
@@ -343,13 +350,14 @@ export const AnimationSlice = (
         api.subscribe(
           (state: AnimationData) => ({
             animations: state.animations,
-            instances: state.namespaceInfo.instances,
+            namespaces: state.namespaceInfo,
           }),
-          ({ animations, instances }) => {
+          ({ animations, namespaces }) => {
+            const instances = Object.values(namespaces).flatMap((ns) => Object.values(ns));
             const maxDuration = Math.max(
               // Require that the player duration is at least 1000ms
               1000,
-              ...Object.values(instances ?? {}).map(
+              ...instances.map(
                 (instance) =>
                   animations[instance.animationId]?.duration *
                   computeWorldStamp(
@@ -360,6 +368,7 @@ export const AnimationSlice = (
               ),
             );
             updateDuration(maxDuration);
+            console.log("updating player duration", maxDuration);
             api.setState({ duration: maxDuration });
           },
           { equalityFn: shallow, fireImmediately: true },
@@ -549,6 +558,17 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
     ...AnimationSlice(set, get, api),
   })),
 );
+
+export function createAnimationStore(initial?: Partial<AnimationData>): AnimationStore {
+  const store = create<AnimationData & AnimationActions>()(
+    subscribeWithSelector((set, get, api) => ({
+      ...AnimationSlice(set, get, api),
+      ...initial,
+    })),
+  );
+  store.getState().initAnimationSubscriptions();
+  return store;
+}
 
 export type AnimationStore = typeof useDefaultAnimationStore;
 
