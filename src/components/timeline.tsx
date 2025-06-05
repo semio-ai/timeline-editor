@@ -1,8 +1,6 @@
-import { CSSProperties, type ReactNode } from "react";
-import { ParentSize } from "@visx/responsive";
-import { AnimationData } from "../store-types";
+import { type ReactNode } from "react";
+import { DEFAULT_TRACK_HEIGHT, TIMELINE_PADDING } from "../constants";
 import { AnimationInstanceSettings, TrackRender } from "../types";
-import { useAnimationStore } from "../hooks";
 import { Track } from "./track";
 
 export interface TimelineProps {
@@ -11,6 +9,8 @@ export interface TimelineProps {
   namespaceId: string;
   instanceSettings: AnimationInstanceSettings;
   trackRender: TrackRender.Key | TrackRender.Preview | TrackRender.Transition;
+  height?: number;
+  width?: number;
 }
 
 /**
@@ -26,31 +26,21 @@ export function Timeline({
   namespaceId,
   instanceSettings,
   trackRender,
+  height = DEFAULT_TRACK_HEIGHT,
+  width = 2 * TIMELINE_PADDING,
 }: TimelineProps): ReactNode {
-  const color = useAnimationStore((state: AnimationData) => {
-    if (trackIds === undefined || trackIds?.length === 0 || trackIds?.length > 1) return "#737373";
-    const track = state.tracks[trackIds[0]];
-    return track?.settings?.color || "#737373";
-  });
   return (
-    <div
-      className="cursor-pointer items-center w-full"
-      style={{ "--track-color": color } as CSSProperties}
-    >
-      <ParentSize debounceTime={10}>
-        {({ width }) => (
-          <Track
-            width={width}
-            trackIds={trackIds}
-            canZoom
-            animationId={animationId}
-            namespaceId={namespaceId}
-            trackRender={trackRender}
-            instanceSettings={instanceSettings}
-            showFullLine
-          />
-        )}
-      </ParentSize>
-    </div>
+    <Track
+      width={width}
+      trackIds={trackIds}
+      canZoom
+      animationId={animationId}
+      namespaceId={namespaceId}
+      trackRender={trackRender}
+      instanceSettings={instanceSettings}
+      showFullLine
+      showBackground={false}
+      height={height}
+    />
   );
 }

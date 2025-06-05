@@ -11,11 +11,12 @@ import {
   useTrackContext,
   useAnimationStore,
   usePlayheadSpring,
-  usePlayheadCartPathSpring,
   useAltKeyPressed,
 } from "../../hooks";
 import { AnimationData } from "../../store-types";
+import { VERTICAL_POINTER_PATH, HORIZONTAL_POINTER_PATH, TRANSITION_CONFIG } from "../../constants";
 import { DRAG_X_CONFIG } from "../../gesture-config";
+import { usePlayheadCartSprings } from "../../hooks/use-playhead-cart-springs";
 
 export interface PlayheadCartProps {
   side: "top" | "bottom";
@@ -27,11 +28,9 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
   const {
     xScale,
     zoomScale,
-    bounds: { width: timelineWidth, left: timelineLeft },
+    bounds: { width: timelineWidth, left: timelineLeft, height: timelineHeight },
     frameCount,
   } = useTrackContext();
-
-  const [hovered, setHovered] = useState(false);
 
   const resetPlayer = usePlayerStore(useShallow((state: PlayerActions) => state.resetPlayer));
 
@@ -41,14 +40,14 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
 
   const playheadSpring = usePlayheadSpring(ignoreZoom);
 
-  const { d: playheadCartPath, x } = usePlayheadCartPathSpring(side, duration, ignoreZoom);
+  const {
+    width: widthSpring,
+    offset: offsetSpring,
+    visibility: visibilitySpring,
+  } = usePlayheadCartSprings(duration, 10, ignoreZoom);
 
   const gRef = useRef<SVGGElement>(null);
-  const playheadCartPathRef = useRef<SVGPathElement>(null);
-
-  playheadCartPath.on("change", (d) => {
-    playheadCartPathRef.current?.setAttribute("d", d);
-  });
+  const playheadCartBoxRef = useRef<SVGRectElement>(null);
 
   useGesture(
     {
@@ -63,9 +62,6 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
           resetPlayer(closest);
         }
       },
-      onHover: (state) => {
-        setHovered(state.hovering || false);
-      },
       onDoubleClick: (state) => {
         seekPlayer();
         state.event.stopPropagation();
@@ -78,38 +74,118 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
 
   const transform = useTransform(
     playheadSpring,
-    (c) =>
-      `translate(${clamp(c, xScale(0), xScale(playerDuration)).toString()}  ${side === "top" ? "-3.5" : "3.5"})`,
+    (c) => `translate(${clamp(c, xScale(0), xScale(playerDuration)).toString()} 0)`,
   );
+
+  const [pointerMode, setPointerMode] = useState<"horizontal" | "vertical">("vertical");
+
+  visibilitySpring.on("change", (v) => {
+    if (Math.abs(v) > 0.5) {
+      setPointerMode("horizontal");
+    } else {
+      setPointerMode("vertical");
+    }
+  });
 
   transform.on("change", (v) => {
     gRef.current?.setAttribute("transform", v);
   });
 
   return (
-    <motion.g ref={gRef} className="touch-none" transform={transform.get()}>
+    <motion.g ref={gRef} className="touch-none group/cart" transform={transform.get()}>
       {/* Cart path */}
-      <motion.path
-        ref={playheadCartPathRef}
-        d={playheadCartPath}
+      <motion.rect
+        x={offsetSpring}
+        y={side === "top" ? 2 : 11}
+        width={widthSpring}
+        height={20}
+        rx={2}
+        ref={playheadCartBoxRef}
         className={clsx(
           "touch-none",
-          hovered ? "dark:fill-white fill-black" : "dark:fill-neutral-300 fill-neutral-700",
+          "dark:group-hover/cart:fill-white dark:fill-neutral-300",
+          "group-hover/cart:fill-black fill-neutral-700",
         )}
-        y={side === "top" ? 20.5 : 0}
       />
-      <PlayheadText side={side} x={x} duration={duration} />
+      <motion.line
+        x1={0}
+        x2={0}
+        strokeWidth={2}
+        variants={{
+          vertical: {
+            y1: side === "top" ? 2 : 0,
+            y2: side === "top" ? timelineHeight : timelineHeight - 2,
+          },
+          horizontal: { y1: side === "top" ? 2 : 0, y2: side === "top" ? 2 : 0 },
+        }}
+        animate={pointerMode}
+        className={clsx(
+          "touch-none pointer-events-none",
+          "dark:group-hover/cart:stroke-white dark:stroke-neutral-300",
+          "group-hover/cart:stroke-black stroke-neutral-700",
+        )}
+      />
+      {/* Create a path that creates a rounded box with a caret on the bottom */}
+      <motion.g
+        transform={`translate(0 ${side === "top" ? "2" : "31"}) rotate(${side === "top" ? "0" : "180"})`}
+      >
+        {/* This is the vertical pointer. It expands when there is at least 0 pixels on either side of the cart */}
+        <motion.g
+          variants={{
+            vertical: { transform: "scale(1)" },
+            horizontal: { transform: "scale(0)" },
+          }}
+          animate={pointerMode}
+          transition={TRANSITION_CONFIG}
+        >
+          <path
+            d={VERTICAL_POINTER_PATH}
+            className={clsx(
+              "touch-none transition-colors",
+              "dark:group-hover/cart:fill-white dark:fill-neutral-300",
+              "group-hover/cart:fill-black fill-neutral-700",
+            )}
+          />
+        </motion.g>
+        {/* This is the horizontal pointer. It expands horizontally when there is less than 0 pixels on either side of the cart */}
+        <motion.g
+          variants={{
+            vertical: { transform: "scale(0 1)" },
+            horizontal: { transform: "scale(1 1)" },
+          }}
+          animate={pointerMode}
+          transition={TRANSITION_CONFIG}
+        >
+          <path
+            d={HORIZONTAL_POINTER_PATH}
+            className={clsx(
+              "touch-none transition-colors",
+              "dark:group-hover/cart:fill-white dark:fill-neutral-300",
+              "group-hover/cart:fill-black fill-neutral-700",
+            )}
+          />
+        </motion.g>
+      </motion.g>
+
+      <PlayheadText
+        side={side}
+        offsetSpring={offsetSpring}
+        widthSpring={widthSpring}
+        duration={duration}
+      />
     </motion.g>
   );
 }
 
 function PlayheadText({
   side,
-  x,
+  offsetSpring,
+  widthSpring,
   duration,
 }: {
   side: "top" | "bottom";
-  x: MotionValue<number>;
+  offsetSpring: MotionValue<number>;
+  widthSpring: MotionValue<number>;
   duration: number;
 }): ReactNode {
   const framerate = useAnimationStore(useShallow((state: AnimationData) => state.framerate));
@@ -120,8 +196,8 @@ function PlayheadText({
   const visualTime = stampToVisualTime(stamp, duration, framerate, timeDisplay, altPressed);
 
   const transform = useTransform(
-    x,
-    (value) => `translate(${value.toString()} ${(side === "top" ? 8.5 : 11.5).toString()})`,
+    () =>
+      `translate(${(offsetSpring.get() + widthSpring.get() / 2).toString()} ${(side === "top" ? 8 : 16).toString()})`,
   );
 
   const gRef = useRef<SVGGElement>(null);
@@ -131,7 +207,7 @@ function PlayheadText({
   });
 
   return (
-    <motion.g ref={gRef} transform={transform.get()}>
+    <motion.g ref={gRef} transform={transform}>
       <Text
         textAnchor="middle"
         verticalAnchor="start"

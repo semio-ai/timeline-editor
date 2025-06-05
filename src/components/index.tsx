@@ -2,7 +2,6 @@ export * from "./track-internals";
 export * from "./animation-sheet";
 export * from "./control-widget";
 export * from "./minimap";
-export * from "./playback-controls";
 export * from "./ruler";
 export * from "./skip-button";
 export * from "./time-display";

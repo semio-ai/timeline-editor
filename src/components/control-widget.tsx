@@ -3,6 +3,7 @@ import {
   Button,
   StaticIcon,
   Variant,
+  Size,
   Dropdown,
   NestedLabel,
   NestedColorPicker,
@@ -25,7 +26,7 @@ import {
   type AnimationInstanceSettings,
   type Animation,
 } from "../types";
-import { useAnimationStore } from "../hooks";
+import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { computeWorldStamp } from "../functions";
 import { TrackControl } from "./track-control";
@@ -77,8 +78,6 @@ function InnerControlWidget({
       return state.animatables[animatableId ?? ""];
     }),
   );
-  // const rawValueId = getLookup(namespace, animatableValue?.id ?? loadedTrack?.id ?? "");
-  // console.log("InnerControlWidget", rawValueId);
 
   const updateControlColor = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateControlColor),
@@ -138,6 +137,8 @@ function InnerControlWidget({
     [track, animatableValue, updateKeypoint, createTrack, animationId, setValue, namespace],
   );
 
+  const color = useColors(trackId ?? animatableId ?? "");
+
   if (!animatableValue) {
     return <div> No animatable value</div>;
   }
@@ -152,7 +153,7 @@ function InnerControlWidget({
       }}
       disabled={!animatableValue || !collapsibleTypes.includes(animatableValue.type)}
     >
-      <div className="flex flex-1 flex-row items-center h-[30px] overflow-hidden">
+      <div className="grid grid-cols-[64px_16px_1fr_16px] pl-1 pr-2 gap-2 h-9 items-center">
         <WrappedTrackControl
           animationId={animationId}
           animatableValue={animatableValue}
@@ -161,73 +162,70 @@ function InnerControlWidget({
           track={track}
           handleValueChange={handleValueChange}
         />
-        <div className="flex flex-1 flex-row items-center">
-          {collapsibleTypes.includes(animatableValue.type) ? (
-            <CollapsibleTrigger asChild>
-              <Button
-                size="fit"
-                invert
-                color={track?.settings?.color ?? animatableValue.pub?.color}
-                className="w-3 h-3 pl-2"
-                leftIcon={
-                  <IconChevronDown size="13px" className={open ? "rotate-180" : "rotate-0"} />
-                }
-              />
-            </CollapsibleTrigger>
-          ) : (
-            <StaticIcon
+
+        {collapsibleTypes.includes(animatableValue.type) ? (
+          <CollapsibleTrigger asChild>
+            <Button
               size="fit"
-              className="w-3 h-3 pl-2"
-              color={track?.settings?.color ?? animatableValue.pub?.color}
-            >
-              {getIcon(animatableValue.pub?.units as string | undefined)}
-            </StaticIcon>
-          )}
-          <div className="flex-1 p-2">
-            <AnimatableEditor
-              animatableValue={animatableValue}
-              playing={playing}
-              track={track}
-              namespace={namespace}
-              emphasis={emphasis}
-              onEmphasisChange={onEmphasisChange}
-              handleValueChange={handleValueChange}
-            />
-          </div>
-          <div className="min-w-6 flex items-center justify-around mr-1">
-            <Dropdown
-              variant={Variant.Info}
-              trigger={
-                <span>
-                  <Button
-                    size="fit"
-                    className="flex w-4 items-center justify-center"
-                    invert
-                    leftIcon={<IconDotsVertical size="14px" className="text-gray-400" />}
-                  />
-                </span>
+              visuals="inverted"
+              color={color}
+              leftIcon={
+                <IconChevronDown className={open ? "rotate-180 size-3" : "rotate-0 size-3"} />
               }
-            >
-              <NestedLabel>Control Settings</NestedLabel>
-              <NestedColorPicker
-                variant={Variant.Info}
-                disabled={!track}
-                value={track?.settings?.color || "#737373"}
-                onChange={(v) => {
-                  updateControlColor(track?.id || "", v);
-                }}
-              />
-            </Dropdown>
-          </div>
+            />
+          </CollapsibleTrigger>
+        ) : (
+          <StaticIcon size="fit" className="size-3" color={color}>
+            {getIcon(animatableValue.pub?.units as string | undefined)}
+          </StaticIcon>
+        )}
+        <div className="flex-1 flex">
+          <AnimatableEditor
+            animatableValue={animatableValue}
+            playing={playing}
+            track={track}
+            namespace={namespace}
+            emphasis={emphasis}
+            onEmphasisChange={onEmphasisChange}
+            handleValueChange={handleValueChange}
+          />
+        </div>
+        <div className="w-3 flex items-center justify-around mr-1">
+          <Dropdown
+            variant={Variant.Info}
+            trigger={
+              <span>
+                <Button
+                  size={Size.Xs}
+                  className="flex items-center justify-center"
+                  visuals="inverted"
+                  leftIcon={<IconDotsVertical className="size-3/5" />}
+                />
+              </span>
+            }
+          >
+            <NestedLabel>Control Settings</NestedLabel>
+            <NestedColorPicker
+              variant={Variant.Info}
+              disabled={!track}
+              value={track?.settings?.color || "#737373"}
+              onChange={(v) => {
+                updateControlColor(track?.id || "", v);
+              }}
+            />
+          </Dropdown>
         </div>
       </div>
       <CollapsibleContent>
         {(animatableValue.type === "vector3" || animatableValue.type === "euler") && (
           <>
             {["x", "y", "z"].map((prop) => (
-              <div key={prop} className="flex p-1 items-center h-[30px]">
-                <div className="w-11" />
-                <StaticIcon size="fit" className="w-3 h-3 pl-1 pr-2" color={track?.settings?.color}>
+              <div
+                key={prop}
+                className="grid grid-cols-[64px_16px_1fr_12px] gap-2 h-9 items-center"
+              >
+                <div className="w-16" />
+                <StaticIcon size="fit" className="size-4" color={track?.settings?.color}>
                   {getIcon(animatableValue.pub?.units as string | undefined)}
                 </StaticIcon>
 
@@ -336,6 +334,8 @@ function InnerWrappedTrackControl({
     useShallow((state: AnimationActions) => state.removeKeypoint),
   );
 
+  const color = useColors(track?.id ?? animatableValue.id);
+
   return (
     <TrackControl
       disabled={!animationId}
@@ -343,7 +343,7 @@ function InnerWrappedTrackControl({
       namespaceId={namespace}
       trackIds={track ? [track.id] : []}
       filled={keypoint !== undefined}
-      color={track?.settings?.color ?? animatableValue.pub?.color}
+      color={color}
       onHexClick={() => {
         if (keypoint && track) {
           removeKeypoint(track.id, keypoint.id);

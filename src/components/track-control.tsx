@@ -73,11 +73,7 @@ export function TrackControl({
   const center = getCenter(hovered, filled);
 
   return (
-    <div
-      className={clsx(
-        "w-fit h-5 flex flex-row gap-0 pl-1 pr-1 pt-2 pb-2 items-center justify-between",
-      )}
-    >
+    <div className={clsx("min-w-16 h-7 rounded-xs grid grid-cols-3 items-center justify-between")}>
       <Button
         size="fit"
         color={color}
@@ -95,8 +91,8 @@ export function TrackControl({
           if (widgetDisabled) return;
           removePreview((p) => p.semanticTime === SemanticTime.Backward);
         }}
-        leftIcon={<IconPlayerPlay className="rotate-180" size="10px" />}
-        invert
+        leftIcon={<IconPlayerPlay className="rotate-180" size="14px" />}
+        visuals="inverted"
       />
       <Button
         size="fit"
@@ -108,13 +104,13 @@ export function TrackControl({
         onMouseLeave={() => setHovered(false)}
         leftIcon={
           <IconKey
-            size="16px"
+            size="18px"
             fillOpacity={getFillOpacity(hovered, filled)}
             dashed={!filled && dashed}
             center={center}
           />
         }
-        invert
+        visuals="inverted"
       />
       <Button
         size="fit"
@@ -135,8 +131,8 @@ export function TrackControl({
           if (widgetDisabled) return;
           removePreview((p) => p.semanticTime === SemanticTime.Forward);
         }}
-        leftIcon={<IconPlayerPlay size="10px" />}
-        invert
+        leftIcon={<IconPlayerPlay size="14px" />}
+        visuals="inverted"
       />
     </div>
   );

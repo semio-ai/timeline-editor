@@ -1,11 +1,12 @@
 import { memo, useMemo, useRef } from "react";
 import { pick } from "lodash";
 import { useShallow } from "zustand/react/shallow";
-import { RawValue, useDeepSelector } from "@semio/utils";
+import { overlappingSegments, RawValue, useDeepSelector } from "@semio/utils";
 import { useAnimationStore, useTrackContext, useTrackTransformSpring } from "../../hooks";
 import { AnimationData } from "../../store-types";
 import { computeFrames, computeViolationSet, computeInterpolationSegments } from "../../functions";
 import { InstancedFrameInfo, Track } from "../../types";
+import { TIMELINE_PADDING } from "../../constants";
 import { InterpolationSegment } from "./interpolation-segment";
 import { ViolationDisplay } from "./violation-display";
 import { FrameMarker } from "./frame-marker";
@@ -17,7 +18,7 @@ export interface DataDisplayProps {
 }
 
 function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisplayProps) {
-  const { trackIds } = useTrackContext();
+  const { trackIds, bounds } = useTrackContext();
 
   const groupRef = useRef<SVGSVGElement>(null);
 
@@ -42,7 +43,7 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
     return computeInterpolationSegments(frameData, trackIds);
   }, [frameData, trackIds]);
 
-  const paddedInterps = padInterps(interps);
+  const paddedInterps = useMemo(() => fillInterpGaps(interps), [interps]);
 
   const transformSpring = useTrackTransformSpring(ignoreZoom, false);
 
@@ -52,8 +53,18 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
 
   return (
     <g mask="url(#boundsMask)">
+      {/* We have to put in a dummy rectangle so that the bounds mask applies correctly */}
+      <rect
+        x={0}
+        height={bounds.height}
+        width={bounds.width + TIMELINE_PADDING * 2}
+        y={0}
+        fill="transparent"
+        className="pointer-events-none"
+      />
       <g ref={groupRef} transform={transformSpring.get()}>
         <ViolationDisplay violationSet={violationSet} ignoreZoom={ignoreZoom} />
+
         <g mask="url(#keyMask)">
           {paddedInterps.map(
             (
@@ -80,6 +91,7 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
             ),
           )}
         </g>
+
         {frameData.map((frameInstance: InstancedFrameInfo) => (
           <FrameMarker key={frameInstance.id} data={frameInstance} ignoreZoom={ignoreZoom} />
         ))}
@@ -90,32 +102,35 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
 
 export const DataDisplay = memo(InnerDataDisplay);
 
-function padInterps(
+function fillInterpGaps(
   interps: { start: InstancedFrameInfo; end: InstancedFrameInfo }[],
 ): InstancePair[] {
-  const paddedInterps: InstancePair[] = [...interps];
-  if (paddedInterps.length === 0) {
-    return paddedInterps;
-  }
-  if (paddedInterps[0].start?.stamp !== 0) {
-    paddedInterps.unshift({
-      start: { stamp: 0, id: `left-padding-${paddedInterps[0].start.id}`, points: [] },
-      end: paddedInterps[0].start,
-      buffer: true,
-    });
-  }
-  if (paddedInterps[paddedInterps.length - 1].end?.stamp !== 1) {
-    paddedInterps.push({
-      start: paddedInterps[paddedInterps.length - 1].end,
-      end: {
-        stamp: 1,
-        id: `right-padding-${paddedInterps[paddedInterps.length - 1].end.id}`,
-        points: [],
-      },
-      buffer: true,
-    });
-  }
-  return paddedInterps;
+  // Compute gaps where no interpolations exist. Since these may be overlapping,
+  // we should compute the overlapping segments first, and then fill in the gaps.
+  const overlapping = overlappingSegments([
+    [-Infinity, 0],
+    ...(interps.map((i) => [i.start.stamp, i.end.stamp]) as [number, number][]),
+    [1, Infinity],
+  ]);
+
+  if (overlapping.length > 1) {
+    const fill: InstancePair[] = [];
+    // If the length is greater than 1, we have gaps to fill
+    let prevEnd = overlapping[0][1];
+
+    for (let i = 1; i < overlapping.length; i++) {
+      const currentStart = overlapping[i][0];
+      if (prevEnd !== currentStart) {
+        fill.push({
+          start: { stamp: prevEnd, id: `gap-${prevEnd.toString()}`, points: [] },
+          end: { stamp: currentStart, id: `gap-${currentStart.toString()}`, points: [] },
+          buffer: true,
+        });
+      }
+      prevEnd = overlapping[i][1];
+    }
+    return [...interps, ...fill].toSorted((a, b) => a.start.stamp - b.start.stamp);
+  } else return interps;
 }
 
 interface InstancePair {

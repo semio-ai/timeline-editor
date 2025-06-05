@@ -1,9 +1,9 @@
-import { type ReactNode, memo, useCallback, useMemo, useRef } from "react";
-import { useTransform } from "motion/react";
+import { type ReactNode, memo, useCallback, useRef } from "react";
+import { useTransform, motion } from "motion/react";
 import { FullGestureState } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { clsx } from "clsx";
-import { closestFrame, pointsToPath, usePlayerStore } from "@semio/utils";
+import { closestFrame, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import {
   useTrackContext,
@@ -14,6 +14,7 @@ import {
 } from "../../hooks";
 import { SemanticTime } from "../../types";
 import { DRAG_X_CONFIG } from "../../gesture-config";
+import { VERTICAL_HALF_POINTER_PATH } from "../../constants";
 
 export interface BoundCartProps {
   side: "top" | "bottom";
@@ -24,7 +25,7 @@ export interface BoundCartProps {
 function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
   const {
     zoomScale,
-    bounds: { width: timelineWidth, left: timelineLeft },
+    bounds: { width: timelineWidth, left: timelineLeft, height: timelineHeight },
     frameCount,
   } = useTrackContext();
 
@@ -146,77 +147,41 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
   );
 
   const transform = useTransform(boundSpring, (value) => {
-    return `translate(${value.toString()} ${side === "top" ? "-3.5" : "3.5"})`;
+    return `translate(${value.toString()} 0)`;
   });
-
-  const cartPath = useMemo(() => getCartPath(side, end), [side, end]);
 
   transform.on("change", (v) => {
     cartRef.current?.setAttribute("transform", v);
   });
 
   return (
-    <path
+    <motion.g
+      data-highlighted={anyPreview ? "" : undefined}
       ref={cartRef}
+      className="touch-none group/cart opacity-50 hover:opacity-80 data-[highlighted]:opacity-80"
       transform={transform.get()}
-      d={cartPath}
-      className={clsx("touch-none", anyPreview ? "fill-neutral-500" : "fill-neutral-500/60")}
-      x={0}
-      y={side === "top" ? 20.5 : 0}
-    />
+    >
+      <path
+        ref={cartRef}
+        transform={[
+          `translate(0 ${side === "top" ? "2" : "31"})`,
+          `rotate(${side === "top" ? "0" : "180"})`,
+          `scale(${(end === "left" && side === "bottom") || (end === "right" && side === "top") ? "-1" : "1"} 1)`,
+        ].join(" ")}
+        d={VERTICAL_HALF_POINTER_PATH}
+        className={clsx("touch-none", "fill-neutral-500")}
+      />
+      <line
+        strokeLinecap="round"
+        x1={end === "left" ? 1 : -1}
+        x2={end === "left" ? 1 : -1}
+        y1={side === "top" ? 5 : 1}
+        y2={side === "top" ? timelineHeight - 1 : timelineHeight - 5}
+        strokeWidth={2}
+        className={clsx("touch-none pointer-events-none", "stroke-neutral-500")}
+      />
+    </motion.g>
   );
-}
-
-const leftTopCartPath = pointsToPath(
-  [
-    [-0.5, 5],
-    [6.5, 5],
-    [6.5, 22.5],
-    [0.5, 25.5],
-    [-0.5, 25.5],
-  ],
-  true,
-);
-
-const leftBottomCartPath = pointsToPath(
-  [
-    [-0.5, 22.5],
-    [6.5, 22.5],
-    [6.5, 5],
-    [0.5, 1.5],
-    [-0.5, 1.5],
-  ],
-  true,
-);
-
-const rightTopCartPath = pointsToPath(
-  [
-    [0.5, 5],
-    [-6.5, 5],
-    [-6.5, 22.5],
-    [-0.5, 25.5],
-    [0.5, 25.5],
-  ],
-  true,
-);
-
-const rightBottomCartPath = pointsToPath(
-  [
-    [0.5, 22.5],
-    [-6.5, 22.5],
-    [-6.5, 5],
-    [-0.5, 1.5],
-    [0.5, 1.5],
-  ],
-  true,
-);
-
-function getCartPath(side: "top" | "bottom", end: "left" | "right"): string {
-  if (side === "top") {
-    return end === "left" ? leftTopCartPath : rightTopCartPath;
-  } else {
-    return end === "left" ? leftBottomCartPath : rightBottomCartPath;
-  }
 }
 
 export const BoundCart = memo(InnerBoundCart);

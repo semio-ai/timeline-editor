@@ -17,7 +17,6 @@ import {
 
 export interface BoundsDisplayProps {
   ignoreZoom?: boolean;
-  height?: number;
 }
 
 function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
@@ -26,7 +25,7 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
   const {
     frameCount,
     zoomScale,
-    bounds: { width: timelineWidth, left: timelineLeft },
+    bounds: { width: timelineWidth, left: timelineLeft, height: timelineHeight },
   } = useTrackContext();
   const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
   const [previewLeft, previewRight, removePreview, addPreview] = useAnimationStore(
@@ -155,13 +154,14 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
       <motion.rect
         name="bounds-rect"
         x={leftSpring}
+        height={timelineHeight}
         y={0}
         width={widthSpring}
         className={clsx(
-          "fill-transparent pointer-events-none transition-[fill] h-full",
-          anyPreview && "group-hover:cursor-ew-resize group-hover:fill-neutral-600/25",
+          "fill-transparent pointer-events-none transition-[fill]",
+          anyPreview && "group-hover/sheet:cursor-ew-resize group-hover/sheet:fill-neutral-600/25",
           anyPreview &&
-            "group-aria-expanded:cursor-ew-resize group-aria-expanded:fill-neutral-600/25",
+            "group-aria-expanded/sheet:cursor-ew-resize group-aria-expanded/sheet:fill-neutral-600/25",
         )}
       />
       <g ref={leftBoundsRef} name="bounds-left-stroke" className="group/bound touch-none">
@@ -169,10 +169,10 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
           x1={xLeftRect}
           x2={xLeftRect}
           y1={0}
-          y2={30}
+          y2={timelineHeight}
           width={1}
           className={clsx(
-            "transition-stroke duration-75 h-full",
+            "transition-stroke duration-75",
             anyPreview ? "stroke-neutral-500" : "stroke-transparent",
           )}
         />
@@ -183,11 +183,11 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
           x1={xRightRect}
           x2={xRightRect}
           y1={0}
-          y2={30}
+          y2={timelineHeight}
           width={1}
           className={clsx(
-            "transition-stroke duration-75 h-full",
-            anyPreview ? "stroke-neutral-500" : "stroke-transparent",
+            "transition-stroke duration-75",
+            anyPreview ? "dark:stroke-neutral-500" : "stroke-transparent",
           )}
         />
       </g>

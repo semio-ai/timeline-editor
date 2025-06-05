@@ -12,7 +12,7 @@ import {
 } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { type Track } from "../types";
-import { useAnimationStore } from "../hooks";
+import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 
 const collapsibleTypes = ["vector3", "euler", "rgb", "hsl"];
@@ -51,6 +51,8 @@ function InnerAnimatableEditor({
 }: AnimatableEditorProps) {
   const rawValueId = getLookup(namespace, animatableValue.id);
 
+  const color = useColors(track?.id ?? animatableValue.id);
+
   const rawValue: RawValue | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {
       return state.values.get(rawValueId);
@@ -74,7 +76,7 @@ function InnerAnimatableEditor({
 
     return (
       <SliderNumberField
-        size={Size.Xs}
+        size={Size.Sm}
         strictText={false}
         strictSlider={
           animatableValue.constraints.min !== undefined &&
@@ -86,13 +88,15 @@ function InnerAnimatableEditor({
         value={renderTransformer((rawValue as number) ?? (animatableValue.default as number))}
         min={min}
         max={max}
-        color={track?.settings?.color ?? animatableValue?.pub?.color}
+        color={color}
         onChange={(v) => handleValueChange(renderInverse(v))}
         label={track ? track.name : animatableValue.name}
         onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
-        emphasis={emphasis}
+        highlight={emphasis}
         units={animatableValue.pub?.units === "rad" ? "°" : animatableValue.pub?.units}
-        onEmphasisChange={onEmphasisChange}
+        onHighlightChange={onEmphasisChange}
+        wrapperClassName="flex-1"
+        className="flex-1"
       />
     );
   } else if (animatableValue.type === "string") {
@@ -100,7 +104,7 @@ function InnerAnimatableEditor({
       <TextField
         value={(rawValue as string) || (animatableValue.default as string)}
         readOnly={playing}
-        size={Size.Xs}
+        size={Size.Sm}
         onChange={(v) => handleValueChange(v)}
       />
     );
@@ -109,7 +113,7 @@ function InnerAnimatableEditor({
       <TextField
         value={track ? track.name : animatableValue.name}
         readOnly={playing || !track}
-        size={Size.Xs}
+        size={Size.Sm}
         onChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
       />
     );
@@ -117,7 +121,7 @@ function InnerAnimatableEditor({
     const index = vectorIndexLookup[prop];
     return (
       <SliderNumberField
-        size={Size.Xs}
+        size={Size.Sm}
         strictText={false}
         strictSlider={
           animatableValue.constraints?.min?.[index] !== -Infinity &&
@@ -133,7 +137,7 @@ function InnerAnimatableEditor({
         max={animatableValue.constraints?.max?.[index] ?? undefined}
         visualMin={animatableValue.constraints?.min?.[index] ?? 0}
         visualMax={animatableValue.constraints?.max?.[index] ?? 1}
-        color={track?.settings?.color}
+        color={color}
         onChange={(v) => {
           if (prop === "x") {
             handleValueChange({
@@ -157,15 +161,15 @@ function InnerAnimatableEditor({
         }}
         units={animatableValue.pub?.units}
         label={prop}
-        emphasis={emphasis}
-        onEmphasisChange={onEmphasisChange}
+        highlight={emphasis}
+        onHighlightChange={onEmphasisChange}
       />
     );
   } else if (animatableValue.type === "euler" && (prop === "x" || prop === "y" || prop === "z")) {
     const index = vectorIndexLookup[prop];
     return (
       <SliderNumberField
-        size={Size.Xs}
+        size={Size.Sm}
         units="°"
         strictText={false}
         strictSlider={
@@ -190,7 +194,7 @@ function InnerAnimatableEditor({
             ? toDegrees(animatableValue.constraints?.max?.[index])
             : undefined
         }
-        color={track?.settings?.color}
+        color={color}
         onChange={(v) => {
           const vr = toRadians(v);
           if (prop === "x") {
@@ -214,15 +218,15 @@ function InnerAnimatableEditor({
           }
         }}
         label={prop}
-        emphasis={emphasis}
-        onEmphasisChange={onEmphasisChange}
+        highlight={emphasis}
+        onHighlightChange={onEmphasisChange}
       />
     );
   } else if (animatableValue.type === "rgb" && (prop === "r" || prop === "g" || prop === "b")) {
     const index = vectorIndexLookup[prop];
     return (
       <SliderNumberField
-        size={Size.Xs}
+        size={Size.Sm}
         strictText
         strictSlider
         disabled={playing}
@@ -234,7 +238,7 @@ function InnerAnimatableEditor({
         max={animatableValue.constraints?.max?.[index] ?? undefined}
         visualMin={animatableValue.constraints?.min?.[index] ?? 0}
         visualMax={animatableValue.constraints?.max?.[index] ?? 1}
-        color={track?.settings?.color}
+        color={color}
         onChange={(v) => {
           if (prop === "r") {
             handleValueChange({
@@ -258,8 +262,8 @@ function InnerAnimatableEditor({
         }}
         units={animatableValue.pub?.units}
         label={prop}
-        emphasis={emphasis}
-        onEmphasisChange={onEmphasisChange}
+        highlight={emphasis}
+        onHighlightChange={onEmphasisChange}
       />
     );
   } else {

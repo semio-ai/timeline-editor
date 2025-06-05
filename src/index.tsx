@@ -1,5 +1,3 @@
-import "./styles.css";
-
 export {
   ControlWidget,
   AnimationSheet,
@@ -7,6 +5,7 @@ export {
   type TrackControlProps,
   type AnimationSheetProps,
 } from "./components";
+export * from "./hooks";
 export * from "./context";
 export * from "./store-types";
 export * from "./store";
