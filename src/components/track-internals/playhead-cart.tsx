@@ -111,6 +111,10 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
         x1={0}
         x2={0}
         strokeWidth={2}
+        initial={{
+          y1: side === "top" ? 2 : 0,
+          y2: side === "top" ? timelineHeight : timelineHeight - 2,
+        }}
         variants={{
           vertical: {
             y1: side === "top" ? 2 : 0,

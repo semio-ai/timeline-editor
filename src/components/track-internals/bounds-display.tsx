@@ -169,7 +169,7 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
           x1={xLeftRect}
           x2={xLeftRect}
           y1={0}
-          y2={timelineHeight}
+          y2={timelineHeight ?? 0}
           width={1}
           className={clsx(
             "transition-stroke duration-75",
@@ -183,7 +183,7 @@ function InnerBoundsDisplay({ ignoreZoom = false }: BoundsDisplayProps) {
           x1={xRightRect}
           x2={xRightRect}
           y1={0}
-          y2={timelineHeight}
+          y2={timelineHeight ?? 0}
           width={1}
           className={clsx(
             "transition-stroke duration-75",

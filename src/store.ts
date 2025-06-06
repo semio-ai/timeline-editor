@@ -368,7 +368,6 @@ export const AnimationSlice = (
               ),
             );
             updateDuration(maxDuration);
-            console.log("updating player duration", maxDuration);
             api.setState({ duration: maxDuration });
           },
           { equalityFn: shallow, fireImmediately: true },
