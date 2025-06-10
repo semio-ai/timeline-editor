@@ -120,7 +120,7 @@ function fillInterpGaps(
 
     for (let i = 1; i < overlapping.length; i++) {
       const currentStart = overlapping[i][0];
-      // Redefine prevEnd to supress warnings about unsafe access
+      // Redefine prevEnd to suppress warnings about unsafe access
       const end = prevEnd;
       const endPoints = interps
         .filter((interp) => interp.start.stamp === currentStart)
