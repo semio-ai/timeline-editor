@@ -15,11 +15,13 @@ export function useScaleInverseSpring(ignoreZoom: boolean): MotionValue<number> 
   const { instanceSettings } = useTrackContext();
 
   const initialViewportScaling = useMemo(
-    () =>
-      ignoreZoom
-        ? instanceSettings.timescale
-        : usePlayerStore.getState().player.viewport[1] -
-          usePlayerStore.getState().player.viewport[0],
+    () => {
+      if (ignoreZoom) {
+        return instanceSettings.timescale;
+      }
+      const { viewport } = usePlayerStore.getState().player;
+      return viewport[1] - viewport[0];
+    },
     [ignoreZoom, instanceSettings.timescale],
   );
 
