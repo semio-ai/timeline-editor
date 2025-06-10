@@ -85,7 +85,9 @@ export function TimelineControl({
   const localStamp = useRef<number>(
     computeLocalStamp(0, instanceSettings.timescale, instanceSettings.offset),
   );
-  const [filled, setFilled] = useState<boolean>(false);
+  const [filled, setFilled] = useState<boolean>(() =>
+    stamps.some((s) => s.globalStamp === stamp.current),
+  );
 
   // This updates the references when the player's timestamp changes
   usePlayerSubscription(
