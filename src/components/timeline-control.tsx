@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Select, Size, Variant } from "@semio/ui";
 import { getLookup, RawValue } from "@semio/utils";
 import { IconWorld } from "@tabler/icons-react";
@@ -7,8 +7,13 @@ import { useShallow } from "zustand/react/shallow";
 import { shallow } from "zustand/shallow";
 import { pick } from "lodash";
 import { useAnimationStore, usePlayerSubscription } from "../hooks";
-import { computeLocalStamp, computeWorldStamp } from "../functions";
-import { AnimationInterpolator, Track, AnimationInstanceSettings } from "../types";
+import { computeFrames, computeLocalStamp, computeWorldStamp } from "../functions";
+import {
+  AnimationInterpolator,
+  Track,
+  AnimationInstanceSettings,
+  InstancedFrameInfo,
+} from "../types";
 import { AnimationActions, AnimationData } from "../store-types";
 import { TrackControl } from "./track-control";
 
@@ -43,7 +48,7 @@ export function TimelineControl({
       (state) =>
         pick(
           state.trackInterpolators,
-          selection.map((s) => getLookup(namespaceId, s)), //f2e2e33d-7c3c-4540-9bf0-e6fda5d41d49
+          Object.values(trackData).map((t) => getLookup(namespaceId, t.animatableId)), //f2e2e33d-7c3c-4540-9bf0-e6fda5d41d49
         ) as AnimationInterpolator,
     ),
   );
@@ -63,14 +68,16 @@ export function TimelineControl({
     [allTracks, stateTracks],
   );
 
-  const stamps = useMemo(() => {
-    const s: number[] = [];
-    Object.values(trackData).forEach((track) => {
-      track.points.forEach((point) => {
-        s.push(computeWorldStamp(point.stamp, instanceSettings.offset, instanceSettings.timescale));
-      });
-    });
-    return s;
+  const stamps: (InstancedFrameInfo & { globalStamp: number })[] = useMemo(() => {
+    const instancedFrames = computeFrames(trackData);
+    return instancedFrames.map((instancedFrame) => ({
+      ...instancedFrame,
+      globalStamp: computeWorldStamp(
+        instancedFrame.stamp,
+        instanceSettings.timescale,
+        instanceSettings.offset,
+      ),
+    }));
   }, [trackData, instanceSettings]);
 
   // Use references to avoid rerendering
@@ -78,14 +85,15 @@ export function TimelineControl({
   const localStamp = useRef<number>(
     computeLocalStamp(0, instanceSettings.timescale, instanceSettings.offset),
   );
-  const filled = useRef<boolean>(false);
+  const [filled, setFilled] = useState<boolean>(false);
 
   // This updates the references when the player's timestamp changes
   usePlayerSubscription(
     (state) => state.player.stamp,
     (current) => {
       stamp.current = current;
-      filled.current = stamps.some((s) => s === current);
+      const f = stamps.some((s) => s.globalStamp === current);
+      setFilled(f);
       localStamp.current = computeLocalStamp(
         current,
         instanceSettings.timescale,
@@ -105,28 +113,27 @@ export function TimelineControl({
         animationId={animationId}
         namespaceId={namespaceId}
         trackIds={selection}
-        filled={filled.current}
+        filled={filled}
         color="#737373"
         onHexClick={() => {
-          if (filled.current) {
-            const removals = selection
-              .map((trackId) => {
-                const matchingKeypoint = trackData[trackId].points.find(
-                  (point) => point.stamp === localStamp.current,
-                );
-                return { trackId, keypointId: matchingKeypoint?.id };
-              })
-              .filter((r) => r.keypointId !== undefined) as {
-              trackId: string;
-              keypointId: string;
-            }[];
+          if (filled) {
+            // Find the instanced frame that matches the current stamp
+            const instancedFrame = stamps.find((s) => s.globalStamp === stamp.current);
+            if (!instancedFrame) return;
+            // Remove keypoints for the selected tracks at the current stamp
+            const removals = instancedFrame.points.map((p) => ({
+              trackId: p.trackId,
+              keypointId: p.id,
+            }));
             removeKeypoints(removals);
           } else {
-            const updates = selection
-              .map((trackId) => {
-                const value = interpolators[trackId]?.(stamp.current);
+            const updates = Object.values(trackData)
+              .map((track) => {
+                const value = interpolators[getLookup(namespaceId, track.animatableId)]?.(
+                  stamp.current,
+                );
                 return {
-                  trackId,
+                  trackId: track.id,
                   keypoint: {
                     value,
                     stamp: localStamp.current,
@@ -134,8 +141,7 @@ export function TimelineControl({
                 };
               })
               .filter((u) => u.keypoint.value !== undefined);
-
-            updateKeypoints(updates);
+            updateKeypoints(updates, true);
           }
         }}
       />
