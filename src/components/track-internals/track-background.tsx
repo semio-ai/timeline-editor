@@ -93,7 +93,7 @@ function InnerTrackBackground({
               x1={xScale(1 / framerate)}
               x2={xScale(1 / framerate)}
               y1={0}
-              y2={tickHeight}
+              y2={tickHeight ?? 0}
               strokeWidth={inverseScaleSpring}
               className={clsx(
                 "h-full",
