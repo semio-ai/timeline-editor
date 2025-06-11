@@ -1,6 +1,6 @@
-import { memo, useRef } from "react";
+import { memo, useRef, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { motion } from "motion/react";
+import { motion, useTransform } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
 import { clsx } from "clsx";
 import {
@@ -29,34 +29,22 @@ function InnerTrackBackground({
 }: TrackBackgroundProps) {
   const {
     trackIds,
-    xScale,
     attribute,
     bounds: { width, height },
   } = useTrackContext();
 
   const color = useColors(trackIds);
 
-  const playerDuration = usePlayerStore(useShallow((state) => state.player.duration));
-
   const trackSet = trackIds === undefined || trackIds.length === 0 ? ["empty"] : trackIds;
 
   const identifier = `${trackSet.join("-")}${attribute ? `-${attribute}` : "-all"}`;
 
-  const framerate = useAnimationStore(
-    useShallow((state: AnimationData) => state.framerate as number),
-  );
-
   const { leftSpring, widthSpring } = useBoundSprings(ignoreZoom);
 
-  const ticksRef = useRef<SVGRectElement>(null);
-
-  const transformSpring = useTrackTransformSpring(ignoreZoom, true);
-
-  transformSpring.on("change", (t) => {
-    ticksRef.current?.setAttribute("transform", t);
-  });
-
   const inverseScaleSpring = useScaleInverseSpring(ignoreZoom);
+
+  const majorTickSpring = useTransform(inverseScaleSpring, (scale) => scale * 2);
+  const minorTickSpring = useTransform(inverseScaleSpring, (scale) => scale);
 
   return (
     <>
@@ -81,30 +69,6 @@ function InnerTrackBackground({
             className="fill-white pointer-events-none"
           />
         </mask>
-
-        <pattern
-          id="tickPattern"
-          patternUnits="userSpaceOnUse"
-          height={height <= 0 ? 1 : height}
-          width={(width * 1000) / (framerate * playerDuration)}
-        >
-          {showTicks && (
-            <motion.line
-              x1={xScale(1 / framerate)}
-              x2={xScale(1 / framerate)}
-              y1={0}
-              y2={tickHeight ?? 0}
-              strokeWidth={inverseScaleSpring}
-              className={clsx(
-                "h-full",
-                "transition-[stroke] duration-75 ease-in-out pointer-events-none",
-                "stroke-neutral-300 dark:stroke-neutral-700",
-                "group-aria-expanded:stroke-neutral-400 group-hover:stroke-neutral-400",
-                "group-aria-expanded:dark:stroke-neutral-600 group-hover:dark:stroke-neutral-600",
-              )}
-            />
-          )}
-        </pattern>
 
         <pattern id="diagonalStripePattern" patternUnits="userSpaceOnUse" width="20" height="10">
           <rect x="0" y="0" width="20" height="10" className="fill-neutral-500" />
@@ -171,16 +135,14 @@ function InnerTrackBackground({
       </defs>
 
       {/* Show the ticks */}
-      <rect
-        name="ticks-display"
-        ref={ticksRef}
-        transform={transformSpring.get()}
-        width="100%"
-        height="100%"
-        // fill="red"
-        fill="url(#tickPattern)"
-        mask="url(#boundsMask)"
-      />
+      {showTicks && (
+        <TickRegion
+          ignoreZoom={ignoreZoom}
+          tickHeight={tickHeight}
+          majorTickSpring={majorTickSpring}
+          minorTickSpring={minorTickSpring}
+        />
+      )}
 
       {/* Show the colored background (if necessary) */}
       {showBackground && (
@@ -199,6 +161,88 @@ function InnerTrackBackground({
         />
       )}
     </>
+  );
+}
+
+function TickRegion({
+  ignoreZoom,
+  tickHeight,
+  majorTickSpring,
+  minorTickSpring,
+}: {
+  ignoreZoom: boolean;
+  tickHeight: number;
+  majorTickSpring: any;
+  minorTickSpring: any;
+}) {
+  const { xScale } = useTrackContext();
+  const tickRef = useRef<SVGGElement>(null);
+  const framerate = useAnimationStore(
+    useShallow((state: AnimationData) => state.framerate as number),
+  );
+  const playerDuration = usePlayerStore(useShallow((state) => state.player.duration));
+  const frameCount = Math.floor(framerate * (playerDuration / 1000));
+
+  const timedFrames: { stamp: number; key: string }[] = useMemo(
+    () =>
+      Array.from({ length: frameCount + 1 }, (_v, i) => ({
+        stamp: i / frameCount,
+        key: `tick-frame-${i.toString()}`,
+      })),
+    [frameCount],
+  );
+
+  const transformSpring = useTrackTransformSpring(ignoreZoom, false);
+
+  transformSpring.on("change", (t) => {
+    tickRef.current?.setAttribute("transform", t);
+  });
+
+  // Calculate the distance between consecutive ticks in pixels
+  const tickDistance = useMemo(() => {
+    if (frameCount === 0) return 0;
+    const range = xScale.range();
+    return (range[1] - range[0]) / frameCount;
+  }, [xScale, frameCount]);
+
+  // Calculate opacity for minor ticks - fade between 4-6 pixels
+  const minorTickOpacity = useMemo(() => {
+    if (tickDistance <= 4) return 0;
+    if (tickDistance >= 6) return 1;
+    // Linear interpolation between 4-6 pixels
+    return (tickDistance - 4) / (6 - 4);
+  }, [tickDistance]);
+
+  return (
+    <motion.g ref={tickRef} transform={transformSpring.get()} mask="url(#boundsMask)">
+      {timedFrames.map((tick, idx) => {
+        const isMajor = idx % framerate === 0;
+        const x = xScale(tick.stamp * playerDuration);
+
+        // Skip rendering minor ticks if they're completely invisible
+        if (!isMajor && minorTickOpacity === 0) {
+          return null;
+        }
+
+        return (
+          <motion.line
+            key={tick.key}
+            x1={x}
+            x2={x}
+            y1={0}
+            y2={tickHeight}
+            strokeWidth={isMajor ? majorTickSpring : minorTickSpring}
+            opacity={isMajor ? 1 : minorTickOpacity}
+            className={clsx(
+              "transition-[stroke,opacity] duration-75 ease-in-out pointer-events-none",
+              "stroke-neutral-300 dark:stroke-neutral-700",
+              "group-aria-expanded:stroke-neutral-400 group-hover:stroke-neutral-400",
+              "group-aria-expanded:dark:stroke-neutral-600 group-hover:dark:stroke-neutral-600",
+            )}
+          />
+        );
+      })}
+    </motion.g>
   );
 }
 
