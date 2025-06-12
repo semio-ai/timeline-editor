@@ -32,7 +32,6 @@
     "@visx/responsive": "^3.3.0",
     "@visx/scale": "^3.5.0",
     "@visx/text": "^3.3.0",
-    "bezier-js": "^6.1.4",
     "clsx": "^2.1.1",
     "d3-interpolate": "^3.0.1",
     "d3-scale": "^4.0.2",
@@ -51,7 +50,6 @@
   "devDependencies": {
     "@semio/eslint-config": "*",
     "@semio/typescript-config": "*",
-    "@types/bezier-js": "^4.1.3",
     "@types/d3-interpolate": "^3.0.4",
     "@types/d3-scale": "^4.0.8",
     "@types/flubber": "^0.4.0",

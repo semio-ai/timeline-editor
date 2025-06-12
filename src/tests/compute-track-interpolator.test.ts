@@ -1,55 +1,8 @@
 import { test, expect } from "vitest";
-import { RawValue } from "@semio/utils";
-import type { Track } from "../types";
 import { computeTrackInterpolator } from "../functions/compute-track-interpolator";
+import { instances, tracks } from "./animation-data";
 
 test("should return the interpolated values for each track", () => {
-  // Define the animation data structure
-  const instances = {
-    default: {
-      id: "some",
-      animationId: "thing",
-      settings: { offset: 0, timescale: 1, active: true },
-    },
-    doublespeed: {
-      id: "some",
-      animationId: "thing",
-      settings: { offset: 0, timescale: 2, active: true },
-    },
-    offset: {
-      id: "some",
-      animationId: "thing",
-      settings: { offset: 0.5, timescale: 1, active: true },
-    },
-    offsetDoublespeed: {
-      id: "some",
-      animationId: "thing",
-      settings: { offset: 0.5, timescale: 2, active: true },
-    },
-  };
-
-  const tracks: Record<string, Track<RawValue>> = {
-    track1: {
-      id: "track1",
-      name: "Track 1",
-      animatableId: "animatable1",
-      points: [
-        { id: "point1", stamp: 0.1, value: 10 },
-        { id: "point2", stamp: 0.3, value: 15 },
-        { id: "point3", stamp: 0.9, value: 20 },
-      ],
-    },
-    track2: {
-      id: "track2",
-      name: "Track 2",
-      animatableId: "animatable1",
-      points: [
-        { id: "point4", stamp: 0.1, value: 1.2 },
-        { id: "point5", stamp: 0.9, value: 2.1 },
-      ],
-    },
-  };
-
   const defaultTrack1Interpolator = computeTrackInterpolator(tracks.track1, instances.default);
 
   const defaultTrack2Interpolator = computeTrackInterpolator(tracks.track2, instances.default);
