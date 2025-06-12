@@ -120,10 +120,19 @@ function fillInterpGaps(
 
     for (let i = 1; i < overlapping.length; i++) {
       const currentStart = overlapping[i][0];
+      // Redefine prevEnd to suppress warnings about unsafe access
+      const end = prevEnd;
+      const endPoints = interps
+        .filter((interp) => interp.start.stamp === currentStart)
+        .flatMap((interp) => interp.start.points);
+      const startPoints = interps
+        .filter((interp) => interp.end.stamp === end)
+        .flatMap((interp) => interp.end.points);
+
       if (prevEnd !== currentStart) {
         fill.push({
-          start: { stamp: prevEnd, id: `gap-${prevEnd.toString()}`, points: [] },
-          end: { stamp: currentStart, id: `gap-${currentStart.toString()}`, points: [] },
+          start: { stamp: prevEnd, id: `gap-${prevEnd.toString()}`, points: startPoints },
+          end: { stamp: currentStart, id: `gap-${currentStart.toString()}`, points: endPoints },
           buffer: true,
         });
       }

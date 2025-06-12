@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { MotionValue, useMotionValue, useTransform } from "motion/react";
 import { shallow } from "zustand/shallow";
+import { usePlayerStore } from "@semio/utils";
 import { useTrackContext } from "./use-track-context";
 import { usePlayerSubscription } from "./use-player-subscription";
 
@@ -12,7 +14,18 @@ import { usePlayerSubscription } from "./use-player-subscription";
 export function useScaleInverseSpring(ignoreZoom: boolean): MotionValue<number> {
   const { instanceSettings } = useTrackContext();
 
-  const viewportScalingFactorSpring = useMotionValue<number>(1);
+  const initialViewportScaling = useMemo(
+    () => {
+      if (ignoreZoom) {
+        return instanceSettings.timescale;
+      }
+      const { viewport } = usePlayerStore.getState().player;
+      return viewport[1] - viewport[0];
+    },
+    [ignoreZoom, instanceSettings.timescale],
+  );
+
+  const viewportScalingFactorSpring = useMotionValue<number>(initialViewportScaling);
 
   const transformSpring = useTransform(viewportScalingFactorSpring, (scale) => {
     if (ignoreZoom) {
