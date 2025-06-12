@@ -50,6 +50,7 @@ import {
   computeStoredAnimation,
   computeWorldStamp,
 } from "./functions";
+import { computeDerivativeInterpolator } from "./functions/compute-derivative-interpolator";
 
 enableMapSet();
 
@@ -74,6 +75,15 @@ export const AnimationSlice = (
             } else {
               state.values.set(key, value);
             }
+          });
+        }),
+      );
+    },
+    updateVelocities: (velocities: Map<string, number>) => {
+      set(
+        produce((state: AnimationData) => {
+          velocities.forEach?.((value, key) => {
+            state.velocities.set(key, value);
           });
         }),
       );
@@ -322,6 +332,7 @@ export const AnimationSlice = (
       const updatePlayerInner = playerStoreState.updatePlayer;
       const updateDuration = playerStoreState.updateDuration;
       const updateValues = get().updateValues;
+      const updateVelocities = get().updateVelocities;
 
       // If the time changes, check if it matches an existing keyframe and
       // set the current selected keyframe
@@ -377,24 +388,34 @@ export const AnimationSlice = (
         api.subscribe(
           (state: AnimationData) => state.trackInterpolators,
           (trackInterpolators) => {
-            const stamp = usePlayerStore.getState().player.stamp;
+            const playerState = usePlayerStore.getState();
+            const stamp = playerState.player.stamp;
+            const playing = playerState.player.running;
             const result = new Map<string, RawValue | undefined>();
-            Object.entries(trackInterpolators).forEach(([key, trackInterpolator]) => {
-              result.set(key, trackInterpolator(stamp));
+            const velocities = new Map<string, number>();
+            Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
+              result.set(key, interpolatorCollection.value(stamp));
+              velocities.set(key, playing ? interpolatorCollection.derivative(stamp) : 0);
             });
             updateValues(result);
+            updateVelocities(velocities);
           },
           { equalityFn: (current, previous) => current.stamp === previous.stamp },
         ),
 
         // If the time changes, run the interpolators with the new time
         usePlayerStore.subscribe(
-          (state: PlayerData) => state.player.stamp,
-          (stamp) => {
+          (state: PlayerData) => ({ stamp: state.player.stamp, running: state.player.running }),
+          ({ stamp, running }) => {
             const trackInterpolators = get().trackInterpolators;
             const result = new Map<string, RawValue | undefined>();
-            Object.entries(trackInterpolators).forEach(([key, trackInterpolator]) => {
-              result.set(key, trackInterpolator(stamp));
+            const derivatives = new Map<string, number>();
+            Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
+              if (key.includes("derivative")) {
+                derivatives.set(key, running ? interpolatorCollection.derivative(stamp) : 0);
+              } else {
+                result.set(key, interpolatorCollection.value(stamp));
+              }
             });
             updateValues(result);
           },
@@ -438,14 +459,25 @@ export const AnimationSlice = (
                   ({ track, animatableValue }) => {
                     if (!track) return;
 
+                    const playerState = usePlayerStore.getState();
+
+                    const playing = playerState.player.running;
+
                     const newVals = new Map<string, RawValue | undefined>();
+                    const newVelocities = new Map<string, number>();
                     let newViolations: Violation[] = [];
 
                     const lookup = getLookup(namespace, track.animatableId ?? trackId);
 
                     const trackInterp = computeTrackInterpolator(track, instance);
+                    const derivativeInterp = computeDerivativeInterpolator(trackInterp, duration);
 
-                    newVals.set(lookup, trackInterp(usePlayerStore.getState().player.stamp));
+                    newVals.set(lookup, trackInterp(playerState.player.stamp));
+                    newVelocities.set(
+                      lookup,
+                      playing ? derivativeInterp(playerState.player.stamp) : 0,
+                    );
+
                     newViolations = [
                       ...newViolations,
                       ...(animatableValue
@@ -462,9 +494,13 @@ export const AnimationSlice = (
                     set((state: AnimationData) => ({
                       trackInterpolators: {
                         ...state.trackInterpolators,
-                        [lookup]: trackInterp,
+                        [lookup]: {
+                          value: trackInterp,
+                          derivative: derivativeInterp,
+                        },
                       },
                       values: new Map([...state.values, ...newVals]),
+                      velocities: new Map([...state.velocities, ...newVelocities]),
                       violations: { ...state.violations, [trackId]: newViolations },
                     }));
                   },

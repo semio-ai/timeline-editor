@@ -131,7 +131,7 @@ export function TimelineControl({
           } else {
             const updates = Object.values(trackData)
               .map((track) => {
-                const value = interpolators[getLookup(namespaceId, track.animatableId)]?.(
+                const value = interpolators[getLookup(namespaceId, track.animatableId)]?.value?.(
                   stamp.current,
                 );
                 return {
