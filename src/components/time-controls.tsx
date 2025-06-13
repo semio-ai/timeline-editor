@@ -96,7 +96,7 @@ export function TimeControls({
             if (running) {
               pausePlayer();
             } else {
-              playPlayer(1);
+              playPlayer();
             }
           }}
           leftIcon={

@@ -16,6 +16,7 @@ import { Minimap } from "./minimap";
 import { Ruler } from "./ruler";
 import { TimelineControl } from "./timeline-control";
 import { TimeControls } from "./time-controls";
+import { PlaybackSettings } from "./playback-settings";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
 const MIN_SHEET_HEIGHT = 134;
@@ -217,7 +218,7 @@ export function InnerSheet({
           />
         </div>
 
-        <div className={clsx("w-full duration-75 h-8", "flex items-center justify-center")} />
+        <PlaybackSettings />
         <div className={clsx("flex-1 h-8 text-black dark:text-white rounded-b-sm", TRACK_MAIN_BG)}>
           <Ruler
             side="bottom"

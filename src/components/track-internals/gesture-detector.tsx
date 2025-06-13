@@ -1,7 +1,7 @@
 import { MutableRefObject, useRef, useCallback, MouseEventHandler, memo } from "react";
 import { clamp } from "lodash";
 import { clsx } from "clsx";
-import { closestFrame, PlayerActions, usePlayerStore } from "@semio/utils";
+import { closestFrame, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { useZoomGestures, useTrackContext, useAnimationStore } from "../../hooks";
 import { AnimationActions, AnimationData } from "../../store-types";
@@ -14,9 +14,10 @@ function InnerGestureDetector({ ignoreZoom = false }: { ignoreZoom?: boolean; he
     useShallow((state: AnimationActions) => state.updateHoverpointPreview),
   );
 
-  const { resetPlayer } = usePlayerStore(
-    useShallow((state: PlayerActions) => ({
+  const { resetPlayer, playing } = usePlayerStore(
+    useShallow((state) => ({
       resetPlayer: state.resetPlayer,
+      playing: state.player.running,
     })),
   );
 
@@ -28,6 +29,7 @@ function InnerGestureDetector({ ignoreZoom = false }: { ignoreZoom?: boolean; he
 
   const doubleClickHandler = useCallback(
     (event: MouseEvent) => {
+      if (playing) return; // Ignore double clicks while playing
       const coords = ((event.clientX ?? 0) - bounds.left) / bounds.width;
       const newPosition = clamp(ignoreZoom ? coords : zoomScale.current.invert(coords), 0, 1);
       if (event.altKey) {
@@ -37,7 +39,7 @@ function InnerGestureDetector({ ignoreZoom = false }: { ignoreZoom?: boolean; he
         resetPlayer(closest);
       }
     },
-    [bounds, frameCount, resetPlayer, zoomScale, ignoreZoom],
+    [bounds, frameCount, resetPlayer, zoomScale, ignoreZoom, playing],
   );
 
   useZoomGestures(gestureRef as MutableRefObject<EventTarget>, {

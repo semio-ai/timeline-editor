@@ -31,19 +31,23 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
 
   const cartRef = useRef<SVGPathElement | null>(null);
 
-  const updateBounds = usePlayerStore(useShallow((state) => state.updatePlayerBounds));
+  const { updateBounds, playing } = usePlayerStore(
+    useShallow((state) => ({
+      updateBounds: state.updatePlayerBounds,
+      playing: state.player.running,
+    })),
+  );
 
   const withBounds = useWithBounds();
   const { leftSpring, rightSpring } = useBoundSprings(ignoreZoom);
   const boundSpring = end === "left" ? leftSpring : rightSpring;
 
-  const [previewLeft, previewRight, removePreview, addPreview, _updatePreview] = useAnimationStore(
+  const [previewLeft, previewRight, removePreview, addPreview] = useAnimationStore(
     useShallow((state) => [
       state.previews.find((p) => p.semanticTime === SemanticTime.BoundsStart),
       state.previews.find((p) => p.semanticTime === SemanticTime.BoundsEnd),
       state.removePreview,
       state.addPreview,
-      state.updatePreview,
     ]),
   );
 
@@ -118,6 +122,7 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
     cartRef as React.MutableRefObject<SVGPathElement>,
     {
       onHover: ({ hovering, dragging }) => {
+        if (playing) return; // Ignore hover events while playing
         // Show a preview when hovering over the left/right bounds,
         // or if either of the bounds are being dragged.
         // Remove the preview if there is a preview and no longer
@@ -158,7 +163,10 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
     <motion.g
       data-highlighted={anyPreview ? "" : undefined}
       ref={cartRef}
-      className="touch-none group/cart opacity-50 hover:opacity-80 data-[highlighted]:opacity-80"
+      className={clsx(
+        "touch-none group/cart opacity-50 data-[highlighted]:opacity-80",
+        playing ? "cursor-not-allowed" : "cursor-pointer",
+      )}
       transform={transform.get()}
     >
       <path
