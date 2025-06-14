@@ -19,7 +19,7 @@ import { TimeControls } from "./time-controls";
 import { PlaybackSettings } from "./playback-settings";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
-const MIN_SHEET_HEIGHT = 134;
+const MIN_SHEET_HEIGHT = 142;
 
 export interface AnimationSheetProps {
   namespaceId: string;
@@ -90,7 +90,7 @@ export function InnerSheet({
         }}
         className={clsx(
           "grid grid-cols-[298px_1fr] group/sheet w-full gap-x-1 pr-0.5 pb-0.5",
-          "grid-rows-[32px_1fr_36px_32px_32px]",
+          "grid-rows-[32px_1fr_36px_36px_36px]",
         )}
       >
         {/* Expand Toggle/Ruler */}
@@ -117,7 +117,6 @@ export function InnerSheet({
             size={Size.Sm}
             value={trackRender}
             onChange={(v: string) => {
-              console.log(`Updating Track Render from ${trackRender} to ${v}`);
               setTrackRender(v as TrackRender);
             }}
             options={[
@@ -172,7 +171,7 @@ export function InnerSheet({
             instanceSettings={instanceSettings}
             width={trackBounds.width}
             // Subtract the height of the other elements from the total height
-            height={height - 134}
+            height={height - MIN_SHEET_HEIGHT}
           />
         </div>
 
@@ -210,7 +209,7 @@ export function InnerSheet({
           onChangeSelection={setSelectedTracks}
         />
 
-        <div className={clsx("w-full h-8 items-center text-black dark:text-white", TRACK_MAIN_BG)}>
+        <div className={clsx("w-full h-9 items-center text-black dark:text-white", TRACK_MAIN_BG)}>
           <Minimap
             animationId={currentAnimation}
             instanceSettings={instanceSettings}
@@ -219,11 +218,11 @@ export function InnerSheet({
         </div>
 
         <PlaybackSettings />
-        <div className={clsx("flex-1 h-8 text-black dark:text-white rounded-b-sm", TRACK_MAIN_BG)}>
+        <div className={clsx("flex-1 h-9 text-black dark:text-white rounded-b-sm", TRACK_MAIN_BG)}>
           <Ruler
             side="bottom"
             animationId={currentAnimation}
-            height={32}
+            height={36}
             width={trackBounds.width}
           />
         </div>

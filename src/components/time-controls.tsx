@@ -80,7 +80,7 @@ export function TimeControls({
   }, [animationId, allTracks, onChangeSelection]);
 
   return (
-    <div className="flex flex-1 flex-row h-8 items-center gap-1 pl-1">
+    <div className="flex flex-1 flex-row h-9 items-center gap-1 pl-1">
       <div
         className={clsx("min-w-16 h-7 rounded-xs grid grid-cols-3 items-center justify-between")}
       >

@@ -15,7 +15,7 @@ function InnerZoomDisplay() {
   const {
     frameCount,
     zoomScale,
-    bounds: { width: timelineWidth, left: timelineLeft },
+    bounds: { width: timelineWidth, left: timelineLeft, height: timelineHeight },
   } = useTrackContext();
 
   const [dragging, setDragging] = useState(false);
@@ -162,6 +162,10 @@ function InnerZoomDisplay() {
 
   const x2 = useTransform(() => leftSpring.get() + widthSpring.get());
 
+  const defaultYOffset = timelineHeight / 2 - 5.6 / 2;
+  const activeYOffset = timelineHeight / 2 - 11.2;
+  const activeYSmOffset = timelineHeight / 2 - 8.4;
+
   return (
     <g className="group/zoom" aria-selected={dragging || hovered}>
       <motion.line
@@ -174,8 +178,8 @@ function InnerZoomDisplay() {
         )}
         x1={leftSpring}
         x2={x2}
-        y1={15}
-        y2={15}
+        y1={timelineHeight / 2}
+        y2={timelineHeight / 2}
         initial={{ strokeWidth: 5.6 }}
         variants={{
           active: { strokeWidth: 22.4 },
@@ -196,10 +200,16 @@ function InnerZoomDisplay() {
           )}
           transition={{ duration: 0.1 }}
           animate={hovered || dragging ? "active" : "inactive"}
-          initial={{ d: "M0 12.2 L0 17.8 L-7 17.8 L-7 12.2 Z" }}
+          initial={{
+            d: `M0 ${defaultYOffset.toString()} L0 ${(timelineHeight - defaultYOffset).toString()} L-7 ${(timelineHeight - defaultYOffset).toString()} L-7 ${defaultYOffset.toString()} Z`,
+          }}
           variants={{
-            active: { d: "M0 3.8 L0 26.2 L-7 21.6 L-7 8.4 Z" },
-            inactive: { d: "M0 12.2 L0 17.8 L-7 17.8 L-7 12.2 Z" },
+            active: {
+              d: `M0 ${activeYOffset.toString()} L0 ${(timelineHeight - activeYOffset).toString()} L-7 ${(timelineHeight - activeYSmOffset).toString()} L-7 ${activeYSmOffset.toString()} Z`,
+            },
+            inactive: {
+              d: `M0 ${defaultYOffset.toString()} L0 ${(timelineHeight - defaultYOffset).toString()} L-7 ${(timelineHeight - defaultYOffset).toString()} L-7 ${defaultYOffset.toString()} Z`,
+            },
           }}
         />
       </motion.g>
@@ -214,10 +224,16 @@ function InnerZoomDisplay() {
             "group-hover/zoom:fill-neutral-500 group-aria-selected/zoom:fill-neutral-500",
           )}
           transition={{ duration: 0.1 }}
-          initial={{ d: "M0 12.2 L0 17.8 L7 17.8 L7 12.2 Z" }}
+          initial={{
+            d: `M0 ${defaultYOffset.toString()} L0 ${(timelineHeight - defaultYOffset).toString()} L7 ${(timelineHeight - defaultYOffset).toString()} L7 ${defaultYOffset.toString()} Z`,
+          }}
           variants={{
-            active: { d: "M0 3.8 L0 26.2 L7 21.6 L7 8.4 Z" },
-            inactive: { d: "M0 12.2 L0 17.8 L7 17.8 L7 12.2 Z" },
+            active: {
+              d: `M0 ${activeYOffset.toString()} L0 ${(timelineHeight - activeYOffset).toString()} L7 ${(timelineHeight - activeYSmOffset).toString()} L7 ${activeYSmOffset.toString()} Z`,
+            },
+            inactive: {
+              d: `M0 ${defaultYOffset.toString()} L0 ${(timelineHeight - defaultYOffset).toString()} L7 ${(timelineHeight - defaultYOffset).toString()} L7 ${defaultYOffset.toString()} Z`,
+            },
           }}
           animate={hovered || dragging ? "active" : "inactive"}
         />

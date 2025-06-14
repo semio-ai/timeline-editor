@@ -1,159 +1,113 @@
 import { clsx } from "clsx";
-import { Button, Dropdown, NestedLabel, NestedRadio } from "@semio/ui";
+import { Select, Size, ToggleSquare, Variant } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
 import {
-  IconArrowAutofitLeft,
-  IconArrowAutofitRight,
-  IconPlayerPlay,
   IconRepeat,
   IconArrowBounce,
-  IconNumber1,
   IconMultiplier05x,
   IconMultiplier1x,
   IconMultiplier15x,
   IconMultiplier2x,
+  IconArrowNarrowRight,
 } from "@tabler/icons-react";
 
 export function PlaybackSettings() {
-  const { direction, style, speed } = usePlayerStore(
+  const { direction, bounce, looping, speed } = usePlayerStore(
     useShallow((state) => ({
       direction: state.player.direction,
-      style: state.player.playback,
+      bounce: state.player.bounce,
+      looping: state.player.looping,
       speed: state.player.speed,
     })),
   );
 
-  console.log({ direction, style, speed });
+  // Map bounce/looping combination to style for UI compatibility
+  console.log({ direction, bounce, looping, speed });
 
-  const { setPlayback, setDirection, setSpeed } = usePlayerStore(
+  const { setBounce, setLooping, setDirection, setSpeed } = usePlayerStore(
     useShallow((state) => ({
-      setPlayback: state.updatePlaybackStyle,
+      setBounce: state.updateBounce,
+      setLooping: state.updateLooping,
       setDirection: state.updateDirection,
       setSpeed: state.updateSpeed,
     })),
   );
 
-  let styleIcon;
-  if (style === "loop") {
-    styleIcon = <IconRepeat size="14px" />;
-  } else if (style === "bounce") {
-    styleIcon = <IconArrowBounce size="14px" />;
-  } else {
-    styleIcon = <IconNumber1 size="14px" />;
-  }
-
-  let speedIcon;
-  if (speed === 0.5) {
-    speedIcon = <IconMultiplier05x size="14px" />;
-  } else if (speed === 1) {
-    speedIcon = <IconMultiplier1x size="14px" />;
-  } else if (speed === 1.5) {
-    speedIcon = <IconMultiplier15x size="14px" />;
-  } else {
-    speedIcon = <IconMultiplier2x size="14px" />;
-  }
-
   return (
-    <div className="flex flex-1 flex-row h-8 items-center gap-1 pl-1">
+    <div className="flex flex-1 flex-row h-9 items-center gap-1 pl-1">
       <div
-        className={clsx("min-w-16 h-7 rounded-xs grid grid-cols-3 items-center justify-between")}
+        className={clsx(
+          "min-w-16 h-7 rounded-xs grid grid-cols-3 gap-1 items-center justify-around px-1",
+        )}
       >
-        <Dropdown
-          trigger={
-            <Button
-              size="fit"
-              leftIcon={
-                direction === "forward" ? (
-                  <IconArrowAutofitRight className="h-3/5 aspect-square" />
-                ) : (
-                  <IconArrowAutofitLeft className="h-3/5 aspect-square" />
-                )
-              }
-              visuals="inverted"
-            />
-          }
+        <ToggleSquare
+          sizing="inner"
+          size={Size.Xs}
+          label={direction === "forward" ? "Forward" : "Reverse"}
+          value={direction === "reverse"}
+          onChange={(v) => setDirection(v ? "reverse" : "forward")}
         >
-          <NestedLabel>Playback Direction</NestedLabel>
-          <NestedRadio
-            value={direction}
-            options={[
-              {
-                label: "Forward",
-                value: "forward",
-                icon: <IconArrowAutofitRight className="h-3/5 aspect-square" />,
-              },
-              {
-                label: "Reverse",
-                value: "reverse",
-                icon: <IconArrowAutofitLeft className="h-3/5 aspect-square" />,
-              },
-            ]}
-            onChange={(v) => {
-              setDirection(v as "forward" | "reverse");
-            }}
+          <IconArrowNarrowRight
+            className={clsx(
+              "h-3/5 aspect-square transition-75 ease-in-out",
+              direction === "reverse" ? "-scale-100" : "scale-100",
+            )}
           />
-        </Dropdown>
-
-        <Dropdown trigger={<Button size="fit" leftIcon={styleIcon} visuals="inverted" />}>
-          <NestedLabel>Playback Style</NestedLabel>
-          <NestedRadio
-            value={style}
-            options={[
-              {
-                label: "Loop",
-                value: "loop",
-                icon: <IconRepeat className="h-3/5 aspect-square" />,
-              },
-              {
-                label: "Bounce",
-                value: "bounce",
-                icon: <IconArrowBounce className="h-3/5 aspect-square" />,
-              },
-              {
-                label: "Once",
-                value: "once",
-                icon: <IconNumber1 className="h-3/5 aspect-square" />,
-              },
-            ]}
-            onChange={(v) => {
-              setPlayback(v as "loop" | "bounce" | "once");
-            }}
-          />
-        </Dropdown>
-
-        <Dropdown trigger={<Button size="fit" leftIcon={speedIcon} visuals="inverted" />}>
-          <NestedLabel>Playback Speed</NestedLabel>
-          <NestedRadio
-            value={speed.toString()}
-            options={[
-              {
-                label: "0.5x",
-                value: "0.5",
-                icon: <IconMultiplier05x className="h-3/5 aspect-square" />,
-              },
-              {
-                label: "1x",
-                value: "1",
-                icon: <IconMultiplier1x className="h-3/5 aspect-square" />,
-              },
-              {
-                label: "1.5x",
-                value: "1.5",
-                icon: <IconMultiplier15x className="h-3/5 aspect-square" />,
-              },
-              {
-                label: "2x",
-                value: "2",
-                icon: <IconMultiplier2x className="h-3/5 aspect-square" />,
-              },
-            ]}
-            onChange={(v) => {
-              setSpeed(parseFloat(v));
-            }}
-          />
-        </Dropdown>
+        </ToggleSquare>
+        <ToggleSquare
+          sizing="inner"
+          size={Size.Xs}
+          label={looping ? "Looping (on)" : "Looping (off)"}
+          value={looping}
+          onChange={setLooping}
+        >
+          <IconRepeat className="h-3/5 aspect-square" />
+        </ToggleSquare>
+        <ToggleSquare
+          sizing="inner"
+          size={Size.Xs}
+          label={bounce ? "Bounce (on)" : "Bounce (off)"}
+          value={bounce}
+          onChange={setBounce}
+        >
+          <IconArrowBounce className="h-3/5 aspect-square" />
+        </ToggleSquare>
       </div>
+      <Select
+        label="Select Playback Speed"
+        variant={Variant.Default}
+        size={Size.Sm}
+        options={[
+          {
+            value: "0.5",
+            label: "Slow Playback (0.5x)",
+            icon: <IconMultiplier05x size="14px" />,
+          },
+          {
+            value: "1",
+            label: "Normal Playback (1x)",
+            icon: <IconMultiplier1x size="14px" />,
+          },
+          {
+            value: "1.5",
+            label: "Fast Playback (1.5x)",
+            icon: <IconMultiplier15x size="14px" />,
+          },
+          {
+            value: "2",
+            label: "Very Fast Playback (2x)",
+            icon: <IconMultiplier2x size="14px" />,
+          },
+        ]}
+        value={speed.toString()}
+        onChange={(value: string) => {
+          const newSpeed = parseFloat(value);
+          if (!isNaN(newSpeed)) {
+            setSpeed(newSpeed);
+          }
+        }}
+      />
     </div>
   );
 }

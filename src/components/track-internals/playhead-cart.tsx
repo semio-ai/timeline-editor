@@ -138,7 +138,7 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
     <motion.g ref={gRef} className="touch-none group/cart" transform={transform.get()}>
       {/* Create a path that creates a rounded box with a caret on the bottom */}
       <motion.g
-        transform={`translate(0 ${side === "top" ? "2" : "31"}) rotate(${side === "top" ? "0" : "180"})`}
+        transform={`translate(0 ${side === "top" ? "2" : (timelineHeight - 2).toString()}) rotate(${side === "top" ? "0" : "180"})`}
       >
         {/* This is the vertical pointer. It expands when there is at least 0 pixels on either side of the cart */}
         <motion.g
@@ -167,7 +167,7 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
       {/* Cart path */}
       <motion.rect
         x={offsetSpring}
-        y={side === "top" ? 2 : 11}
+        y={side === "top" ? 2 : timelineHeight - 22}
         width={widthSpring}
         height={20}
         rx={2}
@@ -194,6 +194,7 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
       />
 
       <PlayheadText
+        timelineHeight={timelineHeight}
         side={side}
         offsetSpring={offsetSpring}
         widthSpring={widthSpring}
@@ -208,11 +209,13 @@ function PlayheadText({
   offsetSpring,
   widthSpring,
   duration,
+  timelineHeight,
 }: {
   side: "top" | "bottom";
   offsetSpring: MotionValue<number>;
   widthSpring: MotionValue<number>;
   duration: number;
+  timelineHeight: number;
 }): ReactNode {
   const framerate = useAnimationStore(useShallow((state: AnimationData) => state.framerate));
   const stamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
@@ -223,7 +226,7 @@ function PlayheadText({
 
   const transform = useTransform(
     () =>
-      `translate(${(offsetSpring.get() + widthSpring.get() / 2).toString()} ${(side === "top" ? 8 : 16).toString()})`,
+      `translate(${(offsetSpring.get() + widthSpring.get() / 2).toString()} ${(side === "top" ? 8 : timelineHeight - 16).toString()})`,
   );
 
   const gRef = useRef<SVGGElement>(null);

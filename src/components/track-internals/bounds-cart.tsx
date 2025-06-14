@@ -172,7 +172,7 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
       <path
         ref={cartRef}
         transform={[
-          `translate(0 ${side === "top" ? "2" : "31"})`,
+          `translate(0 ${side === "top" ? "2" : (timelineHeight - 2).toString()})`,
           `rotate(${side === "top" ? "0" : "180"})`,
           `scale(${(end === "left" && side === "bottom") || (end === "right" && side === "top") ? "-1" : "1"} 1)`,
         ].join(" ")}
