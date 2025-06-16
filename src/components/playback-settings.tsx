@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { Select, Size, ToggleSquare, Variant } from "@semio/ui";
-import { usePlayerStore } from "@semio/utils";
+import { PlayerDirection, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
 import {
   IconRepeat,
@@ -44,14 +44,14 @@ export function PlaybackSettings() {
         <ToggleSquare
           sizing="inner"
           size={Size.Xs}
-          label={direction === "forward" ? "Forward" : "Reverse"}
-          value={direction === "reverse"}
-          onChange={(v) => setDirection(v ? "reverse" : "forward")}
+          label={direction === PlayerDirection.Forward ? "Forward" : "Reverse"}
+          value={direction === PlayerDirection.Reverse}
+          onChange={(v) => setDirection(v ? PlayerDirection.Reverse : PlayerDirection.Forward)}
         >
           <IconArrowNarrowRight
             className={clsx(
               "h-3/5 aspect-square transition-75 ease-in-out",
-              direction === "reverse" ? "-scale-100" : "scale-100",
+              direction === PlayerDirection.Reverse ? "-scale-100" : "scale-100",
             )}
           />
         </ToggleSquare>

@@ -2,7 +2,7 @@ import { type RawValue } from "@semio/utils";
 
 export interface InterpolatorCollection {
   value: TrackInterpolator;
-  derivative: (t: number) => number;
+  derivative: TrackInterpolator;
 }
 
 /**

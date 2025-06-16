@@ -1,13 +1,13 @@
 import { expect, test } from "vitest";
 import { computeTrackInterpolator } from "../functions/compute-track-interpolator";
-import { computeDerivative } from "../functions/compute-derivative";
+import { computeDerivativeInterpolator } from "../functions/compute-derivative-interpolator";
 import { instances, tracks } from "./animation-data";
 
 test("derivative should be 0 at flat points of the curves for 1000ms animations", () => {
   const defaultTrack1Interpolator = computeTrackInterpolator(tracks.track1, instances.default);
 
-  const derivativeA = computeDerivative(defaultTrack1Interpolator, 0.05, 1000);
-  const derivativeB = computeDerivative(defaultTrack1Interpolator, 0.95, 1000);
+  const derivativeA = computeDerivativeInterpolator(defaultTrack1Interpolator, 1000)(0.05);
+  const derivativeB = computeDerivativeInterpolator(defaultTrack1Interpolator, 1000)(0.95);
 
   // Test the interpolated values at different times
   // the method `toBeCloseTo` tests that the values are close to each other with
@@ -19,8 +19,8 @@ test("derivative should be 0 at flat points of the curves for 1000ms animations"
 test("derivative should be non-zero at points of change for 1000ms animations", () => {
   const defaultTrack1Interpolator = computeTrackInterpolator(tracks.track1, instances.default);
 
-  const derivativeC = computeDerivative(defaultTrack1Interpolator, 0.15, 1000);
-  const derivativeD = computeDerivative(defaultTrack1Interpolator, 0.85, 1000);
+  const derivativeC = computeDerivativeInterpolator(defaultTrack1Interpolator, 1000)(0.15);
+  const derivativeD = computeDerivativeInterpolator(defaultTrack1Interpolator, 1000)(0.85);
 
   // Test the interpolated values at different times
   // the method `toBeCloseTo` tests that the values are close to each other with
@@ -32,8 +32,8 @@ test("derivative should be non-zero at points of change for 1000ms animations", 
 test("derivative should be 0 at flat points of the curves for 500ms animations", () => {
   const defaultTrack1Interpolator = computeTrackInterpolator(tracks.track1, instances.default);
 
-  const derivativeA = computeDerivative(defaultTrack1Interpolator, 0.05, 500);
-  const derivativeB = computeDerivative(defaultTrack1Interpolator, 0.95, 500);
+  const derivativeA = computeDerivativeInterpolator(defaultTrack1Interpolator, 500)(0.05);
+  const derivativeB = computeDerivativeInterpolator(defaultTrack1Interpolator, 500)(0.95);
 
   // Test the interpolated values at different times
   // the method `toBeCloseTo` tests that the values are close to each other with
@@ -49,12 +49,15 @@ test("derivative of a double-speed animation should be double a default-speed an
     instances.doublespeed,
   );
 
-  const derivativeDefault = computeDerivative(defaultTrack1Interpolator, 0.5, 1000);
-  const derivativeDoubleSpeed = computeDerivative(doublespeedTrack1Interpolator, 0.25, 1000);
+  const derivativeDefault = computeDerivativeInterpolator(defaultTrack1Interpolator, 1000)(0.5);
+  const derivativeDoubleSpeed = computeDerivativeInterpolator(
+    doublespeedTrack1Interpolator,
+    1000,
+  )(0.25);
 
   const defaultPosition = defaultTrack1Interpolator(0.5);
   const doubleSpeedPosition = doublespeedTrack1Interpolator(0.25);
 
   expect(defaultPosition).toBeCloseTo(doubleSpeedPosition as number);
-  expect(derivativeDefault).toBeCloseTo(derivativeDoubleSpeed / 2, 2);
+  expect(derivativeDefault).toBeCloseTo((derivativeDoubleSpeed as number) / 2, 2);
 });

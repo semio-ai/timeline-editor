@@ -22,7 +22,7 @@ export interface AnimationData {
   /**
    * Current values (output of interpolator).
    */
-  velocities: Map<string, number | undefined>;
+  velocities: Map<string, RawValue | undefined>;
   /**
    * Current set of track interpolators.
    */
@@ -112,7 +112,7 @@ export interface AnimationActions {
    * Update the velocities in the store.
    * @param velocities - A map of velocities to update.
    */
-  updateVelocities: (velocities: Map<string, number>) => void;
+  updateVelocities: (velocities: Map<string, RawValue | undefined>) => void;
   /**
    * Set an individual value
    * @param id - The ID of the value to set.

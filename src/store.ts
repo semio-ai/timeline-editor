@@ -5,6 +5,7 @@ import {
   getLookup,
   usePlayerStore,
   PlayerData,
+  PlayerDirection,
 } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -51,6 +52,7 @@ import {
   computeWorldStamp,
 } from "./functions";
 import { computeDerivativeInterpolator } from "./functions/compute-derivative-interpolator";
+import { matchingIdentityRawValue, rawValueMultiplyScalar } from "./functions/raw-value-math";
 
 enableMapSet();
 
@@ -79,11 +81,15 @@ export const AnimationSlice = (
         }),
       );
     },
-    updateVelocities: (velocities: Map<string, number>) => {
+    updateVelocities: (velocities: Map<string, RawValue | undefined>) => {
       set(
         produce((state: AnimationData) => {
           velocities.forEach?.((value, key) => {
-            state.velocities.set(key, value);
+            if (value === undefined) {
+              state.velocities.delete(key);
+            } else {
+              state.velocities.set(key, value);
+            }
           });
         }),
       );
@@ -391,11 +397,28 @@ export const AnimationSlice = (
             const playerState = usePlayerStore.getState();
             const stamp = playerState.player.stamp;
             const playing = playerState.player.running;
+            // The _currentDirection is the actual direction of the player,
+            // as opposed to the "direction" setting, which is a higher-level mode.
+            const currentDirection = playerState.player._currentDirection;
+            const speed = playerState.player.speed;
             const result = new Map<string, RawValue | undefined>();
-            const velocities = new Map<string, number>();
+            const velocities = new Map<string, RawValue | undefined>();
+            const multiplier = (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
             Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
+              // Handle velocity calculation.
+              const vel = interpolatorCollection.derivative(stamp);
+              if (vel !== undefined) {
+                if (playing) {
+                  velocities.set(key, rawValueMultiplyScalar(vel, multiplier));
+                } else {
+                  const stoppedVel = matchingIdentityRawValue(vel);
+                  velocities.set(key, stoppedVel);
+                }
+              } else {
+                velocities.set(key, undefined);
+              }
+              // Handle the value calculation.
               result.set(key, interpolatorCollection.value(stamp));
-              velocities.set(key, playing ? interpolatorCollection.derivative(stamp) : 0);
             });
             updateValues(result);
             updateVelocities(velocities);
@@ -406,16 +429,13 @@ export const AnimationSlice = (
         // If the time changes, run the interpolators with the new time
         usePlayerStore.subscribe(
           (state: PlayerData) => ({ stamp: state.player.stamp, running: state.player.running }),
-          ({ stamp, running }) => {
+          ({ stamp }) => {
             const trackInterpolators = get().trackInterpolators;
             const result = new Map<string, RawValue | undefined>();
-            const derivatives = new Map<string, number>();
+            const derivatives = new Map<string, RawValue | undefined>();
             Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
-              if (key.includes("derivative")) {
-                derivatives.set(key, running ? interpolatorCollection.derivative(stamp) : 0);
-              } else {
-                result.set(key, interpolatorCollection.value(stamp));
-              }
+              derivatives.set(key, interpolatorCollection.derivative(stamp));
+              result.set(key, interpolatorCollection.value(stamp));
             });
             updateValues(result);
           },
@@ -461,10 +481,15 @@ export const AnimationSlice = (
 
                     const playerState = usePlayerStore.getState();
 
+                    const stamp = playerState.player.stamp;
                     const playing = playerState.player.running;
+                    const currentDirection = playerState.player._currentDirection;
+                    const speed = playerState.player.speed;
+                    const multiplier =
+                      (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
 
                     const newVals = new Map<string, RawValue | undefined>();
-                    const newVelocities = new Map<string, number>();
+                    const newVelocities = new Map<string, RawValue | undefined>();
                     let newViolations: Violation[] = [];
 
                     const lookup = getLookup(namespace, track.animatableId ?? trackId);
@@ -472,7 +497,22 @@ export const AnimationSlice = (
                     const trackInterp = computeTrackInterpolator(track, instance);
                     const derivativeInterp = computeDerivativeInterpolator(trackInterp, duration);
 
-                    newVals.set(lookup, trackInterp(playerState.player.stamp));
+                    // Handle setting the values.
+                    newVals.set(lookup, trackInterp(stamp));
+                    // Handle setting the velocities.
+                    // If the player is running, we use the derivative interpolator,
+                    const vel = derivativeInterp(stamp);
+                    if (vel !== undefined) {
+                      if (playing) {
+                        newVelocities.set(lookup, rawValueMultiplyScalar(vel, multiplier));
+                      } else {
+                        const stoppedVel = matchingIdentityRawValue(vel);
+                        newVelocities.set(lookup, stoppedVel);
+                      }
+                    } else {
+                      newVelocities.set(lookup, undefined);
+                    }
+
                     newVelocities.set(
                       lookup,
                       playing ? derivativeInterp(playerState.player.stamp) : 0,

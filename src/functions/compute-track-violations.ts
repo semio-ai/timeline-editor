@@ -21,7 +21,7 @@ import {
 } from "@semio/utils";
 import { ViolationType } from "../types";
 import type { Violation, TrackInterpolator } from "../types";
-import { genericDistance } from "./generic-distance";
+import { rawValueNorm, rawValueDiff } from "./raw-value-math";
 
 export type InterpolatorCache = Map<string, Map<string, RawValue | undefined>>;
 type Vec3Constraints = (AnimatableVector3 | AnimatableEuler)["constraints"];
@@ -218,7 +218,7 @@ function valueHasVelocityError(
   constraints: Constraints,
   timeDelta: number,
 ): boolean {
-  const valueDelta = genericDistance(currentValue, nextValue);
+  const valueDelta = rawValueNorm(rawValueDiff(currentValue, nextValue));
   const velocity = Math.abs(valueDelta / timeDelta);
   return velocity > (constraints as NumberConstraints).velocity!;
 }
