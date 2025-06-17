@@ -8,7 +8,7 @@ export const HORIZONTAL_POINTER_PATH = `M${(-1 * CARET_HALF_WIDTH + 2).toString(
 export const VERTICAL_HALF_POINTER_PATH = `M0,23L0,2C0,0.896 0.896,0 ${(CARET_HALF_WIDTH / 2).toString()},0C${(CARET_HALF_WIDTH - 0.896).toString()},0 ${CARET_HALF_WIDTH.toString()},0.896 ${CARET_HALF_WIDTH.toString()},2L${CARET_HALF_WIDTH.toString()},18C${CARET_HALF_WIDTH.toString()},18.953 0,23 0,23Z`;
 
 export const TRANSITION_CONFIG = {
-  type: "tween",
+  type: "tween" as const,
   duration: 0.2,
   ease: "easeInOut",
-};
+} as const;
