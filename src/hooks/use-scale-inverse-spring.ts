@@ -14,16 +14,13 @@ import { usePlayerSubscription } from "./use-player-subscription";
 export function useScaleInverseSpring(ignoreZoom: boolean): MotionValue<number> {
   const { instanceSettings } = useTrackContext();
 
-  const initialViewportScaling = useMemo(
-    () => {
-      if (ignoreZoom) {
-        return instanceSettings.timescale;
-      }
-      const { viewport } = usePlayerStore.getState().player;
-      return viewport[1] - viewport[0];
-    },
-    [ignoreZoom, instanceSettings.timescale],
-  );
+  const initialViewportScaling = useMemo(() => {
+    if (ignoreZoom) {
+      return instanceSettings.timescale;
+    }
+    const { viewport } = usePlayerStore.getState().player;
+    return viewport[1] - viewport[0];
+  }, [ignoreZoom, instanceSettings.timescale]);
 
   const viewportScalingFactorSpring = useMotionValue<number>(initialViewportScaling);
 
