@@ -69,7 +69,7 @@ export function TimelineControl({
   );
 
   const stamps: (InstancedFrameInfo & { globalStamp: number })[] = useMemo(() => {
-    const instancedFrames = computeFrames(trackData, undefined);
+    const instancedFrames = computeFrames(trackData);
     return instancedFrames.map((instancedFrame) => ({
       ...instancedFrame,
       globalStamp: computeWorldStamp(
