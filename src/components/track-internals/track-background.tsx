@@ -50,13 +50,13 @@ function InnerTrackBackground({
     <>
       <defs>
         {/* Create a bounds mask that can be used elsewhere */}
-        <mask id="boundsMask" height={height} width={width + TIMELINE_PADDING * 2}>
+        <mask id="boundsMask" width={width + TIMELINE_PADDING * 2} height={height}>
           {/* A full-width spanning element at a 50% color */}
-          <rect
+          <motion.rect
             key={`${identifier}-linebg`}
             x={0}
-            height={height}
             width={width + TIMELINE_PADDING * 2}
+            height={height}
             y={0}
             className="fill-neutral-500 pointer-events-none"
           />
@@ -64,8 +64,8 @@ function InnerTrackBackground({
           <motion.rect
             x={leftSpring}
             y={0}
-            height={height}
             width={widthSpring}
+            height={height}
             className="fill-white pointer-events-none"
           />
         </mask>
@@ -146,19 +146,30 @@ function InnerTrackBackground({
 
       {/* Show the colored background (if necessary) */}
       {showBackground && (
-        <rect
-          name="track-colored-background"
-          width={width + TIMELINE_PADDING * 2}
-          fill={color}
-          mask="url(#boundsMask)"
-          className={clsx(
-            "transition-[fill] duration-75",
-            "translate-y-[0.5px]",
-            "h-[calc(100%-0.5px)]",
-            "group-hover/track:opacity-35 group-data-[highlighted]:opacity-35 opacity-20",
-            "pointer-events-none",
-          )}
-        />
+        <>
+          <motion.rect
+            name="track-active-background"
+            x={leftSpring}
+            y={0}
+            width={widthSpring}
+            fill={color}
+            opacity={0.2}
+            height={height}
+            className={clsx("transition-[fill] duration-75", "pointer-events-none")}
+          />
+          <motion.rect
+            name="track-colored-background"
+            width={width + TIMELINE_PADDING * 2}
+            fill={color}
+            height={height - 0.5}
+            className={clsx(
+              "transition-[fill] duration-75",
+              "translate-y-[0.5px]",
+              "group-hover/track:opacity-15 group-data-[highlighted]:opacity-15 opacity-0",
+              "pointer-events-none",
+            )}
+          />
+        </>
       )}
     </>
   );
@@ -214,7 +225,11 @@ function TickRegion({
   }, [tickDistance]);
 
   return (
-    <motion.g ref={tickRef} transform={transformSpring.get()} mask="url(#boundsMask)">
+    <motion.g
+      ref={tickRef}
+      transform={transformSpring.get()}
+      // mask="url(#boundsMask)"
+    >
       {timedFrames.map((tick, idx) => {
         const isMajor = idx % framerate === 0;
         const x = xScale(tick.stamp * playerDuration);
