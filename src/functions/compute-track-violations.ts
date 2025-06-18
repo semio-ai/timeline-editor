@@ -136,22 +136,22 @@ function valueHasUpperBoundError(value: RawValue, constraints: Constraints): boo
   if (typeof value === "number" && typeof (constraints as NumberConstraints)?.max === "number") {
     return value > ((constraints as NumberConstraints).max ?? Infinity);
   }
-  if (
-    instanceOfRawVector3(value) ||
-    (instanceOfRawEuler(value) && (constraints as Vec3Constraints).max !== undefined)
-  ) {
-    return ["x", "y", "z"].some((dim, i) => {
-      const dimValue = value[dim as keyof RawVector3 | keyof RawEuler];
-      return (dimValue as number) > ((constraints as Vec3Constraints).max?.[i] ?? Infinity);
-    });
-  }
-  if (
-    instanceOfRawVector2(value) ||
-    (instanceOfRawEuler(value) && (constraints as Vec3Constraints).max !== undefined)
-  ) {
+  if (instanceOfRawVector2(value)) {
     return ["x", "y"].some((dim, i) => {
       const dimValue = value[dim as keyof RawVector2];
       return (dimValue as number) > ((constraints as Vec2Constraints).max?.[i] ?? Infinity);
+    });
+  }
+  if (instanceOfRawVector3(value)) {
+    return ["x", "y", "z"].some((dim, i) => {
+      const dimValue = value[dim as keyof RawVector3];
+      return (dimValue as number) > ((constraints as Vec3Constraints).max?.[i] ?? Infinity);
+    });
+  }
+  if (instanceOfRawEuler(value) && (constraints as Vec3Constraints).max !== undefined) {
+    return ["r", "p", "y"].some((dim, i) => {
+      const dimValue = value[dim as keyof RawEuler];
+      return (dimValue as number) > ((constraints as Vec3Constraints).max?.[i] ?? Infinity);
     });
   }
   if (instanceOfRawColor(value) && (constraints as ColorConstraints).max !== undefined) {
@@ -177,22 +177,22 @@ function valueHasLowerBoundError(value: RawValue, constraints: Constraints): boo
   if (typeof value === "number" && typeof (constraints as NumberConstraints)?.min === "number") {
     return value < ((constraints as NumberConstraints).min ?? -Infinity);
   }
-  if (
-    instanceOfRawVector3(value) ||
-    (instanceOfRawEuler(value) && (constraints as Vec3Constraints).min !== undefined)
-  ) {
-    return ["x", "y", "z"].some((dim, i) => {
-      const dimValue = value[dim as keyof RawVector3 | keyof RawEuler];
-      return (dimValue as number) < ((constraints as Vec3Constraints).min?.[i] ?? -Infinity);
-    });
-  }
-  if (
-    instanceOfRawVector2(value) ||
-    (instanceOfRawEuler(value) && (constraints as Vec3Constraints).min !== undefined)
-  ) {
+  if (instanceOfRawVector2(value)) {
     return ["x", "y"].some((dim, i) => {
       const dimValue = value[dim as keyof RawVector2];
       return (dimValue as number) < ((constraints as Vec2Constraints).min?.[i] ?? -Infinity);
+    });
+  }
+  if (instanceOfRawVector3(value)) {
+    return ["x", "y", "z"].some((dim, i) => {
+      const dimValue = value[dim as keyof RawVector3];
+      return (dimValue as number) < ((constraints as Vec3Constraints).min?.[i] ?? -Infinity);
+    });
+  }
+  if (instanceOfRawEuler(value) && (constraints as Vec3Constraints).min !== undefined) {
+    return ["r", "p", "y"].some((dim, i) => {
+      const dimValue = value[dim as keyof RawEuler];
+      return (dimValue as number) < ((constraints as Vec3Constraints).min?.[i] ?? -Infinity);
     });
   }
   if (instanceOfRawColor(value) && (constraints as ColorConstraints).min !== undefined) {
@@ -269,7 +269,7 @@ function genericDistance(point1: RawValue, point2: RawValue): number {
       if (instanceOfRawVector3(point1) && instanceOfRawVector3(point2)) {
         return distance([point1.x, point1.y, point1.z], [point2.x, point2.y, point2.z]);
       } else if (instanceOfRawEuler(point1) && instanceOfRawEuler(point2)) {
-        return angularDistance([point1.x, point1.y, point1.z], [point2.x, point2.y, point2.z]);
+        return angularDistance([point1.r, point1.p, point1.y], [point2.r, point2.p, point2.y]);
       } else if (instanceOfRawRGB(point1) && instanceOfRawRGB(point2)) {
         return distance([point1.r, point1.g, point1.b], [point2.r, point2.g, point2.b]);
       } else if (instanceOfRawHSL(point1) && instanceOfRawHSL(point2)) {
