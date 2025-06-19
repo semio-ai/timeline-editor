@@ -1,5 +1,5 @@
-import { memo, useMemo, useRef } from "react";
-import { pick } from "lodash";
+import { memo, useMemo, useRef, useState } from "react";
+import { pick, uniq } from "lodash";
 import { useShallow } from "zustand/react/shallow";
 import { overlappingSegments, RawValue, useDeepSelector } from "@semio/utils";
 import { useAnimationStore, useTrackContext, useTrackTransformSpring } from "../../hooks";
@@ -20,6 +20,10 @@ export interface DataDisplayProps {
 function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisplayProps) {
   const { trackIds, bounds } = useTrackContext();
 
+  // keep track of which tracks are being dragged,
+  // so that we can prevent them from being merged until keydown.
+  const [draggingFrames, setDraggingFrames] = useState<string[]>([]);
+
   const groupRef = useRef<SVGSVGElement>(null);
 
   const tracks: Record<string, Track<RawValue>> = useAnimationStore(
@@ -36,8 +40,8 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
   }, [violations, trackIds]);
 
   const frameData: InstancedFrameInfo[] = useMemo(() => {
-    return computeFrames(tracks);
-  }, [tracks]);
+    return computeFrames(tracks, draggingFrames);
+  }, [tracks, draggingFrames]);
 
   const interps = useMemo(() => {
     return computeInterpolationSegments(frameData, trackIds);
@@ -93,7 +97,22 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
         </g>
 
         {frameData.map((frameInstance: InstancedFrameInfo) => (
-          <FrameMarker key={frameInstance.id} data={frameInstance} ignoreZoom={ignoreZoom} />
+          <FrameMarker
+            key={frameInstance.id}
+            data={frameInstance}
+            ignoreZoom={ignoreZoom}
+            onDragStart={() => {
+              // Update the set of dragging frames based on the frame instance
+              const ids = uniq(frameInstance.points.map((p) => p.id));
+              console.log("Setting dragging frames to", ids);
+              setDraggingFrames(ids);
+            }}
+            onDragEnd={() => {
+              // Clear the dragging tracks when the drag ends
+              console.log("Setting dragging frames to empty");
+              setDraggingFrames([]);
+            }}
+          />
         ))}
       </g>
     </g>
