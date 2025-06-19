@@ -428,16 +428,36 @@ export const AnimationSlice = (
 
         // If the time changes, run the interpolators with the new time
         usePlayerStore.subscribe(
-          (state: PlayerData) => ({ stamp: state.player.stamp, running: state.player.running }),
-          ({ stamp }) => {
+          (state: PlayerData) => ({
+            stamp: state.player.stamp,
+            running: state.player.running,
+            speed: state.player.speed,
+            currentDirection: state.player._currentDirection,
+          }),
+          ({ stamp, running, currentDirection, speed }) => {
             const trackInterpolators = get().trackInterpolators;
             const result = new Map<string, RawValue | undefined>();
-            const derivatives = new Map<string, RawValue | undefined>();
+            const velocities = new Map<string, RawValue | undefined>();
+            const multiplier = (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
+
             Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
-              derivatives.set(key, interpolatorCollection.derivative(stamp));
+              // Handle velocity calculation.
+              const vel = interpolatorCollection.derivative(stamp);
+              if (vel !== undefined) {
+                if (running) {
+                  velocities.set(key, rawValueMultiplyScalar(vel, multiplier));
+                } else {
+                  const stoppedVel = matchingIdentityRawValue(vel);
+                  velocities.set(key, stoppedVel);
+                }
+              } else {
+                velocities.set(key, undefined);
+              }
+              // Handle the value calculation.
               result.set(key, interpolatorCollection.value(stamp));
             });
             updateValues(result);
+            updateVelocities(velocities);
           },
           { equalityFn: shallow },
         ),
