@@ -69,7 +69,7 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
       <g ref={groupRef} transform={transformSpring.get()}>
         <ViolationDisplay violationSet={violationSet} ignoreZoom={ignoreZoom} />
 
-        <g mask="url(#keyMask)">
+        <g>
           {paddedInterps.map(
             (
               {

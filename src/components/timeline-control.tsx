@@ -9,7 +9,7 @@ import { pick } from "lodash";
 import { useAnimationStore, usePlayerSubscription } from "../hooks";
 import { computeFrames, computeLocalStamp, computeWorldStamp } from "../functions";
 import {
-  AnimationInterpolator,
+  TrackInterpolators,
   Track,
   AnimationInstanceSettings,
   InstancedFrameInfo,
@@ -49,7 +49,7 @@ export function TimelineControl({
         pick(
           state.trackInterpolators,
           Object.values(trackData).map((t) => getLookup(namespaceId, t.animatableId)), //f2e2e33d-7c3c-4540-9bf0-e6fda5d41d49
-        ) as AnimationInterpolator,
+        ) as TrackInterpolators,
     ),
   );
 
@@ -110,7 +110,7 @@ export function TimelineControl({
   }, [animationId, allTracks, onChangeSelection]);
 
   return (
-    <div className="flex flex-1 flex-row items-center h-9 gap-1 pl-1">
+    <div className="flex flex-1 flex-row h-9 items-center gap-1 pl-1">
       <TrackControl
         animationId={animationId}
         namespaceId={namespaceId}
@@ -131,7 +131,7 @@ export function TimelineControl({
           } else {
             const updates = Object.values(trackData)
               .map((track) => {
-                const value = interpolators[getLookup(namespaceId, track.animatableId)]?.(
+                const value = interpolators[getLookup(namespaceId, track.animatableId)]?.value?.(
                   stamp.current,
                 );
                 return {

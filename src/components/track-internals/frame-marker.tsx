@@ -8,6 +8,7 @@ import {
   useCallback,
   useState,
 } from "react";
+import { clsx } from "clsx";
 import {
   getHexagonPath,
   closestFrame,
@@ -75,14 +76,19 @@ function InnerFrameMarker({
     useShallow((state) => [state.updateKeypoints, state.updateHoverpointPreview]),
   );
 
-  const resetPlayer = usePlayerStore(useShallow((state) => state.resetPlayer));
+  const { resetPlayer, playing } = usePlayerStore(
+    useShallow((state) => ({ resetPlayer: state.resetPlayer, playing: state.player.running })),
+  );
 
   const doubleClickHandler = useCallback(
     (event: MouseEvent) => {
+      if (playing) {
+        return;
+      }
       resetPlayer(data.stamp);
       event.stopPropagation();
     },
-    [data.stamp, resetPlayer],
+    [data.stamp, resetPlayer, playing],
   );
 
   useZoomGestures(
@@ -137,7 +143,10 @@ function InnerFrameMarker({
     <motion.g
       ref={gestureRef as MutableRefObject<SVGGElement>}
       onDoubleClick={doubleClickHandler as any as MouseEventHandler}
-      className="group/frame touch-none pointer-events-boundary origin-left"
+      className={clsx(
+        "group/frame touch-none pointer-events-boundary origin-left",
+        playing ? "cursor-not-allowed" : "cursor-pointer",
+      )}
       aria-selected={isSelected}
       transform={transformSpring.get()}
     >

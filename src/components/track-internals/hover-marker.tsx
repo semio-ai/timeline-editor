@@ -37,7 +37,7 @@ function InnerHoverMarker({ ignoreZoom = false }: HoverMarkerProps): ReactNode {
       }}
       className={clsx(
         "touch-none stroke-transparent pointer-events-none",
-        "group-hover/sheet:stroke-black/50 dark:group-hover/sheet:stroke-white/50",
+        "group-hover/sheet:stroke-black dark:group-hover/sheet:stroke-white",
         "aria-selected:stroke-transparent",
       )}
       rx={1}
