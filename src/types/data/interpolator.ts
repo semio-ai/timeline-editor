@@ -1,6 +1,6 @@
 import { type RawValue } from "@semio/utils";
 
-export interface InterpolatorCollection {
+export interface ValueAndDerivativeInterpolators {
   value: TrackInterpolator;
   derivative: TrackInterpolator;
 }
@@ -8,7 +8,7 @@ export interface InterpolatorCollection {
 /**
  * A collection of Track Interpolators, indexed by id in a Map.
  */
-export type AnimationInterpolator = Record<string, InterpolatorCollection>;
+export type TrackInterpolators = Record<string, ValueAndDerivativeInterpolators>;
 
 /**
  * A function that interpolates a value for a track at a given time.

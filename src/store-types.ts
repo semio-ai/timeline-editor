@@ -4,7 +4,7 @@ import {
   Keypoint,
   Track,
   Animation,
-  AnimationInterpolator,
+  TrackInterpolators,
   AnimationInstance,
   Violation,
   StoredAnimation,
@@ -26,7 +26,7 @@ export interface AnimationData {
   /**
    * Current set of track interpolators.
    */
-  trackInterpolators: AnimationInterpolator;
+  trackInterpolators: TrackInterpolators;
   /**
    * A record of animation instances and their namespaces, used for specifying how
    * values are written into state.values without overriding others.
