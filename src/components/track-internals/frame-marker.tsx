@@ -33,8 +33,15 @@ import { useColors } from "../../hooks/use-colors";
 export interface FrameMarkerProps {
   data: InstancedFrameInfo;
   ignoreZoom?: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }
-function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): ReactNode {
+function InnerFrameMarker({
+  data,
+  ignoreZoom = false,
+  onDragEnd,
+  onDragStart,
+}: FrameMarkerProps): ReactNode {
   const gestureRef = useRef<SVGGElement>();
   const {
     frameCount,
@@ -96,6 +103,8 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
       onMove: () => {
         updateHoverpointPreview(data.stamp);
       },
+      onDragStart,
+      onDragEnd,
       onDrag: (state) => {
         const newPosition = zoomScale.current.invert(
           clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
