@@ -13,7 +13,8 @@ import { rawValueMultiplyScalar } from "./raw-value-math";
 /**
  *
  * @param tracks - The set of tracks indexed by their *name* (intended for the trajectory jointNames field)
- * @param animationInstanceSettings - The settings for the animation instance
+ * @param trackInterpolators - The set of interpolators indexed by their *lookup* (intended for the trajectory points field)
+ * @param namespace - The namespace for the tracks, used to get the correct interpolator
  * @param animationDuration - The duration of the animation
  * @param currentStamp - The current timestamp
  * @param speed - The speed of playback

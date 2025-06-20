@@ -5,6 +5,7 @@ export * from "./compute-interpolation-segments";
 export * from "./compute-stamps";
 export * from "./compute-stored-animation";
 export * from "./compute-track-interpolator";
+export * from "./compute-track-trajectories";
 export * from "./compute-track-violations";
 export * from "./compute-vertical-bounds";
 export * from "./compute-violation-set";
