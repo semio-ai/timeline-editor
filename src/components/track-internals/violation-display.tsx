@@ -91,8 +91,6 @@ function InnerViolationSegmentDisplay({
   const rectRefOrig = useRef<SVGRectElement>(null);
   const floatingRefOrig = useRef<HTMLDivElement>(null);
 
-  console.log("Segment", segment);
-
   const updateHoverpointPreview = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateHoverpointPreview),
   );
