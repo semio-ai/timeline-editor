@@ -50,7 +50,7 @@ export function rawValueDiff(point1: RawValue, point2: RawValue, preserveSign?: 
         }
       } else if (instanceOfRawEuler(point1) && instanceOfRawEuler(point2)) {
         return arrayToEuler(
-          eulerRotationBetween([point1.x, point1.y, point1.z], [point2.x, point2.y, point2.z]) as [
+          eulerRotationBetween([point1.r, point1.p, point1.y], [point2.r, point2.p, point2.y]) as [
             number,
             number,
             number,
@@ -119,7 +119,7 @@ export function rawValueMultiplyScalar(value: RawValue, scalar: number): RawValu
         };
       } else if (instanceOfRawEuler(value)) {
         return arrayToEuler(
-          eulerSlerp([0, 0, 0], [value.x, value.y, value.z], scalar) as [number, number, number],
+          eulerSlerp([0, 0, 0], [value.r, value.p, value.y], scalar) as [number, number, number],
         );
       } else if (instanceOfRawVector2(value)) {
         return {
@@ -228,7 +228,7 @@ export function rawValueNorm(value: RawValue): number {
       if (instanceOfRawVector3(value)) {
         return normVec([value.x, value.y, value.z]);
       } else if (instanceOfRawEuler(value)) {
-        return eulerNorm([value.x, value.y, value.z]);
+        return eulerNorm([value.r, value.p, value.y]);
       } else if (instanceOfRawVector2(value)) {
         return normVec([value.x, value.y]);
       } else if (instanceOfRawRGB(value)) {
