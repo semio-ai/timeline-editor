@@ -16,16 +16,22 @@ import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 
 const collapsibleTypes = ["vector3", "euler", "rgb", "hsl"];
-const vectorIndexLookup = {
+const vector3IndexLookup = {
   x: 0,
   y: 1,
   z: 2,
+};
+
+const eulerIndexLookup = {
+  r: 0,
+  p: 1,
+  y: 2,
+};
+
+const rgbIndexLookup = {
   r: 0,
   g: 1,
   b: 2,
-  h: 0,
-  s: 1,
-  l: 2,
 };
 
 export interface AnimatableEditorProps {
@@ -118,7 +124,7 @@ function InnerAnimatableEditor({
       />
     );
   } else if (animatableValue.type === "vector3" && (prop === "x" || prop === "y" || prop === "z")) {
-    const index = vectorIndexLookup[prop];
+    const index = vector3IndexLookup[prop];
     return (
       <SliderNumberField
         size={Size.Sm}
@@ -165,8 +171,8 @@ function InnerAnimatableEditor({
         onHighlightChange={onEmphasisChange}
       />
     );
-  } else if (animatableValue.type === "euler" && (prop === "x" || prop === "y" || prop === "z")) {
-    const index = vectorIndexLookup[prop];
+  } else if (animatableValue.type === "euler" && (prop === "r" || prop === "p" || prop === "y")) {
+    const index = eulerIndexLookup[prop];
     return (
       <SliderNumberField
         size={Size.Sm}
@@ -197,23 +203,23 @@ function InnerAnimatableEditor({
         color={color}
         onChange={(v) => {
           const vr = toRadians(v);
-          if (prop === "x") {
+          if (prop === "r") {
             handleValueChange({
-              x: vr,
+              r: vr,
+              p: (rawValue as RawEuler)?.p ?? animatableValue.default.p,
               y: (rawValue as RawEuler)?.y ?? animatableValue.default.y,
-              z: (rawValue as RawEuler)?.z ?? animatableValue.default.z,
+            });
+          } else if (prop === "p") {
+            handleValueChange({
+              r: (rawValue as RawEuler)?.r ?? animatableValue.default.r,
+              p: vr,
+              y: (rawValue as RawEuler)?.y ?? animatableValue.default.y,
             });
           } else if (prop === "y") {
             handleValueChange({
-              x: (rawValue as RawEuler)?.x ?? animatableValue.default.x,
+              r: (rawValue as RawEuler)?.r ?? animatableValue.default.r,
+              p: (rawValue as RawEuler)?.p ?? animatableValue.default.p,
               y: vr,
-              z: (rawValue as RawEuler)?.z ?? animatableValue.default.z,
-            });
-          } else if (prop === "z") {
-            handleValueChange({
-              x: (rawValue as RawEuler)?.x ?? animatableValue.default.x,
-              y: (rawValue as RawEuler)?.y ?? animatableValue.default.y,
-              z: vr,
             });
           }
         }}
@@ -223,7 +229,7 @@ function InnerAnimatableEditor({
       />
     );
   } else if (animatableValue.type === "rgb" && (prop === "r" || prop === "g" || prop === "b")) {
-    const index = vectorIndexLookup[prop];
+    const index = rgbIndexLookup[prop];
     return (
       <SliderNumberField
         size={Size.Sm}

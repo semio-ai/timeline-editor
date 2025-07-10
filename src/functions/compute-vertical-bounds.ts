@@ -113,8 +113,10 @@ function filteredMax(
 ): number {
   let index = -1;
   let min = Number.NEGATIVE_INFINITY;
-  if (animatable.type === "vector3" || animatable.type === "euler") {
+  if (animatable.type === "vector3") {
     index = ["x", "y", "z"].indexOf(attribute);
+  } else if (animatable.type === "euler") {
+    index = ["r", "p", "y"].indexOf(attribute);
   } else if (animatable.type === "rgb") {
     index = ["r", "g", "b"].indexOf(attribute);
     min = 0;

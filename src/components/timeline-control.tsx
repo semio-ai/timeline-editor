@@ -8,12 +8,7 @@ import { shallow } from "zustand/shallow";
 import { pick } from "lodash";
 import { useAnimationStore, usePlayerSubscription } from "../hooks";
 import { computeFrames, computeLocalStamp, computeWorldStamp } from "../functions";
-import {
-  TrackInterpolators,
-  Track,
-  AnimationInstanceSettings,
-  InstancedFrameInfo,
-} from "../types";
+import { TrackInterpolators, Track, AnimationInstanceSettings, InstancedFrameInfo } from "../types";
 import { AnimationActions, AnimationData } from "../store-types";
 import { TrackControl } from "./track-control";
 

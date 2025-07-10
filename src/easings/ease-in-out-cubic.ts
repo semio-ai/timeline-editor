@@ -18,15 +18,19 @@ export function easeInOutCubic(a: RawValue, b: RawValue): (t: number) => RawValu
   } else if (typeof a === "number" && typeof b === "number") {
     return (t: number) =>
       ((t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2) * (b - a) + a) as RawValue;
-  } else if (
-    (instanceOfRawVector3(a) && instanceOfRawVector3(b)) ||
-    (instanceOfRawEuler(a) && instanceOfRawEuler(b))
-  ) {
+  } else if (instanceOfRawVector3(a) && instanceOfRawVector3(b)) {
     return (t: number) =>
       ({
         x: easeInOutCubic(a.x, b.x)(t),
         y: easeInOutCubic(a.y, b.y)(t),
         z: easeInOutCubic(a.z, b.z)(t),
+      }) as RawValue;
+  } else if (instanceOfRawEuler(a) && instanceOfRawEuler(b)) {
+    return (t: number) =>
+      ({
+        r: easeInOutCubic(a.r, b.r)(t),
+        p: easeInOutCubic(a.p, b.p)(t),
+        y: easeInOutCubic(a.y, b.y)(t),
       }) as RawValue;
   } else if (instanceOfRawHSL(a) && instanceOfRawHSL(b)) {
     return (t: number) =>
