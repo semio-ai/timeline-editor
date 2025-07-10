@@ -8,6 +8,7 @@ import {
   useCallback,
   useState,
 } from "react";
+import { clsx } from "clsx";
 import {
   getHexagonPath,
   closestFrame,
@@ -32,8 +33,15 @@ import { useColors } from "../../hooks/use-colors";
 export interface FrameMarkerProps {
   data: InstancedFrameInfo;
   ignoreZoom?: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }
-function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): ReactNode {
+function InnerFrameMarker({
+  data,
+  ignoreZoom = false,
+  onDragEnd,
+  onDragStart,
+}: FrameMarkerProps): ReactNode {
   const gestureRef = useRef<SVGGElement>();
   const {
     frameCount,
@@ -68,14 +76,19 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     useShallow((state) => [state.updateKeypoints, state.updateHoverpointPreview]),
   );
 
-  const resetPlayer = usePlayerStore(useShallow((state) => state.resetPlayer));
+  const { resetPlayer, playing } = usePlayerStore(
+    useShallow((state) => ({ resetPlayer: state.resetPlayer, playing: state.player.running })),
+  );
 
   const doubleClickHandler = useCallback(
     (event: MouseEvent) => {
+      if (playing) {
+        return;
+      }
       resetPlayer(data.stamp);
       event.stopPropagation();
     },
-    [data.stamp, resetPlayer],
+    [data.stamp, resetPlayer, playing],
   );
 
   useZoomGestures(
@@ -90,6 +103,8 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
       onMove: () => {
         updateHoverpointPreview(data.stamp);
       },
+      onDragStart,
+      onDragEnd,
       onDrag: (state) => {
         const newPosition = zoomScale.current.invert(
           clamp(((state.xy[0] || 0) - timelineLeft) / timelineWidth, 0, 1),
@@ -128,7 +143,10 @@ function InnerFrameMarker({ data, ignoreZoom = false }: FrameMarkerProps): React
     <motion.g
       ref={gestureRef as MutableRefObject<SVGGElement>}
       onDoubleClick={doubleClickHandler as any as MouseEventHandler}
-      className="group/frame touch-none pointer-events-boundary origin-left"
+      className={clsx(
+        "group/frame touch-none pointer-events-boundary origin-left",
+        playing ? "cursor-not-allowed" : "cursor-pointer",
+      )}
       aria-selected={isSelected}
       transform={transformSpring.get()}
     >

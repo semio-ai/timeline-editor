@@ -4,6 +4,7 @@ export type * from "./data/interpolator";
 export type * from "./data/keypoint";
 export type * from "./data/track";
 export type * from "./data/track-group";
+export type * from "./data/trajectory";
 export type * from "./data/transition";
 export * from "./data/transition";
 export type * from "./data/violation";

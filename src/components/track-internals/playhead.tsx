@@ -1,11 +1,13 @@
-import { type ReactNode, useState, memo, useRef } from "react";
+import { type ReactNode, memo, useRef, useMemo } from "react";
+import { clsx } from "clsx";
 import { useTransform } from "motion/react";
 import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { closestFrame, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-import { useTrackContext, usePlayheadSpring } from "../../hooks";
+import { useTrackContext, usePlayheadSpring, useAnimationStore } from "../../hooks";
 import { DRAG_X_CONFIG } from "../../gesture-config";
+import { SemanticTime } from "../../types";
 
 export interface PlayheadProps {
   ignoreZoom?: boolean;
@@ -18,9 +20,17 @@ function InnerPlayhead({ ignoreZoom = false }: PlayheadProps): ReactNode {
     frameCount,
   } = useTrackContext();
 
-  const [hovered, setHovered] = useState(false);
+  const [previewCurrent, removePreview, addPreview] = useAnimationStore(
+    useShallow((state) => [
+      state.previews.find((p) => p.semanticTime === SemanticTime.Current) !== undefined,
+      state.removePreview,
+      state.addPreview,
+    ]),
+  );
 
-  const resetPlayer = usePlayerStore(useShallow((state) => state.resetPlayer));
+  const { resetPlayer, playing } = usePlayerStore(
+    useShallow((state) => ({ resetPlayer: state.resetPlayer, playing: state.player.running })),
+  );
 
   const playheadSpring = usePlayheadSpring(ignoreZoom);
 
@@ -40,7 +50,13 @@ function InnerPlayhead({ ignoreZoom = false }: PlayheadProps): ReactNode {
         }
       },
       onHover: (state) => {
-        setHovered(state.hovering || false);
+        if (state.hovering) {
+          if (!previewCurrent) {
+            addPreview({ semanticTime: SemanticTime.Current, stamp: 0, label: "Current" });
+          }
+        } else {
+          removePreview((p) => p.semanticTime === SemanticTime.Current);
+        }
       },
     },
     { ...DRAG_X_CONFIG, target: gRef },
@@ -52,22 +68,28 @@ function InnerPlayhead({ ignoreZoom = false }: PlayheadProps): ReactNode {
     gRef.current?.setAttribute("transform", v);
   });
 
+  const lineColorClassName = useMemo(() => {
+    return clsx(
+      "touch-none transition-colors duration-75",
+      playing ? "cursor-not-allowed" : "cursor-pointer",
+      playing && "stroke-neutral-500",
+      !playing && !previewCurrent && "dark:stroke-neutral-300 stroke-neutral-700",
+      !playing && previewCurrent && "dark:stroke-white stroke-black",
+    );
+  }, [playing, previewCurrent]);
+
   return (
     <g ref={gRef} transform={transform.get()} className="touch-none">
       {/* This is an element that makes a slightly larger hitbox */}
       <rect x={-2.5} y={0} width={5} height={timelineHeight} className="fill-transparent" />
 
-      <path d={`M 0 0 L 0 ${timelineHeight.toString()}`} className={getStyle(hovered)} />
+      <path
+        d={`M 0 0 L 0 ${timelineHeight.toString()}`}
+        className={lineColorClassName}
+        strokeWidth={2}
+      />
     </g>
   );
-}
-
-function getStyle(hovered: boolean): string {
-  if (hovered) {
-    return "stroke-2 dark:stroke-white stroke-black";
-  } else {
-    return "stroke-2 dark:stroke-neutral-300 stroke-neutral-700";
-  }
 }
 
 export const Playhead = memo(InnerPlayhead);

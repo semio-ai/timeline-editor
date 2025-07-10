@@ -17,13 +17,11 @@ import {
   instanceOfRawVector3,
   instanceOfRawVector2,
   instanceOfRawEuler,
-  instanceOfRawRGB,
-  instanceOfRawHSL,
-  angularDistance,
   instanceOfRawColor,
 } from "@semio/utils";
 import { ViolationType } from "../types";
 import type { Violation, TrackInterpolator } from "../types";
+import { rawValueNorm, rawValueDiff } from "./raw-value-math";
 
 export type InterpolatorCache = Map<string, Map<string, RawValue | undefined>>;
 type Vec3Constraints = (AnimatableVector3 | AnimatableEuler)["constraints"];
@@ -220,7 +218,7 @@ function valueHasVelocityError(
   constraints: Constraints,
   timeDelta: number,
 ): boolean {
-  const valueDelta = genericDistance(currentValue, nextValue);
+  const valueDelta = rawValueNorm(rawValueDiff(currentValue, nextValue));
   const velocity = Math.abs(valueDelta / timeDelta);
   return velocity > (constraints as NumberConstraints).velocity!;
 }
@@ -286,3 +284,4 @@ function genericDistance(point1: RawValue, point2: RawValue): number {
 function distance(p1: [number, number, number], p2: [number, number, number]): number {
   return Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2);
 }
+

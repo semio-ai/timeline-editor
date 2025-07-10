@@ -122,13 +122,13 @@ function InnerInterpolationSegment({
         strokeDashoffset={pseudoRegion ? inverseScale : "none"}
         d={pathLineSpring}
         stroke={color}
+        strokeWidth={getStroke(trackRender, pseudoRegion)}
         className={clsx(
           "transition-[colors,stroke] duration-75 pointer-events-none",
           "fill-transparent",
           trackRender === TrackRender.Key && pseudoRegion
             ? pseudoRegionOpacityClass
             : "opacity-100",
-          getStroke(trackRender, pseudoRegion),
         )}
       />
     </g>
@@ -137,13 +137,13 @@ function InnerInterpolationSegment({
 
 export const InterpolationSegment = memo(InnerInterpolationSegment);
 
-function getStroke(trackRender: TrackRender, pseudoRegion: boolean): string {
+function getStroke(trackRender: TrackRender, pseudoRegion: boolean): number {
   if (trackRender === TrackRender.Key) {
-    return "stroke-[4px]";
+    return 4;
   } else if (trackRender === TrackRender.Transition && pseudoRegion) {
-    return "stroke-0";
+    return 0;
   }
-  return "stroke-[1.5px]";
+  return 1.5;
 }
 
 function getStartAndEnd(

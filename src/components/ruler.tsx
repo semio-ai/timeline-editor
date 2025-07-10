@@ -213,7 +213,7 @@ function Tick({
         )}
       />
       {major && (
-        <ScaledText ignoreZoom={ignoreZoom} x={0} y={side === "top" ? 8 : 16}>
+        <ScaledText ignoreZoom={ignoreZoom} x={0} y={side === "top" ? 8 : height - 16}>
           {visualTime}
         </ScaledText>
       )}

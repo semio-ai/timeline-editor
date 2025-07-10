@@ -5,6 +5,7 @@ import {
   getLookup,
   usePlayerStore,
   PlayerData,
+  PlayerDirection,
 } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -50,6 +51,8 @@ import {
   computeStoredAnimation,
   computeWorldStamp,
 } from "./functions";
+import { computeDerivativeInterpolator } from "./functions/compute-derivative-interpolator";
+import { matchingIdentityRawValue, rawValueMultiplyScalar } from "./functions/raw-value-math";
 
 enableMapSet();
 
@@ -73,6 +76,19 @@ export const AnimationSlice = (
               state.values.delete(key);
             } else {
               state.values.set(key, value);
+            }
+          });
+        }),
+      );
+    },
+    updateVelocities: (velocities: Map<string, RawValue | undefined>) => {
+      set(
+        produce((state: AnimationData) => {
+          velocities.forEach?.((value, key) => {
+            if (value === undefined) {
+              state.velocities.delete(key);
+            } else {
+              state.velocities.set(key, value);
             }
           });
         }),
@@ -322,6 +338,7 @@ export const AnimationSlice = (
       const updatePlayerInner = playerStoreState.updatePlayer;
       const updateDuration = playerStoreState.updateDuration;
       const updateValues = get().updateValues;
+      const updateVelocities = get().updateVelocities;
 
       // If the time changes, check if it matches an existing keyframe and
       // set the current selected keyframe
@@ -377,26 +394,70 @@ export const AnimationSlice = (
         api.subscribe(
           (state: AnimationData) => state.trackInterpolators,
           (trackInterpolators) => {
-            const stamp = usePlayerStore.getState().player.stamp;
+            const playerState = usePlayerStore.getState();
+            const stamp = playerState.player.stamp;
+            const playing = playerState.player.running;
+            // The _currentDirection is the actual direction of the player,
+            // as opposed to the "direction" setting, which is a higher-level mode.
+            const currentDirection = playerState.player._currentDirection;
+            const speed = playerState.player.speed;
             const result = new Map<string, RawValue | undefined>();
-            Object.entries(trackInterpolators).forEach(([key, trackInterpolator]) => {
-              result.set(key, trackInterpolator(stamp));
+            const velocities = new Map<string, RawValue | undefined>();
+            const multiplier = (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
+            Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
+              // Handle velocity calculation.
+              const vel = interpolatorCollection.derivative(stamp);
+              if (vel !== undefined) {
+                if (playing) {
+                  velocities.set(key, rawValueMultiplyScalar(vel, multiplier));
+                } else {
+                  const stoppedVel = matchingIdentityRawValue(vel);
+                  velocities.set(key, stoppedVel);
+                }
+              } else {
+                velocities.set(key, undefined);
+              }
+              // Handle the value calculation.
+              result.set(key, interpolatorCollection.value(stamp));
             });
             updateValues(result);
+            updateVelocities(velocities);
           },
           { equalityFn: (current, previous) => current.stamp === previous.stamp },
         ),
 
         // If the time changes, run the interpolators with the new time
         usePlayerStore.subscribe(
-          (state: PlayerData) => state.player.stamp,
-          (stamp) => {
+          (state: PlayerData) => ({
+            stamp: state.player.stamp,
+            running: state.player.running,
+            speed: state.player.speed,
+            currentDirection: state.player._currentDirection,
+          }),
+          ({ stamp, running, currentDirection, speed }) => {
             const trackInterpolators = get().trackInterpolators;
             const result = new Map<string, RawValue | undefined>();
-            Object.entries(trackInterpolators).forEach(([key, trackInterpolator]) => {
-              result.set(key, trackInterpolator(stamp));
+            const velocities = new Map<string, RawValue | undefined>();
+            const multiplier = (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
+
+            Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
+              // Handle velocity calculation.
+              const vel = interpolatorCollection.derivative(stamp);
+              if (vel !== undefined) {
+                if (running) {
+                  velocities.set(key, rawValueMultiplyScalar(vel, multiplier));
+                } else {
+                  const stoppedVel = matchingIdentityRawValue(vel);
+                  velocities.set(key, stoppedVel);
+                }
+              } else {
+                velocities.set(key, undefined);
+              }
+              // Handle the value calculation.
+              result.set(key, interpolatorCollection.value(stamp));
             });
             updateValues(result);
+            updateVelocities(velocities);
           },
           { equalityFn: shallow },
         ),
@@ -438,14 +499,45 @@ export const AnimationSlice = (
                   ({ track, animatableValue }) => {
                     if (!track) return;
 
+                    const playerState = usePlayerStore.getState();
+
+                    const stamp = playerState.player.stamp;
+                    const playing = playerState.player.running;
+                    const currentDirection = playerState.player._currentDirection;
+                    const speed = playerState.player.speed;
+                    const multiplier =
+                      (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
+
                     const newVals = new Map<string, RawValue | undefined>();
+                    const newVelocities = new Map<string, RawValue | undefined>();
                     let newViolations: Violation[] = [];
 
                     const lookup = getLookup(namespace, track.animatableId ?? trackId);
 
                     const trackInterp = computeTrackInterpolator(track, instance);
+                    const derivativeInterp = computeDerivativeInterpolator(trackInterp, duration);
 
-                    newVals.set(lookup, trackInterp(usePlayerStore.getState().player.stamp));
+                    // Handle setting the values.
+                    newVals.set(lookup, trackInterp(stamp));
+                    // Handle setting the velocities.
+                    // If the player is running, we use the derivative interpolator,
+                    const vel = derivativeInterp(stamp);
+                    if (vel !== undefined) {
+                      if (playing) {
+                        newVelocities.set(lookup, rawValueMultiplyScalar(vel, multiplier));
+                      } else {
+                        const stoppedVel = matchingIdentityRawValue(vel);
+                        newVelocities.set(lookup, stoppedVel);
+                      }
+                    } else {
+                      newVelocities.set(lookup, undefined);
+                    }
+
+                    newVelocities.set(
+                      lookup,
+                      playing ? derivativeInterp(playerState.player.stamp) : 0,
+                    );
+
                     newViolations = [
                       ...newViolations,
                       ...(animatableValue
@@ -462,9 +554,13 @@ export const AnimationSlice = (
                     set((state: AnimationData) => ({
                       trackInterpolators: {
                         ...state.trackInterpolators,
-                        [lookup]: trackInterp,
+                        [lookup]: {
+                          value: trackInterp,
+                          derivative: derivativeInterp,
+                        },
                       },
                       values: new Map([...state.values, ...newVals]),
+                      velocities: new Map([...state.velocities, ...newVelocities]),
                       violations: { ...state.violations, [trackId]: newViolations },
                     }));
                   },

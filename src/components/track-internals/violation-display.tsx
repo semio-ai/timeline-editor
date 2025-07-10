@@ -17,7 +17,13 @@ import { closestFrame, PlayerActions, useDeepSelector, usePlayerStore } from "@s
 import { TrackedTooltip, useTrackedTooltip } from "@semio/ui";
 import { uniq, clamp } from "lodash";
 import { TIMELINE_PADDING } from "../../constants";
-import { useAnimationStore, useZoomGestures, useTrackContext, usePairSprings } from "../../hooks";
+import {
+  useAnimationStore,
+  useZoomGestures,
+  useTrackContext,
+  usePairSprings,
+  useColors,
+} from "../../hooks";
 import { ViolationSet, Violation, ViolationType } from "../../types";
 import { AnimationData, AnimationActions } from "../../store-types";
 
@@ -80,7 +86,6 @@ interface ViolationSegmentDisplayProps {
 function InnerViolationSegmentDisplay({
   segment,
   violations,
-  ignoreZoom,
   dataLookup,
 }: ViolationSegmentDisplayProps) {
   const rectRefOrig = useRef<SVGRectElement>(null);
@@ -90,12 +95,8 @@ function InnerViolationSegmentDisplay({
     useShallow((state: AnimationActions) => state.updateHoverpointPreview),
   );
 
-  const { xScale, zoomScale, bounds, frameCount, color: defaultTrackColor } = useTrackContext();
-  const { left, width } = usePairSprings(
-    segment.stampRange.start,
-    segment.stampRange.end,
-    ignoreZoom,
-  );
+  const { xScale, zoomScale, bounds, frameCount, animationDuration } = useTrackContext();
+  const { left, width } = usePairSprings(segment.stampRange.start, segment.stampRange.end, true);
 
   const resetPlayer = usePlayerStore(useShallow((state: PlayerActions) => state.resetPlayer));
 
@@ -124,17 +125,11 @@ function InnerViolationSegmentDisplay({
     [bounds, frameCount, resetPlayer, zoomScale],
   );
 
-  const [uniqueTracks, color] = useMemo(() => {
-    const uniqueTracksSet = uniq(
-      segment.violations.map((violationId) => violations[violationId].trackId),
-    );
-    const size = uniqueTracksSet.length;
-    if (size === 0 || size > 1) {
-      return [uniqueTracksSet, defaultTrackColor];
-    } else {
-      return [uniqueTracksSet, dataLookup[uniqueTracksSet[0]].color];
-    }
-  }, [dataLookup, defaultTrackColor, segment, violations]);
+  const uniqueTracks = useMemo(() => {
+    return uniq(segment.violations.map((violationId) => violations[violationId].trackId));
+  }, [segment, violations]);
+
+  const color = useColors(uniqueTracks);
 
   useZoomGestures(rectRefOrig as MutableRefObject<EventTarget>, {
     onHover: ({ xy, hovering }) => {
@@ -157,8 +152,10 @@ function InnerViolationSegmentDisplay({
     },
   });
 
-  const x = useTransform(left, (ls) => xScale(ls));
-  const w = useTransform(width, (ws) => Math.max(0, xScale(ws) - TIMELINE_PADDING));
+  const x = useTransform(left, (ls) => xScale(ls * animationDuration));
+  const w = useTransform(width, (ws) =>
+    Math.max(0, xScale(ws * animationDuration) - TIMELINE_PADDING),
+  );
 
   return (
     <>

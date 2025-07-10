@@ -39,7 +39,8 @@ export function computeInterpolationSegments(
     const inside = uniqueSegments.some(([startSegment, endSegment]: [number, number]) => {
       return start.stamp >= startSegment && end.stamp <= endSegment;
     });
-    if (inside) {
+    // Only add segments where start and end are different frames
+    if (inside && start.stamp !== end.stamp) {
       segments.push({ start, end });
     }
   });

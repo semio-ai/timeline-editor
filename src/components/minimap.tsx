@@ -5,7 +5,7 @@ import { TrackVisualizer } from "./track-visualizer";
 export function Minimap({
   animationId,
   instanceSettings,
-  height = 32,
+  height = 36,
   width = 2 * TIMELINE_PADDING,
 }: {
   animationId: string;

@@ -18,6 +18,7 @@ export const createDefaultState = (): AnimationData => {
 
   return {
     values: new Map(),
+    velocities: new Map(),
     trackInterpolators: {},
     namespaceInfo: {},
     animations: {},
