@@ -13,13 +13,7 @@ export function DataPointsRenderer() {
 
       {/* Individual instances */}
       {allData.map((point) => (
-        <DataPoint
-          key={point.id}
-          id={point.id}
-          x={point.x}
-          y={point.y}
-          color={point.color}
-        />
+        <DataPoint key={point.id} id={point.id} x={point.x} y={point.y} color={point.color} />
       ))}
     </Instances>
   );
