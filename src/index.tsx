@@ -7,6 +7,10 @@ export {
   type AnimationSheetProps,
   type TrackVisualizerProps,
 } from "./components";
+export {
+  AnimationSheet3D,
+  type AnimationSheet3DProps,
+} from "./components/three/animation-sheet-3d";
 export * from "./hooks";
 export * from "./context";
 export * from "./store-types";

@@ -10,7 +10,7 @@ The migration to Three.js uses drei's View component to enable multiple synchron
 
 ```tsx
 // One canvas to rule them all
-<Canvas frameloop="demand" className="animation-canvas">
+<Canvas frameloop="always" className="animation-canvas">
   <View.Port />
 </Canvas>
 
@@ -62,13 +62,13 @@ export function AnimationSheet3D() {
   return (
     <div className="animation-sheet-container">
       {/* Single Canvas for all 3D rendering */}
-      <Canvas 
+      <Canvas
         frameloop="always" // Continuous rendering for smooth animations
         className="absolute inset-0 pointer-events-none"
-        gl={{ 
+        gl={{
           antialias: false,
           alpha: true,
-          preserveDrawingBuffer: true 
+          preserveDrawingBuffer: true
         }}
       >
         <View.Port />
@@ -119,7 +119,7 @@ interface View3DProps {
 
 function BaseView3D({ trackRef, width, height, children }: View3DProps) {
   const viewportTransform = useViewportTransform();
-  
+
   return (
     <View track={trackRef} className="w-full h-full">
       <OrthographicCamera
@@ -132,7 +132,7 @@ function BaseView3D({ trackRef, width, height, children }: View3DProps) {
       <ambientLight intensity={1} />
       {/* Use transform groups for cleaner architecture */}
       <group name="viewport-root">
-        <group 
+        <group
           name="viewport-transform"
           scale={[viewportTransform.scale, 1, 1]}
           position={[viewportTransform.offset, 0, 0]}
@@ -152,7 +152,7 @@ Track rows require special handling as they're dynamically created:
 ```tsx
 function TrackList3D({ trackRefs }) {
   const tracks = useAnimationStore(state => state.tracks);
-  
+
   // Manage refs for dynamic tracks
   useEffect(() => {
     tracks.forEach(track => {
@@ -160,7 +160,7 @@ function TrackList3D({ trackRefs }) {
         trackRefs.current.set(track.id, createRef());
       }
     });
-    
+
     // Clean up removed tracks
     Array.from(trackRefs.current.keys()).forEach(id => {
       if (!tracks.find(t => t.id === id)) {
@@ -204,7 +204,7 @@ const useCameraStore = create((set) => ({
 function SynchronizedView({ trackRef, children }) {
   const { zoom, position } = useCameraStore();
   const { camera } = useThree();
-  
+
   useEffect(() => {
     camera.zoom = zoom;
     camera.position.x = position[0];
@@ -236,7 +236,7 @@ import { PanZoomControls } from './pan-zoom-controls';
 
 function TimelineControls({ enablePan = true, enableZoom = true }) {
   const controlsRef = useRef();
-  
+
   return (
     <PanZoomControls
       ref={controlsRef}
@@ -270,18 +270,18 @@ Integrate the current `useZoomGestures` hook with Three.js camera:
 function AdaptedGestureView({ trackRef }) {
   const { camera, size } = useThree();
   const viewportRef = useRef();
-  
+
   // Adapt existing gesture handler
   const onWheel = useCallback(({ shiftKey, delta, event }) => {
     if ((event.ctrlKey || event.metaKey) && delta[1] !== 0) {
       // Zoom via mod+vertical scroll
       const zoomFactor = delta[1] > 0 ? 0.9 : 1.1;
-      
+
       // Update camera frustum
       const currentWidth = camera.right - camera.left;
       const newWidth = currentWidth * zoomFactor;
       const center = (camera.left + camera.right) / 2;
-      
+
       camera.left = center - newWidth / 2;
       camera.right = center + newWidth / 2;
       camera.updateProjectionMatrix();
@@ -293,7 +293,7 @@ function AdaptedGestureView({ trackRef }) {
       camera.updateProjectionMatrix();
     }
   }, [camera]);
-  
+
   useGesture({
     onWheel,
     onPinch: ({ offset: [scale], origin }) => {
@@ -305,7 +305,7 @@ function AdaptedGestureView({ trackRef }) {
     target: viewportRef,
     eventOptions: { passive: false }
   });
-  
+
   return (
     <div ref={viewportRef}>
       <View track={trackRef}>
@@ -321,7 +321,7 @@ function AdaptedGestureView({ trackRef }) {
 Use **Custom Controls** (Option 1) for better maintainability and performance:
 
 1. The PanZoomControls already implement the desired behavior
-2. Better integration with Three.js event system  
+2. Better integration with Three.js event system
 3. Cleaner separation of concerns
 4. Easier to debug and optimize
 
@@ -355,10 +355,10 @@ function InteractiveView({ trackRef, onInteraction }) {
 function GestureEnabledView({ trackRef }) {
   const viewBounds = useRef();
   const { gl } = useThree();
-  
+
   // Measure the tracking div
   const [measureRef, bounds] = useMeasure();
-  
+
   // Apply gestures to the specific view area
   useGesture({
     onWheel: ({ delta, event }) => {
@@ -393,18 +393,18 @@ With `frameloop="always"`, optimization focuses on reducing work per frame rathe
 function OptimizedView({ trackRef, children }) {
   const [isInViewport, setIsInViewport] = useState(true);
   const viewportInfo = useViewportInfo();
-  
+
   // Use Intersection Observer to cull invisible views
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => setIsInViewport(entry.isIntersecting),
       { threshold: 0 }
     );
-    
+
     if (trackRef.current) {
       observer.observe(trackRef.current);
     }
-    
+
     return () => observer.disconnect();
   }, [trackRef]);
 
@@ -428,7 +428,7 @@ Using group-based LOD from the transform architecture:
 function LODView({ trackRef, children }) {
   const { camera } = useThree();
   const [detailLevel, setDetailLevel] = useState('high');
-  
+
   useFrame(() => {
     // Adjust detail based on zoom level
     const zoom = camera.zoom;
@@ -436,7 +436,7 @@ function LODView({ trackRef, children }) {
     else if (zoom < 2) setDetailLevel('medium');
     else setDetailLevel('high');
   });
-  
+
   return (
     <View track={trackRef}>
       <LODTrackContent detailLevel={detailLevel}>
@@ -455,9 +455,9 @@ For many tracks, implement virtualization:
 function VirtualizedTrackList({ trackRefs }) {
   const tracks = useAnimationStore(state => state.tracks);
   const [visibleRange, setVisibleRange] = useState([0, 10]);
-  
+
   const visibleTracks = tracks.slice(visibleRange[0], visibleRange[1]);
-  
+
   return (
     <VirtualScroll
       items={tracks}
@@ -486,12 +486,12 @@ const materialPool = new Map();
 
 export function getPooledMaterial(type, props) {
   const key = `${type}-${JSON.stringify(props)}`;
-  
+
   if (!materialPool.has(key)) {
     const material = createMaterial(type, props);
     materialPool.set(key, material);
   }
-  
+
   return materialPool.get(key);
 }
 ```
@@ -519,7 +519,7 @@ export function useSharedGeometry(type) {
 function ViewWithStoreSync({ trackRef, trackId }) {
   const track = useAnimationStore(state => state.tracks[trackId]);
   const frames = useAnimationStore(state => state.frames[trackId]);
-  
+
   return (
     <View track={trackRef}>
       <TrackScene track={track} frames={frames} />
@@ -534,7 +534,7 @@ function ViewWithStoreSync({ trackRef, trackId }) {
 function ViewWithPlayback({ trackRef }) {
   const currentTime = usePlayerStore(state => state.currentTime);
   const playbackState = usePlayerStore(state => state.playbackState);
-  
+
   return (
     <View track={trackRef}>
       <PlayheadIndicator time={currentTime} />
@@ -580,11 +580,11 @@ function DebugView({ trackRef, children }) {
 ```tsx
 function ViewWithStats({ trackRef, children }) {
   const stats = useRef();
-  
+
   useFrame(() => {
     stats.current?.update();
   });
-  
+
   return (
     <View track={trackRef}>
       <Stats ref={stats} showPanel={0} />

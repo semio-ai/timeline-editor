@@ -11,3 +11,4 @@ export * from "./track-control";
 export * from "./track-gap";
 export * from "./track-list";
 export * from "./track-row";
+export * from "./three";

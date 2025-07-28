@@ -1,13 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useContext, type ReactNode } from "react";
 import {
   AnimationSheet,
   AnimationContext,
   type AnimationSheetProps,
   type AnimationData,
   type AnimationActions,
-  useAnimationStore,
-  useDefaultAnimationStore,
+  createAnimationStore,
 } from "@semio/animation";
 import { usePlayerStore } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
@@ -37,6 +36,7 @@ type Story = StoryObj<typeof meta>;
 
 interface AnimationSheetWithContextProps extends AnimationSheetProps {
   initial?: Partial<AnimationData & AnimationActions>;
+  storeInstance?: ReturnType<typeof createAnimationStore>;
 }
 
 function AnimationSheetWithContext({
@@ -44,9 +44,12 @@ function AnimationSheetWithContext({
   animationInstances,
   onToggleExpand,
   height,
+  storeInstance,
 }: AnimationSheetWithContextProps): ReactNode {
+  const store = storeInstance || createAnimationStore();
+
   return (
-    <AnimationContext.Provider value={useDefaultAnimationStore}>
+    <AnimationContext.Provider value={store}>
       <AppWithAnimation
         namespaceId={namespaceId}
         animationInstances={animationInstances}
@@ -63,6 +66,12 @@ function AppWithAnimation({
   onToggleExpand,
   height,
 }: AnimationSheetProps): ReactNode {
+  const store = useContext(AnimationContext);
+
+  if (!store) {
+    throw new Error("AnimationContext must be provided");
+  }
+
   const {
     setAnimations,
     setTracks,
@@ -70,7 +79,7 @@ function AppWithAnimation({
     createKeypoints: createKeypointsAction,
     updateFramerate,
     setTimeDisplay,
-  } = useAnimationStore(
+  } = store(
     useShallow((state) => ({
       setAnimations: state.setAnimations,
       setTracks: state.setTracks,
@@ -92,9 +101,9 @@ function AppWithAnimation({
       setTracks(sharedTracks);
 
       // Set up namespace info immediately after core data
-      const store = useDefaultAnimationStore.getState();
-      if (store.namespaceInfo !== undefined) {
-        Object.assign(store, { namespaceInfo: createNamespaceInfo(SHARED_ANIMATION_ID) });
+      const storeState = store.getState();
+      if (storeState.namespaceInfo !== undefined) {
+        Object.assign(storeState, { namespaceInfo: createNamespaceInfo(SHARED_ANIMATION_ID) });
       }
 
       // Create keyframes after all structure is in place
@@ -132,6 +141,12 @@ function AppWithAnimation({
 }
 
 function ComplexAnimationApp(): ReactNode {
+  const store = useContext(AnimationContext);
+
+  if (!store) {
+    throw new Error("AnimationContext must be provided");
+  }
+
   const {
     setAnimations,
     setTracks,
@@ -139,7 +154,7 @@ function ComplexAnimationApp(): ReactNode {
     createKeypoints: createKeypointsAction,
     updateFramerate,
     setTimeDisplay,
-  } = useAnimationStore(
+  } = store(
     useShallow((state) => ({
       setAnimations: state.setAnimations,
       setTracks: state.setTracks,
@@ -222,9 +237,9 @@ function ComplexAnimationApp(): ReactNode {
       setTracks(complexTracks);
 
       // Set up namespace info immediately after core data
-      const store = useDefaultAnimationStore.getState();
-      if (store.namespaceInfo !== undefined) {
-        Object.assign(store, { namespaceInfo: createNamespaceInfo("complex-animation") });
+      const storeState = store.getState();
+      if (storeState.namespaceInfo !== undefined) {
+        Object.assign(storeState, { namespaceInfo: createNamespaceInfo("complex-animation") });
       }
 
       // Create keypoints after all structure is in place
@@ -281,6 +296,7 @@ export const Default: Story = {
     namespaceId: "default",
     animationInstances: createAnimationInstances(SHARED_ANIMATION_ID),
     height: 400,
+    storeInstance: createAnimationStore(),
   },
 };
 
@@ -289,6 +305,7 @@ export const Expanded: Story = {
     namespaceId: "default",
     animationInstances: createAnimationInstances(SHARED_ANIMATION_ID),
     height: 600,
+    storeInstance: createAnimationStore(),
   },
 };
 
@@ -297,6 +314,7 @@ export const Collapsed: Story = {
     namespaceId: "default",
     animationInstances: createAnimationInstances(SHARED_ANIMATION_ID),
     height: 142, // MIN_SHEET_HEIGHT
+    storeInstance: createAnimationStore(),
   },
 };
 
@@ -305,6 +323,7 @@ export const Empty: Story = {
     namespaceId: "default",
     animationInstances: {},
     height: 400,
+    storeInstance: createAnimationStore(),
   },
 };
 
@@ -315,7 +334,7 @@ const ComplexAnimation: Story = {
     height: 600,
   },
   render: () => (
-    <AnimationContext.Provider value={useDefaultAnimationStore}>
+    <AnimationContext.Provider value={createAnimationStore()}>
       <ComplexAnimationApp />
     </AnimationContext.Provider>
   ),

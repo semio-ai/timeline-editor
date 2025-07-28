@@ -15,8 +15,8 @@
     "**/*.css"
   ],
   "scripts": {
-    "build": "tsup src/index.tsx --format esm,cjs --dts --external react --publicDir",
-    "dev": "tsup src/index.tsx --format esm,cjs --watch --dts --external react --publicDir",
+    "build": "tsup src/index.tsx --format esm,cjs --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
+    "dev": "tsup src/index.tsx --format esm,cjs --watch --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "test": "vitest",
