@@ -98,7 +98,7 @@ export function TrackVisualizer({
     useShallow((state: AnimationData) => pick(state.tracks, trackKeys)),
   ) as Record<string, TrackData<RawValue>>;
 
-  const animatableIds = Object.values(tracks).map((track) => track.animatableId);
+  const animatableIds = Object.values(tracks || {}).map((track) => track.animatableId);
 
   const [allAnimatables] = useAnimationStore(
     useShallow((state: AnimationData) => [state.animatables]),

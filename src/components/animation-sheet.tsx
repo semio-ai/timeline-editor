@@ -59,9 +59,9 @@ export function InnerSheet({
     }),
   );
 
-  const currentAnimationInstance = Object.values(animationInstances)[0];
-  const currentAnimation = currentAnimationInstance.animationId;
-  const instanceSettings = currentAnimationInstance.settings;
+  const currentAnimationInstance = Object.values(animationInstances || {})[0];
+  const currentAnimation = currentAnimationInstance?.animationId;
+  const instanceSettings = currentAnimationInstance?.settings;
   useEffect(() => {
     if (!currentAnimation || !animations[currentAnimation]) {
       return;

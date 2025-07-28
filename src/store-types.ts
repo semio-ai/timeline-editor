@@ -130,6 +130,11 @@ export interface AnimationActions {
    */
   addAnimation: (animation: StoredAnimation) => void;
   /**
+   * Set multiple animations at once, replacing existing animations.
+   * @param animations - Record of animation ID to StoredAnimation
+   */
+  setAnimations: (animations: Record<string, StoredAnimation>) => void;
+  /**
    * Remove an animation by its ID.
    * @param animationId - The ID of the animation to remove.
    */
@@ -189,6 +194,11 @@ export interface AnimationActions {
    * @param animationId - The ID of the animation to add the track to.
    */
   createTrack: (track: Partial<Track<RawValue>>, animatableId: string, animationId: string) => void;
+  /**
+   * Set multiple tracks at once, replacing existing tracks.
+   * @param tracks - Record of track ID to Track
+   */
+  setTracks: (tracks: Record<string, Track<RawValue>>) => void;
   /**
    * Remove a track from the animation.
    * @param trackId - The ID of the track to remove.
@@ -305,6 +315,11 @@ export interface AnimationActions {
    * @param color - The color to set.
    */
   updateControlColor: (controlId: string, color: string) => void;
+  /**
+   * Set animatables in bulk, replacing existing animatables.
+   * @param animatables - Record of animatable ID to AnimatableValue
+   */
+  setAnimatables: (animatables: Record<string, AnimatableValue>) => void;
   /**
    * Set the preferences for the animation data.
    * @param preferences - The preferences to set.

@@ -14,6 +14,11 @@ export function computeStamps(
   tracks: Record<string, Track<RawValue>>,
   instances: Record<string, AnimationInstance>,
 ): number[] {
+  // Guard against null/undefined inputs during initialization
+  if (!tracks || !instances) {
+    return [];
+  }
+
   const stamps: number[] = [];
   Object.values(instances).forEach((instanceInfo) => {
     Object.values(tracks).forEach((track) => {

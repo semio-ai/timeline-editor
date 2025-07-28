@@ -6,6 +6,7 @@ import {
   usePlayerStore,
   PlayerData,
   PlayerDirection,
+  AnimatableValue,
 } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -111,6 +112,13 @@ export const AnimationSlice = (
         }),
       );
     },
+    setAnimatables: (animatables: Record<string, AnimatableValue>) => {
+      set(
+        produce((state: AnimationData): void => {
+          state.animatables = animatables;
+        }),
+      );
+    },
     visualizeAnimation: (animationId: string) => {
       set(
         produce((state: AnimationData): void => {
@@ -154,6 +162,18 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           addAnimation(state, animation);
+        }),
+      );
+    },
+    setAnimations: (animations: Record<string, StoredAnimation>) => {
+      set(
+        produce((state: AnimationData): void => {
+          // Clear existing animations
+          state.animations = {};
+          // Add all animations
+          Object.values(animations).forEach((animation) => {
+            addAnimation(state, animation);
+          });
         }),
       );
     },
@@ -205,8 +225,20 @@ export const AnimationSlice = (
     },
     createTrack: (track: Partial<Track<RawValue>>, animatableId: string, animationId: string) => {
       set(
-        produce((state: AnimationData) => {
+        produce((state: AnimationData): void => {
           createTrack(state, animatableId, animationId, track);
+        }),
+      );
+    },
+    setTracks: (tracks: Record<string, Track<RawValue>>) => {
+      set(
+        produce((state: AnimationData): void => {
+          // Clear existing tracks
+          state.tracks = {};
+          // Add all tracks with their points
+          Object.entries(tracks).forEach(([trackId, track]) => {
+            state.tracks[trackId] = track;
+          });
         }),
       );
     },
@@ -653,6 +685,8 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
     ...AnimationSlice(set, get, api),
   })),
 );
+
+useDefaultAnimationStore.getState().initAnimationSubscriptions();
 
 export function createAnimationStore(initial?: Partial<AnimationData>): AnimationStore {
   const store = create<AnimationData & AnimationActions>()(

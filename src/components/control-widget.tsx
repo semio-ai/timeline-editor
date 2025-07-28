@@ -89,7 +89,7 @@ function InnerControlWidget({
       if (!animation) return undefined;
       return (
         loadedTrack ??
-        Object.values(state.tracks)
+        Object.values(state.tracks || {})
           .filter((t) => animation.tracks.includes(t.id))
           .find((t) => t.animatableId === animatableId)
       );

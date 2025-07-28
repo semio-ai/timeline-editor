@@ -1,0 +1,26 @@
+import { Instances } from "@react-three/drei";
+import { DataPoint } from "./data-point";
+import { useData } from "./data-context";
+
+export function DataPointsRenderer() {
+  const allData = useData();
+
+  return (
+    <Instances limit={1000} range={allData.length}>
+      {/* Shared geometry and material for all instances */}
+      <cylinderGeometry args={[5, 5, 1, 6]} />
+      <meshBasicMaterial toneMapped={false} />
+
+      {/* Individual instances */}
+      {allData.map((point) => (
+        <DataPoint
+          key={point.id}
+          id={point.id}
+          x={point.x}
+          y={point.y}
+          color={point.color}
+        />
+      ))}
+    </Instances>
+  );
+}
