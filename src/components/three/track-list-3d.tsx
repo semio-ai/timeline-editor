@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
+import { useState, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { View } from "@react-three/drei";
-import { ScrollArea } from "@semio/ui";
+import { ScrollArea, type ScrollInfo } from "@semio/ui";
 import { useAnimationStore } from "../../hooks";
 import { AnimationInstanceSettings, TrackRender } from "../../types";
 import { ControlWidget } from "../control-widget";
@@ -61,14 +62,35 @@ export function TrackList3D({
     useShallow((state) => Array.from(state.animations[animationId]?.tracks || [])),
   );
 
+  // Stage 1: Add scroll state management for bidirectional synchronization
+  const [scrollState, setScrollState] = useState({
+    scrollTop: 0,
+    scrollLeft: 0,
+  });
+
+  // Stage 1: Implement scroll change handler
+  const handleScrollChange = useCallback((scrollInfo: ScrollInfo) => {
+    setScrollState({
+      scrollTop: scrollInfo.scrollTop,
+      scrollLeft: scrollInfo.scrollLeft,
+    });
+  }, []);
+
   return (
     <div
       className={clsx(
         "relative h-full w-full overflow-hidden dark:bg-black bg-neutral-100",
-        "grid grid-cols-[298px_1fr] gap-x-1 not-group-aria-expanded/sheet:hidden",
+        "grid grid-cols-[302px_1fr] not-group-aria-expanded/sheet:hidden",
       )}
     >
-      <ScrollArea orientation="vertical" style={{ maxHeight: height }}>
+      <ScrollArea
+        orientation="vertical"
+        className="pr-1"
+        style={{ maxHeight: height }}
+        scrollTop={scrollState.scrollTop}
+        onScrollChange={handleScrollChange}
+        enableOverscrollEffect
+      >
         {tracks.map((track) => (
           <TrackRow3D
             key={track}
