@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { useContext, memo, useState, useEffect, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
 import useMeasure from "react-use-measure";
 import { Canvas } from "@react-three/fiber";
-import { View } from "@react-three/drei";
 import { ToggleGroup, Size, ToggleSquare, IconPreviewView } from "@semio/ui";
 import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
 import { AnimationContext } from "../../context";
@@ -16,6 +16,15 @@ import { TimelineControl } from "../timeline-control";
 import { TimeControls } from "../time-controls";
 import { PlaybackSettings } from "../playback-settings";
 import { TrackList3D } from "./track-list-3d";
+import { LayoutProvider } from "./layout";
+import { DEFAULT_DATA_VISUALIZATION_LAYOUT } from "./data-visualization-layout-config";
+import {
+  TopRulerRegion,
+  TrackListRegion,
+  TimelineRegion,
+  MinimapRegion,
+  BottomRulerRegion,
+} from "./regions";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
 const MIN_SHEET_HEIGHT = 142;
@@ -62,6 +71,8 @@ export function InnerSheet3D({
   const currentAnimation = currentAnimationInstance?.animationId;
   const instanceSettings = currentAnimationInstance?.settings;
 
+  const scrollY = useMotionValue(0);
+
   useEffect(() => {
     if (!currentAnimation || !animations[currentAnimation]) {
       return;
@@ -83,23 +94,7 @@ export function InnerSheet3D({
 
   return (
     <ColorContextProvider>
-      <div className="animation-sheet-container relative">
-        {/* Single Canvas for all 3D rendering */}
-        <div className="absolute inset-0 pointer-events-none z-10">
-          <Canvas
-            className="pointer-events-none absolute inset-0"
-            frameloop="always"
-            eventSource={layoutRef.current ?? undefined}
-            gl={{
-              antialias: false,
-              alpha: true,
-              preserveDrawingBuffer: true,
-            }}
-          >
-            <View.Port />
-          </Canvas>
-        </div>
-
+      <div className="animation-sheet-container w-full">
         {/* Grid layout with tracking divs - same structure as original */}
         <div
           ref={layoutRef}
@@ -109,12 +104,12 @@ export function InnerSheet3D({
             minHeight: MIN_SHEET_HEIGHT,
           }}
           className={clsx(
-            "grid grid-cols-[298px_1fr] group/sheet w-full gap-x-1 pr-0.5 pb-0.5",
+            "grid grid-cols-[302px_1fr] group/sheet w-full pr-0.5 pb-0.5",
             "grid-rows-[32px_1fr_36px_36px_36px]",
           )}
         >
           {/* Expand Toggle/Ruler - Row 1 */}
-          <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between pl-1")}>
+          <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between px-1")}>
             <ToggleSquare
               sizing="inner"
               size={Size.Sm}
@@ -175,18 +170,37 @@ export function InnerSheet3D({
             </ToggleSquare>
           </div>
 
-          {/* Top Ruler - Row 1 */}
-          <div
-            className={clsx("flex-1 h-8 text-black dark:text-white rounded-t-sm", TRACK_MAIN_BG)}
-          >
-            {/* 3D Ruler View */}
-            <View className="w-full h-full">
-              <color attach="background" args={["cyan"]} />
-            </View>
+          {/* Canvas (spans all rows) */}
+          <div className={clsx("w-full min-w-0 row-span-5", TRACK_MAIN_BG)}>
+            <Canvas
+              className="w-full h-full"
+              orthographic
+              camera={{
+                position: [0, 0, 100],
+                up: [0, 1, 0],
+                zoom: 1,
+              }}
+            >
+              <LayoutProvider config={DEFAULT_DATA_VISUALIZATION_LAYOUT}>
+                {/* Region backgrounds only */}
+                <TopRulerRegion />
+                <TrackListRegion
+                  animationId={currentAnimation}
+                  namespaceId={namespaceId}
+                  instanceSettings={instanceSettings}
+                  scrollY={scrollY}
+                />
+                <TimelineRegion />
+                <MinimapRegion />
+                <BottomRulerRegion />
+
+                <ambientLight intensity={1} />
+              </LayoutProvider>
+            </Canvas>
           </div>
 
           {/* Track List - Row 2 */}
-          <div className="col-span-2" ref={trackRegion}>
+          <div ref={trackRegion}>
             {/* 3D Track List with color-coded tracks */}
             <TrackList3D
               animationId={currentAnimation}
@@ -194,59 +208,44 @@ export function InnerSheet3D({
               instanceSettings={instanceSettings}
               height={height - MIN_SHEET_HEIGHT}
               trackRender={trackRender}
+              scrollY={scrollY}
             />
           </div>
 
           {/* Timeline Control - Row 3 */}
-          <TimelineControl
-            animationId={currentAnimation}
-            namespaceId={namespaceId}
-            instanceSettings={instanceSettings}
-            selection={selectedTracks}
-            allTracks={allTracks}
-            onChangeSelection={setSelectedTracks}
-          />
+          <div className="pr-2">
+            <TimelineControl
+              animationId={currentAnimation}
+              namespaceId={namespaceId}
+              instanceSettings={instanceSettings}
+              selection={selectedTracks}
+              allTracks={allTracks}
+              onChangeSelection={setSelectedTracks}
+            />
+          </div>
 
           {/* Timeline View - Row 3 */}
-          <div className={clsx("w-full relative", TRACK_MAIN_BG)}>
-            {/* 3D Timeline View with color-coded background */}
-            <View className="w-full h-full">
-              <color attach="background" args={["orange"]} />
-            </View>
-          </div>
 
           {/* Time Controls - Row 4 */}
-          <TimeControls
-            animationId={currentAnimation}
-            namespaceId={namespaceId}
-            instanceSettings={instanceSettings}
-            selection={selectedTracks}
-            allTracks={allTracks}
-            onChangeSelection={setSelectedTracks}
-          />
+          <div className="pr-2">
+            <TimeControls
+              animationId={currentAnimation}
+              namespaceId={namespaceId}
+              instanceSettings={instanceSettings}
+              selection={selectedTracks}
+              allTracks={allTracks}
+              onChangeSelection={setSelectedTracks}
+            />
+          </div>
 
           {/* Minimap View - Row 4 */}
-          <div
-            className={clsx("w-full h-9 items-center text-black dark:text-white", TRACK_MAIN_BG)}
-          >
-            {/* 3D Minimap View */}
-            <View className="w-full h-full">
-              <color attach="background" args={["red"]} />
-            </View>
-          </div>
 
           {/* Playback Settings - Row 5 */}
-          <PlaybackSettings />
+          <div className="pr-2">
+            <PlaybackSettings />
+          </div>
 
           {/* Bottom Ruler - Row 5 */}
-          <div
-            className={clsx("flex-1 h-9 text-black dark:text-white rounded-b-sm", TRACK_MAIN_BG)}
-          >
-            {/* 3D Bottom Ruler View */}
-            <View className="w-full h-full">
-              <color attach="background" args={["lime"]} />
-            </View>
-          </div>
         </div>
       </div>
     </ColorContextProvider>

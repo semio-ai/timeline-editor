@@ -11,6 +11,8 @@ export {
   AnimationSheet3D,
   type AnimationSheet3DProps,
 } from "./components/three/animation-sheet-3d";
+export * from "./components/three/layout";
+export * from "./components/three/regions";
 export * from "./hooks";
 export * from "./context";
 export * from "./store-types";
