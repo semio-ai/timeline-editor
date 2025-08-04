@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useRef, useEffect, useCallback } from "react";
 import { MotionValue } from "motion";
-import * as THREE from "three";
 import { Region, useRegion } from "../layout";
 import { DATA_VISUALIZATION_REGIONS } from "../data-visualization-layout-config";
 import { useAnimationStore, useColors } from "../../../hooks";
@@ -75,11 +74,9 @@ function TrackBackground({
   // Handle wheel events on individual tracks
   const handleTrackWheel = useCallback(
     (event: any) => {
-      console.log(`🎯 Track[${index}] wheel event:`, event.deltaY);
       event.stopPropagation();
 
       // Calculate scroll bounds based on content
-      const trackHeight = 36; // px per track
       const contentHeight = tracks.length * trackHeight;
       const visibleHeight = regionHeight;
       const maxScroll = Math.max(0, contentHeight - visibleHeight);
@@ -89,54 +86,27 @@ function TrackBackground({
       const rawNewScroll = currentScroll + event.deltaY * 0.5;
       const boundedScroll = Math.max(0, Math.min(maxScroll, rawNewScroll));
 
-      console.log(`📊 Track[${index}] scroll update:`, {
-        currentScroll,
-        rawNewScroll,
-        boundedScroll,
-        maxScroll,
-        contentHeight,
-        visibleHeight,
-        trackCount: tracks.length,
-      });
-
       scrollY.set(boundedScroll);
     },
-    [scrollY, index, regionHeight, tracks],
+    [scrollY, regionHeight, tracks, trackHeight],
   );
 
   // Apply scroll offset (must be before early return)
   useEffect(() => {
     if (!bounds) {
-      console.log(`❌ TrackBackground[${index}]: No bounds available`);
       return;
     }
 
-    console.log(`🔧 TrackBackground[${index}]: Setting up scroll listener`, {
-      trackId,
-      baseYPosition,
-      bounds: { width: bounds.dimensions.width, height: bounds.dimensions.height },
-    });
-
     const unsubscribe = scrollY.on("change", (scrollValue) => {
-      console.log(`📍 TrackBackground[${index}]: Scroll change`, {
-        trackId,
-        scrollValue,
-        baseYPosition,
-        newPosition: baseYPosition + scrollValue,
-        hasMesh: !!meshRef.current,
-      });
-
       if (meshRef.current) {
         // Convert DOM scroll to 3D world units
         // Positive scroll moves tracks up (negative Y)
         const newY = baseYPosition + scrollValue;
         meshRef.current.position.y = newY;
-        console.log(`✅ TrackBackground[${index}]: Mesh position updated to Y=${newY}`);
       }
     });
 
     return () => {
-      console.log(`🧹 TrackBackground[${index}]: Cleaning up scroll listener`);
       unsubscribe();
     };
   }, [baseYPosition, scrollY, bounds, index, trackId]);

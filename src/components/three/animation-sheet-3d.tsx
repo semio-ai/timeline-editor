@@ -5,6 +5,7 @@ import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
 import useMeasure from "react-use-measure";
 import { Canvas } from "@react-three/fiber";
+import { Hud } from "@react-three/drei";
 import { ToggleGroup, Size, ToggleSquare, IconPreviewView } from "@semio/ui";
 import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
 import { AnimationContext } from "../../context";
@@ -219,8 +220,7 @@ export function InnerSheet3D({
               onWheel={handleCanvasWheel}
             >
               <LayoutProvider config={DEFAULT_DATA_VISUALIZATION_LAYOUT}>
-                {/* Region backgrounds only */}
-                <TopRulerRegion />
+                {/* Main Scene - Track List (behind everything) */}
                 <TrackListRegion
                   visible
                   animationId={currentAnimation}
@@ -228,9 +228,22 @@ export function InnerSheet3D({
                   instanceSettings={instanceSettings}
                   scrollY={scrollY}
                 />
-                <TimelineRegion />
-                <MinimapRegion />
-                <BottomRulerRegion />
+
+                {/* HUD Layer 1 - Top Ruler */}
+                <Hud renderPriority={1}>
+                  <TopRulerRegion />
+                </Hud>
+
+                {/* HUD Layer 2 - Timeline */}
+                <Hud renderPriority={2}>
+                  <TimelineRegion />
+                </Hud>
+
+                {/* HUD Layer 3 - Minimap & Bottom Ruler */}
+                <Hud renderPriority={3}>
+                  <MinimapRegion />
+                  <BottomRulerRegion />
+                </Hud>
 
                 <ambientLight intensity={1} />
               </LayoutProvider>

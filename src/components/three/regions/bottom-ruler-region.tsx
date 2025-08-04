@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { RegionBackground } from "../layout";
+import { Region, useRegion } from "../layout";
 import { DATA_VISUALIZATION_REGIONS } from "../data-visualization-layout-config";
 
 export interface BottomRulerRegionProps {
@@ -13,15 +13,31 @@ export function BottomRulerRegion({
   opacity = 1,
   visible = true,
 }: BottomRulerRegionProps): ReactNode {
-  if (!visible) {
+  const bounds = useRegion(DATA_VISUALIZATION_REGIONS.BOTTOM_RULER);
+
+  if (!visible || !bounds) {
     return null;
   }
 
   return (
-    <RegionBackground
-      regionId={DATA_VISUALIZATION_REGIONS.BOTTOM_RULER}
-      color={backgroundColor}
-      opacity={opacity}
-    />
+    <Region regionId={DATA_VISUALIZATION_REGIONS.BOTTOM_RULER}>
+      <mesh position={[0, 0, 0]}>
+        <planeGeometry args={[bounds.dimensions.width, bounds.dimensions.height]} />
+        <meshBasicMaterial color={backgroundColor} transparent opacity={opacity} />
+
+        {/* Simple bottom ruler marks for testing */}
+        {Array.from({ length: Math.min(12, Math.floor(bounds.dimensions.width / 40)) }, (_, i) => {
+          const markCount = Math.min(12, Math.floor(bounds.dimensions.width / 40));
+          const spacing = bounds.dimensions.width / (markCount + 1);
+          const xPos = -bounds.dimensions.width / 2 + (i + 1) * spacing;
+          return (
+            <mesh key={i} position={[xPos, 0, 0.1]}>
+              <boxGeometry args={[1, bounds.dimensions.height * 0.6, 0.1]} />
+              <meshBasicMaterial color="darkgreen" />
+            </mesh>
+          );
+        })}
+      </mesh>
+    </Region>
   );
 }
