@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState, useEffect, useRef } from "react";
+import { useContext, memo, useState, useEffect, useRef, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
@@ -80,6 +80,42 @@ export function InnerSheet3D({
     setSelectedTracks(animations[currentAnimation].tracks);
     updateDuration(animations[currentAnimation].duration);
   }, [currentAnimation, animations, updateDuration]);
+
+  // Phase 0: Scroll handler for R3F event system with bounds constraint
+  const handleCanvasWheel = useCallback(
+    (event: any) => {
+      console.log("🎯 R3F wheel event detected:", event.deltaY);
+
+      if (!currentAnimation || !animations[currentAnimation]) {
+        return;
+      }
+
+      const tracks = animations[currentAnimation].tracks;
+      const trackHeight = 36; // px per track
+      const contentHeight = tracks.length * trackHeight;
+      const visibleHeight = height - MIN_SHEET_HEIGHT; // Available height for tracks
+      const maxScroll = Math.max(0, contentHeight - visibleHeight);
+
+      // Apply bounds constraint
+      const currentScroll = scrollY.get();
+      const rawNewScroll = currentScroll + event.deltaY * 0.5;
+      const boundedScroll = Math.max(0, Math.min(maxScroll, rawNewScroll));
+
+      console.log("📊 Scroll update:", {
+        currentScroll,
+        deltaY: event.deltaY,
+        rawNewScroll,
+        boundedScroll,
+        maxScroll,
+        contentHeight,
+        visibleHeight,
+        trackCount: tracks.length,
+      });
+
+      scrollY.set(boundedScroll);
+    },
+    [scrollY, currentAnimation, animations, height],
+  );
 
   const [trackRegion, _trackBounds] = useMeasure();
 
@@ -180,11 +216,13 @@ export function InnerSheet3D({
                 up: [0, 1, 0],
                 zoom: 1,
               }}
+              onWheel={handleCanvasWheel}
             >
               <LayoutProvider config={DEFAULT_DATA_VISUALIZATION_LAYOUT}>
                 {/* Region backgrounds only */}
                 <TopRulerRegion />
                 <TrackListRegion
+                  visible
                   animationId={currentAnimation}
                   namespaceId={namespaceId}
                   instanceSettings={instanceSettings}

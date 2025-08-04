@@ -16,46 +16,11 @@ export interface TrackList3DProps {
   scrollY?: MotionValue<number>;
 }
 
-function TrackRow3D({
-  trackId,
-  animationId,
-  namespaceId,
-  instanceSettings,
-}: {
-  trackId: string;
-  animationId: string;
-  namespaceId: string;
-  instanceSettings: AnimationInstanceSettings;
-  trackRender: TrackRender;
-}): ReactNode {
-  const track = useAnimationStore(useShallow((state) => state.tracks[trackId]));
-
-  const animatable = useAnimationStore(
-    useShallow((state) => state.animatables[track?.animatableId || ""]),
-  );
-
-  if (!track || !animatable) {
-    return null;
-  }
-
-  return (
-    <ControlWidget
-      animationId={animationId}
-      animatableId={track.animatableId}
-      namespace={namespaceId}
-      instanceSettings={instanceSettings}
-      onExpandedChange={() => {}}
-      emphasis={false}
-      onEmphasisChange={() => {}}
-    />
-  );
-}
-
 export function TrackList3D({
   animationId,
   namespaceId,
   instanceSettings,
-  trackRender,
+  trackRender: _trackRender,
   height = 240,
   scrollY,
 }: TrackList3DProps): ReactNode {
@@ -66,7 +31,7 @@ export function TrackList3D({
   return (
     <div
       className={clsx(
-        "relative h-full w-full overflow-hidden dark:bg-black bg-neutral-100",
+        "relative h-full w-[300px] dark:bg-black bg-neutral-100",
         "flex flex-col not-group-aria-expanded/sheet:hidden",
       )}
     >
@@ -76,14 +41,16 @@ export function TrackList3D({
         style={{ maxHeight: height }}
         motionScrollY={scrollY}
       >
-        {tracks.map((track) => (
-          <TrackRow3D
-            key={track}
+        {tracks.map((trackId) => (
+          <ControlWidget
+            key={trackId}
             animationId={animationId}
-            trackId={track}
-            namespaceId={namespaceId}
+            trackId={trackId}
+            namespace={namespaceId}
             instanceSettings={instanceSettings}
-            trackRender={trackRender}
+            onExpandedChange={() => {}}
+            emphasis={false}
+            onEmphasisChange={() => {}}
           />
         ))}
       </ScrollArea>
