@@ -1,8 +1,11 @@
 export * from "./use-alt-key-pressed";
 export * from "./use-animation-store";
+export * from "./use-camera-sync";
+export * from "./use-canvas-zoom-gestures";
 export * from "./use-bezier-path-spring";
 export * from "./use-bound-springs";
 export * from "./use-colors";
+
 export * from "./use-hover-spring";
 export * from "./use-pair-springs";
 export * from "./use-player-subscription";

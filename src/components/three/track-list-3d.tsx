@@ -35,25 +35,35 @@ export function TrackList3D({
         "flex flex-col not-group-aria-expanded/sheet:hidden",
       )}
     >
-      <ScrollArea
-        orientation="vertical"
-        className="pr-1"
-        style={{ maxHeight: height }}
-        motionScrollY={scrollY}
+      <div
+        onWheel={(e) => {
+          // CRITICAL: Prevent ScrollArea from independently handling wheel events
+          // ScrollArea should only respond to motionScrollY changes from canvas gesture system
+          // This ensures all scroll behavior goes through region detection logic
+          e.preventDefault();
+          e.stopPropagation();
+        }}
       >
-        {tracks.map((trackId) => (
-          <ControlWidget
-            key={trackId}
-            animationId={animationId}
-            trackId={trackId}
-            namespace={namespaceId}
-            instanceSettings={instanceSettings}
-            onExpandedChange={() => {}}
-            emphasis={false}
-            onEmphasisChange={() => {}}
-          />
-        ))}
-      </ScrollArea>
+        <ScrollArea
+          orientation="vertical"
+          className="pr-1"
+          style={{ maxHeight: height }}
+          motionScrollY={scrollY}
+        >
+          {tracks.map((trackId) => (
+            <ControlWidget
+              key={trackId}
+              animationId={animationId}
+              trackId={trackId}
+              namespace={namespaceId}
+              instanceSettings={instanceSettings}
+              onExpandedChange={() => {}}
+              emphasis={false}
+              onEmphasisChange={() => {}}
+            />
+          ))}
+        </ScrollArea>
+      </div>
     </div>
   );
 }

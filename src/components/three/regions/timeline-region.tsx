@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Region, useRegion } from "../layout";
 import { DATA_VISUALIZATION_REGIONS } from "../data-visualization-layout-config";
+import { HUDCameraController } from "../cameras";
 
 export interface TimelineRegionProps {
   backgroundColor?: string;
@@ -21,6 +22,9 @@ export function TimelineRegion({
 
   return (
     <Region regionId={DATA_VISUALIZATION_REGIONS.TIMELINE}>
+      {/* HUD Camera Controller for this HUD's camera */}
+      <HUDCameraController enabled={true} regionId="TIMELINE" />
+
       <mesh position={[0, 0, 0]}>
         <planeGeometry args={[bounds.dimensions.width, bounds.dimensions.height]} />
         <meshBasicMaterial color={backgroundColor} transparent opacity={opacity} />

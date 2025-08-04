@@ -66,17 +66,14 @@ function InnerGestureDetector({ ignoreZoom = false }: { ignoreZoom?: boolean; he
       name="gesture-detector"
       onDoubleClick={doubleClickHandler as any as MouseEventHandler}
       onTouchMove={(e) => {
-        console.log("touchmove");
         e.preventDefault();
         e.stopPropagation();
       }}
       onTouchStart={(e) => {
-        console.log("touchstart");
         e.preventDefault();
         e.stopPropagation();
       }}
       onTouchEnd={(e) => {
-        console.log("touchend");
         e.preventDefault();
         e.stopPropagation();
       }}

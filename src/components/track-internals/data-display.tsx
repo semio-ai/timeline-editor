@@ -104,12 +104,10 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
             onDragStart={() => {
               // Update the set of dragging frames based on the frame instance
               const ids = uniq(frameInstance.points.map((p) => p.id));
-              console.log("Setting dragging frames to", ids);
               setDraggingFrames(ids);
             }}
             onDragEnd={() => {
               // Clear the dragging tracks when the drag ends
-              console.log("Setting dragging frames to empty");
               setDraggingFrames([]);
             }}
           />

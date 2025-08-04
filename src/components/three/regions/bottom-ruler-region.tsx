@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Region, useRegion } from "../layout";
 import { DATA_VISUALIZATION_REGIONS } from "../data-visualization-layout-config";
+// No camera imports needed - bottom ruler doesn't zoom
 
 export interface BottomRulerRegionProps {
   backgroundColor?: string;
@@ -21,6 +22,8 @@ export function BottomRulerRegion({
 
   return (
     <Region regionId={DATA_VISUALIZATION_REGIONS.BOTTOM_RULER}>
+      {/* No camera controller - bottom ruler doesn't zoom per gesture table */}
+
       <mesh position={[0, 0, 0]}>
         <planeGeometry args={[bounds.dimensions.width, bounds.dimensions.height]} />
         <meshBasicMaterial color={backgroundColor} transparent opacity={opacity} />

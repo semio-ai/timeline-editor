@@ -23,8 +23,6 @@ export function PlaybackSettings() {
   );
 
   // Map bounce/looping combination to style for UI compatibility
-  console.log({ direction, bounce, looping, speed });
-
   const { setBounce, setLooping, setDirection, setSpeed } = usePlayerStore(
     useShallow((state) => ({
       setBounce: state.updateBounce,

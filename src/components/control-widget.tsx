@@ -121,7 +121,6 @@ function InnerControlWidget({
         return;
       }
       if (track) {
-        console.log("updating keypoint with updateKeypoint", value);
         updateKeypoint(track.id, { stamp: currentStamp, value });
       } else if (animatableValue) {
         createTrack(

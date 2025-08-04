@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useRef, useEffect, useCallback } from "react";
-import { MotionValue } from "motion";
+import { MotionValue } from "motion/react";
 import { Region, useRegion } from "../layout";
 import { DATA_VISUALIZATION_REGIONS } from "../data-visualization-layout-config";
 import { useAnimationStore, useColors } from "../../../hooks";
-import type { AnimationInstanceSettings } from "../../../types";
+import { AnimationInstanceSettings } from "../../../types";
 
 export interface TrackListRegionProps {
   visible?: boolean;
@@ -38,7 +38,7 @@ export function TrackListRegion({
             trackId={trackId}
             index={index}
             scrollY={scrollY}
-            animationId={animationId}
+            _animationId={animationId}
           />
         ))}
     </>
@@ -49,12 +49,12 @@ function TrackBackground({
   trackId,
   index,
   scrollY,
-  animationId,
+  _animationId,
 }: {
   trackId: string;
   index: number;
   scrollY: MotionValue<number>;
-  animationId?: string;
+  _animationId?: string;
 }): ReactNode {
   const color = useColors(trackId);
   const bounds = useRegion(DATA_VISUALIZATION_REGIONS.TRACK_LIST);
@@ -67,29 +67,10 @@ function TrackBackground({
   const baseYPosition = regionHeight / 2 - (index + 0.5) * trackHeight;
 
   // Get tracks data for bounds calculation
-  const tracks = useAnimationStore(
-    useShallow((state) => Array.from(state.animations[animationId || ""]?.tracks || [])),
-  );
+  // Tracks are now managed centrally - wheel events handled by animation-sheet-3d.tsx
 
-  // Handle wheel events on individual tracks
-  const handleTrackWheel = useCallback(
-    (event: any) => {
-      event.stopPropagation();
-
-      // Calculate scroll bounds based on content
-      const contentHeight = tracks.length * trackHeight;
-      const visibleHeight = regionHeight;
-      const maxScroll = Math.max(0, contentHeight - visibleHeight);
-
-      // Apply bounds constraint
-      const currentScroll = scrollY.get();
-      const rawNewScroll = currentScroll + event.deltaY * 0.5;
-      const boundedScroll = Math.max(0, Math.min(maxScroll, rawNewScroll));
-
-      scrollY.set(boundedScroll);
-    },
-    [scrollY, regionHeight, tracks, trackHeight],
-  );
+  // Wheel events are now handled centrally by animation-sheet-3d.tsx with region detection
+  // This prevents scroll leakage into HUD regions while maintaining proper track scrolling
 
   // Apply scroll offset (must be before early return)
   useEffect(() => {
@@ -117,7 +98,7 @@ function TrackBackground({
 
   return (
     <Region regionId={DATA_VISUALIZATION_REGIONS.TRACK_LIST}>
-      <mesh ref={meshRef} position={[0, baseYPosition, -0.1]} onWheel={handleTrackWheel}>
+      <mesh ref={meshRef} position={[0, baseYPosition, -0.1]}>
         <planeGeometry args={[regionWidth, trackHeight]} />
         <meshBasicMaterial color={color} transparent opacity={1} />
       </mesh>
