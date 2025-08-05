@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Region, useRegion } from "../layout";
 import { DATA_VISUALIZATION_REGIONS } from "../data-visualization-layout-config";
-import { HUDCameraController } from "../cameras";
 
 export interface TopRulerRegionProps {
   backgroundColor?: string;
