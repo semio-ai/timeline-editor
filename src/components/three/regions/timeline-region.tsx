@@ -22,8 +22,8 @@ export function TimelineRegion({
 
   return (
     <Region regionId={DATA_VISUALIZATION_REGIONS.TIMELINE}>
-      {/* HUD Camera Controller for this HUD's camera */}
-      <HUDCameraController enabled={true} regionId="TIMELINE" />
+      {/* HUD Camera Controller for this HUD's camera - TEMPORARILY DISABLED TO TEST CAMERA INTERFERENCE */}
+      {/* <HUDCameraController enabled={true} regionId="TIMELINE" /> */}
 
       <mesh position={[0, 0, 0]}>
         <planeGeometry args={[bounds.dimensions.width, bounds.dimensions.height]} />

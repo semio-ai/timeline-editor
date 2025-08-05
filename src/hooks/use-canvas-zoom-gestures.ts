@@ -28,13 +28,12 @@ export interface CanvasZoomGesturesOptions {
  * with the new camera synchronization system and R3F's event handling.
  *
  * @param ref - Reference to the target element (Canvas)
- * @param options - Configuration options for gesture handling
+ * @param options - Configuration options for gestures
  */
 export function useCanvasZoomGestures(
   ref: React.RefObject<HTMLElement>,
-  options: CanvasZoomGesturesOptions,
+  { bounds, enabled = true, config, otherHandlers }: CanvasZoomGesturesOptions,
 ) {
-  const { bounds, enabled = true, config, otherHandlers } = options;
   const { zoom, pan, viewport, updateZoom, updateViewport } = useCameraSync();
 
   // Track pinch timestamps for Safari duplicate event handling
@@ -90,7 +89,7 @@ export function useCanvasZoomGestures(
       event.stopPropagation();
 
       // Convert mouse movement to pan offset
-      const panDelta = -mx / bounds.dimensions.width;
+      const panDelta = -(mx as number) / bounds.dimensions.width;
       const currentViewport = viewport;
       const newStart = currentViewport[0] + panDelta;
       const newEnd = currentViewport[1] + panDelta;
@@ -126,7 +125,7 @@ export function useCanvasZoomGestures(
       pinch: {
         scaleBounds: { min: 1, max: maxZoom() },
         rubberband: true,
-        modifierKey: ["metaKey", "ctrlKey"],
+        modifierKey: ["metaKey", "ctrlKey"] as ["metaKey", "ctrlKey"],
         ...config?.pinch,
       },
       drag: {

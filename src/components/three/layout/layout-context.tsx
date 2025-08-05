@@ -31,11 +31,16 @@ export function LayoutProvider({
   responsive = true,
 }: LayoutProviderProps): ReactNode {
   // Always call both hooks to follow rules of hooks
-  const responsiveLayoutResult = useResponsiveLayout(config, onLayoutChange);
+  // Only pass onLayoutChange to the hook that will actually be used
+  const useResponsive = responsive || !containerSize;
+  const responsiveLayoutResult = useResponsiveLayout(
+    config,
+    useResponsive ? onLayoutChange : undefined,
+  );
   const fixedLayoutResult = useFixedLayout(
     config,
     containerSize || { width: 800, height: 600 },
-    onLayoutChange,
+    useResponsive ? undefined : onLayoutChange,
   );
 
   // Choose the appropriate result based on responsive flag and container size

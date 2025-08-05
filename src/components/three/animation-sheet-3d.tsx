@@ -30,7 +30,7 @@ import {
   MinimapRegion,
   BottomRulerRegion,
 } from "./regions";
-import { MainSceneCameraController } from "./cameras";
+import { GestureOnlyCamera } from "./cameras";
 import type { RegionBounds } from "./layout/types";
 
 /**
@@ -330,8 +330,11 @@ export function InnerSheet3D({
               onWheel={handleCanvasWheel}
             >
               <LayoutProvider config={DEFAULT_DATA_VISUALIZATION_LAYOUT}>
-                {/* Main Scene Camera Controller */}
-                <MainSceneCameraController />
+                {/* Main Scene Camera Controller - TEMPORARILY DISABLED TO TEST NATURAL R3F BEHAVIOR */}
+                {/* <MainSceneCameraController /> */}
+
+                {/* Gesture-only camera for pan/zoom without resize interference */}
+                <GestureOnlyCamera enabled />
 
                 {/* Main Scene - Track List (behind everything) */}
                 <TrackListRegion

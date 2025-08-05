@@ -11,3 +11,14 @@ export {
   type MainSceneCameraControllerProps,
 } from "./main-scene-camera";
 export { HUDCameraController, type HUDCameraControllerProps } from "./hud-camera-controller";
+export {
+  FixedReferenceCamera,
+  useCompensationFactor,
+  type FixedReferenceCameraProps,
+} from "./fixed-reference-camera";
+export {
+  GestureOnlyCamera,
+  HorizontalGestureCamera,
+  DebugGestureCamera,
+  type GestureOnlyCameraProps,
+} from "./gesture-only-camera";
