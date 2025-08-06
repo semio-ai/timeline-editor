@@ -4,9 +4,9 @@ import { useShallow } from "zustand/react/shallow";
 import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
 import useMeasure from "react-use-measure";
-import { Canvas } from "@react-three/fiber";
-import { Hud } from "@react-three/drei";
-import { ToggleGroup, Size, ToggleSquare, IconPreviewView } from "@semio/ui";
+// import { Canvas } from "@react-three/fiber";
+// import { Hud } from "@react-three/drei";
+import { ToggleGroup, Size, ToggleSquare, IconPreviewView, useTheme } from "@semio/ui";
 import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
 import { AnimationContext } from "../../context";
 import { useDefaultAnimationStore } from "../../store";
@@ -18,20 +18,21 @@ import { TimelineControl } from "../timeline-control";
 import { TimeControls } from "../time-controls";
 import { PlaybackSettings } from "../playback-settings";
 import { TrackList3D } from "./track-list-3d";
-import { LayoutProvider, useRegion } from "./layout";
+import { useRegion } from "./layout";
 import {
-  DEFAULT_DATA_VISUALIZATION_LAYOUT,
+  // DEFAULT_DATA_VISUALIZATION_LAYOUT,
   DATA_VISUALIZATION_REGIONS,
 } from "./data-visualization-layout-config";
-import {
-  TopRulerRegion,
-  TrackListRegion,
-  TimelineRegion,
-  MinimapRegion,
-  BottomRulerRegion,
-} from "./regions";
-import { GestureOnlyCamera } from "./cameras";
+// import {
+//   TopRulerRegion,
+//   TrackListRegion,
+//   TimelineRegion,
+//   MinimapRegion,
+//   BottomRulerRegion,
+// } from "./regions";
+// import { GestureOnlyCamera } from "./cameras";
 import type { RegionBounds } from "./layout/types";
+import { CanvasSheet } from "./canvas-sheet";
 
 /**
  * GESTURE HANDLING ARCHITECTURE (Phase 2 Completion)
@@ -108,6 +109,7 @@ export function InnerSheet3D({
   onToggleExpand,
   height = MIN_SHEET_HEIGHT,
 }: AnimationSheet3DProps): ReactNode {
+  const { resolvedTheme } = useTheme();
   // Same state management as original
   const [trackRender, setTrackRender] = useState<TrackRender>(TrackRender.Key);
   const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
@@ -142,87 +144,87 @@ export function InnerSheet3D({
   // - Canvas Track Region (right side): Allow vertical scroll for track list navigation
   // - HUD regions (rulers, timeline): Block vertical scroll to prevent unwanted behavior
   // - Without region detection, vertical scroll leaks into HUD areas causing UX issues
-  const handleCanvasWheel = useCallback(
-    (event: any) => {
-      // Canvas wheel events have different signature than React wheel events
-      if (!canvasRef.current || !trackListBounds) return;
+  // const handleCanvasWheel = useCallback(
+  //   (event: any) => {
+  //     // Canvas wheel events have different signature than React wheel events
+  //     if (!canvasRef.current || !trackListBounds) return;
 
-      // For modifier keys (zoom), let gesture system handle it
-      if (event.ctrlKey || event.metaKey) {
-        return; // Gesture system will handle zoom
-      }
+  //     // For modifier keys (zoom), let gesture system handle it
+  //     if (event.ctrlKey || event.metaKey) {
+  //       return; // Gesture system will handle zoom
+  //     }
 
-      // Check if cursor is over DOM track list (left side, outside Canvas)
-      const trackListRect = trackRegionElement.current?.getBoundingClientRect();
-      const isInDOMTrackList =
-        trackListRect &&
-        event.clientX >= trackListRect.left &&
-        event.clientX <= trackListRect.right &&
-        event.clientY >= trackListRect.top &&
-        event.clientY <= trackListRect.bottom;
+  //     // Check if cursor is over DOM track list (left side, outside Canvas)
+  //     const trackListRect = trackRegionElement.current?.getBoundingClientRect();
+  //     const isInDOMTrackList =
+  //       trackListRect &&
+  //       event.clientX >= trackListRect.left &&
+  //       event.clientX <= trackListRect.right &&
+  //       event.clientY >= trackListRect.top &&
+  //       event.clientY <= trackListRect.bottom;
 
-      // Check if cursor is over Canvas track region (right side, inside Canvas)
-      const rect = canvasRef.current.getBoundingClientRect();
-      const worldX = event.clientX - rect.left - rect.width / 2;
-      const worldY = rect.height / 2 - (event.clientY - rect.top);
+  //     // Check if cursor is over Canvas track region (right side, inside Canvas)
+  //     const rect = canvasRef.current.getBoundingClientRect();
+  //     const worldX = event.clientX - rect.left - rect.width / 2;
+  //     const worldY = rect.height / 2 - (event.clientY - rect.top);
 
-      // Calculate Canvas track region boundaries in world coordinates
-      const trackLeft = trackListBounds.position.x - trackListBounds.dimensions.width / 2;
-      const trackRight = trackListBounds.position.x + trackListBounds.dimensions.width / 2;
-      const trackTop = trackListBounds.position.y + trackListBounds.dimensions.height / 2;
-      const trackBottom = trackListBounds.position.y - trackListBounds.dimensions.height / 2;
+  //     // Calculate Canvas track region boundaries in world coordinates
+  //     const trackLeft = trackListBounds.position.x - trackListBounds.dimensions.width / 2;
+  //     const trackRight = trackListBounds.position.x + trackListBounds.dimensions.width / 2;
+  //     const trackTop = trackListBounds.position.y + trackListBounds.dimensions.height / 2;
+  //     const trackBottom = trackListBounds.position.y - trackListBounds.dimensions.height / 2;
 
-      const isInCanvasTrackRegion =
-        worldX >= trackLeft && worldX <= trackRight && worldY <= trackTop && worldY >= trackBottom;
+  //     const isInCanvasTrackRegion =
+  //       worldX >= trackLeft && worldX <= trackRight && worldY <= trackTop && worldY >= trackBottom;
 
-      // Allow scroll updates if cursor is in either track area
-      const isInAnyTrackArea = isInDOMTrackList || isInCanvasTrackRegion;
+  //     // Allow scroll updates if cursor is in either track area
+  //     const isInAnyTrackArea = isInDOMTrackList || isInCanvasTrackRegion;
 
-      // 🐛 DEBUG: Log region detection results
-      // console.log("🎯 Region Detection:", {
-      //   clientX: event.clientX,
-      //   clientY: event.clientY,
-      //   isInDOMTrackList,
-      //   isInCanvasTrackRegion,
-      //   isInAnyTrackArea,
-      //   deltaY: event.deltaY,
-      //   isVerticalScroll: Math.abs(event.deltaY) > Math.abs(event.deltaX),
-      // });
+  //     // 🐛 DEBUG: Log region detection results
+  //     // console.log("🎯 Region Detection:", {
+  //     //   clientX: event.clientX,
+  //     //   clientY: event.clientY,
+  //     //   isInDOMTrackList,
+  //     //   isInCanvasTrackRegion,
+  //     //   isInAnyTrackArea,
+  //     //   deltaY: event.deltaY,
+  //     //   isVerticalScroll: Math.abs(event.deltaY) > Math.abs(event.deltaX),
+  //     // });
 
-      // Handle vertical scroll - only allow in track areas to prevent HUD interference
-      if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
-        if (isInAnyTrackArea && currentAnimation && animations[currentAnimation]) {
-          const tracks = animations[currentAnimation].tracks;
-          const contentHeight = tracks.length * 36; // 36px per track
-          const visibleHeight = height - MIN_SHEET_HEIGHT;
-          const maxScroll = Math.max(0, contentHeight - visibleHeight);
+  //     // Handle vertical scroll - only allow in track areas to prevent HUD interference
+  //     if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+  //       if (isInAnyTrackArea && currentAnimation && animations[currentAnimation]) {
+  //         const tracks = animations[currentAnimation].tracks;
+  //         const contentHeight = tracks.length * 36; // 36px per track
+  //         const visibleHeight = height - MIN_SHEET_HEIGHT;
+  //         const maxScroll = Math.max(0, contentHeight - visibleHeight);
 
-          const currentScroll = scrollY.get();
-          const boundedScroll = Math.max(
-            0,
-            Math.min(maxScroll, currentScroll + event.deltaY * 0.5),
-          );
+  //         const currentScroll = scrollY.get();
+  //         const boundedScroll = Math.max(
+  //           0,
+  //           Math.min(maxScroll, currentScroll + event.deltaY * 0.5),
+  //         );
 
-          // Debugging logging
-          // console.log("✅ SCROLL ALLOWED:", {
-          //   currentScroll,
-          //   boundedScroll,
-          //   contentHeight,
-          //   visibleHeight,
-          //   maxScroll,
-          // });
+  //         // Debugging logging
+  //         // console.log("✅ SCROLL ALLOWED:", {
+  //         //   currentScroll,
+  //         //   boundedScroll,
+  //         //   contentHeight,
+  //         //   visibleHeight,
+  //         //   maxScroll,
+  //         // });
 
-          scrollY.set(boundedScroll);
-        }
-        // Always prevent default to block unwanted vertical scroll in HUD regions
-        // This ensures rulers, timeline, and minimap don't scroll when not intended
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      // Horizontal scroll passes through to gesture handler
-    },
-    [scrollY, currentAnimation, animations, height, trackListBounds],
-  );
+  //         scrollY.set(boundedScroll);
+  //       }
+  //       // Always prevent default to block unwanted vertical scroll in HUD regions
+  //       // This ensures rulers, timeline, and minimap don't scroll when not intended
+  //       event.preventDefault();
+  //       event.stopPropagation();
+  //     }
+  //     // Horizontal scroll passes through to gesture handler
+  //   },
+  //   [scrollY, currentAnimation, animations, height, trackListBounds],
+  // );
 
   const [trackRegion, _trackBounds] = useMeasure();
   const trackRegionElement = useRef<HTMLDivElement | null>(null);
@@ -317,57 +319,17 @@ export function InnerSheet3D({
           {/* Canvas (spans all rows) */}
           <div
             ref={canvasRef}
-            className={clsx("w-full min-w-0 row-span-5 touch-none", TRACK_MAIN_BG)}
+            className={clsx(
+              "w-full min-w-0 row-span-5 touch-none rounded-md overflow-clip",
+              TRACK_MAIN_BG,
+            )}
           >
-            <Canvas
-              className="w-full h-full"
-              orthographic
-              camera={{
-                position: [0, 0, 100],
-                up: [0, 1, 0],
-                zoom: 1,
-              }}
-              onWheel={handleCanvasWheel}
-            >
-              <LayoutProvider config={DEFAULT_DATA_VISUALIZATION_LAYOUT}>
-                {/* Main Scene Camera Controller - TEMPORARILY DISABLED TO TEST NATURAL R3F BEHAVIOR */}
-                {/* <MainSceneCameraController /> */}
-
-                {/* Gesture-only camera for pan/zoom without resize interference */}
-                <GestureOnlyCamera enabled />
-
-                {/* Main Scene - Track List (behind everything) */}
-                <TrackListRegion
-                  visible
-                  animationId={currentAnimation}
-                  namespaceId={namespaceId}
-                  instanceSettings={instanceSettings}
-                  scrollY={scrollY}
-                />
-
-                {/* HUD Layer 1 - Top Ruler */}
-                <Hud renderPriority={1}>
-                  <TopRulerRegion />
-                </Hud>
-
-                {/* HUD Layer 2 - Timeline */}
-                <Hud renderPriority={2}>
-                  <TimelineRegion />
-                </Hud>
-
-                {/* HUD Layer 3 - Minimap & Bottom Ruler */}
-                <Hud renderPriority={3}>
-                  <MinimapRegion />
-                  <BottomRulerRegion />
-                </Hud>
-
-                <ambientLight intensity={1} />
-
-                {/* Bounds provider - gets layout bounds and updates state */}
-                <BoundsProvider onBoundsChange={setTrackListBounds} />
-              </LayoutProvider>
-            </Canvas>
-            <CanvasGestureHandler canvasRef={canvasRef} bounds={trackListBounds} />
+            <CanvasSheet
+              tracks={allTracks}
+              selection={selectedTracks}
+              scrollValue={scrollY}
+              theme={resolvedTheme}
+            />
           </div>
 
           {/* Track List - Row 2 */}
