@@ -1,13 +1,21 @@
-import { Canvas, useFrame, useThree, Color as RColor } from "@react-three/fiber";
+import { Canvas, useFrame, useThree, Color as RColor, ThreeEvent } from "@react-three/fiber";
 import { Hud, Instance, Instances, OrthographicCamera } from "@react-three/drei";
 import { MotionValue } from "motion";
-import { createContext, useContext, useState, useRef, useMemo, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useRef,
+  useMemo,
+  useEffect,
+  useCallback,
+  WheelEvent,
+} from "react";
 import * as THREE from "three";
 import type { Color } from "three";
-import { useColors } from "../../hooks";
-import { PanZoomControls } from "./controls/pan-zoom-controls";
-import { useOrthoCameraSetup } from "../../hooks/useOrthoCameraSetup";
 import { Theme } from "@semio/ui";
+import { useColors, useOrthoCameraSetup } from "../../hooks";
+import { PanZoomControls } from "./controls/pan-zoom-controls";
 
 function HudSection({
   position,
@@ -154,34 +162,66 @@ function TrackList({
   tracks = [],
   trackHeight = 36,
   scrollValue,
-  topOffsetPx = 32, // NEW: pixel offset from top (default 32px for top HUD)
+  topOffsetPx = 32,
+  bottomOffsetPx = 108,
 }: {
   tracks?: string[];
   trackHeight?: number;
   scrollValue?: MotionValue<number>;
   topOffsetPx?: number;
+  bottomOffsetPx?: number;
 }) {
-  // Ensure ortho camera bounds are set before layout math
   useOrthoCameraSetup();
   const { size, camera } = useThree();
+  const groupRef = useRef<THREE.Group>(null);
+
+  // Calculate scroll boundaries
+  const totalContentHeightPx = tracks.length * trackHeight;
+  const visibleHeightPx = size.height - topOffsetPx - bottomOffsetPx;
+  const scrollMin = 0;
+  const scrollMax = Math.max(0, totalContentHeightPx - visibleHeightPx);
 
   // Compute world Y position for the top of the TrackList
-  const [y, trackWorldHeight] = useMemo(() => {
+  const [y, trackWorldHeight, worldHeight] = useMemo(() => {
     if ((camera as THREE.OrthographicCamera).isOrthographicCamera) {
       const orthoCamera = camera as THREE.OrthographicCamera;
-      const worldHeight = orthoCamera.top - orthoCamera.bottom;
-      const offsetWorld = (topOffsetPx / size.height) * worldHeight;
-      const trackWorldHeight0 = (trackHeight / size.height) * worldHeight;
+      const worldHeight0 = orthoCamera.top - orthoCamera.bottom;
+      const offsetWorld = (topOffsetPx / size.height) * worldHeight0;
+      const trackWorldHeight0 = (trackHeight / size.height) * worldHeight0;
       // Y position is at top minus offset minus half a track (so first track is flush with HUD)
       const y0: number = orthoCamera.top - offsetWorld - trackWorldHeight0 / 2;
-      return [y0, trackWorldHeight0];
+      return [y0, trackWorldHeight0, worldHeight0];
     } else {
-      return [0, trackHeight];
+      return [0, trackHeight, 1];
     }
   }, [camera, size, topOffsetPx, trackHeight]);
 
+  // Imperatively update group position based on scrollValue
+  useFrame(() => {
+    if (groupRef.current && scrollValue) {
+      const scrollPx = scrollValue.get();
+      const scrollWorld = (scrollPx / size.height) * worldHeight;
+      groupRef.current.position.y = y + scrollWorld;
+    }
+  });
+
+  // Wheel handler to update scrollValue
+  const handleWheel = useCallback(
+    (e: ThreeEvent<WheelEvent>) => {
+      // Ignore if Control or Command/Meta key is pressed
+      if (e.ctrlKey || e.metaKey) return;
+      if (!scrollValue) return;
+      e.stopPropagation();
+      const prev = scrollValue.get();
+      let next = prev + e.deltaY;
+      next = Math.max(scrollMin, Math.min(scrollMax, next));
+      scrollValue.set(next);
+    },
+    [scrollValue, scrollMin, scrollMax],
+  );
+
   return (
-    <group position={[0, y, 0]}>
+    <group ref={groupRef as any} onWheel={handleWheel as any}>
       {tracks.map((track, idx) => (
         <DataPointsRenderer
           key={track}
