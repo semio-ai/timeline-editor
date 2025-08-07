@@ -32,7 +32,7 @@ import {
 // } from "./regions";
 // import { GestureOnlyCamera } from "./cameras";
 import type { RegionBounds } from "./layout/types";
-import { CanvasSheet } from "./canvas-sheet";
+import { CanvasSheet } from "./canvas-sheet/canvas-sheet";
 
 /**
  * GESTURE HANDLING ARCHITECTURE (Phase 2 Completion)
@@ -137,99 +137,29 @@ export function InnerSheet3D({
     updateDuration(animations[currentAnimation].duration);
   }, [currentAnimation, animations, updateDuration]);
 
-  // Region-aware wheel event handler - prevents vertical scroll in HUD regions
-  //
-  // CRITICAL: We must detect which region the cursor is in because:
-  // - DOM Track List (left side): Allow vertical scroll for track list navigation
-  // - Canvas Track Region (right side): Allow vertical scroll for track list navigation
-  // - HUD regions (rulers, timeline): Block vertical scroll to prevent unwanted behavior
-  // - Without region detection, vertical scroll leaks into HUD areas causing UX issues
-  // const handleCanvasWheel = useCallback(
-  //   (event: any) => {
-  //     // Canvas wheel events have different signature than React wheel events
-  //     if (!canvasRef.current || !trackListBounds) return;
-
-  //     // For modifier keys (zoom), let gesture system handle it
-  //     if (event.ctrlKey || event.metaKey) {
-  //       return; // Gesture system will handle zoom
-  //     }
-
-  //     // Check if cursor is over DOM track list (left side, outside Canvas)
-  //     const trackListRect = trackRegionElement.current?.getBoundingClientRect();
-  //     const isInDOMTrackList =
-  //       trackListRect &&
-  //       event.clientX >= trackListRect.left &&
-  //       event.clientX <= trackListRect.right &&
-  //       event.clientY >= trackListRect.top &&
-  //       event.clientY <= trackListRect.bottom;
-
-  //     // Check if cursor is over Canvas track region (right side, inside Canvas)
-  //     const rect = canvasRef.current.getBoundingClientRect();
-  //     const worldX = event.clientX - rect.left - rect.width / 2;
-  //     const worldY = rect.height / 2 - (event.clientY - rect.top);
-
-  //     // Calculate Canvas track region boundaries in world coordinates
-  //     const trackLeft = trackListBounds.position.x - trackListBounds.dimensions.width / 2;
-  //     const trackRight = trackListBounds.position.x + trackListBounds.dimensions.width / 2;
-  //     const trackTop = trackListBounds.position.y + trackListBounds.dimensions.height / 2;
-  //     const trackBottom = trackListBounds.position.y - trackListBounds.dimensions.height / 2;
-
-  //     const isInCanvasTrackRegion =
-  //       worldX >= trackLeft && worldX <= trackRight && worldY <= trackTop && worldY >= trackBottom;
-
-  //     // Allow scroll updates if cursor is in either track area
-  //     const isInAnyTrackArea = isInDOMTrackList || isInCanvasTrackRegion;
-
-  //     // 🐛 DEBUG: Log region detection results
-  //     // console.log("🎯 Region Detection:", {
-  //     //   clientX: event.clientX,
-  //     //   clientY: event.clientY,
-  //     //   isInDOMTrackList,
-  //     //   isInCanvasTrackRegion,
-  //     //   isInAnyTrackArea,
-  //     //   deltaY: event.deltaY,
-  //     //   isVerticalScroll: Math.abs(event.deltaY) > Math.abs(event.deltaX),
-  //     // });
-
-  //     // Handle vertical scroll - only allow in track areas to prevent HUD interference
-  //     if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
-  //       if (isInAnyTrackArea && currentAnimation && animations[currentAnimation]) {
-  //         const tracks = animations[currentAnimation].tracks;
-  //         const contentHeight = tracks.length * 36; // 36px per track
-  //         const visibleHeight = height - MIN_SHEET_HEIGHT;
-  //         const maxScroll = Math.max(0, contentHeight - visibleHeight);
-
-  //         const currentScroll = scrollY.get();
-  //         const boundedScroll = Math.max(
-  //           0,
-  //           Math.min(maxScroll, currentScroll + event.deltaY * 0.5),
-  //         );
-
-  //         // Debugging logging
-  //         // console.log("✅ SCROLL ALLOWED:", {
-  //         //   currentScroll,
-  //         //   boundedScroll,
-  //         //   contentHeight,
-  //         //   visibleHeight,
-  //         //   maxScroll,
-  //         // });
-
-  //         scrollY.set(boundedScroll);
-  //       }
-  //       // Always prevent default to block unwanted vertical scroll in HUD regions
-  //       // This ensures rulers, timeline, and minimap don't scroll when not intended
-  //       event.preventDefault();
-  //       event.stopPropagation();
-  //     }
-  //     // Horizontal scroll passes through to gesture handler
-  //   },
-  //   [scrollY, currentAnimation, animations, height, trackListBounds],
-  // );
-
   const [trackRegion, _trackBounds] = useMeasure();
   const trackRegionElement = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
+
+  const [emphasis, setEmphasis] = useState<string[]>([]);
+
+  const setEmphasisSmart = useCallback(
+    (id: string, opt: "add" | "remove") => {
+      setEmphasis((prev) => {
+        if (opt === "add") {
+          return [...prev, id];
+        } else {
+          return prev.filter((e) => e !== id);
+        }
+      });
+    },
+    [setEmphasis],
+  );
+
+  useEffect(() => {
+    console.log("emphasis changed", emphasis);
+  }, [emphasis]);
 
   if (!currentAnimation || !animations[currentAnimation]) {
     return null;
@@ -329,6 +259,8 @@ export function InnerSheet3D({
               selection={selectedTracks}
               scrollValue={scrollY}
               theme={resolvedTheme}
+              emphasis={emphasis}
+              onEmphasisChange={setEmphasisSmart}
             />
           </div>
 
@@ -347,6 +279,8 @@ export function InnerSheet3D({
               height={height - MIN_SHEET_HEIGHT}
               trackRender={trackRender}
               scrollY={scrollY}
+              emphasis={emphasis}
+              onEmphasisChange={setEmphasisSmart}
             />
           </div>
 
