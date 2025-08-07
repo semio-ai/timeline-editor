@@ -17,6 +17,7 @@ module.exports = {
           "attach",
           "uuid",
           "geometry",
+          "material",
           "up",
           "onBeforeRender",
           "transparent",

@@ -8,6 +8,7 @@ import { HudSection } from "./hud-section";
 import { DataPointsRenderer } from "./data-points-renderer";
 import { TrackList } from "./track-list";
 import { DEFAULT_DATAPOINTS } from "./constants";
+import { MinimapDisplay } from "./minimap-display";
 
 export interface CanvasSheetProps {
   tracks?: string[];
@@ -78,10 +79,20 @@ export function CanvasSheet({
           <PanZoomControls bounds={[0, 1]} />
         </HudSection>
 
-        {/* Bottom HUD: 108px tall */}
-        <HudSection position="bottom" pixelHeight={72} backgroundColor={bgColor} renderPriority={3}>
+        {/* Minimap HUD: 36px tall */}
+        <HudSection
+          position="bottom"
+          pixelHeight={36}
+          gap={36}
+          backgroundColor={bgColor}
+          renderPriority={3}
+        >
+          <MinimapDisplay height={36} />
+        </HudSection>
+
+        {/* Bottom HUD: 36px tall, for bottom ruler */}
+        <HudSection position="bottom" pixelHeight={36} backgroundColor={bgColor} renderPriority={4}>
           <DataPointsRenderer height={72} />
-          {/*<PanZoomControls bounds={[0, 1]} />*/}
         </HudSection>
       </Canvas>
     </DataProvider>

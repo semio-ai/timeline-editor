@@ -1,6 +1,5 @@
 import { Instances } from "@react-three/drei";
 import { useColors } from "../../../hooks";
-import { WorldPaddingWrapper } from "../shared/world-padding-wrapper";
 import { useData } from "./data-context";
 import { DataPoint } from "./data-point";
 import { TrackBackground } from "./track-background";
@@ -30,20 +29,17 @@ export function DataPointsRenderer({
       onPointerEnter={() => onEmphasisChange(true)}
       onPointerLeave={() => onEmphasisChange(false)}
     >
-      <WorldPaddingWrapper>
-        <Instances limit={1000} range={allData.length}>
-          {/* Shared geometry and material for all instances */}
-          <cylinderGeometry args={[5, 5, 1, 6]} />
-          <meshBasicMaterial toneMapped={false} />
+      <Instances limit={1000} range={allData.length}>
+        {/* Shared geometry and material for all instances */}
+        <cylinderGeometry args={[5, 5, 1, 6]} />
+        <meshBasicMaterial toneMapped={false} />
 
-          {/* Individual instances */}
-          {allData.map((point) => (
-            <DataPoint key={point.id} id={point.id} x={point.x} y={point.y} color={color} />
-          ))}
-        </Instances>
-        {tracks.length > 0 && <TrackBackground color={color} height={height} emphasis={emphasis} />}
-      </WorldPaddingWrapper>
-      {tracks.length > 0 && <TrackBackground color={color} height={height} emphasis={false} />}
+        {/* Individual instances */}
+        {allData.map((point) => (
+          <DataPoint key={point.id} id={point.id} x={point.x} y={point.y} color={color} />
+        ))}
+      </Instances>
+      {tracks.length > 0 && <TrackBackground color={color} height={height} emphasis={emphasis} />}
     </group>
   );
 }
