@@ -1,6 +1,6 @@
 import { Hud, OrthographicCamera } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import * as THREE from "three";
 import { useOrthoCameraSetup } from "../../../hooks";
 
@@ -45,10 +45,6 @@ export function HudSection({
       return [0, pixelHeight];
     }
   }, [camera, pixelHeight, size, position, gap]);
-
-  useEffect(() => {
-    console.log("HudSection updated", { position, sizeheight: size.height, hudHeight, y });
-  }, [size.height, hudHeight, y, position]);
 
   return (
     <Hud renderPriority={renderPriority}>

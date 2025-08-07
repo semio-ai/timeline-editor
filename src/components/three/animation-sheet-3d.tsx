@@ -127,7 +127,7 @@ export function InnerSheet3D({
   const instanceSettings = currentAnimationInstance?.settings;
 
   const scrollY = useMotionValue(0);
-  const [trackListBounds, setTrackListBounds] = useState<RegionBounds | null>(null);
+  // const [trackListBounds, setTrackListBounds] = useState<RegionBounds | null>(null);
 
   useEffect(() => {
     if (!currentAnimation || !animations[currentAnimation]) {

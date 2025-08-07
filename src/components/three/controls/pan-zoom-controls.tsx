@@ -2,7 +2,6 @@ import { useEffect, useRef, forwardRef } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
 import { OrthographicCamera } from "three";
 import { usePlayerStore } from "@semio/utils";
-// import { useCameraSync } from "../../../hooks";
 import { PanZoomControls as PanZoomControlsImpl } from "./pan-zoom-controls-impl";
 
 export interface PanZoomControlsProps {
