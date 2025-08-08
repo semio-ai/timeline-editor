@@ -1,8 +1,8 @@
 import { Hud, OrthographicCamera } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
-import { useOrthoCameraSetup } from "../../../hooks";
+import { useOrthoCameraSetup, usePlayerSubscription } from "../../../hooks";
 
 interface HudSectionProps {
   position: "top" | "bottom";
@@ -11,6 +11,7 @@ interface HudSectionProps {
   children: React.ReactNode;
   renderPriority?: number;
   gap?: number;
+  fixedCamera?: boolean;
 }
 
 export function HudSection({
@@ -20,31 +21,48 @@ export function HudSection({
   renderPriority = 0,
   gap = 0,
   backgroundColor,
+  fixedCamera = false,
 }: HudSectionProps) {
-  useOrthoCameraSetup();
-  const { size, camera } = useThree();
+  const { size } = useThree();
+
+  const cameraRef = useRef<THREE.OrthographicCamera>(null);
+
+  useOrthoCameraSetup(cameraRef.current ?? undefined);
+
+  usePlayerSubscription(
+    (state) => state.player.viewport,
+    (viewport) => {
+      if (cameraRef.current) {
+        const orthoCamera = cameraRef.current;
+        orthoCamera.left = fixedCamera ? 0 : viewport[0];
+        orthoCamera.right = fixedCamera ? 1 : viewport[1];
+        orthoCamera.updateProjectionMatrix();
+      }
+    },
+  );
+
+  const [top, bottom] = [cameraRef.current?.top ?? 0, cameraRef.current?.bottom ?? 0];
 
   const [y, hudHeight] = useMemo(() => {
-    if ((camera as THREE.OrthographicCamera).isOrthographicCamera) {
-      const orthoCamera = camera as THREE.OrthographicCamera;
+    if (cameraRef.current) {
       // Calculate the visible world height
-      const worldHeight = orthoCamera.top - orthoCamera.bottom;
+      const worldHeight = top - bottom;
 
       // Convert pixel height and gap to world units
       const hudWorldHeight = (pixelHeight / size.height) * worldHeight;
       const gapWorld = (gap / size.height) * worldHeight;
 
-      // Y position: top HUD is at camera.top - half HUD height - gap, bottom HUD is at camera.bottom + half HUD height + gap
+      // Y position: gap is always from the edge of the canvas
       const y0 =
         position === "top"
-          ? orthoCamera.top - hudWorldHeight / 2 - gapWorld
-          : orthoCamera.bottom + hudWorldHeight / 2 + gapWorld;
+          ? top - gapWorld - hudWorldHeight / 2
+          : bottom + gapWorld + hudWorldHeight / 2;
 
       return [y0, hudWorldHeight];
     } else {
       return [0, pixelHeight];
     }
-  }, [camera, pixelHeight, size, position, gap]);
+  }, [top, bottom, pixelHeight, size.height, position, gap]);
 
   return (
     <Hud renderPriority={renderPriority}>
@@ -55,11 +73,10 @@ export function HudSection({
       >
         {/* Background */}
         <OrthographicCamera
+          ref={cameraRef as any}
           makeDefault
           position={[0, 0, 100]}
           up={[0, 1, 0]}
-          left={0}
-          right={1}
           near={0.1}
           far={1000}
           manual

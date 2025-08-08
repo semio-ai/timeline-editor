@@ -3,7 +3,6 @@ import { useRef, useMemo, useCallback } from "react";
 import type { MotionValue } from "motion";
 import * as THREE from "three";
 import { useOrthoCameraSetup } from "../../../hooks";
-import { PanZoomControls } from "../controls/pan-zoom-controls";
 import { DataPointsRenderer } from "./data-points-renderer";
 
 interface TrackListProps {
@@ -25,8 +24,10 @@ export function TrackList({
   emphasis = [],
   onEmphasisChange = () => {},
 }: TrackListProps) {
-  useOrthoCameraSetup();
   const { size, camera } = useThree();
+
+  useOrthoCameraSetup(camera as THREE.OrthographicCamera);
+
   const groupRef = useRef<THREE.Group>(null);
 
   // Calculate scroll boundaries
@@ -74,8 +75,6 @@ export function TrackList({
     [scrollValue, scrollMin, scrollMax],
   );
 
-  console.log("Tracklist emphasis", emphasis);
-
   return (
     <group ref={groupRef as any} onWheel={handleWheel as any}>
       {tracks.map((track, idx) => (
@@ -88,7 +87,6 @@ export function TrackList({
           onEmphasisChange={(v) => onEmphasisChange(track, v ? "add" : "remove")}
         />
       ))}
-      <PanZoomControls bounds={[0, 1]} />
     </group>
   );
 }

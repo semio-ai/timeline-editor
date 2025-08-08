@@ -40,8 +40,6 @@ export function CanvasSheet({
           up: [0, 1, 0],
           left: 0,
           right: 1,
-          top: 16,
-          bottom: -16,
           near: 0.1,
           far: 1000,
           manual: true,
@@ -53,6 +51,7 @@ export function CanvasSheet({
         }}
       >
         <ambientLight intensity={1} />
+        <PanZoomControls bounds={[0, 1]} />
         <TrackList
           tracks={tracks}
           scrollValue={scrollValue}
@@ -64,7 +63,6 @@ export function CanvasSheet({
         {/* Top HUD: 32px tall */}
         <HudSection position="top" pixelHeight={32} backgroundColor={bgColor} renderPriority={1}>
           <DataPointsRenderer height={32} />
-          <PanZoomControls bounds={[0, 1]} />
         </HudSection>
 
         {/* Timeline HUD: 36px tall */}
@@ -76,7 +74,6 @@ export function CanvasSheet({
           gap={72}
         >
           <DataPointsRenderer height={36} tracks={selection} />
-          <PanZoomControls bounds={[0, 1]} />
         </HudSection>
 
         {/* Minimap HUD: 36px tall */}
@@ -86,13 +83,20 @@ export function CanvasSheet({
           gap={36}
           backgroundColor={bgColor}
           renderPriority={3}
+          fixedCamera
         >
-          <MinimapDisplay height={36} />
+          <MinimapDisplay />
         </HudSection>
 
         {/* Bottom HUD: 36px tall, for bottom ruler */}
-        <HudSection position="bottom" pixelHeight={36} backgroundColor={bgColor} renderPriority={4}>
-          <DataPointsRenderer height={72} />
+        <HudSection
+          position="bottom"
+          pixelHeight={36}
+          backgroundColor={bgColor}
+          renderPriority={4}
+          fixedCamera
+        >
+          <DataPointsRenderer height={36} />
         </HudSection>
       </Canvas>
     </DataProvider>

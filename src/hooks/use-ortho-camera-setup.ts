@@ -10,24 +10,22 @@ import * as THREE from "three";
  * Call this hook at the top of any component that relies on correct
  * camera bounds for layout calculations.
  */
-export function useOrthoCameraSetup() {
-  const { size, camera } = useThree();
+export function useOrthoCameraSetup(camera?: THREE.OrthographicCamera) {
+  const { size } = useThree();
 
   // Set camera bounds immediately for initial render
-  if ((camera as THREE.OrthographicCamera).isOrthographicCamera) {
-    const orthoCamera = camera as THREE.OrthographicCamera;
-    orthoCamera.top = size.height / 2;
-    orthoCamera.bottom = -size.height / 2;
-    orthoCamera.updateProjectionMatrix();
+  if (camera) {
+    camera.top = size.height / 2;
+    camera.bottom = -size.height / 2;
+    camera.updateProjectionMatrix();
   }
 
   // Also set on resize (for subsequent renders)
   useEffect(() => {
-    if ((camera as THREE.OrthographicCamera).isOrthographicCamera) {
-      const orthoCamera = camera as THREE.OrthographicCamera;
-      orthoCamera.top = size.height / 2;
-      orthoCamera.bottom = -size.height / 2;
-      orthoCamera.updateProjectionMatrix();
+    if (camera) {
+      camera.top = size.height / 2;
+      camera.bottom = -size.height / 2;
+      camera.updateProjectionMatrix();
     }
   }, [camera, size]);
 }
