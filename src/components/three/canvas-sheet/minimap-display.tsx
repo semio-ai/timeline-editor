@@ -2,8 +2,8 @@ import { useRef, useMemo, useState } from "react";
 import * as THREE from "three";
 import { useGesture } from "@use-gesture/react";
 import { PlayerData, usePlayerStore } from "@semio/utils";
-import { Instance, Instances } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { Instance, Instances, useCursor } from "@react-three/drei";
+import { useFrame, useThree } from "@react-three/fiber";
 import { usePlayerSubscription } from "../../../hooks";
 
 /**
@@ -25,6 +25,9 @@ export function MinimapDisplay({
   // Player store for updating viewport
   const { updatePlayerViewport, updatePlayerViewportBound } = usePlayerStore();
 
+  // Three.js context for coordinate conversion
+  const { camera, size } = useThree();
+
   // Materials
   const rectMaterial = useMemo(
     () =>
@@ -40,6 +43,16 @@ export function MinimapDisplay({
   // Store current viewport for drag calculations
   const [currentViewport, setCurrentViewport] = useState<[number, number]>([0, 1]);
   const [currentBounds, setCurrentBounds] = useState<[number, number]>([0, 1]);
+
+  // Cursor state management
+  const [hovered, setHovered] = useState<"viewport" | "left" | "right" | null>(null);
+  const [dragging, setDragging] = useState<"viewport" | "left" | "right" | null>(null);
+
+  // Use drei's useCursor hook for cursor management
+  useCursor(hovered === "viewport" && !dragging, "grab", "auto");
+  useCursor((hovered === "left" || hovered === "right") && !dragging, "ew-resize", "auto");
+  useCursor(dragging === "viewport", "grabbing", "auto");
+  useCursor(dragging === "left" || dragging === "right", "ew-resize", "auto");
 
   usePlayerSubscription(
     (state: PlayerData) => state.player.viewport,
@@ -71,11 +84,12 @@ export function MinimapDisplay({
     },
   );
 
-  useFrame(({ viewport, camera }) => {
+  useFrame(({ viewport, camera: frameCamera }) => {
     if (leftHexRef.current && rightHexRef.current) {
       const baseWidth = viewport.width;
       const currentWidth =
-        (camera as THREE.OrthographicCamera).right - (camera as THREE.OrthographicCamera).left;
+        (frameCamera as THREE.OrthographicCamera).right -
+        (frameCamera as THREE.OrthographicCamera).left;
       const scaleFactor = currentWidth / baseWidth;
 
       // Apply scaling for frustum invariance - same pattern as data points
@@ -84,14 +98,20 @@ export function MinimapDisplay({
     }
   });
 
-  // Gesture handlers for viewport drag
-  useGesture(
+  // Gesture bindings
+  const bindViewportDrag = useGesture(
     {
       onDrag: ({ movement: [mx], first, memo }) => {
         if (first) {
+          setDragging("viewport");
           return [...currentViewport];
         }
-        const deltaX = mx * 0.001;
+
+        // Convert screen movement to normalized coordinate space
+        const orthoCam = camera as THREE.OrthographicCamera;
+        const worldWidth = orthoCam.right - orthoCam.left;
+        const deltaX = (mx / size.width) * worldWidth;
+
         const initialViewport = memo as [number, number];
         const viewportWidth = currentViewport[1] - currentViewport[0];
         const newStart = Math.max(
@@ -100,57 +120,73 @@ export function MinimapDisplay({
         );
         const newEnd = newStart + viewportWidth;
         updatePlayerViewport(newStart, newEnd);
-        return memo;
+        return memo as [number, number];
+      },
+      onDragEnd: () => {
+        setDragging(null);
       },
     },
     {
-      target: rectRef as any,
       eventOptions: { passive: false },
     },
   );
 
-  // Gesture handlers for left hexagon
-  useGesture(
+  const bindLeftDrag = useGesture(
     {
       onDrag: ({ movement: [mx], first, memo }) => {
         if (first) {
+          setDragging("left");
           return [...currentViewport];
         }
-        const deltaX = mx * 0.001;
+
+        // Convert screen movement to normalized coordinate space
+        const orthoCam = camera as THREE.OrthographicCamera;
+        const worldWidth = orthoCam.right - orthoCam.left;
+        const deltaX = (mx / size.width) * worldWidth;
+
         const initialViewport = memo as [number, number];
         const newStart = Math.max(
           currentBounds[0],
           Math.min(initialViewport[1], initialViewport[0] + deltaX),
         );
         updatePlayerViewportBound("start", newStart);
-        return memo;
+        return memo as [number, number];
+      },
+      onDragEnd: () => {
+        setDragging(null);
       },
     },
     {
-      target: leftHexRef as any,
       eventOptions: { passive: false },
     },
   );
 
-  // Gesture handlers for right hexagon
-  useGesture(
+  const bindRightDrag = useGesture(
     {
       onDrag: ({ movement: [mx], first, memo }) => {
         if (first) {
+          setDragging("right");
           return [...currentViewport];
         }
-        const deltaX = mx * 0.001;
+
+        // Convert screen movement to normalized coordinate space
+        const orthoCam = camera as THREE.OrthographicCamera;
+        const worldWidth = orthoCam.right - orthoCam.left;
+        const deltaX = (mx / size.width) * worldWidth;
+
         const initialViewport = memo as [number, number];
         const newEnd = Math.min(
           currentBounds[1],
           Math.max(initialViewport[0], initialViewport[1] + deltaX),
         );
         updatePlayerViewportBound("end", newEnd);
-        return memo;
+        return memo as [number, number];
+      },
+      onDragEnd: () => {
+        setDragging(null);
       },
     },
     {
-      target: rightHexRef as any,
       eventOptions: { passive: false },
     },
   );
@@ -158,16 +194,37 @@ export function MinimapDisplay({
   return (
     <group>
       {/* Main rectangle */}
-      <mesh ref={rectRef as any} geometry={rectGeometry as any} material={rectMaterial as any} />
+      <mesh
+        ref={rectRef as any}
+        geometry={rectGeometry as any}
+        material={rectMaterial as any}
+        onPointerEnter={() => setHovered("viewport")}
+        onPointerLeave={() => setHovered(null)}
+        {...(bindViewportDrag() as any)}
+      />
 
       {/* Left/Right hexagon approximations using cylinders */}
       <Instances limit={2} range={2}>
         <cylinderGeometry args={[height / 2, height / 2, 0.1, 6]} />
         <meshBasicMaterial color={color} toneMapped={false} />
 
-        <Instance ref={leftHexRef} rotation={[Math.PI / 2, 0, 0]} color={color} />
+        <Instance
+          ref={leftHexRef}
+          rotation={[Math.PI / 2, 0, 0]}
+          color={color}
+          onPointerEnter={() => setHovered("left")}
+          onPointerLeave={() => setHovered(null)}
+          {...(bindLeftDrag() as any)}
+        />
 
-        <Instance ref={rightHexRef} rotation={[Math.PI / 2, 0, 0]} color={color} />
+        <Instance
+          ref={rightHexRef}
+          rotation={[Math.PI / 2, 0, 0]}
+          color={color}
+          onPointerEnter={() => setHovered("right")}
+          onPointerLeave={() => setHovered(null)}
+          {...(bindRightDrag() as any)}
+        />
       </Instances>
     </group>
   );
