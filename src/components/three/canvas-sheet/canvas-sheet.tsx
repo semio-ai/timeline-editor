@@ -29,6 +29,11 @@ export function CanvasSheet({
 }: CanvasSheetProps) {
   const bgColor = theme === Theme.Dark ? "#202020" : "#EFEFEF";
 
+  // Use simple initial bounds that will be immediately corrected by PanZoomControls
+  // This prevents initialization timing issues with canvas width calculations
+  const initialLeft = -0.1;
+  const initialRight = 1.1;
+
   return (
     <DataProvider initial={DEFAULT_DATAPOINTS}>
       <Canvas
@@ -38,8 +43,8 @@ export function CanvasSheet({
         camera={{
           position: [0, 0, 100],
           up: [0, 1, 0],
-          left: 0,
-          right: 1,
+          left: initialLeft,
+          right: initialRight,
           near: 0.1,
           far: 1000,
           manual: true,

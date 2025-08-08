@@ -9,7 +9,7 @@ export interface Data {
 
 export interface DataContextType {
   data: Data[];
-  setData: (data: Data[]) => void | ((prevData: Data[]) => Data[]);
+  setData: (data: Data[] | ((prevData: Data[]) => Data[])) => void;
 }
 
 export const DataContext = createContext<DataContextType | undefined>(undefined);

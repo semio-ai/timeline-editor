@@ -1,4 +1,5 @@
 import { EventDispatcher, OrthographicCamera, Vector2, MOUSE, TOUCH } from "three";
+import { getDataViewportFromFrustum, setFrustumFromDataViewport } from "../../../viewport-utils";
 
 interface PanZoomControlsEventMap {
   change: object;
@@ -92,8 +93,9 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
     this.object = object;
     this.domElement = domElement;
 
-    // Store initial camera width for zoom constraints
-    this.initialCameraWidth = this.object.right - this.object.left;
+    // Store initial data viewport width for zoom constraints (always 1.0 for [0,1] range)
+    // This should NOT use camera frustum width which includes padding
+    this.initialCameraWidth = 1.0;
 
     // Connect to domElement if provided
     if (domElement) this.connect(domElement);
@@ -250,37 +252,59 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
   private panCamera(deltaX: number) {
     console.log("Panning axis");
     const camera = this.object;
-    const width = camera.right - camera.left;
-    const scale = (width / this.initialCameraWidth) * 0.25;
-    const adjustedDeltaX = deltaX * scale;
-    let newLeft = camera.left + adjustedDeltaX;
-    let newRight = camera.right + adjustedDeltaX;
+    const canvasWidth = this.domElement?.clientWidth || 1;
 
+    // Get current data viewport (without padding)
+    const currentDataViewport = getDataViewportFromFrustum(
+      { left: camera.left, right: camera.right },
+      canvasWidth,
+    );
+
+    const dataWidth = currentDataViewport.right - currentDataViewport.left;
+    const scale = (dataWidth / this.initialCameraWidth) * 0.25;
+    const adjustedDeltaX = deltaX * scale;
+
+    let newDataLeft = currentDataViewport.left + adjustedDeltaX;
+    let newDataRight = currentDataViewport.right + adjustedDeltaX;
+
+    // Apply bounds checking to DATA viewport, not camera frustum
     if (this.bounds) {
       const [min, max] = this.bounds;
-      // If viewport is wider than bounds, clamp to bounds
-      if (width >= max - min) {
-        newLeft = min;
-        newRight = max;
+
+      // If data viewport is wider than bounds, clamp to bounds
+      if (dataWidth >= max - min) {
+        newDataLeft = min;
+        newDataRight = max;
       } else {
-        // Clamp so viewport stays within bounds
-        if (newLeft < min) {
-          newLeft = min;
-          newRight = min + width;
+        // Clamp so data viewport stays within bounds
+        if (newDataLeft < min) {
+          newDataLeft = min;
+          newDataRight = min + dataWidth;
         }
-        if (newRight > max) {
-          newRight = max;
-          newLeft = max - width;
+        if (newDataRight > max) {
+          newDataRight = max;
+          newDataLeft = max - dataWidth;
         }
       }
     }
 
-    camera.left = newLeft;
-    camera.right = newRight;
+    // Convert back to camera frustum with padding
+    const newFrustum = setFrustumFromDataViewport(
+      { left: newDataLeft, right: newDataRight },
+      canvasWidth,
+    );
+
+    camera.left = newFrustum.left;
+    camera.right = newFrustum.right;
     camera.updateProjectionMatrix();
 
-    // Call custom handler if set
-    this.onViewportChange?.(this.getFrustum());
+    // Report the data viewport to external handlers
+    this.onViewportChange?.({
+      left: newDataLeft,
+      right: newDataRight,
+      top: camera.top,
+      bottom: camera.bottom,
+    });
   }
 
   private zoomCameraHorizontal(zoomFactor: number, center: Vector2) {
@@ -288,53 +312,74 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
 
     const camera = this.object;
     const rect = this.domElement.getBoundingClientRect();
+    const canvasWidth = this.domElement.clientWidth;
 
-    // Convert screen coordinates to relative position
+    // Get current data viewport (without padding)
+    const currentDataViewport = getDataViewportFromFrustum(
+      { left: camera.left, right: camera.right },
+      canvasWidth,
+    );
+
+    const currentDataWidth = currentDataViewport.right - currentDataViewport.left;
+
+    // Calculate new width with zoom constraints based on initial data width
+    const minDataWidth = this.initialCameraWidth / this.maxZoom;
+    const maxDataWidth = this.initialCameraWidth / this.minZoom;
+    const newDataWidth = Math.max(
+      minDataWidth,
+      Math.min(maxDataWidth, currentDataWidth / zoomFactor),
+    );
+
+    if (Math.abs(newDataWidth - currentDataWidth) < EPS) return;
+
+    // Calculate zoom center in data space
     const relativeX = (center.x - rect.left) / rect.width;
 
-    const currentWidth = camera.right - camera.left;
+    // Convert screen relative position to data viewport position
+    const targetDataX = currentDataViewport.left + currentDataWidth * relativeX;
+    const newDataCenterX = targetDataX - newDataWidth * (relativeX - 0.5);
 
-    // Calculate new width with zoom constraints based on initial camera width
-    // minZoom and maxZoom are scale factors (e.g., 0.1 = 10% of original, 10 = 1000% of original)
-    const minWidth = this.initialCameraWidth / this.maxZoom; // maxZoom means smaller width
-    const maxWidth = this.initialCameraWidth / this.minZoom; // minZoom means larger width
+    let newDataLeft = newDataCenterX - newDataWidth / 2;
+    let newDataRight = newDataCenterX + newDataWidth / 2;
 
-    const newWidth = Math.max(minWidth, Math.min(maxWidth, currentWidth / zoomFactor));
-
-    if (Math.abs(newWidth - currentWidth) < EPS) return;
-
-    // Zoom to point (horizontal only - keep vertical frustum unchanged)
-    const targetWorldX = camera.left + currentWidth * relativeX;
-    const newHalfWidth = newWidth / 2;
-    const newCenterX = targetWorldX - newWidth * (relativeX - 0.5);
-
-    let newLeft = newCenterX - newHalfWidth;
-    let newRight = newCenterX + newHalfWidth;
-
+    // Apply bounds checking to DATA viewport
     if (this.bounds) {
       const [min, max] = this.bounds;
-      // Clamp left/right so viewport stays within bounds
-      if (newLeft < min) {
-        newLeft = min;
-        newRight = min + newWidth;
+
+      if (newDataLeft < min) {
+        newDataLeft = min;
+        newDataRight = min + newDataWidth;
       }
-      if (newRight > max) {
-        newRight = max;
-        newLeft = max - newWidth;
+      if (newDataRight > max) {
+        newDataRight = max;
+        newDataLeft = max - newDataWidth;
       }
-      // If newWidth > bounds, clamp to bounds
-      if (newRight - newLeft > max - min) {
-        newLeft = min;
-        newRight = max;
+      // If newDataWidth > bounds, clamp to bounds
+      if (newDataRight - newDataLeft > max - min) {
+        newDataLeft = min;
+        newDataRight = max;
       }
     }
 
-    camera.left = newLeft;
-    camera.right = newRight;
+    // Convert to camera frustum with padding
+    const newFrustum = setFrustumFromDataViewport(
+      { left: newDataLeft, right: newDataRight },
+      canvasWidth,
+    );
+
+    camera.left = newFrustum.left;
+    camera.right = newFrustum.right;
     // Intentionally not modifying camera.top and camera.bottom for horizontal-only zoom
 
     camera.updateProjectionMatrix();
-    this.onViewportChange?.(this.getFrustum());
+
+    // Report the data viewport to external handlers
+    this.onViewportChange?.({
+      left: newDataLeft,
+      right: newDataRight,
+      top: camera.top,
+      bottom: camera.bottom,
+    });
   }
 
   // Get current frustum for external components

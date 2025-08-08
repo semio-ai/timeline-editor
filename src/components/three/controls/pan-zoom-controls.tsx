@@ -2,6 +2,7 @@ import { useEffect, useRef, forwardRef } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
 import { OrthographicCamera } from "three";
 import { usePlayerStore } from "@semio/utils";
+import { calculatePaddedFrustum } from "../../../viewport-utils";
 import { PanZoomControls as PanZoomControlsImpl } from "./pan-zoom-controls-impl";
 
 export interface PanZoomControlsProps {
@@ -36,30 +37,50 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
     ref,
   ) => {
     const controlsRef = useRef<PanZoomControlsImpl | null>(null);
-    const { camera, gl, invalidate } = useThree();
+    const { camera, gl, invalidate, size } = useThree();
 
-    // Subscribe to player store viewport and update camera directly
+    // Subscribe to player store viewport and update camera with padding
     useEffect(() => {
       const unsub = usePlayerStore.subscribe(
         (state) => state.player.viewport,
         (viewport) => {
           if ((camera as OrthographicCamera).isOrthographicCamera) {
-            (camera as OrthographicCamera).left = viewport[0];
-            (camera as OrthographicCamera).right = viewport[1];
+            const { left, right } = calculatePaddedFrustum(
+              viewport,
+              size.width,
+              false, // Dynamic camera follows viewport
+            );
+            (camera as OrthographicCamera).left = left;
+            (camera as OrthographicCamera).right = right;
             camera.updateProjectionMatrix();
           }
         },
       );
       return unsub;
-    }, [camera]);
+    }, [camera, gl.domElement, size.width]);
+
+    // Initialize camera bounds immediately on mount to prevent HUD timing issues
+    useEffect(() => {
+      if ((camera as OrthographicCamera).isOrthographicCamera && size.width > 0) {
+        const currentViewport = usePlayerStore.getState().player.viewport;
+        const { left, right } = calculatePaddedFrustum(
+          currentViewport,
+          size.width,
+          false, // Dynamic camera follows viewport
+        );
+        (camera as OrthographicCamera).left = left;
+        (camera as OrthographicCamera).right = right;
+        camera.updateProjectionMatrix();
+      }
+    }, [camera, size.width]); // Run when camera or canvas size is available
 
     // Create controls instance only when camera or domElement changes
     // Setup PanZoomControlsImpl and sync viewport changes to player store
     const setPlayerViewport = usePlayerStore((state) => state.updatePlayerViewport);
 
     useEffect(() => {
-      if (!(camera instanceof OrthographicCamera)) {
-        console.warn("PanZoomControls: camera must be an OrthographicCamera");
+      // Wait for camera and canvas to be properly initialized
+      if (!(camera instanceof OrthographicCamera) || size.width <= 0) {
         return;
       }
 
@@ -77,12 +98,11 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
       controls.bounds = bounds;
 
       // Sync viewport changes from controls to player store
+      // The controls now pass data viewport (without padding) directly
       controls.onViewportChange = (frustum) => {
-        // Assuming bounds are [0, 1], map left/right directly
         setPlayerViewport(frustum.left, frustum.right);
       };
 
-      controlsRef.current = controls;
       // Expose ref
       if (ref) {
         if (typeof ref === "function") {
@@ -99,6 +119,7 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
     }, [
       camera,
       gl.domElement,
+      size.width, // Wait for proper canvas size
       ref,
       enabled,
       enablePan,

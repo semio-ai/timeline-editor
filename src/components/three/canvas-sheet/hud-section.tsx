@@ -1,8 +1,9 @@
 import { Hud, OrthographicCamera } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { useOrthoCameraSetup, usePlayerSubscription } from "../../../hooks";
+import { calculatePaddedFrustum } from "../../../viewport-utils";
 
 interface HudSectionProps {
   position: "top" | "bottom";
@@ -29,13 +30,29 @@ export function HudSection({
 
   useOrthoCameraSetup(cameraRef.current ?? undefined);
 
+  // Initialize camera bounds immediately on mount to prevent timing issues
+  useEffect(() => {
+    if (cameraRef.current && size.width > 0) {
+      const orthoCamera = cameraRef.current;
+      const dataViewport: [number, number] = fixedCamera ? [0, 1] : [0, 1]; // Use default viewport for initial setup
+      const { left, right } = calculatePaddedFrustum(dataViewport, size.width, fixedCamera);
+      orthoCamera.left = left;
+      orthoCamera.right = right;
+      orthoCamera.updateProjectionMatrix();
+    }
+  }, [size.width, fixedCamera]); // Run when canvas size is available
+
   usePlayerSubscription(
     (state) => state.player.viewport,
     (viewport) => {
-      if (cameraRef.current) {
+      if (cameraRef.current && size.width > 0) {
         const orthoCamera = cameraRef.current;
-        orthoCamera.left = fixedCamera ? 0 : viewport[0];
-        orthoCamera.right = fixedCamera ? 1 : viewport[1];
+        const dataViewport: [number, number] = fixedCamera
+          ? [0, 1]
+          : (viewport as [number, number]);
+        const { left, right } = calculatePaddedFrustum(dataViewport, size.width, fixedCamera);
+        orthoCamera.left = left;
+        orthoCamera.right = right;
         orthoCamera.updateProjectionMatrix();
       }
     },
