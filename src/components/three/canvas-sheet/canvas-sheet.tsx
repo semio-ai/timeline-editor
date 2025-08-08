@@ -90,7 +90,7 @@ export function CanvasSheet({
           renderPriority={3}
           fixedCamera
         >
-          <MinimapDisplay />
+          <MinimapDisplay theme={theme} minZoom={0.1} />
         </HudSection>
 
         {/* Bottom HUD: 36px tall, for bottom ruler */}
