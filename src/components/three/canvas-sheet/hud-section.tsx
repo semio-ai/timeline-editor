@@ -4,6 +4,7 @@ import { useMemo, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { useOrthoCameraSetup, usePlayerSubscription } from "../../../hooks";
 import { calculatePaddedFrustum } from "../../../viewport-utils";
+import { FrustumBackground } from "./frustum-background";
 
 interface HudSectionProps {
   position: "top" | "bottom";
@@ -99,10 +100,12 @@ export function HudSection({
           manual
         />
         {backgroundColor && (
-          <mesh position={[0.5, y, -1]}>
-            <planeGeometry args={[1, hudHeight]} />
-            <meshBasicMaterial color={backgroundColor} />
-          </mesh>
+          <FrustumBackground
+            color={backgroundColor}
+            height={hudHeight}
+            opacity={1}
+            position={[0.5, y, -1]}
+          />
         )}
         <group position={[0, y, -1]}>{children}</group>
       </group>

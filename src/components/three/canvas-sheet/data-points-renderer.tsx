@@ -3,6 +3,7 @@ import { useColors } from "../../../hooks";
 import { useData } from "./data-context";
 import { DataPoint } from "./data-point";
 import { TrackBackground } from "./track-background";
+import { FrustumBackground } from "./frustum-background";
 
 export function DataPointsRenderer({
   height = 36,
@@ -39,7 +40,12 @@ export function DataPointsRenderer({
           <DataPoint key={point.id} id={point.id} x={point.x} y={point.y} color={color} />
         ))}
       </Instances>
-      {tracks.length > 0 && <TrackBackground color={color} height={height} emphasis={emphasis} />}
+      {tracks.length > 0 && (
+        <>
+          <FrustumBackground color={color} height={height} opacity={0.15} position={[0.5, 0, -1]} />
+          <TrackBackground color={color} height={height} emphasis={emphasis} />
+        </>
+      )}
     </group>
   );
 }
