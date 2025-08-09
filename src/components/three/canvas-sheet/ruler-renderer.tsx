@@ -1,4 +1,4 @@
-import { useMemo, useRef, Suspense } from "react";
+import { useMemo, useRef, Suspense, memo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
@@ -7,6 +7,7 @@ import { stampToVisualTime } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore, useAltKeyPressed, usePixelToWorld } from "../../../hooks";
 import type { AnimationData } from "../../../store-types";
+import { AnimatedIn } from "../utilities/animated-in";
 
 interface RulerRendererProps {
   height: number;
@@ -87,23 +88,20 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
   const visibleTicks = tickData;
 
   return (
-    <group>
+    <>
       {/* Tick lines using Instances */}
-      <Instances limit={1000} range={tickData.length}>
-        <planeGeometry args={[baseTickWidth, tickHeight]} />
-        <meshBasicMaterial color={tickColor as any} toneMapped={false} />
-
-        {tickData.map((tick) => (
-          <TickMark
-            key={tick.frameIndex}
-            position={[tick.worldX, yPosition, 0]}
-            baseTickWidth={baseTickWidth}
-          />
-        ))}
-      </Instances>
+      <AnimatedIn from={{ opacity: 0 }} to={{ opacity: 1 }} duration={1} delay={1}>
+        <Ticks
+          tickData={tickData}
+          tickHeight={tickHeight}
+          baseTickWidth={baseTickWidth}
+          tickColor={tickColor}
+          yPosition={yPosition}
+        />
+      </AnimatedIn>
 
       {/* Time labels */}
-      <Suspense fallback={null}>
+      <AnimatedIn from={{ opacity: 0 }} to={{ opacity: 1 }} duration={1} delay={1.2}>
         <TextBoxes
           ticks={visibleTicks}
           side={side}
@@ -114,10 +112,41 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
           pixelsToWorldX={pixelsToWorldX}
           fonts={fonts}
         />
-      </Suspense>
-    </group>
+      </AnimatedIn>
+    </>
   );
 }
+
+function InnerTicks({
+  tickData,
+  tickHeight,
+  baseTickWidth,
+  tickColor,
+  yPosition,
+}: {
+  tickData: { worldX: number; frameIndex: number; timeLabel: string }[];
+  tickHeight: number;
+  baseTickWidth: number;
+  tickColor: string | THREE.Color;
+  yPosition: number;
+}) {
+  return (
+    <Instances>
+      <planeGeometry args={[baseTickWidth, tickHeight]} />
+      <meshBasicMaterial color={tickColor as any} toneMapped={false} transparent />
+
+      {tickData.map((tick) => (
+        <TickMark
+          key={tick.frameIndex}
+          position={[tick.worldX, yPosition, 0]}
+          baseTickWidth={baseTickWidth}
+        />
+      ))}
+    </Instances>
+  );
+}
+
+const Ticks = memo(InnerTicks);
 
 // Component for text labels with zoom-invariant scaling
 function TextBoxes({
@@ -179,7 +208,7 @@ function TextBoxes({
   });
 
   return (
-    <>
+    <Suspense fallback={null}>
       {ticks.map((tick, index) => (
         <group
           key={`label-${tick.frameIndex.toString()}`}
@@ -197,12 +226,13 @@ function TextBoxes({
             anchorX="center"
             anchorY="middle"
             characters="0123456789:.-sf"
+            material-transparent
           >
             {tick.timeLabel}
           </Text>
         </group>
       ))}
-    </>
+    </Suspense>
   );
 }
 
