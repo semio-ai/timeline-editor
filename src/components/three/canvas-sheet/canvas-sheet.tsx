@@ -6,6 +6,7 @@ import { PanZoomControls } from "../controls/pan-zoom-controls";
 import { DataProvider } from "./data-context";
 import { HudSection } from "./hud-section";
 import { DataPointsRenderer } from "./data-points-renderer";
+import { RulerRenderer } from "./ruler-renderer";
 import { TrackList } from "./track-list";
 import { DEFAULT_DATAPOINTS } from "./constants";
 import { MinimapDisplay } from "./minimap-display";
@@ -17,6 +18,10 @@ export interface CanvasSheetProps {
   theme?: Theme.Dark | Theme.Light;
   emphasis: string[];
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
+  fonts?: {
+    mono?: string; // Path to monospace font, falls back to system default
+    ui?: string; // Path to UI font, falls back to system default
+  };
 }
 
 export function CanvasSheet({
@@ -26,6 +31,7 @@ export function CanvasSheet({
   theme = Theme.Light,
   emphasis = [],
   onEmphasisChange = () => {},
+  fonts = {},
 }: CanvasSheetProps) {
   const bgColor = theme === Theme.Dark ? "#202020" : "#EFEFEF";
 
@@ -67,7 +73,12 @@ export function CanvasSheet({
 
         {/* Top HUD: 32px tall */}
         <HudSection position="top" pixelHeight={32} backgroundColor={bgColor} renderPriority={1}>
-          <DataPointsRenderer height={32} />
+          <RulerRenderer
+            height={32}
+            side="top"
+            theme={theme === Theme.Dark ? "dark" : "light"}
+            fonts={fonts}
+          />
         </HudSection>
 
         {/* Timeline HUD: 36px tall */}
@@ -93,7 +104,7 @@ export function CanvasSheet({
           <MinimapDisplay theme={theme} minZoom={0.1} />
         </HudSection>
 
-        {/* Bottom HUD: 36px tall, for bottom ruler */}
+        {/* Bottom HUD: 36px tall - Bottom Ruler */}
         <HudSection
           position="bottom"
           pixelHeight={36}
@@ -101,7 +112,12 @@ export function CanvasSheet({
           renderPriority={4}
           fixedCamera
         >
-          <DataPointsRenderer height={36} />
+          <RulerRenderer
+            height={36}
+            side="bottom"
+            theme={theme === Theme.Dark ? "dark" : "light"}
+            fonts={fonts}
+          />
         </HudSection>
       </Canvas>
     </DataProvider>

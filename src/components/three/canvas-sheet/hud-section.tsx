@@ -10,7 +10,7 @@ interface HudSectionProps {
   position: "top" | "bottom";
   pixelHeight: number;
   backgroundColor?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   renderPriority?: number;
   gap?: number;
   fixedCamera?: boolean;
