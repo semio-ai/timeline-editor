@@ -9,6 +9,7 @@ export * from "./use-colors";
 export * from "./use-hover-spring";
 export * from "./use-ortho-camera-setup";
 export * from "./use-pair-springs";
+export * from "./use-pixel-to-world";
 export * from "./use-player-subscription";
 export * from "./use-playhead-spring";
 export * from "./use-scale-inverse-spring";

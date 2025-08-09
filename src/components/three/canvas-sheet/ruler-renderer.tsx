@@ -1,12 +1,11 @@
 import { useMemo, useRef, Suspense } from "react";
+import { useShallow } from "zustand/react/shallow";
+import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
-import * as THREE from "three";
 import { stampToVisualTime } from "@semio/ui";
-import { useShallow } from "zustand/react/shallow";
 import { usePlayerStore } from "@semio/utils";
-
-import { useAnimationStore, useAltKeyPressed } from "../../../hooks";
+import { useAnimationStore, useAltKeyPressed, usePixelToWorld } from "../../../hooks";
 import type { AnimationData } from "../../../store-types";
 
 interface RulerRendererProps {
@@ -19,6 +18,20 @@ interface RulerRendererProps {
   };
 }
 
+// Helper function for calculating text position relative to tick marks
+function calculateTextPosition(
+  yPosition: number,
+  tickHeight: number,
+  side: "top" | "bottom",
+  spacingPixels: number,
+  pixelsToWorldY: number,
+): number {
+  const spacingWorld = spacingPixels * pixelsToWorldY;
+  return side === "top"
+    ? yPosition + tickHeight / 2 + spacingWorld
+    : yPosition - tickHeight / 2 - spacingWorld;
+}
+
 export function RulerRenderer({ height, side, theme = "light", fonts = {} }: RulerRendererProps) {
   const duration = usePlayerStore(useShallow((state) => state.player.duration));
   const framerate = useAnimationStore(
@@ -28,7 +41,8 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
     useShallow((state: AnimationData) => [state.timeDisplay]),
   );
   const altPressed = useAltKeyPressed();
-  const { camera, size, viewport } = useThree();
+  const { size } = useThree();
+  const { pixelsToWorldY, pixelsToWorldX } = usePixelToWorld();
   const frameCount = Math.floor(framerate * (duration / 1000));
 
   // Refs for tick instances to update their scale
@@ -53,12 +67,6 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
   }, [frameCount, framerate, duration, timeDisplay, altPressed]);
 
   // Calculate tick dimensions - convert pixel heights to world units
-  // We need to convert HUD pixel space to world units
-  const orthoCamera = camera as THREE.OrthographicCamera;
-  const frustumHeight = orthoCamera.top - orthoCamera.bottom;
-  const frustumWidth = orthoCamera.right - orthoCamera.left;
-  const pixelsToWorldY = frustumHeight / size.height;
-  const pixelsToWorldX = frustumWidth / size.width;
 
   // Set tick heights in pixels, then convert to world units
   const tickHeightPixels = side === "top" ? 12 : 13;
@@ -81,9 +89,6 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
 
   // Use all ticks since HudSection handles viewport management
   const visibleTicks = tickData;
-
-  // Determine font with fallback
-  const fontPath = fonts.mono || undefined; // Let drei use system default if undefined
 
   // Update tick widths based on zoom to maintain 2px visual width
   useFrame(({ camera: frameCamera }) => {
@@ -167,39 +172,28 @@ function TextBoxes({
     textRefs.current = new Array(ticks.length).fill(null);
   }, [ticks.length]);
 
-  // Position text relative to tick marks with spacing
-  const spacingPixels = 6; // 6 pixels spacing from tick marks
-  const spacingWorld = spacingPixels * pixelsToWorldY;
+  // Calculate text position using helper function
+  const textYWorld = calculateTextPosition(yPosition, tickHeight, side, 6, pixelsToWorldY);
 
-  // Position above ticks for top HUD, below ticks for bottom HUD
-  const textYWorld =
-    side === "top"
-      ? yPosition + tickHeight / 2 + spacingWorld
-      : yPosition - tickHeight / 2 - spacingWorld;
-
-  // Text dimensions
-  const fontSizePixels = 10; // Font size in pixels
-  const baseFontSize = 0.01; // Simple base size
+  // Text scaling constants
+  const fontSizePixels = 10;
+  const baseFontSize = 0.01;
 
   // Update text scales to maintain constant pixel size regardless of zoom
   useFrame(({ camera: frameCamera }) => {
     if (!size.width || !size.height) return;
 
     const orthoCamera = frameCamera as THREE.OrthographicCamera;
-    const frustumHeight = orthoCamera.top - orthoCamera.bottom;
-    const frustumWidth = orthoCamera.right - orthoCamera.left;
+    const currentFrustumHeight = orthoCamera.top - orthoCamera.bottom;
+    const currentFrustumWidth = orthoCamera.right - orthoCamera.left;
 
-    // Calculate current pixels-to-world ratios
-    const currentPixelsToWorldY = frustumHeight / size.height;
-    const currentPixelsToWorldX = frustumWidth / size.width;
+    // Calculate scale factors for both axes
+    const currentPixelsToWorldY = currentFrustumHeight / size.height;
+    const currentPixelsToWorldX = currentFrustumWidth / size.width;
+    const fontScaleFactorY = (fontSizePixels * currentPixelsToWorldY) / baseFontSize;
+    const fontScaleFactorX = (fontSizePixels * currentPixelsToWorldX) / baseFontSize;
 
-    // For text, calculate target world size and scale factors for both axes
-    const targetFontHeightWorld = fontSizePixels * currentPixelsToWorldY;
-    const targetFontWidthWorld = fontSizePixels * currentPixelsToWorldX;
-    const fontScaleFactorY = targetFontHeightWorld / baseFontSize;
-    const fontScaleFactorX = targetFontWidthWorld / baseFontSize;
-
-    // Apply proper scale to all text instances with separate X/Y scaling
+    // Apply scaling to all text instances
     textRefs.current.forEach((textRef) => {
       if (textRef) {
         textRef.scale.set(fontScaleFactorX, fontScaleFactorY, 1);
