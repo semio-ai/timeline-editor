@@ -2,7 +2,7 @@ import { useMemo, useRef, Suspense } from "react";
 import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
-import { Text } from "@react-three/drei";
+import { Instances, Instance, Text } from "@react-three/drei";
 import { stampToVisualTime } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore, useAltKeyPressed, usePixelToWorld } from "../../../hooks";
@@ -41,12 +41,8 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
     useShallow((state: AnimationData) => [state.timeDisplay]),
   );
   const altPressed = useAltKeyPressed();
-  const { size } = useThree();
   const { pixelsToWorldY, pixelsToWorldX } = usePixelToWorld();
   const frameCount = Math.floor(framerate * (duration / 1000));
-
-  // Refs for tick instances to update their scale
-  const tickRefs = useRef<(THREE.Object3D | null)[]>([]);
 
   // Generate tick data - only major ticks for ruler (every second)
   const tickData = useMemo(() => {
@@ -90,45 +86,21 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
   // Use all ticks since HudSection handles viewport management
   const visibleTicks = tickData;
 
-  // Update tick widths based on zoom to maintain 2px visual width
-  useFrame(({ camera: frameCamera }) => {
-    if (!size.width) return;
-
-    const orthoCamera = frameCamera as THREE.OrthographicCamera;
-    const frustumWidth = orthoCamera.right - orthoCamera.left;
-
-    // Calculate how many world units equal 2 pixels
-    const pixelsToWorld = frustumWidth / size.width;
-    const targetWorldWidth = 2 * pixelsToWorld; // 2 pixels in world units
-
-    // Scale the base width (1 unit) to achieve target width
-    const scaleFactorX = targetWorldWidth;
-
-    // Apply scale to all tick instances
-    tickRefs.current.forEach((tickRef) => {
-      if (tickRef) {
-        tickRef.scale.set(scaleFactorX, 1, 1);
-      }
-    });
-  });
-
   return (
     <group>
-      {/* Tick lines using individual meshes */}
-      {tickData.map((tick, index) => (
-        <mesh
-          key={tick.frameIndex}
-          position={[tick.worldX, yPosition, 0]}
-          ref={(el) => {
-            if (el && tickRefs.current) {
-              tickRefs.current[index] = el as THREE.Object3D | null;
-            }
-          }}
-        >
-          <planeGeometry args={[baseTickWidth, tickHeight]} />
-          <meshBasicMaterial color={tickColor as any} toneMapped={false} />
-        </mesh>
-      ))}
+      {/* Tick lines using Instances */}
+      <Instances limit={1000} range={tickData.length}>
+        <planeGeometry args={[baseTickWidth, tickHeight]} />
+        <meshBasicMaterial color={tickColor as any} toneMapped={false} />
+
+        {tickData.map((tick) => (
+          <TickMark
+            key={tick.frameIndex}
+            position={[tick.worldX, yPosition, 0]}
+            baseTickWidth={baseTickWidth}
+          />
+        ))}
+      </Instances>
 
       {/* Time labels */}
       <Suspense fallback={null}>
@@ -140,6 +112,7 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
           tickHeight={tickHeight}
           pixelsToWorldY={pixelsToWorldY}
           pixelsToWorldX={pixelsToWorldX}
+          fonts={fonts}
         />
       </Suspense>
     </group>
@@ -154,7 +127,7 @@ function TextBoxes({
   yPosition,
   tickHeight,
   pixelsToWorldY,
-  pixelsToWorldX,
+  fonts,
 }: {
   ticks: { worldX: number; frameIndex: number; timeLabel: string }[];
   side: "top" | "bottom";
@@ -163,6 +136,10 @@ function TextBoxes({
   tickHeight: number;
   pixelsToWorldY: number;
   pixelsToWorldX: number;
+  fonts?: {
+    mono?: string;
+    ui?: string;
+  };
 }) {
   const { size } = useThree();
   const textRefs = useRef<(THREE.Object3D | null)[]>([]);
@@ -214,6 +191,7 @@ function TextBoxes({
           }}
         >
           <Text
+            font={fonts?.mono}
             fontSize={baseFontSize}
             color={theme === "dark" ? "#ffffff" : "#000000"}
             anchorX="center"
@@ -226,4 +204,35 @@ function TextBoxes({
       ))}
     </>
   );
+}
+
+// Component for individual tick marks with zoom-invariant scaling
+function TickMark({
+  position,
+  baseTickWidth,
+}: {
+  position: [number, number, number];
+  baseTickWidth: number;
+}) {
+  const { size } = useThree();
+  const tickRef = useRef<THREE.Object3D>(null);
+
+  // Update tick width based on zoom to maintain 2px visual width
+  useFrame(({ camera }) => {
+    if (!size.width || !tickRef.current) return;
+
+    const orthoCamera = camera as THREE.OrthographicCamera;
+    const frustumWidth = orthoCamera.right - orthoCamera.left;
+
+    // Calculate how many world units equal 2 pixels
+    const pixelsToWorld = frustumWidth / size.width;
+    const targetWorldWidth = 2 * pixelsToWorld; // 2 pixels in world units
+
+    // Scale the base width (1 unit) to achieve target width
+    const scaleFactorX = targetWorldWidth / baseTickWidth;
+
+    tickRef.current.scale.set(scaleFactorX, 1, 1);
+  });
+
+  return <Instance ref={tickRef} position={position} />;
 }
