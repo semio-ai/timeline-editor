@@ -1,10 +1,11 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, Suspense } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
-import { Instances, Instance } from "@react-three/drei";
+import { Text } from "@react-three/drei";
 import * as THREE from "three";
 import { stampToVisualTime } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import { usePlayerStore } from "@semio/utils";
+
 import { useAnimationStore, useAltKeyPressed } from "../../../hooks";
 import type { AnimationData } from "../../../store-types";
 
@@ -55,7 +56,9 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
   // We need to convert HUD pixel space to world units
   const orthoCamera = camera as THREE.OrthographicCamera;
   const frustumHeight = orthoCamera.top - orthoCamera.bottom;
+  const frustumWidth = orthoCamera.right - orthoCamera.left;
   const pixelsToWorldY = frustumHeight / size.height;
+  const pixelsToWorldX = frustumWidth / size.width;
 
   // Set tick heights in pixels, then convert to world units
   const tickHeightPixels = side === "top" ? 12 : 13;
@@ -68,7 +71,7 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
 
   // Top HUD: position at bottom edge (1px above bottom)
   // Bottom HUD: position at top edge (0px below top)
-  const edgeOffset = side === "top" ? 1 * pixelsToWorldY : 0;
+  const edgeOffset = side === "top" ? pixelsToWorldY : 0;
   const yPosition =
     side === "top"
       ? -hudHeightWorld / 2 + tickHeight / 2 + edgeOffset
@@ -106,41 +109,127 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
 
   return (
     <group>
-      {/* Tick lines using Instances - render immediately */}
-      <Instances limit={tickData.length} range={tickData.length}>
-        <planeGeometry args={[baseTickWidth, tickHeight]} />
-        <meshBasicMaterial color={tickColor as any} toneMapped={false} />
+      {/* Tick lines using individual meshes */}
+      {tickData.map((tick, index) => (
+        <mesh
+          key={tick.frameIndex}
+          position={[tick.worldX, yPosition, 0]}
+          ref={(el) => {
+            if (el && tickRefs.current) {
+              tickRefs.current[index] = el as THREE.Object3D | null;
+            }
+          }}
+        >
+          <planeGeometry args={[baseTickWidth, tickHeight]} />
+          <meshBasicMaterial color={tickColor as any} toneMapped={false} />
+        </mesh>
+      ))}
 
-        {tickData.map((tick, index) => (
-          <Instance
-            key={tick.frameIndex}
-            position={[tick.worldX, yPosition, 0]}
-            ref={(el) => {
-              if (el && tickRefs.current) {
-                tickRefs.current[index] = el as THREE.Object3D | null;
-              }
-            }}
-          />
-        ))}
-      </Instances>
+      {/* Time labels */}
+      <Suspense fallback={null}>
+        <TextBoxes
+          ticks={visibleTicks}
+          side={side}
+          theme={theme}
+          yPosition={yPosition}
+          tickHeight={tickHeight}
+          pixelsToWorldY={pixelsToWorldY}
+          pixelsToWorldX={pixelsToWorldX}
+        />
+      </Suspense>
+    </group>
+  );
+}
 
-      {/* Time labels - commented out for now due to white area issues */}
-      {/* <Suspense fallback={null}>
-        {visibleTicks.map((tick) => (
+// Component for text labels with zoom-invariant scaling
+function TextBoxes({
+  ticks,
+  side,
+  theme,
+  yPosition,
+  tickHeight,
+  pixelsToWorldY,
+  pixelsToWorldX,
+}: {
+  ticks: { worldX: number; frameIndex: number; timeLabel: string }[];
+  side: "top" | "bottom";
+  theme: "light" | "dark";
+  yPosition: number;
+  tickHeight: number;
+  pixelsToWorldY: number;
+  pixelsToWorldX: number;
+}) {
+  const { size } = useThree();
+  const textRefs = useRef<(THREE.Object3D | null)[]>([]);
+
+  // Initialize textRefs array to match ticks length
+  useMemo(() => {
+    textRefs.current = new Array(ticks.length).fill(null);
+  }, [ticks.length]);
+
+  // Position text relative to tick marks with spacing
+  const spacingPixels = 6; // 6 pixels spacing from tick marks
+  const spacingWorld = spacingPixels * pixelsToWorldY;
+
+  // Position above ticks for top HUD, below ticks for bottom HUD
+  const textYWorld =
+    side === "top"
+      ? yPosition + tickHeight / 2 + spacingWorld
+      : yPosition - tickHeight / 2 - spacingWorld;
+
+  // Text dimensions
+  const fontSizePixels = 10; // Font size in pixels
+  const baseFontSize = 0.01; // Simple base size
+
+  // Update text scales to maintain constant pixel size regardless of zoom
+  useFrame(({ camera: frameCamera }) => {
+    if (!size.width || !size.height) return;
+
+    const orthoCamera = frameCamera as THREE.OrthographicCamera;
+    const frustumHeight = orthoCamera.top - orthoCamera.bottom;
+    const frustumWidth = orthoCamera.right - orthoCamera.left;
+
+    // Calculate current pixels-to-world ratios
+    const currentPixelsToWorldY = frustumHeight / size.height;
+    const currentPixelsToWorldX = frustumWidth / size.width;
+
+    // For text, calculate target world size and scale factors for both axes
+    const targetFontHeightWorld = fontSizePixels * currentPixelsToWorldY;
+    const targetFontWidthWorld = fontSizePixels * currentPixelsToWorldX;
+    const fontScaleFactorY = targetFontHeightWorld / baseFontSize;
+    const fontScaleFactorX = targetFontWidthWorld / baseFontSize;
+
+    // Apply proper scale to all text instances with separate X/Y scaling
+    textRefs.current.forEach((textRef) => {
+      if (textRef) {
+        textRef.scale.set(fontScaleFactorX, fontScaleFactorY, 1);
+      }
+    });
+  });
+
+  return (
+    <>
+      {ticks.map((tick, index) => (
+        <group
+          key={`label-${tick.frameIndex.toString()}`}
+          position={[tick.worldX, textYWorld, 0.002]}
+          ref={(el) => {
+            if (el && textRefs.current) {
+              textRefs.current[index] = el as THREE.Object3D | null;
+            }
+          }}
+        >
           <Text
-            key={`label-${tick.frameIndex.toString()}`}
-            position={[tick.worldX, 0, 0.001]}
-            fontSize={0.01}
+            fontSize={baseFontSize}
             color={theme === "dark" ? "#ffffff" : "#000000"}
             anchorX="center"
             anchorY="middle"
-            font={fontPath}
-            characters="0123456789:.-s"
+            characters="0123456789:.-sf"
           >
             {tick.timeLabel}
           </Text>
-        ))}
-      </Suspense> */}
-    </group>
+        </group>
+      ))}
+    </>
   );
 }

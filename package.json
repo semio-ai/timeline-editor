@@ -45,6 +45,7 @@
     "motion": "^12.23.11",
     "react": "^18.3.1",
     "react-use-measure": "^2.1.1",
+    "react-use-refs": "^1.0.1",
     "three": "^0.169.0",
     "zustand": "^5.0.2"
   },
