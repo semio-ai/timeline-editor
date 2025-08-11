@@ -7,7 +7,6 @@ import { stampToVisualTime } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore, useAltKeyPressed, usePixelToWorld } from "../../../hooks";
 import type { AnimationData } from "../../../store-types";
-import { AnimatedIn } from "../utilities/animated-in";
 
 interface RulerRendererProps {
   height: number;
@@ -33,7 +32,7 @@ function calculateTextPosition(
     : yPosition - tickHeight / 2 - spacingWorld;
 }
 
-export function RulerRenderer({ height, side, theme = "light", fonts = {} }: RulerRendererProps) {
+function InnerRulerRenderer({ height, side, theme = "light", fonts = {} }: RulerRendererProps) {
   const duration = usePlayerStore(useShallow((state) => state.player.duration));
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
@@ -90,32 +89,30 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
   return (
     <>
       {/* Tick lines using Instances */}
-      <AnimatedIn from={{ opacity: 0 }} to={{ opacity: 1 }} duration={1} delay={1.2}>
-        <Ticks
-          tickData={tickData}
-          tickHeight={tickHeight}
-          baseTickWidth={baseTickWidth}
-          tickColor={tickColor}
-          yPosition={yPosition}
-        />
-      </AnimatedIn>
+      <Ticks
+        tickData={tickData}
+        tickHeight={tickHeight}
+        baseTickWidth={baseTickWidth}
+        tickColor={tickColor}
+        yPosition={yPosition}
+      />
 
       {/* Time labels */}
-      <AnimatedIn from={{ opacity: 0 }} to={{ opacity: 1 }} duration={1} delay={1.2}>
-        <TextBoxes
-          ticks={visibleTicks}
-          side={side}
-          theme={theme}
-          yPosition={yPosition}
-          tickHeight={tickHeight}
-          pixelsToWorldY={pixelsToWorldY}
-          pixelsToWorldX={pixelsToWorldX}
-          fonts={fonts}
-        />
-      </AnimatedIn>
+      <TextBoxes
+        ticks={visibleTicks}
+        side={side}
+        theme={theme}
+        yPosition={yPosition}
+        tickHeight={tickHeight}
+        pixelsToWorldY={pixelsToWorldY}
+        pixelsToWorldX={pixelsToWorldX}
+        fonts={fonts}
+      />
     </>
   );
 }
+
+export const RulerRenderer = memo(InnerRulerRenderer);
 
 function InnerTicks({
   tickData,

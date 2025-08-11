@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useEffect, useContext, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useContext, type ReactNode } from "react";
+import useMeasure from "react-use-measure";
 import {
   AnimationSheet,
   AnimationContext,
@@ -298,33 +299,17 @@ export const Default: Story = {
     storeInstance: createAnimationStore(),
   },
   render: () => {
-    const [expanded, setExpanded] = useState(true);
-    const collapsedHeight = 142; // MIN_SHEET_HEIGHT
-    const expandedHeight = 400;
-
-    const handleToggleExpand = useCallback((newExpanded: boolean) => {
-      setExpanded(newExpanded);
-    }, []);
+    const [ref, bounds] = useMeasure();
+    const minHeight = 142;
+    const height = Math.max(bounds.height, minHeight);
 
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleToggleExpand(!expanded)}
-            className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-          >
-            {expanded ? "Collapse" : "Expand"}
-          </button>
-          <span className="text-sm text-gray-600">
-            Height: {expanded ? expandedHeight : collapsedHeight}px
-          </span>
-        </div>
-
+      <div ref={ref} style={{ width: "100vw", height: "100vh", minHeight, overflow: "hidden" }}>
         <AnimationSheetWithContext
           namespaceId="default"
           animationInstances={createAnimationInstances(SHARED_ANIMATION_ID)}
-          height={expanded ? expandedHeight : collapsedHeight}
-          onToggleExpand={handleToggleExpand}
+          height={height}
+          onToggleExpand={() => {}}
           storeInstance={createAnimationStore()}
         />
       </div>

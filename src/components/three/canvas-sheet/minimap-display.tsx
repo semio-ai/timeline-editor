@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, useEffect } from "react";
+import { useRef, useMemo, useState, useEffect, memo } from "react";
 import * as THREE from "three";
 import { useGesture } from "@use-gesture/react";
 import { cubicBezier, MotionValue, useMotionValueEvent } from "motion/react";
@@ -12,7 +12,7 @@ import { usePlayerSubscription, useTween } from "../../../hooks";
  * MinimapDisplay renders a minimap rectangle and half-hexagons using react-three/fiber,
  * subscribing to viewport changes via usePlayerStore and updating mesh positions directly.
  */
-export function MinimapDisplay({
+function InnerMinimapDisplay({
   inactiveHeight = 5,
   activeHeight = 22,
   theme = Theme.Light,
@@ -155,7 +155,7 @@ export function MinimapDisplay({
   // Gesture bindings for each area
   const bindViewportDrag = useGesture(
     {
-      onDrag: ({ movement: [mx], first, memo, event }) => {
+      onDrag: ({ movement: [mx], first, memo: gestureMemo, event }) => {
         event?.stopPropagation();
         if (first) {
           setDragging("viewport");
@@ -167,7 +167,7 @@ export function MinimapDisplay({
         const worldWidth = orthoCam.right - orthoCam.left;
         const deltaX = (mx / size.width) * worldWidth;
 
-        const initialViewport = memo as [number, number];
+        const initialViewport = gestureMemo as [number, number];
         const viewportWidth = currentViewport[1] - currentViewport[0];
         const newStart = Math.max(
           currentBounds[0],
@@ -175,7 +175,7 @@ export function MinimapDisplay({
         );
         const newEnd = newStart + viewportWidth;
         updatePlayerViewport(newStart, newEnd);
-        return memo as [number, number];
+        return gestureMemo as [number, number];
       },
       onDragEnd: () => {
         setDragging(null);
@@ -188,7 +188,7 @@ export function MinimapDisplay({
 
   const bindLeftDrag = useGesture(
     {
-      onDrag: ({ movement: [mx], first, memo, event }) => {
+      onDrag: ({ movement: [mx], first, memo: gestureMemo, event }) => {
         event?.stopPropagation();
         if (first) {
           setDragging("left");
@@ -200,7 +200,7 @@ export function MinimapDisplay({
         const worldWidth = orthoCam.right - orthoCam.left;
         const deltaX = (mx / size.width) * worldWidth;
 
-        const initialViewport = memo as [number, number];
+        const initialViewport = gestureMemo as [number, number];
         const potentialNewStart = Math.max(
           currentBounds[0],
           Math.min(initialViewport[1], initialViewport[0] + deltaX),
@@ -209,7 +209,7 @@ export function MinimapDisplay({
         // Ensure viewport doesn't get smaller than minZoom
         const newStart = Math.min(potentialNewStart, initialViewport[1] - minZoom);
         updatePlayerViewportBound("start", newStart);
-        return memo as [number, number];
+        return gestureMemo as [number, number];
       },
       onDragEnd: () => {
         setDragging(null);
@@ -222,7 +222,7 @@ export function MinimapDisplay({
 
   const bindRightDrag = useGesture(
     {
-      onDrag: ({ movement: [mx], first, memo, event }) => {
+      onDrag: ({ movement: [mx], first, memo: gestureMemo, event }) => {
         event?.stopPropagation();
         if (first) {
           setDragging("right");
@@ -234,7 +234,7 @@ export function MinimapDisplay({
         const worldWidth = orthoCam.right - orthoCam.left;
         const deltaX = (mx / size.width) * worldWidth;
 
-        const initialViewport = memo as [number, number];
+        const initialViewport = gestureMemo as [number, number];
         const potentialNewEnd = Math.min(
           currentBounds[1],
           Math.max(initialViewport[0], initialViewport[1] + deltaX),
@@ -243,7 +243,7 @@ export function MinimapDisplay({
         // Ensure viewport doesn't get smaller than minZoom
         const newEnd = Math.max(potentialNewEnd, initialViewport[0] + minZoom);
         updatePlayerViewportBound("end", newEnd);
-        return memo as [number, number];
+        return gestureMemo as [number, number];
       },
       onDragEnd: () => {
         setDragging(null);
@@ -322,3 +322,5 @@ export function MinimapDisplay({
     </group>
   );
 }
+
+export const MinimapDisplay = memo(InnerMinimapDisplay);
