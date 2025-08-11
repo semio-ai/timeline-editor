@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState, useEffect, useRef, useCallback } from "react";
+import { useContext, memo, useState, useEffect, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
-import useMeasure from "react-use-measure";
 // import { Canvas } from "@react-three/fiber";
 // import { Hud } from "@react-three/drei";
 import { ToggleGroup, Size, ToggleSquare, IconPreviewView, useTheme } from "@semio/ui";
@@ -81,11 +80,6 @@ export function InnerSheet3D({
     updateDuration(animations[currentAnimation].duration);
   }, [currentAnimation, animations, updateDuration]);
 
-  const [trackRegion, _trackBounds] = useMeasure();
-  const trackRegionElement = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const layoutRef = useRef<HTMLDivElement>(null);
-
   const [emphasis, setEmphasis] = useState<string[]>([]);
 
   const setEmphasisSmart = useCallback(
@@ -113,7 +107,6 @@ export function InnerSheet3D({
       <div className="animation-sheet-container w-full">
         {/* Grid layout with tracking divs - same structure as original */}
         <div
-          ref={layoutRef}
           aria-expanded={expanded}
           style={{
             height,
@@ -188,7 +181,6 @@ export function InnerSheet3D({
 
           {/* Canvas (spans all rows) */}
           <div
-            ref={canvasRef}
             className={clsx(
               "w-full min-w-0 row-span-5 touch-none rounded-md overflow-clip",
               TRACK_MAIN_BG,
@@ -206,24 +198,18 @@ export function InnerSheet3D({
           </div>
 
           {/* Track List - Row 2 */}
-          <div
-            ref={(el) => {
-              trackRegion(el);
-              trackRegionElement.current = el;
-            }}
-          >
-            {/* 3D Track List with color-coded tracks */}
-            <TrackList3D
-              animationId={currentAnimation}
-              namespaceId={namespaceId}
-              instanceSettings={instanceSettings}
-              height={height - MIN_SHEET_HEIGHT}
-              trackRender={trackRender}
-              scrollY={scrollY}
-              emphasis={emphasis}
-              onEmphasisChange={setEmphasisSmart}
-            />
-          </div>
+
+          {/* 3D Track List with color-coded tracks */}
+          <TrackList3D
+            animationId={currentAnimation}
+            namespaceId={namespaceId}
+            instanceSettings={instanceSettings}
+            height={height - MIN_SHEET_HEIGHT}
+            trackRender={trackRender}
+            scrollY={scrollY}
+            emphasis={emphasis}
+            onEmphasisChange={setEmphasisSmart}
+          />
 
           {/* Timeline Control - Row 3 */}
           <div className="pr-2">
