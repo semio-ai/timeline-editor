@@ -3,9 +3,13 @@ import { useRef, useMemo, useCallback } from "react";
 import type { MotionValue } from "motion";
 import * as THREE from "three";
 import { useOrthoCameraSetup } from "../../../hooks";
-import { DataPointsRenderer } from "./data-points-renderer";
+import { AnimationInstanceSettings } from "../../../types";
+import { DataRenderer } from "./data-renderer";
 
 interface TrackListProps {
+  animationId: string; // Unique ID for the animation
+  namespaceId: string; // Namespace for the animation, used for scoping
+  instanceSettings: AnimationInstanceSettings; // Settings for the animation instance
   tracks?: string[];
   trackHeight?: number;
   scrollValue?: MotionValue<number>;
@@ -16,6 +20,9 @@ interface TrackListProps {
 }
 
 export function TrackList({
+  animationId,
+  namespaceId,
+  instanceSettings = { timescale: 1, offset: 0, active: true },
   tracks = [],
   trackHeight = 36,
   scrollValue,
@@ -78,10 +85,13 @@ export function TrackList({
   return (
     <group ref={groupRef as any} onWheel={handleWheel as any}>
       {tracks.map((track, idx) => (
-        <DataPointsRenderer
+        <DataRenderer
+          animationId={animationId}
+          namespaceId={namespaceId}
+          instanceSettings={instanceSettings}
           key={track}
           height={trackHeight}
-          tracks={[track]}
+          trackIds={[track]}
           offset={-trackWorldHeight * idx}
           emphasis={emphasis.includes(track)}
           onEmphasisChange={(v) => onEmphasisChange(track, v ? "add" : "remove")}

@@ -1,18 +1,22 @@
-import { useRef, useMemo } from "react";
+import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Instance } from "@react-three/drei";
 import * as THREE from "three";
-import type { Color } from "three";
+import { InstancedFrameInfo } from "../../../types";
+import { useColors } from "../../../hooks";
 
 export interface DataPointProps {
-  id: string;
-  x: number;
-  y: number;
-  color: string | Color;
+  data: InstancedFrameInfo;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }
 
-export function DataPoint({ x, color }: DataPointProps) {
+export function DataPoint({ data }: DataPointProps) {
   const instanceRef = useRef<THREE.Object3D>(null);
+
+  const { stamp, points } = data;
+
+  const color = useColors(points.map((p) => p.trackId));
 
   useFrame(({ viewport, camera }) => {
     if (instanceRef.current) {
@@ -25,20 +29,13 @@ export function DataPoint({ x, color }: DataPointProps) {
     }
   });
 
-  const colorProp: Color | undefined = useMemo(() => {
-    if (typeof color === "string") {
-      return new THREE.Color(color);
-    }
-    return color instanceof THREE.Color ? color : undefined;
-  }, [color]);
-
   return (
     <Instance
       ref={instanceRef}
-      position={[x, 0, 0]}
+      position={[stamp, 0, 0]}
       rotation={[Math.PI / 2, 0, 0]}
       // eslint-dissable-next-line
-      color={colorProp as any as string}
+      color={color}
     />
   );
 }

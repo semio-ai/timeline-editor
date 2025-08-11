@@ -188,6 +188,9 @@ export function InnerSheet3D({
           >
             <CanvasSheet
               tracks={allTracks}
+              animationId={currentAnimation}
+              namespaceId={namespaceId}
+              instanceSettings={instanceSettings}
               selection={selectedTracks}
               scrollValue={scrollY}
               theme={resolvedTheme}
