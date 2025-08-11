@@ -15,6 +15,7 @@ import { computeFilledInterpGaps } from "../../../functions/compute-filled-inter
 import { DataPoint } from "./data-point";
 import { TrackBackground } from "./track-background";
 import { FrustumBackground } from "./frustum-background";
+import { ViolationRenderer } from "./violation-renderer";
 
 function DataPointsRenderer({
   frameData = [],
@@ -79,7 +80,7 @@ export function InnerDataRenderer({
 
   const violations = useAnimationStore(useShallow((state: AnimationData) => state.violations));
 
-  const _violationSet = useMemo(() => {
+  const violationSet = useMemo(() => {
     const filteredViolations = pick(violations, trackIds);
     return computeViolationSet(filteredViolations);
   }, [violations, trackIds]);
@@ -94,7 +95,7 @@ export function InnerDataRenderer({
 
   const _paddedInterps = useMemo(() => computeFilledInterpGaps(interps), [interps]);
 
-  console.log("Frame data", frameData);
+  // console.log("Frame data", frameData);
 
   return (
     <group
@@ -104,6 +105,9 @@ export function InnerDataRenderer({
     >
       {/* Render the hexagons/visuals for each keyed point */}
       <DataPointsRenderer frameData={frameData} onSetDraggingFrames={setDraggingFrames} />
+
+      {/* Render violations */}
+      <ViolationRenderer violationSet={violationSet} />
 
       {/* Render a background for the Active region, and the General Background */}
       {trackIds.length > 0 && (

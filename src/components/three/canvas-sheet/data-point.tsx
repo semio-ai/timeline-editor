@@ -32,7 +32,7 @@ export function DataPoint({ data }: DataPointProps) {
   return (
     <Instance
       ref={instanceRef}
-      position={[stamp, 0, 0]}
+      position={[stamp, 0, 10]}
       rotation={[Math.PI / 2, 0, 0]}
       // eslint-dissable-next-line
       color={color}
