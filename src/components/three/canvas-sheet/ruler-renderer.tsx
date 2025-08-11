@@ -90,7 +90,7 @@ export function RulerRenderer({ height, side, theme = "light", fonts = {} }: Rul
   return (
     <>
       {/* Tick lines using Instances */}
-      <AnimatedIn from={{ opacity: 0 }} to={{ opacity: 1 }} duration={1} delay={1}>
+      <AnimatedIn from={{ opacity: 0 }} to={{ opacity: 1 }} duration={1} delay={1.2}>
         <Ticks
           tickData={tickData}
           tickHeight={tickHeight}

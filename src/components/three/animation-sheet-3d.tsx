@@ -27,6 +27,10 @@ export interface AnimationSheet3DProps {
   animationInstances: Record<string, AnimationInstance>;
   onToggleExpand?: (expanded: boolean) => void;
   height?: number;
+  fonts?: {
+    mono?: string; // Path to monospace font, falls back to system default
+    ui?: string; // Path to UI font, falls back to system default
+  };
 }
 
 export function AnimationSheet3D(props: AnimationSheet3DProps): ReactNode {
@@ -47,6 +51,7 @@ export function InnerSheet3D({
   animationInstances,
   onToggleExpand,
   height = MIN_SHEET_HEIGHT,
+  fonts = {},
 }: AnimationSheet3DProps): ReactNode {
   const { resolvedTheme } = useTheme();
   // Same state management as original
@@ -196,6 +201,7 @@ export function InnerSheet3D({
               theme={resolvedTheme}
               emphasis={emphasis}
               onEmphasisChange={setEmphasisSmart}
+              fonts={fonts}
             />
           </div>
 
