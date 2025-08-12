@@ -80,6 +80,7 @@ export function TrackList({
           emphasis={emphasis.includes(track)}
           onEmphasisChange={(v) => onEmphasisChange(track, v ? "add" : "remove")}
           theme={theme}
+          yOffset={scrollValue}
         />
       ))}
     </group>

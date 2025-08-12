@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { RawValue, useDeepSelector } from "@semio/utils";
 import { Theme } from "@semio/ui";
+import { MotionValue } from "motion";
 import { Instances } from "@react-three/drei";
 import { pick, uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../../hooks";
@@ -61,6 +62,7 @@ export interface DataRendererProps {
   onEmphasisChange?: (emphasis: boolean) => void;
   offset?: number;
   theme?: Theme.Light | Theme.Dark;
+  yOffset?: MotionValue<number>;
 }
 
 export function InnerDataRenderer({
@@ -70,6 +72,7 @@ export function InnerDataRenderer({
   onEmphasisChange = () => {},
   offset = 0,
   theme = Theme.Light,
+  yOffset = new MotionValue(0),
 }: DataRendererProps) {
   const color = useColors(trackIds);
 
@@ -98,8 +101,6 @@ export function InnerDataRenderer({
 
   const _paddedInterps = useMemo(() => computeFilledInterpGaps(interps), [interps]);
 
-  // console.log("Frame data", frameData);
-
   return (
     <group
       position={[0, offset, 0]}
@@ -110,7 +111,12 @@ export function InnerDataRenderer({
       <DataPointsRenderer frameData={frameData} onSetDraggingFrames={setDraggingFrames} />
 
       {/* Render violations */}
-      <ViolationRenderer violationSet={violationSet} theme={theme} height={height - 1} />
+      <ViolationRenderer
+        violationSet={violationSet}
+        theme={theme}
+        height={height - 1}
+        yOffset={yOffset}
+      />
 
       {/* Render a background for the Active region, and the General Background */}
       {trackIds.length > 0 && (

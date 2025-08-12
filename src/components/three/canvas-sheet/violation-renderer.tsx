@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Theme } from "@semio/ui";
+import { MotionValue } from "motion/react";
 import { useColors } from "../../../hooks";
 import { ViolationSet } from "../../../types";
 import { useDiagonalMaterial } from "./diagonal-material";
@@ -10,12 +11,14 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
   violations,
   height = 36,
   theme = Theme.Light,
+  yOffset = new MotionValue(0),
 }: {
   segment: {
     id: string;
     stampRange: { start: number; end: number };
     violations: string[];
   };
+  yOffset: MotionValue<number>;
   violations: Record<string, any>;
   height?: number;
   theme?: Theme.Light | Theme.Dark;
@@ -34,6 +37,7 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
     stripeSpacing: 16.0,
     theme,
     useHighlight: true,
+    yOffset,
   });
 
   // Geometry: width = end - start, centered at (start + end)/2
@@ -54,12 +58,14 @@ export interface ViolationRendererProps {
   violationSet: ViolationSet;
   height?: number;
   theme?: Theme.Light | Theme.Dark;
+  yOffset?: MotionValue<number>;
 }
 
 function InnerViolationRenderer({
   violationSet,
   height = 36,
   theme = Theme.Light,
+  yOffset = new MotionValue(0),
 }: ViolationRendererProps) {
   return (
     <>
@@ -70,6 +76,7 @@ function InnerViolationRenderer({
           violations={violationSet.violations}
           height={height}
           theme={theme}
+          yOffset={yOffset}
         />
       ))}
     </>

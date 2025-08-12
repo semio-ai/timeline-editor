@@ -1,4 +1,5 @@
 import { useMemo, useEffect } from "react";
+import { MotionValue } from "motion";
 import { ShaderMaterial, Color, Vector2, Vector4 } from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { Theme } from "@semio/ui";
@@ -42,13 +43,14 @@ const fragmentShader = `
   uniform float opacity;
   uniform float stripeWidth;
   uniform float stripeSpacing;
+  uniform float yOffset;
 
   varying vec2 vScreenPos;
 
   void main() {
     // Create global 45-degree diagonal pattern
     // Using screen coordinates ensures true 45-degree angle
-    float diagonal = vScreenPos.x - vScreenPos.y;
+    float diagonal = vScreenPos.x - (vScreenPos.y - yOffset);
 
     // Create repeating stripe pattern
     float pattern = mod(diagonal, stripeSpacing);
@@ -73,6 +75,7 @@ export interface DiagonalMaterialOptions {
   stripeSpacing?: number;
   theme?: ThemeMode;
   useHighlight?: boolean;
+  yOffset?: MotionValue<number>;
 }
 
 export function useDiagonalMaterial({
@@ -82,6 +85,7 @@ export function useDiagonalMaterial({
   stripeSpacing = 16.0,
   theme = Theme.Light,
   useHighlight = true,
+  yOffset = new MotionValue(0),
 }: DiagonalMaterialOptions = {}) {
   const { camera, viewport } = useThree();
 
@@ -107,6 +111,7 @@ export function useDiagonalMaterial({
         frustumBounds: { value: new Vector4(-1, 1, -1, 1) },
         viewportSize: { value: new Vector2(800, 600) },
         cameraZoom: { value: 1.0 },
+        yOffset: { value: yOffset.get() },
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- We want to prevent recreation and instead update uniforms
@@ -129,6 +134,9 @@ export function useDiagonalMaterial({
       material.uniforms.frustumBounds.value = frustumBounds;
       material.uniforms.viewportSize.value.set(viewport.width, viewport.height);
       material.uniforms.cameraZoom.value = orthoCamera.zoom || 1.0;
+
+      // Update yOffset from MotionValue
+      material.uniforms.yOffset.value = yOffset.get();
     }
   });
 
@@ -139,9 +147,10 @@ export function useDiagonalMaterial({
       material.uniforms.opacity.value = opacity;
       material.uniforms.stripeWidth.value = stripeWidth;
       material.uniforms.stripeSpacing.value = stripeSpacing;
+      material.uniforms.yOffset.value = yOffset.get();
       material.needsUpdate = true;
     }
-  }, [material, finalColor, opacity, stripeWidth, stripeSpacing]);
+  }, [material, finalColor, opacity, stripeWidth, stripeSpacing, yOffset]);
 
   // Cleanup material on unmount
   useEffect(() => {
