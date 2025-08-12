@@ -15,7 +15,7 @@ function InnerTrackBackground({
   const meshRef = useRef<THREE.Mesh>(null);
 
   // Set up the target opacity value
-  const targetOpacity = emphasis ? 0.35 : 0.15;
+  const targetOpacity = emphasis ? 0.25 : 0.1;
   const opacityMotion = useRef(new MotionValue(targetOpacity));
 
   // Animate opacity with a cubic-bezier ease-in-out by default, or any motion easing function
@@ -37,7 +37,7 @@ function InnerTrackBackground({
   return (
     <mesh ref={meshRef as any} position={[0.5, 0, -0.5]}>
       <planeGeometry args={[1, height]} />
-      <meshBasicMaterial color={color} transparent opacity={0.15} />
+      <meshBasicMaterial color={color} transparent opacity={0.1} />
     </mesh>
   );
 }

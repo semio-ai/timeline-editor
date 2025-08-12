@@ -2,8 +2,10 @@ import { useThree, useFrame, ThreeEvent } from "@react-three/fiber";
 import { useRef, useMemo, useCallback } from "react";
 import type { MotionValue } from "motion";
 import * as THREE from "three";
+import { Theme } from "@semio/ui";
 import { useOrthoCameraSetup } from "../../../hooks";
 import { AnimationInstanceSettings } from "../../../types";
+import { ThemeMode } from "../../../functions";
 import { DataRenderer } from "./data-renderer";
 
 interface TrackListProps {
@@ -17,6 +19,7 @@ interface TrackListProps {
   bottomOffsetPx?: number;
   emphasis?: string[];
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
+  theme?: ThemeMode;
 }
 
 export function TrackList({
@@ -30,6 +33,7 @@ export function TrackList({
   bottomOffsetPx = 108,
   emphasis = [],
   onEmphasisChange = () => {},
+  theme = Theme.Light,
 }: TrackListProps) {
   const { size, camera } = useThree();
 
@@ -95,6 +99,7 @@ export function TrackList({
           offset={-trackWorldHeight * idx}
           emphasis={emphasis.includes(track)}
           onEmphasisChange={(v) => onEmphasisChange(track, v ? "add" : "remove")}
+          theme={theme}
         />
       ))}
     </group>

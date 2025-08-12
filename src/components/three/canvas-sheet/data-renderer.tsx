@@ -1,6 +1,7 @@
 import { memo, useMemo, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { RawValue, useDeepSelector } from "@semio/utils";
+import { Theme } from "@semio/ui";
 import { Instances } from "@react-three/drei";
 import { pick, uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../../hooks";
@@ -59,6 +60,7 @@ export interface DataRendererProps {
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
   offset?: number;
+  theme?: Theme.Light | Theme.Dark;
 }
 
 export function InnerDataRenderer({
@@ -67,6 +69,7 @@ export function InnerDataRenderer({
   emphasis = false,
   onEmphasisChange = () => {},
   offset = 0,
+  theme = Theme.Light,
 }: DataRendererProps) {
   const color = useColors(trackIds);
 
@@ -107,13 +110,18 @@ export function InnerDataRenderer({
       <DataPointsRenderer frameData={frameData} onSetDraggingFrames={setDraggingFrames} />
 
       {/* Render violations */}
-      <ViolationRenderer violationSet={violationSet} />
+      <ViolationRenderer violationSet={violationSet} theme={theme} height={height - 1} />
 
       {/* Render a background for the Active region, and the General Background */}
       {trackIds.length > 0 && (
         <>
-          <FrustumBackground color={color} height={height} opacity={0.15} position={[0.5, 0, -1]} />
-          <TrackBackground color={color} height={height} emphasis={emphasis} />
+          <FrustumBackground
+            color={color}
+            height={height - 1}
+            opacity={0.15}
+            position={[0.5, 0, -1]}
+          />
+          <TrackBackground color={color} height={height - 1} emphasis={emphasis} />
         </>
       )}
     </group>

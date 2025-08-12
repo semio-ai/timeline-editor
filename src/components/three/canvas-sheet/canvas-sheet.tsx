@@ -76,16 +76,12 @@ export function CanvasSheet({
         topOffsetPx={32}
         emphasis={emphasis}
         onEmphasisChange={onEmphasisChange}
+        theme={theme}
       />
 
       {/* Top HUD: 32px tall */}
       <HudSection position="top" pixelHeight={32} backgroundColor={bgColor} renderPriority={1}>
-        <RulerRenderer
-          height={32}
-          side="top"
-          theme={theme === Theme.Dark ? "dark" : "light"}
-          fonts={fonts}
-        />
+        <RulerRenderer height={32} side="top" theme={theme} fonts={fonts} />
       </HudSection>
 
       {/* Timeline HUD: 36px tall */}
@@ -102,6 +98,7 @@ export function CanvasSheet({
           animationId={animationId}
           namespaceId={namespaceId}
           instanceSettings={instanceSettings}
+          theme={theme}
         />
       </HudSection>
 

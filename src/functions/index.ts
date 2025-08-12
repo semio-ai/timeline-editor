@@ -1,5 +1,6 @@
 export * from "./compute-adjacent-times";
 export * from "./compute-frames";
+export * from "./compute-highlight-colors";
 export * from "./compute-instance-time";
 export * from "./compute-interpolation-segments";
 export * from "./compute-stamps";
