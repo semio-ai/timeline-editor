@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Theme } from "@semio/ui";
 import { MotionValue } from "motion/react";
 import { useColors } from "../../../hooks";
@@ -23,16 +23,22 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
   height?: number;
   theme?: Theme.Light | Theme.Dark;
 }) {
+  const [hovered, setHovered] = useState(false);
+
   // Get all track IDs involved in this segment
   const trackIds = Array.from(
     new Set(segment.violations.map((id) => violations[id].trackId as string)),
   );
   const color = useColors(trackIds);
 
+  // Increase opacity if hovered
+  const opacity = hovered ? 0.85 : 0.6;
+
   // Create diagonal material using the hook
   const diagonalMaterial = useDiagonalMaterial({
     color,
-    opacity: 0.6,
+    opacity,
+    baselineOpacity: 0.2,
     stripeWidth: 8.0,
     stripeSpacing: 16.0,
     theme,
@@ -48,7 +54,12 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
   const y = 0;
 
   return (
-    <mesh position={[x, y, 0]} material={diagonalMaterial as any}>
+    <mesh
+      position={[x, y, 0]}
+      material={diagonalMaterial as any}
+      onPointerOver={() => setHovered(true)}
+      onPointerOut={() => setHovered(false)}
+    >
       <boxGeometry args={[width, height, 1]} />
     </mesh>
   );

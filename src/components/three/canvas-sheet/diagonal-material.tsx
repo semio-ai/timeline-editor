@@ -41,6 +41,7 @@ const vertexShader = `
 const fragmentShader = `
   uniform vec3 color;
   uniform float opacity;
+  uniform float baselineOpacity;
   uniform float stripeWidth;
   uniform float stripeSpacing;
   uniform float yOffset;
@@ -48,22 +49,14 @@ const fragmentShader = `
   varying vec2 vScreenPos;
 
   void main() {
-    // Create global 45-degree diagonal pattern
-    // Using screen coordinates ensures true 45-degree angle
     float diagonal = vScreenPos.x - (vScreenPos.y - yOffset);
-
-    // Create repeating stripe pattern
     float pattern = mod(diagonal, stripeSpacing);
-
-    // Create stripes: visible when pattern < stripeWidth
     float stripeAlpha = step(pattern, stripeWidth);
 
-    // Apply opacity
-    float finalAlpha = stripeAlpha * opacity;
+    // Blend baseline opacity with stripe
+    float finalAlpha = mix(baselineOpacity * opacity, opacity, stripeAlpha);
 
-    // Discard transparent pixels for performance
     if (finalAlpha < 0.01) discard;
-
     gl_FragColor = vec4(color, finalAlpha);
   }
 `;
@@ -71,6 +64,7 @@ const fragmentShader = `
 export interface DiagonalMaterialOptions {
   color?: string | number;
   opacity?: number;
+  baselineOpacity?: number;
   stripeWidth?: number;
   stripeSpacing?: number;
   theme?: ThemeMode;
@@ -81,6 +75,7 @@ export interface DiagonalMaterialOptions {
 export function useDiagonalMaterial({
   color = "#ff0000",
   opacity = 0.6,
+  baselineOpacity = 0.2,
   stripeWidth = 8.0,
   stripeSpacing = 16.0,
   theme = Theme.Light,
@@ -89,7 +84,6 @@ export function useDiagonalMaterial({
 }: DiagonalMaterialOptions = {}) {
   const { camera, viewport } = useThree();
 
-  // Compute the final color using highlight if enabled
   const finalColor = useMemo(() => {
     if (useHighlight && typeof color === "string") {
       return getHighlightColor(color, theme);
@@ -97,7 +91,6 @@ export function useDiagonalMaterial({
     return color;
   }, [color, theme, useHighlight]);
 
-  // Create material once and keep it stable
   const material = useMemo(() => {
     return new ShaderMaterial({
       transparent: true,
@@ -106,6 +99,7 @@ export function useDiagonalMaterial({
       uniforms: {
         color: { value: new Color(finalColor) },
         opacity: { value: opacity },
+        baselineOpacity: { value: baselineOpacity },
         stripeWidth: { value: stripeWidth },
         stripeSpacing: { value: stripeSpacing },
         frustumBounds: { value: new Vector4(-1, 1, -1, 1) },
@@ -117,42 +111,33 @@ export function useDiagonalMaterial({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- We want to prevent recreation and instead update uniforms
   }, []);
 
-  // Update camera-dependent uniforms every frame
   useFrame(() => {
     if (material.uniforms && "isOrthographicCamera" in camera) {
       const orthoCamera = camera as any;
-
-      // Get current frustum bounds
-      const frustumBounds = new Vector4(
+      material.uniforms.frustumBounds.value = new Vector4(
         orthoCamera.left as number,
         orthoCamera.right as number,
         orthoCamera.bottom as number,
         orthoCamera.top as number,
       );
-
-      // Update camera-dependent uniforms
-      material.uniforms.frustumBounds.value = frustumBounds;
       material.uniforms.viewportSize.value.set(viewport.width, viewport.height);
       material.uniforms.cameraZoom.value = orthoCamera.zoom || 1.0;
-
-      // Update yOffset from MotionValue
       material.uniforms.yOffset.value = yOffset.get();
     }
   });
 
-  // Update material properties when props change
   useEffect(() => {
     if (material.uniforms) {
       material.uniforms.color.value.set(finalColor);
       material.uniforms.opacity.value = opacity;
+      material.uniforms.baselineOpacity.value = baselineOpacity;
       material.uniforms.stripeWidth.value = stripeWidth;
       material.uniforms.stripeSpacing.value = stripeSpacing;
       material.uniforms.yOffset.value = yOffset.get();
       material.needsUpdate = true;
     }
-  }, [material, finalColor, opacity, stripeWidth, stripeSpacing, yOffset]);
+  }, [material, finalColor, opacity, baselineOpacity, stripeWidth, stripeSpacing, yOffset]);
 
-  // Cleanup material on unmount
   useEffect(() => {
     return () => {
       material.dispose();
