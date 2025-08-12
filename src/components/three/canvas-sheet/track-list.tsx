@@ -1,5 +1,5 @@
-import { useThree, useFrame, ThreeEvent } from "@react-three/fiber";
-import { useRef, useMemo, useCallback } from "react";
+import { useThree, useFrame } from "@react-three/fiber";
+import { useRef, useMemo } from "react";
 import type { MotionValue } from "motion";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
@@ -30,7 +30,6 @@ export function TrackList({
   trackHeight = 36,
   scrollValue,
   topOffsetPx = 32,
-  bottomOffsetPx = 108,
   emphasis = [],
   onEmphasisChange = () => {},
   theme = Theme.Light,
@@ -40,12 +39,6 @@ export function TrackList({
   useOrthoCameraSetup(camera as THREE.OrthographicCamera);
 
   const groupRef = useRef<THREE.Group>(null);
-
-  // Calculate scroll boundaries
-  const totalContentHeightPx = tracks.length * trackHeight;
-  const visibleHeightPx = size.height - topOffsetPx - bottomOffsetPx;
-  const scrollMin = 0;
-  const scrollMax = Math.max(0, totalContentHeightPx - visibleHeightPx);
 
   // Compute world Y position for the top of the TrackList
   const [y, trackWorldHeight, worldHeight] = useMemo(() => {
@@ -71,23 +64,10 @@ export function TrackList({
     }
   });
 
-  // Wheel handler to update scrollValue
-  const handleWheel = useCallback(
-    (e: ThreeEvent<WheelEvent>) => {
-      // Ignore if Control or Command/Meta key is pressed
-      if (e.ctrlKey || e.metaKey) return;
-      if (!scrollValue) return;
-      e.stopPropagation();
-      const prev = scrollValue.get();
-      let next = prev + e.deltaY;
-      next = Math.max(scrollMin, Math.min(scrollMax, next));
-      scrollValue.set(next);
-    },
-    [scrollValue, scrollMin, scrollMax],
-  );
+  // Removed wheel handler; vertical scroll is now handled by PanZoomControls.
 
   return (
-    <group ref={groupRef as any} onWheel={handleWheel as any}>
+    <group ref={groupRef as any}>
       {tracks.map((track, idx) => (
         <DataRenderer
           animationId={animationId}

@@ -45,6 +45,13 @@ export function CanvasSheet({
   const initialLeft = -0.1;
   const initialRight = 1.1;
 
+  // TrackList region offsets
+  // When we allow nested/composite tracks these will need to be dynamic
+  const topOffsetPx = 32;
+  const bottomOffsetPx = 108;
+  const trackHeight = 36;
+  const totalContentHeightPx = tracks.length * trackHeight;
+
   return (
     <Canvas
       className="w-full h-full"
@@ -66,14 +73,21 @@ export function CanvasSheet({
       }}
     >
       <ambientLight intensity={1} />
-      <PanZoomControls bounds={[0, 1]} />
+      <PanZoomControls
+        bounds={[0, 1]}
+        scrollValue={scrollValue}
+        trackRegion={{ top: topOffsetPx, bottom: bottomOffsetPx }}
+        contentHeightPx={totalContentHeightPx}
+      />
       <TrackList
         animationId={animationId}
         namespaceId={namespaceId}
         instanceSettings={instanceSettings}
         tracks={tracks}
         scrollValue={scrollValue}
-        topOffsetPx={32}
+        topOffsetPx={topOffsetPx}
+        bottomOffsetPx={bottomOffsetPx}
+        trackHeight={trackHeight}
         emphasis={emphasis}
         onEmphasisChange={onEmphasisChange}
         theme={theme}

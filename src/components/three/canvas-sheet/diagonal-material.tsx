@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect } from "react";
 import { ShaderMaterial, Color, Vector2, Vector4 } from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { Theme } from "@semio/ui";

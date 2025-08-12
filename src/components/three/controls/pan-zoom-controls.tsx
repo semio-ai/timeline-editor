@@ -2,6 +2,7 @@ import { useEffect, useRef, forwardRef } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
 import { OrthographicCamera } from "three";
 import { usePlayerStore } from "@semio/utils";
+import { MotionValue } from "motion";
 import { calculatePaddedFrustum } from "../../../viewport-utils";
 import { PanZoomControls as PanZoomControlsImpl } from "./pan-zoom-controls-impl";
 
@@ -17,6 +18,9 @@ export interface PanZoomControlsProps {
   onStart?: () => void;
   onEnd?: () => void;
   bounds?: [number, number];
+  scrollValue?: MotionValue<number>;
+  trackRegion?: { top: number; bottom: number };
+  contentHeightPx?: number;
 }
 
 export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsProps>(
@@ -33,6 +37,9 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
       onStart,
       onEnd,
       bounds,
+      scrollValue,
+      trackRegion,
+      contentHeightPx,
     },
     ref,
   ) => {
@@ -97,6 +104,11 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
       controls.maxZoom = maxZoom;
       controls.bounds = bounds;
 
+      // Add scrollValue, trackRegion, and contentHeightPx to controls instance
+      controls.scrollValue = scrollValue;
+      controls.trackRegion = trackRegion;
+      controls.contentHeightPx = contentHeightPx;
+
       // Sync viewport changes from controls to player store
       // The controls now pass data viewport (without padding) directly
       controls.onViewportChange = (frustum) => {
@@ -130,6 +142,9 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
       maxZoom,
       bounds,
       setPlayerViewport,
+      scrollValue,
+      trackRegion,
+      contentHeightPx,
     ]);
 
     // Update event listeners when callbacks change
@@ -171,8 +186,22 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
         controlsRef.current.zoomSpeed = zoomSpeed;
         controlsRef.current.minZoom = minZoom;
         controlsRef.current.maxZoom = maxZoom;
+        controlsRef.current.scrollValue = scrollValue;
+        controlsRef.current.trackRegion = trackRegion;
+        controlsRef.current.contentHeightPx = contentHeightPx;
       }
-    }, [enabled, enablePan, enableZoom, panSpeed, zoomSpeed, minZoom, maxZoom]);
+    }, [
+      enabled,
+      enablePan,
+      enableZoom,
+      panSpeed,
+      zoomSpeed,
+      minZoom,
+      maxZoom,
+      scrollValue,
+      trackRegion,
+      contentHeightPx,
+    ]);
 
     // Call update if needed (though our PanZoomControls.update() returns false)
     useFrame(() => {

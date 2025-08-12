@@ -84,6 +84,15 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
   // Initial camera width for zoom constraints
   private initialCameraWidth: number;
 
+  // Props for external scroll handling
+  public scrollValue?: import("motion").MotionValue<number>;
+  public trackRegion?: { top: number; bottom: number };
+  public contentHeightPx?: number;
+  public onMouseWheelOriginal?: (event: WheelEvent) => void;
+
+  // Optional callback for track-list vertical scroll
+  public onListScroll?: (params: { scroll: number; min: number; max: number }) => void;
+
   // Bounds for left/right viewport
   bounds: [number, number] | undefined = undefined;
 
@@ -161,21 +170,59 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
 
   private onMouseWheel = (event: WheelEvent) => {
     if (!this.enabled) return;
-    event.preventDefault();
 
-    this.dispatchEvent(_startEvent);
+    const rect = this.domElement?.getBoundingClientRect();
+    const pointerY = rect ? event.clientY - rect.top : 0;
+    const { top = 0, bottom = 0 } = this.trackRegion || {};
+    const trackRegionStart = top;
+    const trackRegionEnd = rect ? rect.height - bottom : 0;
 
-    // Major axis detection
     const absDeltaX = Math.abs(event.deltaX);
     const absDeltaY = Math.abs(event.deltaY);
     const threshold = 0.5; // Ignore tiny scrolls
+
+    // Vertical scroll in track-list region, no ctrl/meta
+    if (
+      !event.ctrlKey &&
+      !event.metaKey &&
+      absDeltaY > absDeltaX &&
+      absDeltaY > threshold &&
+      pointerY >= trackRegionStart &&
+      pointerY <= trackRegionEnd &&
+      this.scrollValue &&
+      typeof this.contentHeightPx === "number"
+    ) {
+      event.preventDefault();
+      this.dispatchEvent(_startEvent);
+
+      // Clamp scrollValue between min/max
+      const prev = this.scrollValue.get();
+      const visibleHeightPx = rect ? rect.height - top - bottom : 0;
+      const scrollMin = 0;
+      const scrollMax = Math.max(0, this.contentHeightPx - visibleHeightPx);
+
+      let next = prev + event.deltaY;
+      next = Math.max(scrollMin, Math.min(scrollMax, next));
+      this.scrollValue.set(next);
+
+      // Call the onListScroll callback if present
+      if (typeof this.onListScroll === "function") {
+        this.onListScroll({ scroll: next, min: scrollMin, max: scrollMax });
+      }
+
+      this.dispatchEvent(_changeEvent);
+      this.dispatchEvent(_endEvent);
+      return;
+    }
+
+    event.preventDefault();
+    this.dispatchEvent(_startEvent);
 
     // Zoom: Ctrl/Cmd + vertical scroll, and vertical is major axis
     if ((event.ctrlKey || event.metaKey) && absDeltaY > absDeltaX && absDeltaY > threshold) {
       if (!this.enableZoom) return;
       const baseZoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
       const zoomFactor = 1 + (baseZoomFactor - 1) * this.zoomSpeed;
-      const rect = this.domElement?.getBoundingClientRect();
       if (rect) {
         const center = new Vector2(event.clientX, event.clientY);
         this.zoomCameraHorizontal(zoomFactor, center);
