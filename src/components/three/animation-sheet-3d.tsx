@@ -10,7 +10,7 @@ import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/
 import { AnimationContext } from "../../context";
 import { useDefaultAnimationStore } from "../../store";
 import { TrackRender, AnimationInstance } from "../../types";
-import { useAnimationStore, ColorContextProvider } from "../../hooks";
+import { useAnimationStore, ColorContextProvider, NameContextProvider } from "../../hooks";
 // Import existing components that we'll reuse for now
 import { TimelineControl } from "../timeline-control";
 import { TimeControls } from "../time-controls";
@@ -104,152 +104,154 @@ export function InnerSheet3D({
 
   return (
     <ColorContextProvider>
-      <div className="animation-sheet-container w-full">
-        {/* Grid layout with tracking divs - same structure as original */}
-        <div
-          aria-expanded={expanded}
-          style={{
-            height,
-            minHeight: MIN_SHEET_HEIGHT,
-          }}
-          className={clsx(
-            "grid grid-cols-[302px_1fr] group/sheet w-full pr-0.5 pb-0.5",
-            "grid-rows-[32px_1fr_36px_36px_36px]",
-          )}
-        >
-          {/* Expand Toggle/Ruler - Row 1 */}
-          <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between px-1")}>
-            <ToggleSquare
-              sizing="inner"
-              size={Size.Sm}
-              value={expanded}
-              onChange={(v) => onToggleExpand?.(v)}
-              label="Expand Tracks"
-            >
-              <IconChevronDown
-                size="11px"
-                className={clsx(
-                  expanded ? "rotate-0" : "rotate-180",
-                  "transition-transform ease-in-out",
-                )}
-              />
-            </ToggleSquare>
-
-            <ToggleGroup
-              bg
-              visuals="icons"
-              size={Size.Sm}
-              value={trackRender}
-              onChange={(v: string) => {
-                setTrackRender(v as TrackRender);
-              }}
-              options={[
-                {
-                  value: TrackRender.Key,
-                  label: "Key View",
-                  icon: <IconLine size="11px" className="rotate-45" />,
-                },
-                {
-                  value: TrackRender.Transition,
-                  label: "Transition View",
-                  icon: <IconLine size="11px" />,
-                },
-                {
-                  value: TrackRender.Preview,
-                  label: "Preview View",
-                  icon: <IconPreviewView size="11px" />,
-                },
-                {
-                  value: TrackRender.Data,
-                  label: "Data View",
-                  icon: <IconTable size="11px" />,
-                  disabled: true,
-                },
-              ]}
-            />
-            <ToggleSquare
-              sizing="inner"
-              size={Size.Sm}
-              value={false}
-              onChange={() => {}}
-              label="Pop Out"
-              disabled
-            >
-              <IconArrowUpRight size="11px" />
-            </ToggleSquare>
-          </div>
-
-          {/* Canvas (spans all rows) */}
+      <NameContextProvider>
+        <div className="animation-sheet-container w-full">
+          {/* Grid layout with tracking divs - same structure as original */}
           <div
+            aria-expanded={expanded}
+            style={{
+              height,
+              minHeight: MIN_SHEET_HEIGHT,
+            }}
             className={clsx(
-              "w-full min-w-0 row-span-5 touch-none rounded-md overflow-clip",
-              TRACK_MAIN_BG,
+              "grid grid-cols-[302px_1fr] group/sheet w-full pr-0.5 pb-0.5",
+              "grid-rows-[32px_1fr_36px_36px_36px]",
             )}
           >
-            <CanvasSheet
-              tracks={allTracks}
+            {/* Expand Toggle/Ruler - Row 1 */}
+            <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between px-1")}>
+              <ToggleSquare
+                sizing="inner"
+                size={Size.Sm}
+                value={expanded}
+                onChange={(v) => onToggleExpand?.(v)}
+                label="Expand Tracks"
+              >
+                <IconChevronDown
+                  size="11px"
+                  className={clsx(
+                    expanded ? "rotate-0" : "rotate-180",
+                    "transition-transform ease-in-out",
+                  )}
+                />
+              </ToggleSquare>
+
+              <ToggleGroup
+                bg
+                visuals="icons"
+                size={Size.Sm}
+                value={trackRender}
+                onChange={(v: string) => {
+                  setTrackRender(v as TrackRender);
+                }}
+                options={[
+                  {
+                    value: TrackRender.Key,
+                    label: "Key View",
+                    icon: <IconLine size="11px" className="rotate-45" />,
+                  },
+                  {
+                    value: TrackRender.Transition,
+                    label: "Transition View",
+                    icon: <IconLine size="11px" />,
+                  },
+                  {
+                    value: TrackRender.Preview,
+                    label: "Preview View",
+                    icon: <IconPreviewView size="11px" />,
+                  },
+                  {
+                    value: TrackRender.Data,
+                    label: "Data View",
+                    icon: <IconTable size="11px" />,
+                    disabled: true,
+                  },
+                ]}
+              />
+              <ToggleSquare
+                sizing="inner"
+                size={Size.Sm}
+                value={false}
+                onChange={() => {}}
+                label="Pop Out"
+                disabled
+              >
+                <IconArrowUpRight size="11px" />
+              </ToggleSquare>
+            </div>
+
+            {/* Canvas (spans all rows) */}
+            <div
+              className={clsx(
+                "w-full min-w-0 row-span-5 touch-none rounded-md overflow-clip",
+                TRACK_MAIN_BG,
+              )}
+            >
+              <CanvasSheet
+                tracks={allTracks}
+                animationId={currentAnimation}
+                namespaceId={namespaceId}
+                instanceSettings={instanceSettings}
+                selection={selectedTracks}
+                scrollValue={scrollY}
+                theme={resolvedTheme}
+                emphasis={emphasis}
+                onEmphasisChange={setEmphasisSmart}
+                fonts={fonts}
+              />
+            </div>
+
+            {/* Track List - Row 2 */}
+
+            {/* 3D Track List with color-coded tracks */}
+            <TrackList3D
               animationId={currentAnimation}
               namespaceId={namespaceId}
               instanceSettings={instanceSettings}
-              selection={selectedTracks}
-              scrollValue={scrollY}
-              theme={resolvedTheme}
+              height={height - MIN_SHEET_HEIGHT}
+              trackRender={trackRender}
+              scrollY={scrollY}
               emphasis={emphasis}
               onEmphasisChange={setEmphasisSmart}
-              fonts={fonts}
             />
+
+            {/* Timeline Control - Row 3 */}
+            <div className="pr-2">
+              <TimelineControl
+                animationId={currentAnimation}
+                namespaceId={namespaceId}
+                instanceSettings={instanceSettings}
+                selection={selectedTracks}
+                allTracks={allTracks}
+                onChangeSelection={setSelectedTracks}
+              />
+            </div>
+
+            {/* Timeline View - Row 3 */}
+
+            {/* Time Controls - Row 4 */}
+            <div className="pr-2">
+              <TimeControls
+                animationId={currentAnimation}
+                namespaceId={namespaceId}
+                instanceSettings={instanceSettings}
+                selection={selectedTracks}
+                allTracks={allTracks}
+                onChangeSelection={setSelectedTracks}
+              />
+            </div>
+
+            {/* Minimap View - Row 4 */}
+
+            {/* Playback Settings - Row 5 */}
+            <div className="pr-2">
+              <PlaybackSettings />
+            </div>
+
+            {/* Bottom Ruler - Row 5 */}
           </div>
-
-          {/* Track List - Row 2 */}
-
-          {/* 3D Track List with color-coded tracks */}
-          <TrackList3D
-            animationId={currentAnimation}
-            namespaceId={namespaceId}
-            instanceSettings={instanceSettings}
-            height={height - MIN_SHEET_HEIGHT}
-            trackRender={trackRender}
-            scrollY={scrollY}
-            emphasis={emphasis}
-            onEmphasisChange={setEmphasisSmart}
-          />
-
-          {/* Timeline Control - Row 3 */}
-          <div className="pr-2">
-            <TimelineControl
-              animationId={currentAnimation}
-              namespaceId={namespaceId}
-              instanceSettings={instanceSettings}
-              selection={selectedTracks}
-              allTracks={allTracks}
-              onChangeSelection={setSelectedTracks}
-            />
-          </div>
-
-          {/* Timeline View - Row 3 */}
-
-          {/* Time Controls - Row 4 */}
-          <div className="pr-2">
-            <TimeControls
-              animationId={currentAnimation}
-              namespaceId={namespaceId}
-              instanceSettings={instanceSettings}
-              selection={selectedTracks}
-              allTracks={allTracks}
-              onChangeSelection={setSelectedTracks}
-            />
-          </div>
-
-          {/* Minimap View - Row 4 */}
-
-          {/* Playback Settings - Row 5 */}
-          <div className="pr-2">
-            <PlaybackSettings />
-          </div>
-
-          {/* Bottom Ruler - Row 5 */}
         </div>
-      </div>
+      </NameContextProvider>
     </ColorContextProvider>
   );
 }
