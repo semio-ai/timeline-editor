@@ -102,11 +102,7 @@ export function InnerDataRenderer({
   const _paddedInterps = useMemo(() => computeFilledInterpGaps(interps), [interps]);
 
   return (
-    <group
-      position={[0, offset, 0]}
-      onPointerEnter={() => onEmphasisChange(true)}
-      onPointerLeave={() => onEmphasisChange(false)}
-    >
+    <group position={[0, offset, 0]}>
       {/* Render the hexagons/visuals for each keyed point */}
       <DataPointsRenderer frameData={frameData} onSetDraggingFrames={setDraggingFrames} />
 
@@ -126,6 +122,7 @@ export function InnerDataRenderer({
             height={height - 1}
             opacity={0.15}
             position={[0.5, 0, -1]}
+            onHoverChange={onEmphasisChange}
           />
           <TrackBackground color={color} height={height - 1} emphasis={emphasis} />
         </>
