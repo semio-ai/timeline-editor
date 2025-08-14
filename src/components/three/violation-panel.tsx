@@ -16,20 +16,22 @@ export function ViolationPanel({ segment, violations }: ViolationPanelProps) {
   }, [segment, violations]);
 
   const name = useNames(uniqueTracks, "MultipleTracks");
+  const color = useColors(uniqueTracks);
 
   return (
     <div className="flex-col max-w-72">
       <div
         className={clsx(
           "px-2 py-1.5 bg-neutral-50/50 dark:bg-neutral-950/50",
-          "text-(--track-color) flex-row flex justify-between items-center",
+          "flex-row flex justify-between items-center",
         )}
+        style={{ color }}
       >
         <div className="flex-row flex items-center">
           <IconAlertTriangle size={20} className="mr-2" />
           {name}
         </div>
-        <div className="bg-(--track-color) text-black min-w-6 text-center">
+        <div className="text-black min-w-6 text-center" style={{ backgroundColor: color }}>
           {segment.violations.length}
         </div>
       </div>
