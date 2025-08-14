@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState, useEffect } from "react";
+import { memo, useState, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import useMeasure from "react-use-measure";
@@ -9,6 +9,7 @@ import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
 import { TrackRender, AnimationInstance } from "../types";
 import { useAnimationStore, ColorContextProvider } from "../hooks";
+import { WithAnimationContextProps, useOptionalContext } from "../utils/context-providers";
 import { DEFAULT_TRACK_HEIGHT } from "../constants";
 import { Timeline } from "./timeline";
 import { TrackList } from "./track-list";
@@ -21,32 +22,108 @@ import { PlaybackSettings } from "./playback-settings";
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
 const MIN_SHEET_HEIGHT = 142;
 
-export interface AnimationSheetProps {
+export interface AnimationSheetProps extends WithAnimationContextProps {
   namespaceId: string;
   animationInstances: Record<string, AnimationInstance>;
   onToggleExpand?: (expanded: boolean) => void;
   height?: number;
 }
 
-export function AnimationSheet(props: AnimationSheetProps): ReactNode {
-  const ctx = useContext(AnimationContext);
-  if (ctx) {
-    return <MemoizedInnerSheet {...props} />;
-  } else {
-    return (
+export interface AnimationSheetCoreProps {
+  namespaceId: string;
+  animationInstances: Record<string, AnimationInstance>;
+  onToggleExpand?: (expanded: boolean) => void;
+  height?: number;
+}
+
+/**
+ * Core AnimationSheet component that requires AnimationContext to be provided by a parent.
+ *
+ * Use this component when:
+ * - You know AnimationContext is already provided by a parent component
+ * - You want to avoid automatic context provision (for performance or control)
+ * - You're testing the component in isolation with a known context
+ *
+ * @example
+ * ```tsx
+ * // Use when context is already provided
+ * <AnimationContext.Provider value={myStore}>
+ *   <AnimationSheetCore
+ *     namespaceId="demo"
+ *     animationInstances={instances}
+ *   />
+ * </AnimationContext.Provider>
+ * ```
+ *
+ * @throws Error if AnimationContext is not provided by a parent component
+ */
+export const AnimationSheetCore = memo(function AnimationSheetCore(
+  props: AnimationSheetCoreProps,
+): ReactNode {
+  return <InnerSheet {...props} />;
+});
+
+/**
+ * Full AnimationSheet component that automatically provides AnimationContext if needed.
+ * This is the main export that most consumers should use.
+ *
+ * Context Behavior:
+ * - If no AnimationContext exists in the component tree, creates one with default store
+ * - If AnimationContext already exists, uses the existing one (no nesting)
+ * - Use `skipAnimationContext={true}` to always use parent context (throws if none exists)
+ *
+ * @param skipAnimationContext - Skip providing context, assume parent provides it
+ *
+ * @example
+ * ```tsx
+ * // Automatic context provision (recommended for most cases)
+ * <AnimationSheet namespaceId="demo" animationInstances={instances} />
+ *
+ * // Skip context when parent provides it
+ * <AnimationContext.Provider value={myCustomStore}>
+ *   <AnimationSheet
+ *     skipAnimationContext
+ *     namespaceId="demo"
+ *     animationInstances={instances}
+ *   />
+ * </AnimationContext.Provider>
+ *
+ * // Nested usage (inner skips context)
+ * <AnimationSheet namespaceId="outer" animationInstances={outer}>
+ *   <AnimationSheet
+ *     skipAnimationContext
+ *     namespaceId="inner"
+ *     animationInstances={inner}
+ *   />
+ * </AnimationSheet>
+ * ```
+ */
+export function AnimationSheet({
+  skipAnimationContext = false,
+  ...props
+}: AnimationSheetProps): ReactNode {
+  const ctx = useOptionalContext(AnimationContext);
+  const needsAnimationContext = !skipAnimationContext && !ctx;
+
+  let content = <AnimationSheetCore {...props} />;
+
+  if (needsAnimationContext) {
+    content = (
       <AnimationContext.Provider value={useDefaultAnimationStore}>
-        <MemoizedInnerSheet {...props} />
+        {content}
       </AnimationContext.Provider>
     );
   }
+
+  return content;
 }
 
-export function InnerSheet({
+function InnerSheet({
   namespaceId,
   animationInstances,
   onToggleExpand,
   height = MIN_SHEET_HEIGHT,
-}: AnimationSheetProps): ReactNode {
+}: AnimationSheetCoreProps): ReactNode {
   // TODO: Eventually we will allow seleciton of different animation instances to view. For now we assume there is only one instance per set.
   const [trackRender, setTrackRender] = useState<TrackRender>(TrackRender.Key);
   const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
@@ -230,5 +307,3 @@ export function InnerSheet({
     </ColorContextProvider>
   );
 }
-
-const MemoizedInnerSheet = memo(InnerSheet);

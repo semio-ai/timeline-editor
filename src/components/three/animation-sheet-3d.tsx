@@ -5,12 +5,22 @@ import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
 // import { Canvas } from "@react-three/fiber";
 // import { Hud } from "@react-three/drei";
-import { ToggleGroup, Size, ToggleSquare, IconPreviewView, useTheme } from "@semio/ui";
+import {
+  ToggleGroup,
+  Size,
+  ToggleSquare,
+  IconPreviewView,
+  useTheme,
+  TooltipProvider,
+  TooltipContext,
+  TooltipHost,
+} from "@semio/ui";
 import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
 import { AnimationContext } from "../../context";
 import { useDefaultAnimationStore } from "../../store";
 import { TrackRender, AnimationInstance } from "../../types";
 import { useAnimationStore, ColorContextProvider, NameContextProvider } from "../../hooks";
+import { WithTooltipAndAnimationContextProps } from "../../utils/context-providers";
 // Import existing components that we'll reuse for now
 import { TimelineControl } from "../timeline-control";
 import { TimeControls } from "../time-controls";
@@ -21,7 +31,7 @@ import { CanvasSheet } from "./canvas-sheet/canvas-sheet";
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
 const MIN_SHEET_HEIGHT = 142;
 
-export interface AnimationSheet3DProps {
+export interface AnimationSheet3DProps extends WithTooltipAndAnimationContextProps {
   namespaceId: string;
   animationInstances: Record<string, AnimationInstance>;
   onToggleExpand?: (expanded: boolean) => void;
@@ -32,20 +42,148 @@ export interface AnimationSheet3DProps {
   };
 }
 
-export function AnimationSheet3D(props: AnimationSheet3DProps): ReactNode {
-  const ctx = useContext(AnimationContext);
-  if (ctx) {
-    return <MemoizedInnerSheet3D {...props} />;
-  } else {
-    return (
+export interface AnimationSheet3DCoreProps {
+  namespaceId: string;
+  animationInstances: Record<string, AnimationInstance>;
+  onToggleExpand?: (expanded: boolean) => void;
+  height?: number;
+  fonts?: {
+    mono?: string; // Path to monospace font, falls back to system default
+    ui?: string; // Path to UI font, falls back to system default
+  };
+}
+
+/**
+ * Core AnimationSheet3D component that requires both AnimationContext and TooltipContext to be provided by parent components.
+ *
+ * Use this component when:
+ * - You know both AnimationContext and TooltipContext are already provided by parent components
+ * - You want to avoid automatic context provision (for performance or control)
+ * - You're testing the component in isolation with known contexts
+ * - You're building custom wrapper components with specific context management
+ *
+ * @example
+ * ```tsx
+ * // Use when both contexts are already provided
+ * <AnimationContext.Provider value={myAnimationStore}>
+ *   <TooltipProvider>
+ *     <TooltipHost className="w-full h-full">
+ *       <AnimationSheet3DCore
+ *         namespaceId="demo"
+ *         animationInstances={instances}
+ *       />
+ *     </TooltipHost>
+ *   </TooltipProvider>
+ * </AnimationContext.Provider>
+ * ```
+ *
+ * @throws Error if AnimationContext is not provided by a parent component
+ * @throws Error if TooltipContext is not provided by a parent component (required for 3D tooltips)
+ */
+export const AnimationSheet3DCore = memo(function AnimationSheet3DCore(
+  props: AnimationSheet3DCoreProps,
+): ReactNode {
+  return <InnerSheet3D {...props} />;
+});
+
+/**
+ * Full AnimationSheet3D component that automatically provides AnimationContext and TooltipContext if needed.
+ * This is the main export that most consumers should use for 3D animation sheets.
+ *
+ * Context Behavior:
+ * - **AnimationContext**: If not present, creates one with default animation store
+ * - **TooltipContext**: If not present, creates TooltipProvider + TooltipHost for 3D tooltip support
+ * - If contexts already exist, uses existing ones (no unnecessary nesting)
+ * - Always wraps with TooltipHost for proper 3D tooltip positioning support
+ *
+ * @param skipAnimationContext - Skip providing animation context, assume parent provides it
+ * @param skipTooltipContext - Skip providing tooltip context, assume parent provides it
+ *
+ * @example
+ * ```tsx
+ * // Automatic context provision (recommended for most cases)
+ * <AnimationSheet3D namespaceId="demo" animationInstances={instances} />
+ *
+ * // Skip animation context when parent provides it
+ * <AnimationContext.Provider value={myCustomStore}>
+ *   <AnimationSheet3D
+ *     skipAnimationContext
+ *     namespaceId="demo"
+ *     animationInstances={instances}
+ *   />
+ * </AnimationContext.Provider>
+ *
+ * // Skip tooltip context when parent provides it
+ * <TooltipProvider>
+ *   <AnimationSheet3D
+ *     skipTooltipContext
+ *     namespaceId="demo"
+ *     animationInstances={instances}
+ *   />
+ * </TooltipProvider>
+ *
+ * // Skip both contexts (parent must provide both)
+ * <AnimationContext.Provider value={myStore}>
+ *   <TooltipProvider>
+ *     <AnimationSheet3D
+ *       skipAnimationContext
+ *       skipTooltipContext
+ *       namespaceId="demo"
+ *       animationInstances={instances}
+ *     />
+ *   </TooltipProvider>
+ * </AnimationContext.Provider>
+ *
+ * // Nested usage (inner components skip contexts)
+ * <AnimationSheet3D namespaceId="outer" animationInstances={outer}>
+ *   <AnimationSheet3D
+ *     skipAnimationContext
+ *     skipTooltipContext
+ *     namespaceId="inner"
+ *     animationInstances={inner}
+ *   />
+ * </AnimationSheet3D>
+ * ```
+ */
+export const AnimationSheet3D = memo(function AnimationSheet3D({
+  skipTooltipContext = false,
+  skipAnimationContext = false,
+  ...props
+}: AnimationSheet3DProps): ReactNode {
+  const animationCtx = useContext(AnimationContext);
+  const tooltipCtx = useContext(TooltipContext);
+
+  // Determine what contexts need to be provided
+  const needsAnimationContext = !skipAnimationContext && !animationCtx;
+  const needsTooltipContext = !skipTooltipContext && !tooltipCtx;
+
+  let content = <AnimationSheet3DCore {...props} />;
+
+  // Wrap with animation context if needed
+  if (needsAnimationContext) {
+    content = (
       <AnimationContext.Provider value={useDefaultAnimationStore}>
-        <MemoizedInnerSheet3D {...props} />
+        {content}
       </AnimationContext.Provider>
     );
   }
-}
 
-export function InnerSheet3D({
+  // Wrap with tooltip context if needed
+  if (needsTooltipContext) {
+    content = (
+      <TooltipProvider>
+        <TooltipHost className="w-full h-full">{content}</TooltipHost>
+      </TooltipProvider>
+    );
+  } else if (needsAnimationContext) {
+    // If we only need animation context, we still need TooltipHost for the 3D tooltips
+    content = <TooltipHost className="w-full h-full">{content}</TooltipHost>;
+  }
+
+  return content;
+});
+
+function InnerSheet3D({
   namespaceId,
   animationInstances,
   onToggleExpand,
@@ -255,5 +393,3 @@ export function InnerSheet3D({
     </ColorContextProvider>
   );
 }
-
-const MemoizedInnerSheet3D = memo(InnerSheet3D);
