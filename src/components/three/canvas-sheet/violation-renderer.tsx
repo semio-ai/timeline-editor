@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { Theme } from "@semio/ui";
+import { Theme, useTooltipAnchor, useTooltipTrigger } from "@semio/ui";
 import { MotionValue } from "motion/react";
 import { useColors } from "../../../hooks";
 import { ViolationSet } from "../../../types";
@@ -25,6 +25,24 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
   theme?: Theme.Light | Theme.Dark;
 }) {
   const [hovered, setHovered] = useState(false);
+
+  // Generate tooltip ID
+  const tooltipId = `violation-segment-${segment.id}`;
+
+  // 3D Tooltip setup
+  const {
+    ref: meshRef,
+    anchorId,
+    onPointerMove,
+    onPointerLeave,
+  } = useTooltipAnchor({
+    id: tooltipId,
+    content: <ViolationPanel segment={segment} violations={violations} />,
+    side: "top",
+    axis: "x",
+  });
+
+  const { show, hide } = useTooltipTrigger(anchorId);
 
   // Get all track IDs involved in this segment
   const trackIds = Array.from(
@@ -56,10 +74,20 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
 
   return (
     <mesh
+      ref={meshRef as any}
       position={[x, y, 0]}
       material={diagonalMaterial as any}
-      onPointerOver={() => setHovered(true)}
-      onPointerOut={() => setHovered(false)}
+      onPointerOver={(e) => {
+        setHovered(true);
+        show();
+        onPointerMove?.(e);
+      }}
+      onPointerOut={(_e) => {
+        setHovered(false);
+        hide();
+        onPointerLeave?.();
+      }}
+      onPointerMove={onPointerMove}
     >
       <boxGeometry args={[width, height, 1]} />
     </mesh>

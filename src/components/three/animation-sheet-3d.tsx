@@ -13,7 +13,6 @@ import {
   useTheme,
   TooltipProvider,
   TooltipContext,
-  TooltipHost,
 } from "@semio/ui";
 import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
 import { AnimationContext } from "../../context";
@@ -170,14 +169,7 @@ export const AnimationSheet3D = memo(function AnimationSheet3D({
 
   // Wrap with tooltip context if needed
   if (needsTooltipContext) {
-    content = (
-      <TooltipProvider>
-        <TooltipHost className="w-full h-full">{content}</TooltipHost>
-      </TooltipProvider>
-    );
-  } else if (needsAnimationContext) {
-    // If we only need animation context, we still need TooltipHost for the 3D tooltips
-    content = <TooltipHost className="w-full h-full">{content}</TooltipHost>;
+    content = <TooltipProvider>{content}</TooltipProvider>;
   }
 
   return content;

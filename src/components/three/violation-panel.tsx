@@ -33,6 +33,7 @@ export function ViolationPanel({ segment, violations }: ViolationPanelProps) {
           {segment.violations.length}
         </div>
       </div>
+
       <div className="p-2 grid grid-cols-3 gap-2">
         {segment.violations.map((violationId) => {
           return (
