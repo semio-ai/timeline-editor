@@ -3,6 +3,7 @@ import { Theme } from "@semio/ui";
 import { MotionValue } from "motion/react";
 import { useColors } from "../../../hooks";
 import { ViolationSet } from "../../../types";
+import { ViolationPanel } from "../violation-panel";
 import { useDiagonalMaterial } from "./diagonal-material";
 
 // Renders a single violation segment as a mesh
