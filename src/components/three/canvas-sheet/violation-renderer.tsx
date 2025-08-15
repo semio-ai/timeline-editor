@@ -1,10 +1,9 @@
 import { memo, useState } from "react";
 import { Theme, useTooltipAnchor, useTooltipTrigger } from "@semio/ui";
 import { MotionValue } from "motion/react";
-import { useColors } from "../../../hooks";
+import { useColors, useDiagonalMaterial } from "../../../hooks";
 import { ViolationSet } from "../../../types";
 import { ViolationPanel } from "../violation-panel";
-import { useDiagonalMaterial } from "./diagonal-material";
 
 // Renders a single violation segment as a mesh
 const ViolationSegment = memo(function ViolationSegmentMesh({
@@ -51,7 +50,7 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
   const color = useColors(trackIds);
 
   // Increase opacity if hovered
-  const opacity = hovered ? 0.85 : 0.6;
+  const opacity = hovered ? 0.65 : 0.4;
 
   // Create diagonal material using the hook
   const diagonalMaterial = useDiagonalMaterial({
@@ -61,7 +60,6 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
     stripeWidth: 8.0,
     stripeSpacing: 16.0,
     theme,
-    useHighlight: true,
     yOffset,
   });
 

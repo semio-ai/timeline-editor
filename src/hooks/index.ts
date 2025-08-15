@@ -4,6 +4,7 @@ export * from "./use-camera-sync";
 export * from "./use-bezier-path-spring";
 export * from "./use-bound-springs";
 export * from "./use-colors";
+export * from "./use-diagonal-material";
 export * from "./use-hover-spring";
 export * from "./use-names";
 export * from "./use-ortho-camera-setup";

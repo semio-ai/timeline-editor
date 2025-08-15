@@ -3,7 +3,7 @@ import { MotionValue } from "motion";
 import { ShaderMaterial, Color, Vector2, Vector4 } from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { Theme } from "@semio/ui";
-import { getHighlightColor, ThemeMode } from "../../../functions";
+import { getHighlightColor, ThemeMode } from "../functions";
 
 const vertexShader = `
   uniform vec4 frustumBounds; // left, right, bottom, top
@@ -79,7 +79,7 @@ export function useDiagonalMaterial({
   stripeWidth = 8.0,
   stripeSpacing = 16.0,
   theme = Theme.Light,
-  useHighlight = true,
+  useHighlight = false,
   yOffset = new MotionValue(0),
 }: DiagonalMaterialOptions = {}) {
   const { camera, viewport } = useThree();
