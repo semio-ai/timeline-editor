@@ -4,10 +4,12 @@ export {
   AnimationSheetCore,
   TrackControl,
   TrackVisualizer,
+  MotionCubicBezierLine,
   type TrackControlProps,
   type AnimationSheetProps,
   type AnimationSheetCoreProps,
   type TrackVisualizerProps,
+  type MotionCubicBezierLineProps,
 } from "./components";
 export {
   AnimationSheet3D,

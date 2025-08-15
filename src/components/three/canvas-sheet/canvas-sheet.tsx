@@ -3,7 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
 import { MotionValue } from "motion";
-import { AnimationInstanceSettings } from "../../../types";
+import { AnimationInstanceSettings, TrackRender } from "../../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
 import { HudSection } from "./hud-section";
 import { DataRenderer } from "./data-renderer";
@@ -25,6 +25,7 @@ export interface CanvasSheetProps {
     mono?: string; // Path to monospace font, falls back to system default
     ui?: string; // Path to UI font, falls back to system default
   };
+  trackrender?: TrackRender; // Render mode for tracks, e.g. Key, Transition, Preview, Curve, etc.
 }
 
 export const CanvasSheet = memo(function CanvasSheet({
@@ -38,6 +39,7 @@ export const CanvasSheet = memo(function CanvasSheet({
   emphasis = [],
   onEmphasisChange = () => {},
   fonts = {},
+  trackrender = TrackRender.Key,
 }: CanvasSheetProps) {
   const bgColor = theme === Theme.Dark ? "#202020" : "#EFEFEF";
 
@@ -93,6 +95,7 @@ export const CanvasSheet = memo(function CanvasSheet({
           emphasis={emphasis}
           onEmphasisChange={onEmphasisChange}
           theme={theme}
+          trackRender={trackrender}
         />
 
         {/* Top HUD: 32px tall */}

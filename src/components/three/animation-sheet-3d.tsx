@@ -328,6 +328,7 @@ function InnerSheet3D({
                 emphasis={emphasis}
                 onEmphasisChange={setEmphasisSmart}
                 fonts={fonts}
+                trackrender={trackRender}
               />
             </div>
 

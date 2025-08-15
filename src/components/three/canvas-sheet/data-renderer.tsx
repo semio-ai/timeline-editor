@@ -6,7 +6,7 @@ import { MotionValue } from "motion";
 import { Instances } from "@react-three/drei";
 import { pick, uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../../hooks";
-import { AnimationInstanceSettings, InstancedFrameInfo, Track } from "../../../types";
+import { AnimationInstanceSettings, InstancedFrameInfo, Track, TrackRender } from "../../../types";
 import { AnimationData } from "../../../store-types";
 import {
   computeFrames,
@@ -22,9 +22,15 @@ import { ViolationRenderer } from "./violation-renderer";
 function DataPointsRenderer({
   frameData = [],
   onSetDraggingFrames,
+  theme = Theme.Light,
+  trackRender = TrackRender.Key,
+  height = 36,
 }: {
   frameData: InstancedFrameInfo[];
   onSetDraggingFrames: (ids: string[]) => void;
+  theme?: Theme.Light | Theme.Dark;
+  trackRender?: TrackRender;
+  height?: number;
 }) {
   return (
     <Instances>
@@ -46,6 +52,9 @@ function DataPointsRenderer({
             // Clear the dragging tracks when the drag ends
             onSetDraggingFrames([]);
           }}
+          theme={theme}
+          trackRender={trackRender}
+          height={height}
         />
       ))}
     </Instances>
@@ -63,6 +72,7 @@ export interface DataRendererProps {
   offset?: number;
   theme?: Theme.Light | Theme.Dark;
   yOffset?: MotionValue<number>;
+  trackRender?: TrackRender;
 }
 
 export function InnerDataRenderer({
@@ -73,6 +83,7 @@ export function InnerDataRenderer({
   offset = 0,
   theme = Theme.Light,
   yOffset = new MotionValue(0),
+  trackRender = TrackRender.Key,
 }: DataRendererProps) {
   const color = useColors(trackIds);
 
@@ -104,7 +115,13 @@ export function InnerDataRenderer({
   return (
     <group position={[0, offset, 0]}>
       {/* Render the hexagons/visuals for each keyed point */}
-      <DataPointsRenderer frameData={frameData} onSetDraggingFrames={setDraggingFrames} />
+      <DataPointsRenderer
+        frameData={frameData}
+        onSetDraggingFrames={setDraggingFrames}
+        theme={theme}
+        trackRender={trackRender}
+        height={height - 2.5}
+      />
 
       {/* Render violations */}
       <ViolationRenderer

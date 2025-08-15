@@ -4,7 +4,7 @@ import type { MotionValue } from "motion";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
 import { useOrthoCameraSetup } from "../../../hooks";
-import { AnimationInstanceSettings } from "../../../types";
+import { AnimationInstanceSettings, TrackRender } from "../../../types";
 import { ThemeMode } from "../../../functions";
 import { DataRenderer } from "./data-renderer";
 
@@ -20,6 +20,7 @@ interface TrackListProps {
   emphasis?: string[];
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   theme?: ThemeMode;
+  trackRender?: TrackRender;
 }
 
 export function TrackList({
@@ -33,6 +34,7 @@ export function TrackList({
   emphasis = [],
   onEmphasisChange = () => {},
   theme = Theme.Light,
+  trackRender = TrackRender.Key,
 }: TrackListProps) {
   const { size, camera } = useThree();
 
@@ -81,6 +83,7 @@ export function TrackList({
           onEmphasisChange={(v) => onEmphasisChange(track, v ? "add" : "remove")}
           theme={theme}
           yOffset={scrollValue}
+          trackRender={trackRender}
         />
       ))}
     </group>

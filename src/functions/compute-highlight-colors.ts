@@ -51,3 +51,22 @@ export function getHighlightColor(baseColor: string, themeMode: ThemeMode): stri
   const result = themeMode === Theme.Dark ? colors.light : colors.dark;
   return result ?? baseColor;
 }
+
+/**
+ * Computes the mix value between two colors, equivalent to the css function.
+ * This uses the oklab color space for perceptual mixing.
+ */
+export function computeOklabMix(color1: string, color2: string, percent: number): string {
+  const c1 = oklab(color1);
+  const c2 = oklab(color2);
+
+  if (!c1 || !c2) {
+    console.warn(`Invalid color conversion for: ${color1} or ${color2}`);
+    return color1; // Fallback to first color
+  }
+
+  const interpolator = interpolate([c1, c2], "oklab");
+  const mixedColor = interpolator(percent);
+
+  return mixedColor ? formatHex(mixedColor) : color1; // Fallback to first color
+}

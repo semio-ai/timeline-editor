@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { useMotionValue, useMotionValueEvent } from "motion/react";
 import { useTween, UseTweenConfig } from "../../../hooks/use-tween";
 
-interface AnimatedInProps {
+export interface AnimatedInProps {
   children: React.ReactNode;
   from?: {
     scale?: [number, number, number];
