@@ -11,9 +11,15 @@ import type { InstancedFrameInfo } from "../types";
 export function computeTransitionSegments(
   instancedFrames: InstancedFrameInfo[],
   trackIds: string[],
-): { start: InstancedFrameInfo; end: InstancedFrameInfo }[] {
+): {
+  start: InstancedFrameInfo;
+  end: InstancedFrameInfo;
+}[] {
   const activeTracks: [number, number][] = [];
-  const segments: { start: InstancedFrameInfo; end: InstancedFrameInfo }[] = [];
+  const segments: {
+    start: InstancedFrameInfo;
+    end: InstancedFrameInfo;
+  }[] = [];
   const sortedFrames: InstancedFrameInfo[] = instancedFrames
     .slice()
     .sort((a, b) => a.stamp - b.stamp);
@@ -41,7 +47,10 @@ export function computeTransitionSegments(
     });
     // Only add segments where start and end are different frames
     if (inside && start.stamp !== end.stamp) {
-      segments.push({ start, end });
+      segments.push({
+        start,
+        end,
+      });
     }
   });
 

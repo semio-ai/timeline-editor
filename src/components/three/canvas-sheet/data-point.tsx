@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Instance, Line, PositionMesh } from "@react-three/drei";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
@@ -31,14 +31,29 @@ export function DataPoint({
   const { stamp, points } = data;
 
   const color = useColors(points.map((p) => p.trackId));
+  const { viewport, camera } = useThree();
 
-  useFrame(({ viewport, camera }) => {
+  // Calculate scale factor function
+  const calculateScaleFactor = useCallback(() => {
+    const baseWidth = viewport.width;
+    const currentWidth =
+      (camera as THREE.OrthographicCamera).right - (camera as THREE.OrthographicCamera).left;
+    return currentWidth / baseWidth;
+  }, [viewport.width, camera]);
+
+  // Set initial scale immediately to prevent stretched appearance
+  useLayoutEffect(() => {
     if (instanceRefFg.current && instanceRefBg.current) {
-      const baseWidth = viewport.width; // Use actual viewport width as base
-      const currentWidth =
-        (camera as THREE.OrthographicCamera).right - (camera as THREE.OrthographicCamera).left;
-      const scaleFactor = currentWidth / baseWidth;
+      const scaleFactor = calculateScaleFactor();
+      instanceRefFg.current.scale.set(scaleFactor, 1, 1);
+      instanceRefBg.current.scale.set(scaleFactor * 1.2, 1, 1.2);
+    }
+  }, [viewport.width, camera, calculateScaleFactor]);
 
+  // Continue updating scale on each frame
+  useFrame(() => {
+    if (instanceRefFg.current && instanceRefBg.current) {
+      const scaleFactor = calculateScaleFactor();
       instanceRefFg.current.scale.set(scaleFactor, 1, 1);
       instanceRefBg.current.scale.set(scaleFactor * 1.2, 1, 1.2);
     }

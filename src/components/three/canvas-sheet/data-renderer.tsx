@@ -19,6 +19,7 @@ import { DataPoint } from "./data-point";
 import { TrackBackground } from "./track-background";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
+import { TransitionSegment } from "./transition-segment";
 
 function DataPointsRenderer({
   frameData = [],
@@ -121,13 +122,26 @@ export function InnerDataRenderer({
     return computeTransitionSegments(frameData, trackIds);
   }, [frameData, trackIds]);
 
-  const _paddedInterps = useMemo(() => computeFilledInterpGaps(interps), [interps]);
-  const _verticalBounds = useMemo(() => {
+  const paddedInterps = useMemo(() => computeFilledInterpGaps(interps), [interps]);
+  const verticalBounds = useMemo(() => {
     return computeVerticalBounds(tracks, trackAnimatables, undefined);
   }, [tracks, trackAnimatables]);
 
+  const trackType = useMemo(() => {
+    if (trackIds.length === 1 && tracks[trackIds[0]]) {
+      const animatable = allAnimatables[tracks[trackIds[0]].animatableId];
+      return animatable?.type || "number";
+    }
+    return "multiple";
+  }, [trackIds, tracks, allAnimatables]);
+
   return (
-    <group position={[0, offset, 0]}>
+    <group
+      position={[0, offset, 0]}
+      onPointerEnter={() => {
+        console.log(verticalBounds);
+      }}
+    >
       {/* Render the hexagons/visuals for each keyed point */}
       <DataPointsRenderer
         frameData={frameData}
@@ -136,6 +150,23 @@ export function InnerDataRenderer({
         trackRender={trackRender}
         height={height - 2.5}
       />
+
+      {/* Render transition segments */}
+      {paddedInterps.map((segment, index) => (
+        <TransitionSegment
+          key={`${segment.start.id}-${segment.end.id}-${index.toString()}`}
+          start={segment.start}
+          end={segment.end}
+          trackIds={trackIds}
+          trackRender={trackRender}
+          trackType={trackType}
+          height={height - 1}
+          verticalBounds={{ min: verticalBounds[0], max: verticalBounds[1] }}
+          isBuffer={segment.buffer}
+          theme={theme}
+          color={color}
+        />
+      ))}
 
       {/* Render violations */}
       <ViolationRenderer

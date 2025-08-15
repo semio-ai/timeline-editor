@@ -47,12 +47,22 @@ export function computeFrames(
           .sort()
           .join("-");
         instancedFrameInfo[matchingFrameIndex].id = pointIds;
+
+        // If this is the first point being added and it has transitions, use them
+        // For multiple points, we clear transitions to avoid conflicts
+        if (instancedFrameInfo[matchingFrameIndex].points.length === 1 && point.transitions) {
+          instancedFrameInfo[matchingFrameIndex].transitions = point.transitions;
+        } else if (instancedFrameInfo[matchingFrameIndex].points.length > 1) {
+          // Clear transitions when multiple points exist at same timestamp
+          instancedFrameInfo[matchingFrameIndex].transitions = undefined;
+        }
       } else {
         // Create new frame
         instancedFrameInfo.push({
           id: point.id,
           stamp: point.stamp,
           points: [{ id: point.id, value: point.value, trackId }],
+          transitions: point.transitions,
         });
       }
     });

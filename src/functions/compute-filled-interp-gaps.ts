@@ -1,14 +1,17 @@
 import { overlappingSegments } from "@semio/utils";
 import { InstancedFrameInfo } from "../types";
 
-interface InstancePair {
+export interface InstancePair {
   start: InstancedFrameInfo;
   end: InstancedFrameInfo;
   buffer?: boolean;
 }
 
 export function computeFilledInterpGaps(
-  interps: { start: InstancedFrameInfo; end: InstancedFrameInfo }[],
+  interps: {
+    start: InstancedFrameInfo;
+    end: InstancedFrameInfo;
+  }[],
 ): InstancePair[] {
   // Compute gaps where no interpolations exist. Since these may be overlapping,
   // we should compute the overlapping segments first, and then fill in the gaps.

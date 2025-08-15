@@ -36,9 +36,8 @@ export function computeViolationSet(violations: Record<string, Violation[]>): Vi
       .filter(([_, v]) => v.stampRange.start <= start && v.stampRange.end >= end)
       .map(([k, _]) => k);
     if (segmentViolations.length > 0) {
-      const segmentContent = `${start.toString()}-${end.toString()}-${segmentViolations.sort().join(",")}`;
       violationSet.segments.push({
-        id: `segment-${createDeterministicId(segmentContent)}`,
+        id: crypto.randomUUID(),
         stampRange: { start, end },
         violations: segmentViolations,
       });

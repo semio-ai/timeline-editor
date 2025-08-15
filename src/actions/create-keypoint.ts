@@ -32,6 +32,7 @@ export function createKeypoint(
       id,
       stamp: point.stamp ?? usePlayerStore.getState().player.stamp,
       value: point.value,
+      transitions: point.transitions,
     } as Keypoint<RawValue>;
     state.tracks[trackId].points = [...state.tracks[trackId].points, newPoint].toSorted(
       (a, b) => a.stamp - b.stamp,
