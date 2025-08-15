@@ -8,7 +8,7 @@ import type { InstancedFrameInfo } from "../types";
  * @param trackIds - An array of track IDs to consider for computing the segments.
  * @returns An array of objects, each containing a `start` and `end` property, representing the interpolation segments.
  */
-export function computeInterpolationSegments(
+export function computeTransitionSegments(
   instancedFrames: InstancedFrameInfo[],
   trackIds: string[],
 ): { start: InstancedFrameInfo; end: InstancedFrameInfo }[] {

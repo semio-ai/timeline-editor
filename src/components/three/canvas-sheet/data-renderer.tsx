@@ -10,7 +10,7 @@ import { AnimationInstanceSettings, InstancedFrameInfo, Track, TrackRender } fro
 import { AnimationData } from "../../../store-types";
 import {
   computeFrames,
-  computeInterpolationSegments,
+  computeTransitionSegments,
   computeVerticalBounds,
   computeViolationSet,
 } from "../../../functions";
@@ -118,7 +118,7 @@ export function InnerDataRenderer({
   }, [tracks, draggingFrames]);
 
   const interps = useMemo(() => {
-    return computeInterpolationSegments(frameData, trackIds);
+    return computeTransitionSegments(frameData, trackIds);
   }, [frameData, trackIds]);
 
   const _paddedInterps = useMemo(() => computeFilledInterpGaps(interps), [interps]);

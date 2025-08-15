@@ -1,4 +1,4 @@
-import { RawValue } from "@semio/utils";
+import { RawValue, RawVector2 } from "@semio/utils";
 
 /**
  * A frame of data that is associated with a set of possible tracks
@@ -10,4 +10,8 @@ export interface InstancedFrameInfo {
   id: string;
   stamp: number;
   points: { id: string; value: RawValue; trackId: string }[];
+  transitions?: {
+    in?: RawVector2;
+    out?: RawVector2;
+  };
 }

@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { overlappingSegments, RawValue, useDeepSelector } from "@semio/utils";
 import { useAnimationStore, useTrackContext, useTrackTransformSpring } from "../../hooks";
 import { AnimationData } from "../../store-types";
-import { computeFrames, computeViolationSet, computeInterpolationSegments } from "../../functions";
+import { computeFrames, computeViolationSet, computeTransitionSegments } from "../../functions";
 import { InstancedFrameInfo, Track } from "../../types";
 import { TIMELINE_PADDING } from "../../constants";
 import { InterpolationSegment } from "./interpolation-segment";
@@ -44,7 +44,7 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
   }, [tracks, draggingFrames]);
 
   const interps = useMemo(() => {
-    return computeInterpolationSegments(frameData, trackIds);
+    return computeTransitionSegments(frameData, trackIds);
   }, [frameData, trackIds]);
 
   const paddedInterps = useMemo(() => fillInterpGaps(interps), [interps]);
