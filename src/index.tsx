@@ -5,11 +5,13 @@ export {
   TrackControl,
   TrackVisualizer,
   MotionCubicBezierLine,
+  MotionCubicBezierFill,
   type TrackControlProps,
   type AnimationSheetProps,
   type AnimationSheetCoreProps,
   type TrackVisualizerProps,
   type MotionCubicBezierLineProps,
+  type MotionCubicBezierFillProps,
 } from "./components";
 export {
   AnimationSheet3D,

@@ -2,7 +2,7 @@ import { memo, useMemo, useEffect } from "react";
 import { useMotionValue, animate } from "motion/react";
 import { AnimatableValue } from "@semio/utils";
 import { Theme } from "@semio/ui";
-import { MotionCubicBezierLine } from "../utilities/motion-cubic-bezier-line";
+import { MotionCubicBezierLine, MotionCubicBezierFill } from "../utilities";
 import { TrackRender, InstancedFrameInfo } from "../../../types";
 
 export interface TransitionSegmentProps {
@@ -19,6 +19,27 @@ export interface TransitionSegmentProps {
   color: string;
 }
 
+/**
+ * TransitionSegment renders animated cubic Bezier curves between animation frames.
+ *
+ * The component supports different rendering modes:
+ * - **Preview/Transition mode**: Renders both a filled area below the curve and the curve line
+ * - **Key mode**: Renders only a thick line (no fill)
+ * - **Spline mode**: Renders the curve with fill (similar to Preview)
+ * - **Buffer mode**: Renders a dashed line with reduced opacity (no fill)
+ *
+ * The fill area extends from the cubic Bezier curve down to a baseline calculated as
+ * `-height * 0.4`, creating a visual representation of the interpolated values over time.
+ * The fill uses the same motion value system as the line, ensuring perfect synchronization
+ * during animations.
+ *
+ * Key features:
+ * - High-performance BufferGeometry-based fill implementation
+ * - Spring-animated Y positions with immediate X position updates
+ * - Shared motion values between line and fill for perfect synchronization
+ * - Z-layered rendering (fill at z=1, line at z=2)
+ * - Conditional fill rendering based on track render mode and buffer state
+ */
 function InnerTransitionSegment({
   start,
   end,
@@ -207,50 +228,79 @@ function InnerTransitionSegment({
   }, [controlPoint2Y, cp2Y]);
 
   return (
-    <MotionCubicBezierLine
-      start={{
-        x: startX,
-        y: startYMotion,
-      }}
-      end={{
-        x: endX,
-        y: endYMotion,
-      }}
-      controlPoint1={{
-        x: controlPoint1X,
-        y: controlPoint1Y,
-      }}
-      controlPoint2={{
-        x: controlPoint2X,
-        y: controlPoint2Y,
-      }}
-      color={color}
-      lineWidth={lineWidth}
-      opacity={isBuffer ? 0.5 : 1.0}
-      transparent
-      dashed={isBuffer}
-      segments={50}
-      z={2}
-      onPointerOver={() => {
-        console.log("Pointer over transition segment", {
-          startX: startX.get(),
-          startY: startYMotion.get(),
-          endX: endX.get(),
-          endY: endYMotion.get(),
-          cp1X: controlPoint1X.get(),
-          cp1Y: controlPoint1Y.get(),
-          cp2X: controlPoint2X.get(),
-          cp2Y: controlPoint2Y.get(),
-          verticalBounds,
-          start,
-          end,
-          isBuffer,
-          trackRender,
-          trackType,
-          attribute,
-        });
-      }}
-    />
+    <>
+      {(trackRender === TrackRender.Preview || trackRender === TrackRender.Transition) &&
+        !isBuffer && (
+          <MotionCubicBezierFill
+            start={{
+              x: startX,
+              y: startYMotion,
+            }}
+            end={{
+              x: endX,
+              y: endYMotion,
+            }}
+            controlPoint1={{
+              x: controlPoint1X,
+              y: controlPoint1Y,
+            }}
+            controlPoint2={{
+              x: controlPoint2X,
+              y: controlPoint2Y,
+            }}
+            baseline={-height * 0.4}
+            baselineExtension={height * 0.1}
+            color={color}
+            opacity={0.5}
+            segments={50}
+            z={1}
+          />
+        )}
+      <MotionCubicBezierLine
+        start={{
+          x: startX,
+          y: startYMotion,
+        }}
+        end={{
+          x: endX,
+          y: endYMotion,
+        }}
+        controlPoint1={{
+          x: controlPoint1X,
+          y: controlPoint1Y,
+        }}
+        controlPoint2={{
+          x: controlPoint2X,
+          y: controlPoint2Y,
+        }}
+        color={color}
+        lineWidth={lineWidth}
+        opacity={isBuffer ? 0.5 : 1.0}
+        transparent
+        dashed={isBuffer}
+        segments={50}
+        z={2}
+        onPointerOver={() => {
+          console.log("Pointer over transition segment", {
+            startX: startX.get(),
+            startY: startYMotion.get(),
+            endX: endX.get(),
+            endY: endYMotion.get(),
+            cp1X: controlPoint1X.get(),
+            cp1Y: controlPoint1Y.get(),
+            cp2X: controlPoint2X.get(),
+            cp2Y: controlPoint2Y.get(),
+            verticalBounds,
+            start,
+            end,
+            isBuffer,
+            trackRender,
+            trackType,
+            attribute,
+          });
+        }}
+      />
+    </>
   );
 }
 
