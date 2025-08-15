@@ -11,6 +11,7 @@ import { AnimationData } from "../../../store-types";
 import {
   computeFrames,
   computeInterpolationSegments,
+  computeVerticalBounds,
   computeViolationSet,
 } from "../../../functions";
 import { computeFilledInterpGaps } from "../../../functions/compute-filled-interp-gaps";
@@ -95,6 +96,16 @@ export function InnerDataRenderer({
     ),
   );
 
+  const trackAnimatableIds = useMemo(() => {
+    return trackIds.map((id) => tracks[id].animatableId);
+  }, [trackIds, tracks]);
+
+  const allAnimatables = useAnimationStore(useShallow((state: AnimationData) => state.animatables));
+
+  const trackAnimatables = useMemo(() => {
+    return trackAnimatableIds.map((id) => allAnimatables[id]).filter(Boolean);
+  }, [trackAnimatableIds, allAnimatables]);
+
   const violations = useAnimationStore(useShallow((state: AnimationData) => state.violations));
 
   const violationSet = useMemo(() => {
@@ -111,6 +122,9 @@ export function InnerDataRenderer({
   }, [frameData, trackIds]);
 
   const _paddedInterps = useMemo(() => computeFilledInterpGaps(interps), [interps]);
+  const _verticalBounds = useMemo(() => {
+    return computeVerticalBounds(tracks, trackAnimatables, undefined);
+  }, [tracks, trackAnimatables]);
 
   return (
     <group position={[0, offset, 0]}>
