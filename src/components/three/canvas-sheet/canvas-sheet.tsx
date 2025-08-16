@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
+import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
 import { MotionValue } from "motion";
@@ -25,7 +26,7 @@ export interface CanvasSheetProps {
     mono?: string; // Path to monospace font, falls back to system default
     ui?: string; // Path to UI font, falls back to system default
   };
-  trackrender?: TrackRender; // Render mode for tracks, e.g. Key, Transition, Preview, Curve, etc.
+  trackRender?: TrackRender; // Render mode for tracks, e.g. Key, Transition, Preview, Curve, etc.
 }
 
 export const CanvasSheet = memo(function CanvasSheet({
@@ -39,21 +40,12 @@ export const CanvasSheet = memo(function CanvasSheet({
   emphasis = [],
   onEmphasisChange = () => {},
   fonts = {},
-  trackrender = TrackRender.Key,
+  trackRender = TrackRender.Key,
 }: CanvasSheetProps) {
-  const bgColor = theme === Theme.Dark ? "#202020" : "#EFEFEF";
-
   // Use simple initial bounds that will be immediately corrected by PanZoomControls
   // This prevents initialization timing issues with canvas width calculations
   const initialLeft = -0.1;
   const initialRight = 1.1;
-
-  // TrackList region offsets
-  // When we allow nested/composite tracks these will need to be dynamic
-  const topOffsetPx = 32;
-  const bottomOffsetPx = 108;
-  const trackHeight = 36;
-  const totalContentHeightPx = tracks.length * trackHeight;
 
   return (
     <TooltipHost className="w-full h-full">
@@ -76,80 +68,150 @@ export const CanvasSheet = memo(function CanvasSheet({
           antialias: true,
         }}
       >
-        <color attach="background" args={theme === Theme.Dark ? [0, 0, 0] : [1, 1, 1]} />
-        <ambientLight intensity={1} />
-        <PanZoomControls
-          bounds={[0, 1]}
-          scrollValue={scrollValue}
-          trackRegion={{ top: topOffsetPx, bottom: bottomOffsetPx }}
-          contentHeightPx={totalContentHeightPx}
-        />
-        <TrackList
+        <CanvasContent
           animationId={animationId}
           namespaceId={namespaceId}
           instanceSettings={instanceSettings}
           tracks={tracks}
+          selection={selection}
           scrollValue={scrollValue}
-          topOffsetPx={topOffsetPx}
-          bottomOffsetPx={bottomOffsetPx}
-          trackHeight={trackHeight}
+          theme={theme}
           emphasis={emphasis}
           onEmphasisChange={onEmphasisChange}
-          theme={theme}
-          trackRender={trackrender}
+          fonts={fonts}
+          trackRender={trackRender}
         />
-
-        {/* Top HUD: 32px tall */}
-        <HudSection position="top" pixelHeight={32} backgroundColor={bgColor} renderPriority={1}>
-          <RulerRenderer height={32} side="top" theme={theme} fonts={fonts} />
-        </HudSection>
-
-        {/* Timeline HUD: 36px tall */}
-        <HudSection
-          position="bottom"
-          pixelHeight={36}
-          backgroundColor={bgColor}
-          renderPriority={2}
-          gap={72}
-        >
-          <DataRenderer
-            height={36}
-            trackIds={selection}
-            animationId={animationId}
-            namespaceId={namespaceId}
-            instanceSettings={instanceSettings}
-            theme={theme}
-          />
-        </HudSection>
-
-        {/* Minimap HUD: 36px tall */}
-        <HudSection
-          position="bottom"
-          pixelHeight={36}
-          gap={36}
-          backgroundColor={bgColor}
-          renderPriority={3}
-          fixedCamera
-        >
-          <MinimapDisplay theme={theme} minZoom={0.1} />
-        </HudSection>
-
-        {/* Bottom HUD: 36px tall - Bottom Ruler */}
-        <HudSection
-          position="bottom"
-          pixelHeight={36}
-          backgroundColor={bgColor}
-          renderPriority={4}
-          fixedCamera
-        >
-          <RulerRenderer
-            height={36}
-            side="bottom"
-            theme={theme === Theme.Dark ? "dark" : "light"}
-            fonts={fonts}
-          />
-        </HudSection>
       </Canvas>
     </TooltipHost>
   );
 });
+
+interface CanvasContentProps {
+  animationId: string; // Unique ID for the animation
+  namespaceId: string; // Namespace for the animation, used for scoping
+  instanceSettings: AnimationInstanceSettings; // Settings for the animation instance
+  tracks?: string[];
+  selection?: string[];
+  scrollValue?: MotionValue<number>;
+  theme?: Theme.Dark | Theme.Light;
+  emphasis: string[];
+  onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
+  fonts?: {
+    mono?: string; // Path to monospace font, falls back to system default
+    ui?: string; // Path to UI font, falls back to system default
+  };
+  trackRender?: TrackRender; // Render mode for tracks, e.g. Key, Transition, Preview, Curve, etc.
+}
+
+function CanvasContent({
+  animationId,
+  namespaceId,
+  instanceSettings,
+  theme,
+  scrollValue,
+  trackRender,
+  tracks = [],
+  selection = [],
+  emphasis = [],
+  onEmphasisChange = () => {},
+  fonts = {},
+}: CanvasContentProps) {
+  const bgColor = theme === Theme.Dark ? "#202020" : "#EFEFEF";
+
+  // TrackList region offsets
+  // When we allow nested/composite tracks these will need to be dynamic
+  const topOffsetPx = 32;
+  const bottomOffsetPx = 108;
+  const trackHeight = 36;
+
+  const size = useThree(useShallow((t) => t.size));
+
+  // Calculate the top and bottom boundaries of the available track section (avoiding HUDs)
+  // const trackWindowRegion = {
+  //   top: topOffsetPx,
+  //   bottom: size.height - bottomOffsetPx
+  // };
+
+  const totalContentHeightPx =
+    trackRender === TrackRender.Spline
+      ? size.height - topOffsetPx - bottomOffsetPx
+      : tracks.length * trackHeight;
+
+  return (
+    <>
+      <color attach="background" args={theme === Theme.Dark ? [0, 0, 0] : [1, 1, 1]} />
+      <ambientLight intensity={1} />
+      <PanZoomControls
+        bounds={[0, 1]}
+        scrollValue={scrollValue}
+        trackRegion={{ top: topOffsetPx, bottom: bottomOffsetPx }}
+        contentHeightPx={totalContentHeightPx}
+      />
+      <TrackList
+        animationId={animationId}
+        namespaceId={namespaceId}
+        instanceSettings={instanceSettings}
+        tracks={tracks}
+        scrollValue={scrollValue}
+        topOffsetPx={topOffsetPx}
+        bottomOffsetPx={bottomOffsetPx}
+        trackHeight={trackHeight}
+        emphasis={emphasis}
+        onEmphasisChange={onEmphasisChange}
+        theme={theme}
+        trackRender={trackRender}
+      />
+
+      {/* Top HUD: 32px tall */}
+      <HudSection position="top" pixelHeight={32} backgroundColor={bgColor} renderPriority={1}>
+        <RulerRenderer height={32} side="top" theme={theme} fonts={fonts} />
+      </HudSection>
+
+      {/* Timeline HUD: 36px tall */}
+      <HudSection
+        position="bottom"
+        pixelHeight={36}
+        backgroundColor={bgColor}
+        renderPriority={2}
+        gap={72}
+      >
+        <DataRenderer
+          height={36}
+          trackIds={selection}
+          animationId={animationId}
+          namespaceId={namespaceId}
+          instanceSettings={instanceSettings}
+          theme={theme}
+        />
+      </HudSection>
+
+      {/* Minimap HUD: 36px tall */}
+      <HudSection
+        position="bottom"
+        pixelHeight={36}
+        gap={36}
+        backgroundColor={bgColor}
+        renderPriority={3}
+        fixedCamera
+      >
+        <MinimapDisplay theme={theme} minZoom={0.1} />
+      </HudSection>
+
+      {/* Bottom HUD: 36px tall - Bottom Ruler */}
+      <HudSection
+        position="bottom"
+        pixelHeight={36}
+        backgroundColor={bgColor}
+        renderPriority={4}
+        fixedCamera
+      >
+        <RulerRenderer
+          height={36}
+          side="bottom"
+          theme={theme === Theme.Dark ? "dark" : "light"}
+          fonts={fonts}
+        />
+      </HudSection>
+    </>
+  );
+}

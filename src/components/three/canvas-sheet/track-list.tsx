@@ -31,12 +31,15 @@ export function TrackList({
   trackHeight = 36,
   scrollValue,
   topOffsetPx = 32,
+  bottomOffsetPx = 108,
   emphasis = [],
   onEmphasisChange = () => {},
   theme = Theme.Light,
   trackRender = TrackRender.Key,
 }: TrackListProps) {
   const { size, camera } = useThree();
+
+  const availableHeight = size.height - topOffsetPx - bottomOffsetPx;
 
   useOrthoCameraSetup(camera as THREE.OrthographicCamera);
 
@@ -49,24 +52,46 @@ export function TrackList({
       const worldHeight0 = orthoCamera.top - orthoCamera.bottom;
       const offsetWorld = (topOffsetPx / size.height) * worldHeight0;
       const trackWorldHeight0 = (trackHeight / size.height) * worldHeight0;
-      // Y position is at top minus offset minus half a track (so first track is flush with HUD)
-      const y0: number = orthoCamera.top - offsetWorld - trackWorldHeight0 / 2;
-      return [y0, trackWorldHeight0, worldHeight0];
+
+      if (trackRender === TrackRender.Spline) {
+        // For spline mode, center the tracks in the available area (respecting top and bottom offsets)
+        const bottomOffsetWorld = (bottomOffsetPx / size.height) * worldHeight0;
+        const availableTop = orthoCamera.top - offsetWorld;
+        const availableBottom = orthoCamera.bottom + bottomOffsetWorld;
+        const y0: number = (availableTop + availableBottom) / 2;
+        return [y0, trackWorldHeight0, worldHeight0];
+      } else {
+        // Y position is at top minus offset minus half a track (so first track is flush with HUD)
+        const y0: number = orthoCamera.top - offsetWorld - trackWorldHeight0 / 2;
+        return [y0, trackWorldHeight0, worldHeight0];
+      }
     } else {
       return [0, trackHeight, 1];
     }
-  }, [camera, size, topOffsetPx, trackHeight]);
+  }, [camera, size, topOffsetPx, bottomOffsetPx, trackHeight, trackRender]);
 
   // Imperatively update group position based on scrollValue
   useFrame(() => {
-    if (groupRef.current && scrollValue) {
+    if (groupRef.current && scrollValue && trackRender !== TrackRender.Spline) {
       const scrollPx = scrollValue.get();
       const scrollWorld = (scrollPx / size.height) * worldHeight;
       groupRef.current.position.y = y + scrollWorld;
+    } else if (groupRef.current && scrollValue && trackRender === TrackRender.Spline) {
+      // For spline mode, keep y position fixed and handle z-axis positioning
+      groupRef.current.position.y = y;
+      const scrollPx = scrollValue.get();
+      const scrollWorld = (scrollPx / size.height) * worldHeight;
+      // Apply scroll to z-axis for spline mode
+      groupRef.current.position.z = scrollWorld;
+    } else if (groupRef.current && trackRender !== TrackRender.Spline) {
+      // No scroll value, position at base y
+      groupRef.current.position.y = y;
+    } else if (groupRef.current && trackRender === TrackRender.Spline) {
+      // Spline mode without scroll, position at center
+      groupRef.current.position.y = y;
+      groupRef.current.position.z = 0;
     }
   });
-
-  // Removed wheel handler; vertical scroll is now handled by PanZoomControls.
 
   return (
     <group ref={groupRef as any}>
@@ -76,13 +101,14 @@ export function TrackList({
           namespaceId={namespaceId}
           instanceSettings={instanceSettings}
           key={track}
-          height={trackHeight}
+          height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
           trackIds={[track]}
-          offset={-trackWorldHeight * idx}
+          yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
+          zOffset={trackRender === TrackRender.Spline ? -trackWorldHeight * idx : undefined}
           emphasis={emphasis.includes(track)}
           onEmphasisChange={(v) => onEmphasisChange(track, v ? "add" : "remove")}
           theme={theme}
-          yOffset={scrollValue}
+          scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
           trackRender={trackRender}
         />
       ))}

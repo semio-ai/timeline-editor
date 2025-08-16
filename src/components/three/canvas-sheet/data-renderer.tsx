@@ -74,9 +74,10 @@ export interface DataRendererProps {
   height?: number;
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
-  offset?: number;
+  yOffset?: number;
+  zOffset?: number;
   theme?: Theme.Light | Theme.Dark;
-  yOffset?: MotionValue<number>;
+  scrollOffset?: MotionValue<number>;
   trackRender?: TrackRender;
 }
 
@@ -85,9 +86,10 @@ export function InnerDataRenderer({
   height = 36,
   emphasis = false,
   onEmphasisChange = () => {},
-  offset = 0,
+  yOffset = 0,
+  zOffset = 0,
   theme = Theme.Light,
-  yOffset = new MotionValue(0),
+  scrollOffset = new MotionValue(0),
   trackRender = TrackRender.Key,
 }: DataRendererProps) {
   const color = useColors(trackIds);
@@ -140,7 +142,7 @@ export function InnerDataRenderer({
 
   return (
     <group
-      position={[0, offset, 0]}
+      position={[0, yOffset, zOffset]}
       onPointerEnter={() => {
         console.log(verticalBounds);
       }}
@@ -173,15 +175,17 @@ export function InnerDataRenderer({
       ))}
 
       {/* Render violations */}
-      <ViolationRenderer
-        violationSet={violationSet}
-        theme={theme}
-        height={height - 1}
-        yOffset={yOffset}
-      />
+      {trackRender !== TrackRender.Spline && (
+        <ViolationRenderer
+          violationSet={violationSet}
+          theme={theme}
+          height={height - 1}
+          yOffset={scrollOffset}
+        />
+      )}
 
       {/* Render a background for the Active region, and the General Background */}
-      {trackIds.length > 0 && (
+      {trackIds.length > 0 && trackRender !== TrackRender.Spline && (
         <>
           <FrustumBackground
             color={color}
