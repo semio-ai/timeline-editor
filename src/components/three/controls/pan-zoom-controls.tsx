@@ -44,76 +44,57 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
     ref,
   ) => {
     const controlsRef = useRef<PanZoomControlsImpl | null>(null);
+    const unsubscribeRef = useRef<(() => void) | null>(null);
     const { camera, gl, invalidate, size } = useThree();
 
-    // Subscribe to player store viewport and update camera with padding
+    // Create controls instance only when camera or domElement changes (not on resize)
     useEffect(() => {
-      const unsub = usePlayerStore.subscribe(
-        (state) => state.player.viewport,
-        (viewport) => {
-          if ((camera as OrthographicCamera).isOrthographicCamera) {
-            const { left, right } = calculatePaddedFrustum(
-              viewport,
-              size.width,
-              false, // Dynamic camera follows viewport
-            );
-            (camera as OrthographicCamera).left = left;
-            (camera as OrthographicCamera).right = right;
-            camera.updateProjectionMatrix();
-          }
-        },
-      );
-      return unsub;
-    }, [camera, gl.domElement, size.width]);
-
-    // Initialize camera bounds immediately on mount to prevent HUD timing issues
-    useEffect(() => {
-      if ((camera as OrthographicCamera).isOrthographicCamera && size.width > 0) {
-        const currentViewport = usePlayerStore.getState().player.viewport;
-        const { left, right } = calculatePaddedFrustum(
-          currentViewport,
-          size.width,
-          false, // Dynamic camera follows viewport
-        );
-        (camera as OrthographicCamera).left = left;
-        (camera as OrthographicCamera).right = right;
-        camera.updateProjectionMatrix();
-      }
-    }, [camera, size.width]); // Run when camera or canvas size is available
-
-    // Create controls instance only when camera or domElement changes
-    // Setup PanZoomControlsImpl and sync viewport changes to player store
-    const setPlayerViewport = usePlayerStore((state) => state.updatePlayerViewport);
-
-    useEffect(() => {
-      // Wait for camera and canvas to be properly initialized
-      if (!(camera instanceof OrthographicCamera) || size.width <= 0) {
+      // Only require camera to be OrthographicCamera, don't wait for size
+      if (!(camera instanceof OrthographicCamera)) {
         return;
       }
 
       const controls = new PanZoomControlsImpl(camera, gl.domElement);
       controlsRef.current = controls;
 
-      // Set initial properties
-      controls.enabled = enabled;
-      controls.enablePan = enablePan;
-      controls.enableZoom = enableZoom;
-      controls.panSpeed = panSpeed;
-      controls.zoomSpeed = zoomSpeed;
-      controls.minZoom = minZoom;
-      controls.maxZoom = maxZoom;
-      controls.bounds = bounds;
+      // Set up player store subscription inside controls creation
+      // This ensures viewport updates are properly synchronized
+      const setPlayerViewport = usePlayerStore.getState().updatePlayerViewport;
 
-      // Add scrollValue, trackRegion, and contentHeightPx to controls instance
-      controls.scrollValue = scrollValue;
-      controls.trackRegion = trackRegion;
-      controls.contentHeightPx = contentHeightPx;
+      // Subscribe to player store viewport and update camera with padding
+      const unsubscribe = usePlayerStore.subscribe(
+        (state) => state.player.viewport,
+        (viewport) => {
+          // Only update if we have a proper canvas width to prevent flashing
+          if (size.width > 0) {
+            const { left, right } = calculatePaddedFrustum(
+              viewport,
+              size.width,
+              false, // Dynamic camera follows viewport
+            );
+            camera.left = left;
+            camera.right = right;
+            camera.updateProjectionMatrix();
+          }
+        },
+      );
+
+      // Initialize camera bounds immediately if canvas is ready
+      if (size.width > 0) {
+        const currentViewport = usePlayerStore.getState().player.viewport;
+        const { left, right } = calculatePaddedFrustum(currentViewport, size.width, false);
+        camera.left = left;
+        camera.right = right;
+        camera.updateProjectionMatrix();
+      }
 
       // Sync viewport changes from controls to player store
-      // The controls now pass data viewport (without padding) directly
       controls.onViewportChange = (frustum) => {
         setPlayerViewport(frustum.left, frustum.right);
       };
+
+      // Store unsubscribe function
+      unsubscribeRef.current = unsubscribe;
 
       // Expose ref
       if (ref) {
@@ -126,26 +107,23 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
 
       return () => {
         controls.dispose();
+        unsubscribe();
         controlsRef.current = null;
+        unsubscribeRef.current = null;
       };
-    }, [
-      camera,
-      gl.domElement,
-      size.width, // Wait for proper canvas size
-      ref,
-      enabled,
-      enablePan,
-      enableZoom,
-      panSpeed,
-      zoomSpeed,
-      minZoom,
-      maxZoom,
-      bounds,
-      setPlayerViewport,
-      scrollValue,
-      trackRegion,
-      contentHeightPx,
-    ]);
+    }, [camera, gl.domElement, ref, size.width]);
+
+    // Handle canvas size changes without recreating controls
+    useEffect(() => {
+      if (controlsRef.current && size.width > 0) {
+        // Update camera bounds when canvas size changes
+        const currentViewport = usePlayerStore.getState().player.viewport;
+        const { left, right } = calculatePaddedFrustum(currentViewport, size.width, false);
+        (camera as OrthographicCamera).left = left;
+        (camera as OrthographicCamera).right = right;
+        camera.updateProjectionMatrix();
+      }
+    }, [camera, size.width]);
 
     // Update event listeners when callbacks change
     useEffect(() => {
@@ -176,7 +154,7 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
       };
     }, [onChange, onStart, onEnd, invalidate]);
 
-    // Update properties when they change
+    // Update properties when they change (but avoid recreating controls)
     useEffect(() => {
       if (controlsRef.current) {
         controlsRef.current.enabled = enabled;
@@ -186,6 +164,7 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
         controlsRef.current.zoomSpeed = zoomSpeed;
         controlsRef.current.minZoom = minZoom;
         controlsRef.current.maxZoom = maxZoom;
+        controlsRef.current.bounds = bounds;
         controlsRef.current.scrollValue = scrollValue;
         controlsRef.current.trackRegion = trackRegion;
         controlsRef.current.contentHeightPx = contentHeightPx;
@@ -198,6 +177,7 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
       zoomSpeed,
       minZoom,
       maxZoom,
+      bounds,
       scrollValue,
       trackRegion,
       contentHeightPx,

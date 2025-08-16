@@ -111,6 +111,7 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
 
   // Resize observer for canvas dimension changes
   private resizeObserver?: ResizeObserver;
+  private resizeTimeout?: number;
 
   // Optional callback for track-list vertical scroll
   public onListScroll?: (params: { scroll: number; min: number; max: number }) => void;
@@ -509,10 +510,16 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
     // Set up resize observer to clamp scroll bounds when canvas dimensions change
     if (typeof ResizeObserver !== "undefined") {
       this.resizeObserver = new ResizeObserver(() => {
-        // Use a small delay to ensure DOM has updated
-        setTimeout(() => {
-          this.clampScrollToBounds();
-        }, 0);
+        // Debounce resize events to prevent excessive calls during rapid resizing
+        if (this.resizeTimeout) {
+          clearTimeout(this.resizeTimeout);
+        }
+        this.resizeTimeout = window.setTimeout(() => {
+          // Use requestAnimationFrame for better synchronization with rendering
+          requestAnimationFrame(() => {
+            this.clampScrollToBounds();
+          });
+        }, 16); // ~60fps debouncing
       });
       this.resizeObserver.observe(domElement);
     }
@@ -531,6 +538,12 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = undefined;
+    }
+
+    // Clean up resize timeout
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+      this.resizeTimeout = undefined;
     }
 
     // Clean up pointer tracking

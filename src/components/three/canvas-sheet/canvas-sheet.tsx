@@ -1,11 +1,13 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
 import { MotionValue } from "motion";
+import { usePlayerStore } from "@semio/utils";
 import { AnimationInstanceSettings, TrackRender } from "../../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
+import { calculatePaddedFrustum } from "../../../viewport-utils";
 import { HudSection } from "./hud-section";
 import { DataRenderer } from "./data-renderer";
 import { RulerRenderer } from "./ruler-renderer";
@@ -42,10 +44,17 @@ export const CanvasSheet = memo(function CanvasSheet({
   fonts = {},
   trackRender = TrackRender.Key,
 }: CanvasSheetProps) {
-  // Use simple initial bounds that will be immediately corrected by PanZoomControls
-  // This prevents initialization timing issues with canvas width calculations
-  const initialLeft = -0.1;
-  const initialRight = 1.1;
+  // Get initial viewport from player store to prevent camera bounds flash
+  const initialViewport = usePlayerStore(useShallow((state) => state.player.viewport));
+
+  // Calculate initial camera bounds with proper padding to match final state
+  // Use a reasonable fallback width if canvas isn't measured yet
+  const estimatedCanvasWidth = 800; // Reasonable fallback for initial render
+  const { left: initialLeft, right: initialRight } = calculatePaddedFrustum(
+    initialViewport,
+    estimatedCanvasWidth,
+    false, // Dynamic camera follows viewport
+  );
 
   return (
     <TooltipHost className="w-full h-full">
@@ -132,10 +141,11 @@ function CanvasContent({
   //   bottom: size.height - bottomOffsetPx
   // };
 
-  const totalContentHeightPx =
-    trackRender === TrackRender.Spline
+  const totalContentHeightPx = useMemo(() => {
+    return trackRender === TrackRender.Spline
       ? size.height - topOffsetPx - bottomOffsetPx
       : tracks.length * trackHeight;
+  }, [trackRender, size.height, topOffsetPx, bottomOffsetPx, tracks.length, trackHeight]);
 
   return (
     <>
