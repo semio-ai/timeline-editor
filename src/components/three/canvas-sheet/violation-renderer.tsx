@@ -41,7 +41,7 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
     axis: "x",
   });
 
-  const { show, hide } = useTooltipTrigger(anchorId);
+  const { show, hide } = useTooltipTrigger(anchorId, { showDelay: 200 });
 
   // Get all track IDs involved in this segment
   const trackIds = Array.from(
@@ -76,16 +76,16 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
       position={[x, y, 0]}
       material={diagonalMaterial as any}
       onPointerOver={(e) => {
-        setHovered(true);
-        show();
-        onPointerMove?.(e);
         e.stopPropagation();
+        setHovered(true);
+        onPointerMove?.(e);
+        show();
       }}
       onPointerOut={(e) => {
+        e.stopPropagation();
         setHovered(false);
         hide();
         onPointerLeave?.();
-        e.stopPropagation();
       }}
       onPointerMove={onPointerMove}
     >
