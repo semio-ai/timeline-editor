@@ -79,11 +79,13 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
         setHovered(true);
         show();
         onPointerMove?.(e);
+        e.stopPropagation();
       }}
-      onPointerOut={(_e) => {
+      onPointerOut={(e) => {
         setHovered(false);
         hide();
         onPointerLeave?.();
+        e.stopPropagation();
       }}
       onPointerMove={onPointerMove}
     >

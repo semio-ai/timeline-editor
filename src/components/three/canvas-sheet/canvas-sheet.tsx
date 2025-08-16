@@ -76,6 +76,7 @@ export const CanvasSheet = memo(function CanvasSheet({
           antialias: true,
         }}
       >
+        <color attach="background" args={theme === Theme.Dark ? [0, 0, 0] : [1, 1, 1]} />
         <ambientLight intensity={1} />
         <PanZoomControls
           bounds={[0, 1]}
