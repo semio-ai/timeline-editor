@@ -1,6 +1,6 @@
 import { useThree, useFrame } from "@react-three/fiber";
 import { useRef, useMemo, useCallback } from "react";
-import type { MotionValue } from "motion";
+import { MotionValue } from "motion/react";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
 import { useOrthoCameraSetup } from "../../../hooks";
