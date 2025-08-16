@@ -10,4 +10,5 @@ export * from "./compute-track-trajectories";
 export * from "./compute-track-violations";
 export * from "./compute-vertical-bounds";
 export * from "./compute-violation-set";
+export * from "./create-linear-scale";
 export * from "./raw-value-math";

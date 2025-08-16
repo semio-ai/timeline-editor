@@ -4,6 +4,7 @@ import { AnimatableValue } from "@semio/utils";
 import { Theme } from "@semio/ui";
 import { MotionCubicBezierLine, MotionCubicBezierFill } from "../utilities";
 import { TrackRender, InstancedFrameInfo } from "../../../types";
+import { computeOklabMix, createLinearScale } from "../../../functions";
 
 export interface TransitionSegmentProps {
   start: InstancedFrameInfo;
@@ -14,7 +15,7 @@ export interface TransitionSegmentProps {
   attribute?: string;
   height: number;
   verticalBounds?: { min: number; max: number };
-  isBuffer?: boolean;
+  isEmpty?: boolean;
   theme?: Theme.Light | Theme.Dark;
   color: string;
 }
@@ -49,8 +50,9 @@ function InnerTransitionSegment({
   attribute,
   height,
   verticalBounds = { min: 0, max: 1 },
-  isBuffer = false,
+  isEmpty = false,
   color,
+  theme,
 }: TransitionSegmentProps) {
   // Use stamp values directly as x coordinates
   const startTime = start.stamp;
@@ -61,6 +63,12 @@ function InnerTransitionSegment({
     if (trackRender === TrackRender.Key) return 4;
     return 1.5; // For Preview, Transition and Spline
   }, [trackRender]);
+
+  // Calculate buffer color using theme-based mixing
+  const bufferColor = useMemo(() => {
+    if (!isEmpty) return color;
+    return computeOklabMix(color, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.4);
+  }, [isEmpty, color, theme]);
 
   // Calculate start and end values based on track render mode
   const { startY, endY, hasSimpleValues } = useMemo(() => {
@@ -79,18 +87,38 @@ function InnerTransitionSegment({
     }
 
     // For Preview and Spline modes, extract actual values
-    if (trackIds.length === 1 && start.points.length === 1 && end.points.length === 1) {
+    if (trackIds.length === 1) {
       let startValue: number | undefined;
       let endValue: number | undefined;
 
-      if (trackType === "number") {
-        startValue = start.points[0].value as number;
-        endValue = end.points[0].value as number;
-      } else if (["vector3", "euler", "rgb", "hsl"].includes(trackType) && attribute) {
-        const startObj = start.points[0].value as unknown as Record<string, number>;
-        const endObj = end.points[0].value as unknown as Record<string, number>;
-        startValue = startObj?.[attribute];
-        endValue = endObj?.[attribute];
+      // Safely extract start value
+      if (start.points.length > 0) {
+        if (trackType === "number") {
+          startValue = start.points[0].value as number;
+        } else if (["vector3", "euler", "rgb", "hsl"].includes(trackType) && attribute) {
+          const startObj = start.points[0].value as unknown as Record<string, number>;
+          startValue = startObj?.[attribute];
+        }
+      }
+
+      // Safely extract end value
+      if (end.points.length > 0) {
+        if (trackType === "number") {
+          endValue = end.points[0].value as number;
+        } else if (["vector3", "euler", "rgb", "hsl"].includes(trackType) && attribute) {
+          const endObj = end.points[0].value as unknown as Record<string, number>;
+          endValue = endObj?.[attribute];
+        }
+      }
+
+      // Handle buffer/pseudo-region cases where one value might be undefined
+      // Create flat lines at the defined value's position
+      if (isEmpty) {
+        if (startValue === undefined && typeof endValue === "number") {
+          startValue = endValue;
+        } else if (endValue === undefined && typeof startValue === "number") {
+          endValue = startValue;
+        }
       }
 
       if (typeof startValue === "number" && typeof endValue === "number") {
@@ -110,7 +138,7 @@ function InnerTransitionSegment({
 
     // Fallback for multiple tracks or complex values
     return { startY: height / 2, endY: height / 2, hasSimpleValues: false };
-  }, [trackRender, trackIds, start, end, trackType, attribute, height, verticalBounds]);
+  }, [trackRender, trackIds, start, end, trackType, attribute, height, verticalBounds, isEmpty]);
 
   // Calculate control points based on transitions and render mode
   const { cp1X, cp1Y, cp2X, cp2Y } = useMemo(() => {
@@ -230,7 +258,7 @@ function InnerTransitionSegment({
   return (
     <>
       {(trackRender === TrackRender.Preview || trackRender === TrackRender.Transition) &&
-        !isBuffer && (
+        !isEmpty && (
           <MotionCubicBezierFill
             start={{
               x: startX,
@@ -273,48 +301,16 @@ function InnerTransitionSegment({
           x: controlPoint2X,
           y: controlPoint2Y,
         }}
-        color={color}
+        color={bufferColor}
         lineWidth={lineWidth}
-        opacity={isBuffer ? 0.5 : 1.0}
+        opacity={isEmpty && trackRender === TrackRender.Transition ? 0.0 : 1.0}
         transparent
-        dashed={isBuffer}
+        dashed={false}
         segments={50}
-        z={2}
-        onPointerOver={() => {
-          console.log("Pointer over transition segment", {
-            startX: startX.get(),
-            startY: startYMotion.get(),
-            endX: endX.get(),
-            endY: endYMotion.get(),
-            cp1X: controlPoint1X.get(),
-            cp1Y: controlPoint1Y.get(),
-            cp2X: controlPoint2X.get(),
-            cp2Y: controlPoint2Y.get(),
-            verticalBounds,
-            start,
-            end,
-            isBuffer,
-            trackRender,
-            trackType,
-            attribute,
-          });
-        }}
+        z={isEmpty ? 0 : 2}
       />
     </>
   );
 }
 
 export const TransitionSegment = memo(InnerTransitionSegment);
-
-// Create a linear scale function
-const createLinearScale = (domain: [number, number], range: [number, number]) => {
-  const [domainMin, domainMax] = domain;
-  const [rangeMin, rangeMax] = range;
-  const domainRange = domainMax - domainMin;
-  const outputRange = rangeMax - rangeMin;
-
-  return (value: number) => {
-    const normalized = (value - domainMin) / domainRange;
-    return rangeMin + normalized * outputRange;
-  };
-};

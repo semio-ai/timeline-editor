@@ -164,23 +164,39 @@ function getStartAndEnd(
   if (trackIds.length === 1 && trackRender === TrackRender.Preview) {
     let startValue: RawValue | undefined;
     let endValue: RawValue | undefined;
-    if (trackType === "number") {
-      startValue = start.points?.[0]?.value ?? undefined;
-      endValue = end.points?.[0]?.value ?? undefined;
-    } else if (ComplexTypes.includes(trackType) && attribute) {
-      startValue =
-        (start.points?.[0]?.value as RawVector3 | RawEuler | RawColor | undefined)?.[
-          attribute as ComplexField
-        ] ?? undefined;
-      endValue =
-        (end.points?.[0]?.value as RawVector3 | RawEuler | RawColor | undefined)?.[
-          attribute as ComplexField
-        ] ?? undefined;
+
+    // Safely extract start value
+    if (start.points && start.points.length > 0) {
+      if (trackType === "number") {
+        startValue = start.points[0].value as number;
+      } else if (ComplexTypes.includes(trackType) && attribute) {
+        startValue =
+          (start.points[0].value as RawVector3 | RawEuler | RawColor | undefined)?.[
+            attribute as ComplexField
+          ] ?? undefined;
+      }
     }
-    if (startValue === undefined && endValue !== undefined && pseudoRegion) {
-      startValue = endValue;
-    } else if (endValue === undefined && startValue !== undefined && pseudoRegion) {
-      endValue = startValue;
+
+    // Safely extract end value
+    if (end.points && end.points.length > 0) {
+      if (trackType === "number") {
+        endValue = end.points[0].value as number;
+      } else if (ComplexTypes.includes(trackType) && attribute) {
+        endValue =
+          (end.points[0].value as RawVector3 | RawEuler | RawColor | undefined)?.[
+            attribute as ComplexField
+          ] ?? undefined;
+      }
+    }
+
+    // Handle pseudo-region cases where one value might be undefined
+    // Create flat lines at the defined value's position
+    if (pseudoRegion) {
+      if (startValue === undefined && endValue !== undefined) {
+        startValue = endValue;
+      } else if (endValue === undefined && startValue !== undefined) {
+        endValue = startValue;
+      }
     }
     if (startValue === undefined || endValue === undefined) {
       return {

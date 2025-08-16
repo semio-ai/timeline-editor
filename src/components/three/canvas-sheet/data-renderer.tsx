@@ -27,12 +27,14 @@ function DataPointsRenderer({
   theme = Theme.Light,
   trackRender = TrackRender.Key,
   height = 36,
+  verticalBounds = { min: -18, max: 18 },
 }: {
   frameData: InstancedFrameInfo[];
   onSetDraggingFrames: (ids: string[]) => void;
   theme?: Theme.Light | Theme.Dark;
   trackRender?: TrackRender;
   height?: number;
+  verticalBounds?: { min: number; max: number };
 }) {
   return (
     <Instances>
@@ -57,6 +59,7 @@ function DataPointsRenderer({
           theme={theme}
           trackRender={trackRender}
           height={height}
+          verticalBounds={verticalBounds}
         />
       ))}
     </Instances>
@@ -148,7 +151,8 @@ export function InnerDataRenderer({
         onSetDraggingFrames={setDraggingFrames}
         theme={theme}
         trackRender={trackRender}
-        height={height - 2.5}
+        height={height - 1}
+        verticalBounds={{ min: verticalBounds[0], max: verticalBounds[1] }}
       />
 
       {/* Render transition segments */}
@@ -162,7 +166,7 @@ export function InnerDataRenderer({
           trackType={trackType}
           height={height - 1}
           verticalBounds={{ min: verticalBounds[0], max: verticalBounds[1] }}
-          isBuffer={segment.buffer}
+          isEmpty={segment.buffer}
           theme={theme}
           color={color}
         />

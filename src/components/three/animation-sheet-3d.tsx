@@ -14,7 +14,13 @@ import {
   TooltipProvider,
   TooltipContext,
 } from "@semio/ui";
-import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
+import {
+  IconArrowUpRight,
+  IconChevronDown,
+  IconLine,
+  IconTable,
+  IconVectorBezier2,
+} from "@tabler/icons-react";
 import { AnimationContext } from "../../context";
 import { useDefaultAnimationStore } from "../../store";
 import { TrackRender, AnimationInstance } from "../../types";
@@ -289,6 +295,11 @@ function InnerSheet3D({
                     value: TrackRender.Preview,
                     label: "Preview View",
                     icon: <IconPreviewView size="11px" />,
+                  },
+                  {
+                    value: TrackRender.Spline,
+                    label: "Spline View",
+                    icon: <IconVectorBezier2 size="11px" className="-scale-x-100" />,
                   },
                   {
                     value: TrackRender.Data,

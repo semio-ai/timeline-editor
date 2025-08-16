@@ -6,7 +6,7 @@ import { Theme } from "@semio/ui";
 import { useSpring, useTransform } from "motion/react";
 import { InstancedFrameInfo, TrackRender } from "../../../types";
 import { useColors } from "../../../hooks";
-import { computeOklabMix, getHighlightColor } from "../../../functions";
+import { computeOklabMix, createLinearScale, getHighlightColor } from "../../../functions";
 
 export interface DataPointProps {
   height?: number;
@@ -15,6 +15,7 @@ export interface DataPointProps {
   onDragEnd: () => void;
   theme?: Theme.Dark | Theme.Light;
   trackRender?: TrackRender;
+  verticalBounds?: { min: number; max: number };
 }
 
 export function DataPoint({
@@ -22,13 +23,32 @@ export function DataPoint({
   theme = Theme.Light,
   trackRender = TrackRender.Key,
   height = 36,
+  verticalBounds = { min: -18, max: 18 },
 }: DataPointProps) {
   const instanceRefFg = useRef<PositionMesh>(null);
   const instanceRefBg = useRef<PositionMesh>(null);
   const lineRef = useRef<THREE.Line>(null);
   const groupRef = useRef<THREE.Group>(null);
 
+  const yPosition = useSpring(0, { stiffness: 300, damping: 20, mass: 0.5 });
+
   const { stamp, points } = data;
+
+  useEffect(() => {
+    if (trackRender !== TrackRender.Spline) {
+      yPosition.set(0);
+    } else if (points.length > 1) {
+      yPosition.set(0);
+    } else if (points.length === 1 && typeof points[0].value === "number") {
+      const buffer = height * 0.4;
+      const point = points[0];
+      const y = point.value as number;
+      const scale = createLinearScale([verticalBounds.min, verticalBounds.max], [-buffer, buffer]);
+      yPosition.set(scale(y));
+    } else {
+      yPosition.set(0);
+    }
+  }, [verticalBounds, points, trackRender, yPosition, height]);
 
   const color = useColors(points.map((p) => p.trackId));
   const { viewport, camera } = useThree();
@@ -97,6 +117,14 @@ export function DataPoint({
     }
   });
 
+  // Set the y position of the instances based on the yPosition spring
+  yPosition.on("change", (y) => {
+    if (instanceRefFg.current && instanceRefBg.current) {
+      instanceRefFg.current.position.y = y;
+      instanceRefBg.current.position.y = y;
+    }
+  });
+
   return (
     <group ref={groupRef as any}>
       <Instance
@@ -120,8 +148,8 @@ export function DataPoint({
       <Line
         ref={lineRef as any}
         points={[
-          [stamp, height / -2, 0],
-          [stamp, height / 2, 0],
+          [stamp, height / -2 + 1, 1],
+          [stamp, height / 2 - 1, 1],
         ]}
         color={color}
         lineWidth={1.5}
