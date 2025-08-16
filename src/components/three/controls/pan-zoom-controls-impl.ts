@@ -86,9 +86,31 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
 
   // Props for external scroll handling
   public scrollValue?: import("motion").MotionValue<number>;
-  public trackRegion?: { top: number; bottom: number };
-  public contentHeightPx?: number;
+  private _trackRegion?: { top: number; bottom: number };
+  private _contentHeightPx?: number;
   public onMouseWheelOriginal?: (event: WheelEvent) => void;
+
+  // Public getters and setters that clamp scroll bounds when changed
+  public get trackRegion() {
+    return this._trackRegion;
+  }
+
+  public set trackRegion(value: { top: number; bottom: number } | undefined) {
+    this._trackRegion = value;
+    this.clampScrollToBounds();
+  }
+
+  public get contentHeightPx() {
+    return this._contentHeightPx;
+  }
+
+  public set contentHeightPx(value: number | undefined) {
+    this._contentHeightPx = value;
+    this.clampScrollToBounds();
+  }
+
+  // Resize observer for canvas dimension changes
+  private resizeObserver?: ResizeObserver;
 
   // Optional callback for track-list vertical scroll
   public onListScroll?: (params: { scroll: number; min: number; max: number }) => void;
@@ -190,17 +212,24 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
       pointerY >= trackRegionStart &&
       pointerY <= trackRegionEnd &&
       this.scrollValue &&
-      typeof this.contentHeightPx === "number"
+      typeof this._contentHeightPx === "number"
     ) {
       event.preventDefault();
       this.dispatchEvent(_startEvent);
 
-      // Clamp scrollValue between min/max
-      const prev = this.scrollValue.get();
+      // Calculate scroll bounds
       const visibleHeightPx = rect ? rect.height - top - bottom : 0;
       const scrollMin = 0;
-      const scrollMax = Math.max(0, this.contentHeightPx - visibleHeightPx);
+      const scrollMax = Math.max(0, this._contentHeightPx - visibleHeightPx);
 
+      // If content fits available space (scrollMax is 0), don't update scroll
+      if (scrollMax === 0) {
+        this.dispatchEvent(_endEvent);
+        return;
+      }
+
+      // Clamp scrollValue between min/max
+      const prev = this.scrollValue.get();
       let next = prev + event.deltaY;
       next = Math.max(scrollMin, Math.min(scrollMax, next));
       this.scrollValue.set(next);
@@ -354,6 +383,29 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
     });
   }
 
+  private clampScrollToBounds() {
+    // Only clamp if we have all required values
+    if (!this.scrollValue || !this._trackRegion || typeof this._contentHeightPx !== "number") {
+      return;
+    }
+
+    const rect = this.domElement?.getBoundingClientRect();
+    if (!rect) return;
+
+    const { top = 0, bottom = 0 } = this._trackRegion;
+    const visibleHeightPx = rect.height - top - bottom;
+    const scrollMin = 0;
+    const scrollMax = Math.max(0, this._contentHeightPx - visibleHeightPx);
+
+    const currentScroll = this.scrollValue.get();
+
+    // Only clamp if scroll is actually out of bounds
+    if (currentScroll < scrollMin || currentScroll > scrollMax) {
+      const clampedScroll = Math.max(scrollMin, Math.min(scrollMax, currentScroll));
+      this.scrollValue.set(clampedScroll);
+    }
+  }
+
   private zoomCameraHorizontal(zoomFactor: number, center: Vector2) {
     if (!this.enableZoom || !this.domElement) return;
 
@@ -454,7 +506,16 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
     this.domElement.addEventListener("pointercancel", this.onPointerUp);
     this.domElement.addEventListener("wheel", this.onMouseWheel);
 
-    // Handle viewport resize - DISABLED FOR STABLE CAMERA APPROACH
+    // Set up resize observer to clamp scroll bounds when canvas dimensions change
+    if (typeof ResizeObserver !== "undefined") {
+      this.resizeObserver = new ResizeObserver(() => {
+        // Use a small delay to ensure DOM has updated
+        setTimeout(() => {
+          this.clampScrollToBounds();
+        }, 0);
+      });
+      this.resizeObserver.observe(domElement);
+    }
   }
 
   dispose(): void {
@@ -466,7 +527,11 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
       this.domElement.removeEventListener("wheel", this.onMouseWheel);
     }
 
-    // Window resize listener not used with stable camera approach
+    // Clean up resize observer
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = undefined;
+    }
 
     // Clean up pointer tracking
     this.pointers.length = 0;
