@@ -156,6 +156,7 @@ function CanvasContent({
         scrollValue={scrollValue}
         trackRegion={{ top: topOffsetPx, bottom: bottomOffsetPx }}
         contentHeightPx={totalContentHeightPx}
+        trackRender={trackRender}
       />
       <TrackList
         animationId={animationId}

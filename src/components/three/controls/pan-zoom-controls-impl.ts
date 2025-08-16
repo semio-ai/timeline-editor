@@ -97,7 +97,6 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
 
   public set trackRegion(value: { top: number; bottom: number } | undefined) {
     this._trackRegion = value;
-    this.clampScrollToBounds();
   }
 
   public get contentHeightPx() {
@@ -106,7 +105,6 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
 
   public set contentHeightPx(value: number | undefined) {
     this._contentHeightPx = value;
-    this.clampScrollToBounds();
   }
 
   // Resize observer for canvas dimension changes

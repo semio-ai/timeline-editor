@@ -4,6 +4,7 @@ import { OrthographicCamera } from "three";
 import { usePlayerStore } from "@semio/utils";
 import { MotionValue } from "motion";
 import { calculatePaddedFrustum } from "../../../viewport-utils";
+import { TrackRender } from "../../../types";
 import { PanZoomControls as PanZoomControlsImpl } from "./pan-zoom-controls-impl";
 
 export interface PanZoomControlsProps {
@@ -21,6 +22,7 @@ export interface PanZoomControlsProps {
   scrollValue?: MotionValue<number>;
   trackRegion?: { top: number; bottom: number };
   contentHeightPx?: number;
+  trackRender?: TrackRender;
 }
 
 export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsProps>(
@@ -40,6 +42,7 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
       scrollValue,
       trackRegion,
       contentHeightPx,
+      trackRender,
     },
     ref,
   ) => {
@@ -165,7 +168,9 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
         controlsRef.current.minZoom = minZoom;
         controlsRef.current.maxZoom = maxZoom;
         controlsRef.current.bounds = bounds;
-        controlsRef.current.scrollValue = scrollValue;
+        // In spline mode, don't pass scrollValue to prevent interference with external scroll
+        controlsRef.current.scrollValue =
+          trackRender === TrackRender.Spline ? undefined : scrollValue;
         controlsRef.current.trackRegion = trackRegion;
         controlsRef.current.contentHeightPx = contentHeightPx;
       }
@@ -181,6 +186,7 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
       scrollValue,
       trackRegion,
       contentHeightPx,
+      trackRender,
     ]);
 
     // Call update if needed (though our PanZoomControls.update() returns false)
