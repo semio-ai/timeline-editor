@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Instance, Line, PositionMesh } from "@react-three/drei";
 import * as THREE from "three";
@@ -30,25 +30,28 @@ export function DataPoint({
   const lineRef = useRef<THREE.Line>(null);
   const groupRef = useRef<THREE.Group>(null);
 
-  const yPosition = useSpring(0, { stiffness: 300, damping: 20, mass: 0.5 });
-
   const { stamp, points } = data;
 
+  const linearScale = useMemo(() => {
+    const buffer = height * 0.4;
+    return createLinearScale([verticalBounds.min, verticalBounds.max], [-buffer, buffer]);
+  }, [height, verticalBounds]);
+
+  const initialValue = linearScale((points[0]?.value as number | undefined) ?? 0);
+
+  const yPosition = useSpring(initialValue, {
+    stiffness: 300,
+    damping: 30,
+  });
+
+  // When the _value_ or track render changes, update the spring
   useEffect(() => {
-    if (trackRender !== TrackRender.Spline) {
-      yPosition.set(0);
-    } else if (points.length > 1) {
-      yPosition.set(0);
-    } else if (points.length === 1 && typeof points[0].value === "number") {
-      const buffer = height * 0.4;
-      const point = points[0];
-      const y = point.value as number;
-      const scale = createLinearScale([verticalBounds.min, verticalBounds.max], [-buffer, buffer]);
-      yPosition.set(scale(y));
+    if (trackRender === TrackRender.Spline) {
+      yPosition.set(initialValue);
     } else {
       yPosition.set(0);
     }
-  }, [verticalBounds, points, trackRender, yPosition, height]);
+  }, [initialValue, yPosition, trackRender]);
 
   const color = useColors(points.map((p) => p.trackId));
   const { viewport, camera } = useThree();
@@ -129,7 +132,7 @@ export function DataPoint({
     <group ref={groupRef as any}>
       <Instance
         ref={instanceRefFg}
-        position={[stamp, 0, 10]}
+        position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, 10]}
         rotation={[Math.PI / 2, 0, 0]}
         // eslint-dissable-next-line
         color={color}
@@ -139,7 +142,7 @@ export function DataPoint({
       {/* Render a darker hexagon in the background */}
       <Instance
         ref={instanceRefBg}
-        position={[stamp, 0, 2]}
+        position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, 2]}
         rotation={[Math.PI / 2, 0, 0]}
         // eslint-dissable-next-line
         color={accentColor}

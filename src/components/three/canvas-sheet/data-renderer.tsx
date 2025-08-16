@@ -141,12 +141,7 @@ export function InnerDataRenderer({
   }, [trackIds, tracks, allAnimatables]);
 
   return (
-    <group
-      position={[0, yOffset, zOffset]}
-      onPointerEnter={() => {
-        console.log(verticalBounds);
-      }}
-    >
+    <group position={[0, yOffset, zOffset]}>
       {/* Render the hexagons/visuals for each keyed point */}
       <DataPointsRenderer
         frameData={frameData}
