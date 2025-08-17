@@ -105,8 +105,8 @@ export function computeTransitionParams(
       return {
         start: { x: start.stamp, y: 0.5 },
         end: { x: end.stamp, y: 0.5 },
-        cp1: { x: 0.5, y: 0.5 },
-        cp2: { x: 0.5, y: 0.5 },
+        cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: 0.5 },
+        cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: 0.5 },
       };
     }
 
@@ -132,7 +132,7 @@ export function computeTransitionParams(
   return {
     start: { x: start.stamp, y: 0.5 },
     end: { x: end.stamp, y: 0.5 },
-    cp1: { x: 0.5, y: 0.5 },
-    cp2: { x: 0.5, y: 0.5 },
+    cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: 0.5 },
+    cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: 0.5 },
   };
 }
