@@ -39,7 +39,7 @@ export function DataPoint({
 
   const initialValue = linearScale((points[0]?.value as number | undefined) ?? 0);
 
-  const yPosition = useSpring(initialValue, {
+  const yPosition = useSpring(trackRender === TrackRender.Spline ? initialValue : 0, {
     stiffness: 300,
     damping: 30,
   });
