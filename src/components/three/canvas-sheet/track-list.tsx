@@ -7,6 +7,7 @@ import { useOrthoCameraSetup } from "../../../hooks";
 import { AnimationInstanceSettings, TrackRender } from "../../../types";
 import { ThemeMode } from "../../../functions";
 import { DataRenderer } from "./data-renderer";
+import { SharedSplineBackground } from "./shared-spline-background";
 
 interface TrackListProps {
   animationId: string; // Unique ID for the animation
@@ -155,6 +156,18 @@ export function TrackList({
           trackRender={trackRender}
         />
       ))}
+      {trackRender === TrackRender.Spline && (
+        <SharedSplineBackground
+          animationId={animationId}
+          namespaceId={namespaceId}
+          instanceSettings={instanceSettings}
+          height={availableHeight}
+          trackIds={tracks}
+          yOffset={0}
+          zOffset={-trackWorldHeight * tracks.length}
+          theme={theme}
+        />
+      )}
     </group>
   );
 }
