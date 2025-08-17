@@ -135,12 +135,6 @@ function CanvasContent({
 
   const size = useThree(useShallow((t) => t.size));
 
-  // Calculate the top and bottom boundaries of the available track section (avoiding HUDs)
-  // const trackWindowRegion = {
-  //   top: topOffsetPx,
-  //   bottom: size.height - bottomOffsetPx
-  // };
-
   const totalContentHeightPx = useMemo(() => {
     return trackRender === TrackRender.Spline
       ? size.height - topOffsetPx - bottomOffsetPx
