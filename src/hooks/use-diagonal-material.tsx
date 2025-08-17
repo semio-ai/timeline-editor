@@ -9,7 +9,6 @@ const vertexShader = `
   uniform vec4 frustumBounds; // left, right, bottom, top
   uniform vec2 viewportSize;
   uniform float cameraZoom;
-  uniform float worldYPosition;
   uniform float measureFromBottom;
 
   varying vec2 vScreenPos;
@@ -80,7 +79,6 @@ export interface DiagonalMaterialOptions {
   theme?: ThemeMode;
   useHighlight?: boolean;
   yOffset?: MotionValue<number>;
-  worldYPosition?: number;
   measureFromBottom?: boolean;
 }
 
@@ -93,7 +91,6 @@ export function useDiagonalMaterial({
   theme = Theme.Light,
   useHighlight = false,
   yOffset = new MotionValue(0),
-  worldYPosition = 0,
   measureFromBottom = false,
 }: DiagonalMaterialOptions = {}) {
   const { camera, viewport } = useThree();
@@ -120,7 +117,6 @@ export function useDiagonalMaterial({
         viewportSize: { value: new Vector2(800, 600) },
         cameraZoom: { value: 1.0 },
         yOffset: { value: yOffset.get() },
-        worldYPosition: { value: worldYPosition },
         measureFromBottom: { value: measureFromBottom ? 1.0 : 0.0 },
       },
     });
@@ -150,7 +146,6 @@ export function useDiagonalMaterial({
       material.uniforms.stripeWidth.value = stripeWidth;
       material.uniforms.stripeSpacing.value = stripeSpacing;
       material.uniforms.yOffset.value = yOffset.get();
-      material.uniforms.worldYPosition.value = worldYPosition;
       material.uniforms.measureFromBottom.value = measureFromBottom ? 1.0 : 0.0;
       material.needsUpdate = true;
     }
@@ -162,7 +157,6 @@ export function useDiagonalMaterial({
     stripeWidth,
     stripeSpacing,
     yOffset,
-    worldYPosition,
     measureFromBottom,
   ]);
 

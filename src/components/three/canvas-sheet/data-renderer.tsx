@@ -178,7 +178,6 @@ export function InnerDataRenderer({
           theme={theme}
           height={height - 1}
           yOffset={scrollOffset}
-          worldYPosition={yOffset}
           measureFromBottom={measureFromBottom}
         />
       )}
