@@ -54,9 +54,12 @@ const fragmentShader = `
   varying vec2 vScreenPos;
 
   void main() {
-    // Simple stable calculation that works with -size.height/2 offset
-    // Diagonal goes from bottom-left to top-right (reversed from original)
-    float diagonal = vScreenPos.x + (vScreenPos.y + yOffset);
+    // Use different diagonal calculation based on measurement direction
+    // For bottom-measured (timeline): subtract for correct diagonal
+    // For top-measured (track list): add for correct diagonal
+    float diagonal = measureFromBottom > 0.5
+      ? vScreenPos.x - (vScreenPos.y + yOffset)  // Timeline HUD
+      : vScreenPos.x + (vScreenPos.y + yOffset); // Track list
     float pattern = mod(diagonal, stripeSpacing);
     float stripeAlpha = step(pattern, stripeWidth);
 
