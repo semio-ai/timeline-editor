@@ -33,14 +33,14 @@ export function updateKeypoint(
     } else {
       // We have to remove the existing point and add a new merged one.
       const merged = { ...existingPoint, ...keypoint };
-      state.tracks[trackId].points = points.filter((p) => p.id !== existingPoint.id);
-      const index = points.findIndex((point) => point.stamp > merged.stamp);
+      const filteredPoints = points.filter((p) => p.id !== existingPoint.id);
+      const index = filteredPoints.findIndex((point) => point.stamp > merged.stamp);
       if (index === -1) {
-        points.push(merged as Keypoint<RawValue>);
+        filteredPoints.push(merged as Keypoint<RawValue>);
       } else {
-        points.splice(index, 0, merged as Keypoint<RawValue>);
+        filteredPoints.splice(index, 0, merged as Keypoint<RawValue>);
       }
-      state.tracks[trackId].points = points;
+      state.tracks[trackId].points = filteredPoints;
     }
 
     return existingPoint as Keypoint<RawValue>;

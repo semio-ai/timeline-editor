@@ -28,7 +28,7 @@ import {
 } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
-import { computeWorldStamp } from "../functions";
+import { computeWorldStamp, computeLocalStamp } from "../functions";
 import { TrackControl } from "./track-control";
 import { AnimatableEditor } from "./animatable-editor";
 
@@ -113,27 +113,60 @@ function InnerControlWidget({
 
   const handleValueChange = useCallback(
     (value: RawValue) => {
-      const currentStamp = usePlayerStore.getState().player.stamp;
+      const currentWorldStamp = usePlayerStore.getState().player.stamp;
       if (!animationId) {
         if (animatableValue) {
           setValue(animatableValue.id, namespace, value);
         }
         return;
       }
+
+      // Convert world stamp to local stamp for the track
+      const localStamp = computeLocalStamp(
+        currentWorldStamp,
+        instanceSettings.timescale,
+        instanceSettings.offset,
+      );
+
       if (track) {
-        updateKeypoint(track.id, { stamp: currentStamp, value });
+        // Find the keypoint at the current timestamp to get its ID
+        const currentKeypoint = track.points.find(
+          (p) =>
+            Math.abs(
+              computeWorldStamp(p.stamp, instanceSettings.timescale, instanceSettings.offset) -
+                currentWorldStamp,
+            ) < 0.0001, // Use small epsilon for floating point comparison
+        );
+
+        // If we have an existing keypoint, update it with its ID to prevent duplicates
+        // Otherwise, create a new keypoint at this timestamp
+        if (currentKeypoint) {
+          updateKeypoint(track.id, { id: currentKeypoint.id, stamp: currentKeypoint.stamp, value });
+        } else {
+          updateKeypoint(track.id, { stamp: localStamp, value });
+        }
       } else if (animatableValue) {
         createTrack(
           {
             animatableId: animatableValue.id,
-            points: [{ id: crypto.randomUUID(), stamp: currentStamp, value }],
+            points: [{ id: crypto.randomUUID(), stamp: localStamp, value }],
           },
           animatableValue.id,
           animationId,
         );
       }
     },
-    [track, animatableValue, updateKeypoint, createTrack, animationId, setValue, namespace],
+    [
+      track,
+      animatableValue,
+      updateKeypoint,
+      createTrack,
+      animationId,
+      setValue,
+      namespace,
+      instanceSettings.timescale,
+      instanceSettings.offset,
+    ],
   );
 
   const color = useColors(trackId ?? animatableId ?? "");
