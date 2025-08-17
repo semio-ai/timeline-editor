@@ -25,14 +25,13 @@ const vertexShader = `
     float frustumWidth = zoomedRight - zoomedLeft;
     float frustumHeight = zoomedTop - zoomedBottom;
 
-    // Transform to normalized frustum space [0,1]
-    vec2 frustumPos = vec2(
-      (worldPosition.x - zoomedLeft) / frustumWidth,
-      (worldPosition.y - zoomedBottom) / frustumHeight
-    );
-
     // Transform to screen pixels for true 45-degree diagonals
-    vScreenPos = frustumPos * viewportSize;
+    // X is measured from left (as before)
+    // Y is measured from TOP to match scroll offset coordinate system
+    vScreenPos = vec2(
+      ((worldPosition.x - zoomedLeft) / frustumWidth) * viewportSize.x,
+      ((zoomedTop - worldPosition.y) / frustumHeight) * viewportSize.y
+    );
 
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
@@ -49,7 +48,9 @@ const fragmentShader = `
   varying vec2 vScreenPos;
 
   void main() {
-    float diagonal = vScreenPos.x - (vScreenPos.y - yOffset);
+    // Both vScreenPos.y and yOffset are now measured from top
+    // yOffset increases as we scroll down, vScreenPos.y increases as we go down
+    float diagonal = vScreenPos.x - (vScreenPos.y + yOffset);
     float pattern = mod(diagonal, stripeSpacing);
     float stripeAlpha = step(pattern, stripeWidth);
 
