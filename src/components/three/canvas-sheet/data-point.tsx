@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, memo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Instance, Line, PositionMesh } from "@react-three/drei";
 import * as THREE from "three";
@@ -18,7 +18,7 @@ export interface DataPointProps {
   verticalBounds?: { min: number; max: number };
 }
 
-export function DataPoint({
+export const DataPoint = memo(function DataPoint({
   data,
   theme = Theme.Light,
   trackRender = TrackRender.Key,
@@ -161,6 +161,6 @@ export function DataPoint({
       />
     </group>
   );
-}
+});
 
 const RENDERS_WITH_LINES = [TrackRender.Preview, TrackRender.Transition];
