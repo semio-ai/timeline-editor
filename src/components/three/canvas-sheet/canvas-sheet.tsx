@@ -1,9 +1,9 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
-import { MotionValue } from "motion";
+import { MotionValue, useMotionValue } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
 import { AnimationInstanceSettings, TrackRender } from "../../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
@@ -135,6 +135,13 @@ function CanvasContent({
 
   const size = useThree(useShallow((t) => t.size));
 
+  const timelineOffset = useMotionValue(-size.height);
+
+  useEffect(() => {
+    console.log("size.height:", -size.height);
+    timelineOffset.set(-size.height);
+  }, [size.height, timelineOffset]);
+
   const totalContentHeightPx = useMemo(() => {
     return trackRender === TrackRender.Spline
       ? size.height - topOffsetPx - bottomOffsetPx
@@ -187,6 +194,7 @@ function CanvasContent({
           namespaceId={namespaceId}
           instanceSettings={instanceSettings}
           theme={theme}
+          scrollOffset={timelineOffset}
         />
       </HudSection>
 
