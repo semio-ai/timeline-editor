@@ -102,8 +102,6 @@ export function useDiagonalMaterial({
     return color;
   }, [color, theme, useHighlight]);
 
-  console.log("finalColor", finalColor);
-
   const material = useMemo(() => {
     return new ShaderMaterial({
       transparent: true,

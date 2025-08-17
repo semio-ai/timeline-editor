@@ -18,6 +18,7 @@ export * from "./use-static-zoomed-spring";
 export * from "./use-store-subscription";
 export * from "./use-track-context";
 export * from "./use-track-transform-spring";
+export * from "./use-transition-curve";
 export * from "./use-tween";
 export * from "./use-with-bounds";
 export * from "./use-zoom-gestures";

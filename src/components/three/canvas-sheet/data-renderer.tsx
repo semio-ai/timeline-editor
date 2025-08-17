@@ -161,7 +161,7 @@ export function InnerDataRenderer({
           start={segment.start}
           end={segment.end}
           trackIds={trackIds}
-          trackRender={trackRender}
+          trackRender={trackType !== "number" ? TrackRender.Key : trackRender}
           trackType={trackType}
           height={height - 1}
           verticalBounds={{ min: verticalBounds[0], max: verticalBounds[1] }}
