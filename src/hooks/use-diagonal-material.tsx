@@ -9,6 +9,8 @@ const vertexShader = `
   uniform vec4 frustumBounds; // left, right, bottom, top
   uniform vec2 viewportSize;
   uniform float cameraZoom;
+  uniform float worldYPosition;
+  uniform float measureFromBottom;
 
   varying vec2 vScreenPos;
 
@@ -27,10 +29,13 @@ const vertexShader = `
 
     // Transform to screen pixels for true 45-degree diagonals
     // X is measured from left (as before)
-    // Y is measured from TOP to match scroll offset coordinate system
+    // Y can be measured from TOP (for scrolling elements) or BOTTOM (for bottom-anchored HUDs)
+    float yFromTop = ((zoomedTop - worldPosition.y) / frustumHeight) * viewportSize.y;
+    float yFromBottom = ((worldPosition.y - zoomedBottom) / frustumHeight) * viewportSize.y;
+
     vScreenPos = vec2(
       ((worldPosition.x - zoomedLeft) / frustumWidth) * viewportSize.x,
-      ((zoomedTop - worldPosition.y) / frustumHeight) * viewportSize.y
+      mix(yFromTop, yFromBottom, measureFromBottom)
     );
 
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -44,13 +49,14 @@ const fragmentShader = `
   uniform float stripeWidth;
   uniform float stripeSpacing;
   uniform float yOffset;
+  uniform float measureFromBottom;
 
   varying vec2 vScreenPos;
 
   void main() {
-    // Both vScreenPos.y and yOffset are now measured from top
-    // yOffset increases as we scroll down, vScreenPos.y increases as we go down
-    float diagonal = vScreenPos.x - (vScreenPos.y + yOffset);
+    // Simple stable calculation that works with -size.height/2 offset
+    // Diagonal goes from bottom-left to top-right (reversed from original)
+    float diagonal = vScreenPos.x + (vScreenPos.y + yOffset);
     float pattern = mod(diagonal, stripeSpacing);
     float stripeAlpha = step(pattern, stripeWidth);
 
@@ -71,6 +77,8 @@ export interface DiagonalMaterialOptions {
   theme?: ThemeMode;
   useHighlight?: boolean;
   yOffset?: MotionValue<number>;
+  worldYPosition?: number;
+  measureFromBottom?: boolean;
 }
 
 export function useDiagonalMaterial({
@@ -82,6 +90,8 @@ export function useDiagonalMaterial({
   theme = Theme.Light,
   useHighlight = false,
   yOffset = new MotionValue(0),
+  worldYPosition = 0,
+  measureFromBottom = false,
 }: DiagonalMaterialOptions = {}) {
   const { camera, viewport } = useThree();
 
@@ -107,6 +117,8 @@ export function useDiagonalMaterial({
         viewportSize: { value: new Vector2(800, 600) },
         cameraZoom: { value: 1.0 },
         yOffset: { value: yOffset.get() },
+        worldYPosition: { value: worldYPosition },
+        measureFromBottom: { value: measureFromBottom ? 1.0 : 0.0 },
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- We want to prevent recreation and instead update uniforms
@@ -135,9 +147,21 @@ export function useDiagonalMaterial({
       material.uniforms.stripeWidth.value = stripeWidth;
       material.uniforms.stripeSpacing.value = stripeSpacing;
       material.uniforms.yOffset.value = yOffset.get();
+      material.uniforms.worldYPosition.value = worldYPosition;
+      material.uniforms.measureFromBottom.value = measureFromBottom ? 1.0 : 0.0;
       material.needsUpdate = true;
     }
-  }, [material, finalColor, opacity, baselineOpacity, stripeWidth, stripeSpacing, yOffset]);
+  }, [
+    material,
+    finalColor,
+    opacity,
+    baselineOpacity,
+    stripeWidth,
+    stripeSpacing,
+    yOffset,
+    worldYPosition,
+    measureFromBottom,
+  ]);
 
   useEffect(() => {
     return () => {

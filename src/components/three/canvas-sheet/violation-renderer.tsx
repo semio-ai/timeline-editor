@@ -12,6 +12,8 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
   height = 36,
   theme = Theme.Light,
   yOffset = new MotionValue(0),
+  worldYPosition = 0,
+  measureFromBottom = false,
 }: {
   segment: {
     id: string;
@@ -22,6 +24,8 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
   violations: Record<string, any>;
   height?: number;
   theme?: Theme.Light | Theme.Dark;
+  worldYPosition?: number;
+  measureFromBottom?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -61,6 +65,8 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
     stripeSpacing: 16.0,
     theme,
     yOffset,
+    worldYPosition, // Pass the parent group's Y position
+    measureFromBottom, // Pass through the measureFromBottom parameter
   });
 
   // Geometry: width = end - start, centered at (start + end)/2
@@ -99,6 +105,8 @@ export interface ViolationRendererProps {
   height?: number;
   theme?: Theme.Light | Theme.Dark;
   yOffset?: MotionValue<number>;
+  worldYPosition?: number;
+  measureFromBottom?: boolean;
 }
 
 function InnerViolationRenderer({
@@ -106,6 +114,8 @@ function InnerViolationRenderer({
   height = 36,
   theme = Theme.Light,
   yOffset = new MotionValue(0),
+  worldYPosition = 0,
+  measureFromBottom = false,
 }: ViolationRendererProps) {
   return (
     <>
@@ -117,6 +127,8 @@ function InnerViolationRenderer({
           height={height}
           theme={theme}
           yOffset={yOffset}
+          worldYPosition={worldYPosition}
+          measureFromBottom={measureFromBottom}
         />
       ))}
     </>

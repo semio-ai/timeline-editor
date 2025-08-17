@@ -79,6 +79,7 @@ export interface DataRendererProps {
   theme?: Theme.Light | Theme.Dark;
   scrollOffset?: MotionValue<number>;
   trackRender?: TrackRender;
+  measureFromBottom?: boolean;
 }
 
 export function InnerDataRenderer({
@@ -91,6 +92,7 @@ export function InnerDataRenderer({
   theme = Theme.Light,
   scrollOffset = new MotionValue(0),
   trackRender = TrackRender.Key,
+  measureFromBottom = false,
 }: DataRendererProps) {
   const color = useColors(trackIds);
 
@@ -176,6 +178,8 @@ export function InnerDataRenderer({
           theme={theme}
           height={height - 1}
           yOffset={scrollOffset}
+          worldYPosition={yOffset}
+          measureFromBottom={measureFromBottom}
         />
       )}
 

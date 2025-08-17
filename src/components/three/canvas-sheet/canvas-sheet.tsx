@@ -1,4 +1,4 @@
-import { memo, useMemo, useEffect } from "react";
+import { memo, useMemo, useEffect, useRef } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
@@ -135,11 +135,10 @@ function CanvasContent({
 
   const size = useThree(useShallow((t) => t.size));
 
-  const timelineOffset = useMotionValue(-size.height);
+  const timelineOffset = useMotionValue(size.height / 2);
 
   useEffect(() => {
-    console.log("size.height:", -size.height);
-    timelineOffset.set(-size.height);
+    timelineOffset.set(size.height / 2);
   }, [size.height, timelineOffset]);
 
   const totalContentHeightPx = useMemo(() => {
@@ -195,6 +194,7 @@ function CanvasContent({
           instanceSettings={instanceSettings}
           theme={theme}
           scrollOffset={timelineOffset}
+          measureFromBottom
         />
       </HudSection>
 
