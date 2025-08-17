@@ -8,7 +8,7 @@ interface FrustumBackgroundProps {
   onHoverChange?: (hovered: boolean) => void;
 }
 
-function InnerFrustumBackground({
+export const FrustumBackground = memo(function FrustumBackground({
   color,
   height,
   opacity = 1,
@@ -31,6 +31,4 @@ function InnerFrustumBackground({
       />
     </mesh>
   );
-}
-
-export const FrustumBackground = memo(InnerFrustumBackground);
+});

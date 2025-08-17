@@ -1,5 +1,5 @@
 import { useThree, useFrame } from "@react-three/fiber";
-import { useRef, useMemo, useCallback } from "react";
+import { useRef, useMemo, useCallback, memo } from "react";
 import { MotionValue } from "motion/react";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
@@ -24,7 +24,7 @@ interface TrackListProps {
   trackRender?: TrackRender;
 }
 
-export function TrackList({
+export const TrackList = memo(function TrackList({
   animationId,
   namespaceId,
   instanceSettings = { timescale: 1, offset: 0, active: true },
@@ -170,4 +170,4 @@ export function TrackList({
       )}
     </group>
   );
-}
+});

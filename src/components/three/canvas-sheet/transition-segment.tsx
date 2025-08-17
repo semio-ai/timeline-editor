@@ -43,7 +43,7 @@ export interface TransitionSegmentProps {
  * - Z-layered rendering (fill at z=1, line at z=2)
  * - Conditional fill rendering based on track render mode and buffer state
  */
-function InnerTransitionSegment({
+export const TransitionSegment = memo(function TransitionSegment({
   start,
   end,
   trackIds,
@@ -152,6 +152,4 @@ function InnerTransitionSegment({
       />
     </>
   );
-}
-
-export const TransitionSegment = memo(InnerTransitionSegment);
+});

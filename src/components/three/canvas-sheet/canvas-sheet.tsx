@@ -112,7 +112,7 @@ interface CanvasContentProps {
   trackRender?: TrackRender; // Render mode for tracks, e.g. Key, Transition, Preview, Curve, etc.
 }
 
-function CanvasContent({
+const CanvasContent = memo(function CanvasContent({
   animationId,
   namespaceId,
   instanceSettings,
@@ -227,4 +227,4 @@ function CanvasContent({
       </HudSection>
     </>
   );
-}
+});

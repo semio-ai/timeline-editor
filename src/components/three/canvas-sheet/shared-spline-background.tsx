@@ -23,7 +23,7 @@ export interface SharedSplineBackgroundProps {
   scrollOffset?: MotionValue<number>;
 }
 
-function InnerSharedSplineBackground({
+export const SharedSplineBackground = memo(function SharedSplineBackground({
   trackIds = [],
   height = 36,
   yOffset = 0,
@@ -65,6 +65,4 @@ function InnerSharedSplineBackground({
       )}
     </group>
   );
-}
-
-export const SharedSplineBackground = memo(InnerSharedSplineBackground);
+});

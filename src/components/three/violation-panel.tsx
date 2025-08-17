@@ -68,14 +68,14 @@ function ViolationDescription({
       <div
         key={`${violation.id}-label`}
         style={{ backgroundColor: color }}
-        className="bg-opacity-25 text-black px-2 py-0.5"
+        className="bg-opacity-25 text-black px-2 py-0.5 text-sm"
       >
         {violationType === ViolationType.Upper && <span>Upper Limit</span>}
         {violationType === ViolationType.Lower && <span>Lower Limit</span>}
         {violationType === ViolationType.Velocity && <span>Velocity Limit</span>}
         {violationType === ViolationType.Rate && <span>Rate Limit</span>}
       </div>
-      <div key={`${violation.id}-description`} className="col-span-2 text-wrap">
+      <div key={`${violation.id}-description`} className="col-span-2 text-wrap text-sm">
         {!onlyTrack && (
           <>
             <span style={{ color }}>{name}</span>
@@ -84,16 +84,16 @@ function ViolationDescription({
         )}
 
         {violationType === ViolationType.Upper && (
-          <span className="text-sm">Value exceeds upper bounds</span>
+          <span className="text-xs">Value exceeds upper bounds</span>
         )}
         {violationType === ViolationType.Lower && (
-          <span className="text-sm">Value exceeds lower bounds</span>
+          <span className="text-xs">Value exceeds lower bounds</span>
         )}
         {violationType === ViolationType.Velocity && (
-          <span className="text-sm">Value is changing faster than allowed by velocity limits</span>
+          <span className="text-xs">Value is changing faster than allowed by velocity limits</span>
         )}
         {violationType === ViolationType.Rate && (
-          <span className="text-sm">Value is updating faster than allowed by rate limits</span>
+          <span className="text-xs">Value is updating faster than allowed by rate limits</span>
         )}
       </div>
     </Fragment>

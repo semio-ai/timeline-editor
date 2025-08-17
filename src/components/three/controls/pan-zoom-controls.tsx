@@ -1,4 +1,4 @@
-import { useEffect, useRef, forwardRef } from "react";
+import { useEffect, useRef, forwardRef, memo } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
 import { OrthographicCamera } from "three";
 import { usePlayerStore } from "@semio/utils";
@@ -25,7 +25,7 @@ export interface PanZoomControlsProps {
   trackRender?: TrackRender;
 }
 
-export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsProps>(
+const InnerPanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsProps>(
   (
     {
       enabled = true,
@@ -200,4 +200,6 @@ export const PanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsPr
   },
 );
 
-PanZoomControls.displayName = "PanZoomControls";
+InnerPanZoomControls.displayName = "PanZoomControls";
+
+export const PanZoomControls = memo(InnerPanZoomControls);

@@ -32,7 +32,12 @@ function calculateTextPosition(
     : yPosition - tickHeight / 2 - spacingWorld;
 }
 
-function InnerRulerRenderer({ height, side, theme = "light", fonts = {} }: RulerRendererProps) {
+export const RulerRenderer = memo(function RulerRenderer({
+  height,
+  side,
+  theme = "light",
+  fonts = {},
+}: RulerRendererProps) {
   const duration = usePlayerStore(useShallow((state) => state.player.duration));
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
@@ -110,11 +115,9 @@ function InnerRulerRenderer({ height, side, theme = "light", fonts = {} }: Ruler
       />
     </>
   );
-}
+});
 
-export const RulerRenderer = memo(InnerRulerRenderer);
-
-function InnerTicks({
+const Ticks = memo(function Ticks({
   tickData,
   tickHeight,
   baseTickWidth,
@@ -141,12 +144,10 @@ function InnerTicks({
       ))}
     </Instances>
   );
-}
-
-const Ticks = memo(InnerTicks);
+});
 
 // Component for text labels with zoom-invariant scaling
-function TextBoxes({
+const TextBoxes = memo(function TextBoxes({
   ticks,
   side,
   theme,
@@ -231,10 +232,10 @@ function TextBoxes({
       ))}
     </Suspense>
   );
-}
+});
 
 // Component for individual tick marks with zoom-invariant scaling
-function TickMark({
+const TickMark = memo(function TickMark({
   position,
   baseTickWidth,
 }: {
@@ -262,4 +263,4 @@ function TickMark({
   });
 
   return <Instance ref={tickRef} position={position} />;
-}
+});

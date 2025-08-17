@@ -3,7 +3,7 @@ import { useEffect, useRef, memo } from "react";
 import * as THREE from "three";
 import { useTween } from "../../../hooks";
 
-function InnerTrackBackground({
+export const TrackBackground = memo(function TrackBackground({
   emphasis = false,
   color,
   height,
@@ -40,6 +40,4 @@ function InnerTrackBackground({
       <meshBasicMaterial color={color} transparent opacity={0.1} />
     </mesh>
   );
-}
-
-export const TrackBackground = memo(InnerTrackBackground);
+});

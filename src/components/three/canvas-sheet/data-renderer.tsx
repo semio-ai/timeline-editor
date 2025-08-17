@@ -21,7 +21,7 @@ import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 import { TransitionSegment } from "./transition-segment";
 
-function DataPointsRenderer({
+const DataPointsRenderer = memo(function DataPointsRenderer({
   frameData = [],
   onSetDraggingFrames,
   theme = Theme.Light,
@@ -64,7 +64,7 @@ function DataPointsRenderer({
       ))}
     </Instances>
   );
-}
+});
 
 export interface DataRendererProps {
   animationId: string; // Unique ID for the animation
@@ -82,7 +82,7 @@ export interface DataRendererProps {
   measureFromBottom?: boolean;
 }
 
-export function InnerDataRenderer({
+export const DataRenderer = memo(function DataRenderer({
   trackIds = [],
   height = 36,
   emphasis = false,
@@ -197,6 +197,4 @@ export function InnerDataRenderer({
       )}
     </group>
   );
-}
-
-export const DataRenderer = memo(InnerDataRenderer);
+});

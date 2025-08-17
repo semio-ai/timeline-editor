@@ -12,7 +12,7 @@ import { usePlayerSubscription, useTween } from "../../../hooks";
  * MinimapDisplay renders a minimap rectangle and half-hexagons using react-three/fiber,
  * subscribing to viewport changes via usePlayerStore and updating mesh positions directly.
  */
-function InnerMinimapDisplay({
+export const MinimapDisplay = memo(function MinimapDisplay({
   inactiveHeight = 5,
   activeHeight = 22,
   theme = Theme.Light,
@@ -321,6 +321,4 @@ function InnerMinimapDisplay({
       </Instances>
     </group>
   );
-}
-
-export const MinimapDisplay = memo(InnerMinimapDisplay);
+});

@@ -1,6 +1,6 @@
 import { Hud, OrthographicCamera } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, memo } from "react";
 import * as THREE from "three";
 import { useOrthoCameraSetup, usePlayerSubscription } from "../../../hooks";
 import { calculatePaddedFrustum } from "../../../viewport-utils";
@@ -16,7 +16,7 @@ interface HudSectionProps {
   fixedCamera?: boolean;
 }
 
-export function HudSection({
+export const HudSection = memo(function HudSection({
   position,
   pixelHeight,
   children,
@@ -111,4 +111,4 @@ export function HudSection({
       </group>
     </Hud>
   );
-}
+});

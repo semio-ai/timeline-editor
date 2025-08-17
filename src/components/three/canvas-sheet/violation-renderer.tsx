@@ -6,7 +6,7 @@ import { ViolationSet } from "../../../types";
 import { ViolationPanel } from "../violation-panel";
 
 // Renders a single violation segment as a mesh
-const ViolationSegment = memo(function ViolationSegmentMesh({
+const ViolationSegment = memo(function ViolationSegment({
   segment,
   violations,
   height = 36,
@@ -109,7 +109,7 @@ export interface ViolationRendererProps {
   trackY?: boolean;
 }
 
-function InnerViolationRenderer({
+export const ViolationRenderer = memo(function ViolationRenderer({
   violationSet,
   height = 36,
   theme = Theme.Light,
@@ -133,6 +133,4 @@ function InnerViolationRenderer({
       ))}
     </>
   );
-}
-
-export const ViolationRenderer = memo(InnerViolationRenderer);
+});
