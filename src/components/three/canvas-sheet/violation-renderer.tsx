@@ -13,6 +13,7 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
   theme = Theme.Light,
   yOffset = new MotionValue(0),
   measureFromBottom = false,
+  trackY = false,
 }: {
   segment: {
     id: string;
@@ -24,6 +25,7 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
   height?: number;
   theme?: Theme.Light | Theme.Dark;
   measureFromBottom?: boolean;
+  trackY?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -40,7 +42,7 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
     id: tooltipId,
     content: <ViolationPanel segment={segment} violations={violations} />,
     side: "top",
-    axis: "x",
+    axis: trackY ? "both" : "x",
   });
 
   const { show, hide } = useTooltipTrigger(anchorId, { showDelay: 200 });
@@ -63,6 +65,7 @@ const ViolationSegment = memo(function ViolationSegmentMesh({
     stripeSpacing: 16.0,
     theme,
     yOffset,
+    useHighlight: theme === Theme.Dark,
     measureFromBottom, // Pass through the measureFromBottom parameter
   });
 
@@ -103,6 +106,7 @@ export interface ViolationRendererProps {
   theme?: Theme.Light | Theme.Dark;
   yOffset?: MotionValue<number>;
   measureFromBottom?: boolean;
+  trackY?: boolean;
 }
 
 function InnerViolationRenderer({
@@ -111,6 +115,7 @@ function InnerViolationRenderer({
   theme = Theme.Light,
   yOffset = new MotionValue(0),
   measureFromBottom = false,
+  trackY = false,
 }: ViolationRendererProps) {
   return (
     <>
@@ -123,6 +128,7 @@ function InnerViolationRenderer({
           theme={theme}
           yOffset={yOffset}
           measureFromBottom={measureFromBottom}
+          trackY={trackY}
         />
       ))}
     </>

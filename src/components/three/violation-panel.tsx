@@ -83,13 +83,17 @@ function ViolationDescription({
           </>
         )}
 
-        {violationType === ViolationType.Upper && <span>Value exceeds upper bounds</span>}
-        {violationType === ViolationType.Lower && <span>Value exceeds lower bounds</span>}
+        {violationType === ViolationType.Upper && (
+          <span className="text-sm">Value exceeds upper bounds</span>
+        )}
+        {violationType === ViolationType.Lower && (
+          <span className="text-sm">Value exceeds lower bounds</span>
+        )}
         {violationType === ViolationType.Velocity && (
-          <span>Value is changing faster than allowed by velocity limits</span>
+          <span className="text-sm">Value is changing faster than allowed by velocity limits</span>
         )}
         {violationType === ViolationType.Rate && (
-          <span>Value is updating faster than allowed by rate limits</span>
+          <span className="text-sm">Value is updating faster than allowed by rate limits</span>
         )}
       </div>
     </Fragment>

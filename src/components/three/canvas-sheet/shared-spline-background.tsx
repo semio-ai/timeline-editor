@@ -48,6 +48,7 @@ function InnerSharedSplineBackground({
         theme={theme}
         height={height - 1}
         yOffset={scrollOffset}
+        trackY
       />
 
       {/* Render a background for the Active region, and the General Background */}

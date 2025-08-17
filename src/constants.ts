@@ -14,3 +14,5 @@ export const TRANSITION_CONFIG: Transition = {
   duration: 0.2,
   ease: "easeInOut",
 } as const;
+
+export const DEFAULT_COLOR = "#808080";
