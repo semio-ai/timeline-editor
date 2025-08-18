@@ -1,18 +1,18 @@
-import { memo, useMemo, useEffect } from "react";
+import { memo, useMemo } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
-import { MotionValue, useMotionValue } from "motion/react";
+import { MotionValue } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
 import { AnimationInstanceSettings, TrackRender } from "../../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
 import { calculatePaddedFrustum } from "../../../viewport-utils";
 import { HudSection } from "./hud-section";
-import { DataRenderer } from "./data-renderer";
 import { RulerRenderer } from "./ruler-renderer";
 import { TrackList } from "./track-list";
 import { MinimapDisplay } from "./minimap-display";
+import { TimelineRenderer } from "./timeline-renderer";
 
 export interface CanvasSheetProps {
   animationId: string; // Unique ID for the animation
@@ -135,12 +135,6 @@ const CanvasContent = memo(function CanvasContent({
 
   const size = useThree(useShallow((t) => t.size));
 
-  const timelineOffset = useMotionValue(size.height / 2);
-
-  useEffect(() => {
-    timelineOffset.set(size.height / 2);
-  }, [size.height, timelineOffset]);
-
   const totalContentHeightPx = useMemo(() => {
     return trackRender === TrackRender.Spline
       ? size.height - topOffsetPx - bottomOffsetPx
@@ -186,15 +180,12 @@ const CanvasContent = memo(function CanvasContent({
         renderPriority={2}
         gap={72}
       >
-        <DataRenderer
-          height={36}
-          trackIds={selection}
+        <TimelineRenderer
+          selection={selection}
           animationId={animationId}
           namespaceId={namespaceId}
           instanceSettings={instanceSettings}
           theme={theme}
-          scrollOffset={timelineOffset}
-          measureFromBottom
         />
       </HudSection>
 
@@ -207,7 +198,7 @@ const CanvasContent = memo(function CanvasContent({
         renderPriority={3}
         fixedCamera
       >
-        <MinimapDisplay theme={theme} minZoom={0.1} />
+        <MinimapDisplay theme={theme} minZoom={0.1} height={36} />
       </HudSection>
 
       {/* Bottom HUD: 36px tall - Bottom Ruler */}
