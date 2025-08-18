@@ -3,15 +3,21 @@ import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { Instances, Instance, Text } from "@react-three/drei";
-import { stampToVisualTime } from "@semio/ui";
+import { stampToVisualTime, Theme } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
-import { useAnimationStore, useAltKeyPressed, usePixelToWorld } from "../../../hooks";
+import {
+  useAnimationStore,
+  useAltKeyPressed,
+  usePixelToWorld,
+  usePlaybackGestures,
+} from "../../../hooks";
 import type { AnimationData } from "../../../store-types";
+import { HoverMarker } from "./playback-gizmos/hover-marker";
 
 interface RulerRendererProps {
   height: number;
   side: "top" | "bottom";
-  theme?: "light" | "dark";
+  theme?: Theme.Light | Theme.Dark;
   fonts?: {
     mono?: string;
     ui?: string;
@@ -35,7 +41,7 @@ function calculateTextPosition(
 export const RulerRenderer = memo(function RulerRenderer({
   height,
   side,
-  theme = "light",
+  theme = Theme.Light,
   fonts = {},
 }: RulerRendererProps) {
   const duration = usePlayerStore(useShallow((state) => state.player.duration));
@@ -48,6 +54,9 @@ export const RulerRenderer = memo(function RulerRenderer({
   const altPressed = useAltKeyPressed();
   const { pixelsToWorldY, pixelsToWorldX } = usePixelToWorld();
   const frameCount = Math.floor(framerate * (duration / 1000));
+
+  // Add playback gestures for seeking and hover preview
+  const playbackGestures = usePlaybackGestures();
 
   // Generate tick data - only major ticks for ruler (every second)
   const tickData = useMemo(() => {
@@ -93,6 +102,14 @@ export const RulerRenderer = memo(function RulerRenderer({
 
   return (
     <>
+      {/* Background gesture plane for playback interactions */}
+      <mesh {...playbackGestures} position={[0.5, 0, -0.5]}>
+        <planeGeometry args={[1, hudHeightWorld]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
+
+      <HoverMarker height={hudHeightWorld} theme={theme} />
+
       {/* Tick lines using Instances */}
       <Ticks
         tickData={tickData}

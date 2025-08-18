@@ -218,12 +218,7 @@ const CanvasContent = memo(function CanvasContent({
         renderPriority={4}
         fixedCamera
       >
-        <RulerRenderer
-          height={36}
-          side="bottom"
-          theme={theme === Theme.Dark ? "dark" : "light"}
-          fonts={fonts}
-        />
+        <RulerRenderer height={36} side="bottom" theme={theme} fonts={fonts} />
       </HudSection>
     </>
   );

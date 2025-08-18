@@ -6,7 +6,7 @@ import { PlayerData, usePlayerStore } from "@semio/utils";
 import { Instance, Instances, useCursor } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Theme } from "@semio/ui";
-import { usePlayerSubscription, useTween } from "../../../hooks";
+import { usePlayerSubscription, useTween, usePlaybackGestures } from "../../../hooks";
 
 /**
  * MinimapDisplay renders a minimap rectangle and half-hexagons using react-three/fiber,
@@ -42,6 +42,9 @@ export const MinimapDisplay = memo(function MinimapDisplay({
   const [hovered, setHovered] = useState(false);
   const [hoveredArea, setHoveredArea] = useState<"viewport" | "left" | "right" | null>(null);
   const [dragging, setDragging] = useState<"viewport" | "left" | "right" | null>(null);
+
+  // Add playback gestures for seeking and hover preview
+  const playbackGestures = usePlaybackGestures();
 
   // Determine if component is active
   const isActive = hovered || dragging !== null;
@@ -256,6 +259,12 @@ export const MinimapDisplay = memo(function MinimapDisplay({
 
   return (
     <group>
+      {/* Background gesture plane for playback interactions */}
+      <mesh {...playbackGestures} position={[0.5, 0, -0.5]}>
+        <planeGeometry args={[1, activeHeight]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
+
       {/* Left hexagon gesture area */}
       <mesh
         position={[currentViewport[0] - 0.015, 0, 0.2]}
