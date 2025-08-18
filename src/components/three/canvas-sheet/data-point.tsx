@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, memo } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useMemo, useRef, memo } from "react";
 import { Instance, Line, PositionMesh } from "@react-three/drei";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
 import { useSpring, useTransform } from "motion/react";
 import { InstancedFrameInfo, TrackRender } from "../../../types";
-import { useColors } from "../../../hooks";
+import { useColors, useInvariantScale } from "../../../hooks";
 import { computeOklabMix, createLinearScale, getHighlightColor } from "../../../functions";
 
 export interface DataPointProps {
@@ -54,33 +53,6 @@ export const DataPoint = memo(function DataPoint({
   }, [initialValue, yPosition, trackRender]);
 
   const color = useColors(points.map((p) => p.trackId));
-  const { viewport, camera } = useThree();
-
-  // Calculate scale factor function
-  const calculateScaleFactor = useCallback(() => {
-    const baseWidth = viewport.width;
-    const currentWidth =
-      (camera as THREE.OrthographicCamera).right - (camera as THREE.OrthographicCamera).left;
-    return currentWidth / baseWidth;
-  }, [viewport.width, camera]);
-
-  // Set initial scale immediately to prevent stretched appearance
-  useLayoutEffect(() => {
-    if (instanceRefFg.current && instanceRefBg.current) {
-      const scaleFactor = calculateScaleFactor();
-      instanceRefFg.current.scale.set(scaleFactor, 1, 1);
-      instanceRefBg.current.scale.set(scaleFactor * 1.2, 1, 1.2);
-    }
-  }, [viewport.width, camera, calculateScaleFactor]);
-
-  // Continue updating scale on each frame
-  useFrame(() => {
-    if (instanceRefFg.current && instanceRefBg.current) {
-      const scaleFactor = calculateScaleFactor();
-      instanceRefFg.current.scale.set(scaleFactor, 1, 1);
-      instanceRefBg.current.scale.set(scaleFactor * 1.2, 1, 1.2);
-    }
-  });
 
   const showsLine = RENDERS_WITH_LINES.includes(trackRender);
 
@@ -105,6 +77,8 @@ export const DataPoint = memo(function DataPoint({
 
   const hoverColor = useTransform(hovered, [0, 1], [color, highlightColor]);
 
+  const scaleX = useInvariantScale();
+
   hoverColor.on("change", (v) => {
     if (instanceRefFg.current) {
       if ("color" in instanceRefFg.current) {
@@ -125,6 +99,13 @@ export const DataPoint = memo(function DataPoint({
     if (instanceRefFg.current && instanceRefBg.current) {
       instanceRefFg.current.position.y = y;
       instanceRefBg.current.position.y = y;
+    }
+  });
+
+  scaleX.on("change", (s) => {
+    if (instanceRefFg.current && instanceRefBg.current) {
+      instanceRefFg.current.scale.x = s;
+      instanceRefBg.current.scale.x = s * 1.2; // Background is slightly larger
     }
   });
 

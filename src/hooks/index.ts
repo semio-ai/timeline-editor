@@ -6,6 +6,7 @@ export * from "./use-bound-springs";
 export * from "./use-colors";
 export * from "./use-diagonal-material";
 export * from "./use-hover-spring";
+export * from "./use-invariant-scale";
 export * from "./use-names";
 export * from "./use-ortho-camera-setup";
 export * from "./use-pair-springs";

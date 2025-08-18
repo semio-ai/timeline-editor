@@ -1,8 +1,7 @@
 import { Theme } from "@semio/ui";
-import { useRef, useCallback } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useRef } from "react";
 import * as THREE from "three";
-import { useHoverSpring } from "../../../../hooks";
+import { useHoverSpring, useInvariantScale } from "../../../../hooks";
 
 export interface HoverMarkerProps {
   height?: number;
@@ -13,23 +12,13 @@ export interface HoverMarkerProps {
 export function HoverMarker({ height = 36, width = 1.5, theme = Theme.Light }: HoverMarkerProps) {
   const markerRef = useRef<THREE.Mesh>(null);
   const color = theme === Theme.Light ? "#000000" : "#ffffff";
-  const { viewport, camera } = useThree();
 
+  const scaleX = useInvariantScale();
   const hoverSpring = useHoverSpring();
 
-  // Calculate scale factor to maintain consistent pixel width regardless of zoom
-  const calculateScaleFactor = useCallback(() => {
-    const baseWidth = viewport.width;
-    const currentWidth =
-      (camera as THREE.OrthographicCamera).right - (camera as THREE.OrthographicCamera).left;
-    return currentWidth / baseWidth;
-  }, [viewport.width, camera]);
-
-  // Update scale on each frame to maintain constant pixel size
-  useFrame(() => {
+  scaleX.on("change", (s) => {
     if (markerRef.current) {
-      const scaleFactor = calculateScaleFactor();
-      markerRef.current.scale.set(scaleFactor, 1, 1);
+      markerRef.current.scale.set(s, 1, 1);
     }
   });
 

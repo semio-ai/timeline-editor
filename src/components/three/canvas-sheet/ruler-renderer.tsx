@@ -1,4 +1,4 @@
-import { useMemo, useRef, Suspense, memo } from "react";
+import { useMemo, useRef, Suspense, memo, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
@@ -10,6 +10,7 @@ import {
   useAltKeyPressed,
   usePixelToWorld,
   usePlaybackGestures,
+  useInvariantScale,
 } from "../../../hooks";
 import type { AnimationData } from "../../../store-types";
 import { HoverMarker } from "./playback-gizmos/hover-marker";
@@ -48,9 +49,7 @@ export const RulerRenderer = memo(function RulerRenderer({
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
-  const [timeDisplay] = useAnimationStore(
-    useShallow((state: AnimationData) => [state.timeDisplay]),
-  );
+  const timeDisplay = useAnimationStore(useShallow((state: AnimationData) => state.timeDisplay));
   const altPressed = useAltKeyPressed();
   const { pixelsToWorldY, pixelsToWorldX } = usePixelToWorld();
   const frameCount = Math.floor(framerate * (duration / 1000));
@@ -259,25 +258,21 @@ const TickMark = memo(function TickMark({
   position: [number, number, number];
   baseTickWidth: number;
 }) {
-  const { size } = useThree();
   const tickRef = useRef<THREE.Object3D>(null);
 
-  // Update tick width based on zoom to maintain 2px visual width
-  useFrame(({ camera }) => {
-    if (!size.width || !tickRef.current) return;
+  const scaleX = useInvariantScale();
 
-    const orthoCamera = camera as THREE.OrthographicCamera;
-    const frustumWidth = orthoCamera.right - orthoCamera.left;
-
-    // Calculate how many world units equal 2 pixels
-    const pixelsToWorld = frustumWidth / size.width;
-    const targetWorldWidth = 2 * pixelsToWorld; // 2 pixels in world units
-
-    // Scale the base width (1 unit) to achieve target width
-    const scaleFactorX = targetWorldWidth / baseTickWidth;
-
-    tickRef.current.scale.set(scaleFactorX, 1, 1);
+  scaleX.on("change", (s) => {
+    if (tickRef.current) {
+      tickRef.current.scale.set(s * baseTickWidth, 1, 1);
+    }
   });
+
+  useEffect(() => {
+    if (tickRef.current) {
+      tickRef.current.scale.set(scaleX.get() * baseTickWidth, 1, 1);
+    }
+  }, [baseTickWidth, scaleX]);
 
   return <Instance ref={tickRef} position={position} />;
 });
