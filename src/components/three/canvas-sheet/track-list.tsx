@@ -8,7 +8,8 @@ import { AnimationInstanceSettings, TrackRender } from "../../../types";
 import { ThemeMode } from "../../../functions";
 import { DataRenderer } from "./data-renderer";
 import { SharedSplineBackground } from "./shared-spline-background";
-import { HoverMarker } from "./playback-gizmos/hover-marker";
+import { HoverMarker } from "./overlays/hover-marker";
+import { PlayheadMarker } from "./overlays/playhead-marker";
 
 interface TrackListProps {
   animationId: string; // Unique ID for the animation
@@ -192,6 +193,7 @@ export const TrackList = memo(function TrackList({
       {/* Render the hover markers and add a gesture detector */}
       <group position={[0, trackAreaCenterY, 0]}>
         <HoverMarker height={availableHeight} theme={theme} />
+        <PlayheadMarker height={availableHeight} theme={theme} />
 
         <mesh {...playbackGestures} position={[0.5, 0, -trackWorldHeight * tracks.length - 0.1]}>
           <planeGeometry args={[1, availableHeight]} />

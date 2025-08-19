@@ -5,7 +5,8 @@ import { useShallow } from "zustand/shallow";
 import { useMotionValue } from "motion/react";
 import { usePlaybackGestures } from "../../../hooks";
 import { DataRenderer } from "./data-renderer";
-import { HoverMarker } from "./playback-gizmos/hover-marker";
+import { HoverMarker } from "./overlays/hover-marker";
+import { PlayheadMarker } from "./overlays/playhead-marker";
 
 export interface TimelineRendererProps {
   selection?: string[];
@@ -40,6 +41,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
   return (
     <>
       <HoverMarker height={36} theme={theme} />
+      <PlayheadMarker height={36} theme={theme} />
       <DataRenderer
         height={36}
         trackIds={selection}

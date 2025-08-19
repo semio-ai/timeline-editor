@@ -13,7 +13,8 @@ import {
   useInvariantScale,
 } from "../../../hooks";
 import type { AnimationData } from "../../../store-types";
-import { HoverMarker } from "./playback-gizmos/hover-marker";
+import { HoverMarker } from "./overlays/hover-marker";
+import { PlayheadMarker } from "./overlays/playhead-marker";
 
 interface RulerRendererProps {
   height: number;
@@ -108,6 +109,7 @@ export const RulerRenderer = memo(function RulerRenderer({
       </mesh>
 
       <HoverMarker height={hudHeightWorld} theme={theme} />
+      <PlayheadMarker height={36} theme={theme} />
 
       {/* Tick lines using Instances */}
       <Ticks

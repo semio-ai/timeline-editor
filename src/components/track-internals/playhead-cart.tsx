@@ -7,12 +7,8 @@ import { clsx } from "clsx";
 import { closestFrame, PlayerActions, PlayerData, usePlayerStore } from "@semio/utils";
 import { stampToVisualTime } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
-import {
-  useTrackContext,
-  useAnimationStore,
-  usePlayheadSpring,
-  useAltKeyPressed,
-} from "../../hooks";
+import { useTrackContext, useAnimationStore, useAltKeyPressed } from "../../hooks";
+import { usePlayheadSpring } from "../../hooks/use-playhead-spring_orig";
 import { AnimationData } from "../../store-types";
 import { VERTICAL_POINTER_PATH, HORIZONTAL_POINTER_PATH, TRANSITION_CONFIG } from "../../constants";
 import { DRAG_X_CONFIG } from "../../gesture-config";

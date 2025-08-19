@@ -5,7 +5,8 @@ import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { closestFrame, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-import { useTrackContext, usePlayheadSpring, useAnimationStore } from "../../hooks";
+import { useTrackContext, useAnimationStore } from "../../hooks";
+import { usePlayheadSpring } from "../../hooks/use-playhead-spring_orig";
 import { DRAG_X_CONFIG } from "../../gesture-config";
 import { SemanticTime } from "../../types";
 

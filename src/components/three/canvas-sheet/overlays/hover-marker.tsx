@@ -1,5 +1,5 @@
 import { Theme } from "@semio/ui";
-import { useRef } from "react";
+import { useRef, memo } from "react";
 import * as THREE from "three";
 import { useHoverSpring, useInvariantScale } from "../../../../hooks";
 
@@ -9,7 +9,11 @@ export interface HoverMarkerProps {
   theme?: Theme.Dark | Theme.Light;
 }
 
-export function HoverMarker({ height = 36, width = 1.5, theme = Theme.Light }: HoverMarkerProps) {
+export const HoverMarker = memo(function HoverMarker({
+  height = 36,
+  width = 1.5,
+  theme = Theme.Light,
+}: HoverMarkerProps) {
   const markerRef = useRef<THREE.Mesh>(null);
   const color = theme === Theme.Light ? "#000000" : "#ffffff";
 
@@ -39,4 +43,4 @@ export function HoverMarker({ height = 36, width = 1.5, theme = Theme.Light }: H
       <meshBasicMaterial color={color} toneMapped={false} transparent opacity={0} />
     </mesh>
   );
-}
+});

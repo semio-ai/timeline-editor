@@ -7,7 +7,8 @@ import { Instance, Instances, useCursor } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Theme } from "@semio/ui";
 import { usePlayerSubscription, useTween, usePlaybackGestures } from "../../../hooks";
-import { HoverMarker } from "./playback-gizmos/hover-marker";
+import { HoverMarker } from "./overlays/hover-marker";
+import { PlayheadMarker } from "./overlays/playhead-marker";
 
 /**
  * MinimapDisplay renders a minimap rectangle and half-hexagons using react-three/fiber,
@@ -269,6 +270,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       </mesh>
 
       <HoverMarker height={height} theme={theme} />
+      <PlayheadMarker height={36} theme={theme} />
 
       {/* Left hexagon gesture area */}
       <mesh

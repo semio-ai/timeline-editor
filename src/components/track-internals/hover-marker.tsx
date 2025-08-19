@@ -2,7 +2,8 @@ import { type ReactNode, memo, useRef } from "react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
 import { motion, useTransform } from "motion/react";
-import { useHoverSpring, useAnimationStore, useTrackContext } from "../../hooks";
+import { useAnimationStore, useTrackContext } from "../../hooks";
+import { useHoverSpring } from "../../hooks/use-hover-spring_orig";
 
 export interface HoverMarkerProps {
   ignoreZoom?: boolean;
