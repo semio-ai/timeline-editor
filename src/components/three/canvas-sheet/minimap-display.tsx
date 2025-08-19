@@ -264,7 +264,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
     <group>
       {/* Background gesture plane for playback interactions */}
       <mesh {...playbackGestures} position={[0.5, 0, -0.5]}>
-        <planeGeometry args={[1, activeHeight]} />
+        <planeGeometry args={[1, height]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 

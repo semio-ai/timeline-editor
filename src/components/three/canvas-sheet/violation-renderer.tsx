@@ -82,13 +82,13 @@ const ViolationSegment = memo(function ViolationSegment({
       position={[x, y, 0]}
       material={diagonalMaterial as any}
       onPointerOver={(e) => {
-        e.stopPropagation();
+        // e.stopPropagation();
         setHovered(true);
         onPointerMove?.(e);
         show();
       }}
-      onPointerOut={(e) => {
-        e.stopPropagation();
+      onPointerOut={(_e) => {
+        // e.stopPropagation();
         setHovered(false);
         hide();
         onPointerLeave?.();

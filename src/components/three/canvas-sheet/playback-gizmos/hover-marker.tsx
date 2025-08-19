@@ -25,7 +25,7 @@ export function HoverMarker({ height = 36, width = 1.5, theme = Theme.Light }: H
   hoverSpring.on("change", (h) => {
     if (markerRef.current) {
       if (h !== undefined) {
-        (markerRef.current.material as THREE.MeshBasicMaterial).opacity = 1;
+        (markerRef.current.material as THREE.MeshBasicMaterial).opacity = 0.5;
         markerRef.current.position.x = h;
       } else {
         (markerRef.current.material as THREE.MeshBasicMaterial).opacity = 0;
@@ -36,7 +36,7 @@ export function HoverMarker({ height = 36, width = 1.5, theme = Theme.Light }: H
   return (
     <mesh ref={markerRef as any} position={[0, 0, 15]}>
       <planeGeometry args={[width, height]} />
-      <meshBasicMaterial color={color} toneMapped={false} transparent />
+      <meshBasicMaterial color={color} toneMapped={false} transparent opacity={0} />
     </mesh>
   );
 }

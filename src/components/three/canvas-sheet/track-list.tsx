@@ -3,11 +3,12 @@ import { useRef, useMemo, useCallback, memo } from "react";
 import { MotionValue } from "motion/react";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
-import { useOrthoCameraSetup } from "../../../hooks";
+import { useOrthoCameraSetup, usePlaybackGestures } from "../../../hooks";
 import { AnimationInstanceSettings, TrackRender } from "../../../types";
 import { ThemeMode } from "../../../functions";
 import { DataRenderer } from "./data-renderer";
 import { SharedSplineBackground } from "./shared-spline-background";
+import { HoverMarker } from "./playback-gizmos/hover-marker";
 
 interface TrackListProps {
   animationId: string; // Unique ID for the animation
@@ -137,6 +138,9 @@ export const TrackList = memo(function TrackList({
     }
   });
 
+  // Add playback gestures for seeking and hover preview
+  const playbackGestures = usePlaybackGestures();
+
   return (
     <group ref={groupRef as any}>
       {tracks.map((track, idx) => (
@@ -168,6 +172,17 @@ export const TrackList = memo(function TrackList({
           theme={theme}
         />
       )}
+
+      {/* Render the hover markers and add a gesture detector */}
+      <HoverMarker height={availableHeight} theme={theme} />
+
+      <mesh
+        {...playbackGestures}
+        position={[0.5, topOffsetPx + 1, -trackWorldHeight * tracks.length - 0.1]}
+      >
+        <planeGeometry args={[1, availableHeight]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
     </group>
   );
 });

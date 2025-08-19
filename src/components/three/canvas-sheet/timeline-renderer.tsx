@@ -3,6 +3,7 @@ import { Theme } from "@semio/ui";
 import { useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import { useMotionValue } from "motion/react";
+import { usePlaybackGestures } from "../../../hooks";
 import { DataRenderer } from "./data-renderer";
 import { HoverMarker } from "./playback-gizmos/hover-marker";
 
@@ -29,6 +30,9 @@ export const TimelineRenderer = memo(function TimelineRenderer({
 
   const timelineOffset = useMotionValue(size.height / 2);
 
+  // Add playback gestures for seeking and hover preview
+  const playbackGestures = usePlaybackGestures();
+
   useEffect(() => {
     timelineOffset.set(size.height / 2);
   }, [size.height, timelineOffset]);
@@ -46,6 +50,10 @@ export const TimelineRenderer = memo(function TimelineRenderer({
         scrollOffset={timelineOffset}
         measureFromBottom
       />
+      <mesh {...playbackGestures} position={[0.5, 0, -0.5]}>
+        <planeGeometry args={[1, 36]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
     </>
   );
 });
