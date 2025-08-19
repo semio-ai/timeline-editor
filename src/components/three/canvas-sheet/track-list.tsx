@@ -138,51 +138,66 @@ export const TrackList = memo(function TrackList({
     }
   });
 
+  // Calculate the center Y position of the track area
+  const trackAreaCenterY = useMemo(() => {
+    const availableWorldHeight = (availableHeight / size.height) * worldHeight;
+
+    if (trackRender === TrackRender.Spline) {
+      return y; // Already centered for spline mode
+    } else {
+      // For non-spline, center of the available area
+      const orthoCamera = camera as THREE.OrthographicCamera;
+      const offsetWorld = (topOffsetPx / size.height) * worldHeight;
+      return orthoCamera.top - offsetWorld - availableWorldHeight / 2;
+    }
+  }, [y, worldHeight, availableHeight, size.height, trackRender, camera, topOffsetPx]);
+
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
 
   return (
-    <group ref={groupRef as any}>
-      {tracks.map((track, idx) => (
-        <DataRenderer
-          animationId={animationId}
-          namespaceId={namespaceId}
-          instanceSettings={instanceSettings}
-          key={track}
-          height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
-          trackIds={[track]}
-          yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
-          zOffset={trackRender === TrackRender.Spline ? -trackWorldHeight * idx : undefined}
-          emphasis={emphasis.includes(track)}
-          onEmphasisChange={(v) => onEmphasisChange(track, v ? "add" : "remove")}
-          theme={theme}
-          scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
-          trackRender={trackRender}
-        />
-      ))}
-      {trackRender === TrackRender.Spline && (
-        <SharedSplineBackground
-          animationId={animationId}
-          namespaceId={namespaceId}
-          instanceSettings={instanceSettings}
-          height={availableHeight}
-          trackIds={tracks}
-          yOffset={0}
-          zOffset={-trackWorldHeight * tracks.length}
-          theme={theme}
-        />
-      )}
+    <>
+      <group ref={groupRef as any}>
+        {tracks.map((track, idx) => (
+          <DataRenderer
+            animationId={animationId}
+            namespaceId={namespaceId}
+            instanceSettings={instanceSettings}
+            key={track}
+            height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
+            trackIds={[track]}
+            yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
+            zOffset={trackRender === TrackRender.Spline ? -trackWorldHeight * idx : undefined}
+            emphasis={emphasis.includes(track)}
+            onEmphasisChange={(v) => onEmphasisChange(track, v ? "add" : "remove")}
+            theme={theme}
+            scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
+            trackRender={trackRender}
+          />
+        ))}
+        {trackRender === TrackRender.Spline && (
+          <SharedSplineBackground
+            animationId={animationId}
+            namespaceId={namespaceId}
+            instanceSettings={instanceSettings}
+            height={availableHeight}
+            trackIds={tracks}
+            yOffset={0}
+            zOffset={-trackWorldHeight * tracks.length}
+            theme={theme}
+          />
+        )}
+      </group>
 
       {/* Render the hover markers and add a gesture detector */}
-      <HoverMarker height={availableHeight} theme={theme} />
+      <group position={[0, trackAreaCenterY, 0]}>
+        <HoverMarker height={availableHeight} theme={theme} />
 
-      <mesh
-        {...playbackGestures}
-        position={[0.5, topOffsetPx + 1, -trackWorldHeight * tracks.length - 0.1]}
-      >
-        <planeGeometry args={[1, availableHeight]} />
-        <meshBasicMaterial transparent opacity={0} />
-      </mesh>
-    </group>
+        <mesh {...playbackGestures} position={[0.5, 0, -trackWorldHeight * tracks.length - 0.1]}>
+          <planeGeometry args={[1, availableHeight]} />
+          <meshBasicMaterial transparent opacity={0} />
+        </mesh>
+      </group>
+    </>
   );
 });
