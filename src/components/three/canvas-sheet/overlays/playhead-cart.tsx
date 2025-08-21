@@ -1,9 +1,11 @@
 import { Theme, stampToVisualTime } from "@semio/ui";
 import { memo, useEffect, useRef } from "react";
 import * as THREE from "three";
+import { useFrame, useThree } from "@react-three/fiber";
+import { clamp } from "lodash";
 import { useShallow } from "zustand/react/shallow";
 import { usePlayerStore } from "@semio/utils";
-import { useMotionValue, easeOut, MotionValue, useTransform, useSpring } from "motion/react";
+import { useMotionValue, easeOut, MotionValue } from "motion/react";
 import { TrackText } from "../shared";
 import { DynamicRoundedRect } from "../shared/rounded-rectangle-geometry";
 import {
@@ -14,11 +16,9 @@ import {
   useInvariantScale,
   useTween,
 } from "../../../../hooks";
-import { useFrame, useThree } from "@react-three/fiber";
-import { clamp } from "lodash";
 import { TIMELINE_PADDING } from "../../../../constants";
 
-const CONE_RADIUS = 7; // Radius of the cone for the vertical pointer
+const CONE_RADIUS = 4; // Radius of the cone for the vertical pointer
 
 export interface PlayheadCartProps {
   height?: number;
@@ -37,13 +37,14 @@ export const PlayheadCart = memo(function PlayheadCart({
   side = "top",
   fonts,
 }: PlayheadCartProps) {
-  const { pixelsToWorldX, pixelsToWorldY } = usePixelToWorld();
-
   const cartRef = useRef<THREE.Group>(null);
   const scaleRef = useRef<THREE.Group>(null);
+  const boxRef = useRef<THREE.Mesh>(null);
   const textRef = useRef<THREE.Group>(null);
   const arrowVertRef = useRef<THREE.Mesh>(null);
   const lineRef = useRef<THREE.Mesh>(null);
+  const leftArrowRef = useRef<THREE.Mesh>(null);
+  const rightArrowRef = useRef<THREE.Mesh>(null);
 
   const cartWidthSpring = useCartWidthSpring();
   const invariantScale = useInvariantScale();
@@ -55,18 +56,6 @@ export const PlayheadCart = memo(function PlayheadCart({
 
   // Create motion values for morph target influences
   const cartHeight = useMotionValue(20);
-
-  // Calculate dimensions in world space
-  const timelineHeight = height * pixelsToWorldY;
-
-  // Get positioning springs
-  // const playheadSpring = usePlayheadSpring();
-  // const scaleX = useInvariantScale();
-  // const {
-  //   width: widthSpring,
-  //   offset: offsetSpring,
-  //   visibility: visibilitySpring,
-  // } = usePlayheadCartSprings(duration, 10, ignoreZoom);
 
   // Calculate colors based on state
   const colors = {
@@ -87,14 +76,14 @@ export const PlayheadCart = memo(function PlayheadCart({
     }
   });
 
-  const boxRef = useRef<THREE.Mesh>(null);
-
-  // cartWidthSpring.on("change", (w: number) => {
-  //   if (boxRef.current) {
-  //     console.log("new width", w);
-  //     boxRef.current.scale.x = w;
-  //   }
-  // });
+  cartWidthSpring.on("change", (w: number) => {
+    if (leftArrowRef.current) {
+      leftArrowRef.current.position.x = -w / 2 - 1 + 4 * opacity.get();
+    }
+    if (rightArrowRef.current) {
+      rightArrowRef.current.position.x = w / 2 + 1 - 4 * opacity.get();
+    }
+  });
 
   invariantScale.on("change", (s) => {
     if (scaleRef.current) {
@@ -123,6 +112,22 @@ export const PlayheadCart = memo(function PlayheadCart({
       (lineRef.current.material as THREE.MeshBasicMaterial).opacity = o;
       (lineRef.current.material as THREE.MeshBasicMaterial).transparent = o < 1;
     }
+    if (leftArrowRef.current) {
+      leftArrowRef.current.position.x = -cartWidthSpring.get() / 2 - 1 + 4 * o;
+      if (offset.get() > 0) {
+        (leftArrowRef.current.material as THREE.MeshBasicMaterial).opacity = 1 - o;
+      } else {
+        (leftArrowRef.current.material as THREE.MeshBasicMaterial).opacity = 0;
+      }
+    }
+    if (rightArrowRef.current) {
+      rightArrowRef.current.position.x = cartWidthSpring.get() / 2 + 1 - 4 * o;
+      if (offset.get() < 0) {
+        (rightArrowRef.current.material as THREE.MeshBasicMaterial).opacity = 1 - o;
+      } else {
+        (rightArrowRef.current.material as THREE.MeshBasicMaterial).opacity = 0;
+      }
+    }
   });
 
   return (
@@ -139,19 +144,56 @@ export const PlayheadCart = memo(function PlayheadCart({
             // segments={16}
             color={colors.cart}
           />
+
+          {/* A horizontal arrow on each side of the cart. These are fixed so that when the cart applies its offset they are exposed */}
+          <mesh
+            ref={leftArrowRef as any}
+            position={[
+              -cartWidthSpring.get() / 2 - 1 + 4 * opacity.get(),
+              cartY,
+              cartDepth - CONE_RADIUS,
+            ]}
+            scale={[1, 1, 0.1]}
+            rotation={[0, 0, Math.PI / 2]}
+          >
+            <coneGeometry args={[10, 5, cartDepth + 2]} />
+            <meshBasicMaterial
+              color={colors.cart}
+              toneMapped={false}
+              transparent
+              opacity={1 - opacity.get()}
+            />
+          </mesh>
+          <mesh
+            ref={rightArrowRef as any}
+            position={[
+              cartWidthSpring.get() / 2 + 1 - 4 * opacity.get(),
+              cartY,
+              cartDepth - CONE_RADIUS,
+            ]}
+            scale={[1, 1, 0.1]}
+            rotation={[0, 0, -Math.PI / 2]}
+          >
+            <coneGeometry args={[10, 5, cartDepth + 2]} />
+            <meshBasicMaterial
+              color={colors.cart}
+              toneMapped={false}
+              transparent
+              opacity={1 - opacity.get()}
+            />
+          </mesh>
         </group>
 
         {/* Vertical pointer (triangle pointing up/down) */}
         {/* Always centered relative to the line */}
         <mesh
           ref={arrowVertRef as any}
-          position={[0, pointerY, cartDepth + 1]}
+          position={[0, side === "top" ? pointerY - 2 : pointerY + 2, cartDepth + 1]}
           scale={[1, side === "top" ? -1 : 1, 1]}
         >
-          <coneGeometry args={[CONE_RADIUS, 7, 4]} />
+          <coneGeometry args={[CONE_RADIUS, 5, 4]} />
           <meshBasicMaterial
-            // color={colors.cart}
-            color="red"
+            color={colors.cart}
             toneMapped={false}
             transparent
             opacity={opacity.get()}
@@ -168,25 +210,7 @@ export const PlayheadCart = memo(function PlayheadCart({
             opacity={opacity.get()}
           />
         </mesh>
-
-        {/* A horizontal arrow on each side of the cart. These are fixed so that when the cart applies its offset they are exposed */}
-        <mesh
-          name="horizontal-pointer"
-          position={[-TIMELINE_PADDING + 3, cartY, cartDepth]}
-          rotation={[0, 0, Math.PI / 2]}
-        >
-          <coneGeometry args={[10, 5, cartDepth + 2]} />
-          <meshBasicMaterial color="cyan" toneMapped={false} transparent />
-        </mesh>
       </group>
-
-      {/* Horizontal pointer (wider triangle) */}
-
-      {/* Vertical line */}
-      {/*<mesh name="vertical-line" position={[0, 0, -cartDepth]}>
-        <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial color={colors.line} toneMapped={false} />
-      </mesh>*/}
 
       {/* Time text */}
       <group
@@ -201,7 +225,7 @@ export const PlayheadCart = memo(function PlayheadCart({
 
 function useCartWidthSpring() {
   const fontSize = 8; // Font size for the time display
-  // const { pixelsToWorldX } = usePixelToWorld();
+
   const altPressed = useAltKeyPressed();
   const [framerate, timeDisplay] = useAnimationStore(
     useShallow((s) => [s.framerate, s.timeDisplay]),
@@ -254,10 +278,10 @@ function computeBoxOffset(
   // Calculations assume that the cart is otherwise centered at the clamped position;
   if (v - halfCart < boxBounds[0]) {
     const offset = boxBounds[0] - v + halfCart;
-    return [offset, Math.abs(offset) - halfCart + CONE_RADIUS < 1 ? 1 : 0];
+    return [offset, Math.abs(offset) - halfCart + CONE_RADIUS <= 0 ? 1 : 0];
   } else if (v + halfCart > boxBounds[1]) {
     const offset = boxBounds[1] - v - halfCart;
-    return [offset, Math.abs(offset) - halfCart + CONE_RADIUS < 1 ? 1 : 0];
+    return [offset, Math.abs(offset) - halfCart + CONE_RADIUS <= 0 ? 1 : 0];
   } else {
     return [0, 1];
   }
@@ -303,19 +327,6 @@ function usePlayheadCartSprings(
     duration: 0.07,
     ease: easeOut,
   });
-  // const opacitySpring
-
-  // useEffect(() => {
-  //   console.log("new bounds", [left, right]);
-  // }, [left, right]);
-  // const defaultPlayheadSpring = usePlayheadSpring();
-  // const playheadSpring = useTransform(defaultPlayheadSpring, (v: number) => {
-  //   if (boundWithViewport) {
-  //     return clamp(v, left, right);
-  //   } else {
-  //     return v;
-  //   }
-  // });
 
   useFrame(({ camera }) => {
     const [l, r] = [
@@ -342,125 +353,6 @@ function usePlayheadCartSprings(
 
   return { position: playheadCartSpring, offset, opacity };
 }
-
-// Separate component to handle the cart rendering and animation
-// const CartGroup = memo(function CartGroup({
-//   playheadSpring,
-//   scaleX,
-//   offsetSpring,
-//   widthSpring,
-//   visibilitySpring,
-//   pixelsToWorldX,
-//   colors,
-//   cartY,
-//   cartHeight,
-//   cartDepth,
-//   pointerY,
-//   pointerHeight,
-//   lineWidth,
-//   timelineHeight,
-// }: {
-//   playheadSpring: any;
-//   scaleX: any;
-//   offsetSpring: any;
-//   widthSpring: any;
-//   visibilitySpring: any;
-//   pixelsToWorldX: number;
-//   colors: { cart: string; line: string; text: string };
-//   cartY: number;
-//   cartHeight: number;
-//   cartDepth: number;
-//   pointerY: number;
-//   pointerHeight: number;
-//   lineWidth: number;
-//   timelineHeight: number;
-// }) {
-//   // Use useFrame to update positions directly
-//   // useFrame(({ scene }) => {
-//   //   const cartGroup = scene.getObjectByName("playhead-cart-group");
-//   //   if (!cartGroup) return;
-
-//   //   const currentPlayhead = Number(playheadSpring.get());
-//   //   const currentOffset = Number(offsetSpring.get()) * pixelsToWorldX;
-//   //   const currentWidth = Number(widthSpring.get()) * pixelsToWorldX;
-//   //   const currentVisibility = Number(visibilitySpring.get());
-//   //   const currentScaleX = Number(scaleX.get());
-
-//   //   // Update main cart group position
-//   //   cartGroup.position.x = currentPlayhead;
-
-//   //   // Update cart body
-//   //   const cartBody = cartGroup.getObjectByName("cart-body");
-//   //   if (cartBody) {
-//   //     cartBody.position.x = currentOffset + currentWidth / 2;
-//   //     cartBody.scale.set(currentWidth, cartHeight, cartDepth);
-//   //   }
-
-//   //   // Update pointers based on visibility
-//   //   const isHorizontalMode = Math.abs(currentVisibility) > 0.5;
-
-//   //   const verticalPointer = cartGroup.getObjectByName("vertical-pointer");
-//   //   if (verticalPointer) {
-//   //     const scale = isHorizontalMode ? 0 : 1;
-//   //     verticalPointer.scale.set(currentScaleX * scale, scale, scale);
-//   //     verticalPointer.position.set(0, pointerY, cartDepth);
-//   //   }
-
-//   //   const horizontalPointer = cartGroup.getObjectByName("horizontal-pointer");
-//   //   if (horizontalPointer) {
-//   //     const scale = isHorizontalMode ? 1 : 0;
-//   //     horizontalPointer.scale.set(currentScaleX * scale, scale, scale);
-//   //     horizontalPointer.position.set(0, pointerY, cartDepth);
-//   //   }
-
-//   //   // Update vertical line
-//   //   const verticalLine = cartGroup.getObjectByName("vertical-line");
-//   //   if (verticalLine) {
-//   //     const lineHeight = isHorizontalMode ? 0 : timelineHeight;
-//   //     verticalLine.scale.set(currentScaleX * lineWidth, lineHeight, 1);
-//   //     verticalLine.position.set(0, 0, -cartDepth);
-//   //   }
-
-//   //   // Update text position
-//   //   const textGroup = cartGroup.getObjectByName("text-group");
-//   //   if (textGroup) {
-//   //     textGroup.position.set(currentOffset + currentWidth / 2, cartY, cartDepth * 2);
-//   //   }
-//   // });
-
-//   return (
-//     <group name="playhead-cart-group">
-//       {/* Cart body */}
-//       <mesh name="cart-body" position={[0, cartY, cartDepth]}>
-//         <planeGeometry args={[1, 1]} />
-//         <meshBasicMaterial color={colors.cart} toneMapped={false} />
-//       </mesh>
-
-//       {/* Vertical pointer (triangle pointing up/down) */}
-//       {/*<mesh name="vertical-pointer" position={[0, pointerY, cartDepth]}>
-//         <coneGeometry args={[4 * pixelsToWorldX, pointerHeight, 3]} />
-//         <meshBasicMaterial color={colors.cart} toneMapped={false} />
-//       </mesh>*/}
-
-//       {/* Horizontal pointer (wider triangle) */}
-//       {/*<mesh name="horizontal-pointer" position={[0, pointerY, cartDepth]}>
-//         <coneGeometry args={[8 * pixelsToWorldX, pointerHeight * 0.6, 3]} />
-//         <meshBasicMaterial color={colors.cart} toneMapped={false} />
-//       </mesh>*/}
-
-//       {/* Vertical line */}
-//       {/*<mesh name="vertical-line" position={[0, 0, -cartDepth]}>
-//         <planeGeometry args={[1, 1]} />
-//         <meshBasicMaterial color={colors.line} toneMapped={false} />
-//       </mesh>*/}
-
-//       {/* Time text */}
-//       <group name="text-group" position={[0, cartY, cartDepth * 2]}>
-//         <PlayheadTime color={colors.text} />
-//       </group>
-//     </group>
-//   );
-// });
 
 const PlayheadTime = memo(function PlayheadTime({
   color,

@@ -1,6 +1,6 @@
 import { Transition } from "motion";
 
-export const TIMELINE_PADDING = 8;
+export const TIMELINE_PADDING = 10;
 export const DEFAULT_ANIMATION_ID = "default-animation";
 export const DEFAULT_TRACK_HEIGHT = 36;
 
