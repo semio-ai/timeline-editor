@@ -5,7 +5,14 @@ import { useFrame, useThree, ThreeEvent } from "@react-three/fiber";
 import { clamp } from "lodash";
 import { useShallow } from "zustand/react/shallow";
 import { usePlayerStore, closestFrame } from "@semio/utils";
-import { useMotionValue, easeOut, MotionValue, useSpring } from "motion/react";
+import {
+  useMotionValue,
+  easeOut,
+  MotionValue,
+  useSpring,
+  useMotionValueEvent,
+  useTransform,
+} from "motion/react";
 import { TrackText } from "../shared";
 import { DynamicRoundedRect } from "../shared/rounded-rectangle-geometry";
 import {
@@ -36,22 +43,22 @@ export interface PlayheadCartProps {
 const BASE_COLORS = {
   dark: {
     active: {
-      cart: "#ffffff", // white
+      cart: 1, // white
       text: "#000000", // black
     },
     inactive: {
-      cart: "#cccccc", // light gray
-      text: "#333333", // dark gray
+      cart: 0.7, // light gray
+      text: "#000000", // black
     },
   },
   light: {
     active: {
-      cart: "#000000", // black
+      cart: 0, // black
       text: "#ffffff", // white
     },
     inactive: {
-      cart: "#666666", // dark gray
-      text: "#f0f0f0", // light gray
+      cart: 0.3, // dark gray
+      text: "#ffffff", // white
     },
   },
 };
@@ -123,7 +130,7 @@ export const PlayheadCart = memo(function PlayheadCart({
   const cartHeight = useMotionValue(20);
 
   // Calculate colors based on state
-  const cartColor = useSpring(
+  const cartBrightness = useSpring(
     previewCurrent ? BASE_COLORS[theme].active.cart : BASE_COLORS[theme].inactive.cart,
     {
       stiffness: 300,
@@ -134,11 +141,36 @@ export const PlayheadCart = memo(function PlayheadCart({
     ? BASE_COLORS[theme].active.text
     : BASE_COLORS[theme].inactive.text;
 
+  useEffect(() => {
+    const color: number = previewCurrent
+      ? BASE_COLORS[theme].active.cart
+      : BASE_COLORS[theme].inactive.cart;
+    console.log("updating cart color", color);
+    cartBrightness.set(color);
+  }, [cartBrightness, theme, previewCurrent]);
+
+  const cartColor = useTransform(cartBrightness, [0, 1], ["#000000", "#ffffff"]);
+
   const cartDepth = 10;
 
   // Calculate cart elements' y positions based on side
   const cartY = side === "top" ? -height / 2 + 19 : height / 2 - 19;
   const pointerY = side === "top" ? -height / 2 + 9 : height / 2 - 9;
+
+  useMotionValueEvent(cartColor, "change", (value) => {
+    if (lineRef.current) {
+      (lineRef.current.material as THREE.MeshBasicMaterial).color.set(value);
+    }
+    if (arrowVertRef.current) {
+      (arrowVertRef.current.material as THREE.MeshBasicMaterial).color.set(value);
+    }
+    if (leftArrowRef.current) {
+      (leftArrowRef.current.material as THREE.MeshBasicMaterial).color.set(value);
+    }
+    if (rightArrowRef.current) {
+      (rightArrowRef.current.material as THREE.MeshBasicMaterial).color.set(value);
+    }
+  });
 
   playheadSpring.on("change", (ph) => {
     if (cartRef.current) {
@@ -192,12 +224,6 @@ export const PlayheadCart = memo(function PlayheadCart({
       rightArrowRef.current.position.x = cartWidthSpring.get() / 2 + 1 - 4 * o;
       (rightArrowRef.current.material as THREE.MeshBasicMaterial).opacity = rightOpacity;
     }
-    if (dragMeshRef.current) {
-      // Update drag handle mesh size dynamically
-      const geometry = new THREE.PlaneGeometry(cartWidthSpring.get() + 20, height * 0.8);
-      dragMeshRef.current.geometry.dispose();
-      dragMeshRef.current.geometry = geometry;
-    }
   });
 
   // Update drag handle mesh when cart width changes
@@ -209,9 +235,10 @@ export const PlayheadCart = memo(function PlayheadCart({
       rightArrowRef.current.position.x = w / 2 + 1 - 4 * opacity.get();
     }
     if (dragMeshRef.current) {
-      const geometry = new THREE.PlaneGeometry(w + 20, height * 0.8);
-      dragMeshRef.current.geometry.dispose();
-      dragMeshRef.current.geometry = geometry;
+      dragMeshRef.current.scale.x = w + 5;
+      // const geometry = new THREE.PlaneGeometry(w + 20, height * 0.8);
+      // dragMeshRef.current.geometry.dispose();
+      // dragMeshRef.current.geometry = geometry;
     }
   });
 
@@ -241,22 +268,6 @@ export const PlayheadCart = memo(function PlayheadCart({
 
   return (
     <group ref={cartRef as any}>
-      {/* Invisible drag handle mesh */}
-      <mesh
-        ref={dragMeshRef as any}
-        position={[0, cartY, cartDepth + 10]}
-        onPointerDown={dragHandlers.onPointerDown}
-        onPointerMove={dragHandlers.onPointerMove}
-        onPointerUp={dragHandlers.onPointerUp}
-        onPointerCancel={dragHandlers.onPointerCancel}
-        onDoubleClick={handleDoubleClick}
-        onPointerEnter={handlePointerEnter}
-        onPointerLeave={handlePointerLeave}
-      >
-        <planeGeometry args={[cartWidthSpring.get() + 20, height * 0.8]} />
-        <meshBasicMaterial transparent opacity={0.5} color="lime" />
-      </mesh>
-
       {/* Cart body */}
       <group ref={scaleRef as any} scale={[invariantScale.get(), 1, 1]}>
         {/* Dynamic rounded rect version for comparison */}
@@ -306,6 +317,23 @@ export const PlayheadCart = memo(function PlayheadCart({
               transparent
               opacity={initialRightOpacity}
             />
+          </mesh>
+
+          {/* Invisible drag handle mesh */}
+          <mesh
+            ref={dragMeshRef as any}
+            position={[0, cartY, cartDepth + 10]}
+            onPointerDown={dragHandlers.onPointerDown}
+            onPointerMove={dragHandlers.onPointerMove}
+            onPointerUp={dragHandlers.onPointerUp}
+            onPointerCancel={dragHandlers.onPointerCancel}
+            onDoubleClick={handleDoubleClick}
+            onPointerEnter={handlePointerEnter}
+            onPointerLeave={handlePointerLeave}
+            scale={[cartWidthSpring.get() + 5, 1, 1]}
+          >
+            <planeGeometry args={[1, height * 0.8]} />
+            <meshBasicMaterial transparent opacity={0} />
           </mesh>
         </group>
 

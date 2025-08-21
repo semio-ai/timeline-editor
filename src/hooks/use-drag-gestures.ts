@@ -157,7 +157,7 @@ export const useViewportDragGestures = ({
   bounds?: [number, number];
   minWidth?: number;
   dragType?: "viewport" | "left" | "right";
-}) => {
+}): Record<string, any> => {
   const { camera, size } = useThree();
 
   const bind = useGesture(
@@ -208,7 +208,7 @@ export const useViewportDragGestures = ({
         }
 
         onDrag?.(newViewport);
-        return memo;
+        return memo as [number, number];
       },
       onDragEnd: ({ movement: [mx], memo }) => {
         if (disabled) return;
@@ -254,5 +254,5 @@ export const useViewportDragGestures = ({
     },
   );
 
-  return bind() as any;
+  return bind();
 };
