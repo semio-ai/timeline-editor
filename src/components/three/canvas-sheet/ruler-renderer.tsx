@@ -15,6 +15,7 @@ import type { AnimationData } from "../../../store-types";
 import { TrackText } from "./shared/track-text";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadCart } from "./overlays/playhead-cart";
+import { FrustumBackground } from "./frustum-background";
 
 interface RulerRendererProps {
   height: number;
@@ -103,10 +104,13 @@ export const RulerRenderer = memo(function RulerRenderer({
   return (
     <>
       {/* Background gesture plane for playback interactions */}
-      <mesh {...playbackGestures} position={[0.5, 0, -0.5]}>
-        <planeGeometry args={[1, hudHeightWorld]} />
-        <meshBasicMaterial transparent opacity={0} />
-      </mesh>
+      <FrustumBackground
+        color="transparent"
+        height={hudHeightWorld}
+        opacity={0}
+        position={[0.5, 0, -0.5]}
+        pointerEvents={playbackGestures}
+      />
 
       <HoverMarker height={hudHeightWorld} theme={theme} />
       <PlayheadCart

@@ -7,6 +7,7 @@ import { usePlaybackGestures } from "../../../hooks";
 import { DataRenderer } from "./data-renderer";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
+import { FrustumBackground } from "./frustum-background";
 
 export interface TimelineRendererProps {
   selection?: string[];
@@ -52,10 +53,13 @@ export const TimelineRenderer = memo(function TimelineRenderer({
         scrollOffset={timelineOffset}
         measureFromBottom
       />
-      <mesh {...playbackGestures} position={[0.5, 0, -0.5]}>
-        <planeGeometry args={[1, 36]} />
-        <meshBasicMaterial transparent opacity={0} />
-      </mesh>
+      <FrustumBackground
+        color="transparent"
+        height={36}
+        opacity={0}
+        position={[0.5, 0, -0.5]}
+        pointerEvents={playbackGestures}
+      />
     </>
   );
 });

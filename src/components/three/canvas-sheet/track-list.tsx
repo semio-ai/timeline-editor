@@ -10,6 +10,7 @@ import { DataRenderer } from "./data-renderer";
 import { SharedSplineBackground } from "./shared-spline-background";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
+import { FrustumBackground } from "./frustum-background";
 
 interface TrackListProps {
   animationId: string; // Unique ID for the animation
@@ -195,10 +196,13 @@ export const TrackList = memo(function TrackList({
         <HoverMarker height={availableHeight} theme={theme} />
         <PlayheadMarker height={availableHeight} theme={theme} />
 
-        <mesh {...playbackGestures} position={[0.5, 0, -trackWorldHeight * tracks.length - 0.1]}>
-          <planeGeometry args={[1, availableHeight]} />
-          <meshBasicMaterial transparent opacity={0} />
-        </mesh>
+        <FrustumBackground
+          color="red"
+          height={availableHeight}
+          opacity={0.5}
+          position={[0.5, 0, -trackWorldHeight * tracks.length - 0.1]}
+          pointerEvents={playbackGestures}
+        />
       </group>
     </>
   );
