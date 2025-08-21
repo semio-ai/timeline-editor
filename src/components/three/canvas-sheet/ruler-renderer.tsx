@@ -1,8 +1,7 @@
-import { useMemo, useRef, Suspense, memo, useEffect } from "react";
+import { useMemo, useRef, memo, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
-import { useThree, useFrame } from "@react-three/fiber";
-import { Instances, Instance, Text } from "@react-three/drei";
+import { Instances, Instance } from "@react-three/drei";
 import { stampToVisualTime, Theme } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import {
@@ -13,8 +12,9 @@ import {
   useInvariantScale,
 } from "../../../hooks";
 import type { AnimationData } from "../../../store-types";
+import { TrackText } from "./shared/track-text";
 import { HoverMarker } from "./overlays/hover-marker";
-import { PlayheadMarker } from "./overlays/playhead-marker";
+import { PlayheadCart } from "./overlays/playhead-cart";
 
 interface RulerRendererProps {
   height: number;
@@ -109,7 +109,12 @@ export const RulerRenderer = memo(function RulerRenderer({
       </mesh>
 
       <HoverMarker height={hudHeightWorld} theme={theme} />
-      <PlayheadMarker height={36} theme={theme} />
+      <PlayheadCart
+        height={hudHeightWorld / pixelsToWorldY}
+        theme={theme}
+        side={side}
+        fonts={fonts}
+      />
 
       {/* Tick lines using Instances */}
       <Ticks
@@ -164,7 +169,7 @@ const Ticks = memo(function Ticks({
   );
 });
 
-// Component for text labels with zoom-invariant scaling
+// Component for text labels using shared TrackText
 const TextBoxes = memo(function TextBoxes({
   ticks,
   side,
@@ -186,69 +191,26 @@ const TextBoxes = memo(function TextBoxes({
     ui?: string;
   };
 }) {
-  const { size } = useThree();
-  const textRefs = useRef<(THREE.Object3D | null)[]>([]);
-
-  // Initialize textRefs array to match ticks length
-  useMemo(() => {
-    textRefs.current = new Array(ticks.length).fill(null);
-  }, [ticks.length]);
-
   // Calculate text position using helper function
   const textYWorld = calculateTextPosition(yPosition, tickHeight, side, 6, pixelsToWorldY);
 
-  // Text scaling constants
-  const fontSizePixels = 10;
-  const baseFontSize = 0.01;
-
-  // Update text scales to maintain constant pixel size regardless of zoom
-  useFrame(({ camera: frameCamera }) => {
-    if (!size.width || !size.height) return;
-
-    const orthoCamera = frameCamera as THREE.OrthographicCamera;
-    const currentFrustumHeight = orthoCamera.top - orthoCamera.bottom;
-    const currentFrustumWidth = orthoCamera.right - orthoCamera.left;
-
-    // Calculate scale factors for both axes
-    const currentPixelsToWorldY = currentFrustumHeight / size.height;
-    const currentPixelsToWorldX = currentFrustumWidth / size.width;
-    const fontScaleFactorY = (fontSizePixels * currentPixelsToWorldY) / baseFontSize;
-    const fontScaleFactorX = (fontSizePixels * currentPixelsToWorldX) / baseFontSize;
-
-    // Apply scaling to all text instances
-    textRefs.current.forEach((textRef) => {
-      if (textRef) {
-        textRef.scale.set(fontScaleFactorX, fontScaleFactorY, 1);
-      }
-    });
-  });
-
   return (
-    <Suspense fallback={null}>
-      {ticks.map((tick, index) => (
-        <group
+    <>
+      {ticks.map((tick) => (
+        <TrackText
           key={`label-${tick.frameIndex.toString()}`}
+          text={tick.timeLabel}
           position={[tick.worldX, textYWorld, 0.002]}
-          ref={(el) => {
-            if (el && textRefs.current) {
-              textRefs.current[index] = el as THREE.Object3D | null;
-            }
-          }}
-        >
-          <Text
-            font={fonts?.mono}
-            fontSize={baseFontSize}
-            color={theme === "dark" ? "#ffffff" : "#000000"}
-            anchorX="center"
-            anchorY="middle"
-            characters="0123456789:.-sf"
-            material-transparent
-          >
-            {tick.timeLabel}
-          </Text>
-        </group>
+          color={theme === "dark" ? "#ffffff" : "#000000"}
+          font={fonts?.mono}
+          fontSizePixels={10}
+          anchorX="center"
+          anchorY="middle"
+          characters="0123456789:.-sf"
+          name={`ruler-text-${tick.frameIndex.toString()}`}
+        />
       ))}
-    </Suspense>
+    </>
   );
 });
 
