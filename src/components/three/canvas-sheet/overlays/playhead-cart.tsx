@@ -1,5 +1,5 @@
 import { Theme, stampToVisualTime } from "@semio/ui";
-import { memo, useEffect, useRef, useCallback } from "react";
+import { memo, useEffect, useRef, useCallback, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree, ThreeEvent } from "@react-three/fiber";
 import { clamp } from "lodash";
@@ -13,6 +13,7 @@ import {
   useMotionValueEvent,
   useTransform,
 } from "motion/react";
+import { useCursor } from "@react-three/drei";
 import { TrackText } from "../shared";
 import { DynamicRoundedRect } from "../shared/rounded-rectangle-geometry";
 import {
@@ -87,7 +88,8 @@ export const PlayheadCart = memo(function PlayheadCart({
     opacity,
   } = usePlayheadCartSprings(cartWidthSpring, invariantScale, side === "top");
 
-  // State for hover
+  // State for hover and drag
+  const [isDragging, setIsDragging] = useState(false);
   const altPressed = useAltKeyPressed();
 
   // Player and animation store actions
@@ -109,13 +111,15 @@ export const PlayheadCart = memo(function PlayheadCart({
         state.previews.find((p) => p.semanticTime === SemanticTime.Current) !== undefined,
     })),
   );
-  console.log("previewCurrent", previewCurrent);
 
   const frameCount = Math.floor(framerate * (playerDuration / 1000));
 
   // Use drag gestures hook with @use-gesture/react for better drag handling
   const dragHandlers = useDragGestures({
     disabled: playing,
+    onDragStart: () => {
+      setIsDragging(true);
+    },
     onDrag: (position, altKey) => {
       if (altKey || altPressed) {
         resetPlayer(position);
@@ -124,7 +128,14 @@ export const PlayheadCart = memo(function PlayheadCart({
         resetPlayer(closest);
       }
     },
+    onDragEnd: () => {
+      setIsDragging(false);
+    },
   });
+
+  // Cursor feedback - use previewCurrent like the minimap does for hover state
+  useCursor(previewCurrent && !playing && !isDragging, "grab", "auto");
+  useCursor(isDragging, "grabbing", "auto");
 
   // Create motion values for morph target influences
   const cartHeight = useMotionValue(20);
@@ -145,7 +156,6 @@ export const PlayheadCart = memo(function PlayheadCart({
     const color: number = previewCurrent
       ? BASE_COLORS[theme].active.cart
       : BASE_COLORS[theme].inactive.cart;
-    console.log("updating cart color", color);
     cartBrightness.set(color);
   }, [cartBrightness, theme, previewCurrent]);
 
@@ -157,6 +167,7 @@ export const PlayheadCart = memo(function PlayheadCart({
   const cartY = side === "top" ? -height / 2 + 19 : height / 2 - 19;
   const pointerY = side === "top" ? -height / 2 + 9 : height / 2 - 9;
 
+  // Use motion value event to update colors of cart elements
   useMotionValueEvent(cartColor, "change", (value) => {
     if (lineRef.current) {
       (lineRef.current.material as THREE.MeshBasicMaterial).color.set(value);
@@ -172,13 +183,15 @@ export const PlayheadCart = memo(function PlayheadCart({
     }
   });
 
-  playheadSpring.on("change", (ph) => {
+  // Update position of the cart when playhead changes
+  useMotionValueEvent(playheadSpring, "change", (ph) => {
     if (cartRef.current) {
       cartRef.current.position.x = ph;
     }
   });
 
-  invariantScale.on("change", (s) => {
+  // Update scale of the cart when invariant scale changes
+  useMotionValueEvent(invariantScale, "change", (s) => {
     if (scaleRef.current) {
       scaleRef.current.scale.x = s;
     }
@@ -187,15 +200,16 @@ export const PlayheadCart = memo(function PlayheadCart({
     }
   });
 
-  offset.on("change", (s) => {
+  // Update box position and opacity when offset changes
+  useMotionValueEvent(offset, "change", (o) => {
     if (boxRef.current) {
-      boxRef.current.position.x = s;
+      boxRef.current.position.x = o;
     }
     if (textRef.current) {
-      textRef.current.position.x = s * invariantScale.get();
+      textRef.current.position.x = o * invariantScale.get();
     }
-    const leftOpacity = getOpacity("left", opacity.get(), s);
-    const rightOpacity = getOpacity("right", opacity.get(), s);
+    const leftOpacity = getOpacity("left", opacity.get(), o);
+    const rightOpacity = getOpacity("right", opacity.get(), o);
 
     if (leftArrowRef.current) {
       (leftArrowRef.current.material as THREE.MeshBasicMaterial).opacity = leftOpacity;
@@ -205,7 +219,8 @@ export const PlayheadCart = memo(function PlayheadCart({
     }
   });
 
-  opacity.on("change", (o) => {
+  // Update opacity of arrows and line when opacity changes
+  useMotionValueEvent(opacity, "change", (o) => {
     if (arrowVertRef.current) {
       (arrowVertRef.current.material as THREE.MeshBasicMaterial).opacity = o;
       (arrowVertRef.current.material as THREE.MeshBasicMaterial).transparent = o < 1;
@@ -226,8 +241,8 @@ export const PlayheadCart = memo(function PlayheadCart({
     }
   });
 
-  // Update drag handle mesh when cart width changes
-  cartWidthSpring.on("change", (w: number) => {
+  // Update drag handle mesh and arrows when cart width changes
+  useMotionValueEvent(cartWidthSpring, "change", (w: number) => {
     if (leftArrowRef.current) {
       leftArrowRef.current.position.x = -w / 2 - 1 + 4 * opacity.get();
     }
@@ -236,9 +251,6 @@ export const PlayheadCart = memo(function PlayheadCart({
     }
     if (dragMeshRef.current) {
       dragMeshRef.current.scale.x = w + 5;
-      // const geometry = new THREE.PlaneGeometry(w + 20, height * 0.8);
-      // dragMeshRef.current.geometry.dispose();
-      // dragMeshRef.current.geometry = geometry;
     }
   });
 

@@ -1,6 +1,7 @@
 import { Theme } from "@semio/ui";
 import { useRef, memo } from "react";
 import * as THREE from "three";
+import { useMotionValueEvent } from "motion/react";
 import { useHoverSpring, useInvariantScale } from "../../../../hooks";
 
 export interface HoverMarkerProps {
@@ -20,13 +21,13 @@ export const HoverMarker = memo(function HoverMarker({
   const scaleX = useInvariantScale();
   const hoverSpring = useHoverSpring();
 
-  scaleX.on("change", (s) => {
+  useMotionValueEvent(scaleX, "change", (s) => {
     if (markerRef.current) {
       markerRef.current.scale.set(s, 1, 1);
     }
   });
 
-  hoverSpring.on("change", (h) => {
+  useMotionValueEvent(hoverSpring, "change", (h) => {
     if (markerRef.current) {
       if (h !== undefined) {
         (markerRef.current.material as THREE.MeshBasicMaterial).opacity = 0.5;
