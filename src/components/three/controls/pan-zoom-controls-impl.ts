@@ -325,7 +325,6 @@ export class PanZoomControls extends EventDispatcher<PanZoomControlsEventMap> {
   }
 
   private panCamera(deltaX: number) {
-    console.log("Panning axis");
     const camera = this.object;
     const canvasWidth = this.domElement?.clientWidth || 1;
 

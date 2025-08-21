@@ -105,7 +105,6 @@ export const RulerRenderer = memo(function RulerRenderer({
     <>
       {/* Background gesture plane for playback interactions */}
       <FrustumBackground
-        color="transparent"
         height={hudHeightWorld}
         opacity={0}
         position={[0.5, 0, -0.5]}

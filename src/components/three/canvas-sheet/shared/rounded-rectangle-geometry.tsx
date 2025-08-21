@@ -1,6 +1,6 @@
 import { useMemo, useRef, memo, useEffect, useCallback } from "react";
 import * as THREE from "three";
-import { MotionValue } from "motion/react";
+import { MotionValue, useMotionValueEvent } from "motion/react";
 
 export interface RoundedRectangleGeometryProps {
   /** Corner radius (remains constant during morphing) */
@@ -229,7 +229,7 @@ export interface MorphableRoundedRectProps {
 export const DynamicRoundedRect = memo(function MorphableRoundedRect({
   radius = 0.1,
   segments = 8,
-  color = "#ffffff",
+  color = new MotionValue("#ffffff"),
   position = [0, 0, 0],
   widthMotion,
   heightMotion,
@@ -239,7 +239,7 @@ export const DynamicRoundedRect = memo(function MorphableRoundedRect({
   heightMotion?: MotionValue<number>;
   radius: number;
   segments?: number;
-  color?: string;
+  color?: MotionValue<string>;
   position?: [number, number, number];
   [key: string]: any;
 }) {
@@ -260,6 +260,12 @@ export const DynamicRoundedRect = memo(function MorphableRoundedRect({
     },
     [radius, segments],
   );
+
+  useMotionValueEvent(color, "change", (newColor) => {
+    if (meshRef.current) {
+      (meshRef.current.material as THREE.MeshBasicMaterial).color.set(newColor);
+    }
+  });
 
   useEffect(() => {
     // Initial geometry
@@ -292,7 +298,7 @@ export const DynamicRoundedRect = memo(function MorphableRoundedRect({
       position={position}
       {...meshProps}
     >
-      <meshBasicMaterial color={color} toneMapped={false} />
+      <meshBasicMaterial color={color.get()} toneMapped={false} />
     </mesh>
   );
 });

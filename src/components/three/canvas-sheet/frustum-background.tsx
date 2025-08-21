@@ -5,7 +5,7 @@ import { useInvariantScale } from "../../../hooks";
 import { TIMELINE_PADDING } from "../../../constants";
 
 interface FrustumBackgroundProps {
-  color: string;
+  color?: string;
   height: number;
   opacity?: number;
   position?: [number, number, number];
@@ -27,7 +27,6 @@ export const FrustumBackground = memo(function FrustumBackground({
 
   useMotionValueEvent(invariantScale, "change", (s) => {
     if (bgRef.current) {
-      console.log(s);
       bgRef.current.scale.x = 1 + 2 * TIMELINE_PADDING * s;
     }
   });

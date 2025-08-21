@@ -1,22 +1,24 @@
 import { Theme, stampToVisualTime } from "@semio/ui";
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useRef, useCallback } from "react";
 import * as THREE from "three";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame, useThree, ThreeEvent } from "@react-three/fiber";
 import { clamp } from "lodash";
 import { useShallow } from "zustand/react/shallow";
-import { usePlayerStore } from "@semio/utils";
-import { useMotionValue, easeOut, MotionValue } from "motion/react";
+import { usePlayerStore, closestFrame } from "@semio/utils";
+import { useMotionValue, easeOut, MotionValue, useSpring } from "motion/react";
 import { TrackText } from "../shared";
 import { DynamicRoundedRect } from "../shared/rounded-rectangle-geometry";
 import {
   usePlayheadSpring,
   useAnimationStore,
   useAltKeyPressed,
-  usePixelToWorld,
   useInvariantScale,
   useTween,
+  useDragGestures,
 } from "../../../../hooks";
 import { TIMELINE_PADDING } from "../../../../constants";
+import { AnimationData, AnimationActions } from "../../../../store-types";
+import { SemanticTime } from "../../../../types";
 
 const CONE_RADIUS = 4; // Radius of the cone for the vertical pointer
 
@@ -30,6 +32,29 @@ export interface PlayheadCartProps {
     ui?: string;
   };
 }
+
+const BASE_COLORS = {
+  dark: {
+    active: {
+      cart: "#ffffff", // white
+      text: "#000000", // black
+    },
+    inactive: {
+      cart: "#cccccc", // light gray
+      text: "#333333", // dark gray
+    },
+  },
+  light: {
+    active: {
+      cart: "#000000", // black
+      text: "#ffffff", // white
+    },
+    inactive: {
+      cart: "#666666", // dark gray
+      text: "#f0f0f0", // light gray
+    },
+  },
+};
 
 export const PlayheadCart = memo(function PlayheadCart({
   height = 36,
@@ -45,6 +70,7 @@ export const PlayheadCart = memo(function PlayheadCart({
   const lineRef = useRef<THREE.Mesh>(null);
   const leftArrowRef = useRef<THREE.Mesh>(null);
   const rightArrowRef = useRef<THREE.Mesh>(null);
+  const dragMeshRef = useRef<THREE.Mesh>(null);
 
   const cartWidthSpring = useCartWidthSpring();
   const invariantScale = useInvariantScale();
@@ -54,15 +80,59 @@ export const PlayheadCart = memo(function PlayheadCart({
     opacity,
   } = usePlayheadCartSprings(cartWidthSpring, invariantScale, side === "top");
 
+  // State for hover
+  const altPressed = useAltKeyPressed();
+
+  // Player and animation store actions
+  const { resetPlayer, seekPlayer, playing, playerDuration } = usePlayerStore(
+    useShallow((state) => ({
+      resetPlayer: state.resetPlayer,
+      seekPlayer: state.updatePlayerViewportCenter,
+      playing: state.player.running,
+      playerDuration: state.player.duration,
+    })),
+  );
+
+  const { framerate, addPreview, removePreview, previewCurrent } = useAnimationStore(
+    useShallow((state: AnimationData & AnimationActions) => ({
+      framerate: state.framerate as number,
+      addPreview: state.addPreview,
+      removePreview: state.removePreview,
+      previewCurrent:
+        state.previews.find((p) => p.semanticTime === SemanticTime.Current) !== undefined,
+    })),
+  );
+  console.log("previewCurrent", previewCurrent);
+
+  const frameCount = Math.floor(framerate * (playerDuration / 1000));
+
+  // Use drag gestures hook with @use-gesture/react for better drag handling
+  const dragHandlers = useDragGestures({
+    disabled: playing,
+    onDrag: (position, altKey) => {
+      if (altKey || altPressed) {
+        resetPlayer(position);
+      } else {
+        const closest = closestFrame(position, frameCount);
+        resetPlayer(closest);
+      }
+    },
+  });
+
   // Create motion values for morph target influences
   const cartHeight = useMotionValue(20);
 
   // Calculate colors based on state
-  const colors = {
-    cart: theme === Theme.Dark ? "#ffffff" : "#000000", // white/black
-    line: theme === Theme.Dark ? "#ffffff" : "#000000",
-    text: theme === Theme.Dark ? "#000000" : "#ffffff", // inverted for contrast
-  };
+  const cartColor = useSpring(
+    previewCurrent ? BASE_COLORS[theme].active.cart : BASE_COLORS[theme].inactive.cart,
+    {
+      stiffness: 300,
+      damping: 30,
+    },
+  );
+  const textColor = previewCurrent
+    ? BASE_COLORS[theme].active.text
+    : BASE_COLORS[theme].inactive.text;
 
   const cartDepth = 10;
 
@@ -73,15 +143,6 @@ export const PlayheadCart = memo(function PlayheadCart({
   playheadSpring.on("change", (ph) => {
     if (cartRef.current) {
       cartRef.current.position.x = ph;
-    }
-  });
-
-  cartWidthSpring.on("change", (w: number) => {
-    if (leftArrowRef.current) {
-      leftArrowRef.current.position.x = -w / 2 - 1 + 4 * opacity.get();
-    }
-    if (rightArrowRef.current) {
-      rightArrowRef.current.position.x = w / 2 + 1 - 4 * opacity.get();
     }
   });
 
@@ -101,6 +162,15 @@ export const PlayheadCart = memo(function PlayheadCart({
     if (textRef.current) {
       textRef.current.position.x = s * invariantScale.get();
     }
+    const leftOpacity = getOpacity("left", opacity.get(), s);
+    const rightOpacity = getOpacity("right", opacity.get(), s);
+
+    if (leftArrowRef.current) {
+      (leftArrowRef.current.material as THREE.MeshBasicMaterial).opacity = leftOpacity;
+    }
+    if (rightArrowRef.current) {
+      (rightArrowRef.current.material as THREE.MeshBasicMaterial).opacity = rightOpacity;
+    }
   });
 
   opacity.on("change", (o) => {
@@ -112,26 +182,81 @@ export const PlayheadCart = memo(function PlayheadCart({
       (lineRef.current.material as THREE.MeshBasicMaterial).opacity = o;
       (lineRef.current.material as THREE.MeshBasicMaterial).transparent = o < 1;
     }
+    const leftOpacity = getOpacity("left", o, offset.get());
+    const rightOpacity = getOpacity("right", o, offset.get());
     if (leftArrowRef.current) {
       leftArrowRef.current.position.x = -cartWidthSpring.get() / 2 - 1 + 4 * o;
-      if (offset.get() > 0) {
-        (leftArrowRef.current.material as THREE.MeshBasicMaterial).opacity = 1 - o;
-      } else {
-        (leftArrowRef.current.material as THREE.MeshBasicMaterial).opacity = 0;
-      }
+      (leftArrowRef.current.material as THREE.MeshBasicMaterial).opacity = leftOpacity;
     }
     if (rightArrowRef.current) {
       rightArrowRef.current.position.x = cartWidthSpring.get() / 2 + 1 - 4 * o;
-      if (offset.get() < 0) {
-        (rightArrowRef.current.material as THREE.MeshBasicMaterial).opacity = 1 - o;
-      } else {
-        (rightArrowRef.current.material as THREE.MeshBasicMaterial).opacity = 0;
-      }
+      (rightArrowRef.current.material as THREE.MeshBasicMaterial).opacity = rightOpacity;
+    }
+    if (dragMeshRef.current) {
+      // Update drag handle mesh size dynamically
+      const geometry = new THREE.PlaneGeometry(cartWidthSpring.get() + 20, height * 0.8);
+      dragMeshRef.current.geometry.dispose();
+      dragMeshRef.current.geometry = geometry;
     }
   });
 
+  // Update drag handle mesh when cart width changes
+  cartWidthSpring.on("change", (w: number) => {
+    if (leftArrowRef.current) {
+      leftArrowRef.current.position.x = -w / 2 - 1 + 4 * opacity.get();
+    }
+    if (rightArrowRef.current) {
+      rightArrowRef.current.position.x = w / 2 + 1 - 4 * opacity.get();
+    }
+    if (dragMeshRef.current) {
+      const geometry = new THREE.PlaneGeometry(w + 20, height * 0.8);
+      dragMeshRef.current.geometry.dispose();
+      dragMeshRef.current.geometry = geometry;
+    }
+  });
+
+  // Double-click handler
+  const handleDoubleClick = useCallback(
+    (event: ThreeEvent<MouseEvent>) => {
+      if (playing) return;
+      seekPlayer();
+      event.stopPropagation();
+    },
+    [playing, seekPlayer],
+  );
+
+  // Hover handlers
+  const handlePointerEnter = useCallback(() => {
+    if (!previewCurrent && !playing) {
+      addPreview({ semanticTime: SemanticTime.Current, stamp: 0, label: "Current" });
+    }
+  }, [previewCurrent, playing, addPreview]);
+
+  const handlePointerLeave = useCallback(() => {
+    removePreview((p) => p.semanticTime === SemanticTime.Current);
+  }, [removePreview]);
+
+  const initialLeftOpacity = getOpacity("left", opacity.get(), offset.get());
+  const initialRightOpacity = getOpacity("right", opacity.get(), offset.get());
+
   return (
     <group ref={cartRef as any}>
+      {/* Invisible drag handle mesh */}
+      <mesh
+        ref={dragMeshRef as any}
+        position={[0, cartY, cartDepth + 10]}
+        onPointerDown={dragHandlers.onPointerDown}
+        onPointerMove={dragHandlers.onPointerMove}
+        onPointerUp={dragHandlers.onPointerUp}
+        onPointerCancel={dragHandlers.onPointerCancel}
+        onDoubleClick={handleDoubleClick}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+      >
+        <planeGeometry args={[cartWidthSpring.get() + 20, height * 0.8]} />
+        <meshBasicMaterial transparent opacity={0.5} color="lime" />
+      </mesh>
+
       {/* Cart body */}
       <group ref={scaleRef as any} scale={[invariantScale.get(), 1, 1]}>
         {/* Dynamic rounded rect version for comparison */}
@@ -142,7 +267,7 @@ export const PlayheadCart = memo(function PlayheadCart({
             heightMotion={cartHeight}
             radius={3}
             // segments={16}
-            color={colors.cart}
+            color={cartColor}
           />
 
           {/* A horizontal arrow on each side of the cart. These are fixed so that when the cart applies its offset they are exposed */}
@@ -158,10 +283,10 @@ export const PlayheadCart = memo(function PlayheadCart({
           >
             <coneGeometry args={[10, 5, cartDepth + 2]} />
             <meshBasicMaterial
-              color={colors.cart}
+              color={cartColor.get()}
               toneMapped={false}
               transparent
-              opacity={1 - opacity.get()}
+              opacity={initialLeftOpacity}
             />
           </mesh>
           <mesh
@@ -176,10 +301,10 @@ export const PlayheadCart = memo(function PlayheadCart({
           >
             <coneGeometry args={[10, 5, cartDepth + 2]} />
             <meshBasicMaterial
-              color={colors.cart}
+              color={cartColor.get()}
               toneMapped={false}
               transparent
-              opacity={1 - opacity.get()}
+              opacity={initialRightOpacity}
             />
           </mesh>
         </group>
@@ -193,7 +318,7 @@ export const PlayheadCart = memo(function PlayheadCart({
         >
           <coneGeometry args={[CONE_RADIUS, 5, 4]} />
           <meshBasicMaterial
-            color={colors.cart}
+            color={cartColor.get()}
             toneMapped={false}
             transparent
             opacity={opacity.get()}
@@ -204,7 +329,7 @@ export const PlayheadCart = memo(function PlayheadCart({
         <mesh ref={lineRef as any} position={[0, pointerY, cartDepth + 1]}>
           <planeGeometry args={[1.5, 18]} />
           <meshBasicMaterial
-            color={colors.cart}
+            color={cartColor.get()}
             toneMapped={false}
             transparent
             opacity={opacity.get()}
@@ -217,11 +342,21 @@ export const PlayheadCart = memo(function PlayheadCart({
         ref={textRef as any}
         position={[offset.get() * invariantScale.get(), cartY, cartDepth * 2]}
       >
-        <PlayheadTime color={colors.text} fonts={fonts} />
+        <PlayheadTime color={textColor} fonts={fonts} />
       </group>
     </group>
   );
 });
+
+function getOpacity(side: "left" | "right", opacity: number, offset: number): number {
+  if (side === "left" && offset > 0) {
+    return 1 - opacity;
+  } else if (side === "right" && offset < 0) {
+    return 1 - opacity;
+  } else {
+    return 0;
+  }
+}
 
 function useCartWidthSpring() {
   const fontSize = 8; // Font size for the time display
@@ -292,8 +427,6 @@ function usePlayheadCartSprings(
   scaleSpring: MotionValue<number>,
   boundWithViewport = false,
 ): { position: MotionValue<number>; offset: MotionValue<number>; opacity: MotionValue<number> } {
-  const { pixelsToWorldX } = usePixelToWorld();
-  console.log("p2w", pixelsToWorldX, scaleSpring.get());
   const [left, right] = useThree(
     useShallow((t) => [
       (t.camera as THREE.OrthographicCamera).left,

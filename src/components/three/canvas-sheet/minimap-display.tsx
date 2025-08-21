@@ -1,14 +1,19 @@
 import { useRef, useMemo, useState, useEffect, memo } from "react";
 import * as THREE from "three";
-import { useGesture } from "@use-gesture/react";
 import { cubicBezier, MotionValue, useMotionValueEvent } from "motion/react";
 import { PlayerData, usePlayerStore } from "@semio/utils";
 import { Instance, Instances, useCursor } from "@react-three/drei";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import { Theme } from "@semio/ui";
-import { usePlayerSubscription, useTween, usePlaybackGestures } from "../../../hooks";
+import {
+  usePlayerSubscription,
+  useTween,
+  usePlaybackGestures,
+  useViewportDragGestures,
+} from "../../../hooks";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
+import { FrustumBackground } from "./frustum-background";
 
 /**
  * MinimapDisplay renders a minimap rectangle and half-hexagons using react-three/fiber,
@@ -34,9 +39,6 @@ export const MinimapDisplay = memo(function MinimapDisplay({
 
   // Player store for updating viewport
   const { updatePlayerViewport, updatePlayerViewportBound } = usePlayerStore();
-
-  // Three.js context for coordinate conversion
-  const { camera, size } = useThree();
 
   // Store current viewport for drag calculations
   const [currentViewport, setCurrentViewport] = useState<[number, number]>([0, 1]);
@@ -159,115 +161,67 @@ export const MinimapDisplay = memo(function MinimapDisplay({
     }
   });
 
-  // Gesture bindings for each area
-  const bindViewportDrag = useGesture(
-    {
-      onDrag: ({ movement: [mx], first, memo: gestureMemo, event }) => {
-        event?.stopPropagation();
-        if (first) {
-          setDragging("viewport");
-          return [...currentViewport];
-        }
-
-        // Convert screen movement to normalized coordinate space
-        const orthoCam = camera as THREE.OrthographicCamera;
-        const worldWidth = orthoCam.right - orthoCam.left;
-        const deltaX = (mx / size.width) * worldWidth;
-
-        const initialViewport = gestureMemo as [number, number];
-        const viewportWidth = currentViewport[1] - currentViewport[0];
-        const newStart = Math.max(
-          currentBounds[0],
-          Math.min(currentBounds[1] - viewportWidth, initialViewport[0] + deltaX),
-        );
-        const newEnd = newStart + viewportWidth;
-        updatePlayerViewport(newStart, newEnd);
-        return gestureMemo as [number, number];
-      },
-      onDragEnd: () => {
-        setDragging(null);
-      },
+  // Gesture bindings for each area using the new hook
+  const bindViewportDrag = useViewportDragGestures({
+    disabled: false,
+    onDragStart: () => {
+      setDragging("viewport");
     },
-    {
-      eventOptions: { passive: false },
+    onDrag: (viewport) => {
+      updatePlayerViewport(viewport[0], viewport[1]);
     },
-  );
-
-  const bindLeftDrag = useGesture(
-    {
-      onDrag: ({ movement: [mx], first, memo: gestureMemo, event }) => {
-        event?.stopPropagation();
-        if (first) {
-          setDragging("left");
-          return [...currentViewport];
-        }
-
-        // Convert screen movement to normalized coordinate space
-        const orthoCam = camera as THREE.OrthographicCamera;
-        const worldWidth = orthoCam.right - orthoCam.left;
-        const deltaX = (mx / size.width) * worldWidth;
-
-        const initialViewport = gestureMemo as [number, number];
-        const potentialNewStart = Math.max(
-          currentBounds[0],
-          Math.min(initialViewport[1], initialViewport[0] + deltaX),
-        );
-
-        // Ensure viewport doesn't get smaller than minZoom
-        const newStart = Math.min(potentialNewStart, initialViewport[1] - minZoom);
-        updatePlayerViewportBound("start", newStart);
-        return gestureMemo as [number, number];
-      },
-      onDragEnd: () => {
-        setDragging(null);
-      },
+    onDragEnd: () => {
+      setDragging(null);
     },
-    {
-      eventOptions: { passive: false },
+    initialViewport: currentViewport,
+    bounds: currentBounds,
+    minWidth: minZoom,
+    dragType: "viewport",
+  });
+
+  const bindLeftDrag = useViewportDragGestures({
+    disabled: false,
+    onDragStart: () => {
+      setDragging("left");
     },
-  );
-
-  const bindRightDrag = useGesture(
-    {
-      onDrag: ({ movement: [mx], first, memo: gestureMemo, event }) => {
-        event?.stopPropagation();
-        if (first) {
-          setDragging("right");
-          return [...currentViewport];
-        }
-
-        // Convert screen movement to normalized coordinate space
-        const orthoCam = camera as THREE.OrthographicCamera;
-        const worldWidth = orthoCam.right - orthoCam.left;
-        const deltaX = (mx / size.width) * worldWidth;
-
-        const initialViewport = gestureMemo as [number, number];
-        const potentialNewEnd = Math.min(
-          currentBounds[1],
-          Math.max(initialViewport[0], initialViewport[1] + deltaX),
-        );
-
-        // Ensure viewport doesn't get smaller than minZoom
-        const newEnd = Math.max(potentialNewEnd, initialViewport[0] + minZoom);
-        updatePlayerViewportBound("end", newEnd);
-        return gestureMemo as [number, number];
-      },
-      onDragEnd: () => {
-        setDragging(null);
-      },
+    onDrag: (viewport) => {
+      updatePlayerViewportBound("start", viewport[0]);
     },
-    {
-      eventOptions: { passive: false },
+    onDragEnd: () => {
+      setDragging(null);
     },
-  );
+    initialViewport: currentViewport,
+    bounds: currentBounds,
+    minWidth: minZoom,
+    dragType: "left",
+  });
+
+  const bindRightDrag = useViewportDragGestures({
+    disabled: false,
+    onDragStart: () => {
+      setDragging("right");
+    },
+    onDrag: (viewport) => {
+      updatePlayerViewportBound("end", viewport[1]);
+    },
+    onDragEnd: () => {
+      setDragging(null);
+    },
+    initialViewport: currentViewport,
+    bounds: currentBounds,
+    minWidth: minZoom,
+    dragType: "right",
+  });
 
   return (
     <group>
       {/* Background gesture plane for playback interactions */}
-      <mesh {...playbackGestures} position={[0.5, 0, -0.5]}>
-        <planeGeometry args={[1, height]} />
-        <meshBasicMaterial transparent opacity={0} />
-      </mesh>
+      <FrustumBackground
+        height={height}
+        opacity={0}
+        position={[0.5, 0, -0.5]}
+        pointerEvents={playbackGestures}
+      />
 
       <HoverMarker height={height} theme={theme} />
       <PlayheadMarker height={36} theme={theme} />
@@ -283,7 +237,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
           setHovered(false);
           setHoveredArea(null);
         }}
-        {...(bindLeftDrag() as any)}
+        {...bindLeftDrag}
       >
         <boxGeometry args={[0.03, activeHeight, 0.1]} />
         <meshBasicMaterial transparent opacity={0} />
@@ -300,7 +254,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
           setHovered(false);
           setHoveredArea(null);
         }}
-        {...(bindViewportDrag() as any)}
+        {...bindViewportDrag}
       >
         <boxGeometry args={[currentViewport[1] - currentViewport[0], activeHeight, 0.1]} />
         <meshBasicMaterial transparent opacity={0} />
@@ -317,7 +271,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
           setHovered(false);
           setHoveredArea(null);
         }}
-        {...(bindRightDrag() as any)}
+        {...bindRightDrag}
       >
         <boxGeometry args={[0.03, activeHeight, 0.1]} />
         <meshBasicMaterial transparent opacity={0} />

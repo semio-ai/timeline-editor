@@ -54,7 +54,6 @@ export const TimelineRenderer = memo(function TimelineRenderer({
         measureFromBottom
       />
       <FrustumBackground
-        color="transparent"
         height={36}
         opacity={0}
         position={[0.5, 0, -0.5]}

@@ -27,7 +27,6 @@ export const PlayheadMarker = memo(function PlayheadMarker({
   });
 
   playheadSpring.on("change", (h) => {
-    console.log("Playhead Changed", h);
     if (markerRef.current) {
       markerRef.current.position.x = h;
     }

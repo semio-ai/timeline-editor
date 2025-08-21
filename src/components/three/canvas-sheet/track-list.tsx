@@ -197,9 +197,8 @@ export const TrackList = memo(function TrackList({
         <PlayheadMarker height={availableHeight} theme={theme} />
 
         <FrustumBackground
-          color="red"
           height={availableHeight}
-          opacity={0.5}
+          opacity={0}
           position={[0.5, 0, -trackWorldHeight * tracks.length - 0.1]}
           pointerEvents={playbackGestures}
         />

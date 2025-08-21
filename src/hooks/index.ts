@@ -5,6 +5,7 @@ export * from "./use-bezier-path-spring";
 export * from "./use-bound-springs";
 export * from "./use-colors";
 export * from "./use-diagonal-material";
+export * from "./use-drag-gestures";
 export * from "./use-hover-spring";
 export * from "./use-invariant-scale";
 export * from "./use-names";
