@@ -32,6 +32,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
 }: BoundsOverlayProps) {
   const markerLeftRef = useRef<THREE.Mesh>(null);
   const markerRightRef = useRef<THREE.Mesh>(null);
+  const fillRef = useRef<THREE.Mesh>(null);
 
   // Get bounds springs
   const leftSpring = useMotionValue<number>(usePlayerStore.getState().player.bounds[0]);
@@ -77,6 +78,9 @@ export const BoundsOverlay = memo(function BoundsOverlay({
     if (markerRightRef.current) {
       (markerRightRef.current.material as THREE.MeshBasicMaterial).color.set(color);
     }
+    if (fillRef.current) {
+      (fillRef.current.material as THREE.MeshBasicMaterial).color.set(color);
+    }
   });
 
   // Update left position based on bound spring
@@ -84,12 +88,28 @@ export const BoundsOverlay = memo(function BoundsOverlay({
     if (markerLeftRef.current) {
       markerLeftRef.current.position.x = pos;
     }
+    // Update fill position and scale
+    if (fillRef.current) {
+      const rightPos = rightSpring.get();
+      const centerX = (pos + rightPos) / 2;
+      const width = Math.abs(rightPos - pos);
+      fillRef.current.position.x = centerX;
+      fillRef.current.scale.x = width;
+    }
   });
 
   // Update right position based on bound spring
   useMotionValueEvent(rightSpring, "change", (pos) => {
     if (markerRightRef.current) {
       markerRightRef.current.position.x = pos;
+    }
+    // Update fill position and scale
+    if (fillRef.current) {
+      const leftPos = leftSpring.get();
+      const centerX = (leftPos + pos) / 2;
+      const width = Math.abs(pos - leftPos);
+      fillRef.current.position.x = centerX;
+      fillRef.current.scale.x = width;
     }
   });
 
@@ -105,6 +125,21 @@ export const BoundsOverlay = memo(function BoundsOverlay({
 
   return (
     <>
+      {/* Fill rectangle between bounds */}
+      <mesh
+        ref={fillRef as any}
+        position={[(leftSpring.get() + rightSpring.get()) / 2, 0, 14.5]}
+        scale={[Math.abs(rightSpring.get() - leftSpring.get()), 1, 1]}
+      >
+        <planeGeometry args={[1, height]} />
+        <meshBasicMaterial
+          toneMapped={false}
+          color={cartColor.get()}
+          transparent
+          opacity={anyPreview ? 0.2 : 0}
+        />
+      </mesh>
+      {/* Left boundary line */}
       <mesh ref={markerLeftRef as any} position={[leftSpring.get(), 0, 15]}>
         <planeGeometry args={[1.5, height]} />
         <meshBasicMaterial
@@ -114,6 +149,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
           opacity={anyPreview ? 1 : 0}
         />
       </mesh>
+      {/* Right boundary line */}
       <mesh ref={markerRightRef as any} position={[rightSpring.get(), 0, 15]}>
         <planeGeometry args={[1.5, height]} />
         <meshBasicMaterial
