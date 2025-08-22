@@ -11,6 +11,7 @@ import { SharedSplineBackground } from "./shared-spline-background";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
+import { BoundsOverlay } from "./overlays/bounds-overlay";
 
 interface TrackListProps {
   animationId: string; // Unique ID for the animation
@@ -195,6 +196,7 @@ export const TrackList = memo(function TrackList({
       <group position={[0, trackAreaCenterY, 0]}>
         <HoverMarker height={availableHeight} theme={theme} />
         <PlayheadMarker height={availableHeight} theme={theme} />
+        <BoundsOverlay height={availableHeight} theme={theme} />
 
         <FrustumBackground
           height={availableHeight}

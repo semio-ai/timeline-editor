@@ -14,6 +14,7 @@ import {
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
+import { BoundsOverlay } from "./overlays/bounds-overlay";
 
 /**
  * MinimapDisplay renders a minimap rectangle and half-hexagons using react-three/fiber,
@@ -224,7 +225,8 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       />
 
       <HoverMarker height={height} theme={theme} />
-      <PlayheadMarker height={36} theme={theme} />
+      <PlayheadMarker height={height} theme={theme} />
+      <BoundsOverlay height={height} theme={theme} />
 
       {/* Left hexagon gesture area */}
       <mesh

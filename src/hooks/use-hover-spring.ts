@@ -13,7 +13,9 @@ export function useHoverSpring(): MotionValue<number | undefined> {
 
   useStoreSubscription(
     (state: AnimationData) =>
-      state.previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp,
+      state.previews.length === 1
+        ? state.previews.find((p) => p.semanticTime === SemanticTime.Hover)?.stamp
+        : undefined,
     (hoverpoint: number | undefined) => {
       if (hoverpoint !== undefined) {
         hoverpointSpring.jump(hoverpoint);

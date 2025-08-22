@@ -15,6 +15,7 @@ import type { AnimationData } from "../../../store-types";
 import { TrackText } from "./shared/track-text";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadCart } from "./overlays/playhead-cart";
+import { BoundsCart } from "./overlays/bounds-cart";
 import { FrustumBackground } from "./frustum-background";
 
 interface RulerRendererProps {
@@ -118,6 +119,8 @@ export const RulerRenderer = memo(function RulerRenderer({
         side={side}
         fonts={fonts}
       />
+      <BoundsCart side={side} end="left" height={hudHeightWorld / pixelsToWorldY} theme={theme} />
+      <BoundsCart side={side} end="right" height={hudHeightWorld / pixelsToWorldY} theme={theme} />
 
       {/* Tick lines using Instances */}
       <Ticks

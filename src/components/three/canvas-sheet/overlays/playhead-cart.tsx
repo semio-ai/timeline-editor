@@ -354,7 +354,7 @@ export const PlayheadCart = memo(function PlayheadCart({
         <mesh
           ref={arrowVertRef as any}
           position={[0, side === "top" ? pointerY - 2 : pointerY + 2, cartDepth + 1]}
-          scale={[1, side === "top" ? -1 : 1, 1]}
+          scale={[1, side === "top" ? -1 : 1, 0.1]}
         >
           <coneGeometry args={[CONE_RADIUS, 5, 4]} />
           <meshBasicMaterial

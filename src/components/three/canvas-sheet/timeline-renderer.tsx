@@ -8,6 +8,7 @@ import { DataRenderer } from "./data-renderer";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
+import { BoundsOverlay } from "./overlays/bounds-overlay";
 
 export interface TimelineRendererProps {
   selection?: string[];
@@ -43,6 +44,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
     <>
       <HoverMarker height={36} theme={theme} />
       <PlayheadMarker height={36} theme={theme} />
+      <BoundsOverlay height={36} theme={theme} />
       <DataRenderer
         height={36}
         trackIds={selection}
