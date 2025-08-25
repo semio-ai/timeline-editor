@@ -8,6 +8,7 @@ import { shallow } from "zustand/shallow";
 import { useInvariantScale, useAnimationStore, usePlayerSubscription } from "../../../../hooks";
 import { AnimationData } from "../../../../store-types";
 import { SemanticTime } from "../../../../types";
+import { TIMELINE_PADDING } from "../../../../constants";
 
 // Theme colors matching the PlayheadCart approach
 const BASE_COLORS = {
@@ -33,6 +34,8 @@ export const BoundsOverlay = memo(function BoundsOverlay({
   const markerLeftRef = useRef<THREE.Mesh>(null);
   const markerRightRef = useRef<THREE.Mesh>(null);
   const fillRef = useRef<THREE.Mesh>(null);
+  const leftOverlayRef = useRef<THREE.Mesh>(null);
+  const rightOverlayRef = useRef<THREE.Mesh>(null);
 
   // Get bounds springs
   const leftSpring = useMotionValue<number>(usePlayerStore.getState().player.bounds[0]);
@@ -71,6 +74,10 @@ export const BoundsOverlay = memo(function BoundsOverlay({
 
   const cartColor = useTransform(brightness, [0, 1], ["#000000", "#ffffff"]);
 
+  // Create overlay color (opposite of theme for deemphasis)
+  const overlayColor = theme === Theme.Light ? "#ffffff" : "#000000";
+  const overlayOpacity = 0.3;
+
   useMotionValueEvent(cartColor, "change", (color) => {
     if (markerLeftRef.current) {
       (markerLeftRef.current.material as THREE.MeshBasicMaterial).color.set(color);
@@ -96,6 +103,15 @@ export const BoundsOverlay = memo(function BoundsOverlay({
       fillRef.current.position.x = centerX;
       fillRef.current.scale.x = width;
     }
+    // Update left overlay
+    if (leftOverlayRef.current) {
+      const scale = invariantScale.get();
+      const leftEdge = -TIMELINE_PADDING * scale;
+      const centerX = (leftEdge + pos) / 2;
+      const width = Math.abs(pos - leftEdge);
+      leftOverlayRef.current.position.x = centerX;
+      leftOverlayRef.current.scale.x = width;
+    }
   });
 
   // Update right position based on bound spring
@@ -111,6 +127,15 @@ export const BoundsOverlay = memo(function BoundsOverlay({
       fillRef.current.position.x = centerX;
       fillRef.current.scale.x = width;
     }
+    // Update right overlay
+    if (rightOverlayRef.current) {
+      const scale = invariantScale.get();
+      const rightEdge = 1 + TIMELINE_PADDING * scale;
+      const centerX = (pos + rightEdge) / 2;
+      const width = Math.abs(rightEdge - pos);
+      rightOverlayRef.current.position.x = centerX;
+      rightOverlayRef.current.scale.x = width;
+    }
   });
 
   // Update scale based on invariant scale
@@ -121,10 +146,59 @@ export const BoundsOverlay = memo(function BoundsOverlay({
     if (markerRightRef.current) {
       markerRightRef.current.scale.x = s;
     }
+    // Update overlay positions when scale changes
+    const leftPos = leftSpring.get();
+    const rightPos = rightSpring.get();
+
+    // Update left overlay
+    if (leftOverlayRef.current) {
+      const leftEdge = -TIMELINE_PADDING * s;
+      const centerX = (leftEdge + leftPos) / 2;
+      const width = Math.abs(leftPos - leftEdge);
+      leftOverlayRef.current.position.x = centerX;
+      leftOverlayRef.current.scale.x = width;
+    }
+
+    // Update right overlay
+    if (rightOverlayRef.current) {
+      const rightEdge = 1 + TIMELINE_PADDING * s;
+      const centerX = (rightPos + rightEdge) / 2;
+      const width = Math.abs(rightEdge - rightPos);
+      rightOverlayRef.current.position.x = centerX;
+      rightOverlayRef.current.scale.x = width;
+    }
   });
 
   return (
     <>
+      {/* Left overlay - deemphasizes content outside bounds */}
+      <mesh
+        ref={leftOverlayRef as any}
+        position={[(-TIMELINE_PADDING * invariantScale.get() + leftSpring.get()) / 2, 0, 99]}
+        scale={[Math.abs(leftSpring.get() - -TIMELINE_PADDING * invariantScale.get()), 1, 1]}
+      >
+        <planeGeometry args={[1, height]} />
+        <meshBasicMaterial
+          toneMapped={false}
+          color={overlayColor}
+          transparent
+          opacity={overlayOpacity}
+        />
+      </mesh>
+      {/* Right overlay - deemphasizes content outside bounds */}
+      <mesh
+        ref={rightOverlayRef as any}
+        position={[(rightSpring.get() + 1 + TIMELINE_PADDING * invariantScale.get()) / 2, 0, 99]}
+        scale={[Math.abs(1 + TIMELINE_PADDING * invariantScale.get() - rightSpring.get()), 1, 1]}
+      >
+        <planeGeometry args={[1, height]} />
+        <meshBasicMaterial
+          toneMapped={false}
+          color={overlayColor}
+          transparent
+          opacity={overlayOpacity}
+        />
+      </mesh>
       {/* Fill rectangle between bounds */}
       <mesh
         ref={fillRef as any}
