@@ -16,6 +16,7 @@ import {
 import { useCursor } from "@react-three/drei";
 import { TrackText } from "../shared";
 import { DynamicRoundedRect } from "../shared/rounded-rectangle-geometry";
+import { useTriangleCaretGeometry } from "../shared/triangle-caret";
 import {
   usePlayheadSpring,
   useAnimationStore,
@@ -113,6 +114,28 @@ export const PlayheadCart = memo(function PlayheadCart({
   );
 
   const frameCount = Math.floor(framerate * (playerDuration / 1000));
+
+  // Create triangle geometries using hooks
+  const leftArrowGeometry = useTriangleCaretGeometry({
+    height: 5,
+    direction: "left",
+    leftSideSize: 10,
+    rightSideSize: 10,
+  });
+
+  const rightArrowGeometry = useTriangleCaretGeometry({
+    height: 5,
+    direction: "right",
+    leftSideSize: 10,
+    rightSideSize: 10,
+  });
+
+  const verticalArrowGeometry = useTriangleCaretGeometry({
+    height: 5,
+    direction: side === "top" ? "down" : "up",
+    leftSideSize: CONE_RADIUS,
+    rightSideSize: CONE_RADIUS,
+  });
 
   // Use drag gestures hook with @use-gesture/react for better drag handling
   const dragHandlers = useDragGestures({
@@ -265,15 +288,23 @@ export const PlayheadCart = memo(function PlayheadCart({
   );
 
   // Hover handlers
-  const handlePointerEnter = useCallback(() => {
-    if (!previewCurrent && !playing) {
-      addPreview({ semanticTime: SemanticTime.Current, stamp: 0, label: "Current" });
-    }
-  }, [previewCurrent, playing, addPreview]);
+  const handlePointerEnter = useCallback(
+    (event: ThreeEvent<PointerEvent>) => {
+      if (!previewCurrent && !playing) {
+        addPreview({ semanticTime: SemanticTime.Current, stamp: 0, label: "Current" });
+        event.stopPropagation();
+      }
+    },
+    [previewCurrent, playing, addPreview],
+  );
 
-  const handlePointerLeave = useCallback(() => {
-    removePreview((p) => p.semanticTime === SemanticTime.Current);
-  }, [removePreview]);
+  const handlePointerLeave = useCallback(
+    (event: ThreeEvent<PointerEvent>) => {
+      removePreview((p) => p.semanticTime === SemanticTime.Current);
+      event.stopPropagation();
+    },
+    [removePreview],
+  );
 
   const initialLeftOpacity = getOpacity("left", opacity.get(), offset.get());
   const initialRightOpacity = getOpacity("right", opacity.get(), offset.get());
@@ -296,15 +327,9 @@ export const PlayheadCart = memo(function PlayheadCart({
           {/* A horizontal arrow on each side of the cart. These are fixed so that when the cart applies its offset they are exposed */}
           <mesh
             ref={leftArrowRef as any}
-            position={[
-              -cartWidthSpring.get() / 2 - 1 + 4 * opacity.get(),
-              cartY,
-              cartDepth - CONE_RADIUS,
-            ]}
-            scale={[1, 1, 0.1]}
-            rotation={[0, 0, Math.PI / 2]}
+            position={[-cartWidthSpring.get() / 2 - 1 + 4 * opacity.get(), cartY, cartDepth]}
           >
-            <coneGeometry args={[10, 5, cartDepth + 2]} />
+            <primitive object={leftArrowGeometry} />
             <meshBasicMaterial
               color={cartColor.get()}
               toneMapped={false}
@@ -314,15 +339,9 @@ export const PlayheadCart = memo(function PlayheadCart({
           </mesh>
           <mesh
             ref={rightArrowRef as any}
-            position={[
-              cartWidthSpring.get() / 2 + 1 - 4 * opacity.get(),
-              cartY,
-              cartDepth - CONE_RADIUS,
-            ]}
-            scale={[1, 1, 0.1]}
-            rotation={[0, 0, -Math.PI / 2]}
+            position={[cartWidthSpring.get() / 2 + 1 - 4 * opacity.get(), cartY, cartDepth]}
           >
-            <coneGeometry args={[10, 5, cartDepth + 2]} />
+            <primitive object={rightArrowGeometry} />
             <meshBasicMaterial
               color={cartColor.get()}
               toneMapped={false}
@@ -354,9 +373,8 @@ export const PlayheadCart = memo(function PlayheadCart({
         <mesh
           ref={arrowVertRef as any}
           position={[0, side === "top" ? pointerY - 2 : pointerY + 2, cartDepth + 1]}
-          scale={[1, side === "top" ? -1 : 1, 0.1]}
         >
-          <coneGeometry args={[CONE_RADIUS, 5, 4]} />
+          <primitive object={verticalArrowGeometry} />
           <meshBasicMaterial
             color={cartColor.get()}
             toneMapped={false}

@@ -128,7 +128,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
       {/* Fill rectangle between bounds */}
       <mesh
         ref={fillRef as any}
-        position={[(leftSpring.get() + rightSpring.get()) / 2, 0, 14.5]}
+        position={[(leftSpring.get() + rightSpring.get()) / 2, 0, 99]}
         scale={[Math.abs(rightSpring.get() - leftSpring.get()), 1, 1]}
       >
         <planeGeometry args={[1, height]} />

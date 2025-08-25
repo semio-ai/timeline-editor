@@ -7,6 +7,7 @@ import { useMotionValue, useSpring, useTransform, useMotionValueEvent } from "mo
 import { useCursor } from "@react-three/drei";
 import { shallow } from "zustand/shallow";
 import { DynamicRoundedRect } from "../shared/rounded-rectangle-geometry";
+import { useTriangleCaretGeometry } from "../shared/triangle-caret";
 import {
   useInvariantScale,
   useAnimationStore,
@@ -29,14 +30,25 @@ const BASE_COLORS = {
   },
 };
 
-const CONE_RADIUS = 4; // Radius of the cone for the vertical pointer
-
 export interface BoundsCartProps {
   side: "top" | "bottom";
   end: "left" | "right";
   height?: number;
   theme?: Theme.Dark | Theme.Light;
 }
+
+const getConfig = (
+  side: "top" | "bottom",
+  end: "left" | "right",
+  height: number,
+): { cartY: number; cartX: number; pointerY: number; caretX: number } => {
+  const cartY = side === "top" ? -height / 2 + 19 : height / 2 - 19;
+  const cartX = end === "left" ? 4.75 : -4.75;
+  const pointerY = side === "top" ? -height / 2 + 9 : height / 2 - 9;
+  const caretX = end === "left" ? 1.25 : -1.25;
+
+  return { cartY, cartX, pointerY, caretX };
+};
 
 export const BoundsCart = memo(function BoundsCart({
   side = "top",
@@ -49,6 +61,8 @@ export const BoundsCart = memo(function BoundsCart({
   const dragMeshRef = useRef<THREE.Mesh>(null);
   const arrowVertRef = useRef<THREE.Mesh>(null);
   const lineRef = useRef<THREE.Mesh>(null);
+
+  const config = getConfig(side, end, height);
 
   // State for dragging
   const [isDragging, setIsDragging] = useState(false);
@@ -91,6 +105,14 @@ export const BoundsCart = memo(function BoundsCart({
   );
 
   const frameCount = Math.floor(framerate * (playerDuration / 1000));
+
+  // Create caret geometry using hook
+  const caretGeometry = useTriangleCaretGeometry({
+    height: 4,
+    direction: end === "left" ? "right" : "left",
+    leftSideSize: 5,
+    rightSideSize: 5,
+  });
 
   // Check if this specific bound has a preview
   const hasPreview = end === "left" ? previewLeft !== undefined : previewRight !== undefined;
@@ -207,8 +229,6 @@ export const BoundsCart = memo(function BoundsCart({
   const cartWidth = useMotionValue(11);
   const cartHeight = useMotionValue(20);
   const cartDepth = 0;
-  const cartY = side === "top" ? -height / 2 + 19 : height / 2 - 19;
-  const pointerY = side === "top" ? -height / 2 + 9 : height / 2 - 9;
 
   return (
     <group ref={cartRef as any} position={[boundSpring.get(), 0, anyPreview ? cartDepth + 12 : 0]}>
@@ -217,7 +237,7 @@ export const BoundsCart = memo(function BoundsCart({
         {/* Invisible drag handle mesh */}
         <mesh
           ref={dragMeshRef as any}
-          position={[0, cartY, 0]}
+          position={[config.cartX, config.cartY, 0]}
           {...dragHandlers}
           onDoubleClick={handleDoubleClick}
           onPointerEnter={handlePointerEnter}
@@ -229,7 +249,7 @@ export const BoundsCart = memo(function BoundsCart({
 
         {/* Cart body with rounded rectangle */}
         <DynamicRoundedRect
-          position={[0, cartY, 0]}
+          position={[config.cartX, config.cartY, 0]}
           widthMotion={cartWidth}
           heightMotion={cartHeight}
           radius={3}
@@ -237,18 +257,14 @@ export const BoundsCart = memo(function BoundsCart({
           color={cartColor}
         />
 
-        {/* Vertical Arrow */}
-        <mesh
-          ref={arrowVertRef as any}
-          position={[0, side === "top" ? pointerY - 2 : pointerY + 2, 0]}
-          scale={[1, side === "top" ? -1 : 1, 0.1]}
-        >
-          <coneGeometry args={[CONE_RADIUS, 5, 4]} />
+        {/* Pointer triangle (caret) */}
+        <mesh ref={arrowVertRef as any} position={[config.caretX, config.pointerY, 0]}>
+          <primitive object={caretGeometry} />
           <meshBasicMaterial color={cartColor.get()} toneMapped={false} />
         </mesh>
 
         {/* A line to continue the line from the normal playhead marker */}
-        <mesh ref={lineRef as any} position={[0, pointerY, 0]}>
+        <mesh ref={lineRef as any} position={[0, config.pointerY, 0]}>
           <planeGeometry args={[1.5, 18]} />
           <meshBasicMaterial
             color={cartColor.get()}
