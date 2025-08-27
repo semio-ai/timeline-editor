@@ -70,3 +70,47 @@ export function computeOklabMix(color1: string, color2: string, percent: number)
 
   return mixedColor ? formatHex(mixedColor) : color1; // Fallback to first color
 }
+
+/**
+ * Computes theme-aware opacity values for background elements
+ * Light themes need lower opacity to achieve similar perceived prominence as dark themes
+ */
+export function getThemeAwareOpacity(baseOpacity: number, themeMode: ThemeMode): number {
+  if (themeMode === Theme.Light) {
+    // Reduce opacity in light mode to compensate for higher contrast against light backgrounds
+    return baseOpacity * 0.6;
+  }
+  return baseOpacity;
+}
+
+/**
+ * Computes background element properties (color + opacity) that maintain consistent
+ * visual prominence across light and dark themes
+ */
+export function getBackgroundElementProps(
+  baseColor: string,
+  baseOpacity: number,
+  themeMode: ThemeMode,
+  useHighlight = true,
+): { color: string; opacity: number } {
+  // Get theme-appropriate color
+  const color = useHighlight ? getHighlightColor(baseColor, themeMode) : baseColor;
+
+  // Get theme-aware opacity
+  const opacity = getThemeAwareOpacity(baseOpacity, themeMode);
+
+  return { color, opacity };
+}
+
+/**
+ * Computes emphasis-aware opacity that scales appropriately with theme
+ */
+export function getEmphasisOpacity(
+  baseOpacity: number,
+  emphasizedOpacity: number,
+  isEmphasized: boolean,
+  themeMode: ThemeMode,
+): number {
+  const targetOpacity = isEmphasized ? emphasizedOpacity : baseOpacity;
+  return getThemeAwareOpacity(targetOpacity, themeMode);
+}

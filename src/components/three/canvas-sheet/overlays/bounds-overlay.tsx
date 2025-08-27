@@ -76,7 +76,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
 
   // Create overlay color (opposite of theme for deemphasis)
   const overlayColor = theme === Theme.Light ? "#ffffff" : "#000000";
-  const overlayOpacity = 0.3;
+  const overlayOpacity = 0.4;
 
   useMotionValueEvent(cartColor, "change", (color) => {
     if (markerLeftRef.current) {

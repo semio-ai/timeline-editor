@@ -5,6 +5,7 @@ import { useColors, useDiagonalMaterial } from "../../../hooks";
 import { ViolationSet } from "../../../types";
 import { ViolationPanel } from "../violation-panel";
 import { Z } from "../../../constants";
+import { getBackgroundElementProps, getThemeAwareOpacity } from "../../../functions";
 
 // Renders a single violation segment as a mesh
 const ViolationSegment = memo(function ViolationSegment({
@@ -54,20 +55,27 @@ const ViolationSegment = memo(function ViolationSegment({
   );
   const color = useColors(trackIds);
 
-  // Increase opacity if hovered
-  const opacity = hovered ? 0.45 : 0.3;
+  // Get theme-aware opacity that increases when hovered
+  const baseOpacity = 0.3;
+  const hoveredOpacity = 0.45;
+  const { opacity: themeAwareOpacity } = getBackgroundElementProps(
+    color,
+    hovered ? hoveredOpacity : baseOpacity,
+    theme,
+    false, // We'll handle highlight separately
+  );
 
-  // Create diagonal material using the hook
+  // Create diagonal material using the hook with theme-aware properties
   const diagonalMaterial = useDiagonalMaterial({
     color,
-    opacity,
-    baselineOpacity: 0.1,
+    opacity: themeAwareOpacity,
+    baselineOpacity: getThemeAwareOpacity(0.1, theme),
     stripeWidth: 8.0,
     stripeSpacing: 16.0,
     theme,
     yOffset,
-    useHighlight: theme === Theme.Dark,
-    measureFromBottom, // Pass through the measureFromBottom parameter
+    useHighlight: theme === Theme.Dark, // Keep your existing logic
+    measureFromBottom,
   });
 
   // Geometry: width = end - start, centered at (start + end)/2

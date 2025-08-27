@@ -3,7 +3,7 @@ import { MotionValue } from "motion";
 import { ShaderMaterial, Color, Vector2, Vector4 } from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { Theme } from "@semio/ui";
-import { getHighlightColor, ThemeMode } from "../functions";
+import { ThemeMode, getBackgroundElementProps, getThemeAwareOpacity } from "../functions";
 
 const vertexShader = `
   uniform vec4 frustumBounds; // left, right, bottom, top
@@ -95,12 +95,20 @@ export function useDiagonalMaterial({
 }: DiagonalMaterialOptions = {}) {
   const { camera, viewport } = useThree();
 
-  const finalColor = useMemo(() => {
-    if (useHighlight && typeof color === "string") {
-      return getHighlightColor(color, theme);
-    }
-    return color;
-  }, [color, theme, useHighlight]);
+  // Apply theme-aware processing to both color and opacity
+  const { color: finalColor, opacity: themeAwareOpacity } = useMemo(() => {
+    return getBackgroundElementProps(
+      typeof color === "string" ? color : `#${color.toString(16).padStart(6, "0")}`,
+      opacity,
+      theme,
+      useHighlight,
+    );
+  }, [color, opacity, theme, useHighlight]);
+
+  // Apply theme awareness to baseline opacity as well
+  const themeAwareBaselineOpacity = useMemo(() => {
+    return getThemeAwareOpacity(baselineOpacity, theme);
+  }, [baselineOpacity, theme]);
 
   const material = useMemo(() => {
     return new ShaderMaterial({
@@ -109,8 +117,8 @@ export function useDiagonalMaterial({
       fragmentShader,
       uniforms: {
         color: { value: new Color(finalColor) },
-        opacity: { value: opacity },
-        baselineOpacity: { value: baselineOpacity },
+        opacity: { value: themeAwareOpacity },
+        baselineOpacity: { value: themeAwareBaselineOpacity },
         stripeWidth: { value: stripeWidth },
         stripeSpacing: { value: stripeSpacing },
         frustumBounds: { value: new Vector4(-1, 1, -1, 1) },
@@ -141,8 +149,8 @@ export function useDiagonalMaterial({
   useEffect(() => {
     if (material.uniforms) {
       material.uniforms.color.value.set(finalColor);
-      material.uniforms.opacity.value = opacity;
-      material.uniforms.baselineOpacity.value = baselineOpacity;
+      material.uniforms.opacity.value = themeAwareOpacity;
+      material.uniforms.baselineOpacity.value = themeAwareBaselineOpacity;
       material.uniforms.stripeWidth.value = stripeWidth;
       material.uniforms.stripeSpacing.value = stripeSpacing;
       material.uniforms.yOffset.value = yOffset.get();
@@ -152,8 +160,8 @@ export function useDiagonalMaterial({
   }, [
     material,
     finalColor,
-    opacity,
-    baselineOpacity,
+    themeAwareOpacity,
+    themeAwareBaselineOpacity,
     stripeWidth,
     stripeSpacing,
     yOffset,

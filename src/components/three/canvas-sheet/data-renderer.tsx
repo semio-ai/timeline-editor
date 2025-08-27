@@ -192,6 +192,7 @@ export const DataRenderer = memo(function DataRenderer({
           position={[0.5, 0, Z.Background]}
           onHoverChange={onEmphasisChange}
           emphasis={emphasis}
+          theme={theme}
         />
       )}
     </group>

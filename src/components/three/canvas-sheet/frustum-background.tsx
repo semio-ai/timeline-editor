@@ -1,8 +1,10 @@
 import { memo, useEffect, useRef } from "react";
 import { useMotionValueEvent, useSpring } from "motion/react";
 import * as THREE from "three";
+import { Theme } from "@semio/ui";
 import { useInvariantScale } from "../../../hooks";
 import { TIMELINE_PADDING } from "../../../constants";
+import { getBackgroundElementProps, getEmphasisOpacity, ThemeMode } from "../../../functions";
 
 interface FrustumBackgroundProps {
   color?: string;
@@ -12,6 +14,7 @@ interface FrustumBackgroundProps {
   onHoverChange?: (hovered: boolean) => void;
   pointerEvents?: Record<string, any>;
   emphasis?: boolean;
+  theme?: ThemeMode;
 }
 
 export const FrustumBackground = memo(function FrustumBackground({
@@ -22,6 +25,7 @@ export const FrustumBackground = memo(function FrustumBackground({
   onHoverChange,
   pointerEvents = {},
   emphasis = false,
+  theme = Theme.Light,
 }: FrustumBackgroundProps) {
   const bgRef = useRef<THREE.Mesh>(null);
 
@@ -33,15 +37,23 @@ export const FrustumBackground = memo(function FrustumBackground({
     }
   });
 
-  const targetOpacity = getTargetOpacity(visibility, emphasis);
+  const targetOpacity = getTargetOpacity(visibility, emphasis, theme);
   const opacityMotion = useSpring(targetOpacity, {
     stiffness: 300,
     damping: 30,
   });
 
+  // Get theme-aware color
+  const { color: finalColor } = getBackgroundElementProps(
+    color || "#888888",
+    1.0, // We'll handle opacity separately for animation
+    theme,
+    false, // Use highlight color processing
+  );
+
   useEffect(() => {
     opacityMotion.set(targetOpacity);
-  }, [emphasis, opacityMotion, targetOpacity]);
+  }, [emphasis, opacityMotion, targetOpacity, theme]);
 
   useMotionValueEvent(opacityMotion, "change", (newValue) => {
     if (bgRef.current?.material as THREE.MeshBasicMaterial) {
@@ -66,7 +78,7 @@ export const FrustumBackground = memo(function FrustumBackground({
       {/* Use a width of 3 to ensure full frustum coverage including padding */}
       <planeGeometry args={[1, height]} />
       <meshBasicMaterial
-        color={color}
+        color={finalColor}
         transparent={visibility !== "opaque"}
         opacity={opacityMotion.get()}
         toneMapped={false}
@@ -78,9 +90,11 @@ export const FrustumBackground = memo(function FrustumBackground({
 function getTargetOpacity(
   visibility: "opaque" | "transparent" | "responsive",
   emphasis: boolean,
+  theme: ThemeMode,
 ): number {
   if (visibility === "opaque") return 1;
   if (visibility === "transparent") return 0;
-  // responsive
-  return emphasis ? 0.3 : 0.1;
+
+  // Use theme-aware opacity calculation
+  return getEmphasisOpacity(0.1, 0.3, emphasis, theme);
 }

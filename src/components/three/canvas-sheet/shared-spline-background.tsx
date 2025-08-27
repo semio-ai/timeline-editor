@@ -5,6 +5,7 @@ import { MotionValue } from "motion";
 import { pick } from "lodash";
 import { useAnimationStore, useColors } from "../../../hooks";
 import { AnimationInstanceSettings } from "../../../types";
+import { Z } from "../../../constants";
 import { AnimationData } from "../../../store-types";
 import { computeViolationSet } from "../../../functions";
 import { FrustumBackground } from "./frustum-background";
@@ -17,7 +18,6 @@ export interface SharedSplineBackgroundProps {
   trackIds?: string[];
   height?: number;
   yOffset?: number;
-  zOffset?: number;
   theme?: Theme.Light | Theme.Dark;
   scrollOffset?: MotionValue<number>;
 }
@@ -26,7 +26,6 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
   trackIds = [],
   height = 36,
   yOffset = 0,
-  zOffset = 0,
   theme = Theme.Light,
   scrollOffset = new MotionValue(0),
 }: SharedSplineBackgroundProps) {
@@ -40,7 +39,7 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
   }, [violations, trackIds]);
 
   return (
-    <group position={[0, yOffset, zOffset]}>
+    <group position={[0, yOffset, 0]}>
       {/* Render violations */}
       <ViolationRenderer
         violationSet={violationSet}
@@ -55,7 +54,7 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
         <FrustumBackground
           color={color}
           height={height - 1}
-          position={[0.5, 0, -1]}
+          position={[0.5, 0, Z.Background]}
           emphasis={false}
         />
       )}
