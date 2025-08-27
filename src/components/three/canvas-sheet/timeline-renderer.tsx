@@ -9,6 +9,7 @@ import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
 import { BoundsOverlay } from "./overlays/bounds-overlay";
+import { TickBackground } from "./overlays/tick-background";
 
 export interface TimelineRendererProps {
   selection?: string[];
@@ -42,6 +43,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
 
   return (
     <>
+      <TickBackground height={36} theme={theme} position={[0, 0, 1]} />
       <HoverMarker height={36} theme={theme} />
       <PlayheadMarker height={36} theme={theme} />
       <BoundsOverlay height={36} theme={theme} />

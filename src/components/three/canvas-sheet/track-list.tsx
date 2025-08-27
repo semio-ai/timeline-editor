@@ -12,6 +12,7 @@ import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
 import { BoundsOverlay } from "./overlays/bounds-overlay";
+import { TickBackground } from "./overlays/tick-background";
 
 interface TrackListProps {
   animationId: string; // Unique ID for the animation
@@ -194,6 +195,7 @@ export const TrackList = memo(function TrackList({
 
       {/* Render the hover markers and add a gesture detector */}
       <group position={[0, trackAreaCenterY, 0]}>
+        <TickBackground height={availableHeight} theme={theme} />
         <HoverMarker height={availableHeight} theme={theme} />
         <PlayheadMarker height={availableHeight} theme={theme} />
         <BoundsOverlay height={availableHeight} theme={theme} />
