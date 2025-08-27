@@ -8,11 +8,11 @@ import { Theme } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore, useInvariantScale } from "../../../../hooks";
 import type { AnimationData } from "../../../../store-types";
+import { Z } from "../../../../constants";
 
 interface TickBackgroundProps {
   height: number;
   theme?: Theme.Light | Theme.Dark;
-  position?: [number, number, number];
 }
 
 interface TickData {
@@ -23,7 +23,6 @@ interface TickData {
 export const TickBackground = memo(function TickBackground({
   height,
   theme = Theme.Light,
-  position = [0, 0, -1],
 }: TickBackgroundProps) {
   const instancesRef = useRef<THREE.InstancedMesh>(null);
 
@@ -62,22 +61,20 @@ export const TickBackground = memo(function TickBackground({
   const baseTickWidth = 1; // Base width that will be scaled by the parent group
 
   return (
-    <group position={position}>
-      <Instances ref={instancesRef as any}>
-        <planeGeometry args={[baseTickWidth, height]} />
-        <meshBasicMaterial color="gray" toneMapped={false} />
+    <Instances ref={instancesRef as any}>
+      <planeGeometry args={[baseTickWidth, height]} />
+      <meshBasicMaterial toneMapped={false} />
 
-        {allTicks.map((tick, index) => (
-          <Tick
-            key={`tick-${index.toString()}`}
-            stamp={tick.stamp}
-            tickType={tick.type}
-            scale={invariantScale}
-            theme={theme}
-          />
-        ))}
-      </Instances>
-    </group>
+      {allTicks.map((tick, index) => (
+        <Tick
+          key={`tick-${index.toString()}`}
+          stamp={tick.stamp}
+          tickType={tick.type}
+          scale={invariantScale}
+          theme={theme}
+        />
+      ))}
+    </Instances>
   );
 });
 
@@ -105,16 +102,15 @@ const Tick = memo(function Tick({
         return "#737373";
 
       case TickType.Minor:
-        return theme === Theme.Dark ? "#535353" : "#C3C3C3";
+        return theme === Theme.Dark ? "#262626" : "#E4E4E4";
     }
   }, [tickType, theme]);
 
   useMotionValueEvent(scale, "change", (s) => {
     if (instanceRef.current) {
-      // console.log("instanceRef", instanceRef.current, s);
       instanceRef.current.scale.set(s, 1, 1);
     }
   });
 
-  return <Instance ref={instanceRef as any} position={[stamp, 0, 0]} color={color} />;
+  return <Instance ref={instanceRef as any} position={[stamp, 0, Z.Ticks]} color={color} />;
 });

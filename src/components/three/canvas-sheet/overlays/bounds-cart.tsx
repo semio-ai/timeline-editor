@@ -17,6 +17,7 @@ import {
 } from "../../../../hooks";
 import { AnimationData, AnimationActions } from "../../../../store-types";
 import { SemanticTime } from "../../../../types";
+import { TIMELINE_PADDING, Z } from "../../../../constants";
 
 // Theme colors matching the PlayheadCart approach
 const BASE_COLORS = {
@@ -32,7 +33,6 @@ const BASE_COLORS = {
 
 export interface BoundsCartProps {
   side: "top" | "bottom";
-  end: "left" | "right";
   height?: number;
   theme?: Theme.Dark | Theme.Light;
 }
@@ -52,20 +52,33 @@ const getConfig = (
 
 export const BoundsCart = memo(function BoundsCart({
   side = "top",
-  end = "left",
   height = 36,
   theme = Theme.Light,
 }: BoundsCartProps) {
-  const cartRef = useRef<THREE.Group>(null);
-  const scaleRef = useRef<THREE.Group>(null);
-  const dragMeshRef = useRef<THREE.Mesh>(null);
-  const arrowVertRef = useRef<THREE.Mesh>(null);
-  const lineRef = useRef<THREE.Mesh>(null);
+  // Refs for left cart
+  const leftCartRef = useRef<THREE.Group>(null);
+  const leftScaleRef = useRef<THREE.Group>(null);
+  const leftDragMeshRef = useRef<THREE.Mesh>(null);
+  const leftArrowVertRef = useRef<THREE.Mesh>(null);
+  const leftLineRef = useRef<THREE.Mesh>(null);
 
-  const config = getConfig(side, end, height);
+  // Refs for right cart
+  const rightCartRef = useRef<THREE.Group>(null);
+  const rightScaleRef = useRef<THREE.Group>(null);
+  const rightDragMeshRef = useRef<THREE.Mesh>(null);
+  const rightArrowVertRef = useRef<THREE.Mesh>(null);
+  const rightLineRef = useRef<THREE.Mesh>(null);
+
+  // Refs for overlays
+  const leftOverlayRef = useRef<THREE.Mesh>(null);
+  const rightOverlayRef = useRef<THREE.Mesh>(null);
+
+  const leftConfig = getConfig(side, "left", height);
+  const rightConfig = getConfig(side, "right", height);
 
   // State for dragging
-  const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+  const [isDraggingRight, setIsDraggingRight] = useState(false);
   const altPressed = useAltKeyPressed();
 
   // Get bounds springs
@@ -80,7 +93,6 @@ export const BoundsCart = memo(function BoundsCart({
     },
     shallow,
   );
-  const boundSpring = end === "left" ? leftSpring : rightSpring;
 
   // Get invariant scale for zoom-independent sizing
   const invariantScale = useInvariantScale();
@@ -106,16 +118,24 @@ export const BoundsCart = memo(function BoundsCart({
 
   const frameCount = Math.floor(framerate * (playerDuration / 1000));
 
-  // Create caret geometry using hook
-  const caretGeometry = useTriangleCaretGeometry({
+  // Create caret geometries using hook
+  const leftCaretGeometry = useTriangleCaretGeometry({
     height: 4,
-    direction: end === "left" ? "right" : "left",
+    direction: "right",
     leftSideSize: 5,
     rightSideSize: 5,
   });
 
-  // Check if this specific bound has a preview
-  const hasPreview = end === "left" ? previewLeft !== undefined : previewRight !== undefined;
+  const rightCaretGeometry = useTriangleCaretGeometry({
+    height: 4,
+    direction: "left",
+    leftSideSize: 5,
+    rightSideSize: 5,
+  });
+
+  // Check if bounds have previews
+  const hasLeftPreview = previewLeft !== undefined;
+  const hasRightPreview = previewRight !== undefined;
   const anyPreview = previewLeft !== undefined || previewRight !== undefined;
 
   // Create motion values for smooth transitions
@@ -130,49 +150,46 @@ export const BoundsCart = memo(function BoundsCart({
 
   const cartColor = useTransform(brightness, [0, 1], ["#000000", "#ffffff"]);
 
+  // Create overlay color (opposite of theme for deemphasis)
+  const overlayColor = theme === Theme.Light ? "#ffffff" : "#000000";
+  const overlayOpacity = 0.3;
+
   useMotionValueEvent(cartColor, "change", (color) => {
-    if (arrowVertRef.current) {
-      (arrowVertRef.current.material as THREE.MeshBasicMaterial).color.set(color);
+    if (leftArrowVertRef.current) {
+      (leftArrowVertRef.current.material as THREE.MeshBasicMaterial).color.set(color);
     }
-    if (lineRef.current) {
-      (lineRef.current.material as THREE.MeshBasicMaterial).color.set(color);
+    if (leftLineRef.current) {
+      (leftLineRef.current.material as THREE.MeshBasicMaterial).color.set(color);
+    }
+    if (rightArrowVertRef.current) {
+      (rightArrowVertRef.current.material as THREE.MeshBasicMaterial).color.set(color);
+    }
+    if (rightLineRef.current) {
+      (rightLineRef.current.material as THREE.MeshBasicMaterial).color.set(color);
     }
   });
 
-  // Use drag gestures hook
-  const dragHandlers = useDragGestures({
+  // Left drag gestures
+  const leftDragHandlers = useDragGestures({
     disabled: playing,
     onDragStart: () => {
-      setIsDragging(true);
-      const semanticTime = end === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd;
-      const label = end === "left" ? "Bounds Start" : "Bounds End";
-
+      setIsDraggingLeft(true);
       addPreview({
-        semanticTime,
-        stamp: end === "left" ? leftSpring.get() : rightSpring.get(),
-        label,
+        semanticTime: SemanticTime.BoundsStart,
+        stamp: leftSpring.get(),
+        label: "Bounds Start",
       });
     },
     onDrag: (position, altKey) => {
       const newValue = altKey || altPressed ? position : closestFrame(position, frameCount);
-      if (end === "left") {
-        // Flip the bounds if the left bound is dragged past the right bound
-        const newBounds =
-          newValue >= rightSpring.get()
-            ? [rightSpring.get(), newValue]
-            : [newValue, rightSpring.get()];
-        updateBounds(newBounds[0], newBounds[1]);
-      } else {
-        // Flip the bounds if the right bound is dragged past the left bound
-        const newBounds =
-          newValue <= leftSpring.get()
-            ? [newValue, leftSpring.get()]
-            : [leftSpring.get(), newValue];
-        updateBounds(newBounds[0], newBounds[1]);
-      }
+      const newBounds =
+        newValue >= rightSpring.get()
+          ? [rightSpring.get(), newValue]
+          : [newValue, rightSpring.get()];
+      updateBounds(newBounds[0], newBounds[1]);
     },
     onDragEnd: () => {
-      setIsDragging(false);
+      setIsDraggingLeft(false);
       removePreview(
         (p) =>
           p.semanticTime === SemanticTime.BoundsStart || p.semanticTime === SemanticTime.BoundsEnd,
@@ -180,27 +197,71 @@ export const BoundsCart = memo(function BoundsCart({
     },
   });
 
-  // Hover handlers
-  const handlePointerEnter = useCallback(() => {
-    if (!playing && !anyPreview) {
-      const semanticTime = end === "left" ? SemanticTime.BoundsStart : SemanticTime.BoundsEnd;
-      const label = end === "left" ? "Bounds Start" : "Bounds End";
+  // Right drag gestures
+  const rightDragHandlers = useDragGestures({
+    disabled: playing,
+    onDragStart: () => {
+      setIsDraggingRight(true);
       addPreview({
-        semanticTime,
-        stamp: end === "left" ? leftSpring.get() : rightSpring.get(),
-        label,
+        semanticTime: SemanticTime.BoundsEnd,
+        stamp: rightSpring.get(),
+        label: "Bounds End",
+      });
+    },
+    onDrag: (position, altKey) => {
+      const newValue = altKey || altPressed ? position : closestFrame(position, frameCount);
+      const newBounds =
+        newValue <= leftSpring.get() ? [newValue, leftSpring.get()] : [leftSpring.get(), newValue];
+      updateBounds(newBounds[0], newBounds[1]);
+    },
+    onDragEnd: () => {
+      setIsDraggingRight(false);
+      removePreview(
+        (p) =>
+          p.semanticTime === SemanticTime.BoundsStart || p.semanticTime === SemanticTime.BoundsEnd,
+      );
+    },
+  });
+
+  // Left hover handlers
+  const handleLeftPointerEnter = useCallback(() => {
+    if (!playing && !anyPreview) {
+      addPreview({
+        semanticTime: SemanticTime.BoundsStart,
+        stamp: leftSpring.get(),
+        label: "Bounds Start",
       });
     }
-  }, [playing, anyPreview, end, addPreview, leftSpring, rightSpring]);
+  }, [playing, anyPreview, addPreview, leftSpring]);
 
-  const handlePointerLeave = useCallback(() => {
-    if (!isDragging) {
+  const handleLeftPointerLeave = useCallback(() => {
+    if (!isDraggingLeft) {
       removePreview(
         (p) =>
           p.semanticTime === SemanticTime.BoundsStart || p.semanticTime === SemanticTime.BoundsEnd,
       );
     }
-  }, [isDragging, removePreview]);
+  }, [isDraggingLeft, removePreview]);
+
+  // Right hover handlers
+  const handleRightPointerEnter = useCallback(() => {
+    if (!playing && !anyPreview) {
+      addPreview({
+        semanticTime: SemanticTime.BoundsEnd,
+        stamp: rightSpring.get(),
+        label: "Bounds End",
+      });
+    }
+  }, [playing, anyPreview, addPreview, rightSpring]);
+
+  const handleRightPointerLeave = useCallback(() => {
+    if (!isDraggingRight) {
+      removePreview(
+        (p) =>
+          p.semanticTime === SemanticTime.BoundsStart || p.semanticTime === SemanticTime.BoundsEnd,
+      );
+    }
+  }, [isDraggingRight, removePreview]);
 
   // Double-click handler
   const handleDoubleClick = useCallback((event: any) => {
@@ -208,72 +269,212 @@ export const BoundsCart = memo(function BoundsCart({
   }, []);
 
   // Cursor feedback
-  useCursor(hasPreview && !playing && !isDragging, "ew-resize", "auto");
-  useCursor(isDragging, "ew-resize", "auto");
+  useCursor(hasLeftPreview && !playing && !isDraggingLeft, "ew-resize", "auto");
+  useCursor(hasRightPreview && !playing && !isDraggingRight, "ew-resize", "auto");
+  useCursor(isDraggingLeft || isDraggingRight, "ew-resize", "auto");
 
-  // Update position based on bound spring
-  useMotionValueEvent(boundSpring, "change", (pos) => {
-    if (cartRef.current) {
-      cartRef.current.position.x = pos;
+  // Update left position
+  useMotionValueEvent(leftSpring, "change", (pos) => {
+    if (leftCartRef.current) {
+      leftCartRef.current.position.x = pos;
+    }
+    // Update left overlay
+    if (leftOverlayRef.current) {
+      const scale = invariantScale.get();
+      const leftEdge = -TIMELINE_PADDING * scale;
+      const centerX = (leftEdge + pos) / 2;
+      const width = Math.abs(pos - leftEdge);
+      leftOverlayRef.current.position.x = centerX;
+      leftOverlayRef.current.scale.x = width;
+    }
+  });
+
+  // Update right position
+  useMotionValueEvent(rightSpring, "change", (pos) => {
+    if (rightCartRef.current) {
+      rightCartRef.current.position.x = pos;
+    }
+    // Update right overlay
+    if (rightOverlayRef.current) {
+      const scale = invariantScale.get();
+      const rightEdge = 1 + TIMELINE_PADDING * scale;
+      const centerX = (pos + rightEdge) / 2;
+      const width = Math.abs(rightEdge - pos);
+      rightOverlayRef.current.position.x = centerX;
+      rightOverlayRef.current.scale.x = width;
     }
   });
 
   // Update scale based on invariant scale
   useMotionValueEvent(invariantScale, "change", (s) => {
-    if (scaleRef.current) {
-      scaleRef.current.scale.x = s;
+    if (leftScaleRef.current) {
+      leftScaleRef.current.scale.x = s;
+    }
+    if (rightScaleRef.current) {
+      rightScaleRef.current.scale.x = s;
+    }
+
+    // Update overlay positions when scale changes
+    const leftPos = leftSpring.get();
+    const rightPos = rightSpring.get();
+
+    // Update left overlay
+    if (leftOverlayRef.current) {
+      const leftEdge = -TIMELINE_PADDING * s;
+      const centerX = (leftEdge + leftPos) / 2;
+      const width = Math.abs(leftPos - leftEdge);
+      leftOverlayRef.current.position.x = centerX;
+      leftOverlayRef.current.scale.x = width;
+    }
+
+    // Update right overlay
+    if (rightOverlayRef.current) {
+      const rightEdge = 1 + TIMELINE_PADDING * s;
+      const centerX = (rightPos + rightEdge) / 2;
+      const width = Math.abs(rightEdge - rightPos);
+      rightOverlayRef.current.position.x = centerX;
+      rightOverlayRef.current.scale.x = width;
     }
   });
 
   // Cart dimensions
   const cartWidth = useMotionValue(11);
   const cartHeight = useMotionValue(20);
-  const cartDepth = 0;
+  const cartDepth = anyPreview ? Z.ActiveBoundsCart : Z.InactiveBoundsCart;
 
   return (
-    <group ref={cartRef as any} position={[boundSpring.get(), 0, anyPreview ? cartDepth + 12 : 0]}>
-      {/* Visual cart with scaling group */}
-      <group ref={scaleRef as any} scale={[invariantScale.get(), 1, 1]}>
-        {/* Invisible drag handle mesh */}
-        <mesh
-          ref={dragMeshRef as any}
-          position={[config.cartX, config.cartY, 0]}
-          {...dragHandlers}
-          onDoubleClick={handleDoubleClick}
-          onPointerEnter={handlePointerEnter}
-          onPointerLeave={handlePointerLeave}
-        >
-          <planeGeometry args={[cartWidth.get() + 2, height * 0.8]} />
-          <meshBasicMaterial transparent opacity={0} color="lime" />
-        </mesh>
-
-        {/* Cart body with rounded rectangle */}
-        <DynamicRoundedRect
-          position={[config.cartX, config.cartY, 0]}
-          widthMotion={cartWidth}
-          heightMotion={cartHeight}
-          radius={3}
-          // segments={16}
-          color={cartColor}
+    <>
+      {/* Left overlay - deemphasizes content outside bounds */}
+      <mesh
+        ref={leftOverlayRef as any}
+        position={[
+          (-TIMELINE_PADDING * invariantScale.get() + leftSpring.get()) / 2,
+          0,
+          Z.OutOfBoundsOverlay,
+        ]}
+        scale={[Math.abs(leftSpring.get() - -TIMELINE_PADDING * invariantScale.get()), 1, 1]}
+      >
+        <planeGeometry args={[1, height]} />
+        <meshBasicMaterial
+          toneMapped={false}
+          color={overlayColor}
+          transparent
+          opacity={overlayOpacity}
         />
+      </mesh>
 
-        {/* Pointer triangle (caret) */}
-        <mesh ref={arrowVertRef as any} position={[config.caretX, config.pointerY, 0]}>
-          <primitive object={caretGeometry} />
-          <meshBasicMaterial color={cartColor.get()} toneMapped={false} />
-        </mesh>
+      {/* Right overlay - deemphasizes content outside bounds */}
+      <mesh
+        ref={rightOverlayRef as any}
+        position={[
+          (rightSpring.get() + 1 + TIMELINE_PADDING * invariantScale.get()) / 2,
+          0,
+          Z.OutOfBoundsOverlay,
+        ]}
+        scale={[Math.abs(1 + TIMELINE_PADDING * invariantScale.get() - rightSpring.get()), 1, 1]}
+      >
+        <planeGeometry args={[1, height]} />
+        <meshBasicMaterial
+          toneMapped={false}
+          color={overlayColor}
+          transparent
+          opacity={overlayOpacity}
+        />
+      </mesh>
 
-        {/* A line to continue the line from the normal playhead marker */}
-        <mesh ref={lineRef as any} position={[0, config.pointerY, 0]}>
-          <planeGeometry args={[1.5, 18]} />
-          <meshBasicMaterial
-            color={cartColor.get()}
-            toneMapped={false}
-            opacity={anyPreview ? 1 : 0}
-            transparent
+      {/* Left Cart */}
+      <group ref={leftCartRef as any} position={[leftSpring.get(), 0, cartDepth]}>
+        <group ref={leftScaleRef as any} scale={[invariantScale.get(), 1, 1]}>
+          {/* Invisible drag handle mesh */}
+          <mesh
+            ref={leftDragMeshRef as any}
+            position={[leftConfig.cartX, leftConfig.cartY, 0.1]}
+            {...leftDragHandlers}
+            onDoubleClick={handleDoubleClick}
+            onPointerEnter={handleLeftPointerEnter}
+            onPointerLeave={handleLeftPointerLeave}
+          >
+            <planeGeometry args={[cartWidth.get() + 2, height * 0.8]} />
+            <meshBasicMaterial transparent opacity={0} color="lime" />
+          </mesh>
+
+          {/* Cart body with rounded rectangle */}
+          <DynamicRoundedRect
+            position={[leftConfig.cartX, leftConfig.cartY, 0]}
+            widthMotion={cartWidth}
+            heightMotion={cartHeight}
+            radius={3}
+            color={cartColor}
           />
-        </mesh>
+
+          {/* Pointer triangle (caret) */}
+          <mesh
+            ref={leftArrowVertRef as any}
+            position={[leftConfig.caretX, leftConfig.pointerY, 0]}
+          >
+            <primitive object={leftCaretGeometry} />
+            <meshBasicMaterial color={cartColor.get()} toneMapped={false} />
+          </mesh>
+
+          {/* A line to continue the line from the normal playhead marker */}
+          <mesh ref={leftLineRef as any} position={[0, leftConfig.pointerY, 0]}>
+            <planeGeometry args={[1.5, 18]} />
+            <meshBasicMaterial
+              color={cartColor.get()}
+              toneMapped={false}
+              opacity={anyPreview ? 1 : 0}
+              transparent
+            />
+          </mesh>
+        </group>
       </group>
-    </group>
+
+      {/* Right Cart */}
+      <group ref={rightCartRef as any} position={[rightSpring.get(), 0, cartDepth]}>
+        <group ref={rightScaleRef as any} scale={[invariantScale.get(), 1, 1]}>
+          {/* Invisible drag handle mesh */}
+          <mesh
+            ref={rightDragMeshRef as any}
+            position={[rightConfig.cartX, rightConfig.cartY, 0.1]}
+            {...rightDragHandlers}
+            onDoubleClick={handleDoubleClick}
+            onPointerEnter={handleRightPointerEnter}
+            onPointerLeave={handleRightPointerLeave}
+          >
+            <planeGeometry args={[cartWidth.get() + 2, height * 0.8]} />
+            <meshBasicMaterial transparent opacity={0} color="lime" />
+          </mesh>
+
+          {/* Cart body with rounded rectangle */}
+          <DynamicRoundedRect
+            position={[rightConfig.cartX, rightConfig.cartY, 0]}
+            widthMotion={cartWidth}
+            heightMotion={cartHeight}
+            radius={3}
+            color={cartColor}
+          />
+
+          {/* Pointer triangle (caret) */}
+          <mesh
+            ref={rightArrowVertRef as any}
+            position={[rightConfig.caretX, rightConfig.pointerY, 0]}
+          >
+            <primitive object={rightCaretGeometry} />
+            <meshBasicMaterial color={cartColor.get()} toneMapped={false} />
+          </mesh>
+
+          {/* A line to continue the line from the normal playhead marker */}
+          <mesh ref={rightLineRef as any} position={[0, rightConfig.pointerY, 0]}>
+            <planeGeometry args={[1.5, 18]} />
+            <meshBasicMaterial
+              color={cartColor.get()}
+              toneMapped={false}
+              opacity={anyPreview ? 1 : 0}
+              transparent
+            />
+          </mesh>
+        </group>
+      </group>
+    </>
   );
 });

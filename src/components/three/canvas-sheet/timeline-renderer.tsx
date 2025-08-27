@@ -43,7 +43,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
 
   return (
     <>
-      <TickBackground height={36} theme={theme} position={[0, 0, 1]} />
+      <TickBackground height={36} theme={theme} />
       <HoverMarker height={36} theme={theme} />
       <PlayheadMarker height={36} theme={theme} />
       <BoundsOverlay height={36} theme={theme} />
@@ -56,10 +56,11 @@ export const TimelineRenderer = memo(function TimelineRenderer({
         theme={theme}
         scrollOffset={timelineOffset}
         measureFromBottom
+        showBackground={false}
       />
       <FrustumBackground
         height={36}
-        opacity={0}
+        visibility="transparent"
         position={[0.5, 0, -0.5]}
         pointerEvents={playbackGestures}
       />

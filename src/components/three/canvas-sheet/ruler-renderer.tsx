@@ -12,6 +12,7 @@ import {
   useInvariantScale,
 } from "../../../hooks";
 import type { AnimationData } from "../../../store-types";
+import { Z } from "../../../constants";
 import { TrackText } from "./shared/track-text";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadCart } from "./overlays/playhead-cart";
@@ -107,7 +108,7 @@ export const RulerRenderer = memo(function RulerRenderer({
       {/* Background gesture plane for playback interactions */}
       <FrustumBackground
         height={hudHeightWorld}
-        opacity={0}
+        visibility="transparent"
         position={[0.5, 0, -0.5]}
         pointerEvents={playbackGestures}
       />
@@ -119,8 +120,7 @@ export const RulerRenderer = memo(function RulerRenderer({
         side={side}
         fonts={fonts}
       />
-      <BoundsCart side={side} end="left" height={hudHeightWorld / pixelsToWorldY} theme={theme} />
-      <BoundsCart side={side} end="right" height={hudHeightWorld / pixelsToWorldY} theme={theme} />
+      <BoundsCart side={side} height={hudHeightWorld / pixelsToWorldY} theme={theme} />
 
       {/* Tick lines using Instances */}
       <Ticks
@@ -162,7 +162,7 @@ const Ticks = memo(function Ticks({
   return (
     <Instances>
       <planeGeometry args={[baseTickWidth, tickHeight]} />
-      <meshBasicMaterial color={tickColor as any} toneMapped={false} transparent />
+      <meshBasicMaterial color={tickColor as any} toneMapped={false} />
 
       {tickData.map((tick) => (
         <TickMark
@@ -206,7 +206,7 @@ const TextBoxes = memo(function TextBoxes({
         <TrackText
           key={`label-${tick.frameIndex.toString()}`}
           text={tick.timeLabel}
-          position={[tick.worldX, textYWorld, 0.002]}
+          position={[tick.worldX, textYWorld, Z.RulerText]}
           color={theme === "dark" ? "#ffffff" : "#000000"}
           font={fonts?.mono}
           fontSizePixels={10}

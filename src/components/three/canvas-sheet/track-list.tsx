@@ -171,7 +171,7 @@ export const TrackList = memo(function TrackList({
             height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
             trackIds={[track]}
             yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
-            zOffset={trackRender === TrackRender.Spline ? -trackWorldHeight * idx : undefined}
+            // zOffset={trackRender === TrackRender.Spline ? -trackWorldHeight * idx : undefined}
             emphasis={emphasis.includes(track)}
             onEmphasisChange={(v) => onEmphasisChange(track, v ? "add" : "remove")}
             theme={theme}
@@ -187,7 +187,6 @@ export const TrackList = memo(function TrackList({
             height={availableHeight}
             trackIds={tracks}
             yOffset={0}
-            zOffset={-trackWorldHeight * tracks.length}
             theme={theme}
           />
         )}
@@ -202,7 +201,7 @@ export const TrackList = memo(function TrackList({
 
         <FrustumBackground
           height={availableHeight}
-          opacity={0}
+          visibility="transparent"
           position={[0.5, 0, -trackWorldHeight * tracks.length - 0.1]}
           pointerEvents={playbackGestures}
         />

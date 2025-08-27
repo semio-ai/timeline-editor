@@ -16,3 +16,33 @@ export const TRANSITION_CONFIG: Transition = {
 } as const;
 
 export const DEFAULT_COLOR = "#808080";
+
+export enum Z {
+  Camera = 100,
+  // Bounds cart is moved above the playhead cart and text when being dragged.
+  ActiveBoundsCart = 97,
+  // Playhead cart is above most elements but below bounds cart when being dragged.
+  PlayheadCart = 96,
+  // Ruler text is placed above the inactive bounds cart, but below the playhead cart.
+  RulerText = 95,
+  // Inactive bounds cart is below the playhead cart and ruler text, but above most other elements.
+  InactiveBoundsCart = 94,
+  // In-bounds overlay is above the minimap and out-of-bounds-overlay.
+  InBoundsOverlay = 93,
+  // Minimap is below the out-of-bounds overlay, but above most other elements.
+  Minimap = 92,
+  // Out of Bounds overlay is below the minimap, but above most other elements.
+  OutOfBoundsOverlay = 91,
+
+  // Track content/data is rendered between the bounds overlay and the violations.
+  // TBD
+
+  // Violations are rendered in front of ticks and background, but behind data.
+  Violations = -300,
+  // Ticks are rendered in front of the background, but behind violations and data.
+  Ticks = -600,
+  // Backgrounds are rendered at the very back.
+  Background = -500,
+  // Hud Backdrops are last
+  Hud = -700,
+}

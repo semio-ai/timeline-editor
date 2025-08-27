@@ -3,6 +3,7 @@ import { useThree } from "@react-three/fiber";
 import { useMemo, useRef, useEffect, memo } from "react";
 import * as THREE from "three";
 import { useOrthoCameraSetup, usePlayerSubscription } from "../../../hooks";
+import { Z } from "../../../constants";
 import { calculatePaddedFrustum } from "../../../viewport-utils";
 import { FrustumBackground } from "./frustum-background";
 
@@ -103,11 +104,11 @@ export const HudSection = memo(function HudSection({
           <FrustumBackground
             color={backgroundColor}
             height={hudHeight}
-            opacity={1}
-            position={[0.5, y, -1]}
+            visibility="opaque"
+            position={[0.5, y, Z.Hud]}
           />
         )}
-        <group position={[0, y, -1]}>{children}</group>
+        <group position={[0, y, 0]}>{children}</group>
       </group>
     </Hud>
   );

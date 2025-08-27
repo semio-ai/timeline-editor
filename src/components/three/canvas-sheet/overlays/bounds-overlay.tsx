@@ -8,7 +8,7 @@ import { shallow } from "zustand/shallow";
 import { useInvariantScale, useAnimationStore, usePlayerSubscription } from "../../../../hooks";
 import { AnimationData } from "../../../../store-types";
 import { SemanticTime } from "../../../../types";
-import { TIMELINE_PADDING } from "../../../../constants";
+import { TIMELINE_PADDING, Z } from "../../../../constants";
 
 // Theme colors matching the PlayheadCart approach
 const BASE_COLORS = {
@@ -174,7 +174,11 @@ export const BoundsOverlay = memo(function BoundsOverlay({
       {/* Left overlay - deemphasizes content outside bounds */}
       <mesh
         ref={leftOverlayRef as any}
-        position={[(-TIMELINE_PADDING * invariantScale.get() + leftSpring.get()) / 2, 0, 99]}
+        position={[
+          (-TIMELINE_PADDING * invariantScale.get() + leftSpring.get()) / 2,
+          0,
+          Z.OutOfBoundsOverlay,
+        ]}
         scale={[Math.abs(leftSpring.get() - -TIMELINE_PADDING * invariantScale.get()), 1, 1]}
       >
         <planeGeometry args={[1, height]} />
@@ -188,7 +192,11 @@ export const BoundsOverlay = memo(function BoundsOverlay({
       {/* Right overlay - deemphasizes content outside bounds */}
       <mesh
         ref={rightOverlayRef as any}
-        position={[(rightSpring.get() + 1 + TIMELINE_PADDING * invariantScale.get()) / 2, 0, 99]}
+        position={[
+          (rightSpring.get() + 1 + TIMELINE_PADDING * invariantScale.get()) / 2,
+          0,
+          Z.OutOfBoundsOverlay,
+        ]}
         scale={[Math.abs(1 + TIMELINE_PADDING * invariantScale.get() - rightSpring.get()), 1, 1]}
       >
         <planeGeometry args={[1, height]} />
@@ -202,7 +210,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
       {/* Fill rectangle between bounds */}
       <mesh
         ref={fillRef as any}
-        position={[(leftSpring.get() + rightSpring.get()) / 2, 0, 99]}
+        position={[(leftSpring.get() + rightSpring.get()) / 2, 0, Z.InBoundsOverlay]}
         scale={[Math.abs(rightSpring.get() - leftSpring.get()), 1, 1]}
       >
         <planeGeometry args={[1, height]} />
@@ -214,7 +222,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
         />
       </mesh>
       {/* Left boundary line */}
-      <mesh ref={markerLeftRef as any} position={[leftSpring.get(), 0, 15]}>
+      <mesh ref={markerLeftRef as any} position={[leftSpring.get(), 0, Z.InBoundsOverlay]}>
         <planeGeometry args={[1.5, height]} />
         <meshBasicMaterial
           toneMapped={false}
@@ -224,7 +232,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
         />
       </mesh>
       {/* Right boundary line */}
-      <mesh ref={markerRightRef as any} position={[rightSpring.get(), 0, 15]}>
+      <mesh ref={markerRightRef as any} position={[rightSpring.get(), 0, Z.InBoundsOverlay]}>
         <planeGeometry args={[1.5, height]} />
         <meshBasicMaterial
           toneMapped={false}

@@ -14,9 +14,9 @@ import {
   computeVerticalBounds,
   computeViolationSet,
 } from "../../../functions";
+import { Z } from "../../../constants";
 import { computeFilledInterpGaps } from "../../../functions/compute-filled-interp-gaps";
 import { DataPoint } from "./data-point";
-import { TrackBackground } from "./track-background";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 import { TransitionSegment } from "./transition-segment";
@@ -80,6 +80,7 @@ export interface DataRendererProps {
   scrollOffset?: MotionValue<number>;
   trackRender?: TrackRender;
   measureFromBottom?: boolean;
+  showBackground?: boolean;
 }
 
 export const DataRenderer = memo(function DataRenderer({
@@ -93,6 +94,7 @@ export const DataRenderer = memo(function DataRenderer({
   scrollOffset = new MotionValue(0),
   trackRender = TrackRender.Key,
   measureFromBottom = false,
+  showBackground = true,
 }: DataRendererProps) {
   const color = useColors(trackIds);
 
@@ -183,17 +185,14 @@ export const DataRenderer = memo(function DataRenderer({
       )}
 
       {/* Render a background for the Active region, and the General Background */}
-      {trackIds.length > 0 && trackRender !== TrackRender.Spline && (
-        <>
-          <FrustumBackground
-            color={color}
-            height={height - 1}
-            opacity={0.15}
-            position={[0.5, 0, -1]}
-            onHoverChange={onEmphasisChange}
-          />
-          <TrackBackground color={color} height={height - 1} emphasis={emphasis} />
-        </>
+      {showBackground && trackIds.length > 0 && trackRender !== TrackRender.Spline && (
+        <FrustumBackground
+          color={color}
+          height={height - 1}
+          position={[0.5, 0, Z.Background]}
+          onHoverChange={onEmphasisChange}
+          emphasis={emphasis}
+        />
       )}
     </group>
   );

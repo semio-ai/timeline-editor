@@ -11,6 +11,7 @@ import {
   usePlaybackGestures,
   useViewportDragGestures,
 } from "../../../hooks";
+import { Z } from "../../../constants";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
@@ -44,7 +45,6 @@ export const MinimapDisplay = memo(function MinimapDisplay({
 
   // Store current viewport for drag calculations
   const [currentViewport, setCurrentViewport] = useState<[number, number]>([0, 1]);
-  const [currentBounds, setCurrentBounds] = useState<[number, number]>([0, 1]);
 
   // Interaction state
   const [hovered, setHovered] = useState(false);
@@ -127,25 +127,18 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       const rectWidth = viewport[1] - viewport[0];
 
       if (rectRef.current) {
-        rectRef.current.position.set(viewport[0] + rectWidth / 2, 0, 0);
+        rectRef.current.position.set(viewport[0] + rectWidth / 2, 0, Z.Minimap);
         rectRef.current.scale.set(rectWidth, currentHeight, 1);
         rectRef.current.renderOrder = 1; // Render on top
       }
 
       if (leftHexRef.current && rightHexRef.current) {
         // Position cylinders at rectangle edges, same Z but lower render order
-        leftHexRef.current.position.set(viewport[0], 0, 0);
-        rightHexRef.current.position.set(viewport[1], 0, 0);
+        leftHexRef.current.position.set(viewport[0], 0, Z.Minimap);
+        rightHexRef.current.position.set(viewport[1], 0, Z.Minimap);
         leftHexRef.current.renderOrder = 0; // Render behind
         rightHexRef.current.renderOrder = 0; // Render behind
       }
-    },
-  );
-
-  usePlayerSubscription(
-    (state: PlayerData) => state.player.bounds,
-    (bounds) => {
-      setCurrentBounds(bounds);
     },
   );
 
@@ -176,7 +169,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging(null);
     },
     initialViewport: currentViewport,
-    bounds: currentBounds,
+    bounds: [0, 1],
     minWidth: minZoom,
     dragType: "viewport",
   });
@@ -193,7 +186,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging(null);
     },
     initialViewport: currentViewport,
-    bounds: currentBounds,
+    bounds: [0, 1],
     minWidth: minZoom,
     dragType: "left",
   });
@@ -210,7 +203,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging(null);
     },
     initialViewport: currentViewport,
-    bounds: currentBounds,
+    bounds: [0, 1],
     minWidth: minZoom,
     dragType: "right",
   });
@@ -220,19 +213,19 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       {/* Background gesture plane for playback interactions */}
       <FrustumBackground
         height={height}
-        opacity={0}
+        visibility="transparent"
         position={[0.5, 0, -0.5]}
         pointerEvents={playbackGestures}
       />
 
-      <TickBackground height={height} theme={theme} position={[0, 0, 0]} />
+      <TickBackground height={height} theme={theme} />
       <HoverMarker height={height} theme={theme} />
       <PlayheadMarker height={height} theme={theme} />
       <BoundsOverlay height={height} theme={theme} />
 
       {/* Left hexagon gesture area */}
       <mesh
-        position={[currentViewport[0] - 0.015, 0, 0.2]}
+        position={[currentViewport[0] - 0.015, 0, Z.Minimap]}
         onPointerEnter={() => {
           setHovered(true);
           setHoveredArea("left");
@@ -249,7 +242,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
 
       {/* Rectangle gesture area */}
       <mesh
-        position={[(currentViewport[0] + currentViewport[1]) / 2, 0, 0.2]}
+        position={[(currentViewport[0] + currentViewport[1]) / 2, 0, Z.Minimap]}
         onPointerEnter={() => {
           setHovered(true);
           setHoveredArea("viewport");
@@ -266,7 +259,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
 
       {/* Right hexagon gesture area */}
       <mesh
-        position={[currentViewport[1] + 0.015, 0, 0.2]}
+        position={[currentViewport[1] + 0.015, 0, Z.Minimap]}
         onPointerEnter={() => {
           setHovered(true);
           setHoveredArea("right");

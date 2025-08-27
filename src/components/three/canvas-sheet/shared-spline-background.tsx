@@ -7,7 +7,6 @@ import { useAnimationStore, useColors } from "../../../hooks";
 import { AnimationInstanceSettings } from "../../../types";
 import { AnimationData } from "../../../store-types";
 import { computeViolationSet } from "../../../functions";
-import { TrackBackground } from "./track-background";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 
@@ -53,15 +52,12 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
 
       {/* Render a background for the Active region, and the General Background */}
       {trackIds.length > 0 && (
-        <>
-          <FrustumBackground
-            color={color}
-            height={height - 1}
-            opacity={0.15}
-            position={[0.5, 0, -1]}
-          />
-          <TrackBackground color={color} height={height - 1} emphasis={false} />
-        </>
+        <FrustumBackground
+          color={color}
+          height={height - 1}
+          position={[0.5, 0, -1]}
+          emphasis={false}
+        />
       )}
     </group>
   );

@@ -25,7 +25,7 @@ import {
   useTween,
   useDragGestures,
 } from "../../../../hooks";
-import { TIMELINE_PADDING } from "../../../../constants";
+import { TIMELINE_PADDING, Z } from "../../../../constants";
 import { AnimationData, AnimationActions } from "../../../../store-types";
 import { SemanticTime } from "../../../../types";
 
@@ -184,8 +184,6 @@ export const PlayheadCart = memo(function PlayheadCart({
 
   const cartColor = useTransform(cartBrightness, [0, 1], ["#000000", "#ffffff"]);
 
-  const cartDepth = 10;
-
   // Calculate cart elements' y positions based on side
   const cartY = side === "top" ? -height / 2 + 19 : height / 2 - 19;
   const pointerY = side === "top" ? -height / 2 + 9 : height / 2 - 9;
@@ -314,9 +312,9 @@ export const PlayheadCart = memo(function PlayheadCart({
       {/* Cart body */}
       <group ref={scaleRef as any} scale={[invariantScale.get(), 1, 1]}>
         {/* Dynamic rounded rect version for comparison */}
-        <group ref={boxRef as any} position={[0, 0, 0]}>
+        <group ref={boxRef as any} position={[0, 0, Z.PlayheadCart]}>
           <DynamicRoundedRect
-            position={[0, cartY, cartDepth]}
+            position={[0, cartY, 0]}
             widthMotion={cartWidthSpring}
             heightMotion={cartHeight}
             radius={3}
@@ -327,7 +325,7 @@ export const PlayheadCart = memo(function PlayheadCart({
           {/* A horizontal arrow on each side of the cart. These are fixed so that when the cart applies its offset they are exposed */}
           <mesh
             ref={leftArrowRef as any}
-            position={[-cartWidthSpring.get() / 2 - 1 + 4 * opacity.get(), cartY, cartDepth]}
+            position={[-cartWidthSpring.get() / 2 - 1 + 4 * opacity.get(), cartY, -0.1]}
           >
             <primitive object={leftArrowGeometry} />
             <meshBasicMaterial
@@ -339,7 +337,7 @@ export const PlayheadCart = memo(function PlayheadCart({
           </mesh>
           <mesh
             ref={rightArrowRef as any}
-            position={[cartWidthSpring.get() / 2 + 1 - 4 * opacity.get(), cartY, cartDepth]}
+            position={[cartWidthSpring.get() / 2 + 1 - 4 * opacity.get(), cartY, -0.1]}
           >
             <primitive object={rightArrowGeometry} />
             <meshBasicMaterial
@@ -353,7 +351,7 @@ export const PlayheadCart = memo(function PlayheadCart({
           {/* Invisible drag handle mesh */}
           <mesh
             ref={dragMeshRef as any}
-            position={[0, cartY, cartDepth + 10]}
+            position={[0, cartY, 0.25]}
             onPointerDown={dragHandlers.onPointerDown}
             onPointerMove={dragHandlers.onPointerMove}
             onPointerUp={dragHandlers.onPointerUp}
@@ -372,7 +370,7 @@ export const PlayheadCart = memo(function PlayheadCart({
         {/* Always centered relative to the line */}
         <mesh
           ref={arrowVertRef as any}
-          position={[0, side === "top" ? pointerY - 2 : pointerY + 2, cartDepth + 1]}
+          position={[0, side === "top" ? pointerY - 2 : pointerY + 2, Z.PlayheadCart]}
         >
           <primitive object={verticalArrowGeometry} />
           <meshBasicMaterial
@@ -384,7 +382,7 @@ export const PlayheadCart = memo(function PlayheadCart({
         </mesh>
 
         {/* A line to continue the line from the normal playhead marker */}
-        <mesh ref={lineRef as any} position={[0, pointerY, cartDepth + 1]}>
+        <mesh ref={lineRef as any} position={[0, pointerY, Z.PlayheadCart]}>
           <planeGeometry args={[1.5, 18]} />
           <meshBasicMaterial
             color={cartColor.get()}
@@ -398,7 +396,7 @@ export const PlayheadCart = memo(function PlayheadCart({
       {/* Time text */}
       <group
         ref={textRef as any}
-        position={[offset.get() * invariantScale.get(), cartY, cartDepth * 2]}
+        position={[offset.get() * invariantScale.get(), cartY, Z.RulerText + 1]}
       >
         <PlayheadTime color={textColor} fonts={fonts} />
       </group>

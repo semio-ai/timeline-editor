@@ -4,6 +4,7 @@ import { MotionValue } from "motion/react";
 import { useColors, useDiagonalMaterial } from "../../../hooks";
 import { ViolationSet } from "../../../types";
 import { ViolationPanel } from "../violation-panel";
+import { Z } from "../../../constants";
 
 // Renders a single violation segment as a mesh
 const ViolationSegment = memo(function ViolationSegment({
@@ -54,13 +55,13 @@ const ViolationSegment = memo(function ViolationSegment({
   const color = useColors(trackIds);
 
   // Increase opacity if hovered
-  const opacity = hovered ? 0.65 : 0.4;
+  const opacity = hovered ? 0.45 : 0.3;
 
   // Create diagonal material using the hook
   const diagonalMaterial = useDiagonalMaterial({
     color,
     opacity,
-    baselineOpacity: 0.2,
+    baselineOpacity: 0.1,
     stripeWidth: 8.0,
     stripeSpacing: 16.0,
     theme,
@@ -79,7 +80,7 @@ const ViolationSegment = memo(function ViolationSegment({
   return (
     <mesh
       ref={meshRef as any}
-      position={[x, y, 0]}
+      position={[x, y, Z.Violations]}
       material={diagonalMaterial as any}
       onPointerOver={(e) => {
         // e.stopPropagation();

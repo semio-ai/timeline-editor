@@ -6,6 +6,7 @@ import { useMotionValueEvent, useSpring, useTransform } from "motion/react";
 import { usePlayheadSpring, useInvariantScale, useAnimationStore } from "../../../../hooks";
 import { SemanticTime } from "../../../../types";
 import { AnimationData } from "../../../../store-types";
+import { Z } from "../../../../constants";
 
 export interface PlayheadMarkerProps {
   height?: number;
@@ -76,7 +77,7 @@ export const PlayheadMarker = memo(function PlayheadMarker({
   });
 
   return (
-    <mesh ref={markerRef as any} position={[0, 0, 15]}>
+    <mesh ref={markerRef as any} position={[0, 0, Z.PlayheadCart]}>
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial toneMapped={false} color={cartColor.get()} />
     </mesh>

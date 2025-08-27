@@ -3,6 +3,7 @@ import { useRef, memo } from "react";
 import * as THREE from "three";
 import { useMotionValueEvent } from "motion/react";
 import { useHoverSpring, useInvariantScale } from "../../../../hooks";
+import { Z } from "../../../../constants";
 
 export interface HoverMarkerProps {
   height?: number;
@@ -39,7 +40,7 @@ export const HoverMarker = memo(function HoverMarker({
   });
 
   return (
-    <mesh ref={markerRef as any} position={[0, 0, 15]}>
+    <mesh ref={markerRef as any} position={[0, 0, Z.PlayheadCart]}>
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial color={color} toneMapped={false} transparent opacity={0} />
     </mesh>
