@@ -1,4 +1,4 @@
-import { ReactNode, memo } from "react";
+import { ReactNode, memo, useMemo } from "react";
 import { useFrame, type Size } from "@react-three/fiber";
 import * as THREE from "three";
 import { useMotionValue } from "motion/react";
@@ -13,7 +13,14 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
   const height = useMotionValue(1);
   const invariantScale = useMotionValue(1);
 
-  console.log("rerendering canvas provider");
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(
+    () => ({
+      size: { width, height },
+      invariantScale,
+    }),
+    [width, height, invariantScale],
+  ); // MotionValues are stable, so this will only create once
 
   // Update scale on each frame to maintain constant pixel size
   useFrame(({ viewport, camera }) => {
@@ -24,9 +31,7 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
   });
 
   return (
-    <MotionCanvasContext.Provider value={{ size: { width, height }, invariantScale }}>
-      {children}
-    </MotionCanvasContext.Provider>
+    <MotionCanvasContext.Provider value={contextValue}>{children}</MotionCanvasContext.Provider>
   );
 });
 
