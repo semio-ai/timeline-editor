@@ -12,14 +12,24 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
   const width = useMotionValue(1);
   const height = useMotionValue(1);
   const invariantScale = useMotionValue(1);
+  const frustumTop = useMotionValue(1);
+  const frustumBottom = useMotionValue(-1);
+  const frustumLeft = useMotionValue(-1);
+  const frustumRight = useMotionValue(1);
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(
     () => ({
       size: { width, height },
       invariantScale,
+      frustum: {
+        top: frustumTop,
+        bottom: frustumBottom,
+        left: frustumLeft,
+        right: frustumRight,
+      },
     }),
-    [width, height, invariantScale],
+    [width, height, invariantScale, frustumTop, frustumBottom, frustumLeft, frustumRight],
   ); // MotionValues are stable, so this will only create once
 
   // Update scale on each frame to maintain constant pixel size
@@ -28,6 +38,10 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
     invariantScale.set(scaleFactor);
     width.set(viewport.width);
     height.set(viewport.height);
+    frustumTop.set((camera as THREE.OrthographicCamera).top);
+    frustumBottom.set((camera as THREE.OrthographicCamera).bottom);
+    frustumLeft.set((camera as THREE.OrthographicCamera).left);
+    frustumRight.set((camera as THREE.OrthographicCamera).right);
   });
 
   return (

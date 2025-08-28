@@ -1,8 +1,5 @@
-import { memo, useEffect } from "react";
+import { memo } from "react";
 import { Theme } from "@semio/ui";
-import { useThree } from "@react-three/fiber";
-import { useShallow } from "zustand/shallow";
-import { useMotionValue } from "motion/react";
 import { usePlaybackGestures } from "../../../hooks";
 import { DataRenderer } from "./data-renderer";
 import { HoverMarker } from "./overlays/hover-marker";
@@ -30,16 +27,8 @@ export const TimelineRenderer = memo(function TimelineRenderer({
   instanceSettings = { timescale: 1, offset: 0, active: true },
   theme = Theme.Light,
 }: TimelineRendererProps) {
-  const size = useThree(useShallow((t) => t.size));
-
-  const timelineOffset = useMotionValue(size.height / 2);
-
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
-
-  useEffect(() => {
-    timelineOffset.set(size.height / 2);
-  }, [size.height, timelineOffset]);
 
   return (
     <>
@@ -54,14 +43,13 @@ export const TimelineRenderer = memo(function TimelineRenderer({
         namespaceId={namespaceId}
         instanceSettings={instanceSettings}
         theme={theme}
-        scrollOffset={timelineOffset}
         measureFromBottom
         showBackground={false}
       />
       <FrustumBackground
         height={36}
         visibility="transparent"
-        position={[0.5, 0, -0.5]}
+        z={-0.5}
         pointerEvents={playbackGestures}
       />
     </>

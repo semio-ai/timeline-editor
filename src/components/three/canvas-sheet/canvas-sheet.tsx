@@ -60,7 +60,7 @@ export const CanvasSheet = memo(function CanvasSheet({
   return (
     <TooltipHost className="w-full h-full">
       <Canvas
-        className="w-full h-full"
+        style={{ width: "100%", height: "100%" }}
         flat
         orthographic
         camera={{

@@ -202,7 +202,7 @@ export const TrackList = memo(function TrackList({
         <FrustumBackground
           height={availableHeight}
           visibility="transparent"
-          position={[0.5, 0, -trackWorldHeight * tracks.length - 0.1]}
+          z={-trackWorldHeight * tracks.length - 0.1}
           pointerEvents={playbackGestures}
         />
       </group>

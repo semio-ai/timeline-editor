@@ -51,12 +51,7 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
 
       {/* Render a background for the Active region, and the General Background */}
       {trackIds.length > 0 && (
-        <FrustumBackground
-          color={color}
-          height={height - 1}
-          position={[0.5, 0, Z.Background]}
-          emphasis={false}
-        />
+        <FrustumBackground color={color} height={height - 1} z={Z.Background} emphasis={false} />
       )}
     </group>
   );

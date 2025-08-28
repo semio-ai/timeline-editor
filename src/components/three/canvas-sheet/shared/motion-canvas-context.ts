@@ -6,6 +6,12 @@ export interface MotionCanvasState {
     width: MotionValue<number>;
     height: MotionValue<number>;
   };
+  frustum: {
+    top: MotionValue<number>;
+    bottom: MotionValue<number>;
+    left: MotionValue<number>;
+    right: MotionValue<number>;
+  };
   invariantScale: MotionValue<number>;
 }
 

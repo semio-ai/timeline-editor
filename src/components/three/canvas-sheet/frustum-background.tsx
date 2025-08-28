@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef } from "react";
-import { useMotionValueEvent, useSpring } from "motion/react";
+import { MotionValue, useMotionValueEvent, useSpring } from "motion/react";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
 import { useInvariantScale } from "../../../hooks";
@@ -10,7 +10,8 @@ interface FrustumBackgroundProps {
   color?: string;
   height: number;
   visibility?: "opaque" | "transparent" | "responsive";
-  position?: [number, number, number];
+  y?: MotionValue<number>;
+  z?: number;
   onHoverChange?: (hovered: boolean) => void;
   pointerEvents?: Record<string, any>;
   emphasis?: boolean;
@@ -21,7 +22,8 @@ export const FrustumBackground = memo(function FrustumBackground({
   color,
   height,
   visibility = "responsive",
-  position = [0.5, 0, -1],
+  y = new MotionValue(0),
+  z = -1,
   onHoverChange,
   pointerEvents = {},
   emphasis = false,
@@ -61,10 +63,16 @@ export const FrustumBackground = memo(function FrustumBackground({
     }
   });
 
+  useMotionValueEvent(y, "change", (yVal) => {
+    if (bgRef.current) {
+      bgRef.current.position.y = yVal;
+    }
+  });
+
   return (
     <mesh
       ref={bgRef as any}
-      position={position}
+      position={[0.5, y.get(), z]}
       {...pointerEvents}
       onPointerOver={(e) => {
         onHoverChange?.(true);

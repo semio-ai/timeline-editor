@@ -189,7 +189,7 @@ export const DataRenderer = memo(function DataRenderer({
         <FrustumBackground
           color={color}
           height={height - 1}
-          position={[0.5, 0, Z.Background]}
+          z={Z.Background}
           onHoverChange={onEmphasisChange}
           emphasis={emphasis}
           theme={theme}

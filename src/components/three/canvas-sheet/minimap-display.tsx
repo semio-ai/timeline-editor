@@ -214,7 +214,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       <FrustumBackground
         height={height}
         visibility="transparent"
-        position={[0.5, 0, -0.5]}
+        z={Z.Minimap + 0.1}
         pointerEvents={playbackGestures}
       />
 
