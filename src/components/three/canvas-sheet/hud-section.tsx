@@ -6,6 +6,7 @@ import { useOrthoCameraSetup, usePlayerSubscription } from "../../../hooks";
 import { Z } from "../../../constants";
 import { calculatePaddedFrustum } from "../../../viewport-utils";
 import { FrustumBackground } from "./frustum-background";
+import { MotionCanvasProvider } from "./shared/motion-canvas-provider";
 
 interface HudSectionProps {
   position: "top" | "bottom";
@@ -85,31 +86,33 @@ export const HudSection = memo(function HudSection({
 
   return (
     <Hud renderPriority={renderPriority}>
-      <group
-        position={[0, y, 0]}
-        onWheel={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Background */}
-        <OrthographicCamera
-          ref={cameraRef as any}
-          makeDefault
-          position={[0, 0, 100]}
-          up={[0, 1, 0]}
-          near={0.1}
-          far={1000}
-          manual
-        />
-        {backgroundColor && (
-          <FrustumBackground
-            color={backgroundColor}
-            height={hudHeight}
-            visibility="opaque"
-            position={[0.5, y, Z.Hud]}
+      <MotionCanvasProvider>
+        <group
+          position={[0, y, 0]}
+          onWheel={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Background */}
+          <OrthographicCamera
+            ref={cameraRef as any}
+            makeDefault
+            position={[0, 0, 100]}
+            up={[0, 1, 0]}
+            near={0.1}
+            far={1000}
+            manual
           />
-        )}
-        <group position={[0, y, 0]}>{children}</group>
-      </group>
+          {backgroundColor && (
+            <FrustumBackground
+              color={backgroundColor}
+              height={hudHeight}
+              visibility="opaque"
+              position={[0.5, y, Z.Hud]}
+            />
+          )}
+          <group position={[0, y, 0]}>{children}</group>
+        </group>
+      </MotionCanvasProvider>
     </Hud>
   );
 });

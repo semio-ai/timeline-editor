@@ -13,6 +13,7 @@ import { RulerRenderer } from "./ruler-renderer";
 import { TrackList } from "./track-list";
 import { MinimapDisplay } from "./minimap-display";
 import { TimelineRenderer } from "./timeline-renderer";
+import { MotionCanvasProvider } from "./shared/motion-canvas-provider";
 
 export interface CanvasSheetProps {
   animationId: string; // Unique ID for the animation
@@ -152,20 +153,22 @@ const CanvasContent = memo(function CanvasContent({
         contentHeightPx={totalContentHeightPx}
         trackRender={trackRender}
       />
-      <TrackList
-        animationId={animationId}
-        namespaceId={namespaceId}
-        instanceSettings={instanceSettings}
-        tracks={tracks}
-        scrollValue={scrollValue}
-        topOffsetPx={topOffsetPx}
-        bottomOffsetPx={bottomOffsetPx}
-        trackHeight={trackHeight}
-        emphasis={emphasis}
-        onEmphasisChange={onEmphasisChange}
-        theme={theme}
-        trackRender={trackRender}
-      />
+      <MotionCanvasProvider>
+        <TrackList
+          animationId={animationId}
+          namespaceId={namespaceId}
+          instanceSettings={instanceSettings}
+          tracks={tracks}
+          scrollValue={scrollValue}
+          topOffsetPx={topOffsetPx}
+          bottomOffsetPx={bottomOffsetPx}
+          trackHeight={trackHeight}
+          emphasis={emphasis}
+          onEmphasisChange={onEmphasisChange}
+          theme={theme}
+          trackRender={trackRender}
+        />
+      </MotionCanvasProvider>
 
       {/* Top HUD: 32px tall */}
       <HudSection position="top" pixelHeight={32} backgroundColor={bgColor} renderPriority={1}>
