@@ -1,7 +1,7 @@
 import { Theme, stampToVisualTime } from "@semio/ui";
 import { memo, useEffect, useRef, useCallback, useState } from "react";
 import * as THREE from "three";
-import { useFrame, useThree, ThreeEvent } from "@react-three/fiber";
+import { ThreeEvent } from "@react-three/fiber";
 import { clamp } from "lodash";
 import { useShallow } from "zustand/react/shallow";
 import { usePlayerStore, closestFrame } from "@semio/utils";
@@ -28,6 +28,7 @@ import {
 import { TIMELINE_PADDING, Z } from "../../../../constants";
 import { AnimationData, AnimationActions } from "../../../../store-types";
 import { SemanticTime } from "../../../../types";
+import { useMotionCanvas } from "../shared/motion-canvas-context";
 
 const CONE_RADIUS = 4; // Radius of the cone for the vertical pointer
 
@@ -483,23 +484,23 @@ function usePlayheadCartSprings(
   scaleSpring: MotionValue<number>,
   boundWithViewport = false,
 ): { position: MotionValue<number>; offset: MotionValue<number>; opacity: MotionValue<number> } {
-  const [left, right] = useThree(
-    useShallow((t) => [
-      (t.camera as THREE.OrthographicCamera).left,
-      (t.camera as THREE.OrthographicCamera).right,
-    ]),
-  );
+  const { frustum } = useMotionCanvas();
 
   const defaultPlayheadSpring = usePlayheadSpring();
-  const playheadCartSpring = useMotionValue(
-    computeClampedPosition(defaultPlayheadSpring.get(), left, right, boundWithViewport),
-  );
+  const playheadCartSpring = useTransform(() => {
+    return computeClampedPosition(
+      defaultPlayheadSpring.get(),
+      frustum.left.get(),
+      frustum.right.get(),
+      boundWithViewport,
+    );
+  });
 
   const [initialClampedPos, initialOpacity] = computeBoxOffset(
     playheadCartSpring.get(),
     widthSpring.get(),
-    left,
-    right,
+    frustum.left.get(),
+    frustum.right.get(),
     scaleSpring.get(),
   );
 
@@ -517,22 +518,35 @@ function usePlayheadCartSprings(
     ease: easeOut,
   });
 
-  useFrame(({ camera }) => {
-    const [l, r] = [
-      (camera as THREE.OrthographicCamera).left,
-      (camera as THREE.OrthographicCamera).right,
-    ];
+  useMotionValueEvent(frustum.left, "change", (l) => {
     const clampedPosition = computeClampedPosition(
       defaultPlayheadSpring.get(),
       l,
-      r,
+      frustum.right.get(),
       boundWithViewport,
     );
-    playheadCartSpring.set(clampedPosition);
     const [offsetVal, opacityVal] = computeBoxOffset(
       clampedPosition,
       widthSpring.get(),
       l,
+      frustum.right.get(),
+      scaleSpring.get(), // Offset to keep the box within bounds
+    );
+    boxOffsetSpring.set(offsetVal);
+    opacitySpring.set(opacityVal);
+  });
+
+  useMotionValueEvent(frustum.right, "change", (r) => {
+    const clampedPosition = computeClampedPosition(
+      defaultPlayheadSpring.get(),
+      frustum.left.get(),
+      r,
+      boundWithViewport,
+    );
+    const [offsetVal, opacityVal] = computeBoxOffset(
+      clampedPosition,
+      widthSpring.get(),
+      frustum.left.get(),
       r,
       scaleSpring.get(), // Offset to keep the box within bounds
     );

@@ -9,7 +9,6 @@ export * from "./use-drag-gestures";
 export * from "./use-hover-spring";
 export * from "./use-invariant-scale";
 export * from "./use-names";
-export * from "./use-ortho-camera-setup";
 export * from "./use-pair-springs";
 export * from "./use-pixel-to-world";
 export * from "./use-playback-gestures";

@@ -63,6 +63,7 @@ export const CanvasSheet = memo(function CanvasSheet({
         style={{ width: "100%", height: "100%" }}
         flat
         orthographic
+        resize={{ scroll: false, debounce: 0 }}
         camera={{
           position: [0, 0, 100],
           up: [0, 1, 0],
@@ -134,7 +135,7 @@ const CanvasContent = memo(function CanvasContent({
   const bottomOffsetPx = 108;
   const trackHeight = 36;
 
-  const size = useThree(useShallow((t) => t.size));
+  const size = useThree((t) => t.size);
 
   const totalContentHeightPx = useMemo(() => {
     return trackRender === TrackRender.Spline

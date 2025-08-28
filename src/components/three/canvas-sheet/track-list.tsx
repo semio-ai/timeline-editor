@@ -3,7 +3,7 @@ import { useRef, useMemo, useCallback, memo } from "react";
 import { MotionValue } from "motion/react";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
-import { useOrthoCameraSetup, usePlaybackGestures } from "../../../hooks";
+import { usePlaybackGestures } from "../../../hooks";
 import { AnimationInstanceSettings, TrackRender } from "../../../types";
 import { ThemeMode } from "../../../functions";
 import { DataRenderer } from "./data-renderer";
@@ -46,8 +46,6 @@ export const TrackList = memo(function TrackList({
   const { size, camera } = useThree();
 
   const availableHeight = size.height - topOffsetPx - bottomOffsetPx;
-
-  useOrthoCameraSetup(camera as THREE.OrthographicCamera);
 
   const groupRef = useRef<THREE.Group>(null);
   const lastCalculatedSizeRef = useRef({ width: 0, height: 0 });
