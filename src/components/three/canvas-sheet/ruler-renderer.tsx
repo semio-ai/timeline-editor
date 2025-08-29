@@ -8,7 +8,6 @@ import { usePlayerStore } from "@semio/utils";
 import {
   useAnimationStore,
   useAltKeyPressed,
-  usePixelToWorld,
   usePlaybackGestures,
   useInvariantScale,
 } from "../../../hooks";
@@ -36,12 +35,10 @@ function calculateTextPosition(
   tickHeight: number,
   side: "top" | "bottom",
   spacingPixels: number,
-  pixelsToWorldY: number,
 ): number {
-  const spacingWorld = spacingPixels * pixelsToWorldY;
   return side === "top"
-    ? yPosition + tickHeight / 2 + spacingWorld
-    : yPosition - tickHeight / 2 - spacingWorld;
+    ? yPosition + tickHeight / 2 + spacingPixels
+    : yPosition - tickHeight / 2 - spacingPixels;
 }
 
 export const RulerRenderer = memo(function RulerRenderer({
@@ -56,7 +53,6 @@ export const RulerRenderer = memo(function RulerRenderer({
   );
   const timeDisplay = useAnimationStore(useShallow((state: AnimationData) => state.timeDisplay));
   const altPressed = useAltKeyPressed();
-  const { pixelsToWorldY, pixelsToWorldX } = usePixelToWorld();
   const frameCount = Math.floor(framerate * (duration / 1000));
 
   // Add playback gestures for seeking and hover preview
@@ -115,13 +111,8 @@ export const RulerRenderer = memo(function RulerRenderer({
       />
 
       <HoverMarker height={hudHeightWorld} theme={theme} />
-      <PlayheadCart
-        height={hudHeightWorld / pixelsToWorldY}
-        theme={theme}
-        side={side}
-        fonts={fonts}
-      />
-      <BoundsCart side={side} height={hudHeightWorld / pixelsToWorldY} theme={theme} />
+      <PlayheadCart height={hudHeightWorld} theme={theme} side={side} fonts={fonts} />
+      <BoundsCart side={side} height={hudHeightWorld} theme={theme} />
 
       {/* Tick lines using Instances */}
       <Ticks
@@ -139,8 +130,6 @@ export const RulerRenderer = memo(function RulerRenderer({
         theme={theme}
         yPosition={yPosition}
         tickHeight={tickHeight}
-        pixelsToWorldY={pixelsToWorldY}
-        pixelsToWorldX={pixelsToWorldX}
         fonts={fonts}
       />
     </>
@@ -183,7 +172,6 @@ const TextBoxes = memo(function TextBoxes({
   theme,
   yPosition,
   tickHeight,
-  pixelsToWorldY,
   fonts,
 }: {
   ticks: { worldX: number; frameIndex: number; timeLabel: string }[];
@@ -191,15 +179,13 @@ const TextBoxes = memo(function TextBoxes({
   theme: "light" | "dark";
   yPosition: number;
   tickHeight: number;
-  pixelsToWorldY: number;
-  pixelsToWorldX: number;
   fonts?: {
     mono?: string;
     ui?: string;
   };
 }) {
   // Calculate text position using helper function
-  const textYWorld = calculateTextPosition(yPosition, tickHeight, side, 6, pixelsToWorldY);
+  const textYWorld = calculateTextPosition(yPosition, tickHeight, side, 6);
 
   return (
     <>

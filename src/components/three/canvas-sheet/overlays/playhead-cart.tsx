@@ -1,7 +1,7 @@
 import { Theme, stampToVisualTime } from "@semio/ui";
 import { memo, useEffect, useRef, useCallback, useState } from "react";
 import * as THREE from "three";
-import { useFrame, useThree, ThreeEvent } from "@react-three/fiber";
+import { useFrame, ThreeEvent } from "@react-three/fiber";
 import { clamp } from "lodash";
 import { useShallow } from "zustand/react/shallow";
 import { usePlayerStore, closestFrame } from "@semio/utils";
@@ -28,6 +28,7 @@ import {
 import { TIMELINE_PADDING, Z } from "../../../../constants";
 import { AnimationData, AnimationActions } from "../../../../store-types";
 import { SemanticTime } from "../../../../types";
+import { useMotionCanvas } from "../shared/motion-canvas-context";
 
 const CONE_RADIUS = 4; // Radius of the cone for the vertical pointer
 
@@ -278,6 +279,7 @@ export const PlayheadCart = memo(function PlayheadCart({
   // Double-click handler
   const handleDoubleClick = useCallback(
     (event: ThreeEvent<MouseEvent>) => {
+      console.log();
       if (playing) return;
       seekPlayer();
       event.stopPropagation();
@@ -312,7 +314,7 @@ export const PlayheadCart = memo(function PlayheadCart({
       {/* Cart body */}
       <group ref={scaleRef as any} scale={[invariantScale.get(), 1, 1]}>
         {/* Dynamic rounded rect version for comparison */}
-        <group ref={boxRef as any} position={[0, 0, Z.PlayheadCart]}>
+        <group ref={boxRef as any} position={[offset.get(), 0, Z.PlayheadCart]}>
           <DynamicRoundedRect
             position={[0, cartY, 0]}
             widthMotion={cartWidthSpring}
@@ -483,23 +485,23 @@ function usePlayheadCartSprings(
   scaleSpring: MotionValue<number>,
   boundWithViewport = false,
 ): { position: MotionValue<number>; offset: MotionValue<number>; opacity: MotionValue<number> } {
-  const [left, right] = useThree(
-    useShallow((t) => [
-      (t.camera as THREE.OrthographicCamera).left,
-      (t.camera as THREE.OrthographicCamera).right,
-    ]),
-  );
+  const { frustum } = useMotionCanvas();
 
   const defaultPlayheadSpring = usePlayheadSpring();
   const playheadCartSpring = useMotionValue(
-    computeClampedPosition(defaultPlayheadSpring.get(), left, right, boundWithViewport),
+    computeClampedPosition(
+      defaultPlayheadSpring.get(),
+      frustum.left.get(),
+      frustum.right.get(),
+      boundWithViewport,
+    ),
   );
 
   const [initialClampedPos, initialOpacity] = computeBoxOffset(
     playheadCartSpring.get(),
     widthSpring.get(),
-    left,
-    right,
+    frustum.left.get(),
+    frustum.right.get(),
     scaleSpring.get(),
   );
 
@@ -565,6 +567,7 @@ const PlayheadTime = memo(function PlayheadTime({
     <TrackText
       text={visualTime}
       color={color}
+      fontSizePixels={10}
       name="cart-time-display"
       characters="0123456789:.-sf"
       font={fonts?.mono}

@@ -60,7 +60,7 @@ export const PlayheadMarker = memo(function PlayheadMarker({
 
   useMotionValueEvent(scaleX, "change", (s) => {
     if (markerRef.current) {
-      markerRef.current.scale.set(s, 1, 1);
+      markerRef.current.scale.x = s;
     }
   });
 
@@ -77,7 +77,11 @@ export const PlayheadMarker = memo(function PlayheadMarker({
   });
 
   return (
-    <mesh ref={markerRef as any} position={[0, 0, Z.PlayheadCart]}>
+    <mesh
+      ref={markerRef as any}
+      scale={[scaleX.get(), 1, 1]}
+      position={[playheadSpring.get(), 0, Z.PlayheadCart]}
+    >
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial toneMapped={false} color={cartColor.get()} />
     </mesh>

@@ -65,6 +65,7 @@ export const CanvasSheet = memo(function CanvasSheet({
         orthographic
         resize={{ debounce: 0 }}
         camera={{
+          name: "MainCamera",
           position: [0, 0, 100],
           up: [0, 1, 0],
           left: initialLeft,
@@ -154,7 +155,7 @@ const CanvasContent = memo(function CanvasContent({
         contentHeightPx={totalContentHeightPx}
         trackRender={trackRender}
       />
-      <MotionCanvasProvider>
+      <MotionCanvasProvider label="MainCamera">
         <TrackList
           animationId={animationId}
           namespaceId={namespaceId}
@@ -172,12 +173,19 @@ const CanvasContent = memo(function CanvasContent({
       </MotionCanvasProvider>
 
       {/* Top HUD: 32px tall */}
-      <HudSection position="top" pixelHeight={32} backgroundColor={bgColor} renderPriority={1}>
+      <HudSection
+        label="top-hud"
+        position="top"
+        pixelHeight={32}
+        backgroundColor={bgColor}
+        renderPriority={1}
+      >
         <RulerRenderer height={32} side="top" theme={theme} fonts={fonts} />
       </HudSection>
 
       {/* Timeline HUD: 36px tall */}
       <HudSection
+        label="timeline"
         position="bottom"
         pixelHeight={36}
         backgroundColor={bgColor}
@@ -195,6 +203,7 @@ const CanvasContent = memo(function CanvasContent({
 
       {/* Minimap HUD: 36px tall */}
       <HudSection
+        label="minimap"
         position="bottom"
         pixelHeight={36}
         gap={36}
@@ -207,6 +216,7 @@ const CanvasContent = memo(function CanvasContent({
 
       {/* Bottom HUD: 36px tall - Bottom Ruler */}
       <HudSection
+        label="bottom-hud"
         position="bottom"
         pixelHeight={36}
         backgroundColor={bgColor}

@@ -1,5 +1,5 @@
 import { MotionValue, useMotionValue } from "motion/react";
-import { PlayerData } from "@semio/utils";
+import { PlayerData, usePlayerStore } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import { usePlayerSubscription } from "./use-player-subscription";
 
@@ -9,7 +9,7 @@ import { usePlayerSubscription } from "./use-player-subscription";
  * @returns A spring representing the current playhead time, scaled to the viewport if desired.
  */
 export function usePlayheadSpring(): MotionValue<number> {
-  const playheadSpring = useMotionValue<number>(0);
+  const playheadSpring = useMotionValue<number>(usePlayerStore.getState().player.stamp);
 
   usePlayerSubscription(
     (state: PlayerData) => state.player.stamp,

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, memo, useLayoutEffect } from "react";
+import { useMemo, useRef, useEffect, memo } from "react";
 import { Hud } from "@react-three/drei";
 import { useMotionValueEvent, useTransform } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
@@ -13,6 +13,7 @@ import { MotionCanvasProvider } from "./shared/motion-canvas-provider";
 import { useMotionCanvas } from "./shared/motion-canvas-context";
 
 interface HudSectionProps {
+  label?: string;
   position: "top" | "bottom";
   pixelHeight: number;
   backgroundColor?: string;
@@ -23,6 +24,7 @@ interface HudSectionProps {
 }
 
 export const HudSection = memo(function HudSection({
+  label,
   position,
   pixelHeight,
   children,
@@ -33,10 +35,13 @@ export const HudSection = memo(function HudSection({
 }: HudSectionProps) {
   return (
     <Hud renderPriority={renderPriority}>
-      <MotionCanvasProvider>
+      <MotionCanvasProvider label={label ?? `Hud-${renderPriority.toString()}`}>
         <group onWheel={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
           {/* Specialized Camera for HUDs */}
-          <HudCamera fixedCamera={fixedCamera} />
+          <HudCamera
+            fixedCamera={fixedCamera}
+            label={label ?? `Hud-${renderPriority.toString()}`}
+          />
           {/* Content */}
           <HudContent
             backgroundColor={backgroundColor}
@@ -80,7 +85,6 @@ const HudContent = memo(function HudContent({
   });
 
   useMotionValueEvent(y, "change", (yVal) => {
-    console.log("y-change", yVal);
     if (groupRef.current) {
       groupRef.current.position.y = yVal;
     }
@@ -104,7 +108,14 @@ const HudContent = memo(function HudContent({
   );
 });
 
-const HudCamera = memo(function HudCamera({ fixedCamera = false }: { fixedCamera?: boolean }) {
+const HudCamera = memo(function HudCamera({
+  fixedCamera = false,
+  label,
+}: {
+  fixedCamera?: boolean;
+  label: string;
+  hudHeight?: number;
+}) {
   const { size } = useMotionCanvas();
 
   const camera: THREE.OrthographicCamera & { manual?: boolean } = useMemo(() => {
@@ -113,9 +124,10 @@ const HudCamera = memo(function HudCamera({ fixedCamera = false }: { fixedCamera
     cam.position.set(0, 0, 100);
     cam.up.set(0, 1, 0);
     cam.updateProjectionMatrix();
+    cam.name = label;
     (cam as any).manual = true;
     return cam;
-  }, [size]);
+  }, [size, label]);
 
   const set = useThree(useShallow((state) => state.set));
 

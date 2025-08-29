@@ -24,7 +24,8 @@ export const HoverMarker = memo(function HoverMarker({
 
   useMotionValueEvent(scaleX, "change", (s) => {
     if (markerRef.current) {
-      markerRef.current.scale.set(s, 1, 1);
+      markerRef.current.scale.x = s;
+      // markerRef.current.scale.set(s, 1, 1);
     }
   });
 
@@ -40,7 +41,7 @@ export const HoverMarker = memo(function HoverMarker({
   });
 
   return (
-    <mesh ref={markerRef as any} position={[0, 0, Z.PlayheadCart]}>
+    <mesh ref={markerRef as any} scale={[scaleX.get(), 1, 1]} position={[0, 0, Z.PlayheadCart]}>
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial color={color} toneMapped={false} transparent opacity={0} />
     </mesh>
