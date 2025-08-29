@@ -1,5 +1,5 @@
 import { type ReactNode, useState, memo, useRef, useMemo } from "react";
-import { motion, useTransform, type MotionValue } from "motion/react";
+import { motion, useMotionValueEvent, useTransform, type MotionValue } from "motion/react";
 import { Text } from "@visx/text";
 import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
@@ -98,7 +98,7 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
 
   const [pointerMode, setPointerMode] = useState<"horizontal" | "vertical">("vertical");
 
-  visibilitySpring.on("change", (v) => {
+  useMotionValueEvent(visibilitySpring, "change", (v) => {
     if (Math.abs(v) > 0.5) {
       setPointerMode("horizontal");
     } else {
@@ -106,8 +106,8 @@ function InnerPlayheadCart({ side, ignoreZoom, duration }: PlayheadCartProps): R
     }
   });
 
-  transform.on("change", (v) => {
-    gRef.current?.setAttribute("transform", v);
+  useMotionValueEvent(transform, "change", (t) => {
+    gRef.current?.setAttribute("transform", t);
   });
 
   const colorClassName = useMemo(() => {
@@ -227,8 +227,8 @@ function PlayheadText({
 
   const gRef = useRef<SVGGElement>(null);
 
-  transform.on("change", (v) => {
-    gRef.current?.setAttribute("transform", v);
+  useMotionValueEvent(transform, "change", (t) => {
+    gRef.current?.setAttribute("transform", t);
   });
 
   return (

@@ -1,6 +1,6 @@
 import { memo, useRef, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { motion, useTransform } from "motion/react";
+import { motion, useMotionValueEvent, useTransform } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
 import { clsx } from "clsx";
 import {
@@ -205,7 +205,7 @@ function TickRegion({
 
   const transformSpring = useTrackTransformSpring(ignoreZoom, false);
 
-  transformSpring.on("change", (t) => {
+  useMotionValueEvent(transformSpring, "change", (t) => {
     tickRef.current?.setAttribute("transform", t);
   });
 

@@ -2,6 +2,7 @@ import { useMemo, useRef, memo, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
 import { Instances, Instance } from "@react-three/drei";
+import { useMotionValueEvent } from "motion/react";
 import { stampToVisualTime, Theme } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import {
@@ -83,16 +84,16 @@ export const RulerRenderer = memo(function RulerRenderer({
 
   // Set tick heights in pixels, then convert to world units
   const tickHeightPixels = side === "top" ? 12 : 13;
-  const tickHeight = tickHeightPixels * pixelsToWorldY;
+  const tickHeight = tickHeightPixels;
   const baseTickWidth = 1; // Base width of 1 unit that will be scaled down
 
   // Position ticks at the edge of the HUD
   // HUD height in world units
-  const hudHeightWorld = height * pixelsToWorldY;
+  const hudHeightWorld = height;
 
   // Top HUD: position at bottom edge (1px above bottom)
   // Bottom HUD: position at top edge (0px below top)
-  const edgeOffset = side === "top" ? pixelsToWorldY : 0;
+  const edgeOffset = 1;
   const yPosition =
     side === "top"
       ? -hudHeightWorld / 2 + tickHeight / 2 + edgeOffset
@@ -232,7 +233,7 @@ const TickMark = memo(function TickMark({
 
   const scaleX = useInvariantScale();
 
-  scaleX.on("change", (s) => {
+  useMotionValueEvent(scaleX, "change", (s) => {
     if (tickRef.current) {
       tickRef.current.scale.set(s * baseTickWidth, 1, 1);
     }

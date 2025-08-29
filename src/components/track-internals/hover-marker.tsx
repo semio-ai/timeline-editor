@@ -1,7 +1,7 @@
 import { type ReactNode, memo, useRef } from "react";
 import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
-import { motion, useTransform } from "motion/react";
+import { motion, useMotionValueEvent, useTransform } from "motion/react";
 import { useAnimationStore, useTrackContext } from "../../hooks";
 import { useHoverSpring } from "../../hooks/use-hover-spring_orig";
 
@@ -24,8 +24,8 @@ function InnerHoverMarker({ ignoreZoom = false }: HoverMarkerProps): ReactNode {
 
   const pathRef = useRef<SVGLineElement>(null);
 
-  transform.on("change", (v) => {
-    pathRef.current?.setAttribute("transform", v);
+  useMotionValueEvent(transform, "change", (t) => {
+    pathRef.current?.setAttribute("transform", t);
   });
 
   return (

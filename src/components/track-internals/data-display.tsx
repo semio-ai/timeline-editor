@@ -1,5 +1,6 @@
 import { memo, useMemo, useRef, useState } from "react";
 import { pick, uniq } from "lodash";
+import { useMotionValueEvent } from "motion/react";
 import { useShallow } from "zustand/react/shallow";
 import { overlappingSegments, RawValue, useDeepSelector } from "@semio/utils";
 import { useAnimationStore, useTrackContext, useTrackTransformSpring } from "../../hooks";
@@ -51,7 +52,7 @@ function InnerDataDisplay({ ignoreZoom = false, showFullLine = false }: DataDisp
 
   const transformSpring = useTrackTransformSpring(ignoreZoom, false);
 
-  transformSpring.on("change", (t) => {
+  useMotionValueEvent(transformSpring, "change", (t) => {
     groupRef.current?.setAttribute("transform", t);
   });
 

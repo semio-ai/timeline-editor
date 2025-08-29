@@ -1,6 +1,6 @@
 import { useThree, useFrame } from "@react-three/fiber";
-import { useRef, useMemo, useCallback, memo } from "react";
-import { MotionValue } from "motion/react";
+import { useRef, useMemo, useCallback, memo, useEffect, useLayoutEffect } from "react";
+import { MotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
 import { usePlaybackGestures } from "../../../hooks";
@@ -13,6 +13,7 @@ import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
 import { BoundsOverlay } from "./overlays/bounds-overlay";
 import { TickBackground } from "./overlays/tick-background";
+import { useMotionCanvas } from "./shared/motion-canvas-context";
 
 interface TrackListProps {
   animationId: string; // Unique ID for the animation
@@ -44,6 +45,7 @@ export const TrackList = memo(function TrackList({
   trackRender = TrackRender.Key,
 }: TrackListProps) {
   const { size, camera } = useThree();
+  const { size: motionSize } = useMotionCanvas();
 
   const availableHeight = size.height - topOffsetPx - bottomOffsetPx;
 
@@ -157,6 +159,32 @@ export const TrackList = memo(function TrackList({
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
 
+  // useOrthoCameraSetup(camera as THREE.OrthographicCamera);
+
+  useMotionValueEvent(motionSize.height, "change", (height) => {
+    (camera as THREE.OrthographicCamera).top = height / 2;
+    (camera as THREE.OrthographicCamera).bottom = -height / 2;
+    camera.updateProjectionMatrix();
+  });
+
+  useEffect(() => {
+    (camera as THREE.OrthographicCamera).top = motionSize.height.get() / 2;
+    (camera as THREE.OrthographicCamera).bottom = -motionSize.height.get() / 2;
+    camera.updateProjectionMatrix();
+  });
+  //
+
+  // useLayoutEffect(() => {
+  //   const height = motionSize.height.get();
+  //   (camera as THREE.OrthographicCamera).top = height / 2;
+  //   (camera as THREE.OrthographicCamera).bottom = -height / 2;
+  //   camera.updateProjectionMatrix();
+  // });
+
+  // (camera as THREE.OrthographicCamera).top = motionSize.height.get() / 2;
+  // (camera as THREE.OrthographicCamera).bottom = -motionSize.height.get() / 2;
+  // camera.updateProjectionMatrix();
+
   return (
     <>
       <group ref={groupRef as any}>
@@ -207,3 +235,23 @@ export const TrackList = memo(function TrackList({
     </>
   );
 });
+
+export function useOrthoCameraSetup(camera?: THREE.OrthographicCamera) {
+  const { size } = useThree();
+
+  // Set camera bounds immediately for initial render
+  if (camera) {
+    camera.top = size.height / 2;
+    camera.bottom = -size.height / 2;
+    camera.updateProjectionMatrix();
+  }
+
+  // Also set on resize (for subsequent renders)
+  useEffect(() => {
+    if (camera) {
+      camera.top = size.height / 2;
+      camera.bottom = -size.height / 2;
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, size]);
+}

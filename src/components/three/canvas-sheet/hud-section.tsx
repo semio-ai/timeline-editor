@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, memo } from "react";
+import { useMemo, useRef, useEffect, memo, useLayoutEffect } from "react";
 import { Hud } from "@react-three/drei";
 import { useMotionValueEvent, useTransform } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
@@ -80,6 +80,7 @@ const HudContent = memo(function HudContent({
   });
 
   useMotionValueEvent(y, "change", (yVal) => {
+    console.log("y-change", yVal);
     if (groupRef.current) {
       groupRef.current.position.y = yVal;
     }
@@ -119,6 +120,7 @@ const HudCamera = memo(function HudCamera({ fixedCamera = false }: { fixedCamera
   const set = useThree(useShallow((state) => state.set));
 
   useEffect(() => {
+    camera.updateProjectionMatrix();
     set({ camera: camera as any });
   });
 

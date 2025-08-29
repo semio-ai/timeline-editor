@@ -1,7 +1,7 @@
 import { useMemo, useRef, memo } from "react";
 import { scaleLinear } from "@visx/scale";
 import { Text } from "@visx/text";
-import { motion, MotionValue, useTransform } from "motion/react";
+import { motion, MotionValue, useMotionValueEvent, useTransform } from "motion/react";
 import { stampToVisualTime } from "@semio/ui";
 import { shallow } from "zustand/shallow";
 import { useShallow } from "zustand/react/shallow";
@@ -127,7 +127,7 @@ function TickRegion({ ignoreZoom, side }: { ignoreZoom: boolean; side: "top" | "
 
   const transformSpring = useTrackTransformSpring(ignoreZoom, false);
 
-  transformSpring.on("change", (t) => {
+  useMotionValueEvent(transformSpring, "change", (t) => {
     tickRef.current?.setAttribute("transform", t);
   });
 
@@ -238,7 +238,7 @@ function ScaledText({
 
   const transform = useTransform(scaleSpring, (scale) => `scale(${scale.toString()} 1)`);
 
-  transform.on("change", (t) => textRef.current?.setAttribute("transform", t));
+  useMotionValueEvent(transform, "change", (t) => textRef.current?.setAttribute("transform", t));
 
   return (
     <Text

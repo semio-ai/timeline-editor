@@ -1,6 +1,5 @@
 export * from "./use-alt-key-pressed";
 export * from "./use-animation-store";
-export * from "./use-camera-sync";
 export * from "./use-bezier-path-spring";
 export * from "./use-bound-springs";
 export * from "./use-colors";

@@ -16,7 +16,7 @@ import {
   usePlayerStore,
 } from "@semio/utils";
 import { clamp } from "lodash";
-import { motion, useTransform } from "motion/react";
+import { motion, useMotionValueEvent, useTransform } from "motion/react";
 import { useShallow } from "zustand/react/shallow";
 import { Theme, useTheme } from "@semio/ui";
 import {
@@ -135,7 +135,7 @@ function InnerFrameMarker({
     return `translate(${xScale(data.stamp * animationDuration).toString()} 0) scale(${scaleSpring.toString()} 1)`;
   });
 
-  transformSpring.on("change", (ts) => {
+  useMotionValueEvent(transformSpring, "change", (ts) => {
     gestureRef.current?.setAttribute("transform", ts);
   });
 

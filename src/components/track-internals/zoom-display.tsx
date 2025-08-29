@@ -1,6 +1,6 @@
 import { memo, useState, useRef, MutableRefObject, RefObject } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { motion, useTransform } from "motion/react";
+import { motion, useMotionValueEvent, useTransform } from "motion/react";
 import { closestFrame, usePlayerStore } from "@semio/utils";
 import { clsx } from "clsx";
 import { clamp } from "lodash";
@@ -152,12 +152,11 @@ function InnerZoomDisplay() {
   const transformL = useTransform(leftSpring, (v) => `translate(${v.toString()} 0)`);
   const transformR = useTransform(rightSpring, (v) => `translate(${v.toString()} 0)`);
 
-  transformL.on("change", (v) => {
-    leftGestureRef.current?.setAttribute("transform", v);
+  useMotionValueEvent(transformL, "change", (t) => {
+    leftGestureRef.current?.setAttribute("transform", t);
   });
-
-  transformR.on("change", (v) => {
-    rightGestureRef.current?.setAttribute("transform", v);
+  useMotionValueEvent(transformR, "change", (t) => {
+    rightGestureRef.current?.setAttribute("transform", t);
   });
 
   const x2 = useTransform(() => leftSpring.get() + widthSpring.get());

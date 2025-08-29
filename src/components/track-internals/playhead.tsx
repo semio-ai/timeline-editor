@@ -1,6 +1,6 @@
 import { type ReactNode, memo, useRef, useMemo } from "react";
 import { clsx } from "clsx";
-import { useTransform } from "motion/react";
+import { useMotionValueEvent, useTransform } from "motion/react";
 import { useGesture } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { closestFrame, usePlayerStore } from "@semio/utils";
@@ -65,8 +65,8 @@ function InnerPlayhead({ ignoreZoom = false }: PlayheadProps): ReactNode {
 
   const transform = useTransform(playheadSpring, (value) => `translate(${value.toString()} 0)`);
 
-  transform.on("change", (v) => {
-    gRef.current?.setAttribute("transform", v);
+  useMotionValueEvent(transform, "change", (t) => {
+    gRef.current?.setAttribute("transform", t);
   });
 
   const lineColorClassName = useMemo(() => {

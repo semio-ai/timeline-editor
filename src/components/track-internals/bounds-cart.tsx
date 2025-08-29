@@ -1,5 +1,5 @@
 import { type ReactNode, memo, useCallback, useRef } from "react";
-import { useTransform, motion } from "motion/react";
+import { useTransform, motion, useMotionValueEvent } from "motion/react";
 import { FullGestureState } from "@use-gesture/react";
 import { clamp } from "lodash";
 import { clsx } from "clsx";
@@ -155,8 +155,8 @@ function InnerBoundCart({ side, end, ignoreZoom }: BoundCartProps): ReactNode {
     return `translate(${value.toString()} 0)`;
   });
 
-  transform.on("change", (v) => {
-    cartRef.current?.setAttribute("transform", v);
+  useMotionValueEvent(transform, "change", (t) => {
+    cartRef.current?.setAttribute("transform", t);
   });
 
   return (

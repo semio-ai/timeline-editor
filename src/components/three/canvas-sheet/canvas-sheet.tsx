@@ -63,7 +63,7 @@ export const CanvasSheet = memo(function CanvasSheet({
         style={{ width: "100%", height: "100%" }}
         flat
         orthographic
-        resize={{ scroll: false, debounce: 0 }}
+        resize={{ debounce: 0 }}
         camera={{
           position: [0, 0, 100],
           up: [0, 1, 0],

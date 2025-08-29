@@ -53,10 +53,8 @@ export const TickBackground = memo(function TickBackground({
         type: tickType,
       });
     }
-
-    console.log("ticks", ticks, ticks.length, frameCount, framerate, duration);
     return ticks;
-  }, [frameCount, framerate, duration]);
+  }, [frameCount, framerate]);
 
   const baseTickWidth = 1; // Base width that will be scaled by the parent group
 

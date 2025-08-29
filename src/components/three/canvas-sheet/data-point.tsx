@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, memo } from "react";
 import { Instance, Line, PositionMesh } from "@react-three/drei";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
-import { useSpring, useTransform } from "motion/react";
+import { useMotionValueEvent, useSpring, useTransform } from "motion/react";
 import { InstancedFrameInfo, TrackRender } from "../../../types";
 import { useColors, useInvariantScale } from "../../../hooks";
 import { computeOklabMix, createLinearScale, getHighlightColor } from "../../../functions";
@@ -79,15 +79,17 @@ export const DataPoint = memo(function DataPoint({
 
   const scaleX = useInvariantScale();
 
-  hoverColor.on("change", (v) => {
+  // Update the color when it changes
+  useMotionValueEvent(hoverColor, "change", (c) => {
     if (instanceRefFg.current) {
       if ("color" in instanceRefFg.current) {
-        instanceRefFg.current.color.set(v);
+        instanceRefFg.current.color.set(c);
       }
     }
   });
 
-  lineOpacity.on("change", (v) => {
+  // Set the line opacity based on the lineOpacity spring
+  useMotionValueEvent(lineOpacity, "change", (v) => {
     if (lineRef.current) {
       (lineRef.current.material as THREE.LineBasicMaterial).opacity = v;
       (lineRef.current.material as THREE.LineBasicMaterial).transparent = v < 1;
@@ -95,14 +97,15 @@ export const DataPoint = memo(function DataPoint({
   });
 
   // Set the y position of the instances based on the yPosition spring
-  yPosition.on("change", (y) => {
+  useMotionValueEvent(yPosition, "change", (y) => {
     if (instanceRefFg.current && instanceRefBg.current) {
       instanceRefFg.current.position.y = y;
       instanceRefBg.current.position.y = y;
     }
   });
 
-  scaleX.on("change", (s) => {
+  // Update the scale to be invariant to zoom level
+  useMotionValueEvent(scaleX, "change", (s) => {
     if (instanceRefFg.current && instanceRefBg.current) {
       instanceRefFg.current.scale.x = s;
       instanceRefBg.current.scale.x = s * 1.2; // Background is slightly larger
