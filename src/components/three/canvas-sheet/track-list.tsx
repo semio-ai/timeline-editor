@@ -1,9 +1,9 @@
 import { useThree, useFrame } from "@react-three/fiber";
-import { useRef, useMemo, useCallback, memo, useEffect, useLayoutEffect } from "react";
+import { useRef, useMemo, useCallback, memo, useEffect } from "react";
 import { MotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
-import { usePlaybackGestures } from "../../../hooks";
+import { useOrthoCameraSetup, usePlaybackGestures } from "../../../hooks";
 import { AnimationInstanceSettings, TrackRender } from "../../../types";
 import { ThemeMode } from "../../../functions";
 import { DataRenderer } from "./data-renderer";
@@ -48,6 +48,8 @@ export const TrackList = memo(function TrackList({
   const { size: motionSize } = useMotionCanvas();
 
   const availableHeight = size.height - topOffsetPx - bottomOffsetPx;
+
+  useOrthoCameraSetup(camera as THREE.OrthographicCamera);
 
   const groupRef = useRef<THREE.Group>(null);
   const lastCalculatedSizeRef = useRef({ width: 0, height: 0 });
@@ -235,23 +237,3 @@ export const TrackList = memo(function TrackList({
     </>
   );
 });
-
-export function useOrthoCameraSetup(camera?: THREE.OrthographicCamera) {
-  const { size } = useThree();
-
-  // Set camera bounds immediately for initial render
-  if (camera) {
-    camera.top = size.height / 2;
-    camera.bottom = -size.height / 2;
-    camera.updateProjectionMatrix();
-  }
-
-  // Also set on resize (for subsequent renders)
-  useEffect(() => {
-    if (camera) {
-      camera.top = size.height / 2;
-      camera.bottom = -size.height / 2;
-      camera.updateProjectionMatrix();
-    }
-  }, [camera, size]);
-}
