@@ -1,11 +1,15 @@
 import { useEffect, useRef, forwardRef, memo } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
-import { OrthographicCamera } from "three";
+import { OrthographicCamera, Vector2 } from "three";
 import { usePlayerStore } from "@semio/utils";
 import { MotionValue } from "motion";
-import { calculatePaddedFrustum } from "../../../viewport-utils";
+import { useGesture } from "@use-gesture/react";
+import {
+  calculatePaddedFrustum,
+  getDataViewportFromFrustum,
+  setFrustumFromDataViewport,
+} from "../../../viewport-utils";
 import { TrackRender } from "../../../types";
-import { PanZoomControls as PanZoomControlsImpl } from "./pan-zoom-controls-impl";
 
 export interface PanZoomControlsProps {
   enabled?: boolean;
@@ -25,7 +29,23 @@ export interface PanZoomControlsProps {
   trackRender?: TrackRender;
 }
 
-const InnerPanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsProps>(
+interface PanZoomControlsRef {
+  enabled: boolean;
+  enablePan: boolean;
+  enableZoom: boolean;
+  panSpeed: number;
+  zoomSpeed: number;
+  minZoom: number;
+  maxZoom: number;
+  bounds?: [number, number];
+  scrollValue?: MotionValue<number>;
+  trackRegion?: { top: number; bottom: number };
+  contentHeightPx?: number;
+  getFrustum: () => { left: number; right: number; top: number; bottom: number };
+  update: () => boolean;
+}
+
+const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps>(
   (
     {
       enabled = true,
@@ -46,134 +66,41 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsProp
     },
     ref,
   ) => {
-    const controlsRef = useRef<PanZoomControlsImpl | null>(null);
-    const unsubscribeRef = useRef<(() => void) | null>(null);
-    const { camera, gl, invalidate, size } = useThree();
+    const { camera, gl, size } = useThree();
+    const initialCameraWidth = useRef(1.0);
 
-    // Create controls instance only when camera or domElement changes (not on resize)
+    // Store current settings in refs for gesture handlers
+    const settingsRef = useRef({
+      enabled,
+      enablePan,
+      enableZoom,
+      panSpeed,
+      zoomSpeed,
+      minZoom,
+      maxZoom,
+      bounds,
+      scrollValue,
+      trackRegion,
+      contentHeightPx,
+      trackRender,
+    });
+
+    // Update settings ref when props change
     useEffect(() => {
-      // Only require camera to be OrthographicCamera, don't wait for size
-      if (!(camera instanceof OrthographicCamera)) {
-        return;
-      }
-
-      const controls = new PanZoomControlsImpl(camera, gl.domElement);
-      controlsRef.current = controls;
-
-      // Set up player store subscription inside controls creation
-      // This ensures viewport updates are properly synchronized
-      const setPlayerViewport = usePlayerStore.getState().updatePlayerViewport;
-
-      // Subscribe to player store viewport and update camera with padding
-      const unsubscribe = usePlayerStore.subscribe(
-        (state) => state.player.viewport,
-        (viewport) => {
-          // Only update if we have a proper canvas width to prevent flashing
-          if (size.width > 0) {
-            const { left, right } = calculatePaddedFrustum(
-              viewport,
-              size.width,
-              false, // Dynamic camera follows viewport
-            );
-            camera.left = left;
-            camera.right = right;
-            camera.updateProjectionMatrix();
-          }
-        },
-      );
-
-      // Initialize camera bounds immediately if canvas is ready
-      if (size.width > 0) {
-        const currentViewport = usePlayerStore.getState().player.viewport;
-        const { left, right } = calculatePaddedFrustum(currentViewport, size.width, false);
-        camera.left = left;
-        camera.right = right;
-        camera.updateProjectionMatrix();
-      }
-
-      // Sync viewport changes from controls to player store
-      controls.onViewportChange = (frustum) => {
-        setPlayerViewport(frustum.left, frustum.right);
+      settingsRef.current = {
+        enabled,
+        enablePan,
+        enableZoom,
+        panSpeed,
+        zoomSpeed,
+        minZoom,
+        maxZoom,
+        bounds,
+        scrollValue,
+        trackRegion,
+        contentHeightPx,
+        trackRender,
       };
-
-      // Store unsubscribe function
-      unsubscribeRef.current = unsubscribe;
-
-      // Expose ref
-      if (ref) {
-        if (typeof ref === "function") {
-          ref(controls);
-        } else {
-          ref.current = controls;
-        }
-      }
-
-      return () => {
-        controls.dispose();
-        unsubscribe();
-        controlsRef.current = null;
-        unsubscribeRef.current = null;
-      };
-    }, [camera, gl.domElement, ref, size.width]);
-
-    // Handle canvas size changes without recreating controls
-    useEffect(() => {
-      if (controlsRef.current && size.width > 0) {
-        // Update camera bounds when canvas size changes
-        const currentViewport = usePlayerStore.getState().player.viewport;
-        const { left, right } = calculatePaddedFrustum(currentViewport, size.width, false);
-        (camera as OrthographicCamera).left = left;
-        (camera as OrthographicCamera).right = right;
-        camera.updateProjectionMatrix();
-      }
-    }, [camera, size.width]);
-
-    // Update event listeners when callbacks change
-    useEffect(() => {
-      const controls = controlsRef.current;
-      if (!controls) return;
-
-      const handleChange = () => {
-        invalidate();
-        onChange?.();
-      };
-
-      const handleStart = () => {
-        onStart?.();
-      };
-
-      const handleEnd = () => {
-        onEnd?.();
-      };
-
-      controls.addEventListener("change", handleChange);
-      controls.addEventListener("start", handleStart);
-      controls.addEventListener("end", handleEnd);
-
-      return () => {
-        controls.removeEventListener("change", handleChange);
-        controls.removeEventListener("start", handleStart);
-        controls.removeEventListener("end", handleEnd);
-      };
-    }, [onChange, onStart, onEnd, invalidate]);
-
-    // Update properties when they change (but avoid recreating controls)
-    useEffect(() => {
-      if (controlsRef.current) {
-        controlsRef.current.enabled = enabled;
-        controlsRef.current.enablePan = enablePan;
-        controlsRef.current.enableZoom = enableZoom;
-        controlsRef.current.panSpeed = panSpeed;
-        controlsRef.current.zoomSpeed = zoomSpeed;
-        controlsRef.current.minZoom = minZoom;
-        controlsRef.current.maxZoom = maxZoom;
-        controlsRef.current.bounds = bounds;
-        // In spline mode, don't pass scrollValue to prevent interference with external scroll
-        controlsRef.current.scrollValue =
-          trackRender === TrackRender.Spline ? undefined : scrollValue;
-        controlsRef.current.trackRegion = trackRegion;
-        controlsRef.current.contentHeightPx = contentHeightPx;
-      }
     }, [
       enabled,
       enablePan,
@@ -189,11 +116,357 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsImpl, PanZoomControlsProp
       trackRender,
     ]);
 
-    // Call update if needed (though our PanZoomControls.update() returns false)
-    useFrame(() => {
-      if (controlsRef.current?.update) {
-        controlsRef.current.update();
+    // Setup player store integration
+    useEffect(() => {
+      if (!(camera instanceof OrthographicCamera) || size.width <= 0) {
+        return;
       }
+
+      // Store reference for viewport updates
+
+      // Subscribe to player store viewport changes
+      const unsubscribe = usePlayerStore.subscribe(
+        (state) => state.player.viewport,
+        (viewport) => {
+          if (size.width > 0) {
+            const { left, right } = calculatePaddedFrustum(viewport, size.width, false);
+            camera.left = left;
+            camera.right = right;
+            camera.updateProjectionMatrix();
+          }
+        },
+      );
+
+      // Initialize camera bounds
+      const currentViewport = usePlayerStore.getState().player.viewport;
+      const { left, right } = calculatePaddedFrustum(currentViewport, size.width, false);
+      camera.left = left;
+      camera.right = right;
+      camera.updateProjectionMatrix();
+
+      return unsubscribe;
+    }, [camera, size.width]);
+
+    // Pan camera function
+    const panCamera = (deltaX: number) => {
+      if (!(camera instanceof OrthographicCamera) || !settingsRef.current.enablePan) return;
+
+      const canvasWidth = gl.domElement?.clientWidth || 1;
+      const currentDataViewport = getDataViewportFromFrustum(
+        { left: camera.left, right: camera.right },
+        canvasWidth,
+      );
+
+      const dataWidth = currentDataViewport.right - currentDataViewport.left;
+      const scale = (dataWidth / initialCameraWidth.current) * 0.25;
+      const adjustedDeltaX = deltaX * scale * settingsRef.current.panSpeed;
+
+      let newDataLeft = currentDataViewport.left + adjustedDeltaX;
+      let newDataRight = currentDataViewport.right + adjustedDeltaX;
+
+      // Apply bounds checking
+      if (settingsRef.current.bounds) {
+        const [min, max] = settingsRef.current.bounds;
+        if (dataWidth >= max - min) {
+          newDataLeft = min;
+          newDataRight = max;
+        } else {
+          if (newDataLeft < min) {
+            newDataLeft = min;
+            newDataRight = min + dataWidth;
+          }
+          if (newDataRight > max) {
+            newDataRight = max;
+            newDataLeft = max - dataWidth;
+          }
+        }
+      }
+
+      // Update camera
+      const newFrustum = setFrustumFromDataViewport(
+        { left: newDataLeft, right: newDataRight },
+        canvasWidth,
+      );
+
+      camera.left = newFrustum.left;
+      camera.right = newFrustum.right;
+      camera.updateProjectionMatrix();
+
+      // Notify player store
+      usePlayerStore.getState().updatePlayerViewport(newDataLeft, newDataRight);
+    };
+
+    // Zoom camera function
+    const zoomCameraHorizontal = (zoomFactor: number, center: Vector2) => {
+      if (
+        !(camera instanceof OrthographicCamera) ||
+        !settingsRef.current.enableZoom ||
+        !gl.domElement
+      )
+        return;
+
+      const canvasWidth = gl.domElement.clientWidth;
+      const rect = gl.domElement.getBoundingClientRect();
+
+      const currentDataViewport = getDataViewportFromFrustum(
+        { left: camera.left, right: camera.right },
+        canvasWidth,
+      );
+
+      const currentDataWidth = currentDataViewport.right - currentDataViewport.left;
+      const minDataWidth = initialCameraWidth.current / settingsRef.current.maxZoom;
+      const maxDataWidth = initialCameraWidth.current / settingsRef.current.minZoom;
+      const newDataWidth = Math.max(
+        minDataWidth,
+        Math.min(maxDataWidth, currentDataWidth / zoomFactor),
+      );
+
+      if (Math.abs(newDataWidth - currentDataWidth) < 0.000001) return;
+
+      // Calculate zoom center in data space
+      const relativeX = (center.x - rect.left) / rect.width;
+      const targetDataX = currentDataViewport.left + currentDataWidth * relativeX;
+      const newDataCenterX = targetDataX - newDataWidth * (relativeX - 0.5);
+
+      let newDataLeft = newDataCenterX - newDataWidth / 2;
+      let newDataRight = newDataCenterX + newDataWidth / 2;
+
+      // Apply bounds checking
+      if (settingsRef.current.bounds) {
+        const [min, max] = settingsRef.current.bounds;
+        if (newDataLeft < min) {
+          newDataLeft = min;
+          newDataRight = min + newDataWidth;
+        }
+        if (newDataRight > max) {
+          newDataRight = max;
+          newDataLeft = max - newDataWidth;
+        }
+        if (newDataRight - newDataLeft > max - min) {
+          newDataLeft = min;
+          newDataRight = max;
+        }
+      }
+
+      // Update camera
+      const newFrustum = setFrustumFromDataViewport(
+        { left: newDataLeft, right: newDataRight },
+        canvasWidth,
+      );
+
+      camera.left = newFrustum.left;
+      camera.right = newFrustum.right;
+      camera.updateProjectionMatrix();
+
+      // Notify player store
+      usePlayerStore.getState().updatePlayerViewport(newDataLeft, newDataRight);
+    };
+
+    // Handle vertical scrolling in track region
+    const handleTrackScroll = (event: { deltaY: number; clientY: number }) => {
+      const {
+        scrollValue: scrollVal,
+        trackRegion: trackReg,
+        contentHeightPx: contentHeight,
+      } = settingsRef.current;
+      const rect = gl.domElement?.getBoundingClientRect();
+
+      if (!scrollVal || !trackReg || typeof contentHeight !== "number" || !rect) {
+        return false;
+      }
+
+      const pointerY = event.clientY - rect.top;
+      const { top = 0, bottom = 0 } = trackReg;
+      const trackRegionStart = top;
+      const trackRegionEnd = rect.height - bottom;
+
+      if (pointerY >= trackRegionStart && pointerY <= trackRegionEnd) {
+        const visibleHeightPx = rect.height - top - bottom;
+        const scrollMin = 0;
+        const scrollMax = Math.max(0, contentHeight - visibleHeightPx);
+
+        if (scrollMax === 0) return true; // Handled but no scroll needed
+
+        const prev = scrollVal.get();
+        let next = prev + event.deltaY;
+        next = Math.max(scrollMin, Math.min(scrollMax, next));
+        scrollVal.set(next);
+
+        return true; // Event was handled
+      }
+
+      return false;
+    };
+
+    // Setup gesture handlers
+    useGesture(
+      {
+        onWheel: ({ event, delta, ctrlKey, metaKey }) => {
+          if (!settingsRef.current.enabled) return;
+
+          const [deltaX, deltaY] = delta;
+          const absDeltaX = Math.abs(deltaX);
+          const absDeltaY = Math.abs(deltaY);
+          const threshold = 0.5;
+
+          onStart?.();
+
+          // Check for vertical scroll in track region (no modifier keys)
+          if (!ctrlKey && !metaKey && absDeltaY > absDeltaX && absDeltaY > threshold) {
+            if (settingsRef.current.trackRender !== TrackRender.Spline) {
+              const handled = handleTrackScroll({
+                deltaY,
+                clientY: event.clientY,
+              });
+
+              if (handled) {
+                event.preventDefault();
+                onChange?.();
+                onEnd?.();
+                return;
+              }
+            }
+          }
+
+          event.preventDefault();
+
+          // Zoom: Ctrl/Cmd + vertical scroll
+          if ((ctrlKey || metaKey) && absDeltaY > absDeltaX && absDeltaY > threshold) {
+            if (settingsRef.current.enableZoom) {
+              const baseZoomFactor = deltaY > 0 ? 0.9 : 1.1;
+              const zoomFactor = 1 + (baseZoomFactor - 1) * settingsRef.current.zoomSpeed;
+              const center = new Vector2(event.clientX, event.clientY);
+              zoomCameraHorizontal(zoomFactor, center);
+            }
+          }
+          // Pan: horizontal scroll
+          else if (
+            settingsRef.current.enablePan &&
+            absDeltaX > absDeltaY &&
+            absDeltaX > threshold
+          ) {
+            const panDelta = deltaX * settingsRef.current.panSpeed * 0.1;
+            panCamera(panDelta);
+          }
+
+          onChange?.();
+          onEnd?.();
+        },
+        onPinch: ({ origin, first, last, offset: [scale], event }) => {
+          if (!settingsRef.current.enabled || !settingsRef.current.enableZoom) return;
+
+          if (first) {
+            onStart?.();
+          }
+
+          event.preventDefault();
+
+          // Use offset with proper scaling - scale is ratio from initial pinch distance
+          const scaleFactor = 1 + (scale - 1) * settingsRef.current.zoomSpeed * 0.5;
+          const center = new Vector2(origin[0], origin[1]);
+          zoomCameraHorizontal(scaleFactor, center);
+
+          onChange?.();
+
+          if (last) {
+            onEnd?.();
+          }
+        },
+        onDrag: ({ delta: [deltaX], first, last, event }) => {
+          if (!settingsRef.current.enabled || !settingsRef.current.enablePan) return;
+
+          if (first) {
+            onStart?.();
+          }
+
+          event.preventDefault();
+
+          panCamera(deltaX * settingsRef.current.panSpeed * 0.1);
+          onChange?.();
+
+          if (last) {
+            onEnd?.();
+          }
+        },
+        onPointerDown: ({ event }) => {
+          if (!settingsRef.current.enabled) return;
+          // Prime the gesture system for better pinch detection
+          event.preventDefault();
+        },
+        onPointerUp: ({ event }) => {
+          if (!settingsRef.current.enabled) return;
+          // Cleanup after gesture
+          event.preventDefault();
+        },
+      },
+      {
+        target: gl.domElement,
+        enabled,
+        eventOptions: { passive: false },
+        wheel: { eventOptions: { passive: false } },
+        pinch: {
+          eventOptions: { passive: false },
+          threshold: 0.001,
+          rubberband: false,
+          triggerAllEvents: true,
+          from: () => [1, 1],
+        },
+        drag: { eventOptions: { passive: false } },
+        pointer: { eventOptions: { passive: false } },
+      },
+    );
+
+    // Set touch-action for proper gesture handling
+    useEffect(() => {
+      if (gl.domElement && enabled) {
+        // Use "none" for most aggressive touch handling
+        gl.domElement.style.touchAction = trackRender === TrackRender.Spline ? "pan-y" : "none";
+
+        return () => {
+          if (gl.domElement) {
+            gl.domElement.style.touchAction = "auto";
+          }
+        };
+      }
+    }, [gl.domElement, enabled, trackRender]);
+
+    // useGesture handles all event callbacks automatically
+
+    // Expose ref methods
+    useEffect(() => {
+      if (ref) {
+        const controlsRef = {
+          enabled: settingsRef.current.enabled,
+          enablePan: settingsRef.current.enablePan,
+          enableZoom: settingsRef.current.enableZoom,
+          panSpeed: settingsRef.current.panSpeed,
+          zoomSpeed: settingsRef.current.zoomSpeed,
+          minZoom: settingsRef.current.minZoom,
+          maxZoom: settingsRef.current.maxZoom,
+          bounds: settingsRef.current.bounds,
+          scrollValue: settingsRef.current.scrollValue,
+          trackRegion: settingsRef.current.trackRegion,
+          contentHeightPx: settingsRef.current.contentHeightPx,
+          getFrustum: () => ({
+            left: (camera as OrthographicCamera).left,
+            right: (camera as OrthographicCamera).right,
+            top: (camera as OrthographicCamera).top,
+            bottom: (camera as OrthographicCamera).bottom,
+          }),
+          update: () => false,
+        };
+
+        if (typeof ref === "function") {
+          ref(controlsRef);
+        } else {
+          ref.current = controlsRef;
+        }
+      }
+    }, [ref, camera]);
+
+    // Update on each frame (minimal processing)
+    useFrame(() => {
+      // No-op - useGesture handles everything
     });
 
     return null;
