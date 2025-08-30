@@ -5,6 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { usePlayerStore, closestFrame, PlayerData } from "@semio/utils";
 import { useMotionValue, useSpring, useTransform, useMotionValueEvent } from "motion/react";
 import { useCursor } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import { shallow } from "zustand/shallow";
 import { DynamicRoundedRect } from "../shared/rounded-rectangle-geometry";
 import { useTriangleCaretGeometry } from "../shared/triangle-caret";
@@ -80,6 +81,9 @@ export const BoundsCart = memo(function BoundsCart({
   const [isDraggingLeft, setIsDraggingLeft] = useState(false);
   const [isDraggingRight, setIsDraggingRight] = useState(false);
   const altPressed = useAltKeyPressed();
+
+  // Get canvas element for cursor container
+  const { gl } = useThree();
 
   // Get bounds springs
   const leftSpring = useMotionValue<number>(usePlayerStore.getState().player.bounds[0]);
@@ -269,9 +273,9 @@ export const BoundsCart = memo(function BoundsCart({
   }, []);
 
   // Cursor feedback
-  useCursor(hasLeftPreview && !playing && !isDraggingLeft, "ew-resize", "auto");
-  useCursor(hasRightPreview && !playing && !isDraggingRight, "ew-resize", "auto");
-  useCursor(isDraggingLeft || isDraggingRight, "ew-resize", "auto");
+  useCursor(hasLeftPreview && !playing && !isDraggingLeft, "ew-resize", "auto", gl.domElement);
+  useCursor(hasRightPreview && !playing && !isDraggingRight, "ew-resize", "auto", gl.domElement);
+  useCursor(isDraggingLeft || isDraggingRight, "ew-resize", "auto", gl.domElement);
 
   // Update left position
   useMotionValueEvent(leftSpring, "change", (pos) => {

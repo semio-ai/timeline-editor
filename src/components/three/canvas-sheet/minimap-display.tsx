@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { cubicBezier, MotionValue, useMotionValueEvent } from "motion/react";
 import { PlayerData, usePlayerStore } from "@semio/utils";
 import { Instance, Instances, useCursor } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Theme } from "@semio/ui";
 import {
   usePlayerSubscription,
@@ -50,6 +50,9 @@ export const MinimapDisplay = memo(function MinimapDisplay({
   const [hovered, setHovered] = useState(false);
   const [hoveredArea, setHoveredArea] = useState<"viewport" | "left" | "right" | null>(null);
   const [dragging, setDragging] = useState<"viewport" | "left" | "right" | null>(null);
+
+  // Get canvas element for cursor container
+  const { gl } = useThree();
 
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
@@ -110,14 +113,16 @@ export const MinimapDisplay = memo(function MinimapDisplay({
   }, [rectMaterial, hexMaterial, colors, isActive]);
 
   // Use drei's useCursor hook for cursor management
-  useCursor(hovered && hoveredArea === "viewport" && !dragging, "grab", "auto");
+  // Use drei's cursor hook with canvas container for reliable cursor management
+  useCursor(hovered && hoveredArea === "viewport" && !dragging, "grab", "auto", gl.domElement);
   useCursor(
     hovered && (hoveredArea === "left" || hoveredArea === "right") && !dragging,
     "ew-resize",
     "auto",
+    gl.domElement,
   );
-  useCursor(dragging === "viewport", "grabbing", "auto");
-  useCursor(dragging === "left" || dragging === "right", "ew-resize", "auto");
+  useCursor(dragging === "viewport", "grabbing", "auto", gl.domElement);
+  useCursor(dragging === "left" || dragging === "right", "ew-resize", "auto", gl.domElement);
 
   usePlayerSubscription(
     (state: PlayerData) => state.player.viewport,

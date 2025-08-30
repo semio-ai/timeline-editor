@@ -1,7 +1,7 @@
 import { Theme, stampToVisualTime } from "@semio/ui";
 import { memo, useEffect, useRef, useCallback, useState } from "react";
 import * as THREE from "three";
-import { useFrame, ThreeEvent } from "@react-three/fiber";
+import { useFrame, ThreeEvent, useThree } from "@react-three/fiber";
 import { clamp } from "lodash";
 import { useShallow } from "zustand/react/shallow";
 import { usePlayerStore, closestFrame } from "@semio/utils";
@@ -94,6 +94,9 @@ export const PlayheadCart = memo(function PlayheadCart({
   const [isDragging, setIsDragging] = useState(false);
   const altPressed = useAltKeyPressed();
 
+  // Get canvas element for cursor container
+  const { gl } = useThree();
+
   // Player and animation store actions
   const { resetPlayer, seekPlayer, playing, playerDuration } = usePlayerStore(
     useShallow((state) => ({
@@ -158,8 +161,8 @@ export const PlayheadCart = memo(function PlayheadCart({
   });
 
   // Cursor feedback - use previewCurrent like the minimap does for hover state
-  useCursor(previewCurrent && !playing && !isDragging, "grab", "auto");
-  useCursor(isDragging, "grabbing", "auto");
+  useCursor(previewCurrent && !playing && !isDragging, "grab", "auto", gl.domElement);
+  useCursor(isDragging, "grabbing", "auto", gl.domElement);
 
   // Create motion values for morph target influences
   const cartHeight = useMotionValue(20);
