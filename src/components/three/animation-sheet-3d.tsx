@@ -241,7 +241,7 @@ function InnerSheet3D({
   return (
     <ColorContextProvider>
       <NameContextProvider>
-        <div className="animation-sheet-container w-full">
+        <div className="animation-sheet-container w-full pointer-events-auto">
           {/* Grid layout with tracking divs - same structure as original */}
           <div
             aria-expanded={expanded}
