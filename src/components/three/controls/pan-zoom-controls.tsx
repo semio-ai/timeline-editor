@@ -1,5 +1,5 @@
 import { useEffect, useRef, forwardRef, memo } from "react";
-import { useThree, useFrame } from "@react-three/fiber";
+import { useThree } from "@react-three/fiber";
 import { OrthographicCamera, Vector2 } from "three";
 import { usePlayerStore } from "@semio/utils";
 import { MotionValue } from "motion";
@@ -372,22 +372,23 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
             onEnd?.();
           }
         },
-        onDrag: ({ delta: [deltaX], first, last, event }) => {
-          if (!settingsRef.current.enabled || !settingsRef.current.enablePan) return;
+        // For now, disable drag handling because it messes with other drag events.
+        // onDrag: ({ delta: [deltaX], first, last, event }) => {
+        //   if (!settingsRef.current.enabled || !settingsRef.current.enablePan) return;
 
-          if (first) {
-            onStart?.();
-          }
+        //   if (first) {
+        //     onStart?.();
+        //   }
 
-          event.preventDefault();
+        //   event.preventDefault();
 
-          panCamera(deltaX * settingsRef.current.panSpeed * 0.1);
-          onChange?.();
+        //   panCamera(deltaX * settingsRef.current.panSpeed * 0.1);
+        //   onChange?.();
 
-          if (last) {
-            onEnd?.();
-          }
-        },
+        //   if (last) {
+        //     onEnd?.();
+        //   }
+        // },
         onPointerDown: ({ event }) => {
           if (!settingsRef.current.enabled) return;
           // Prime the gesture system for better pinch detection
