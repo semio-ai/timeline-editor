@@ -464,11 +464,6 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       }
     }, [ref, camera]);
 
-    // Update on each frame (minimal processing)
-    useFrame(() => {
-      // No-op - useGesture handles everything
-    });
-
     return null;
   },
 );
