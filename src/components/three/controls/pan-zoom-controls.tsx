@@ -413,7 +413,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
           from: () => [1, 1],
         },
         drag: { eventOptions: { passive: false } },
-        pointer: { eventOptions: { passive: false } },
+        // pointer: { eventOptions: { passive: false } },
       },
     );
 

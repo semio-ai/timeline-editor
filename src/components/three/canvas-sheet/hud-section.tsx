@@ -36,7 +36,16 @@ export const HudSection = memo(function HudSection({
   return (
     <Hud renderPriority={renderPriority}>
       <MotionCanvasProvider label={label ?? `Hud-${renderPriority.toString()}`}>
-        <group onWheel={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+        <group
+          onWheel={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            // Only stop propagation for click events that would interfere with pan/zoom
+            // Allow pointer events to propagate for tooltip system
+            if (e.target === e.currentTarget) {
+              e.stopPropagation();
+            }
+          }}
+        >
           {/* Specialized Camera for HUDs */}
           <HudCamera
             fixedCamera={fixedCamera}
