@@ -3,7 +3,7 @@ import { Instance, Line, PositionMesh } from "@react-three/drei";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
 import { useMotionValueEvent, useSpring, useTransform } from "motion/react";
-import { InstancedFrameInfo, TrackRender } from "../../../types";
+import { InstancedFrameInfo, Source, TrackRender } from "../../../types";
 import { useColors, useInvariantScale } from "../../../hooks";
 import { computeOklabMix, createLinearScale, getHighlightColor } from "../../../functions";
 
@@ -15,6 +15,7 @@ export interface DataPointProps {
   theme?: Theme.Dark | Theme.Light;
   trackRender?: TrackRender;
   verticalBounds?: { min: number; max: number };
+  sources: Source[];
 }
 
 export const DataPoint = memo(function DataPoint({
@@ -23,6 +24,7 @@ export const DataPoint = memo(function DataPoint({
   trackRender = TrackRender.Key,
   height = 36,
   verticalBounds = { min: -18, max: 18 },
+  sources = [],
 }: DataPointProps) {
   const instanceRefFg = useRef<PositionMesh>(null);
   const instanceRefBg = useRef<PositionMesh>(null);
@@ -36,7 +38,29 @@ export const DataPoint = memo(function DataPoint({
     return createLinearScale([verticalBounds.min, verticalBounds.max], [-buffer, buffer]);
   }, [height, verticalBounds]);
 
-  const initialValue = linearScale((points[0]?.value as number | undefined) ?? 0);
+  const rawInitial: number = useMemo(() => {
+    if (points.length !== 1) return 0;
+    if (sources.length !== 1) return 0;
+    const source = sources.find((s) => s.trackId === points[0].trackId);
+    if (!source) return 0;
+    if (source.type === "number" && typeof points[0]?.value === "number") {
+      return points[0].value;
+    } else if (source.type !== "number" && source.attribute) {
+      // If it's not a number, but has an attribute, and the value is an object, try to get the attribute value
+      const val = points[0].value as any;
+      if (val && typeof val === "object" && source.attribute in val) {
+        const innerVal = val[source.attribute];
+        if (typeof innerVal === "number") {
+          return innerVal;
+        }
+        return 0;
+      }
+      return 0;
+    }
+    return 0;
+  }, [sources, points]);
+
+  const initialValue = linearScale(rawInitial);
 
   const yPosition = useSpring(trackRender === TrackRender.Spline ? initialValue : 0, {
     stiffness: 300,

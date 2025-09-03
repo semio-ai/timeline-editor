@@ -34,6 +34,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   trackRender = TrackRender.Key,
   height = 36,
   verticalBounds = { min: -18, max: 18 },
+  sources = [],
 }: {
   frameData: InstancedFrameInfo[];
   onSetDraggingFrames: (ids: string[]) => void;
@@ -41,6 +42,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   trackRender?: TrackRender;
   height?: number;
   verticalBounds?: { min: number; max: number };
+  sources?: Source[];
 }) {
   return (
     <Instances>
@@ -66,6 +68,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
           trackRender={trackRender}
           height={height}
           verticalBounds={verticalBounds}
+          sources={sources}
         />
       ))}
     </Instances>
@@ -156,6 +159,7 @@ export const DataRenderer = memo(function DataRenderer({
         trackRender={trackRender}
         height={height - 1}
         verticalBounds={{ min: verticalBounds[0], max: verticalBounds[1] }}
+        sources={sources}
       />
 
       {/* Render transition segments */}

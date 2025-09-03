@@ -153,7 +153,10 @@ const CanvasContent = memo(function CanvasContent({
 
       // If the track is expanded and has attributes, add each attribute as a separate row
       // in addition to the main track row;
-      if (expanded.includes(trackId) && collapsibleTypes.includes(animatable.type)) {
+      if (
+        (expanded.includes(trackId) || trackRender === TrackRender.Spline) &&
+        collapsibleTypes.includes(animatable.type)
+      ) {
         typeAttributes[animatable.type].forEach((attr) => {
           result.push({ trackId, type: animatable.type, attribute: attr });
         });
@@ -161,7 +164,7 @@ const CanvasContent = memo(function CanvasContent({
     });
 
     return result;
-  }, [tracks, expanded, animatableData, trackData]);
+  }, [tracks, expanded, animatableData, trackData, trackRender]);
 
   // TrackList region offsets
   // When we allow nested/composite tracks these will need to be dynamic

@@ -123,20 +123,15 @@ export const TracksRenderer = memo(function TracksRenderer({
       if (scrollValue && trackRender !== TrackRender.Spline) {
         const scrollWorld = (currentScrollPx / size.height) * worldHeight;
         groupRef.current.position.y = y + scrollWorld;
-        groupRef.current.position.z = 0;
       } else if (scrollValue && trackRender === TrackRender.Spline) {
         // For spline mode, keep y position fixed and handle z-axis positioning
         groupRef.current.position.y = y;
-        const scrollWorld = (currentScrollPx / size.height) * worldHeight;
-        groupRef.current.position.z = scrollWorld;
       } else if (trackRender !== TrackRender.Spline) {
         // No scroll value, position at base y
         groupRef.current.position.y = y;
-        groupRef.current.position.z = 0;
       } else {
         // Spline mode without scroll, position at center
         groupRef.current.position.y = y;
-        groupRef.current.position.z = 0;
       }
 
       lastScrollValueRef.current = currentScrollPx;
@@ -177,23 +172,26 @@ export const TracksRenderer = memo(function TracksRenderer({
   return (
     <>
       <group ref={groupRef as any}>
-        {sources.map((source, idx) => (
-          <DataRenderer
-            animationId={animationId}
-            namespaceId={namespaceId}
-            instanceSettings={instanceSettings}
-            key={source.attribute ? `${source.trackId}-${source.attribute}` : source.trackId}
-            height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
-            sources={[source]}
-            yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
-            // zOffset={trackRender === TrackRender.Spline ? -trackWorldHeight * idx : undefined}
-            emphasis={emphasis.includes(source.trackId)}
-            onEmphasisChange={(v) => onEmphasisChange(source.trackId, v ? "add" : "remove")}
-            theme={theme}
-            scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
-            trackRender={trackRender}
-          />
-        ))}
+        {sources.map(
+          (source, idx) =>
+            (trackRender !== TrackRender.Spline || splineCapableSource(source)) && (
+              <DataRenderer
+                animationId={animationId}
+                namespaceId={namespaceId}
+                instanceSettings={instanceSettings}
+                key={source.attribute ? `${source.trackId}-${source.attribute}` : source.trackId}
+                height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
+                sources={[source]}
+                yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
+                // zOffset={trackRender === TrackRender.Spline ? -trackWorldHeight * idx : undefined}
+                emphasis={emphasis.includes(source.trackId)}
+                onEmphasisChange={(v) => onEmphasisChange(source.trackId, v ? "add" : "remove")}
+                theme={theme}
+                scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
+                trackRender={trackRender}
+              />
+            ),
+        )}
         {trackRender === TrackRender.Spline && (
           <SharedSplineBackground
             animationId={animationId}
@@ -224,3 +222,10 @@ export const TracksRenderer = memo(function TracksRenderer({
     </>
   );
 });
+
+function splineCapableSource(source: Source): boolean {
+  if (source.type === "number") return true;
+  if (["vector3", "vector2", "euler", "rgb", "hsl"].includes(source.type) && source.attribute)
+    return true;
+  return false;
+}
