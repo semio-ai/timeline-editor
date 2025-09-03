@@ -118,6 +118,7 @@ export const DataPoint = memo(function DataPoint({
         ref={instanceRefFg}
         position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, 10]}
         rotation={[Math.PI / 2, 0, 0]}
+        scale={[scaleX.get(), 1, 1]}
         // eslint-dissable-next-line
         color={color}
         onPointerOver={() => hovered.set(1)}
@@ -128,6 +129,7 @@ export const DataPoint = memo(function DataPoint({
         ref={instanceRefBg}
         position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, 2]}
         rotation={[Math.PI / 2, 0, 0]}
+        scale={[scaleX.get() * 1.2, 1, 1]}
         // eslint-dissable-next-line
         color={accentColor}
       />

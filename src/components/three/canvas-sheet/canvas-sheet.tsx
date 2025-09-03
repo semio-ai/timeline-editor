@@ -5,15 +5,16 @@ import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
 import { MotionValue } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
-import { AnimationInstanceSettings, TrackRender } from "../../../types";
+import { AnimationInstanceSettings, Source, TrackRender } from "../../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
 import { calculatePaddedFrustum } from "../../../viewport-utils";
+import { useAnimationStore } from "../../../hooks";
+import { MotionCanvasProvider } from "./shared/motion-canvas-provider";
 import { HudSection } from "./hud-section";
 import { RulerRenderer } from "./ruler-renderer";
-import { TrackList } from "./track-list";
+import { TracksRenderer } from "./tracks-renderer";
 import { MinimapDisplay } from "./minimap-display";
 import { TimelineRenderer } from "./timeline-renderer";
-import { MotionCanvasProvider } from "./shared/motion-canvas-provider";
 
 export interface CanvasSheetProps {
   animationId: string; // Unique ID for the animation
@@ -23,6 +24,7 @@ export interface CanvasSheetProps {
   selection?: string[];
   scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
+  expanded: string[];
   emphasis: string[];
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   fonts?: {
@@ -37,6 +39,7 @@ export const CanvasSheet = memo(function CanvasSheet({
   namespaceId,
   instanceSettings = { timescale: 1, offset: 0, active: true },
   tracks = [],
+  expanded = [],
   selection = [],
   scrollValue,
   theme = Theme.Light,
@@ -85,6 +88,7 @@ export const CanvasSheet = memo(function CanvasSheet({
           namespaceId={namespaceId}
           instanceSettings={instanceSettings}
           tracks={tracks}
+          expanded={expanded}
           selection={selection}
           scrollValue={scrollValue}
           theme={theme}
@@ -103,6 +107,7 @@ interface CanvasContentProps {
   namespaceId: string; // Namespace for the animation, used for scoping
   instanceSettings: AnimationInstanceSettings; // Settings for the animation instance
   tracks?: string[];
+  expanded?: string[];
   selection?: string[];
   scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
@@ -123,12 +128,40 @@ const CanvasContent = memo(function CanvasContent({
   scrollValue,
   trackRender,
   tracks = [],
+  expanded = [],
   selection = [],
   emphasis = [],
   onEmphasisChange = () => {},
   fonts = {},
 }: CanvasContentProps) {
   const bgColor = theme === Theme.Dark ? "#202020" : "#EFEFEF";
+
+  const [trackData, animatableData] = useAnimationStore(
+    useShallow((state) => [state.tracks, state.animatables]),
+  );
+
+  const sources: Source[] = useMemo(() => {
+    const result: Source[] = [];
+    tracks.forEach((trackId) => {
+      const track = trackData[trackId];
+      if (!track) return;
+      const animatable = animatableData[track.animatableId];
+      if (!animatable) return;
+
+      // Always add the main track row
+      result.push({ trackId, type: animatable.type });
+
+      // If the track is expanded and has attributes, add each attribute as a separate row
+      // in addition to the main track row;
+      if (expanded.includes(trackId) && collapsibleTypes.includes(animatable.type)) {
+        typeAttributes[animatable.type].forEach((attr) => {
+          result.push({ trackId, type: animatable.type, attribute: attr });
+        });
+      }
+    });
+
+    return result;
+  }, [tracks, expanded, animatableData, trackData]);
 
   // TrackList region offsets
   // When we allow nested/composite tracks these will need to be dynamic
@@ -141,8 +174,8 @@ const CanvasContent = memo(function CanvasContent({
   const totalContentHeightPx = useMemo(() => {
     return trackRender === TrackRender.Spline
       ? size.height - topOffsetPx - bottomOffsetPx
-      : tracks.length * trackHeight;
-  }, [trackRender, size.height, topOffsetPx, bottomOffsetPx, tracks.length, trackHeight]);
+      : sources.length * trackHeight;
+  }, [trackRender, size.height, topOffsetPx, bottomOffsetPx, sources.length, trackHeight]);
 
   return (
     <>
@@ -156,11 +189,11 @@ const CanvasContent = memo(function CanvasContent({
         trackRender={trackRender}
       />
       <MotionCanvasProvider label="MainCamera">
-        <TrackList
+        <TracksRenderer
           animationId={animationId}
           namespaceId={namespaceId}
           instanceSettings={instanceSettings}
-          tracks={tracks}
+          sources={sources}
           scrollValue={scrollValue}
           topOffsetPx={topOffsetPx}
           bottomOffsetPx={bottomOffsetPx}
@@ -198,6 +231,7 @@ const CanvasContent = memo(function CanvasContent({
           namespaceId={namespaceId}
           instanceSettings={instanceSettings}
           theme={theme}
+          sources={sources}
         />
       </HudSection>
 
@@ -228,3 +262,13 @@ const CanvasContent = memo(function CanvasContent({
     </>
   );
 });
+
+const collapsibleTypes = ["vector3", "vector2", "euler", "rgb", "hsl"];
+
+const typeAttributes: Record<string, string[]> = {
+  vector3: ["x", "y", "z"],
+  vector2: ["x", "y"],
+  euler: ["r", "p", "y"],
+  rgb: ["r", "g", "b"],
+  hsl: ["h", "s", "l"],
+};

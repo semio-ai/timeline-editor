@@ -1,5 +1,5 @@
 import { AnimatableValue, RawColor, RawEuler, RawVector3 } from "@semio/utils";
-import { type InstancedFrameInfo, TrackRender } from "../types";
+import { type InstancedFrameInfo, Source, TrackRender } from "../types";
 
 const ComplexTypes = ["vector3", "euler", "rgb", "hsl"];
 type ComplexRawValue = RawVector3 | RawEuler | RawColor;
@@ -33,14 +33,12 @@ export interface TransitionParams {
 }
 
 export function computeTransitionParams(
-  trackIds: string[],
+  sources: Source[],
   start: InstancedFrameInfo,
   end: InstancedFrameInfo,
   isEmpty: boolean,
   trackRender: TrackRender,
-  trackType: AnimatableValue["type"] | "multiple",
   bounds: { min: number; max: number } = { min: 0, max: 1 },
-  attribute?: string,
 ): TransitionParams {
   // Use cubice-ease-in-out as default transtion params
   const defaultTransitionIn = { x: 0.65, y: 0 };
@@ -61,32 +59,33 @@ export function computeTransitionParams(
     };
   }
   if (
-    trackIds.length === 1 &&
+    sources.length === 1 &&
     (trackRender === TrackRender.Preview || trackRender === TrackRender.Spline)
   ) {
     let startValue: number | undefined;
     let endValue: number | undefined;
+    const source = sources[0];
 
     // Safely extract start value
     if (start.points && start.points.length > 0) {
-      if (trackType === "number") {
+      if (source.type === "number") {
         startValue = start.points[0].value as number;
-      } else if (ComplexTypes.includes(trackType) && attribute) {
+      } else if (ComplexTypes.includes(source.type) && source.attribute) {
         startValue =
           (start.points[0].value as RawVector3 | RawEuler | RawColor | undefined)?.[
-            attribute as ComplexField
+            source.attribute as ComplexField
           ] ?? undefined;
       }
     }
 
     // Safely extract end value
     if (end.points && end.points.length > 0) {
-      if (trackType === "number") {
+      if (source.type === "number") {
         endValue = end.points[0].value as number;
-      } else if (ComplexTypes.includes(trackType) && attribute) {
+      } else if (ComplexTypes.includes(source.type) && source.attribute) {
         endValue =
           (end.points[0].value as RawVector3 | RawEuler | RawColor | undefined)?.[
-            attribute as ComplexField
+            source.attribute as ComplexField
           ] ?? undefined;
       }
     }

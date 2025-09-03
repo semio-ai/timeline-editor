@@ -112,12 +112,17 @@ export function TrackVisualizer({
     )
       return [0, 1];
 
-    const animatableValues = Object.values(allAnimatables).filter((animatable) =>
-      animatableIds.includes(animatable.id),
-    );
+    const sources = Object.values(tracks).map((track) => {
+      const animatable = allAnimatables[track.animatableId];
+      if (attribute && ["vector3", "vector2", "euler", "rgb", "hsl"].includes(animatable.type)) {
+        return { trackId: track.id, type: animatable.type, attribute };
+      } else {
+        return { trackId: track.id, type: animatable.type };
+      }
+    });
 
-    return computeVerticalBounds(tracks, animatableValues, attribute);
-  }, [trackKeys.length, trackRender, allAnimatables, tracks, attribute, animatableIds]);
+    return computeVerticalBounds(tracks, allAnimatables, sources);
+  }, [trackKeys.length, trackRender, allAnimatables, tracks, attribute]);
 
   const trackType = useMemo(() => {
     const types = new Set<AnimatableValue["type"]>();
@@ -131,7 +136,8 @@ export function TrackVisualizer({
   const resolvedRender = useMemo(() => {
     if (trackKeys.length !== 1) return TrackRender.Key;
     if (trackType === "number") return trackRender;
-    if (attribute && ["vector3", "euler", "rgb", "hsl"].includes(trackType)) return trackRender;
+    if (attribute && ["vector3", "vector2", "euler", "rgb", "hsl"].includes(trackType))
+      return trackRender;
     return TrackRender.Key;
   }, [trackKeys, trackRender, trackType, attribute]);
 

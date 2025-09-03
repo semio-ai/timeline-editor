@@ -2,9 +2,10 @@ import { useThree, useFrame } from "@react-three/fiber";
 import { useRef, useMemo, useCallback, memo, useEffect } from "react";
 import { MotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
+import { uniq } from "lodash";
 import { Theme } from "@semio/ui";
 import { useOrthoCameraSetup, usePlaybackGestures } from "../../../hooks";
-import { AnimationInstanceSettings, TrackRender } from "../../../types";
+import { AnimationInstanceSettings, Source, TrackRender } from "../../../types";
 import { ThemeMode } from "../../../functions";
 import { DataRenderer } from "./data-renderer";
 import { SharedSplineBackground } from "./shared-spline-background";
@@ -15,11 +16,11 @@ import { BoundsOverlay } from "./overlays/bounds-overlay";
 import { TickBackground } from "./overlays/tick-background";
 import { useMotionCanvas } from "./shared/motion-canvas-context";
 
-interface TrackListProps {
+interface TracksRendererProps {
   animationId: string; // Unique ID for the animation
   namespaceId: string; // Namespace for the animation, used for scoping
   instanceSettings: AnimationInstanceSettings; // Settings for the animation instance
-  tracks?: string[];
+  sources?: Source[];
   trackHeight?: number;
   scrollValue?: MotionValue<number>;
   topOffsetPx?: number;
@@ -30,11 +31,11 @@ interface TrackListProps {
   trackRender?: TrackRender;
 }
 
-export const TrackList = memo(function TrackList({
+export const TracksRenderer = memo(function TracksRenderer({
   animationId,
   namespaceId,
   instanceSettings = { timescale: 1, offset: 0, active: true },
-  tracks = [],
+  sources = [],
   trackHeight = 36,
   scrollValue,
   topOffsetPx = 32,
@@ -43,7 +44,7 @@ export const TrackList = memo(function TrackList({
   onEmphasisChange = () => {},
   theme = Theme.Light,
   trackRender = TrackRender.Key,
-}: TrackListProps) {
+}: TracksRendererProps) {
   const { size, camera } = useThree();
   const { size: motionSize } = useMotionCanvas();
 
@@ -56,7 +57,7 @@ export const TrackList = memo(function TrackList({
   const lastTrackRenderRef = useRef<TrackRender>(trackRender);
   const cachedPositionRef = useRef({ y: 0, trackWorldHeight: 0, worldHeight: 1 });
 
-  // Compute world Y position for the top of the TrackList with caching
+  // Compute world Y position for the top of the TracksRenderer with caching
   const calculatePosition = useCallback(() => {
     if ((camera as THREE.OrthographicCamera).isOrthographicCamera) {
       const orthoCamera = camera as THREE.OrthographicCamera;
@@ -161,8 +162,6 @@ export const TrackList = memo(function TrackList({
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
 
-  // useOrthoCameraSetup(camera as THREE.OrthographicCamera);
-
   useMotionValueEvent(motionSize.height, "change", (height) => {
     (camera as THREE.OrthographicCamera).top = height / 2;
     (camera as THREE.OrthographicCamera).bottom = -height / 2;
@@ -174,34 +173,22 @@ export const TrackList = memo(function TrackList({
     (camera as THREE.OrthographicCamera).bottom = -motionSize.height.get() / 2;
     camera.updateProjectionMatrix();
   });
-  //
-
-  // useLayoutEffect(() => {
-  //   const height = motionSize.height.get();
-  //   (camera as THREE.OrthographicCamera).top = height / 2;
-  //   (camera as THREE.OrthographicCamera).bottom = -height / 2;
-  //   camera.updateProjectionMatrix();
-  // });
-
-  // (camera as THREE.OrthographicCamera).top = motionSize.height.get() / 2;
-  // (camera as THREE.OrthographicCamera).bottom = -motionSize.height.get() / 2;
-  // camera.updateProjectionMatrix();
 
   return (
     <>
       <group ref={groupRef as any}>
-        {tracks.map((track, idx) => (
+        {sources.map((source, idx) => (
           <DataRenderer
             animationId={animationId}
             namespaceId={namespaceId}
             instanceSettings={instanceSettings}
-            key={track}
+            key={source.attribute ? `${source.trackId}-${source.attribute}` : source.trackId}
             height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
-            trackIds={[track]}
+            sources={[source]}
             yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
             // zOffset={trackRender === TrackRender.Spline ? -trackWorldHeight * idx : undefined}
-            emphasis={emphasis.includes(track)}
-            onEmphasisChange={(v) => onEmphasisChange(track, v ? "add" : "remove")}
+            emphasis={emphasis.includes(source.trackId)}
+            onEmphasisChange={(v) => onEmphasisChange(source.trackId, v ? "add" : "remove")}
             theme={theme}
             scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
             trackRender={trackRender}
@@ -213,7 +200,7 @@ export const TrackList = memo(function TrackList({
             namespaceId={namespaceId}
             instanceSettings={instanceSettings}
             height={availableHeight}
-            trackIds={tracks}
+            trackIds={uniq(sources.map((r) => r.trackId))}
             yOffset={0}
             theme={theme}
           />
@@ -230,7 +217,7 @@ export const TrackList = memo(function TrackList({
         <FrustumBackground
           height={availableHeight}
           visibility="transparent"
-          z={-trackWorldHeight * tracks.length - 0.1}
+          z={-trackWorldHeight * sources.length - 0.1}
           pointerEvents={playbackGestures}
         />
       </group>

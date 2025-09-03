@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState, useEffect, useCallback } from "react";
+import { useContext, memo, useState, useEffect, useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
@@ -205,6 +205,13 @@ function InnerSheet3D({
   const currentAnimation = currentAnimationInstance?.animationId;
   const instanceSettings = currentAnimationInstance?.settings;
 
+  const tracks = useMemo(() => {
+    if (!currentAnimation || !animations[currentAnimation]) {
+      return [];
+    }
+    return animations?.[currentAnimation]?.tracks || [];
+  }, [currentAnimation, animations]);
+
   const scrollY = useMotionValue(0);
   // const [trackListBounds, setTrackListBounds] = useState<RegionBounds | null>(null);
 
@@ -212,7 +219,7 @@ function InnerSheet3D({
     if (!currentAnimation || !animations[currentAnimation]) {
       return;
     }
-    setSelectedTracks(animations[currentAnimation].tracks);
+    setSelectedTracks(animations?.[currentAnimation]?.tracks || []);
     updateDuration(animations[currentAnimation].duration);
   }, [currentAnimation, animations, updateDuration]);
 
@@ -229,6 +236,31 @@ function InnerSheet3D({
       });
     },
     [setEmphasis],
+  );
+
+  const [expandedTracks, setExpandedTracks] = useState<string[]>([]);
+
+  useEffect(() => {
+    const newExpanded = expandedTracks.filter((t) => tracks.includes(t));
+    if (newExpanded.length !== expandedTracks.length) {
+      setExpandedTracks(newExpanded);
+    }
+  }, [expandedTracks, tracks]);
+
+  const onExpandedChange = useCallback(
+    (trackId: string, opt: "expand" | "collapse") => {
+      setExpandedTracks((current) => {
+        if (opt === "expand") {
+          if (!current.includes(trackId)) {
+            return [...current, trackId];
+          }
+          return current;
+        } else {
+          return current.filter((t) => t !== trackId);
+        }
+      });
+    },
+    [setExpandedTracks],
   );
 
   if (!currentAnimation || !animations[currentAnimation]) {
@@ -338,6 +370,7 @@ function InnerSheet3D({
                 theme={resolvedTheme}
                 emphasis={emphasis}
                 onEmphasisChange={setEmphasisSmart}
+                expanded={expandedTracks}
                 fonts={fonts}
                 trackRender={trackRender}
               />
@@ -354,7 +387,9 @@ function InnerSheet3D({
               trackRender={trackRender}
               scrollY={scrollY}
               emphasis={emphasis}
+              expanded={expandedTracks}
               onEmphasisChange={setEmphasisSmart}
+              onExpandedChange={onExpandedChange}
             />
 
             {/* Timeline Control - Row 3 */}

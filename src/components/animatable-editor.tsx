@@ -9,17 +9,23 @@ import {
   toDegrees,
   toRadians,
   RawRGB,
+  RawVector2,
 } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { type Track } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 
-const collapsibleTypes = ["vector3", "euler", "rgb", "hsl"];
+const collapsibleTypes = ["vector3", "vector2", "euler", "rgb", "hsl"];
 const vector3IndexLookup = {
   x: 0,
   y: 1,
   z: 2,
+};
+
+const vector2IndexLookup = {
+  x: 0,
+  y: 1,
 };
 
 const eulerIndexLookup = {
@@ -162,6 +168,46 @@ function InnerAnimatableEditor({
               x: (rawValue as RawVector3)?.x ?? animatableValue.default.x,
               y: (rawValue as RawVector3)?.y ?? animatableValue.default.z,
               z: v,
+            });
+          }
+        }}
+        units={animatableValue.pub?.units}
+        label={prop}
+        highlight={emphasis}
+        onHighlightChange={onEmphasisChange}
+      />
+    );
+  } else if (animatableValue.type === "vector2" && (prop === "x" || prop === "y")) {
+    const index = vector2IndexLookup[prop];
+    return (
+      <SliderNumberField
+        size={Size.Sm}
+        strictText={false}
+        strictSlider={
+          animatableValue.constraints?.min?.[index] !== -Infinity &&
+          animatableValue.constraints?.max?.[index] !== Infinity &&
+          animatableValue.constraints?.min?.[index] !== undefined &&
+          animatableValue.constraints?.max?.[index] !== undefined
+        }
+        disabled={playing}
+        value={
+          (rawValue as RawVector3 | undefined)?.[prop] ?? (animatableValue.default[prop] as number)
+        }
+        min={animatableValue.constraints?.min?.[index] ?? undefined}
+        max={animatableValue.constraints?.max?.[index] ?? undefined}
+        visualMin={animatableValue.constraints?.min?.[index] ?? 0}
+        visualMax={animatableValue.constraints?.max?.[index] ?? 1}
+        color={color}
+        onChange={(v) => {
+          if (prop === "x") {
+            handleValueChange({
+              x: v,
+              y: (rawValue as RawVector2)?.y ?? animatableValue.default.y,
+            });
+          } else if (prop === "y") {
+            handleValueChange({
+              x: (rawValue as RawVector2)?.x ?? animatableValue.default.x,
+              y: v,
             });
           }
         }}

@@ -1,6 +1,7 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Theme } from "@semio/ui";
 import { usePlaybackGestures } from "../../../hooks";
+import { Source } from "../../../types";
 import { DataRenderer } from "./data-renderer";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
@@ -10,6 +11,7 @@ import { TickBackground } from "./overlays/tick-background";
 
 export interface TimelineRendererProps {
   selection?: string[];
+  sources: Source[];
   animationId: string;
   namespaceId: string;
   instanceSettings?: {
@@ -21,7 +23,8 @@ export interface TimelineRendererProps {
 }
 
 export const TimelineRenderer = memo(function TimelineRenderer({
-  selection,
+  sources = [],
+  selection = [],
   animationId,
   namespaceId,
   instanceSettings = { timescale: 1, offset: 0, active: true },
@@ -29,6 +32,10 @@ export const TimelineRenderer = memo(function TimelineRenderer({
 }: TimelineRendererProps) {
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
+
+  const filteredSources = useMemo(() => {
+    return sources.filter((source) => selection.includes(source.trackId));
+  }, [sources, selection]);
 
   return (
     <>
@@ -38,7 +45,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
       <BoundsOverlay height={36} theme={theme} />
       <DataRenderer
         height={36}
-        trackIds={selection}
+        sources={filteredSources}
         animationId={animationId}
         namespaceId={namespaceId}
         instanceSettings={instanceSettings}

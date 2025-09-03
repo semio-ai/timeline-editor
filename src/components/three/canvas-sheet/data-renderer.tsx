@@ -6,7 +6,13 @@ import { MotionValue } from "motion";
 import { Instances } from "@react-three/drei";
 import { pick, uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../../hooks";
-import { AnimationInstanceSettings, InstancedFrameInfo, Track, TrackRender } from "../../../types";
+import {
+  AnimationInstanceSettings,
+  InstancedFrameInfo,
+  Source,
+  Track,
+  TrackRender,
+} from "../../../types";
 import { AnimationData } from "../../../store-types";
 import {
   computeFrames,
@@ -70,7 +76,7 @@ export interface DataRendererProps {
   animationId: string; // Unique ID for the animation
   namespaceId: string; // Namespace for the animation, used for scoping
   instanceSettings?: AnimationInstanceSettings; // Settings for the animation instance
-  trackIds?: string[];
+  sources?: Source[];
   height?: number;
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
@@ -84,7 +90,7 @@ export interface DataRendererProps {
 }
 
 export const DataRenderer = memo(function DataRenderer({
-  trackIds = [],
+  sources = [],
   height = 36,
   emphasis = false,
   onEmphasisChange = () => {},
@@ -96,6 +102,7 @@ export const DataRenderer = memo(function DataRenderer({
   measureFromBottom = false,
   showBackground = true,
 }: DataRendererProps) {
+  const trackIds = useMemo(() => uniq(sources.map((s) => s.trackId)), [sources]);
   const color = useColors(trackIds);
 
   const [draggingFrames, setDraggingFrames] = useState<string[]>([]);
@@ -106,15 +113,7 @@ export const DataRenderer = memo(function DataRenderer({
     ),
   );
 
-  const trackAnimatableIds = useMemo(() => {
-    return trackIds.map((id) => tracks[id].animatableId);
-  }, [trackIds, tracks]);
-
   const allAnimatables = useAnimationStore(useShallow((state: AnimationData) => state.animatables));
-
-  const trackAnimatables = useMemo(() => {
-    return trackAnimatableIds.map((id) => allAnimatables[id]).filter(Boolean);
-  }, [trackAnimatableIds, allAnimatables]);
 
   const violations = useAnimationStore(useShallow((state: AnimationData) => state.violations));
 
@@ -133,16 +132,19 @@ export const DataRenderer = memo(function DataRenderer({
 
   const paddedInterps = useMemo(() => computeFilledInterpGaps(interps), [interps]);
   const verticalBounds = useMemo(() => {
-    return computeVerticalBounds(tracks, trackAnimatables, undefined);
-  }, [tracks, trackAnimatables]);
+    return computeVerticalBounds(tracks, allAnimatables, sources);
+  }, [tracks, allAnimatables, sources]);
 
-  const trackType = useMemo(() => {
-    if (trackIds.length === 1 && tracks[trackIds[0]]) {
-      const animatable = allAnimatables[tracks[trackIds[0]].animatableId];
-      return animatable?.type || "number";
+  const keyForced: boolean = useMemo(() => {
+    if (sources.length === 1 && tracks[sources[0].trackId]) {
+      const source = sources[0];
+      if (source.type === "number" && source.attribute) {
+        return true;
+      }
+      return false;
     }
-    return "multiple";
-  }, [trackIds, tracks, allAnimatables]);
+    return false;
+  }, [sources, tracks]);
 
   return (
     <group position={[0, yOffset, zOffset]}>
@@ -162,11 +164,10 @@ export const DataRenderer = memo(function DataRenderer({
           key={`${segment.start.id}-${segment.end.id}-${index.toString()}`}
           start={segment.start}
           end={segment.end}
-          trackIds={trackIds}
-          trackRender={trackType !== "number" ? TrackRender.Key : trackRender}
-          trackType={trackType}
+          trackRender={keyForced ? TrackRender.Key : trackRender}
           height={height - 1}
           verticalBounds={{ min: verticalBounds[0], max: verticalBounds[1] }}
+          sources={sources}
           isEmpty={segment.buffer}
           theme={theme}
           color={color}

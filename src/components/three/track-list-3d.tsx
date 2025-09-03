@@ -16,6 +16,8 @@ export interface TrackList3DProps {
   scrollY?: MotionValue<number>;
   emphasis: string[];
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
+  expanded: string[];
+  onExpandedChange?: (id: string, opt: "expand" | "collapse") => void;
 }
 
 export function TrackList3D({
@@ -27,6 +29,8 @@ export function TrackList3D({
   scrollY,
   emphasis = [],
   onEmphasisChange = () => {},
+  expanded = [],
+  onExpandedChange = () => {},
 }: TrackList3DProps): ReactNode {
   const tracks = useAnimationStore(
     useShallow((state) => Array.from(state.animations[animationId]?.tracks || [])),
@@ -61,9 +65,10 @@ export function TrackList3D({
               trackId={trackId}
               namespace={namespaceId}
               instanceSettings={instanceSettings}
-              onExpandedChange={() => {}}
+              onExpandedChange={(v) => onExpandedChange(trackId, v ? "expand" : "collapse")}
               emphasis={emphasis.includes(trackId)}
               onEmphasisChange={(v) => onEmphasisChange(trackId, v ? "add" : "remove")}
+              expanded={expanded.includes(trackId)}
             />
           ))}
         </ScrollArea>

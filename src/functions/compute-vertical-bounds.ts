@@ -8,25 +8,32 @@ import {
   RawEuler,
   RawColor,
 } from "@semio/utils";
-import type { Track } from "../types";
+import type { Source, Track } from "../types";
 
 /**
  * Creates a range from min to max .
  * Note, the timestamps are the raw, unadjusted (with respect to namespaces) timestamps.
  * @param tracks - A pre-filtered record of tracks
  * @param animatableValues - The animatable values
- * @param attribute - an optional attribute to filter by
+ * @param sources - an optional attribute to filter by
  * @returns - The min and max values
  */
 export function computeVerticalBounds(
   tracks: Record<string, Track<RawValue>>,
-  animatableValues: AnimatableValue[],
-  attribute?: string,
+  animatableValues: Record<string, AnimatableValue>,
+  sources: Source[],
 ): [number, number] {
   let min = Number.POSITIVE_INFINITY;
   let max = Number.NEGATIVE_INFINITY;
   // First, get a default min and max value from the animatables;
-  animatableValues.forEach((animatable) => {
+  sources.forEach((source) => {
+    const track = tracks[source.trackId];
+    if (!track) return;
+    const animatable = animatableValues[track.animatableId];
+    if (!animatable) return;
+    const attribute = source.attribute;
+
+    // Compute the min and max based on the animatable constraints.
     if (animatable.type === "number") {
       const constraintMin = animatable.constraints.min ?? Number.POSITIVE_INFINITY;
       const constraintMax = animatable.constraints.max ?? Number.NEGATIVE_INFINITY;
@@ -47,11 +54,11 @@ export function computeVerticalBounds(
   });
 
   // Next, iterate over the track caches to find the min and max values.
-  const data = Object.values(tracks).flatMap((track) =>
-    track.points.flatMap((point) => {
+  const data = sources.flatMap((source) =>
+    tracks[source.trackId].points.flatMap((point) => {
       if (typeof point.value === "number") return point.value;
-      if (attribute && typeof point.value === "object")
-        return point.value[attribute as ComplexField];
+      if (source.attribute && typeof point.value === "object")
+        return point.value[source.attribute as ComplexField];
       return 0;
     }),
   );

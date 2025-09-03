@@ -1,4 +1,4 @@
-import { useState, memo, useCallback, ReactNode } from "react";
+import { useState, memo, useCallback, ReactNode, useEffect } from "react";
 import {
   Button,
   StaticIcon,
@@ -38,6 +38,7 @@ export interface ControlWidgetProps {
   instanceSettings: AnimationInstanceSettings;
   trackId?: string;
   namespace: string;
+  expanded?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
@@ -49,11 +50,19 @@ function InnerControlWidget({
   instanceSettings,
   trackId,
   namespace,
+  expanded,
   onExpandedChange,
   emphasis,
   onEmphasisChange,
 }: ControlWidgetProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(expanded ?? false);
+
+  useEffect(() => {
+    if (expanded !== undefined) {
+      setOpen(expanded);
+    }
+  }, [expanded, setOpen]);
+
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
   const animation: Animation | undefined = useAnimationStore(
     useShallow((state) => (animationId ? state.animations[animationId] : undefined)),
@@ -249,9 +258,67 @@ function InnerControlWidget({
         </div>
       </div>
       <CollapsibleContent>
-        {(animatableValue.type === "vector3" || animatableValue.type === "euler") && (
+        {animatableValue.type === "vector3" && (
           <>
             {["x", "y", "z"].map((prop) => (
+              <div
+                key={prop}
+                className="grid grid-cols-[64px_16px_1fr_12px] gap-2 h-9 items-center"
+              >
+                <div className="w-16" />
+                <StaticIcon size="fit" className="size-4" color={track?.settings?.color}>
+                  {getIcon(animatableValue.pub?.units as string | undefined)}
+                </StaticIcon>
+
+                <div className="flex-1">
+                  <AnimatableEditor
+                    animatableValue={animatableValue}
+                    playing={playing}
+                    track={track}
+                    prop={prop}
+                    namespace={namespace}
+                    emphasis={emphasis}
+                    onEmphasisChange={onEmphasisChange}
+                    handleValueChange={handleValueChange}
+                  />
+                </div>
+                <div className="min-w-8" />
+              </div>
+            ))}
+          </>
+        )}
+        {animatableValue.type === "vector2" && (
+          <>
+            {["x", "y"].map((prop) => (
+              <div
+                key={prop}
+                className="grid grid-cols-[64px_16px_1fr_12px] gap-2 h-9 items-center"
+              >
+                <div className="w-16" />
+                <StaticIcon size="fit" className="size-4" color={track?.settings?.color}>
+                  {getIcon(animatableValue.pub?.units as string | undefined)}
+                </StaticIcon>
+
+                <div className="flex-1">
+                  <AnimatableEditor
+                    animatableValue={animatableValue}
+                    playing={playing}
+                    track={track}
+                    prop={prop}
+                    namespace={namespace}
+                    emphasis={emphasis}
+                    onEmphasisChange={onEmphasisChange}
+                    handleValueChange={handleValueChange}
+                  />
+                </div>
+                <div className="min-w-8" />
+              </div>
+            ))}
+          </>
+        )}
+        {animatableValue.type === "euler" && (
+          <>
+            {["r", "p", "y"].map((prop) => (
               <div
                 key={prop}
                 className="grid grid-cols-[64px_16px_1fr_12px] gap-2 h-9 items-center"
@@ -337,7 +404,7 @@ function InnerControlWidget({
 
 export const ControlWidget = memo(InnerControlWidget);
 
-const collapsibleTypes = ["vector3", "euler", "rgb", "hsl"];
+const collapsibleTypes = ["vector3", "vector2", "euler", "rgb", "hsl"];
 
 interface WrappedTrackControlProps {
   animationId?: string;

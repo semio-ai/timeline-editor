@@ -143,7 +143,7 @@ function InnerSheet({
     if (!currentAnimation || !animations[currentAnimation]) {
       return;
     }
-    setSelectedTracks(animations[currentAnimation].tracks);
+    setSelectedTracks(animations[currentAnimation]?.tracks || []);
     updateDuration(animations[currentAnimation].duration);
   }, [currentAnimation, animations, updateDuration]);
 
@@ -153,7 +153,7 @@ function InnerSheet({
     return null;
   }
 
-  const allTracks = animations[currentAnimation].tracks;
+  const allTracks = animations[currentAnimation]?.tracks || [];
 
   const expanded = height > MIN_SHEET_HEIGHT;
 
