@@ -365,7 +365,7 @@ function InnerSheet3D({
                 animationId={currentAnimation}
                 namespaceId={namespaceId}
                 instanceSettings={instanceSettings}
-                selection={selectedTracks}
+                timelineFilter={selectedTracks}
                 scrollValue={scrollY}
                 theme={resolvedTheme}
                 emphasis={emphasis}

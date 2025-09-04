@@ -1,15 +1,27 @@
-import { useEffect, useMemo, useRef, memo } from "react";
-import { Instance, Line, PositionMesh } from "@react-three/drei";
+import { useEffect, useMemo, useRef, memo, useState } from "react";
+import { useShallow } from "zustand/shallow";
+import { useGesture } from "@use-gesture/react";
+import { useThree } from "@react-three/fiber";
+import { Instance, Line, PositionMesh, useCursor } from "@react-three/drei";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
 import { useMotionValueEvent, useSpring, useTransform } from "motion/react";
 import { InstancedFrameInfo, Source, TrackRender } from "../../../types";
-import { useColors, useInvariantScale } from "../../../hooks";
-import { computeOklabMix, createLinearScale, getHighlightColor } from "../../../functions";
+import { useAnimationStore, useColors, useInvariantScale } from "../../../hooks";
+import {
+  compareInstancedFrames,
+  computeOklabMix,
+  createLinearScale,
+  FrameComparison,
+  getHighlightColor,
+} from "../../../functions";
+
+const BG_MULTIPLIER = 1.2;
 
 export interface DataPointProps {
   height?: number;
   data: InstancedFrameInfo;
+  allData: InstancedFrameInfo[];
   onDragStart: () => void;
   onDragEnd: () => void;
   theme?: Theme.Dark | Theme.Light;
@@ -20,16 +32,29 @@ export interface DataPointProps {
 
 export const DataPoint = memo(function DataPoint({
   data,
+  allData,
   theme = Theme.Light,
   trackRender = TrackRender.Key,
   height = 36,
   verticalBounds = { min: -18, max: 18 },
   sources = [],
+  onDragEnd,
+  onDragStart,
 }: DataPointProps) {
   const instanceRefFg = useRef<PositionMesh>(null);
   const instanceRefBg = useRef<PositionMesh>(null);
   const lineRef = useRef<THREE.Line>(null);
   const groupRef = useRef<THREE.Group>(null);
+
+  const clickMarker = useAnimationStore(useShallow((state) => state.clickMarker));
+  const selection = useAnimationStore(useShallow((state) => state.selection));
+
+  const isSelected = useMemo(() => {
+    const comparisons: FrameComparison[] = selection.map((s) => compareInstancedFrames(s, data));
+    return (
+      comparisons.includes(FrameComparison.Equal) || comparisons.includes(FrameComparison.Superset)
+    );
+  }, [selection, data]);
 
   const { stamp, points } = data;
 
@@ -67,6 +92,7 @@ export const DataPoint = memo(function DataPoint({
     damping: 30,
   });
 
+  const gl = useThree((s) => s.gl);
   // When the _value_ or track render changes, update the spring
   useEffect(() => {
     if (trackRender === TrackRender.Spline) {
@@ -90,16 +116,37 @@ export const DataPoint = memo(function DataPoint({
     lineOpacity.set(showsLine ? 1 : 0);
   }, [lineOpacity, showsLine]);
 
-  const accentColor = computeOklabMix(color, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);
+  const accentColor = useMemo(() => {
+    if (isSelected) {
+      return computeOklabMix(color, theme === Theme.Dark ? "#EFEFEF" : "#202020", 0.7);
+    } else {
+      return computeOklabMix(color, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);
+    }
+  }, [color, theme, isSelected]);
   const highlightColor = getHighlightColor(color, theme ?? Theme.Light);
 
+  const [hoveredState, setHoveredState] = useState(false);
+
   const hovered = useSpring(
-    0,
+    hoveredState ? 1 : 0,
     // A config for a stiff spring
     { stiffness: 300, damping: 20, mass: 0.5 },
   );
 
   const hoverColor = useTransform(hovered, [0, 1], [color, highlightColor]);
+  // const dragging
+
+  useCursor(hoveredState, "pointer", "auto", gl.domElement);
+
+  const bgScale = useSpring(isSelected ? BG_MULTIPLIER * 1.1 : BG_MULTIPLIER, {
+    stiffness: 300,
+    damping: 20,
+    mass: 0.5,
+  });
+
+  useEffect(() => {
+    bgScale.set(isSelected ? BG_MULTIPLIER * 1.1 : BG_MULTIPLIER);
+  }, [isSelected, bgScale]);
 
   const scaleX = useInvariantScale();
 
@@ -132,8 +179,32 @@ export const DataPoint = memo(function DataPoint({
   useMotionValueEvent(scaleX, "change", (s) => {
     if (instanceRefFg.current && instanceRefBg.current) {
       instanceRefFg.current.scale.x = s;
-      instanceRefBg.current.scale.x = s * 1.2; // Background is slightly larger
+      instanceRefBg.current.scale.x = s * bgScale.get(); // Background is slightly larger
+      instanceRefBg.current.scale.z = bgScale.get();
     }
+  });
+
+  useMotionValueEvent(bgScale, "change", (s) => {
+    if (instanceRefBg.current) {
+      instanceRefBg.current.scale.x = scaleX.get() * s; // Background is slightly larger
+      instanceRefBg.current.scale.z = s;
+    }
+  });
+
+  const bind = useGesture({
+    onHover: ({ hovering }) => {
+      setHoveredState(hovering ?? false);
+    },
+    onClick: ({ shiftKey, event }) => {
+      event.stopPropagation();
+      clickMarker(data, allData, shiftKey);
+    },
+    onDragStart: () => {
+      onDragStart?.();
+    },
+    onDragEnd: () => {
+      onDragEnd?.();
+    },
   });
 
   return (
@@ -145,15 +216,14 @@ export const DataPoint = memo(function DataPoint({
         scale={[scaleX.get(), 1, 1]}
         // eslint-dissable-next-line
         color={color}
-        onPointerOver={() => hovered.set(1)}
-        onPointerOut={() => hovered.set(0)}
+        {...(bind() as any)}
       />
       {/* Render a darker hexagon in the background */}
       <Instance
         ref={instanceRefBg}
         position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, 2]}
         rotation={[Math.PI / 2, 0, 0]}
-        scale={[scaleX.get() * 1.2, 1, 1]}
+        scale={[scaleX.get() * bgScale.get(), 1, bgScale.get()]}
         // eslint-dissable-next-line
         color={accentColor}
       />

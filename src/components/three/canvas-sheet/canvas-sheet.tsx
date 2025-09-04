@@ -21,7 +21,7 @@ export interface CanvasSheetProps {
   namespaceId: string; // Namespace for the animation, used for scoping
   instanceSettings: AnimationInstanceSettings; // Settings for the animation instance
   tracks?: string[];
-  selection?: string[];
+  timelineFilter?: string[];
   scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
   expanded: string[];
@@ -40,7 +40,7 @@ export const CanvasSheet = memo(function CanvasSheet({
   instanceSettings = { timescale: 1, offset: 0, active: true },
   tracks = [],
   expanded = [],
-  selection = [],
+  timelineFilter = [],
   scrollValue,
   theme = Theme.Light,
   emphasis = [],
@@ -89,7 +89,7 @@ export const CanvasSheet = memo(function CanvasSheet({
           instanceSettings={instanceSettings}
           tracks={tracks}
           expanded={expanded}
-          selection={selection}
+          timelineFilter={timelineFilter}
           scrollValue={scrollValue}
           theme={theme}
           emphasis={emphasis}
@@ -108,7 +108,7 @@ interface CanvasContentProps {
   instanceSettings: AnimationInstanceSettings; // Settings for the animation instance
   tracks?: string[];
   expanded?: string[];
-  selection?: string[];
+  timelineFilter?: string[];
   scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
   emphasis: string[];
@@ -129,7 +129,7 @@ const CanvasContent = memo(function CanvasContent({
   trackRender,
   tracks = [],
   expanded = [],
-  selection = [],
+  timelineFilter = [],
   emphasis = [],
   onEmphasisChange = () => {},
   fonts = {},
@@ -229,7 +229,7 @@ const CanvasContent = memo(function CanvasContent({
         gap={72}
       >
         <TimelineRenderer
-          selection={selection}
+          filter={timelineFilter}
           animationId={animationId}
           namespaceId={namespaceId}
           instanceSettings={instanceSettings}

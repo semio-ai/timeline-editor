@@ -9,6 +9,7 @@ import {
   Violation,
   StoredAnimation,
   Preview,
+  InstancedFrameInfo,
 } from "./types";
 
 /**
@@ -66,13 +67,14 @@ export interface AnimationData {
    */
   playerInterval?: number;
   /**
-   * Where the user is currently hovering in the timeline.
-   */
-  hoverpoint: number;
-  /**
    * Previews for parts of the animation other than the current time.
    */
   previews: Preview[];
+  /**
+   * Selection Data
+   */
+  selection: InstancedFrameInfo[];
+
   /**
    * Some configurable preferences.
    */
@@ -103,6 +105,23 @@ export interface AnimationData {
  * Interface representing the actions that can be performed on the animation data.
  */
 export interface AnimationActions {
+  /**
+   * Click a marker
+   * @param markerInfo - The marker's InstancedFrameInfo.
+   * @param shift - Whether the shift key is pressed.
+   * @param mod - Whether a modifier key (ctrl/cmd) is pressed.
+   * @returns
+   */
+  clickMarker: (
+    markerInfo: InstancedFrameInfo,
+    allTrackInfo: InstancedFrameInfo[],
+    shift?: boolean,
+    mod?: true,
+  ) => void;
+  /**
+   *
+   */
+  clearSelection: () => void;
   /**
    * Update all values in the store.
    * @param values - A map of values to update.
@@ -264,11 +283,6 @@ export interface AnimationActions {
    * Initialize interpolator generation. Returns a function to cancel the subscriptions.
    */
   initAnimationSubscriptions: () => () => void;
-  /**
-   * Set the hoverpoint.
-   * @param hoverpoint - The hoverpoint to set.
-   */
-  setHoverpoint: (hoverpoint: number) => void;
   /**
    * Add an animation to the visualized set.
    * @param animationId - The ID of the animation to visualize.

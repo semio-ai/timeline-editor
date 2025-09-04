@@ -1,8 +1,9 @@
 import { memo, useEffect, useRef } from "react";
 import { MotionValue, useMotionValueEvent, useSpring } from "motion/react";
+import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
-import { useInvariantScale } from "../../../hooks";
+import { useAnimationStore, useInvariantScale } from "../../../hooks";
 import { TIMELINE_PADDING } from "../../../constants";
 import { getBackgroundElementProps, getEmphasisOpacity, ThemeMode } from "../../../functions";
 
@@ -30,6 +31,8 @@ export const FrustumBackground = memo(function FrustumBackground({
   theme = Theme.Light,
 }: FrustumBackgroundProps) {
   const bgRef = useRef<THREE.Mesh>(null);
+
+  const clearSelection = useAnimationStore(useShallow((state) => state.clearSelection));
 
   const invariantScale = useInvariantScale();
 
@@ -81,6 +84,10 @@ export const FrustumBackground = memo(function FrustumBackground({
       onPointerOut={() => {
         onHoverChange?.(false);
         pointerEvents.onPointerOut?.();
+      }}
+      onClick={(e) => {
+        clearSelection();
+        pointerEvents.onClick?.(e);
       }}
     >
       {/* Use a width of 3 to ensure full frustum coverage including padding */}

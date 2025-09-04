@@ -10,7 +10,7 @@ import { BoundsOverlay } from "./overlays/bounds-overlay";
 import { TickBackground } from "./overlays/tick-background";
 
 export interface TimelineRendererProps {
-  selection?: string[];
+  filter: string[];
   sources: Source[];
   animationId: string;
   namespaceId: string;
@@ -24,7 +24,7 @@ export interface TimelineRendererProps {
 
 export const TimelineRenderer = memo(function TimelineRenderer({
   sources = [],
-  selection = [],
+  filter = [],
   animationId,
   namespaceId,
   instanceSettings = { timescale: 1, offset: 0, active: true },
@@ -34,8 +34,8 @@ export const TimelineRenderer = memo(function TimelineRenderer({
   const playbackGestures = usePlaybackGestures();
 
   const filteredSources = useMemo(() => {
-    return sources.filter((source) => selection.includes(source.trackId));
-  }, [sources, selection]);
+    return sources.filter((source) => filter.includes(source.trackId));
+  }, [sources, filter]);
 
   return (
     <>

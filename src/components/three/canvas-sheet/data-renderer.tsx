@@ -55,6 +55,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
         <DataPoint
           key={data.id}
           data={data}
+          allData={frameData}
           onDragStart={() => {
             // Update the set of dragging frames based on the frame instance
             const ids = uniq(data.points.map((p) => p.id));

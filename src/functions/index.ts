@@ -1,3 +1,4 @@
+export * from "./compare-instanced-frames";
 export * from "./compute-adjacent-times";
 export * from "./compute-frames";
 export * from "./compute-highlight-colors";

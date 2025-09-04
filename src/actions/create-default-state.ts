@@ -29,8 +29,8 @@ export const createDefaultState = (): AnimationData => {
     expanded: false,
     timeDisplay: TimeDisplay.Frames,
     playerInterval: undefined,
-    hoverpoint: 0,
     previews: [],
+    selection: [],
     preferences: {
       hoverDashedLine: false,
       dataPreviews: true,

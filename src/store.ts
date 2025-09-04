@@ -13,17 +13,17 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { shallow } from "zustand/shallow";
 import { produce, enableMapSet } from "immer";
 import { create, type StoreApi } from "zustand";
-import { isEqual, pick } from "lodash";
+import { isEqual, pick, uniq } from "lodash";
 import {
   Keypoint,
   Track,
   AnimationInstance,
-  // TrackInterpolator,
   Animation,
   Violation,
   StoredAnimation,
   SemanticTime,
   Preview,
+  InstancedFrameInfo,
 } from "./types";
 import {
   AnimationData,
@@ -51,6 +51,8 @@ import {
   computePreviousTime,
   computeStoredAnimation,
   computeWorldStamp,
+  compareInstancedFrames,
+  FrameComparison,
 } from "./functions";
 import { computeDerivativeInterpolator } from "./functions/compute-derivative-interpolator";
 import { matchingIdentityRawValue, rawValueMultiplyScalar } from "./functions/raw-value-math";
@@ -622,8 +624,50 @@ export const AnimationSlice = (
         unsubs.forEach((unsub) => unsub());
       };
     },
-    setHoverpoint: (hoverpoint: number) => {
-      set({ hoverpoint });
+    clickMarker: (markerInfo: InstancedFrameInfo, shift?: boolean, mod?: true) => {
+      set((state: AnimationData) => {
+        if (!shift && !mod) {
+          // No modifier keys, so only toggle that one marker
+          if (
+            state.selection.length === 1 &&
+            compareInstancedFrames(state.selection[0], markerInfo) === FrameComparison.Equal
+          ) {
+            return { selection: [] };
+          } else {
+            return { selection: [markerInfo] };
+          }
+        } else if (shift && !mod) {
+          // Shift key, so add to selection
+          // Look to see if a matching instanced frame exists by stamp:
+          const existingIdx = state.selection.findIndex((s) => s.stamp === markerInfo.stamp);
+          if (existingIdx >= 0) {
+            // If it does, add to the existing one.
+            const existing = state.selection[existingIdx];
+            // Check to make sure the existing isn't incompatible;
+            if (compareInstancedFrames(existing, markerInfo) === FrameComparison.Incompatible) {
+              // If it is incompatible, make no change
+              console.log("Incompatible Addition, ignoring");
+              return {};
+            }
+            const newPoints = uniq([...existing.points, ...markerInfo.points]);
+            const newInfo: InstancedFrameInfo = { ...existing, points: newPoints };
+            return {
+              selection: [
+                ...state.selection.slice(0, existingIdx),
+                newInfo,
+                ...state.selection.slice(existingIdx + 1),
+              ],
+            };
+          } else {
+            // If it doesn't, just add it.
+            return { selection: [...state.selection, markerInfo] };
+          }
+        }
+        return { selection: [] };
+      });
+    },
+    clearSelection: () => {
+      set({ selection: [] });
     },
     addPreview: (preview: Preview) => {
       set((state: AnimationData) => ({
