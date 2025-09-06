@@ -301,7 +301,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
     // Setup gesture handlers
     useGesture(
       {
-        onWheel: ({ event, delta, ctrlKey, metaKey }) => {
+        onWheel: ({ event, delta, ctrlKey, metaKey, shiftKey }) => {
           if (!settingsRef.current.enabled) return;
 
           const [deltaX, deltaY] = delta;
@@ -312,7 +312,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
           onStart?.();
 
           // Check for vertical scroll in track region (no modifier keys)
-          if (!ctrlKey && !metaKey && absDeltaY > absDeltaX && absDeltaY > threshold) {
+          if (!ctrlKey && !metaKey && !shiftKey && absDeltaY > absDeltaX && absDeltaY > threshold) {
             if (settingsRef.current.trackRender !== TrackRender.Spline) {
               const handled = handleTrackScroll({
                 deltaY,
@@ -338,6 +338,19 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
               const center = new Vector2(event.clientX, event.clientY);
               zoomCameraHorizontal(zoomFactor, center);
             }
+          }
+          // Pan: Shift + vertical scroll (converts to horizontal pan)
+          else if (
+            shiftKey &&
+            !ctrlKey &&
+            !metaKey &&
+            settingsRef.current.enablePan &&
+            absDeltaY > absDeltaX &&
+            absDeltaY > threshold
+          ) {
+            // Convert vertical scroll to horizontal pan with zoom-adjusted speed
+            const panDelta = deltaY * settingsRef.current.panSpeed * 0.1;
+            panCamera(panDelta);
           }
           // Pan: horizontal scroll
           else if (
