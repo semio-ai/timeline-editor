@@ -10,6 +10,7 @@ import {
   StoredAnimation,
   Preview,
   InstancedFrameInfo,
+  Source,
 } from "./types";
 
 /**
@@ -76,6 +77,15 @@ export interface AnimationData {
   selection: InstancedFrameInfo[];
 
   /**
+   * Reference marker for shift-click range selection
+   */
+  referenceMarker: {
+    marker: InstancedFrameInfo;
+    sources: Source[];
+    isAddMode?: boolean;
+  } | null;
+
+  /**
    * Some configurable preferences.
    */
   preferences: {
@@ -108,15 +118,18 @@ export interface AnimationActions {
   /**
    * Click a marker
    * @param markerInfo - The marker's InstancedFrameInfo.
+   * @param sources - The sources for the clicked marker's track.
+   * @param allTrackInfo - All markers in the track.
    * @param shift - Whether the shift key is pressed.
    * @param mod - Whether a modifier key (ctrl/cmd) is pressed.
    * @returns
    */
   clickMarker: (
     markerInfo: InstancedFrameInfo,
+    sources: Source[],
     allTrackInfo: InstancedFrameInfo[],
     shift?: boolean,
-    mod?: true,
+    mod?: boolean,
   ) => void;
   /**
    *

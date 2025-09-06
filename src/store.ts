@@ -13,7 +13,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { shallow } from "zustand/shallow";
 import { produce, enableMapSet } from "immer";
 import { create, type StoreApi } from "zustand";
-import { isEqual, pick, uniq } from "lodash";
+import { isEqual, pick } from "lodash";
 import {
   Keypoint,
   Track,
@@ -24,6 +24,7 @@ import {
   SemanticTime,
   Preview,
   InstancedFrameInfo,
+  Source,
 } from "./types";
 import {
   AnimationData,
@@ -51,8 +52,7 @@ import {
   computePreviousTime,
   computeStoredAnimation,
   computeWorldStamp,
-  compareInstancedFrames,
-  FrameComparison,
+  computeMarkerSelection,
 } from "./functions";
 import { computeDerivativeInterpolator } from "./functions/compute-derivative-interpolator";
 import { matchingIdentityRawValue, rawValueMultiplyScalar } from "./functions/raw-value-math";
@@ -624,50 +624,48 @@ export const AnimationSlice = (
         unsubs.forEach((unsub) => unsub());
       };
     },
-    clickMarker: (markerInfo: InstancedFrameInfo, shift?: boolean, mod?: true) => {
+    /**
+     * Handle marker click with various modifier key behaviors for selection
+     *
+     * Selection Behaviors:
+     * 1. Click (without modifier) on a marker always replaces the selection, and sets that marker to be the current reference.
+     * 2. Ctrl-click can work across tracks, and toggles a given marker's selection, and updates the current reference to that marker (if toggled to be selected)
+     * 3. Shift-click within a track when the last selected/activated marker is in that track selects all between the reference marker and the clicked marker.
+     *    The newly clicked marker does not update the reference.
+     * 4. Shift-click on a marker when that track does not have the reference acts like ctrl-click, except that it doesn't toggle off (only adds if not added) and sets the reference to that marker.
+     * 5. If ctrl-click toggles off the reference point, a new reference point must be selected (via shift-click or ctrl-click) before any shift-spanning selection can happen.
+     *
+     * @param markerInfo - The marker that was clicked
+     * @param sources - The sources for the clicked marker's track
+     * @param allMarkerInfo - All markers in the track (used for range selection)
+     * @param shift - Whether shift key is held
+     * @param mod - Whether mod key (Cmd on Mac, Ctrl on PC) is held
+     */
+    clickMarker: (
+      markerInfo: InstancedFrameInfo,
+      sources: Source[],
+      allMarkerInfo: InstancedFrameInfo[],
+      shift?: boolean,
+      mod?: boolean,
+    ) => {
       set((state: AnimationData) => {
-        if (!shift && !mod) {
-          // No modifier keys, so only toggle that one marker
-          if (
-            state.selection.length === 1 &&
-            compareInstancedFrames(state.selection[0], markerInfo) === FrameComparison.Equal
-          ) {
-            return { selection: [] };
-          } else {
-            return { selection: [markerInfo] };
-          }
-        } else if (shift && !mod) {
-          // Shift key, so add to selection
-          // Look to see if a matching instanced frame exists by stamp:
-          const existingIdx = state.selection.findIndex((s) => s.stamp === markerInfo.stamp);
-          if (existingIdx >= 0) {
-            // If it does, add to the existing one.
-            const existing = state.selection[existingIdx];
-            // Check to make sure the existing isn't incompatible;
-            if (compareInstancedFrames(existing, markerInfo) === FrameComparison.Incompatible) {
-              // If it is incompatible, make no change
-              console.log("Incompatible Addition, ignoring");
-              return {};
-            }
-            const newPoints = uniq([...existing.points, ...markerInfo.points]);
-            const newInfo: InstancedFrameInfo = { ...existing, points: newPoints };
-            return {
-              selection: [
-                ...state.selection.slice(0, existingIdx),
-                newInfo,
-                ...state.selection.slice(existingIdx + 1),
-              ],
-            };
-          } else {
-            // If it doesn't, just add it.
-            return { selection: [...state.selection, markerInfo] };
-          }
-        }
-        return { selection: [] };
+        const result = computeMarkerSelection(
+          markerInfo,
+          sources,
+          allMarkerInfo,
+          state.selection,
+          state.referenceMarker,
+          shift,
+          mod,
+        );
+        return {
+          selection: result.selection,
+          referenceMarker: result.reference,
+        };
       });
     },
     clearSelection: () => {
-      set({ selection: [] });
+      set({ selection: [], referenceMarker: null });
     },
     addPreview: (preview: Preview) => {
       set((state: AnimationData) => ({

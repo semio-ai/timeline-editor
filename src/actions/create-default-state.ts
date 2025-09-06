@@ -31,6 +31,7 @@ export const createDefaultState = (): AnimationData => {
     playerInterval: undefined,
     previews: [],
     selection: [],
+    referenceMarker: null,
     preferences: {
       hoverDashedLine: false,
       dataPreviews: true,

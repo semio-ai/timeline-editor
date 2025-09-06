@@ -5,7 +5,7 @@ import { useThree } from "@react-three/fiber";
 import { Instance, Line, PositionMesh, useCursor } from "@react-three/drei";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
-import { useMotionValueEvent, useSpring, useTransform } from "motion/react";
+import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
 import { InstancedFrameInfo, Source, TrackRender } from "../../../types";
 import { useAnimationStore, useColors, useInvariantScale } from "../../../hooks";
 import {
@@ -13,7 +13,6 @@ import {
   computeOklabMix,
   createLinearScale,
   FrameComparison,
-  getHighlightColor,
 } from "../../../functions";
 
 const BG_MULTIPLIER = 1.2;
@@ -47,14 +46,40 @@ export const DataPoint = memo(function DataPoint({
   const groupRef = useRef<THREE.Group>(null);
 
   const clickMarker = useAnimationStore(useShallow((state) => state.clickMarker));
-  const selection = useAnimationStore(useShallow((state) => state.selection));
 
-  const isSelected = useMemo(() => {
-    const comparisons: FrameComparison[] = selection.map((s) => compareInstancedFrames(s, data));
-    return (
-      comparisons.includes(FrameComparison.Equal) || comparisons.includes(FrameComparison.Superset)
-    );
-  }, [selection, data]);
+  const isSelected = useAnimationStore(
+    useShallow((state) => {
+      const comparisons: FrameComparison[] = state.selection.map((s) =>
+        compareInstancedFrames(s, data),
+      );
+      return (
+        comparisons.includes(FrameComparison.Equal) ||
+        comparisons.includes(FrameComparison.Superset)
+      );
+    }),
+  );
+
+  const isReference = useAnimationStore(
+    useShallow((state) => {
+      if (!state.referenceMarker) return false;
+      return compareInstancedFrames(state.referenceMarker.marker, data) === FrameComparison.Equal;
+    }),
+  );
+  // const referenceMarker = useAnimationStore(useShallow((state) => state.referenceMarker));
+
+  const [isHovered, setIsHovered] = useState(false);
+
+  // const isSelected = useMemo(() => {
+  //   const comparisons: FrameComparison[] = selection.map((s) => compareInstancedFrames(s, data));
+  //   return (
+  //     comparisons.includes(FrameComparison.Equal) || comparisons.includes(FrameComparison.Superset)
+  //   );
+  // }, [selection, data]);
+
+  // const isReference = useMemo(() => {
+  //   if (!referenceMarker) return false;
+  //   return compareInstancedFrames(referenceMarker.marker, data) === FrameComparison.Equal;
+  // }, [referenceMarker, data]);
 
   const { stamp, points } = data;
 
@@ -102,7 +127,16 @@ export const DataPoint = memo(function DataPoint({
     }
   }, [initialValue, yPosition, trackRender]);
 
-  const color = useColors(points.map((p) => p.trackId));
+  const baseColor = useColors(points.map((p) => p.trackId));
+  const baseBackdropColor = useMemo(() => {
+    return computeOklabMix(baseColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);
+  }, [baseColor, theme]);
+  const hoverColor = useMemo(() => {
+    return computeOklabMix(baseColor, theme === Theme.Dark ? "#FFFFFF" : "#000000", 0.4);
+  }, [baseColor, theme]);
+  const selectionColor = useMemo(() => {
+    return computeOklabMix(baseColor, theme === Theme.Dark ? "#FFFFFF" : "#000000", 0.8);
+  }, [baseColor, theme]);
 
   const showsLine = RENDERS_WITH_LINES.includes(trackRender);
 
@@ -116,27 +150,38 @@ export const DataPoint = memo(function DataPoint({
     lineOpacity.set(showsLine ? 1 : 0);
   }, [lineOpacity, showsLine]);
 
-  const accentColor = useMemo(() => {
-    if (isSelected) {
-      return computeOklabMix(color, theme === Theme.Dark ? "#EFEFEF" : "#202020", 0.7);
-    } else {
-      return computeOklabMix(color, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);
-    }
-  }, [color, theme, isSelected]);
-  const highlightColor = getHighlightColor(color, theme ?? Theme.Light);
+  // const fillSpring = useSpring(getFillIndex(isHovered, isSelected, isReference), {
+  //   stiffness: 300,
+  //   damping: 20,
+  //   mass: 0.5,
+  // });
+  //
+  const fillIndex = useMotionValue(getFillIndex(isHovered, isSelected, isReference));
+  const backdropIndex = useMotionValue(getBackdropIndex(isSelected, isReference));
 
-  const [hoveredState, setHoveredState] = useState(false);
+  // const backdropSpring = useSpring(getBackdropIndex(isSelected, isReference), {
+  //   stiffness: 300,
+  //   damping: 20,
+  //   mass: 0.5,
+  // });
 
-  const hovered = useSpring(
-    hoveredState ? 1 : 0,
-    // A config for a stiff spring
-    { stiffness: 300, damping: 20, mass: 0.5 },
+  const fillColor = useTransform(fillIndex, [0, 0.5, 1], [baseColor, hoverColor, selectionColor]);
+
+  const backdropColor = useTransform(
+    backdropIndex,
+    [0, 0.5, 1],
+    [baseBackdropColor, baseColor, selectionColor],
   );
 
-  const hoverColor = useTransform(hovered, [0, 1], [color, highlightColor]);
-  // const dragging
+  useEffect(() => {
+    fillIndex.set(getFillIndex(isHovered, isSelected, isReference));
+  }, [fillIndex, isHovered, isSelected, isReference]);
 
-  useCursor(hoveredState, "pointer", "auto", gl.domElement);
+  useEffect(() => {
+    backdropIndex.set(getBackdropIndex(isSelected, isReference));
+  }, [backdropIndex, isSelected, isReference]);
+
+  useCursor(isHovered, "pointer", "auto", gl.domElement);
 
   const bgScale = useSpring(isSelected ? BG_MULTIPLIER * 1.1 : BG_MULTIPLIER, {
     stiffness: 300,
@@ -150,11 +195,20 @@ export const DataPoint = memo(function DataPoint({
 
   const scaleX = useInvariantScale();
 
-  // Update the color when it changes
-  useMotionValueEvent(hoverColor, "change", (c) => {
+  // Update the fill color when it changes
+  useMotionValueEvent(fillColor, "change", (c) => {
     if (instanceRefFg.current) {
       if ("color" in instanceRefFg.current) {
         instanceRefFg.current.color.set(c);
+      }
+    }
+  });
+
+  // Update the backdrop color when it changes
+  useMotionValueEvent(backdropColor, "change", (c) => {
+    if (instanceRefBg.current) {
+      if ("color" in instanceRefBg.current) {
+        instanceRefBg.current.color.set(c);
       }
     }
   });
@@ -193,11 +247,11 @@ export const DataPoint = memo(function DataPoint({
 
   const bind = useGesture({
     onHover: ({ hovering }) => {
-      setHoveredState(hovering ?? false);
+      setIsHovered(hovering ?? false);
     },
-    onClick: ({ shiftKey, event }) => {
+    onClick: ({ shiftKey, metaKey, event }) => {
       event.stopPropagation();
-      clickMarker(data, allData, shiftKey);
+      clickMarker(data, sources, allData, shiftKey, metaKey);
     },
     onDragStart: () => {
       onDragStart?.();
@@ -215,7 +269,7 @@ export const DataPoint = memo(function DataPoint({
         rotation={[Math.PI / 2, 0, 0]}
         scale={[scaleX.get(), 1, 1]}
         // eslint-dissable-next-line
-        color={color}
+        color={fillColor.get()}
         {...(bind() as any)}
       />
       {/* Render a darker hexagon in the background */}
@@ -225,7 +279,7 @@ export const DataPoint = memo(function DataPoint({
         rotation={[Math.PI / 2, 0, 0]}
         scale={[scaleX.get() * bgScale.get(), 1, bgScale.get()]}
         // eslint-dissable-next-line
-        color={accentColor}
+        color={backdropColor.get()}
       />
       {/* Render a vertical line at the stamp */}
       <Line
@@ -234,7 +288,7 @@ export const DataPoint = memo(function DataPoint({
           [stamp, height / -2 + 1, 1],
           [stamp, height / 2 - 1, 1],
         ]}
-        color={color}
+        color={baseColor}
         lineWidth={1.5}
         opacity={lineOpacity.get()}
         transparent
@@ -244,3 +298,16 @@ export const DataPoint = memo(function DataPoint({
 });
 
 const RENDERS_WITH_LINES = [TrackRender.Preview, TrackRender.Transition];
+
+function getFillIndex(isHovered: boolean, isSelected: boolean, isReference: boolean): number {
+  if (isReference) return 1;
+  if (isSelected) return 0;
+  if (isHovered) return 0.5;
+  return 0;
+}
+
+function getBackdropIndex(isSelected: boolean, isReference: boolean): number {
+  if (isReference) return 0.5;
+  if (isSelected) return 1;
+  return 0;
+}

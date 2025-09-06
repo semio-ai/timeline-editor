@@ -1,4 +1,4 @@
-import { AnimatableValue, RawColor, RawEuler, RawVector3 } from "@semio/utils";
+import { RawColor, RawEuler, RawVector3 } from "@semio/utils";
 import { type InstancedFrameInfo, Source, TrackRender } from "../types";
 
 const ComplexTypes = ["vector3", "euler", "rgb", "hsl"];
