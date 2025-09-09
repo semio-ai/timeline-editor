@@ -289,7 +289,7 @@ export const DataPoint = memo(function DataPoint({
           [stamp, height / 2 - 1, 1],
         ]}
         color={baseColor}
-        lineWidth={1.5}
+        lineWidth={2}
         opacity={lineOpacity.get()}
         transparent
       />

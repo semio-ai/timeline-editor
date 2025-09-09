@@ -53,8 +53,9 @@ export const TransitionSegment = memo(function TransitionSegment({
 }: TransitionSegmentProps) {
   // Determine line thickness based on track render mode
   const lineWidth = useMemo(() => {
-    if (trackRender === TrackRender.Key) return 4;
-    return 1.5; // For Preview, Transition and Spline
+    if (trackRender === TrackRender.Key) return 2.5;
+    // if (trackRender === TrackRender.Spline) return 2;
+    return 2; // For Preview, Transition and Spline
   }, [trackRender]);
 
   const transitionParams = useMemo(
