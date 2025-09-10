@@ -33,6 +33,25 @@ export const FrustumBackground = memo(function FrustumBackground({
   const bgRef = useRef<THREE.Mesh>(null);
 
   const clearSelection = useAnimationStore(useShallow((state) => state.clearSelection));
+  const dragState = useAnimationStore(useShallow((state) => state.dragState));
+
+  // Track if we just finished dragging to prevent clearing selection on drag end
+  const justFinishedDraggingRef = useRef(false);
+
+  useEffect(() => {
+    // If dragState becomes null (drag ended), mark that we just finished dragging
+    if (!dragState && justFinishedDraggingRef.current) {
+      // Clear the flag after a short delay to allow the click event to be ignored
+      const timer = setTimeout(() => {
+        justFinishedDraggingRef.current = false;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    // If dragState is active, mark that we're dragging
+    if (dragState?.isDragging) {
+      justFinishedDraggingRef.current = true;
+    }
+  }, [dragState]);
 
   const invariantScale = useInvariantScale();
 
@@ -86,7 +105,10 @@ export const FrustumBackground = memo(function FrustumBackground({
         pointerEvents.onPointerOut?.();
       }}
       onClick={(e) => {
-        clearSelection();
+        // Don't clear selection if we just finished dragging
+        if (!justFinishedDraggingRef.current) {
+          clearSelection();
+        }
         pointerEvents.onClick?.(e);
       }}
     >

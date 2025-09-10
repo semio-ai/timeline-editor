@@ -12,6 +12,7 @@ import { InstancedFrameInfo, Source, TrackRender } from "../../../types";
 import { useAnimationStore, useColors, useInvariantScale, useAltKeyPressed } from "../../../hooks";
 import {
   compareInstancedFrames,
+  compareInstancedFramesIgnoringStamp,
   computeOklabMix,
   createLinearScale,
   FrameComparison,
@@ -55,9 +56,12 @@ export const DataPoint = memo(function DataPoint({
 
   const isSelected = useAnimationStore(
     useShallow((state) => {
-      const comparisons: FrameComparison[] = state.selection.map((s) =>
-        compareInstancedFrames(s, data),
-      );
+      // Use stamp-ignoring comparison during drag to maintain selection visual
+      const compareFunc = state.dragState?.isDragging
+        ? compareInstancedFramesIgnoringStamp
+        : compareInstancedFrames;
+
+      const comparisons: FrameComparison[] = state.selection.map((s) => compareFunc(s, data));
       return (
         comparisons.includes(FrameComparison.Equal) ||
         comparisons.includes(FrameComparison.Superset)
@@ -68,7 +72,11 @@ export const DataPoint = memo(function DataPoint({
   const isReference = useAnimationStore(
     useShallow((state) => {
       if (!state.referenceMarker) return false;
-      return compareInstancedFrames(state.referenceMarker.marker, data) === FrameComparison.Equal;
+      // Use stamp-ignoring comparison during drag to maintain reference visual
+      const compareFunc = state.dragState?.isDragging
+        ? compareInstancedFramesIgnoringStamp
+        : compareInstancedFrames;
+      return compareFunc(state.referenceMarker.marker, data) === FrameComparison.Equal;
     }),
   );
 
