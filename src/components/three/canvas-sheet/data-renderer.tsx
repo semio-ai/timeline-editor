@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { RawValue, useDeepSelector } from "@semio/utils";
 import { Theme } from "@semio/ui";
@@ -15,10 +15,10 @@ import {
 } from "../../../types";
 import { AnimationData } from "../../../store-types";
 import {
-  computeFrames,
   computeTransitionSegments,
   computeVerticalBounds,
   computeViolationSet,
+  computeVirtualFrames,
 } from "../../../functions";
 import { Z } from "../../../constants";
 import { computeFilledInterpGaps } from "../../../functions/compute-filled-interp-gaps";
@@ -29,7 +29,6 @@ import { TransitionSegment } from "./transition-segment";
 
 const DataPointsRenderer = memo(function DataPointsRenderer({
   frameData = [],
-  onSetDraggingFrames,
   theme = Theme.Light,
   trackRender = TrackRender.Key,
   height = 36,
@@ -37,7 +36,6 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   sources = [],
 }: {
   frameData: InstancedFrameInfo[];
-  onSetDraggingFrames: (ids: string[]) => void;
   theme?: Theme.Light | Theme.Dark;
   trackRender?: TrackRender;
   height?: number;
@@ -56,15 +54,6 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
           key={data.id}
           data={data}
           allData={frameData}
-          onDragStart={() => {
-            // Update the set of dragging frames based on the frame instance
-            const ids = uniq(data.points.map((p) => p.id));
-            onSetDraggingFrames(ids);
-          }}
-          onDragEnd={() => {
-            // Clear the dragging tracks when the drag ends
-            onSetDraggingFrames([]);
-          }}
           theme={theme}
           trackRender={trackRender}
           height={height}
@@ -109,8 +98,6 @@ export const DataRenderer = memo(function DataRenderer({
   const trackIds = useMemo(() => uniq(sources.map((s) => s.trackId)), [sources]);
   const color = useColors(trackIds);
 
-  const [draggingFrames, setDraggingFrames] = useState<string[]>([]);
-
   const tracks: Record<string, Track<RawValue>> = useAnimationStore(
     useDeepSelector(
       (state: AnimationData) => pick(state.tracks, trackIds) as Record<string, Track<RawValue>>,
@@ -126,9 +113,11 @@ export const DataRenderer = memo(function DataRenderer({
     return computeViolationSet(filteredViolations);
   }, [violations, trackIds]);
 
+  const dragState = useAnimationStore(useShallow((state) => state.dragState));
+
   const frameData: InstancedFrameInfo[] = useMemo(() => {
-    return computeFrames(tracks, draggingFrames);
-  }, [tracks, draggingFrames]);
+    return computeVirtualFrames(tracks, dragState);
+  }, [tracks, dragState]);
 
   const interps = useMemo(() => {
     return computeTransitionSegments(frameData, trackIds);
@@ -155,7 +144,6 @@ export const DataRenderer = memo(function DataRenderer({
       {/* Render the hexagons/visuals for each keyed point */}
       <DataPointsRenderer
         frameData={frameData}
-        onSetDraggingFrames={setDraggingFrames}
         theme={theme}
         trackRender={trackRender}
         height={height - 1}

@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useRef, memo, useState } from "react";
+import { useEffect, useMemo, useRef, memo, useState, useCallback } from "react";
 import { useShallow } from "zustand/shallow";
 import { useGesture } from "@use-gesture/react";
 import { useThree } from "@react-three/fiber";
 import { Instance, Line, PositionMesh, useCursor } from "@react-three/drei";
 import * as THREE from "three";
+import { usePlayerStore } from "@semio/utils";
 import { Theme } from "@semio/ui";
 import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
+import { clamp } from "lodash";
 import { InstancedFrameInfo, Source, TrackRender } from "../../../types";
-import { useAnimationStore, useColors, useInvariantScale } from "../../../hooks";
+import { useAnimationStore, useColors, useInvariantScale, useAltKeyPressed } from "../../../hooks";
 import {
   compareInstancedFrames,
   computeOklabMix,
@@ -21,8 +23,6 @@ export interface DataPointProps {
   height?: number;
   data: InstancedFrameInfo;
   allData: InstancedFrameInfo[];
-  onDragStart: () => void;
-  onDragEnd: () => void;
   theme?: Theme.Dark | Theme.Light;
   trackRender?: TrackRender;
   verticalBounds?: { min: number; max: number };
@@ -37,8 +37,6 @@ export const DataPoint = memo(function DataPoint({
   height = 36,
   verticalBounds = { min: -18, max: 18 },
   sources = [],
-  onDragEnd,
-  onDragStart,
 }: DataPointProps) {
   const instanceRefFg = useRef<PositionMesh>(null);
   const instanceRefBg = useRef<PositionMesh>(null);
@@ -46,6 +44,14 @@ export const DataPoint = memo(function DataPoint({
   const groupRef = useRef<THREE.Group>(null);
 
   const clickMarker = useAnimationStore(useShallow((state) => state.clickMarker));
+  const startDragging = useAnimationStore(useShallow((state) => state.startDragging));
+  const updateDragDelta = useAnimationStore(useShallow((state) => state.updateDragDelta));
+  const commitDrag = useAnimationStore(useShallow((state) => state.commitDrag));
+  const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
+  const playing = usePlayerStore(useShallow((state) => state.player.running));
+
+  // Track initial drag position to calculate proper delta
+  const initialDragPosition = useRef<number>(0);
 
   const isSelected = useAnimationStore(
     useShallow((state) => {
@@ -65,21 +71,9 @@ export const DataPoint = memo(function DataPoint({
       return compareInstancedFrames(state.referenceMarker.marker, data) === FrameComparison.Equal;
     }),
   );
-  // const referenceMarker = useAnimationStore(useShallow((state) => state.referenceMarker));
 
   const [isHovered, setIsHovered] = useState(false);
-
-  // const isSelected = useMemo(() => {
-  //   const comparisons: FrameComparison[] = selection.map((s) => compareInstancedFrames(s, data));
-  //   return (
-  //     comparisons.includes(FrameComparison.Equal) || comparisons.includes(FrameComparison.Superset)
-  //   );
-  // }, [selection, data]);
-
-  // const isReference = useMemo(() => {
-  //   if (!referenceMarker) return false;
-  //   return compareInstancedFrames(referenceMarker.marker, data) === FrameComparison.Equal;
-  // }, [referenceMarker, data]);
+  const altPressed = useAltKeyPressed();
 
   const { stamp, points } = data;
 
@@ -150,20 +144,8 @@ export const DataPoint = memo(function DataPoint({
     lineOpacity.set(showsLine ? 1 : 0);
   }, [lineOpacity, showsLine]);
 
-  // const fillSpring = useSpring(getFillIndex(isHovered, isSelected, isReference), {
-  //   stiffness: 300,
-  //   damping: 20,
-  //   mass: 0.5,
-  // });
-  //
   const fillIndex = useMotionValue(getFillIndex(isHovered, isSelected, isReference));
   const backdropIndex = useMotionValue(getBackdropIndex(isSelected, isReference));
-
-  // const backdropSpring = useSpring(getBackdropIndex(isSelected, isReference), {
-  //   stiffness: 300,
-  //   damping: 20,
-  //   mass: 0.5,
-  // });
 
   const fillColor = useTransform(fillIndex, [0, 0.5, 1], [baseColor, hoverColor, selectionColor]);
 
@@ -245,21 +227,114 @@ export const DataPoint = memo(function DataPoint({
     }
   });
 
-  const bind = useGesture({
-    onHover: ({ hovering }) => {
-      setIsHovered(hovering ?? false);
+  // Get Three.js camera and size for coordinate conversion
+  const { camera, size } = useThree();
+
+  // Convert screen movement to timeline position (0-1)
+  const getTimelinePositionFromMovement = useCallback(
+    (movement: number, initial: number): number => {
+      // Convert screen movement to normalized coordinate space
+      const orthoCam = camera as THREE.OrthographicCamera;
+      const worldWidth = orthoCam.right - orthoCam.left;
+      const deltaX = (movement / size.width) * worldWidth;
+
+      // Calculate new position
+      const newPosition = initial + deltaX;
+      return clamp(newPosition, 0, 1);
     },
-    onClick: ({ shiftKey, metaKey, event }) => {
-      event.stopPropagation();
-      clickMarker(data, sources, allData, shiftKey, metaKey);
+    [camera, size.width],
+  );
+
+  // Convert pointer event to timeline position (for initial position)
+  const getTimelinePositionFromEvent = useCallback(
+    (event: any): number => {
+      // Try to use intersection point if available (from Three.js event)
+      if (event?.point) {
+        return clamp(event.point.x as number, 0, 1);
+      }
+
+      // Fallback: convert screen position to normalized coordinate
+      const clientX = (event?.clientX ?? event?.nativeEvent?.clientX ?? 0) as number;
+      const normalizedX = clientX / size.width;
+
+      // For orthographic camera, map screen space to world space
+      const orthoCamera = camera as THREE.OrthographicCamera;
+      const worldX = orthoCamera.left + normalizedX * (orthoCamera.right - orthoCamera.left);
+
+      return clamp(worldX, 0, 1);
     },
-    onDragStart: () => {
-      onDragStart?.();
+    [camera, size.width],
+  );
+
+  // Use gesture for both click and drag handling
+  const bind = useGesture(
+    {
+      onHover: ({ hovering }) => {
+        setIsHovered(hovering ?? false);
+      },
+      onClick: ({ event, shiftKey, metaKey }) => {
+        if (playing) return;
+
+        event.stopPropagation();
+        // Handle multi-select with shift and cmd/ctrl keys
+        clickMarker(data, sources, allData, shiftKey, metaKey || event.ctrlKey);
+      },
+      onDragStart: ({ event }) => {
+        if (playing) return;
+
+        event?.stopPropagation();
+
+        // Get initial position
+        const initialPosition = getTimelinePositionFromEvent(event);
+        initialDragPosition.current = initialPosition;
+
+        // Auto-select if not already selected
+        if (!isSelected) {
+          clickMarker(data, sources, allData, false, false);
+        }
+
+        // Start dragging with current selection
+        startDragging();
+      },
+      onDrag: ({ movement: [mx], first, event, altKey }) => {
+        if (playing || first) return;
+
+        event?.stopPropagation();
+
+        // Calculate position based on movement from initial
+        const position = getTimelinePositionFromMovement(mx, initialDragPosition.current);
+        const deltaInNormalized = position - initialDragPosition.current;
+
+        // Apply frame snapping if alt is not pressed
+        const shouldSnap = !altKey && !altPressed;
+
+        // Update drag delta in normalized space
+        updateDragDelta(deltaInNormalized, shouldSnap);
+      },
+      onDragEnd: ({ event, canceled }) => {
+        if (playing) return;
+
+        event?.stopPropagation();
+
+        if (canceled) {
+          // Revert the drag operation
+          cancelDrag();
+        } else {
+          // Commit the drag operation
+          commitDrag();
+        }
+      },
     },
-    onDragEnd: () => {
-      onDragEnd?.();
+    {
+      enabled: !playing,
+      drag: {
+        threshold: 3, // Require 3px movement before starting drag
+        preventScroll: true,
+        filterTaps: true, // This ensures clicks aren't treated as drags
+      },
+      eventOptions: { passive: false },
     },
-  });
+  );
 
   return (
     <group ref={groupRef as any}>

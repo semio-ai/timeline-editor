@@ -45,6 +45,7 @@ import {
   createDefaultAnimation,
   updateControlColor,
 } from "./actions";
+import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
 import {
   computeTrackViolations,
   computeTrackInterpolator,
@@ -718,6 +719,20 @@ export const AnimationSlice = (
       set((state) => ({
         preferences: { ...state.preferences, ...preferences },
       }));
+    },
+
+    // Drag actions for virtual dragging functionality
+    startDragging: (selection?: InstancedFrameInfo[]) => {
+      startDragging(get, set, selection);
+    },
+    updateDragDelta: (deltaStamp: number, snapToFrames: boolean) => {
+      updateDragDelta(get, set, deltaStamp, snapToFrames);
+    },
+    commitDrag: () => {
+      commitDrag(get, set);
+    },
+    cancelDrag: () => {
+      cancelDrag(get, set);
     },
   };
 };

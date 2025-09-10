@@ -14,6 +14,26 @@ import {
 } from "./types";
 
 /**
+ * Interface representing a keypoint that is being dragged.
+ */
+export interface DraggedKeypoint {
+  trackId: string;
+  keypointId: string;
+  originalStamp: number;
+  currentOffset: number;
+}
+
+/**
+ * Interface representing the drag state.
+ */
+export interface DragState {
+  isDragging: boolean;
+  draggedKeypoints: Map<string, DraggedKeypoint>; // keypointId -> drag info
+  startPositions: Map<string, number>; // keypointId -> original stamp
+  deltaStamp: number; // Current drag offset
+}
+
+/**
  * Interface representing the data structure for animation.
  */
 export interface AnimationData {
@@ -109,6 +129,11 @@ export interface AnimationData {
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   animatables: Record<string, AnimatableValue>;
+
+  /**
+   * Current drag state for virtual dragging functionality.
+   */
+  dragState: DragState | null;
 }
 
 /**
@@ -359,6 +384,29 @@ export interface AnimationActions {
    * @param rescale - Whether to rescale the animation.
    */
   updateAnimationDuration: (animationId: string, duration: number, rescale: boolean) => void;
+
+  /**
+   * Start a drag operation with the current selection or provided selection.
+   * @param selection - Optional selection to drag, defaults to current selection
+   */
+  startDragging: (selection?: InstancedFrameInfo[]) => void;
+
+  /**
+   * Update the drag delta during a drag operation.
+   * @param deltaStamp - The time offset to apply
+   * @param snapToFrames - Whether to snap to frame boundaries
+   */
+  updateDragDelta: (deltaStamp: number, snapToFrames: boolean) => void;
+
+  /**
+   * Commit the current drag operation, applying all changes.
+   */
+  commitDrag: () => void;
+
+  /**
+   * Cancel the current drag operation without applying changes.
+   */
+  cancelDrag: () => void;
 }
 
 /**

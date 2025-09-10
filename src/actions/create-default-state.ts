@@ -41,5 +41,7 @@ export const createDefaultState = (): AnimationData => {
     violations: {},
 
     animatables: {},
+
+    dragState: null,
   };
 };
