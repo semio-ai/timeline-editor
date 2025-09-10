@@ -11,27 +11,8 @@ import {
   Preview,
   InstancedFrameInfo,
   Source,
+  DragState,
 } from "./types";
-
-/**
- * Interface representing a keypoint that is being dragged.
- */
-export interface DraggedKeypoint {
-  trackId: string;
-  keypointId: string;
-  originalStamp: number;
-  currentOffset: number;
-}
-
-/**
- * Interface representing the drag state.
- */
-export interface DragState {
-  isDragging: boolean;
-  draggedKeypoints: Map<string, DraggedKeypoint>; // keypointId -> drag info
-  startPositions: Map<string, number>; // keypointId -> original stamp
-  deltaStamp: number; // Current drag offset
-}
 
 /**
  * Interface representing the data structure for animation.

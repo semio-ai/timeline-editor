@@ -1,6 +1,6 @@
 import type { RawValue } from "@semio/utils";
-import type { AnimationData, DraggedKeypoint } from "../../store-types";
-import type { Track } from "../../types";
+import type { AnimationData } from "../../store-types";
+import type { Track, InstancedFrameInfo, DraggedKeypoint } from "../../types";
 import { computeFrames } from "../../functions";
 
 /**
@@ -41,10 +41,30 @@ export function commitDrag(state: AnimationData): void {
   const newFrames = computeFrames(state.tracks);
 
   // Build new selection to maintain multi-selection after drag
-  state.selection = newFrames.filter((frame) => {
-    // Select this frame if it contains at least one previously selected point
-    return frame.points.some((point) => selectedKeypointIds.has(point.id));
+  // We need to be more careful about rebuilding the selection to ensure
+  // that frames are properly matched after drag operations
+  const newSelection: InstancedFrameInfo[] = [];
+
+  // Create a map of point IDs to their new frames for efficient lookup
+  const pointIdToFrame = new Map<string, InstancedFrameInfo>();
+  newFrames.forEach((frame) => {
+    frame.points.forEach((point) => {
+      pointIdToFrame.set(point.id, frame);
+    });
   });
+
+  // For each previously selected point, find its new frame
+  const addedFrames = new Set<InstancedFrameInfo>();
+  selectedKeypointIds.forEach((pointId) => {
+    const frame = pointIdToFrame.get(pointId);
+    if (frame && !addedFrames.has(frame)) {
+      newSelection.push(frame);
+      addedFrames.add(frame);
+    }
+  });
+
+  // Sort selection by stamp to maintain order
+  state.selection = newSelection.sort((a, b) => a.stamp - b.stamp);
 
   // Update reference marker if it was selected
   if (state.referenceMarker) {
@@ -55,9 +75,9 @@ export function commitDrag(state: AnimationData): void {
 
     if (wasReferenceSelected) {
       // Find the new frame for the reference marker
-      const newReferenceFrame = newFrames.find((frame) =>
-        frame.points.some((point) => referenceKeypointIds.includes(point.id)),
-      );
+      // Use the first reference point ID to find the frame more reliably
+      const firstReferencePointId = referenceKeypointIds[0];
+      const newReferenceFrame = pointIdToFrame.get(firstReferencePointId);
 
       if (newReferenceFrame) {
         state.referenceMarker.marker = newReferenceFrame;

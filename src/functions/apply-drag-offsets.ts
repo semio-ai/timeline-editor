@@ -1,7 +1,6 @@
 import { produce } from "immer";
 import type { RawValue } from "@semio/utils";
-import type { Track } from "../types";
-import type { DragState } from "../store-types";
+import type { Track, DragState } from "../types";
 
 /**
  * Apply drag offsets to tracks to create virtual preview positions.

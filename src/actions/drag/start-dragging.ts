@@ -1,5 +1,5 @@
-import type { InstancedFrameInfo } from "../../types";
-import type { AnimationData, DragState, DraggedKeypoint } from "../../store-types";
+import type { InstancedFrameInfo, DraggedKeypoint, DragState } from "../../types";
+import type { AnimationData } from "../../store-types";
 
 /**
  * Start a drag operation with the current selection or provided selection.

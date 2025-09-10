@@ -1,4 +1,5 @@
 export type * from "./data/animation";
+export type * from "./data/dragged-keypoint";
 export type * from "./data/instanced-frame-info";
 export type * from "./data/interpolator";
 export type * from "./data/keypoint";

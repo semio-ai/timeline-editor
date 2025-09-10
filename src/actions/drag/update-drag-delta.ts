@@ -1,5 +1,6 @@
 import { closestFrame } from "@semio/utils";
-import type { AnimationData, DraggedKeypoint } from "../../store-types";
+import type { AnimationData } from "../../store-types";
+import type { DraggedKeypoint } from "../../types";
 
 /**
  * Update the drag delta during a drag operation.

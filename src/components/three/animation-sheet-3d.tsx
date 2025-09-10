@@ -201,6 +201,8 @@ function InnerSheet3D({
     }),
   );
 
+  const getAnimationsToSave = useAnimationStore(useShallow((state) => state.getAnimationsToSave));
+
   const currentAnimationInstance = Object.values(animationInstances || {})[0];
   const currentAnimation = currentAnimationInstance?.animationId;
   const instanceSettings = currentAnimationInstance?.settings;
@@ -262,6 +264,8 @@ function InnerSheet3D({
     },
     [setExpandedTracks],
   );
+
+  const [popped, setPopped] = useState(false);
 
   if (!currentAnimation || !animations[currentAnimation]) {
     return null;
@@ -344,10 +348,13 @@ function InnerSheet3D({
               <ToggleSquare
                 sizing="inner"
                 size={Size.Sm}
-                value={false}
-                onChange={() => {}}
+                value={popped}
+                onChange={(v) => {
+                  setPopped(v);
+                  console.log(JSON.stringify(getAnimationsToSave()[0]));
+                }}
                 label="Pop Out"
-                disabled
+                // disabled
               >
                 <IconArrowUpRight size="11px" />
               </ToggleSquare>

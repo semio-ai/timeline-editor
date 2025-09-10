@@ -1,6 +1,5 @@
 import type { RawValue } from "@semio/utils";
-import { Track, InstancedFrameInfo } from "../types";
-import { DragState } from "../store-types";
+import { Track, InstancedFrameInfo, DragState } from "../types";
 import { applyDragOffsets } from "./apply-drag-offsets";
 import { computeFrames } from "./compute-frames";
 

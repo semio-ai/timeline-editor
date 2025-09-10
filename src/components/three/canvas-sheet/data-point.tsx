@@ -16,6 +16,7 @@ import {
   computeOklabMix,
   createLinearScale,
   FrameComparison,
+  computeFrames,
 } from "../../../functions";
 
 const BG_MULTIPLIER = 1.2;
@@ -43,7 +44,6 @@ export const DataPoint = memo(function DataPoint({
   const instanceRefBg = useRef<PositionMesh>(null);
   const lineRef = useRef<THREE.Line>(null);
   const groupRef = useRef<THREE.Group>(null);
-  const justFinishedDragging = useRef(false);
 
   const clickMarker = useAnimationStore(useShallow((state) => state.clickMarker));
   const startDragging = useAnimationStore(useShallow((state) => state.startDragging));
@@ -52,8 +52,14 @@ export const DataPoint = memo(function DataPoint({
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
   const playing = usePlayerStore(useShallow((state) => state.player.running));
 
+  // Get tracks for computing fresh frames when needed
+  const tracks = useAnimationStore(useShallow((state) => state.tracks));
+
   // Track initial drag position to calculate proper delta
   const initialDragPosition = useRef<number>(0);
+
+  // Track if we just finished dragging to prevent immediate click
+  const justFinishedDragging = useRef<boolean>(false);
 
   const isSelected = useAnimationStore(
     useShallow((state) => {
@@ -281,18 +287,44 @@ export const DataPoint = memo(function DataPoint({
       onHover: ({ hovering }) => {
         setIsHovered(hovering ?? false);
       },
-      onClick: ({ event, shiftKey, metaKey }) => {
+      onClick: ({ event, shiftKey, metaKey, dragging }) => {
         if (playing) return;
 
-        // Skip click if we just finished dragging to prevent selection loss
+        // Ignore clicks that are part of a drag gesture
+        if (dragging) return;
+
+        // Ignore clicks immediately after drag to maintain selection
         if (justFinishedDragging.current) {
           justFinishedDragging.current = false;
           return;
         }
 
         event.stopPropagation();
+
+        // Compute fresh frames to ensure we have the latest data after any drag operations
+        // This prevents issues where allData might be stale after dragging
+        const freshFrames = computeFrames(tracks);
+
+        // Find the actual frame that matches this data point's current position
+        // This is crucial after dragging as the data prop might have stale stamp values
+        const currentFrame = freshFrames.find((f) =>
+          f.points.some((p) => data.points.some((dp) => dp.id === p.id)),
+        );
+
+        if (!currentFrame) {
+          console.warn(`Could not find frame for data point ${data.id}`);
+          return;
+        }
+
+        // Create a frame with only the clicked marker's points, using the current timestamp
+        // This prevents selecting all markers at the same timestamp after dragging
+        const clickedMarkerFrame = {
+          ...currentFrame,
+          points: currentFrame.points.filter((p) => data.points.some((dp) => dp.id === p.id)),
+        };
+
         // Handle multi-select with shift and cmd/ctrl keys
-        clickMarker(data, sources, allData, shiftKey, metaKey || event.ctrlKey);
+        clickMarker(clickedMarkerFrame, sources, freshFrames, shiftKey, metaKey || event.ctrlKey);
       },
       onDragStart: ({ event }) => {
         if (playing) return;
@@ -331,7 +363,7 @@ export const DataPoint = memo(function DataPoint({
 
         event?.stopPropagation();
 
-        // Set flag to prevent click event after drag
+        // Set flag to prevent click event immediately after drag
         justFinishedDragging.current = true;
         // Reset flag after a short delay to allow normal clicks again
         setTimeout(() => {
@@ -353,6 +385,7 @@ export const DataPoint = memo(function DataPoint({
         threshold: 3, // Require 3px movement before starting drag
         preventScroll: true,
         filterTaps: true, // This ensures clicks aren't treated as drags
+        pointer: { touch: false }, // Disable touch-based dragging to prevent conflicts
       },
       eventOptions: { passive: false },
     },
