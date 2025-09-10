@@ -43,6 +43,7 @@ export const DataPoint = memo(function DataPoint({
   const instanceRefBg = useRef<PositionMesh>(null);
   const lineRef = useRef<THREE.Line>(null);
   const groupRef = useRef<THREE.Group>(null);
+  const justFinishedDragging = useRef(false);
 
   const clickMarker = useAnimationStore(useShallow((state) => state.clickMarker));
   const startDragging = useAnimationStore(useShallow((state) => state.startDragging));
@@ -283,6 +284,12 @@ export const DataPoint = memo(function DataPoint({
       onClick: ({ event, shiftKey, metaKey }) => {
         if (playing) return;
 
+        // Skip click if we just finished dragging to prevent selection loss
+        if (justFinishedDragging.current) {
+          justFinishedDragging.current = false;
+          return;
+        }
+
         event.stopPropagation();
         // Handle multi-select with shift and cmd/ctrl keys
         clickMarker(data, sources, allData, shiftKey, metaKey || event.ctrlKey);
@@ -323,6 +330,13 @@ export const DataPoint = memo(function DataPoint({
         if (playing) return;
 
         event?.stopPropagation();
+
+        // Set flag to prevent click event after drag
+        justFinishedDragging.current = true;
+        // Reset flag after a short delay to allow normal clicks again
+        setTimeout(() => {
+          justFinishedDragging.current = false;
+        }, 100);
 
         if (canceled) {
           // Revert the drag operation
