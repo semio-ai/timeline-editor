@@ -1,7 +1,7 @@
 import type { RawValue } from "@semio/utils";
 import { Track, InstancedFrameInfo } from "../types";
 import { DragState } from "../store-types";
-import { applyDragOffsets } from "../actions/drag";
+import { applyDragOffsets } from "./apply-drag-offsets";
 import { computeFrames } from "./compute-frames";
 
 /**
@@ -15,7 +15,7 @@ import { computeFrames } from "./compute-frames";
  */
 export function computeVirtualFrames(
   tracks: Record<string, Track<RawValue>>,
-  dragState: DragState | null
+  dragState: DragState | null,
 ): InstancedFrameInfo[] {
   if (!dragState?.isDragging) {
     // No drag operation active, return normal frames
@@ -40,7 +40,7 @@ export function computeVirtualFrames(
  */
 export function computeFramesWithDragPrevention(
   tracks: Record<string, Track<RawValue>>,
-  dragState: DragState
+  dragState: DragState,
 ): InstancedFrameInfo[] {
   const draggedKeypointIds = Array.from(dragState.draggedKeypoints.keys());
   return computeFrames(tracks, draggedKeypointIds);
@@ -55,15 +55,13 @@ export function computeFramesWithDragPrevention(
  */
 export function frameContainsDraggedKeypoints(
   frame: InstancedFrameInfo,
-  dragState: DragState | null
+  dragState: DragState | null,
 ): boolean {
   if (!dragState?.isDragging) {
     return false;
   }
 
-  return frame.points.some(point =>
-    dragState.draggedKeypoints.has(point.id)
-  );
+  return frame.points.some((point) => dragState.draggedKeypoints.has(point.id));
 }
 
 /**
@@ -77,16 +75,14 @@ export function frameContainsDraggedKeypoints(
  */
 export function getVirtualFrameStamp(
   frame: InstancedFrameInfo,
-  dragState: DragState | null
+  dragState: DragState | null,
 ): number {
   if (!dragState?.isDragging || !frameContainsDraggedKeypoints(frame, dragState)) {
     return frame.stamp;
   }
 
   // Find the first dragged keypoint in this frame to get its virtual position
-  const draggedPoint = frame.points.find(point =>
-    dragState.draggedKeypoints.has(point.id)
-  );
+  const draggedPoint = frame.points.find((point) => dragState.draggedKeypoints.has(point.id));
 
   if (draggedPoint) {
     const dragInfo = dragState.draggedKeypoints.get(draggedPoint.id);
@@ -107,13 +103,13 @@ export function getVirtualFrameStamp(
  */
 export function getDraggedFrames(
   frames: InstancedFrameInfo[],
-  dragState: DragState | null
+  dragState: DragState | null,
 ): InstancedFrameInfo[] {
   if (!dragState?.isDragging) {
     return [];
   }
 
-  return frames.filter(frame => frameContainsDraggedKeypoints(frame, dragState));
+  return frames.filter((frame) => frameContainsDraggedKeypoints(frame, dragState));
 }
 
 /**
@@ -125,13 +121,13 @@ export function getDraggedFrames(
  */
 export function getNonDraggedFrames(
   frames: InstancedFrameInfo[],
-  dragState: DragState | null
+  dragState: DragState | null,
 ): InstancedFrameInfo[] {
   if (!dragState?.isDragging) {
     return frames;
   }
 
-  return frames.filter(frame => !frameContainsDraggedKeypoints(frame, dragState));
+  return frames.filter((frame) => !frameContainsDraggedKeypoints(frame, dragState));
 }
 
 /**
@@ -140,9 +136,7 @@ export function getNonDraggedFrames(
  * @param dragState - Current drag state
  * @returns Map of keypoint ID to virtual timestamp
  */
-export function getVirtualKeypointPositions(
-  dragState: DragState | null
-): Map<string, number> {
+export function getVirtualKeypointPositions(dragState: DragState | null): Map<string, number> {
   const positions = new Map<string, number>();
 
   if (dragState?.isDragging) {

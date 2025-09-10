@@ -12,8 +12,8 @@ enableMapSet();
 
 describe("Drag Merge Selection Behavior", () => {
   let mockState: AnimationData;
-  let mockGet: () => AnimationData & AnimationActions;
-  let mockSet: (
+  let _mockGet: () => AnimationData & AnimationActions;
+  let _mockSet: (
     partial:
       | (AnimationData & AnimationActions)
       | Partial<AnimationData & AnimationActions>
@@ -68,8 +68,8 @@ describe("Drag Merge Selection Behavior", () => {
       },
     };
 
-    mockGet = () => mockState as AnimationData & AnimationActions;
-    mockSet = (partial, _replace) => {
+    _mockGet = () => mockState as AnimationData & AnimationActions;
+    _mockSet = (partial, _replace) => {
       if (typeof partial === "function") {
         const result = partial(mockState as AnimationData & AnimationActions);
         if (result && typeof result === "object") {
@@ -96,9 +96,11 @@ describe("Drag Merge Selection Behavior", () => {
       mockState.selection = [selectedFrame!];
 
       // Start dragging and move point1 to 0.2 (where point2 already exists)
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.1, false); // Move from 0.1 to 0.2
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.1, false); // Move from 0.1 to 0.2
+        commitDrag(draft);
+      });
 
       // After commit, check the selection
       expect(mockState.selection.length).toBe(1);
@@ -126,12 +128,13 @@ describe("Drag Merge Selection Behavior", () => {
       mockState.selection = [frame1!, frame3!];
 
       // Drag both with delta 0.1
-      startDragging(mockGet, mockSet);
-
-      // This moves point1 from 0.1 to 0.2 and point3 from 0.3 to 0.4
-      // point1 merges with point2 and point5 at 0.2
-      updateDragDelta(mockGet, mockSet, 0.1, false);
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        // This moves point1 from 0.1 to 0.2 and point3 from 0.3 to 0.4
+        // point1 merges with point2 and point5 at 0.2
+        updateDragDelta(draft, 0.1, false);
+        commitDrag(draft);
+      });
 
       // Should have 2 frames selected: merged frame at 0.2 and point3 at 0.4
       expect(mockState.selection.length).toBe(2);
@@ -157,10 +160,12 @@ describe("Drag Merge Selection Behavior", () => {
       mockState.selection = [frame1!, frame4!];
 
       // Drag to 0.2 where point2 (track1) and point5 (track2) already exist
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.1, false); // point1: 0.1->0.2
-      // Note: point4 at 0.15 would move to 0.25, not merging
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.1, false); // point1: 0.1->0.2
+        // Note: point4 at 0.15 would move to 0.25, not merging
+        commitDrag(draft);
+      });
 
       // Check selection after commit
       // point1 merges with point2 at 0.2 - should be selected (point1 was selected)
@@ -202,9 +207,11 @@ describe("Drag Merge Selection Behavior", () => {
       mockState.selection = [multiTrackFrame!];
 
       // Drag it slightly
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.05, false);
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.05, false);
+        commitDrag(draft);
+      });
 
       // The frame should remain selected after moving
       expect(mockState.selection.length).toBe(1);
@@ -225,9 +232,11 @@ describe("Drag Merge Selection Behavior", () => {
       };
 
       // Drag to merge with unselected point2
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.1, false);
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.1, false);
+        commitDrag(draft);
+      });
 
       // Reference marker should remain since the merged frame is still selected
       expect(mockState.selection.length).toBe(1);
@@ -250,9 +259,11 @@ describe("Drag Merge Selection Behavior", () => {
       const frame1 = initialFrames.find((f) => f.points.some((p) => p.id === "point1"));
       mockState.selection = [frame1!];
 
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0, false); // No movement
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0, false); // No movement
+        commitDrag(draft);
+      });
 
       // Selection should be maintained
       expect(mockState.selection.length).toBe(1);
@@ -272,9 +283,11 @@ describe("Drag Merge Selection Behavior", () => {
       mockState.selection = [mergedFrames[0]];
 
       // Drag it
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.1, false);
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.05, false);
+        commitDrag(draft);
+      });
 
       // Should remain selected since all points were selected
       expect(mockState.selection.length).toBe(1);
@@ -295,12 +308,14 @@ describe("Drag Merge Selection Behavior", () => {
 
       // This merged frame has point1 and point2, but we can't partially select it
       // The selection works at frame level, not point level
-      mockState.selection = [mergedFrame!];
+      mockState.selection = selectedFrames;
 
-      // Drag the frame
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.05, false);
-      commitDrag(mockGet, mockSet);
+      // Drag to create merge
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.1, false);
+        commitDrag(draft);
+      });
 
       // Both points move together and remain selected
       expect(mockState.selection.length).toBe(1);

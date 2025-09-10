@@ -1,26 +1,14 @@
 import type { InstancedFrameInfo } from "../../types";
-import type {
-  DragState,
-  DraggedKeypoint,
-  AnimationStoreGetter,
-  AnimationStoreSetter,
-} from "../../store-types";
+import type { AnimationData, DragState, DraggedKeypoint } from "../../store-types";
 
 /**
  * Start a drag operation with the current selection or provided selection.
  * All positions are stored in normalized 0-1 space.
  *
- * @param get - The store getter function
- * @param set - The store setter function
+ * @param state - The animation state to modify
  * @param selection - Optional selection to drag, defaults to current selection
  */
-export function startDragging(
-  get: AnimationStoreGetter,
-  set: AnimationStoreSetter,
-  selection?: InstancedFrameInfo[],
-): void {
-  const state = get();
-
+export function startDragging(state: AnimationData, selection?: InstancedFrameInfo[]): void {
   // Use provided selection or current selection
   const currentSelection = selection || state.selection;
 
@@ -55,5 +43,5 @@ export function startDragging(
     deltaStamp: 0, // Delta will also be in normalized space
   };
 
-  set({ dragState });
+  state.dragState = dragState;
 }

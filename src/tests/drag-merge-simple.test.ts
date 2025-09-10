@@ -12,8 +12,8 @@ enableMapSet();
 
 describe("Drag Merge Selection - Focused Test", () => {
   let mockState: AnimationData;
-  let mockGet: () => AnimationData & AnimationActions;
-  let mockSet: (
+  let _mockGet: () => AnimationData & AnimationActions;
+  let _mockSet: (
     partial:
       | (AnimationData & AnimationActions)
       | Partial<AnimationData & AnimationActions>
@@ -45,8 +45,8 @@ describe("Drag Merge Selection - Focused Test", () => {
       },
     };
 
-    mockGet = () => mockState as AnimationData & AnimationActions;
-    mockSet = (partial, _replace) => {
+    _mockGet = () => mockState as AnimationData & AnimationActions;
+    _mockSet = (partial, _replace) => {
       if (typeof partial === "function") {
         const result = partial(mockState as AnimationData & AnimationActions);
         if (result && typeof result === "object") {
@@ -93,7 +93,9 @@ describe("Drag Merge Selection - Focused Test", () => {
     };
 
     // Step 3: Commit the drag
-    commitDrag(mockGet, mockSet);
+    mockState = produce(mockState, (draft) => {
+      commitDrag(draft);
+    });
 
     // Step 4: Verify the results
     const finalFrames = computeFrames(mockState.tracks);
@@ -145,7 +147,9 @@ describe("Drag Merge Selection - Focused Test", () => {
     };
 
     // Commit the drag
-    commitDrag(mockGet, mockSet);
+    mockState = produce(mockState, (draft) => {
+      commitDrag(draft);
+    });
 
     // The merged frame SHOULD be selected because both points were selected
     expect(mockState.selection.length).toBe(1);
@@ -203,7 +207,9 @@ describe("Drag Merge Selection - Focused Test", () => {
       deltaStamp: 0.1,
     };
 
-    commitDrag(mockGet, mockSet);
+    mockState = produce(mockState, (draft) => {
+      commitDrag(draft);
+    });
 
     // The merged frame should be selected because it contains
     // the selected points (point1 and point3)

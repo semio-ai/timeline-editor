@@ -1,3 +1,4 @@
+export * from "./apply-drag-offsets";
 export * from "./compare-instanced-frames";
 export * from "./compute-adjacent-times";
 export * from "./compute-frames";

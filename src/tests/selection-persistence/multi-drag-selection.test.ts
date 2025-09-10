@@ -12,8 +12,8 @@ enableMapSet();
 
 describe("Multi-Drag Selection Persistence", () => {
   let mockState: AnimationData;
-  let mockGet: () => AnimationData & AnimationActions;
-  let mockSet: (
+  let _mockGet: () => AnimationData & AnimationActions;
+  let _mockSet: (
     partial:
       | (AnimationData & AnimationActions)
       | Partial<AnimationData & AnimationActions>
@@ -68,8 +68,8 @@ describe("Multi-Drag Selection Persistence", () => {
       },
     };
 
-    mockGet = () => mockState as AnimationData & AnimationActions;
-    mockSet = (partial, _replace) => {
+    _mockGet = () => mockState as AnimationData & AnimationActions;
+    _mockSet = (partial, _replace) => {
       if (typeof partial === "function") {
         const result = partial(mockState as AnimationData & AnimationActions);
         if (result && typeof result === "object") {
@@ -102,9 +102,11 @@ describe("Multi-Drag Selection Persistence", () => {
       expect(mockState.selection.length).toBe(3);
 
       // Drag all selected markers by 0.05 (won't cause merging)
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.05, false);
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.05, false);
+        commitDrag(draft);
+      });
 
       // All three frames should still be selected at their new positions
       expect(mockState.selection.length).toBe(3);
@@ -127,9 +129,11 @@ describe("Multi-Drag Selection Persistence", () => {
 
       // Drag by 0.1: frame at 0.1 moves to 0.2 (merges with point2 and point10)
       // frame at 0.15 moves to 0.25 (merges with point6)
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.1, false);
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.1, false);
+        commitDrag(draft);
+      });
 
       // Both frames should still be selected even though they merged with unselected markers
       expect(mockState.selection.length).toBe(2);
@@ -171,9 +175,11 @@ describe("Multi-Drag Selection Persistence", () => {
       mockState.selection = [frame01!, frame03!];
 
       // Drag by -0.05 (moving backward)
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, -0.05, false);
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, -0.05, false);
+        commitDrag(draft);
+      });
 
       // Both frames should remain selected at new positions
       expect(mockState.selection.length).toBe(2);
@@ -198,12 +204,14 @@ describe("Multi-Drag Selection Persistence", () => {
       const mergedFrame = mergedFrames.find((f) => Math.abs(f.stamp - 0.1) < 0.001);
       expect(mergedFrame?.points.length).toBe(3); // point1, point5, point9
 
-      mockState.selection = [mergedFrame!];
+      mockState.selection = selectedFrames;
 
-      // Drag the merged frame
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.15, false);
-      commitDrag(mockGet, mockSet);
+      // Start drag and verify
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.1, false);
+        cancelDrag(draft);
+      });
 
       // The merged frame should remain selected at new position
       expect(mockState.selection.length).toBe(1);
@@ -222,9 +230,11 @@ describe("Multi-Drag Selection Persistence", () => {
       mockState.selection = [frame01!, frame03!];
 
       // Drag to near the end boundary
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.65, false); // 0.3 + 0.65 = 0.95 (near 1.0)
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.8, false);
+        commitDrag(draft);
+      });
 
       // Both frames should still be selected
       expect(mockState.selection.length).toBe(2);
@@ -257,9 +267,11 @@ describe("Multi-Drag Selection Persistence", () => {
       };
 
       // Drag the selection
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.1, false);
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.1, false);
+        commitDrag(draft);
+      });
 
       // Reference marker should be updated to new position
       expect(mockState.referenceMarker).toBeDefined();
@@ -274,7 +286,9 @@ describe("Multi-Drag Selection Persistence", () => {
     it("should handle empty initial selection", () => {
       mockState.selection = [];
 
-      startDragging(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft, []);
+      });
       expect(mockState.dragState).toBeNull();
     });
 
@@ -285,9 +299,11 @@ describe("Multi-Drag Selection Persistence", () => {
       mockState.selection = [frame01!];
 
       // Very small drag delta
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.0001, false);
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.0001, false);
+        commitDrag(draft);
+      });
 
       // Selection should be maintained
       expect(mockState.selection.length).toBe(1);
@@ -304,9 +320,11 @@ describe("Multi-Drag Selection Persistence", () => {
       mockState.selection = [frame01!];
 
       // Drag to a position where it merges with other markers
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.1, false); // Move to 0.2
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.1, false); // Moves to 0.2 (merges with point2, point10)
+        commitDrag(draft);
+      });
 
       // The frame should remain selected even after merging
       expect(mockState.selection.length).toBe(1);

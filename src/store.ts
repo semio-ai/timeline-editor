@@ -723,16 +723,32 @@ export const AnimationSlice = (
 
     // Drag actions for virtual dragging functionality
     startDragging: (selection?: InstancedFrameInfo[]) => {
-      startDragging(get, set, selection);
+      set(
+        produce((state: AnimationData) => {
+          startDragging(state, selection);
+        }),
+      );
     },
     updateDragDelta: (deltaStamp: number, snapToFrames: boolean) => {
-      updateDragDelta(get, set, deltaStamp, snapToFrames);
+      set(
+        produce((state: AnimationData) => {
+          updateDragDelta(state, deltaStamp, snapToFrames);
+        }),
+      );
     },
     commitDrag: () => {
-      commitDrag(get, set);
+      set(
+        produce((state: AnimationData) => {
+          commitDrag(state);
+        }),
+      );
     },
     cancelDrag: () => {
-      cancelDrag(get, set);
+      set(
+        produce((state: AnimationData) => {
+          cancelDrag(state);
+        }),
+      );
     },
   };
 };

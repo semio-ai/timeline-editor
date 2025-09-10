@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { enableMapSet } from "immer";
+import { enableMapSet, produce } from "immer";
 import type { RawValue } from "@semio/utils";
 import type { InstancedFrameInfo, Track } from "../types";
-import type { AnimationData, AnimationActions } from "../store-types";
+import type { AnimationData } from "../store-types";
 import { createDefaultState } from "../actions/create-default-state";
 import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "../actions/drag";
 import { computeVirtualFrames } from "../functions/compute-virtual-frames";
@@ -17,16 +17,6 @@ enableMapSet();
 
 describe("3D DataPoint Drag Selection Persistence", () => {
   let mockState: AnimationData;
-  let mockGet: () => AnimationData & AnimationActions;
-  let mockSet: (
-    partial:
-      | (AnimationData & AnimationActions)
-      | Partial<AnimationData & AnimationActions>
-      | ((
-          state: AnimationData & AnimationActions,
-        ) => (AnimationData & AnimationActions) | Partial<AnimationData & AnimationActions>),
-    replace?: false | undefined,
-  ) => void;
 
   beforeEach(() => {
     // Initialize mock state
@@ -61,18 +51,6 @@ describe("3D DataPoint Drag Selection Persistence", () => {
         } as Track<RawValue>,
       },
     };
-
-    mockGet = () => mockState as AnimationData & AnimationActions;
-    mockSet = (partial, _replace) => {
-      if (typeof partial === "function") {
-        const result = partial(mockState as AnimationData & AnimationActions);
-        if (result && typeof result === "object") {
-          Object.assign(mockState, result);
-        }
-      } else {
-        Object.assign(mockState, partial);
-      }
-    };
   });
 
   describe("Selection Visual During Drag with Stamp-Ignoring Comparison", () => {
@@ -86,8 +64,10 @@ describe("3D DataPoint Drag Selection Persistence", () => {
       mockState.selection = [selectedFrame];
 
       // Start dragging and apply delta
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.05, false);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.05, false);
+      });
 
       // Get virtual frames (which have different stamps)
       const virtualFrames = computeVirtualFrames(mockState.tracks, mockState.dragState);
@@ -132,8 +112,10 @@ describe("3D DataPoint Drag Selection Persistence", () => {
       mockState.selection = [multiPointFrame];
 
       // Start dragging
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.1, false);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.1, false);
+      });
 
       // Get virtual frames
       const virtualFrames = computeVirtualFrames(mockState.tracks, mockState.dragState);
@@ -163,8 +145,10 @@ describe("3D DataPoint Drag Selection Persistence", () => {
 
       // Start dragging the reference marker
       mockState.selection = [referenceFrame];
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.15, false);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.15, false);
+      });
 
       const virtualFrames = computeVirtualFrames(mockState.tracks, mockState.dragState);
       const virtualReference = virtualFrames.find((f) => f.points.some((p) => p.id === "point2"));
@@ -200,9 +184,11 @@ describe("3D DataPoint Drag Selection Persistence", () => {
       mockState.selection = selectedFrames;
 
       // Perform drag operation
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.05, false);
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.05, false);
+        commitDrag(draft);
+      });
 
       // Selection should be updated with new positions
       expect(mockState.selection.length).toBe(2);
@@ -226,9 +212,11 @@ describe("3D DataPoint Drag Selection Persistence", () => {
       mockState.selection = [selectedFrame];
 
       // Start drag and cancel
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.05, false);
-      cancelDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.05, false);
+        cancelDrag(draft);
+      });
 
       // Selection should remain at original position
       expect(mockState.selection).toEqual([selectedFrame]);
@@ -251,9 +239,11 @@ describe("3D DataPoint Drag Selection Persistence", () => {
       mockState.selection = [multiTrackFrame];
 
       // Perform drag
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.08, false);
-      commitDrag(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.08, false);
+        commitDrag(draft);
+      });
 
       // Selection should be updated
       expect(mockState.selection.length).toBe(1);
@@ -285,8 +275,10 @@ describe("3D DataPoint Drag Selection Persistence", () => {
       mockState.selection = selectedFrames;
 
       // Start dragging and apply delta
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.12, false);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.12, false);
+      });
 
       // Get virtual frames
       const virtualFrames = computeVirtualFrames(mockState.tracks, mockState.dragState);
@@ -328,8 +320,10 @@ describe("3D DataPoint Drag Selection Persistence", () => {
       mockState.selection = selectedFrames;
 
       // Drag all selected frames
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.025, false);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.025, false);
+      });
 
       const virtualFrames = computeVirtualFrames(mockState.tracks, mockState.dragState);
 
@@ -360,8 +354,10 @@ describe("3D DataPoint Drag Selection Persistence", () => {
       mockState.selection = [selectedFrame];
 
       // Try to drag beyond boundaries
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, -0.2, false); // Would result in -0.1
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, -0.2, false); // Would result in -0.1
+      });
 
       const virtualFrames = computeVirtualFrames(mockState.tracks, mockState.dragState);
       const virtualFrame = virtualFrames.find((f) => f.points.some((p) => p.id === "point1"));
@@ -378,8 +374,10 @@ describe("3D DataPoint Drag Selection Persistence", () => {
       };
       mockState.selection = [selectedFrame];
 
-      startDragging(mockGet, mockSet);
-      updateDragDelta(mockGet, mockSet, 0.8, false); // Would result in 1.1
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft);
+        updateDragDelta(draft, 0.8, false); // Would result in 1.1
+      });
 
       const virtualFrames = computeVirtualFrames(mockState.tracks, mockState.dragState);
       const virtualFrame = virtualFrames.find((f) => f.points.some((p) => p.id === "point3"));
@@ -392,7 +390,9 @@ describe("3D DataPoint Drag Selection Persistence", () => {
       mockState.selection = [];
 
       // Starting drag with no selection should do nothing
-      startDragging(mockGet, mockSet);
+      mockState = produce(mockState, (draft) => {
+        startDragging(draft, []);
+      });
       expect(mockState.dragState).toBeNull();
     });
   });
