@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { RawValue } from "@semio/utils";
-import { InstancedFrameInfo, Track } from "../types";
-import { DragState, DraggedKeypoint } from "../store-types";
+import { InstancedFrameInfo, Track, DragState, DraggedKeypoint } from "../types";
 import {
   computeVirtualFrames,
   frameContainsDraggedKeypoints,

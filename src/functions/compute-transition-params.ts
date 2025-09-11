@@ -40,7 +40,7 @@ export function computeTransitionParams(
   trackRender: TrackRender,
   bounds: { min: number; max: number } = { min: 0, max: 1 },
 ): TransitionParams {
-  // Use cubice-ease-in-out as default transtion params
+  // Use cubic-ease-in-out as default transtion params
   const defaultTransitionIn = { x: 0.65, y: 0 };
   const defaultTransitionOut = { x: 0.35, y: 1 };
   // Note, the start transition out is the beginning of the transition segment.
