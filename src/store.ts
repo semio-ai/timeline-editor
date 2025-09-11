@@ -4,22 +4,17 @@ import {
   StoreSubscribeWithSelector,
   getLookup,
   usePlayerStore,
-  PlayerData,
-  PlayerDirection,
   AnimatableValue,
 } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
-import { shallow } from "zustand/shallow";
 import { produce, enableMapSet } from "immer";
 import { create, type StoreApi } from "zustand";
-import { isEqual, pick } from "lodash";
+import { pick } from "lodash";
 import {
   Keypoint,
   Track,
   AnimationInstance,
-  Animation,
-  Violation,
   StoredAnimation,
   SemanticTime,
   Preview,
@@ -47,16 +42,17 @@ import {
 } from "./actions";
 import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
 import {
-  computeTrackViolations,
-  computeTrackInterpolator,
   computeNextTime,
   computePreviousTime,
   computeStoredAnimation,
-  computeWorldStamp,
   computeMarkerSelection,
 } from "./functions";
-import { computeDerivativeInterpolator } from "./functions/compute-derivative-interpolator";
-import { matchingIdentityRawValue, rawValueMultiplyScalar } from "./functions/raw-value-math";
+import {
+  updatePlayerLoop,
+  updateOverallDuration,
+  updateInterpolationResultsOnStampChange,
+  updateAllInterpolatorsAndResultsOnDataChange,
+} from "./subscriptions";
 
 enableMapSet();
 
@@ -369,257 +365,12 @@ export const AnimationSlice = (
       );
     },
     initAnimationSubscriptions: () => {
-      const playerStoreState = usePlayerStore.getState();
-      const updatePlayerInner = playerStoreState.updatePlayer;
-      const updateDuration = playerStoreState.updateDuration;
-      const updateValues = get().updateValues;
-      const updateVelocities = get().updateVelocities;
-
-      // If the time changes, check if it matches an existing keyframe and
-      // set the current selected keyframe
       const unsubs = [
-        // If the playing state changes, start or stop the interval that updates the player
-        usePlayerStore.subscribe(
-          (state: PlayerData) => state.player.running,
-          (running) => {
-            const interval = get().playerInterval;
-            if (interval) {
-              window.clearInterval(interval);
-            }
-
-            if (running) {
-              updatePlayerInner(true);
-              const newInterval = window.setInterval(() => {
-                updatePlayerInner(false);
-              }, 25);
-              set({ playerInterval: newInterval });
-            }
-          },
-          { equalityFn: shallow },
-        ),
-
-        // If the maximum duration (with scaling/offset applied) changes, update the duration of the playerStore
-        api.subscribe(
-          (state: AnimationData) => ({
-            animations: state.animations,
-            namespaces: state.namespaceInfo,
-          }),
-          ({ animations, namespaces }) => {
-            const instances = Object.values(namespaces).flatMap((ns) => Object.values(ns));
-            const maxDuration = Math.max(
-              // Require that the player duration is at least 1000ms
-              1000,
-              ...instances.map(
-                (instance) =>
-                  animations[instance.animationId]?.duration *
-                  computeWorldStamp(
-                    1,
-                    instance.settings.timescale ?? 1,
-                    instance.settings.offset ?? 0,
-                  ),
-              ),
-            );
-            updateDuration(maxDuration);
-            api.setState({ duration: maxDuration });
-          },
-          { equalityFn: shallow, fireImmediately: true },
-        ),
-
-        // If the interpolators change, rerun the interpolators with the time from the playerStore.
-        api.subscribe(
-          (state: AnimationData) => state.trackInterpolators,
-          (trackInterpolators) => {
-            const playerState = usePlayerStore.getState();
-            const stamp = playerState.player.stamp;
-            const playing = playerState.player.running;
-            // The _currentDirection is the actual direction of the player,
-            // as opposed to the "direction" setting, which is a higher-level mode.
-            const currentDirection = playerState.player._currentDirection;
-            const speed = playerState.player.speed;
-            const result = new Map<string, RawValue | undefined>();
-            const velocities = new Map<string, RawValue | undefined>();
-            const multiplier = (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
-            Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
-              // Handle velocity calculation.
-              const vel = interpolatorCollection.derivative(stamp);
-              if (vel !== undefined) {
-                if (playing) {
-                  velocities.set(key, rawValueMultiplyScalar(vel, multiplier));
-                } else {
-                  const stoppedVel = matchingIdentityRawValue(vel);
-                  velocities.set(key, stoppedVel);
-                }
-              } else {
-                velocities.set(key, undefined);
-              }
-              // Handle the value calculation.
-              result.set(key, interpolatorCollection.value(stamp));
-            });
-            updateValues(result);
-            updateVelocities(velocities);
-          },
-          { equalityFn: (current, previous) => current.stamp === previous.stamp },
-        ),
-
-        // If the time changes, run the interpolators with the new time
-        usePlayerStore.subscribe(
-          (state: PlayerData) => ({
-            stamp: state.player.stamp,
-            running: state.player.running,
-            speed: state.player.speed,
-            currentDirection: state.player._currentDirection,
-          }),
-          ({ stamp, running, currentDirection, speed }) => {
-            const trackInterpolators = get().trackInterpolators;
-            const result = new Map<string, RawValue | undefined>();
-            const velocities = new Map<string, RawValue | undefined>();
-            const multiplier = (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
-
-            Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
-              // Handle velocity calculation.
-              const vel = interpolatorCollection.derivative(stamp);
-              if (vel !== undefined) {
-                if (running) {
-                  velocities.set(key, rawValueMultiplyScalar(vel, multiplier));
-                } else {
-                  const stoppedVel = matchingIdentityRawValue(vel);
-                  velocities.set(key, stoppedVel);
-                }
-              } else {
-                velocities.set(key, undefined);
-              }
-              // Handle the value calculation.
-              result.set(key, interpolatorCollection.value(stamp));
-            });
-            updateValues(result);
-            updateVelocities(velocities);
-          },
-          { equalityFn: shallow },
-        ),
-
-        api.subscribe(
-          (state: AnimationData) => ({
-            namespaceInfo: state.namespaceInfo,
-            animations: state.animations,
-            subscribes: state.trackSubscribers,
-          }),
-          ({ namespaceInfo, animations, subscribes }) => {
-            // Clear the previous subscriptions for each track
-            subscribes.forEach((trackUnsub) => {
-              trackUnsub();
-            });
-            // console.log(namespaceInfo, animations, subscribes);
-            // for each namespace -> for each instance -> for each track in the instance's aninimation subscribe... to namespace/track
-            if (!namespaceInfo) return;
-
-            const namespaceTrackPairs: [string, string, number, AnimationInstance][] = [];
-            Object.entries(namespaceInfo).forEach(([namespace, instances]) => {
-              Object.entries(instances).forEach(([_instanceId, instance]) => {
-                const animation = animations[instance.animationId];
-                if (animation) {
-                  animation.tracks.forEach((trackId) => {
-                    namespaceTrackPairs.push([namespace, trackId, animation.duration, instance]);
-                  });
-                }
-              });
-            });
-
-            const newSubscribes = namespaceTrackPairs.map(
-              ([namespace, trackId, duration, instance]) => {
-                return api.subscribe(
-                  (state: AnimationData) => ({
-                    track: state.tracks[trackId],
-                    animatableValue: state.animatables[state.tracks[trackId].animatableId],
-                  }),
-                  ({ track, animatableValue }) => {
-                    if (!track) return;
-
-                    const playerState = usePlayerStore.getState();
-
-                    const stamp = playerState.player.stamp;
-                    const playing = playerState.player.running;
-                    const currentDirection = playerState.player._currentDirection;
-                    const speed = playerState.player.speed;
-                    const multiplier =
-                      (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
-
-                    const newVals = new Map<string, RawValue | undefined>();
-                    const newVelocities = new Map<string, RawValue | undefined>();
-                    let newViolations: Violation[] = [];
-
-                    const lookup = getLookup(namespace, track.animatableId ?? trackId);
-
-                    const trackInterp = computeTrackInterpolator(track, instance);
-                    const derivativeInterp = computeDerivativeInterpolator(trackInterp, duration);
-
-                    // Handle setting the values.
-                    newVals.set(lookup, trackInterp(stamp));
-                    // Handle setting the velocities.
-                    // If the player is running, we use the derivative interpolator,
-                    const vel = derivativeInterp(stamp);
-                    if (vel !== undefined) {
-                      if (playing) {
-                        newVelocities.set(lookup, rawValueMultiplyScalar(vel, multiplier));
-                      } else {
-                        const stoppedVel = matchingIdentityRawValue(vel);
-                        newVelocities.set(lookup, stoppedVel);
-                      }
-                    } else {
-                      newVelocities.set(lookup, undefined);
-                    }
-
-                    newVelocities.set(
-                      lookup,
-                      playing ? derivativeInterp(playerState.player.stamp) : 0,
-                    );
-
-                    newViolations = [
-                      ...newViolations,
-                      ...(animatableValue
-                        ? computeTrackViolations(
-                            trackInterp,
-                            duration,
-                            trackId,
-                            namespace,
-                            animatableValue,
-                          )
-                        : []),
-                    ];
-
-                    set((state: AnimationData) => ({
-                      trackInterpolators: {
-                        ...state.trackInterpolators,
-                        [lookup]: {
-                          value: trackInterp,
-                          derivative: derivativeInterp,
-                        },
-                      },
-                      values: new Map([...state.values, ...newVals]),
-                      velocities: new Map([...state.velocities, ...newVelocities]),
-                      violations: { ...state.violations, [trackId]: newViolations },
-                    }));
-                  },
-                  { fireImmediately: true, equalityFn: shallow },
-                );
-              },
-            );
-
-            set({ trackSubscribers: newSubscribes });
-          },
-          {
-            equalityFn: (current: AnimationsAndSubscribes, previous: AnimationsAndSubscribes) => {
-              // We only care about cases where the individual track ids change across all animations
-              const allCurrent = new Set(Object.values(current.animations).map((a) => a.tracks));
-              const allPrevious = new Set(Object.values(previous.animations).map((a) => a.tracks));
-              return (
-                isEqual(allCurrent, allPrevious) &&
-                shallow(current.namespaceInfo, previous.namespaceInfo) &&
-                isEqual(current.subscribes.length, previous.subscribes.length)
-              );
-            },
-          },
-        ),
-      ];
+        updatePlayerLoop,
+        updateOverallDuration,
+        updateInterpolationResultsOnStampChange,
+        updateAllInterpolatorsAndResultsOnDataChange,
+      ].map((fn) => fn(api, set, get));
 
       return () => {
         unsubs.forEach((unsub) => unsub());
@@ -773,9 +524,3 @@ export function createAnimationStore(initial?: Partial<AnimationData>): Animatio
 }
 
 export type AnimationStore = typeof useDefaultAnimationStore;
-
-interface AnimationsAndSubscribes {
-  namespaceInfo: Record<string, Record<string, AnimationInstance>>;
-  animations: Record<string, Animation>;
-  subscribes: (() => void)[];
-}
