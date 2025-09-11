@@ -20,7 +20,6 @@
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "test": "vitest",
-    "test:browser": "vitest --config vitest.browser.config.ts",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"
   },
   "dependencies": {
@@ -71,7 +70,6 @@
     "@vitest/browser": "^3.2.4",
     "autoprefixer": "^10.4.19",
     "eslint": "^8.57.1",
-    "playwright": "^1.55.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^4.1.3",
     "tsup": "^8.0.1",
