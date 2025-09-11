@@ -12,6 +12,33 @@ This proposal outlines a store-based architecture for implementing dragging with
 4. **Atomic Commits**: Changes are only persisted on drag completion
 5. **Immediate Feedback**: Visual updates happen in real-time despite deferred commits
 
+## Known Issues with Current Architecture
+
+### Marker Selection After Drag Bug
+
+**Issue**: After dragging multiple selected markers, the last selected marker cannot be reselected by clicking on it at its new position.
+
+**Root Cause**: 
+- DataPoint components receive `data` props that include the marker's stamp (position)
+- After dragging, the actual keypoint stamps in the store are updated
+- However, the DataPoint component instances still hold the old `data` prop with stale stamp values
+- When clicking on a dragged marker, the onClick handler computes fresh frames but the component's `data` prop reference is stale
+- This mismatch prevents proper marker identification and selection
+
+**Current Workaround**: Users can:
+- Click elsewhere first, then click the marker
+- Use keyboard shortcuts for selection
+- Select other markers first
+
+**Why This Architecture Solves It**:
+The proposed store-based architecture eliminates this issue by:
+- Having components always subscribe to computed state from the store
+- Eliminating stale prop references through reactive subscriptions
+- Ensuring virtual positions are consistently applied across all components
+- Managing all selection logic in the store rather than in components
+
+This bug is a perfect example of why moving computation and state management to the store is necessary.
+
 ## Architecture Overview
 
 ### Store Structure
@@ -270,6 +297,9 @@ const frameData = useMemo(() => computeFrames(tracks, draggingFrames), [tracks, 
 const interps = useMemo(() => computeTransitionSegments(frameData, trackIds), [frameData, trackIds]);
 const paddedInterps = useMemo(() => computeFilledInterpGaps(interps), [interps]);
 // ... etc
+
+// PROBLEM: frameData is passed as props to DataPoint components
+// After drag, these props become stale, causing selection issues
 ```
 
 ### After (Simplified DataRenderer)
@@ -363,10 +393,17 @@ const updateInterpolators = () => {
 
 ## Migration Path
 
+### Prerequisites
+Before starting the migration, review:
+- `docs/phase2-preparation.md` - Detailed preparation guide
+- `docs/migration-checklist.md` - Step-by-step checklist
+- Test files in `src/tests/bug-fixes/` - Known issues to verify are fixed
+
 ### Step 1: Add Drag State to Store (1-2 days)
 - Implement `dragState` structure
 - Add drag action methods
 - Keep existing component computation temporarily
+- Ensure marker selection bug test passes
 
 ### Step 2: Implement Virtual Interpolators (1 day)
 - Create dual interpolator system
@@ -387,6 +424,8 @@ const updateInterpolators = () => {
 - Performance profiling
 - Edge case testing
 - Documentation updates
+- Verify marker selection after drag works correctly
+- Run all tests in `src/tests/bug-fixes/` to ensure known issues are resolved
 
 ## Performance Considerations
 
@@ -466,5 +505,22 @@ This architecture provides a robust foundation for implementing dragging while a
 3. **Better performance** through centralized computation
 4. **Easier testing** of business logic
 5. **Natural integration** with other editing operations
+6. **Resolution of known bugs** like the marker selection after drag issue
 
 The investment in this architecture will pay dividends as the application grows, making future features easier to implement and maintain.
+
+## Critical Issues to Resolve
+
+The following issues MUST be resolved during the Phase 2+ implementation:
+
+1. **Stale Props Issue**: Ensure no component holds stale references to data after store updates
+2. **Selection Persistence**: Maintain proper selection state through all drag operations
+3. **Component Lifecycle**: Properly manage component updates when virtual state changes
+4. **Performance**: Monitor re-render frequency during drag operations
+
+## Related Documentation
+
+- `docs/phase2-preparation.md` - Preparation guide for Phase 2 implementation
+- `docs/migration-checklist.md` - Detailed checklist for the migration
+- `src/tests/bug-fixes/marker-reselection-after-drag.test.ts` - Test case for the selection bug
+- `src/tests/browser/marker-drag-selection-issue.browser.test.tsx` - Browser integration test

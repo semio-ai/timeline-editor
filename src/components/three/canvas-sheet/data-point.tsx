@@ -23,6 +23,10 @@ const BG_MULTIPLIER = 1.2;
 
 export interface DataPointProps {
   height?: number;
+  // WARNING: This data prop can become stale after drag operations
+  // The stamp value may not reflect the actual position after dragging
+  // This is a known issue that will be resolved in Phase 2+ refactoring
+  // See: docs/dragging-architecture-proposal.md
   data: InstancedFrameInfo;
   allData: InstancedFrameInfo[];
   theme?: Theme.Dark | Theme.Light;
@@ -31,6 +35,13 @@ export interface DataPointProps {
   sources: Source[];
 }
 
+// KNOWN ISSUE: After dragging markers, the data prop becomes stale
+// The component retains the original stamp value while the actual keypoint
+// has moved in the store. This causes selection issues, particularly for
+// the last selected marker in a multi-selection drag.
+// This architectural issue will be resolved in Phase 2+ when components
+// subscribe directly to computed store state rather than receiving props.
+// See: docs/phase2-preparation.md for migration details
 export const DataPoint = memo(function DataPoint({
   data,
   allData,
@@ -301,12 +312,16 @@ export const DataPoint = memo(function DataPoint({
 
         event.stopPropagation();
 
+        // WORKAROUND for stale props issue:
         // Compute fresh frames to ensure we have the latest data after any drag operations
         // This prevents issues where allData might be stale after dragging
         const freshFrames = computeFrames(tracks);
 
         // Find the actual frame that matches this data point's current position
         // This is crucial after dragging as the data prop might have stale stamp values
+        // BUG: Despite this workaround, the last selected marker in a multi-selection
+        // drag may still not be selectable due to the component's stale data prop
+        // This will be fixed in Phase 2+ refactoring - see docs/dragging-architecture-proposal.md
         const currentFrame = freshFrames.find((f) =>
           f.points.some((p) => data.points.some((dp) => dp.id === p.id)),
         );

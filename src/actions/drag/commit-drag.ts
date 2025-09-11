@@ -5,6 +5,16 @@ import { computeFrames } from "../../functions";
 
 /**
  * Commit the current drag operation, applying all changes.
+ *
+ * KNOWN ISSUE: After this commit, DataPoint components will have stale props
+ * The components retain their original data.stamp values while the actual keypoints
+ * have moved. This causes selection issues, particularly for the last selected marker
+ * in a multi-selection drag operation.
+ *
+ * This architectural issue will be resolved in Phase 2+ refactoring when components
+ * subscribe directly to computed store state rather than receiving props.
+ * See: docs/dragging-architecture-proposal.md and docs/known-issues.md
+ *
  * @param state - The animation state to modify
  */
 export function commitDrag(state: AnimationData): void {
@@ -43,6 +53,11 @@ export function commitDrag(state: AnimationData): void {
   // Build new selection to maintain multi-selection after drag
   // We need to be more careful about rebuilding the selection to ensure
   // that frames are properly matched after drag operations
+  //
+  // NOTE: While the selection is correctly updated here in the store,
+  // DataPoint components in the UI still hold stale props with old stamp values.
+  // This causes the "last selected marker can't be reselected" bug.
+  // The store state is correct, but the component layer has stale data.
   const newSelection: InstancedFrameInfo[] = [];
 
   // Create a map of point IDs to their new frames for efficient lookup

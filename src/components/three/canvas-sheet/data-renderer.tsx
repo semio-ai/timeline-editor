@@ -82,6 +82,11 @@ export interface DataRendererProps {
   showBackground?: boolean;
 }
 
+// WARNING: This component passes frameData as props to child components
+// After drag operations, these props can become stale while the store has updated
+// This causes selection issues, particularly for the last marker in multi-selection drags
+// This architectural issue will be resolved in Phase 2+ refactoring
+// See: docs/dragging-architecture-proposal.md and docs/phase2-preparation.md
 export const DataRenderer = memo(function DataRenderer({
   sources = [],
   height = 36,
@@ -115,6 +120,9 @@ export const DataRenderer = memo(function DataRenderer({
 
   const dragState = useAnimationStore(useShallow((state) => state.dragState));
 
+  // KNOWN ISSUE: frameData is computed here but passed as props to DataPoint components
+  // When tracks update after drag, DataPoint components retain stale data props
+  // This will be fixed in Phase 2+ when components subscribe directly to computed store state
   const frameData: InstancedFrameInfo[] = useMemo(() => {
     return computeVirtualFrames(tracks, dragState);
   }, [tracks, dragState]);
@@ -142,6 +150,9 @@ export const DataRenderer = memo(function DataRenderer({
   return (
     <group position={[0, yOffset, zOffset]}>
       {/* Render the hexagons/visuals for each keyed point */}
+      {/* PROBLEM: frameData is passed as props here, creating stale references in DataPoint components */}
+      {/* After drag operations, individual DataPoint components retain old stamp values */}
+      {/* Phase 2+ will eliminate this prop drilling by having components subscribe to store directly */}
       <DataPointsRenderer
         frameData={frameData}
         theme={theme}
