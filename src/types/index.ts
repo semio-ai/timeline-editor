@@ -1,14 +1,10 @@
 export type * from "./data/animation";
-export type * from "./data/dragged-keypoint";
-export type * from "./data/instanced-frame-info";
 export type * from "./data/interpolator";
 export type * from "./data/keypoint";
+export type * from "./data/namespace";
 export type * from "./data/track";
 export type * from "./data/track-group";
 export type * from "./data/trajectory";
-export type * from "./data/transition";
-export * from "./data/transition";
 export type * from "./data/violation";
-export type * from "./data/violation-set";
 export * from "./data/violation";
 export * from "./util";

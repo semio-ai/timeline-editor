@@ -1,5 +1,6 @@
 import { RawValue } from "@semio/utils";
 import { Keypoint } from "./keypoint";
+
 /**
  * A collection of keypoint objects that are bound to a certain output, spanning all or part of the animation's duration.
  * @param id - a unique identifier for the track.
@@ -7,6 +8,17 @@ import { Keypoint } from "./keypoint";
  * @param points - a collection of keypoints that exist in this track.
  */
 export interface Track<DataType extends RawValue> {
+  id: string;
+  name: string;
+  points: Keypoint<DataType>[];
+  animatableId: string;
+  settings?: {
+    color?: string;
+    muted?: boolean;
+  };
+}
+
+export interface StoredTrack<DataType extends RawValue> {
   id: string;
   name: string;
   points: Keypoint<DataType>[];

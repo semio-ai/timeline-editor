@@ -1,8 +1,12 @@
 import { shallow } from "zustand/shallow";
 import { isEqual } from "lodash";
-import { AnimationData, AnimationStoreGetter, AnimationStoreSetter } from "../store-types";
-import { AnimationApi } from "../store";
-import { AnimationInstance, Animation } from "../types";
+import type {
+  AnimationApi,
+  AnimationData,
+  AnimationStoreGetter,
+  AnimationStoreSetter,
+} from "../store-types";
+import { AnimationInstance, Animation, Namespace } from "../types";
 import { updateTrackInterpolatorsAndResults } from "./update-track-interpolators-and-results";
 
 export function updateAllInterpolatorsAndResultsOnDataChange(
@@ -12,26 +16,26 @@ export function updateAllInterpolatorsAndResultsOnDataChange(
 ): () => void {
   return api.subscribe(
     (state: AnimationData) => ({
-      namespaceInfo: state.namespaceInfo,
+      namespaces: state.namespaces,
       animations: state.animations,
       subscribes: state.trackSubscribers,
     }),
-    ({ namespaceInfo, animations, subscribes }) => {
+    ({ namespaces, animations, subscribes }) => {
       // Clear the previous subscriptions for each track
       subscribes.forEach((trackUnsub) => {
         trackUnsub();
       });
       // console.log(namespaceInfo, animations, subscribes);
       // for each namespace -> for each instance -> for each track in the instance's aninimation subscribe... to namespace/track
-      if (!namespaceInfo) return;
+      if (!namespaces) return;
 
       const namespaceTrackPairs: [string, string, number, AnimationInstance][] = [];
-      Object.entries(namespaceInfo).forEach(([namespace, instances]) => {
-        Object.entries(instances).forEach(([_instanceId, instance]) => {
+      Object.values(namespaces).forEach((namespace) => {
+        Object.entries(namespace.animationInstances).forEach(([_instanceId, instance]) => {
           const animation = animations[instance.animationId];
           if (animation) {
             animation.tracks.forEach((trackId) => {
-              namespaceTrackPairs.push([namespace, trackId, animation.duration, instance]);
+              namespaceTrackPairs.push([namespace.id, trackId, animation.duration, instance]);
             });
           }
         });
@@ -58,7 +62,7 @@ export function updateAllInterpolatorsAndResultsOnDataChange(
         const allPrevious = new Set(Object.values(previous.animations).map((a) => a.tracks));
         return (
           isEqual(allCurrent, allPrevious) &&
-          shallow(current.namespaceInfo, previous.namespaceInfo) &&
+          shallow(current.namespaces, previous.namespaces) &&
           isEqual(current.subscribes.length, previous.subscribes.length)
         );
       },
@@ -67,7 +71,7 @@ export function updateAllInterpolatorsAndResultsOnDataChange(
 }
 
 interface AnimationsAndSubscribes {
-  namespaceInfo: Record<string, Record<string, AnimationInstance>>;
+  namespaces: Record<string, Namespace>;
   animations: Record<string, Animation>;
   subscribes: (() => void)[];
 }

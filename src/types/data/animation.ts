@@ -1,5 +1,4 @@
 import { RawValue } from "@semio/utils";
-import type { Transition } from "./transition";
 import type { Track } from "./track";
 import type { TrackGroup } from "./track-group";
 
@@ -9,7 +8,6 @@ import type { TrackGroup } from "./track-group";
  * @param name - the name of the animation
  * @param tracks - a collection of track ids specific to this animation.
  * @param groups - a collection of track group ids specific to this animation.
- * @param transitions - a collection of transition objects.
  * @param duration - the total duration of the animation in milliseconds.
  * @param instances - a collection of instance info objects.
  */
@@ -17,8 +15,7 @@ export interface Animation {
   id: string;
   name: string;
   tracks: string[];
-  groups: Map<string, TrackGroup>;
-  transitions: Map<string, Transition>;
+  groups: TrackGroup[];
   duration: number;
 }
 
@@ -28,7 +25,6 @@ export interface Animation {
  * @param name - the name of the animation
  * @param tracks - a collection of track ids specific to this animation.
  * @param groups - a collection of track group ids specific to this animation.
- * @param transitions - a collection of transition objects.
  * @param duration - the total duration of the animation in milliseconds.
  * @param instances - a collection of instance info objects.
  */
@@ -36,8 +32,7 @@ export interface StoredAnimation {
   id: string;
   name: string;
   tracks: Track<RawValue>[];
-  groups: Map<string, TrackGroup>;
-  transitions: Map<string, Transition>;
+  groups: TrackGroup[];
   duration: number;
 }
 

@@ -1,7 +1,6 @@
 import { PlayerData, usePlayerStore } from "@semio/utils";
 import { shallow } from "zustand/shallow";
-import { AnimationStoreGetter, AnimationStoreSetter } from "../store-types";
-import { AnimationApi } from "../store";
+import type { AnimationApi, AnimationStoreGetter, AnimationStoreSetter } from "../store-types";
 
 export function updatePlayerLoop(
   _api: AnimationApi,

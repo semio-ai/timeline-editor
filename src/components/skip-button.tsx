@@ -2,27 +2,27 @@ import { MouseEventHandler, type ReactNode, useCallback } from "react";
 import { IconPlayerPlay } from "@tabler/icons-react";
 import { Button, IconPlayerEndBounds } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
-import type { AnimationActions } from "../store-types";
+import type { AnimationActions, AnimationData } from "../store-types";
 import { SemanticTime } from "../types";
 import { useAnimationStore } from "../hooks";
 
 export interface SkipButtonProps {
-  animationId: string;
-  namespaceIds: string[];
-  trackIds: string[];
+  viewId: string;
   semanticTime: SemanticTime;
   onMouseEnter?: MouseEventHandler<HTMLButtonElement>;
   onMouseLeave?: MouseEventHandler<HTMLButtonElement>;
 }
 
 export function SkipButton({
-  animationId,
-  namespaceIds,
-  trackIds,
+  viewId,
   semanticTime,
   onMouseEnter,
   onMouseLeave,
 }: SkipButtonProps): ReactNode {
+  const sourceRow = useAnimationStore(
+    useShallow((state: AnimationData) => state.instancedTrackSources[viewId]),
+  );
+
   const [skipToNextKeyframe, skiptToPrevKeyframe, skipToStart, skipToEnd] = useAnimationStore(
     useShallow((state: AnimationActions) => [
       state.skipToNextKeyframe,
@@ -34,24 +34,15 @@ export function SkipButton({
 
   const skip = useCallback(() => {
     if (semanticTime === SemanticTime.Forward) {
-      skipToNextKeyframe(animationId, namespaceIds, trackIds, true);
+      skipToNextKeyframe(sourceRow, true);
     } else if (semanticTime === SemanticTime.Backward) {
-      skiptToPrevKeyframe(animationId, namespaceIds, trackIds, true);
+      skiptToPrevKeyframe(sourceRow, true);
     } else if (semanticTime === SemanticTime.BoundsStart) {
       skipToStart();
     } else if (semanticTime === SemanticTime.BoundsEnd) {
       skipToEnd();
     }
-  }, [
-    semanticTime,
-    skipToNextKeyframe,
-    skiptToPrevKeyframe,
-    skipToStart,
-    skipToEnd,
-    animationId,
-    namespaceIds,
-    trackIds,
-  ]);
+  }, [sourceRow, semanticTime, skipToNextKeyframe, skiptToPrevKeyframe, skipToStart, skipToEnd]);
 
   const [addPreview, removePreview] = useAnimationStore(
     useShallow((state: AnimationActions) => [state.addPreview, state.removePreview]),

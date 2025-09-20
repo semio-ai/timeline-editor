@@ -1,51 +1,61 @@
-import { RawValue } from "@semio/utils";
-import type { Track, AnimationInstance } from "../types";
-import { computeStamps } from "./compute-stamps";
+import type { InstancedFrameInfo } from "../types";
 
 /**
  * Computes the next timestamp based on the provided tracks, instances, and current timestamp.
  *
- * @param tracks - A record of track objects, where each key is a string identifier and the value is a Track of RawValue.
- * @param instances - A record of instance information, where each key is a string identifier and the value is an AnimationInstance object.
+ * @param data - An array of instanced frame information containing timestamps.
  * @param stamp - The current timestamp from which to compute the next timestamp.
  * @param bounds - A tuple representing the lower and upper bounds for the timestamps.
  * @param respectBounds - A boolean indicating whether to respect the upper bound when computing the next timestamp.
  * @returns The next timestamp if found, otherwise undefined.
  */
 export function computeNextTime(
-  tracks: Record<string, Track<RawValue>>,
-  instances: Record<string, AnimationInstance>,
+  data: InstancedFrameInfo[],
   stamp: number,
   bounds: [number, number],
   respectBounds: boolean,
 ): number | undefined {
-  const allStamps = computeStamps(tracks, instances);
-  const nextStamp = respectBounds
-    ? allStamps.find((s) => s > stamp && s <= bounds[1])
-    : allStamps.find((s) => s > stamp);
-  return nextStamp;
+  const stamps = data.map((f) => f.stamp);
+  if (stamps.length === 0) return undefined;
+
+  // Find the next stamp after the current player stamp
+  const nextStamps = stamps.filter((s) => s > stamp);
+  if (nextStamps.length === 0) return undefined;
+  const nextStampDirect = Math.min(...nextStamps);
+
+  if (respectBounds) {
+    if (nextStampDirect > bounds[1]) return undefined;
+  } else {
+    return nextStampDirect;
+  }
 }
 
 /**
  * Computes the previous timestamp from a given stamp within the provided tracks and instances.
  *
- * @param tracks - A record of track objects, where each key is a string identifier and the value is a Track of RawValue.
- * @param instances - A record of instance information, where each key is a string identifier and the value is an AnimationInstance object.
+ * @param data - An array of instanced frame information containing timestamps.
  * @param stamp - The current timestamp from which to compute the previous time.
  * @param bounds - A tuple representing the lower and upper bounds within which the previous timestamp should be found.
  * @param respectBounds - A boolean indicating whether to respect the bounds when finding the previous timestamp.
  * @returns The previous timestamp if found, otherwise undefined.
  */
 export function computePreviousTime(
-  tracks: Record<string, Track<RawValue>>,
-  instances: Record<string, AnimationInstance>,
+  data: InstancedFrameInfo[],
   stamp: number,
   bounds: [number, number],
   respectBounds: boolean,
 ): number | undefined {
-  const allStamps = computeStamps(tracks, instances);
-  const nextStamp = respectBounds
-    ? allStamps.reverse().find((s) => s < stamp && s >= bounds[0])
-    : allStamps.reverse().find((s) => s < stamp);
-  return nextStamp;
+  const stamps = data.map((f) => f.stamp);
+  if (stamps.length === 0) return undefined;
+
+  // Find the previous stamp before the current player stamp
+  const previousStamps = stamps.filter((s) => s < stamp);
+  if (previousStamps.length === 0) return undefined;
+  const previousStampDirect = Math.max(...previousStamps);
+
+  if (respectBounds) {
+    if (previousStampDirect < bounds[0]) return undefined;
+  } else {
+    return previousStampDirect;
+  }
 }

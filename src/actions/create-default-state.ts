@@ -23,7 +23,6 @@ export const createDefaultState = (): AnimationData => {
     namespaceInfo: {},
     animations: {},
     tracks: {},
-    visualizedAnimations: [],
     duration: 5000,
     framerate: 24,
     expanded: false,
@@ -43,5 +42,7 @@ export const createDefaultState = (): AnimationData => {
     animatables: {},
 
     dragState: null,
+    editorViews: {},
+    instancedTrackSources: [],
   };
 };

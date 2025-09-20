@@ -1,7 +1,11 @@
 import { usePlayerStore } from "@semio/utils";
 import { shallow } from "zustand/shallow";
-import { AnimationData, AnimationStoreGetter, AnimationStoreSetter } from "../store-types";
-import { AnimationApi } from "../store";
+import type {
+  AnimationApi,
+  AnimationData,
+  AnimationStoreGetter,
+  AnimationStoreSetter,
+} from "../store-types";
 import { computeWorldStamp } from "../functions";
 
 export function updateOverallDuration(

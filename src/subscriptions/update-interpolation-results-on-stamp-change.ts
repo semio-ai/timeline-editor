@@ -1,11 +1,10 @@
 import { PlayerData, PlayerDirection, RawValue, usePlayerStore } from "@semio/utils";
 import { shallow } from "zustand/shallow";
-import { AnimationStoreGetter, AnimationStoreSetter } from "../store-types";
-import { AnimationApi } from "../store";
+import type { AnimationApi, AnimationStoreGetter, AnimationStoreSetter } from "../store-types";
 import { matchingIdentityRawValue, rawValueMultiplyScalar } from "../functions";
 
 export function updateInterpolationResultsOnStampChange(
-  api: AnimationApi,
+  _api: AnimationApi,
   _set: AnimationStoreSetter,
   get: AnimationStoreGetter,
 ): () => void {

@@ -1,85 +1,119 @@
 import type { ReactNode } from "react";
-import { memo, useState, useEffect } from "react";
+import { useContext, memo, useState, useEffect, useCallback, useMemo, useId, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
-import useMeasure from "react-use-measure";
-import { ToggleGroup, Size, ToggleSquare, IconPreviewView } from "@semio/ui";
-import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
+// import { Canvas } from "@react-three/fiber";
+// import { Hud } from "@react-three/drei";
+import {
+  ToggleGroup,
+  Size,
+  ToggleSquare,
+  IconPreviewView,
+  useTheme,
+  TooltipProvider,
+  TooltipContext,
+} from "@semio/ui";
+import {
+  IconArrowUpRight,
+  IconChevronDown,
+  IconLine,
+  IconTable,
+  IconVectorBezier2,
+} from "@tabler/icons-react";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
-import { TrackRender, AnimationInstance } from "../types";
-import { useAnimationStore, ColorContextProvider } from "../hooks";
-import { WithAnimationContextProps, useOptionalContext } from "../utils/context-providers";
-import { DEFAULT_TRACK_HEIGHT } from "../constants";
-import { Timeline } from "./timeline";
-import { TrackList } from "./track-list";
-import { Minimap } from "./minimap";
-import { Ruler } from "./ruler";
+import { SourceRow, TrackRender } from "../types";
+import {
+  useAnimationStore,
+  ColorContextProvider,
+  NameContextProvider,
+  TrackAnimatableContextProvider,
+  LocalGlobalTransformContextProvider,
+} from "../hooks";
+import { WithTooltipAndAnimationContextProps } from "../utils/context-providers";
+// Import existing components that we'll reuse for now
+import { computeSourceRowsFromSources } from "../functions/compute-source-rows-from-sources";
+import { useViewSources } from "../hooks/use-view-sources";
 import { TimelineControl } from "./timeline-control";
 import { TimeControls } from "./time-controls";
 import { PlaybackSettings } from "./playback-settings";
+import { TrackList } from "./track-list";
+import { CanvasSheet } from "./canvas-sheet/canvas-sheet";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
 const MIN_SHEET_HEIGHT = 142;
 
-export interface AnimationSheetProps extends WithAnimationContextProps {
-  namespaceId: string;
-  animationInstances: Record<string, AnimationInstance>;
+export interface AnimationSheetProps extends WithTooltipAndAnimationContextProps {
   onToggleExpand?: (expanded: boolean) => void;
   height?: number;
+  fonts?: {
+    mono?: string; // Path to monospace font, falls back to system default
+    ui?: string; // Path to UI font, falls back to system default
+  };
 }
 
 export interface AnimationSheetCoreProps {
-  namespaceId: string;
-  animationInstances: Record<string, AnimationInstance>;
   onToggleExpand?: (expanded: boolean) => void;
   height?: number;
+  fonts?: {
+    mono?: string; // Path to monospace font, falls back to system default
+    ui?: string; // Path to UI font, falls back to system default
+  };
 }
 
 /**
- * Core AnimationSheet component that requires AnimationContext to be provided by a parent.
+ * Core AnimationSheet component that requires both AnimationContext and TooltipContext to be provided by parent components.
  *
  * Use this component when:
- * - You know AnimationContext is already provided by a parent component
+ * - You know both AnimationContext and TooltipContext are already provided by parent components
  * - You want to avoid automatic context provision (for performance or control)
- * - You're testing the component in isolation with a known context
+ * - You're testing the component in isolation with known contexts
+ * - You're building custom wrapper components with specific context management
  *
  * @example
  * ```tsx
- * // Use when context is already provided
- * <AnimationContext.Provider value={myStore}>
- *   <AnimationSheetCore
- *     namespaceId="demo"
- *     animationInstances={instances}
- *   />
+ * // Use when both contexts are already provided
+ * <AnimationContext.Provider value={myAnimationStore}>
+ *   <TooltipProvider>
+ *     <TooltipHost className="w-full h-full">
+ *       <AnimationSheetCore
+ *         namespaceId="demo"
+ *         animationInstances={instances}
+ *       />
+ *     </TooltipHost>
+ *   </TooltipProvider>
  * </AnimationContext.Provider>
  * ```
  *
  * @throws Error if AnimationContext is not provided by a parent component
+ * @throws Error if TooltipContext is not provided by a parent component (required for 3D tooltips)
  */
 export const AnimationSheetCore = memo(function AnimationSheetCore(
   props: AnimationSheetCoreProps,
 ): ReactNode {
-  return <InnerSheet {...props} />;
+  return <InnerSheet3D {...props} />;
 });
 
 /**
- * Full AnimationSheet component that automatically provides AnimationContext if needed.
- * This is the main export that most consumers should use.
+ * Full AnimationSheet component that automatically provides AnimationContext and TooltipContext if needed.
+ * This is the main export that most consumers should use for 3D animation sheets.
  *
  * Context Behavior:
- * - If no AnimationContext exists in the component tree, creates one with default store
- * - If AnimationContext already exists, uses the existing one (no nesting)
- * - Use `skipAnimationContext={true}` to always use parent context (throws if none exists)
+ * - **AnimationContext**: If not present, creates one with default animation store
+ * - **TooltipContext**: If not present, creates TooltipProvider + TooltipHost for 3D tooltip support
+ * - If contexts already exist, uses existing ones (no unnecessary nesting)
+ * - Always wraps with TooltipHost for proper 3D tooltip positioning support
  *
- * @param skipAnimationContext - Skip providing context, assume parent provides it
+ * @param skipAnimationContext - Skip providing animation context, assume parent provides it
+ * @param skipTooltipContext - Skip providing tooltip context, assume parent provides it
  *
  * @example
  * ```tsx
  * // Automatic context provision (recommended for most cases)
  * <AnimationSheet namespaceId="demo" animationInstances={instances} />
  *
- * // Skip context when parent provides it
+ * // Skip animation context when parent provides it
  * <AnimationContext.Provider value={myCustomStore}>
  *   <AnimationSheet
  *     skipAnimationContext
@@ -88,25 +122,53 @@ export const AnimationSheetCore = memo(function AnimationSheetCore(
  *   />
  * </AnimationContext.Provider>
  *
- * // Nested usage (inner skips context)
+ * // Skip tooltip context when parent provides it
+ * <TooltipProvider>
+ *   <AnimationSheet
+ *     skipTooltipContext
+ *     namespaceId="demo"
+ *     animationInstances={instances}
+ *   />
+ * </TooltipProvider>
+ *
+ * // Skip both contexts (parent must provide both)
+ * <AnimationContext.Provider value={myStore}>
+ *   <TooltipProvider>
+ *     <AnimationSheet
+ *       skipAnimationContext
+ *       skipTooltipContext
+ *       namespaceId="demo"
+ *       animationInstances={instances}
+ *     />
+ *   </TooltipProvider>
+ * </AnimationContext.Provider>
+ *
+ * // Nested usage (inner components skip contexts)
  * <AnimationSheet namespaceId="outer" animationInstances={outer}>
  *   <AnimationSheet
  *     skipAnimationContext
+ *     skipTooltipContext
  *     namespaceId="inner"
  *     animationInstances={inner}
  *   />
  * </AnimationSheet>
  * ```
  */
-export function AnimationSheet({
+export const AnimationSheet = memo(function AnimationSheet({
+  skipTooltipContext = false,
   skipAnimationContext = false,
   ...props
 }: AnimationSheetProps): ReactNode {
-  const ctx = useOptionalContext(AnimationContext);
-  const needsAnimationContext = !skipAnimationContext && !ctx;
+  const animationCtx = useContext(AnimationContext);
+  const tooltipCtx = useContext(TooltipContext);
+
+  // Determine what contexts need to be provided
+  const needsAnimationContext = !skipAnimationContext && !animationCtx;
+  const needsTooltipContext = !skipTooltipContext && !tooltipCtx;
 
   let content = <AnimationSheetCore {...props} />;
 
+  // Wrap with animation context if needed
   if (needsAnimationContext) {
     content = (
       <AnimationContext.Provider value={useDefaultAnimationStore}>
@@ -115,195 +177,293 @@ export function AnimationSheet({
     );
   }
 
-  return content;
-}
+  // Wrap with tooltip context if needed
+  if (needsTooltipContext) {
+    content = <TooltipProvider>{content}</TooltipProvider>;
+  }
 
-function InnerSheet({
-  namespaceId,
-  animationInstances,
+  return content;
+});
+
+function InnerSheet3D({
   onToggleExpand,
   height = MIN_SHEET_HEIGHT,
-}: AnimationSheetCoreProps): ReactNode {
-  // TODO: Eventually we will allow seleciton of different animation instances to view. For now we assume there is only one instance per set.
-  const [trackRender, setTrackRender] = useState<TrackRender>(TrackRender.Key);
-  const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
-  const { animations, updateDuration } = useAnimationStore(
-    useShallow((state) => {
-      return {
-        animations: state.animations,
-        updateDuration: state.updateDuration,
-      };
-    }),
+  fonts = {},
+}: AnimationSheetProps): ReactNode {
+  const { resolvedTheme } = useTheme();
+
+  // Manage view registration with animation store
+  const viewInitialized = useRef(false);
+  const viewId = useId();
+  const [addView, removeView] = useAnimationStore(
+    useShallow((state) => [state.addView, state.removeView]),
   );
+
+  useEffect(() => {
+    if (!viewInitialized.current) {
+      viewInitialized.current = true;
+      addView({ id: viewId, trackRender: TrackRender.Key });
+    }
+    return () => {
+      viewInitialized.current = false;
+      removeView(viewId);
+    };
+  }, [viewId, removeView, addView]);
+
+  // Get the global set of instanced track sources
+  const instancedTrackSources = useAnimationStore(
+    useShallow((state) => state.instancedTrackSources),
+  );
+
+  // Extract information from the view about trackRender and timeline sources;
+  const views = useAnimationStore(useShallow((state) => state.editorViews));
+  const trackRender = views?.[viewId]?.trackRender || TrackRender.Key;
+  const listSources = useViewSources(viewId);
+  const timelineSources = useViewSources(viewId, true);
+
+  const listSourceRows: SourceRow[] = useMemo(() => {
+    return computeSourceRowsFromSources(listSources);
+  }, [listSources]);
+
+  const timelineSourceRows: SourceRow[] = useMemo(() => {
+    return computeSourceRowsFromSources(timelineSources);
+  }, [timelineSources]);
+
+  // Define callbacks that update the view properties in the store;
+  const updateView = useAnimationStore(useShallow((state) => state.updateView));
+  const setTrackRender = useCallback(
+    (renderOption: TrackRender) => {
+      updateView(viewId, { trackRender: renderOption });
+    },
+    [viewId, updateView],
+  );
+
+  // const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
+  const animations = useAnimationStore(useShallow((state) => state.animations));
+
+  const getAnimationsToSave = useAnimationStore(useShallow((state) => state.getAnimationsToSave));
 
   const currentAnimationInstance = Object.values(animationInstances || {})[0];
   const currentAnimation = currentAnimationInstance?.animationId;
   const instanceSettings = currentAnimationInstance?.settings;
-  useEffect(() => {
+
+  const tracks = useMemo(() => {
     if (!currentAnimation || !animations[currentAnimation]) {
-      return;
+      return [];
     }
-    setSelectedTracks(animations[currentAnimation]?.tracks || []);
-    updateDuration(animations[currentAnimation].duration);
-  }, [currentAnimation, animations, updateDuration]);
+    return animations?.[currentAnimation]?.tracks || [];
+  }, [currentAnimation, animations]);
 
-  const [trackRegion, trackBounds] = useMeasure();
+  const scrollY = useMotionValue(0);
 
-  if (!currentAnimation || !animations[currentAnimation]) {
+  // useEffect(() => {
+  //   if (!currentAnimation || !animations[currentAnimation]) {
+  //     return;
+  //   }
+  //   setSelectedTracks(animations?.[currentAnimation]?.tracks || []);
+  //   updateDuration(animations[currentAnimation].duration);
+  // }, [currentAnimation, animations, updateDuration]);
+
+  const [emphasis, setEmphasis] = useState<string[]>([]);
+
+  const setEmphasisSmart = useCallback(
+    (id: string, opt: "add" | "remove") => {
+      setEmphasis((prev) => {
+        if (opt === "add") {
+          return [...prev, id];
+        } else {
+          return prev.filter((e) => e !== id);
+        }
+      });
+    },
+    [setEmphasis],
+  );
+
+  const [expandedTracks, setExpandedTracks] = useState<string[]>([]);
+
+  useEffect(() => {
+    const newExpanded = expandedTracks.filter((t) => tracks.includes(t));
+    if (newExpanded.length !== expandedTracks.length) {
+      setExpandedTracks(newExpanded);
+    }
+  }, [expandedTracks, tracks]);
+
+  const onExpandedChange = useCallback(
+    (trackId: string, opt: "expand" | "collapse") => {
+      setExpandedTracks((current) => {
+        if (opt === "expand") {
+          if (!current.includes(trackId)) {
+            return [...current, trackId];
+          }
+          return current;
+        } else {
+          return current.filter((t) => t !== trackId);
+        }
+      });
+    },
+    [setExpandedTracks],
+  );
+
+  const [popped, setPopped] = useState(false);
+
+  if (!currentAnimation || !animations[currentAnimation] || !viewInitialized.current) {
     return null;
   }
 
-  const allTracks = animations[currentAnimation]?.tracks || [];
-
+  const allTracks = animations[currentAnimation].tracks;
   const expanded = height > MIN_SHEET_HEIGHT;
 
   return (
     <ColorContextProvider>
-      <div
-        aria-expanded={expanded}
-        style={{
-          height,
-          minHeight: MIN_SHEET_HEIGHT,
-        }}
-        className={clsx(
-          "grid grid-cols-[298px_1fr] group/sheet w-full gap-x-1 pr-0.5 pb-0.5",
-          "grid-rows-[32px_1fr_36px_36px_36px]",
-        )}
-      >
-        {/* Expand Toggle/Ruler */}
-        <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between pl-1")}>
-          <ToggleSquare
-            sizing="inner"
-            size={Size.Sm}
-            value={expanded}
-            onChange={(v) => onToggleExpand?.(v)}
-            label="Expand Tracks"
-          >
-            <IconChevronDown
-              size="11px"
-              className={clsx(
-                expanded ? "rotate-0" : "rotate-180",
-                "transition-transform ease-in-out",
-              )}
-            />
-          </ToggleSquare>
+      <NameContextProvider>
+        <TrackAnimatableContextProvider>
+          <LocalGlobalTransformContextProvider>
+            <div className="animation-sheet-container w-full pointer-events-auto">
+              {/* Grid layout with tracking divs - same structure as original */}
+              <div
+                aria-expanded={expanded}
+                style={{
+                  height,
+                  minHeight: MIN_SHEET_HEIGHT,
+                }}
+                className={clsx(
+                  "grid grid-cols-[302px_1fr] group/sheet w-full pr-0.5 pb-0.5",
+                  "grid-rows-[32px_1fr_36px_36px_36px]",
+                )}
+              >
+                {/* Expand Toggle/Ruler - Row 1 */}
+                <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between px-1")}>
+                  <ToggleSquare
+                    sizing="inner"
+                    size={Size.Sm}
+                    value={expanded}
+                    onChange={(v) => onToggleExpand?.(v)}
+                    label="Expand Tracks"
+                  >
+                    <IconChevronDown
+                      size="11px"
+                      className={clsx(
+                        expanded ? "rotate-0" : "rotate-180",
+                        "transition-transform ease-in-out",
+                      )}
+                    />
+                  </ToggleSquare>
 
-          <ToggleGroup
-            bg
-            visuals="icons"
-            size={Size.Sm}
-            value={trackRender}
-            onChange={(v: string) => {
-              setTrackRender(v as TrackRender);
-            }}
-            options={[
-              {
-                value: TrackRender.Key,
-                label: "Key View",
-                icon: <IconLine size="11px" className="rotate-45" />,
-              },
-              {
-                value: TrackRender.Transition,
-                label: "Transition View",
-                icon: <IconLine size="11px" />,
-              },
-              {
-                value: TrackRender.Preview,
-                label: "Preview View",
-                // icon: <IconEaseInOut size="11px" />,
-                icon: <IconPreviewView size="11px" />,
-              },
-              {
-                value: TrackRender.Data,
-                label: "Data View",
-                icon: <IconTable size="11px" />,
-                disabled: true,
-              },
-            ]}
-          />
-          <ToggleSquare
-            sizing="inner"
-            size={Size.Sm}
-            value={false}
-            onChange={() => {}}
-            label="Pop Out"
-            disabled
-          >
-            <IconArrowUpRight size="11px" />
-          </ToggleSquare>
-        </div>
-        <div
-          ref={trackRegion}
-          className={clsx("flex-1 h-8 text-black dark:text-white rounded-t-sm", TRACK_MAIN_BG)}
-        >
-          <Ruler side="top" animationId={currentAnimation} height={32} width={trackBounds.width} />
-        </div>
+                  <ToggleGroup
+                    bg
+                    visuals="icons"
+                    size={Size.Sm}
+                    value={trackRender}
+                    onChange={(v: string) => {
+                      setTrackRender(v as TrackRender);
+                    }}
+                    options={[
+                      {
+                        value: TrackRender.Key,
+                        label: "Key View",
+                        icon: <IconLine size="11px" className="rotate-45" />,
+                      },
+                      {
+                        value: TrackRender.Transition,
+                        label: "Transition View",
+                        icon: <IconLine size="11px" />,
+                      },
+                      {
+                        value: TrackRender.Preview,
+                        label: "Preview View",
+                        icon: <IconPreviewView size="11px" />,
+                      },
+                      {
+                        value: TrackRender.Spline,
+                        label: "Spline View",
+                        icon: <IconVectorBezier2 size="11px" className="-scale-x-100" />,
+                      },
+                      {
+                        value: TrackRender.Data,
+                        label: "Data View",
+                        icon: <IconTable size="11px" />,
+                        disabled: true,
+                      },
+                    ]}
+                  />
+                  <ToggleSquare
+                    sizing="inner"
+                    size={Size.Sm}
+                    value={popped}
+                    onChange={(v) => {
+                      setPopped(v);
+                      console.log(JSON.stringify(getAnimationsToSave()[0]));
+                    }}
+                    label="Pop Out"
+                    // disabled
+                  >
+                    <IconArrowUpRight size="11px" />
+                  </ToggleSquare>
+                </div>
 
-        <div className="col-span-2">
-          {/* Tracks */}
-          <TrackList
-            animationId={currentAnimation}
-            namespaceId={namespaceId}
-            trackRender={trackRender}
-            instanceSettings={instanceSettings}
-            width={trackBounds.width}
-            // Subtract the height of the other elements from the total height
-            height={height - MIN_SHEET_HEIGHT}
-          />
-        </div>
+                {/* Canvas (spans all rows) */}
+                <div
+                  className={clsx(
+                    "w-full min-w-0 row-span-5 touch-none rounded-md overflow-clip",
+                    TRACK_MAIN_BG,
+                  )}
+                >
+                  <CanvasSheet
+                    tracks={allTracks}
+                    timelineFilter={timelineSources}
+                    scrollValue={scrollY}
+                    theme={resolvedTheme}
+                    emphasis={emphasis}
+                    onEmphasisChange={setEmphasisSmart}
+                    expanded={expandedTracks}
+                    fonts={fonts}
+                    trackRender={trackRender}
+                  />
+                </div>
 
-        <TimelineControl
-          animationId={currentAnimation}
-          namespaceId={namespaceId}
-          instanceSettings={instanceSettings}
-          selection={selectedTracks}
-          allTracks={allTracks}
-          onChangeSelection={setSelectedTracks}
-        />
+                {/* Track List - Row 2 */}
 
-        <div className={clsx("w-full", TRACK_MAIN_BG)}>
-          <Timeline
-            height={DEFAULT_TRACK_HEIGHT}
-            width={trackBounds.width}
-            trackIds={selectedTracks}
-            animationId={currentAnimation}
-            namespaceId={namespaceId}
-            instanceSettings={instanceSettings}
-            trackRender={
-              ([TrackRender.Key, TrackRender.Preview, TrackRender.Transition].includes(trackRender)
-                ? trackRender
-                : TrackRender.Key) as TrackRender.Key | TrackRender.Preview | TrackRender.Transition
-            }
-          />
-        </div>
+                {/* 3D Track List with color-coded tracks */}
+                <TrackList
+                  viewId={viewId}
+                  height={height - MIN_SHEET_HEIGHT}
+                  scrollY={scrollY}
+                  emphasis={emphasis}
+                  onEmphasisChange={setEmphasisSmart}
+                />
 
-        <TimeControls
-          animationId={currentAnimation}
-          namespaceId={namespaceId}
-          instanceSettings={instanceSettings}
-          selection={selectedTracks}
-          allTracks={allTracks}
-          onChangeSelection={setSelectedTracks}
-        />
+                {/* Timeline Control - Row 3 */}
+                <div className="pr-2">
+                  <TimelineControl viewId={viewId} />
+                </div>
 
-        <div className={clsx("w-full h-9 items-center text-black dark:text-white", TRACK_MAIN_BG)}>
-          <Minimap
-            animationId={currentAnimation}
-            instanceSettings={instanceSettings}
-            width={trackBounds.width}
-          />
-        </div>
+                {/* Timeline View - Row 3 */}
 
-        <PlaybackSettings />
-        <div className={clsx("flex-1 h-9 text-black dark:text-white rounded-b-sm", TRACK_MAIN_BG)}>
-          <Ruler
-            side="bottom"
-            animationId={currentAnimation}
-            height={36}
-            width={trackBounds.width}
-          />
-        </div>
-      </div>
+                {/* Time Controls - Row 4 */}
+                <div className="pr-2">
+                  <TimeControls
+                    animationId={currentAnimation}
+                    namespaceId={namespaceId}
+                    instanceSettings={instanceSettings}
+                    selection={selectedTracks}
+                    allTracks={allTracks}
+                    onChangeSelection={setSelectedTracks}
+                  />
+                </div>
+
+                {/* Minimap View - Row 4 */}
+
+                {/* Playback Settings - Row 5 */}
+                <div className="pr-2">
+                  <PlaybackSettings />
+                </div>
+
+                {/* Bottom Ruler - Row 5 */}
+              </div>
+            </div>
+          </LocalGlobalTransformContextProvider>
+        </TrackAnimatableContextProvider>
+      </NameContextProvider>
     </ColorContextProvider>
   );
 }

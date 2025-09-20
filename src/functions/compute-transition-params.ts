@@ -1,8 +1,8 @@
-import { RawColor, RawEuler, RawVector3 } from "@semio/utils";
-import { type InstancedFrameInfo, Source, TrackRender } from "../types";
+import { RawColor, RawEuler, RawVector3, RawVector2 } from "@semio/utils";
+import { type InstancedFrameInfo, SourceRow, TrackRender } from "../types";
+import { COMPLEX_TYPES } from "../constants";
 
-const ComplexTypes = ["vector3", "euler", "rgb", "hsl"];
-type ComplexRawValue = RawVector3 | RawEuler | RawColor;
+type ComplexRawValue = RawVector3 | RawVector2 | RawEuler | RawColor;
 type ComplexField = keyof ComplexRawValue;
 
 /**
@@ -33,7 +33,7 @@ export interface TransitionParams {
 }
 
 export function computeTransitionParams(
-  sources: Source[],
+  source: SourceRow,
   start: InstancedFrameInfo,
   end: InstancedFrameInfo,
   isEmpty: boolean,
@@ -59,33 +59,32 @@ export function computeTransitionParams(
     };
   }
   if (
-    sources.length === 1 &&
+    source.data.length === 1 &&
     (trackRender === TrackRender.Preview || trackRender === TrackRender.Spline)
   ) {
     let startValue: number | undefined;
     let endValue: number | undefined;
-    const source = sources[0];
 
     // Safely extract start value
     if (start.points && start.points.length > 0) {
-      if (source.type === "number") {
+      if (source.data[0].type === "number") {
         startValue = start.points[0].value as number;
-      } else if (ComplexTypes.includes(source.type) && source.attribute) {
+      } else if (COMPLEX_TYPES.has(source.data[0].type) && source.data[0].attribute) {
         startValue =
-          (start.points[0].value as RawVector3 | RawEuler | RawColor | undefined)?.[
-            source.attribute as ComplexField
+          (start.points[0].value as ComplexRawValue | undefined)?.[
+            source.data[0].attribute as ComplexField
           ] ?? undefined;
       }
     }
 
     // Safely extract end value
     if (end.points && end.points.length > 0) {
-      if (source.type === "number") {
+      if (source.data[0].type === "number") {
         endValue = end.points[0].value as number;
-      } else if (ComplexTypes.includes(source.type) && source.attribute) {
+      } else if (COMPLEX_TYPES.has(source.data[0].type) && source.data[0].attribute) {
         endValue =
-          (end.points[0].value as RawVector3 | RawEuler | RawColor | undefined)?.[
-            source.attribute as ComplexField
+          (end.points[0].value as ComplexRawValue | undefined)?.[
+            source.data[0].attribute as ComplexField
           ] ?? undefined;
       }
     }

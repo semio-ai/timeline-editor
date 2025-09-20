@@ -1,26 +1,21 @@
 import { Size, TimeDisplay as TimeDisplayMethod, TimeInput, Variant } from "@semio/ui";
 import { type ReactNode, memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { pick } from "lodash";
 import { PlayerActions, usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../hooks";
 import type { AnimationActions } from "../store-types";
-import { AnimationInstance, SemanticTime } from "../types";
+import { SemanticTime } from "../types";
 import { computeNextTime, computePreviousTime } from "../functions";
 
 export interface TimeDisplayProps {
-  animationId: string;
-  trackIds: string[];
-  namespaceIds: string[];
+  viewId: string;
   semanticTime?: SemanticTime;
   displayMethod?: TimeDisplayMethod;
   valueOverride?: number;
 }
 
 export function InnerTimeDisplay({
-  animationId,
-  trackIds,
-  namespaceIds,
+  viewId,
   semanticTime = SemanticTime.Current,
   displayMethod,
   valueOverride,
@@ -29,35 +24,22 @@ export function InnerTimeDisplay({
   const updateDuration = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateDuration),
   );
-
-  const duration = useAnimationStore(useShallow((state) => state.animations[animationId].duration));
-
-  const tracks = useAnimationStore(useShallow((state) => pick(state.tracks, trackIds)));
-  const instances = useAnimationStore(
-    useShallow((state) => {
-      const instanceInfo: Record<string, AnimationInstance> = {};
-      Object.entries(state.namespaceInfo).forEach(([n, i]) => {
-        if (namespaceIds.includes(n)) {
-          Object.assign(instanceInfo, i);
-        }
-      });
-      return instanceInfo;
-    }),
-  );
-
-  const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
+  const computedData = useAnimationStore(useShallow((state) => state.computedRowData[viewId]));
 
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
 
-  const stamp = usePlayerStore(useShallow((state) => state.player.stamp));
+  const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
+  const [stamp, duration] = usePlayerStore(
+    useShallow((state) => [state.player.stamp, state.player.duration]),
+  );
 
   const prevKeyframeTime = useMemo(() => {
-    return computePreviousTime(tracks, instances, stamp, bounds, true);
-  }, [stamp, bounds, tracks, instances]);
+    return computePreviousTime(computedData.virtualFrames, stamp, bounds, true);
+  }, [stamp, bounds, computedData.virtualFrames]);
 
   const nextKeyframeTime = useMemo(() => {
-    return computeNextTime(tracks, instances, stamp, bounds, true);
-  }, [stamp, bounds, tracks, instances]);
+    return computeNextTime(computedData.virtualFrames, stamp, bounds, true);
+  }, [stamp, bounds, computedData.virtualFrames]);
 
   const { resetPlayer, updatePlayerBounds } = usePlayerStore(
     useShallow((state: PlayerActions) => ({
@@ -136,7 +118,7 @@ export function InnerTimeDisplay({
         <TimeInput
           value={duration}
           onChange={(v) => {
-            updateDuration(v, animationId);
+            updateDuration(v);
           }}
           label="Duration"
           min={0}

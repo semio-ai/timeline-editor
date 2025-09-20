@@ -1,139 +1,171 @@
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Select, Size, Variant } from "@semio/ui";
-import { getLookup, RawValue } from "@semio/utils";
-import { IconWorld } from "@tabler/icons-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { SelectTree, Size, TreeOption, Variant } from "@semio/ui";
+import { getLookup } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { shallow } from "zustand/shallow";
-import { pick } from "lodash";
-import { useAnimationStore, usePlayerSubscription } from "../hooks";
-import { computeFrames, computeLocalStamp, computeWorldStamp } from "../functions";
-import { TrackInterpolators, Track, AnimationInstanceSettings, InstancedFrameInfo } from "../types";
+import { pick, uniq } from "lodash";
+import {
+  useAnimationStore,
+  useColors,
+  useLocalGlobalTransformLookup,
+  useNameLookup,
+  usePlayerSubscription,
+  useTrackAnimatableLookup,
+} from "../hooks";
+import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
+import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
+import { TrackInterpolators, InstancedFrameInfo } from "../types";
 import { AnimationActions, AnimationData } from "../store-types";
 import { TrackControl } from "./track-control";
+import { DataIcon } from "./data-icon";
 
-export function TimelineControl({
-  animationId,
-  allTracks,
-  selection,
-  onChangeSelection,
-  instanceSettings,
-  namespaceId,
-}: {
-  animationId: string;
-  instanceSettings: AnimationInstanceSettings;
-  allTracks: string[];
-  selection: string[];
-  onChangeSelection: (tracks: string[]) => void;
-  namespaceId: string;
-}): ReactNode {
-  const { updateKeypoints, removeKeypoints } = useAnimationStore(
-    useShallow((state: AnimationActions & AnimationData) => ({
-      updateKeypoints: state.updateKeypoints,
-      removeKeypoints: state.removeKeypoints,
+export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
+  const { source, viewData, namespaces, animations } = useAnimationStore(
+    useShallow((state: AnimationData) => ({
+      source: state.instancedTrackSources[viewId],
+      viewData: state.editorViews[viewId],
+      namespaces: state.namespaces,
+      animations: state.animations,
     })),
   );
 
-  const trackData = useAnimationStore(
-    useShallow((state) => pick(state.tracks, selection)),
-  ) as Record<string, Track<RawValue>>;
+  const trackAnimatableLookup = useTrackAnimatableLookup();
+  const localGlobalTransformLookup = useLocalGlobalTransformLookup();
+
+  const color = useColors(uniq(source.data.map((s) => s.trackId)));
+
+  const nameLookup = useNameLookup();
+
+  const computedRowData = useAnimationStore(
+    useShallow((state: AnimationData) => state.computedRowData[viewId]),
+  );
+
+  const { updateKeypoints, removeKeypoints, updateViewSources } = useAnimationStore(
+    useShallow((state: AnimationActions & AnimationData) => ({
+      updateKeypoints: state.updateKeypoints,
+      removeKeypoints: state.removeKeypoints,
+      updateViewSources: state.updateViewSources,
+    })),
+  );
+
+  const lookups = useMemo(() => {
+    return uniq(source.data.map((d) => getLookup(d.namespaceId, d.trackId)));
+  }, [source]);
 
   const interpolators = useAnimationStore(
-    useShallow(
-      (state) =>
-        pick(
-          state.trackInterpolators,
-          Object.values(trackData).map((t) => getLookup(namespaceId, t.animatableId)), //f2e2e33d-7c3c-4540-9bf0-e6fda5d41d49
-        ) as TrackInterpolators,
-    ),
+    useShallow((state) => pick(state.trackInterpolators, lookups) as TrackInterpolators),
   );
 
-  const stateTracks = useAnimationStore(useShallow((state) => state.tracks));
+  const [instancedFrame, setInstancedFrame] = useState<InstancedFrameInfo | undefined>(undefined);
+  const stampRef = useRef<number>(0);
 
-  const tracks = useMemo(
-    () =>
-      allTracks.map((id) => {
-        return {
-          label: stateTracks[id]?.name || "Unknown Track",
-          value: id,
-          animatableId: stateTracks[id].animatableId,
-          color: stateTracks[id]?.settings?.color || "#737373",
-        };
-      }),
-    [allTracks, stateTracks],
-  );
-
-  const stamps: (InstancedFrameInfo & { globalStamp: number })[] = useMemo(() => {
-    const instancedFrames = computeFrames(trackData);
-    return instancedFrames.map((instancedFrame) => ({
-      ...instancedFrame,
-      globalStamp: computeWorldStamp(
-        instancedFrame.stamp,
-        instanceSettings.timescale,
-        instanceSettings.offset,
-      ),
-    }));
-  }, [trackData, instanceSettings]);
-
-  // Use references to avoid rerendering
-  const stamp = useRef<number>(0);
-  const localStamp = useRef<number>(
-    computeLocalStamp(0, instanceSettings.timescale, instanceSettings.offset),
-  );
-  const [filled, setFilled] = useState<boolean>(() =>
-    stamps.some((s) => s.globalStamp === stamp.current),
-  );
-
-  // This updates the references when the player's timestamp changes
   usePlayerSubscription(
-    (state) => state.player.stamp,
-    (current) => {
-      stamp.current = current;
-      const f = stamps.some((s) => s.globalStamp === current);
-      setFilled(f);
-      localStamp.current = computeLocalStamp(
-        current,
-        instanceSettings.timescale,
-        instanceSettings.offset,
-      );
+    (state) => ({ running: state.player.running, stamp: state.player.stamp }),
+    ({ running, stamp }) => {
+      stampRef.current = stamp;
+      if (running) {
+        setInstancedFrame(undefined);
+      } else {
+        const f = computedRowData.virtualFrames.find((s) => s.stamp === stamp);
+        setInstancedFrame(f);
+      }
     },
     shallow,
   );
 
-  useEffect(() => {
-    onChangeSelection(allTracks);
-  }, [animationId, allTracks, onChangeSelection]);
+  const { treeOptions, treeValues }: { treeOptions: TreeOption[]; treeValues: string[] } =
+    useMemo(() => {
+      // Build a set of treeOptions and the current values based on the source data and the "hidden" field for leaf sourceTracks
+      const options: TreeOption[] = [];
+      const values: string[] = [];
+
+      Object.values(namespaces).forEach((namespace) => {
+        // Create a tree option group for the namespace;
+        const namespaceOption: TreeOption = {
+          value: namespace.id,
+          label: namespace.name,
+          children: [],
+          icon: <DataIcon iconCode="group" className="w-3/5 h-3/5" />,
+        };
+
+        // For each animation instance, add a group to the namespace option
+        Object.values(namespace.animationInstances).forEach((instance) => {
+          const instanceOption: TreeOption = {
+            value: `${namespace.id}/${instance.id}`,
+            label: animations[instance.animationId]?.name || "Unnamed Instance",
+            icon: <DataIcon iconCode="group" className="w-3/5 h-3/5" />,
+            children: computeTreeOptionsFromSources(
+              viewData.sourcesByAnimationInstance[instance.id],
+              nameLookup,
+            ),
+          };
+
+          // Then add the instance option to the namespace option;
+          namespaceOption.children!.push(instanceOption);
+          // Add visible tracks to the values;
+          const visibleTracks = computeVisibleSourceTracks(
+            viewData.sourcesByAnimationInstance[instance.id],
+          );
+          visibleTracks.forEach((t) => values.push(t));
+        });
+
+        options.push(namespaceOption);
+      });
+
+      return { treeOptions: options, treeValues: values };
+    }, [viewData, namespaces, nameLookup, animations]);
+
+  const handleChangeSelection = useCallback(
+    (_: string[], changes: { id: string; operation: "add" | "remove" }[]) => {
+      const base: Record<string, { id: string; hidden: boolean }> = {};
+      const updates: Record<string, { id: string; hidden: boolean }> = changes.reduce(
+        (acc, change) => {
+          if (change.operation === "add") {
+            // When adding, we are un-hiding a source row.
+            acc[change.id] = { id: change.id, hidden: false };
+          } else if (change.operation === "remove") {
+            // When removing, we are hiding a source row.
+            acc[change.id] = { id: change.id, hidden: true };
+          }
+          return acc;
+        },
+        base,
+      );
+
+      updateViewSources(viewId, updates);
+    },
+    [updateViewSources, viewId],
+  );
 
   return (
     <div className="flex flex-1 flex-row h-9 items-center gap-1 pl-1">
       <TrackControl
-        animationId={animationId}
-        namespaceId={namespaceId}
-        trackIds={selection}
-        filled={filled}
-        color="#737373"
+        source={source}
+        filled={instancedFrame !== undefined}
+        color={color}
         onHexClick={() => {
-          if (filled) {
-            // Find the instanced frame that matches the current stamp
-            const instancedFrame = stamps.find((s) => s.globalStamp === stamp.current);
-            if (!instancedFrame) return;
-            // Remove keypoints for the selected tracks at the current stamp
+          if (instancedFrame !== undefined) {
             const removals = instancedFrame.points.map((p) => ({
               trackId: p.trackId,
               keypointId: p.id,
             }));
             removeKeypoints(removals);
           } else {
-            const updates = Object.values(trackData)
-              .map((track) => {
-                const value = interpolators[getLookup(namespaceId, track.animatableId)]?.value?.(
-                  stamp.current,
+            const datumAnimatablePairs = source.data.map((datum) => ({
+              datum,
+              animatableId: trackAnimatableLookup[datum.trackId].id,
+            }));
+            const updates = datumAnimatablePairs
+              .map(({ datum, animatableId }) => {
+                const value = interpolators[getLookup(datum.namespaceId, animatableId)]?.value?.(
+                  stampRef.current,
                 );
                 return {
-                  trackId: track.id,
+                  trackId: datum.trackId,
                   keypoint: {
                     value,
-                    stamp: localStamp.current,
+                    stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](stampRef.current),
                   },
                 };
               })
@@ -143,27 +175,13 @@ export function TimelineControl({
         }}
       />
       <div className="w-full items-center">
-        <Select
+        <SelectTree
           label="Select Track"
           variant={Variant.Default}
           size={Size.Sm}
-          options={[
-            {
-              value: "all",
-              label: "All Tracks",
-              icon: <IconWorld size="13px" />,
-              color: "#737373",
-            },
-            ...tracks,
-          ]}
-          value={selection === allTracks ? "all" : selection[0]}
-          onChange={(value: string) => {
-            if (value === "all") {
-              onChangeSelection(allTracks);
-            } else {
-              onChangeSelection([value]);
-            }
-          }}
+          options={treeOptions}
+          value={treeValues}
+          onChange={handleChangeSelection}
         />
       </div>
     </div>

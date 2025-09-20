@@ -1,31 +1,27 @@
-import {
-  RawValue,
-  Write,
-  StoreSubscribeWithSelector,
-  getLookup,
-  usePlayerStore,
-  AnimatableValue,
-} from "@semio/utils";
+import { RawValue, getLookup, usePlayerStore, AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
-import { create, type StoreApi } from "zustand";
-import { pick } from "lodash";
+import { mapValues } from "lodash";
+import { create } from "zustand";
+import { computeDefaultSourcesFromInstance } from "./functions/compute-default-sources-from-instance";
 import {
   Keypoint,
   Track,
-  AnimationInstance,
   StoredAnimation,
   SemanticTime,
   Preview,
   InstancedFrameInfo,
   Source,
+  SourceRow,
+  TrackRender,
 } from "./types";
 import {
   AnimationData,
   AnimationActions,
   AnimationStoreGetter,
   AnimationStoreSetter,
+  AnimationApi,
 } from "./store-types";
 import {
   createKeypoint,
@@ -42,24 +38,25 @@ import {
 } from "./actions";
 import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
 import {
-  computeNextTime,
-  computePreviousTime,
   computeStoredAnimation,
   computeMarkerSelection,
+  computeNextTime,
+  computePreviousTime,
+  computeUpdatedSources,
+  computeSourceRowsFromSources,
 } from "./functions";
 import {
   updatePlayerLoop,
   updateOverallDuration,
   updateInterpolationResultsOnStampChange,
   updateAllInterpolatorsAndResultsOnDataChange,
+  updateInstancedTrackSources,
+  updateComputedRowData,
+  updateViewTrackSources,
 } from "./subscriptions";
+import { View } from "./types/util/view";
 
 enableMapSet();
-
-export type AnimationApi = Write<
-  StoreApi<AnimationData & AnimationActions>,
-  StoreSubscribeWithSelector<AnimationData & AnimationActions>
->;
 
 export const AnimationSlice = (
   set: AnimationStoreSetter,
@@ -68,6 +65,34 @@ export const AnimationSlice = (
 ) => {
   return {
     ...createDefaultState(),
+    updateViewSource: (viewId: string, groupId: string, expanded?: boolean, hidden?: boolean) => {
+      set(
+        produce((state: AnimationData) => {
+          if (!state.editorViews[viewId]) return;
+
+          const updates = { [groupId]: { expanded, hidden } };
+          state.editorViews[viewId].sourcesByAnimationInstance = mapValues(
+            state.editorViews[viewId].sourcesByAnimationInstance,
+            (instanceSources) => computeUpdatedSources(instanceSources, updates),
+          );
+        }),
+      );
+    },
+    updateViewSources: (
+      viewId: string,
+      updates: Record<string, { expanded?: boolean; hidden?: boolean }>,
+    ) => {
+      set(
+        produce((state: AnimationData) => {
+          if (!state.editorViews[viewId]) return;
+
+          state.editorViews[viewId].sourcesByAnimationInstance = mapValues(
+            state.editorViews[viewId].sourcesByAnimationInstance,
+            (instanceSources) => computeUpdatedSources(instanceSources, updates),
+          );
+        }),
+      );
+    },
     updateValues: (values: Map<string, RawValue | undefined>) => {
       set(
         produce((state: AnimationData) => {
@@ -94,12 +119,26 @@ export const AnimationSlice = (
         }),
       );
     },
-    setValue: (id: string, namespace: string, value: RawValue) => {
+    setValue: (
+      id: string,
+      namespace: string,
+      value: RawValue | ((current: RawValue) => RawValue),
+    ) => {
       set(
         produce((state) => {
-          console.log("(Scene) Setting value", id, namespace, value);
           const lookupId = getLookup(namespace, id);
-          state.values.set(lookupId, value);
+          if (typeof value === "function") {
+            const current: RawValue | undefined = state.values.get(lookupId);
+            if (current === undefined) {
+              // Get the default value from the animatable if it exists
+              const animatable = state.animatables[id];
+              state.values.set(lookupId, value(animatable.default as RawValue));
+            } else {
+              state.values.set(lookupId, value(current));
+            }
+          } else {
+            state.values.set(lookupId, value);
+          }
         }),
       );
     },
@@ -115,22 +154,6 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           state.animatables = animatables;
-        }),
-      );
-    },
-    visualizeAnimation: (animationId: string) => {
-      set(
-        produce((state: AnimationData): void => {
-          state.visualizedAnimations = [...state.visualizedAnimations, animationId];
-        }),
-      );
-    },
-    unvisualizeAnimation: (animationId: string) => {
-      set(
-        produce((state: AnimationData): void => {
-          state.visualizedAnimations = state.visualizedAnimations.filter(
-            (id) => id !== animationId,
-          );
         }),
       );
     },
@@ -154,6 +177,69 @@ export const AnimationSlice = (
           keypoints.forEach(({ trackId, keypoint }) => {
             updateKeypoint(state, trackId, keypoint, canMerge);
           });
+        }),
+      );
+    },
+    addView: (view: Partial<View> & { id: string }) => {
+      set((state: AnimationData) => {
+        const namespaces = Object.keys(state.namespaces);
+        if (namespaces.length === 0) {
+          throw new Error("Cannot add a view when there are no namespaces.");
+        }
+
+        // Generate default sources for all animation instances across all namespaces
+        const sourcesByAnimationInstance: Record<string, Source[]> = {};
+        let firstAnimationInstanceId: string | null = null;
+        const sourceRowIds: string[] = [];
+
+        for (const namespace of namespaces) {
+          const animationInstances = Object.values(state.namespaces[namespace].animationInstances);
+          for (const animationInstance of animationInstances) {
+            if (!firstAnimationInstanceId) {
+              firstAnimationInstanceId = animationInstance.id;
+            }
+            const sources = computeDefaultSourcesFromInstance(
+              namespace,
+              animationInstance,
+              state.animations,
+              state.animatables,
+              state.tracks,
+            );
+
+            sourcesByAnimationInstance[animationInstance.id] = sources;
+            const sourceRows = computeSourceRowsFromSources(sources);
+            sourceRows.forEach((sourceRow) => sourceRowIds.push(sourceRow.id));
+          }
+        }
+
+        if (!firstAnimationInstanceId) {
+          throw new Error("Cannot add a view when there are no animation instances.");
+        }
+
+        const defaultView: View = {
+          id: view.id,
+          trackRender: view.trackRender ?? TrackRender.Key,
+          activeAnimationInstance: firstAnimationInstanceId,
+          sourcesByAnimationInstance,
+          sourceRowIds,
+        };
+        return { editorViews: { ...state.editorViews, [view.id]: { ...defaultView, ...view } } };
+      });
+    },
+    updateView: (viewId: string, view: Partial<View>) => {
+      set(
+        produce((state: AnimationData) => {
+          if (!state.editorViews[viewId]) return;
+          state.editorViews[viewId] = { ...state.editorViews[viewId], ...view };
+        }),
+      );
+    },
+    removeView: (viewId: string) => {
+      set(
+        produce((state: AnimationData) => {
+          if (!state.editorViews[viewId]) return;
+          const { [viewId]: _, ...rest } = state.editorViews;
+          state.editorViews = rest;
         }),
       );
     },
@@ -249,65 +335,41 @@ export const AnimationSlice = (
       );
     },
     // Skip to the next keyframe
-    skipToNextKeyframe: (
-      animationId: string,
-      namespaceIds: string[],
-      trackIds: string[],
-      respectBounds?: boolean,
-    ) => {
-      console.log("skipping to next keyframe");
+    skipToNextKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => {
       const state = get();
       const playerState = usePlayerStore.getState();
-      const animation = state.animations[animationId];
-      const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
-      const trackSubset = pick(state.tracks, trackFilter);
-      const instanceInfo: Record<string, AnimationInstance> = {};
-      Object.entries(state.namespaceInfo).forEach(([namespace, instances]) => {
-        if (namespaceIds.includes(namespace)) {
-          Object.assign(instanceInfo, instances);
-        }
-      });
-      // const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
-      const nextStamp = computeNextTime(
-        trackSubset,
-        instanceInfo,
+      const sourceRowId = sourceRow.id;
+      const computedData = state.computedRowData[sourceRowId];
+      if (!computedData) return;
+
+      const instancedFrameData = computedData.virtualFrames;
+      const nextTime = computeNextTime(
+        instancedFrameData,
         playerState.player.stamp,
         playerState.player.bounds,
         respectBounds ?? false,
       );
-      console.log("next stamp", nextStamp);
-      if (nextStamp !== undefined) {
-        playerState.resetPlayer(nextStamp);
+      if (nextTime !== undefined) {
+        playerState.resetPlayer(nextTime);
       }
     },
     // Skip to the previous keyframe
-    skipToPrevKeyframe: (
-      animationId: string,
-      namespaceIds: string[],
-      trackIds: string[],
-      respectBounds?: boolean,
-    ) => {
+    skipToPrevKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => {
       const state = get();
       const playerState = usePlayerStore.getState();
-      const animation = state.animations[animationId];
-      const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
-      const trackSubset = pick(state.tracks, trackFilter);
-      const instanceInfo: Record<string, AnimationInstance> = {};
-      Object.entries(state.namespaceInfo).forEach(([namespace, instances]) => {
-        if (namespaceIds.includes(namespace)) {
-          Object.assign(instanceInfo, instances);
-        }
-      });
-      // const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
-      const previousStamp = computePreviousTime(
-        trackSubset,
-        instanceInfo,
+      const sourceRowId = sourceRow.id;
+      const computedData = state.computedRowData[sourceRowId];
+      if (!computedData) return;
+
+      const instancedFrameData = computedData.virtualFrames;
+      const previousTime = computePreviousTime(
+        instancedFrameData,
         playerState.player.stamp,
         playerState.player.bounds,
         respectBounds ?? false,
       );
-      if (previousStamp !== undefined) {
-        playerState.resetPlayer(previousStamp);
+      if (previousTime !== undefined) {
+        playerState.resetPlayer(previousTime);
       }
     },
     // Skip to the start of the current bounds
@@ -370,6 +432,9 @@ export const AnimationSlice = (
         updateOverallDuration,
         updateInterpolationResultsOnStampChange,
         updateAllInterpolatorsAndResultsOnDataChange,
+        updateInstancedTrackSources,
+        updateComputedRowData,
+        updateViewTrackSources,
       ].map((fn) => fn(api, set, get));
 
       return () => {

@@ -52,3 +52,14 @@ export function useNames(idOrIds: string | string[], pluralDefault = "Multiple")
     return allColors.length === 1 ? allColors[0] : pluralDefault;
   }
 }
+
+/**
+ * A hook that returns the name lookup table
+ */
+export function useNameLookup(): NameLookup {
+  const lookup = useContext(NameContext);
+  if (!lookup) {
+    throw new Error("useNameLookup must be used within a NameProvider");
+  }
+  return lookup;
+}

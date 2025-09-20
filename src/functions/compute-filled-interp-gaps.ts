@@ -1,11 +1,5 @@
 import { overlappingSegments } from "@semio/utils";
-import { InstancedFrameInfo } from "../types";
-
-export interface InstancePair {
-  start: InstancedFrameInfo;
-  end: InstancedFrameInfo;
-  buffer?: boolean;
-}
+import { InstancedFrameInfo, InstancePair } from "../types";
 
 export function computeFilledInterpGaps(
   interps: {

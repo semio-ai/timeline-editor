@@ -19,17 +19,14 @@ export function addAnimation(state: AnimationData, animationData: StoredAnimatio
   // console.log("Adding animation", animationData);
   if (animationData && typeof animationData === "object") {
     const animationId = (animationData as { id: string }).id;
-    const { animation, tracks } = {
-      animation: {
-        id: animationData.id,
-        name: animationData.name,
-        tracks: animationData.tracks.map((t) => t.id),
-        groups: animationData.groups,
-        transitions: animationData.transitions,
-        duration: animationData.duration,
-      },
-      tracks: animationData.tracks.reduce((acc, track) => ({ ...acc, [track.id]: track }), {}),
+    const animation = {
+      id: animationData.id,
+      name: animationData.name,
+      tracks: animationData.tracks.map((t) => t.id),
+      groups: animationData.groups,
+      duration: animationData.duration,
     };
+    const tracks = animationData.tracks.reduce((acc, track) => ({ ...acc, [track.id]: track }), {});
 
     Object.values(tracks as Record<string, Track<RawValue>>).forEach((track: Track<RawValue>) => {
       if (track.settings && track.animatableId && state.animatables[track.animatableId]?.pub) {
@@ -42,8 +39,5 @@ export function addAnimation(state: AnimationData, animationData: StoredAnimatio
       ...animation,
     };
     state.tracks = { ...state.tracks, ...tracks };
-    if (animationId && !state.visualizedAnimations.includes(animationId)) {
-      state.visualizedAnimations.push(animationId);
-    }
   }
 }

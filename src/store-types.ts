@@ -1,17 +1,21 @@
-import { type RawValue, type AnimatableValue } from "@semio/utils";
+import type { RawValue, AnimatableValue, StoreSubscribeWithSelector, Write } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
-import {
+import type { StoreApi } from "zustand";
+import type {
   Keypoint,
   Track,
   Animation,
   TrackInterpolators,
-  AnimationInstance,
   Violation,
   StoredAnimation,
   Preview,
   InstancedFrameInfo,
   Source,
   DragState,
+  SourceRow,
+  View,
+  ComputedRowData,
+  Namespace,
 } from "./types";
 
 /**
@@ -35,7 +39,7 @@ export interface AnimationData {
    * values are written into state.values without overriding others.
    * namespaceInfo: { [namespace]: { [animationInstanceId]: animationInstance } }
    */
-  namespaceInfo: Record<string, Record<string, AnimationInstance>>;
+  namespaces: Record<string, Namespace>;
   /**
    * All animations loaded in the project.
    */
@@ -47,15 +51,11 @@ export interface AnimationData {
   /**
    * Duration of the playback region, in milliseconds.
    */
-  duration?: number;
+  duration: number;
   /**
    * Overall Framerate of all animations.
    */
   framerate: number;
-  /**
-   * Visualized Animations.
-   */
-  visualizedAnimations: string[];
   /**
    * Whether the sheet is expanded.
    */
@@ -115,6 +115,18 @@ export interface AnimationData {
    * Current drag state for virtual dragging functionality.
    */
   dragState: DragState | null;
+  /**
+   * Views for different windows of the animation editor
+   */
+  editorViews: Record<string, View>;
+  /**
+   * Global set of instanced track sources
+   */
+  instancedTrackSources: Record<string, SourceRow>;
+  /**
+   * Computed Row Data. Keys correspond to the instancedTrackSources keys.
+   */
+  computedRowData: Record<string, ComputedRowData>;
 }
 
 /**
@@ -142,6 +154,24 @@ export interface AnimationActions {
    */
   clearSelection: () => void;
   /**
+   * Update the expanded state of a source group in a view.
+   * @param viewId - The ID of the view containing the source group.
+   * @param groupId - The ID of the source group to update.
+   * @param expanded - Whether the group is expanded or collapsed.
+   * Note: This does not affect the underlying animation data, only the view state.
+   */
+  updateViewSource: (viewId: string, groupId: string, expanded?: boolean, hidden?: boolean) => void;
+  /**
+   * Update multiple expanded states of source groups in a view at once.
+   * @param viewId - The ID of the view containing the source groups.
+   * @param groupStates - A record mapping group IDs to their expanded state (true for expanded, false for collapsed).
+   * Note: This does not affect the underlying animation data, only the view state.
+   */
+  updateViewSources: (
+    viewId: string,
+    groupStates: Record<string, { expanded?: boolean; hidden?: boolean }>,
+  ) => void;
+  /**
    * Update all values in the store.
    * @param values - A map of values to update.
    */
@@ -157,9 +187,25 @@ export interface AnimationActions {
    * @param namespace - The namespace of the value to set.
    * @param value - The value to set.
    */
-  setValue: (id: string, namespace: string, value: RawValue) => void;
+  setValue: (
+    id: string,
+    namespace: string,
+    value: RawValue | ((current: RawValue) => RawValue),
+  ) => void;
   /**
-   * Add a new keyframe to the animation.
+   * Creates a new view
+   */
+  addView: (view: Partial<View> & { id: string }) => void;
+  /**
+   * Updates a view
+   */
+  updateView: (viewId: string, view: Partial<View>) => void;
+  /**
+   * Removes a view
+   */
+  removeView: (viewId: string) => void;
+  /**
+   * Create a new animation, empty animation in the store.
    */
   createNewDefaultAnimation: () => void;
   /**
@@ -250,12 +296,7 @@ export interface AnimationActions {
    * @param trackIds - An array of track IDs to filter by.
    * @param respectBounds - Whether to respect bounds.
    */
-  skipToNextKeyframe: (
-    animationId: string,
-    namespaceIds: string[],
-    trackIds: string[],
-    respectBounds?: boolean,
-  ) => void;
+  skipToNextKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => void;
   /**
    * Skip to the previous keyframe (optionally filter by track).
    * @param animationId - The ID of the animation.
@@ -263,12 +304,7 @@ export interface AnimationActions {
    * @param trackIds - An array of track IDs to filter by.
    * @param respectBounds - Whether to respect bounds.
    */
-  skipToPrevKeyframe: (
-    animationId: string,
-    namespaceIds: string[],
-    trackIds: string[],
-    respectBounds?: boolean,
-  ) => void;
+  skipToPrevKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => void;
   /**
    * Skip to the start of the current bounds.
    */
@@ -305,16 +341,6 @@ export interface AnimationActions {
   /**
    * Add an animation to the visualized set.
    * @param animationId - The ID of the animation to visualize.
-   */
-  visualizeAnimation: (animationId: string) => void;
-  /**
-   * Remove an animation from the visualized set.
-   * @param animationId - The ID of the animation to unvisualize.
-   */
-  unvisualizeAnimation: (animationId: string) => void;
-  /**
-   * Add a preview to the animation.
-   * @param preview - The preview to add.
    */
   addPreview: (preview: Preview) => void;
   /**
@@ -407,3 +433,8 @@ export type AnimationStoreSetter = (
  * Type representing the getter function for the animation store.
  */
 export type AnimationStoreGetter = () => AnimationData & AnimationActions;
+
+export type AnimationApi = Write<
+  StoreApi<AnimationData & AnimationActions>,
+  StoreSubscribeWithSelector<AnimationData & AnimationActions>
+>;

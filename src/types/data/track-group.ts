@@ -7,5 +7,5 @@
 export interface TrackGroup {
   id: string;
   name: string;
-  tracks: string[];
+  children: (string | TrackGroup)[];
 }
