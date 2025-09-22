@@ -18,7 +18,7 @@ export function computeRowData(
   const filteredViolations = pick(violations, trackIds);
   const violationSet = computeViolationSet(filteredViolations);
   const relevantTracks = pick(tracks, trackIds);
-  const virtualFrames = computeVirtualFrames(relevantTracks, dragState);
+  const virtualFrames = computeVirtualFrames(relevantTracks, sourceRow, dragState);
   const explicitInterpolationSegments = computeTransitionSegments(virtualFrames, trackIds);
   const interpolations = computeFilledInterpGaps(explicitInterpolationSegments);
   const verticalBounds = computeVerticalBounds(relevantTracks, animatables, [sourceRow]);

@@ -2,20 +2,16 @@ import { memo, useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
 import { MotionValue } from "motion";
-import { pick } from "lodash";
-import { useAnimationStore, useColors } from "../../../hooks";
-import { AnimationInstanceSettings } from "../../../types";
-import { Z } from "../../../constants";
-import { AnimationData } from "../../../store-types";
-import { computeViolationSet } from "../../../functions";
+import { pick, uniq } from "lodash";
+import { useAnimationStore, useColors } from "../../hooks";
+import { Z } from "../../constants";
+import { AnimationData } from "../../store-types";
+import { computeViolationSet } from "../../functions";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 
 export interface SharedSplineBackgroundProps {
-  animationId: string; // Unique ID for the animation
-  namespaceId: string; // Namespace for the animation, used for scoping
-  instanceSettings?: AnimationInstanceSettings; // Settings for the animation instance
-  trackIds?: string[];
+  sourceRowId: string; // Settings for the animation instance
   height?: number;
   yOffset?: number;
   theme?: Theme.Light | Theme.Dark;
@@ -23,26 +19,27 @@ export interface SharedSplineBackgroundProps {
 }
 
 export const SharedSplineBackground = memo(function SharedSplineBackground({
-  trackIds = [],
+  sourceRowId,
   height = 36,
   yOffset = 0,
   theme = Theme.Light,
   scrollOffset = new MotionValue(0),
 }: SharedSplineBackgroundProps) {
+  const sourceRow = useAnimationStore(
+    useShallow((state: AnimationData) => state.instancedTrackSources[sourceRowId]),
+  );
+  const computedData = useAnimationStore(
+    useShallow((state: AnimationData) => state.computedRowData[sourceRowId]),
+  );
+  const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
+
   const color = useColors(trackIds);
-
-  const violations = useAnimationStore(useShallow((state: AnimationData) => state.violations));
-
-  const violationSet = useMemo(() => {
-    const filteredViolations = pick(violations, trackIds);
-    return computeViolationSet(filteredViolations);
-  }, [violations, trackIds]);
 
   return (
     <group position={[0, yOffset, 0]}>
       {/* Render violations */}
       <ViolationRenderer
-        violationSet={violationSet}
+        violationSet={computedData.violationSet}
         theme={theme}
         height={height - 1}
         yOffset={scrollOffset}

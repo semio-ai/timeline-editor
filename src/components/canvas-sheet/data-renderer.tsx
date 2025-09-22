@@ -29,20 +29,23 @@ import { ViolationRenderer } from "./violation-renderer";
 import { TransitionSegment } from "./transition-segment";
 
 const DataPointsRenderer = memo(function DataPointsRenderer({
-  frameData = [],
+  sourceRow,
   theme = Theme.Light,
   trackRender = TrackRender.Key,
   height = 36,
-  verticalBounds = { min: -18, max: 18 },
-  sources = [],
 }: {
-  frameData: InstancedFrameInfo[];
+  sourceRow: SourceRow;
   theme?: Theme.Light | Theme.Dark;
   trackRender?: TrackRender;
   height?: number;
-  verticalBounds?: { min: number; max: number };
-  sources?: Source[];
 }) {
+  const { frameData, verticalBounds } = useAnimationStore(
+    useShallow((state: AnimationData) => ({
+      frameData: state.computedRowData[sourceRow.id].virtualFrames,
+      verticalBounds: state.computedRowData[sourceRow.id].verticalBounds,
+    })),
+  );
+
   return (
     <Instances>
       {/* Shared geometry and material for all instances */}
@@ -54,12 +57,11 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
         <DataPoint
           key={data.id}
           data={data}
-          allData={frameData}
+          sourceRow={sourceRow}
           theme={theme}
           trackRender={trackRender}
           height={height}
           verticalBounds={verticalBounds}
-          sources={sources}
         />
       ))}
     </Instances>
@@ -68,7 +70,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
 
 export interface DataRendererProps {
   viewId: string;
-  sourceRow: SourceRow;
+  sourceRowId: string;
   height?: number;
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
@@ -76,7 +78,6 @@ export interface DataRendererProps {
   zOffset?: number;
   theme?: Theme.Light | Theme.Dark;
   scrollOffset?: MotionValue<number>;
-  trackRender?: TrackRender;
   measureFromBottom?: boolean;
   showBackground?: boolean;
 }
@@ -88,7 +89,7 @@ export interface DataRendererProps {
 // See: docs/dragging-architecture-proposal.md and docs/phase2-preparation.md
 export const DataRenderer = memo(function DataRenderer({
   viewId,
-  sourceRow,
+  sourceRowId,
   height = 36,
   emphasis = false,
   onEmphasisChange = () => {},
@@ -96,12 +97,18 @@ export const DataRenderer = memo(function DataRenderer({
   zOffset = 0,
   theme = Theme.Light,
   scrollOffset = new MotionValue(0),
-  trackRender = TrackRender.Key,
   measureFromBottom = false,
   showBackground = true,
 }: DataRendererProps) {
+  const sourceRow = useAnimationStore(
+    useShallow((state: AnimationData) => state.instancedTrackSources[sourceRowId]),
+  );
   const computedData = useAnimationStore(
-    useShallow((state: AnimationData) => state.computedRowData[sourceRow.id]),
+    useShallow((state: AnimationData) => state.computedRowData[sourceRowId]),
+  );
+
+  const trackRender = useAnimationStore(
+    useShallow((state: AnimationData) => state.editorViews[viewId].trackRender),
   );
 
   const trackIds = useMemo(() => uniq(sourceRow.data.map((s) => s.trackId)), [sourceRow]);
@@ -118,12 +125,10 @@ export const DataRenderer = memo(function DataRenderer({
       {/* After drag operations, individual DataPoint components retain old stamp values */}
       {/* Phase 2+ will eliminate this prop drilling by having components subscribe to store directly */}
       <DataPointsRenderer
-        frameData={computedData.virtualFrames}
+        sourceRow={sourceRow}
         theme={theme}
         trackRender={trackRender}
         height={height - 1}
-        verticalBounds={computedData.verticalBounds}
-        sources={sources}
       />
 
       {/* Render transition segments */}
@@ -135,7 +140,7 @@ export const DataRenderer = memo(function DataRenderer({
           trackRender={keyForced ? TrackRender.Key : trackRender}
           height={height - 1}
           verticalBounds={computedData.verticalBounds}
-          sources={sources}
+          sourceRow={sourceRow}
           isEmpty={segment.buffer}
           theme={theme}
           color={color}

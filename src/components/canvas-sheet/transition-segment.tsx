@@ -2,15 +2,15 @@ import { memo, useMemo } from "react";
 import { useSpring } from "motion/react";
 import { Theme } from "@semio/ui";
 import { MotionCubicBezierLine, MotionCubicBezierFill } from "../utilities";
-import { TrackRender, InstancedFrameInfo, Source } from "../../../types";
-import { computeOklabMix, createLinearScale } from "../../../functions";
-import { computeTransitionParams } from "../../../functions/compute-transition-params";
-import { useTransitionCurve } from "../../../hooks";
+import { TrackRender, InstancedFrameInfo, SourceRow } from "../../types";
+import { computeOklabMix, createLinearScale } from "../../functions";
+import { computeTransitionParams } from "../../functions/compute-transition-params";
+import { useTransitionCurve } from "../../hooks";
 
 export interface TransitionSegmentProps {
   start: InstancedFrameInfo;
   end: InstancedFrameInfo;
-  sources: Source[];
+  sourceRow: SourceRow;
   trackRender: TrackRender;
   height: number;
   verticalBounds?: { min: number; max: number };
@@ -46,7 +46,7 @@ export const TransitionSegment = memo(function TransitionSegment({
   trackRender,
   height,
   verticalBounds = { min: 0, max: 1 },
-  sources = [],
+  sourceRow,
   isEmpty = false,
   color,
   theme,
@@ -59,8 +59,8 @@ export const TransitionSegment = memo(function TransitionSegment({
   }, [trackRender]);
 
   const transitionParams = useMemo(
-    () => computeTransitionParams(sources, start, end, isEmpty, trackRender, verticalBounds),
-    [sources, start, end, isEmpty, trackRender, verticalBounds],
+    () => computeTransitionParams(sourceRow, start, end, isEmpty, trackRender, verticalBounds),
+    [sourceRow, start, end, isEmpty, trackRender, verticalBounds],
   );
 
   const buffer = height * 0.4;

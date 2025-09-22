@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState, useEffect, useCallback, useMemo, useId, useRef } from "react";
+import { useContext, memo, useState, useEffect, useCallback, useId, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
@@ -23,7 +23,7 @@ import {
 } from "@tabler/icons-react";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
-import { SourceRow, TrackRender } from "../types";
+import { TrackRender } from "../types";
 import {
   useAnimationStore,
   ColorContextProvider,
@@ -33,8 +33,6 @@ import {
 } from "../hooks";
 import { WithTooltipAndAnimationContextProps } from "../utils/context-providers";
 // Import existing components that we'll reuse for now
-import { computeSourceRowsFromSources } from "../functions/compute-source-rows-from-sources";
-import { useViewSources } from "../hooks/use-view-sources";
 import { TimelineControl } from "./timeline-control";
 import { TimeControls } from "./time-controls";
 import { PlaybackSettings } from "./playback-settings";
@@ -210,24 +208,9 @@ function InnerSheet3D({
     };
   }, [viewId, removeView, addView]);
 
-  // Get the global set of instanced track sources
-  const instancedTrackSources = useAnimationStore(
-    useShallow((state) => state.instancedTrackSources),
-  );
-
   // Extract information from the view about trackRender and timeline sources;
   const views = useAnimationStore(useShallow((state) => state.editorViews));
   const trackRender = views?.[viewId]?.trackRender || TrackRender.Key;
-  const listSources = useViewSources(viewId);
-  const timelineSources = useViewSources(viewId, true);
-
-  const listSourceRows: SourceRow[] = useMemo(() => {
-    return computeSourceRowsFromSources(listSources);
-  }, [listSources]);
-
-  const timelineSourceRows: SourceRow[] = useMemo(() => {
-    return computeSourceRowsFromSources(timelineSources);
-  }, [timelineSources]);
 
   // Define callbacks that update the view properties in the store;
   const updateView = useAnimationStore(useShallow((state) => state.updateView));
@@ -238,31 +221,9 @@ function InnerSheet3D({
     [viewId, updateView],
   );
 
-  // const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
-  const animations = useAnimationStore(useShallow((state) => state.animations));
-
   const getAnimationsToSave = useAnimationStore(useShallow((state) => state.getAnimationsToSave));
 
-  const currentAnimationInstance = Object.values(animationInstances || {})[0];
-  const currentAnimation = currentAnimationInstance?.animationId;
-  const instanceSettings = currentAnimationInstance?.settings;
-
-  const tracks = useMemo(() => {
-    if (!currentAnimation || !animations[currentAnimation]) {
-      return [];
-    }
-    return animations?.[currentAnimation]?.tracks || [];
-  }, [currentAnimation, animations]);
-
   const scrollY = useMotionValue(0);
-
-  // useEffect(() => {
-  //   if (!currentAnimation || !animations[currentAnimation]) {
-  //     return;
-  //   }
-  //   setSelectedTracks(animations?.[currentAnimation]?.tracks || []);
-  //   updateDuration(animations[currentAnimation].duration);
-  // }, [currentAnimation, animations, updateDuration]);
 
   const [emphasis, setEmphasis] = useState<string[]>([]);
 
@@ -279,38 +240,8 @@ function InnerSheet3D({
     [setEmphasis],
   );
 
-  const [expandedTracks, setExpandedTracks] = useState<string[]>([]);
-
-  useEffect(() => {
-    const newExpanded = expandedTracks.filter((t) => tracks.includes(t));
-    if (newExpanded.length !== expandedTracks.length) {
-      setExpandedTracks(newExpanded);
-    }
-  }, [expandedTracks, tracks]);
-
-  const onExpandedChange = useCallback(
-    (trackId: string, opt: "expand" | "collapse") => {
-      setExpandedTracks((current) => {
-        if (opt === "expand") {
-          if (!current.includes(trackId)) {
-            return [...current, trackId];
-          }
-          return current;
-        } else {
-          return current.filter((t) => t !== trackId);
-        }
-      });
-    },
-    [setExpandedTracks],
-  );
-
   const [popped, setPopped] = useState(false);
 
-  if (!currentAnimation || !animations[currentAnimation] || !viewInitialized.current) {
-    return null;
-  }
-
-  const allTracks = animations[currentAnimation].tracks;
   const expanded = height > MIN_SHEET_HEIGHT;
 
   return (
@@ -409,15 +340,12 @@ function InnerSheet3D({
                   )}
                 >
                   <CanvasSheet
-                    tracks={allTracks}
-                    timelineFilter={timelineSources}
+                    viewId={viewId}
                     scrollValue={scrollY}
                     theme={resolvedTheme}
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasisSmart}
-                    expanded={expandedTracks}
                     fonts={fonts}
-                    trackRender={trackRender}
                   />
                 </div>
 
@@ -441,14 +369,7 @@ function InnerSheet3D({
 
                 {/* Time Controls - Row 4 */}
                 <div className="pr-2">
-                  <TimeControls
-                    animationId={currentAnimation}
-                    namespaceId={namespaceId}
-                    instanceSettings={instanceSettings}
-                    selection={selectedTracks}
-                    allTracks={allTracks}
-                    onChangeSelection={setSelectedTracks}
-                  />
+                  <TimeControls viewId={viewId} />
                 </div>
 
                 {/* Minimap View - Row 4 */}

@@ -1,5 +1,5 @@
 import type { RawValue } from "@semio/utils";
-import { Track, InstancedFrameInfo, DragState } from "../types";
+import { Track, InstancedFrameInfo, DragState, SourceRow } from "../types";
 import { applyDragOffsets } from "./apply-drag-offsets";
 import { computeFrames } from "./compute-frames";
 
@@ -9,16 +9,18 @@ import { computeFrames } from "./compute-frames";
  * during a drag operation without modifying the actual track data.
  *
  * @param tracks - A record of track IDs to Track objects
+ * @param sourceRow - A `SourceRow` object that contains data about the source of the data.
  * @param dragState - Current drag state, or null if not dragging
  * @returns Array of InstancedFrameInfo objects with virtual positions
  */
 export function computeVirtualFrames(
   tracks: Record<string, Track<RawValue>>,
+  sourceRow: SourceRow,
   dragState: DragState | null,
 ): InstancedFrameInfo[] {
   if (!dragState?.isDragging) {
     // No drag operation active, return normal frames
-    return computeFrames(tracks);
+    return computeFrames(tracks, sourceRow);
   }
 
   // Apply virtual drag offsets to create preview tracks
@@ -26,7 +28,7 @@ export function computeVirtualFrames(
 
   // Compute frames with drag prevention for dragged keypoints
   const draggedKeypointIds = Array.from(dragState.draggedKeypoints.keys());
-  return computeFrames(virtualTracks, draggedKeypointIds);
+  return computeFrames(virtualTracks, sourceRow, draggedKeypointIds);
 }
 
 /**
@@ -34,15 +36,17 @@ export function computeVirtualFrames(
  * during the drag operation.
  *
  * @param tracks - A record of track IDs to Track objects
+ * @param sourceRow - A `SourceRow` object that contains data about the source of the data.
  * @param dragState - Current drag state
  * @returns Array of InstancedFrameInfo objects with drag prevention applied
  */
 export function computeFramesWithDragPrevention(
   tracks: Record<string, Track<RawValue>>,
+  sourceRow: SourceRow,
   dragState: DragState,
 ): InstancedFrameInfo[] {
   const draggedKeypointIds = Array.from(dragState.draggedKeypoints.keys());
-  return computeFrames(tracks, draggedKeypointIds);
+  return computeFrames(tracks, sourceRow, draggedKeypointIds);
 }
 
 /**
@@ -86,7 +90,7 @@ export function getVirtualFrameStamp(
   if (draggedPoint) {
     const dragInfo = dragState.draggedKeypoints.get(draggedPoint.id);
     if (dragInfo) {
-      return dragInfo.originalStamp + dragInfo.currentOffset;
+      return (dragInfo.originalStamp as number) + (dragInfo.currentOffset as number);
     }
   }
 
@@ -140,7 +144,10 @@ export function getVirtualKeypointPositions(dragState: DragState | null): Map<st
 
   if (dragState?.isDragging) {
     dragState.draggedKeypoints.forEach((dragInfo, keypointId) => {
-      positions.set(keypointId, dragInfo.originalStamp + dragInfo.currentOffset);
+      positions.set(
+        keypointId,
+        (dragInfo.originalStamp as number) + (dragInfo.currentOffset as number),
+      );
     });
   }
 

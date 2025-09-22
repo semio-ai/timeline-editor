@@ -1,12 +1,13 @@
 import { useThree, useFrame } from "@react-three/fiber";
 import { useRef, useMemo, useCallback, memo, useEffect } from "react";
+import { useShallow } from "zustand/shallow";
 import { MotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
-import { uniq } from "lodash";
 import { Theme } from "@semio/ui";
-import { useOrthoCameraSetup, usePlaybackGestures } from "../../../hooks";
-import { AnimationInstanceSettings, Source, TrackRender } from "../../../types";
-import { ThemeMode } from "../../../functions";
+import { useOrthoCameraSetup, usePlaybackGestures, useAnimationStore } from "../../hooks";
+import { TrackRender } from "../../types";
+import { AnimationData } from "../../store-types";
+import { ThemeMode } from "../../functions";
 import { DataRenderer } from "./data-renderer";
 import { SharedSplineBackground } from "./shared-spline-background";
 import { HoverMarker } from "./overlays/hover-marker";
@@ -17,10 +18,7 @@ import { TickBackground } from "./overlays/tick-background";
 import { useMotionCanvas } from "./shared/motion-canvas-context";
 
 interface TracksRendererProps {
-  animationId: string; // Unique ID for the animation
-  namespaceId: string; // Namespace for the animation, used for scoping
-  instanceSettings: AnimationInstanceSettings; // Settings for the animation instance
-  sources?: Source[];
+  viewId: string;
   trackHeight?: number;
   scrollValue?: MotionValue<number>;
   topOffsetPx?: number;
@@ -28,14 +26,10 @@ interface TracksRendererProps {
   emphasis?: string[];
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   theme?: ThemeMode;
-  trackRender?: TrackRender;
 }
 
 export const TracksRenderer = memo(function TracksRenderer({
-  animationId,
-  namespaceId,
-  instanceSettings = { timescale: 1, offset: 0, active: true },
-  sources = [],
+  viewId,
   trackHeight = 36,
   scrollValue,
   topOffsetPx = 32,
@@ -43,10 +37,17 @@ export const TracksRenderer = memo(function TracksRenderer({
   emphasis = [],
   onEmphasisChange = () => {},
   theme = Theme.Light,
-  trackRender = TrackRender.Key,
 }: TracksRendererProps) {
   const { size, camera } = useThree();
   const { size: motionSize } = useMotionCanvas();
+
+  const sourceRowIds = useAnimationStore(
+    useShallow((state: AnimationData) => state.editorViews[viewId].sourceRowIds),
+  );
+
+  const trackRender = useAnimationStore(
+    useShallow((state: AnimationData) => state.editorViews[viewId].trackRender),
+  );
 
   const availableHeight = size.height - topOffsetPx - bottomOffsetPx;
 
@@ -172,33 +173,24 @@ export const TracksRenderer = memo(function TracksRenderer({
   return (
     <>
       <group ref={groupRef as any}>
-        {sources.map(
-          (source, idx) =>
-            (trackRender !== TrackRender.Spline || splineCapableSource(source)) && (
-              <DataRenderer
-                animationId={animationId}
-                namespaceId={namespaceId}
-                instanceSettings={instanceSettings}
-                key={source.attribute ? `${source.trackId}-${source.attribute}` : source.trackId}
-                height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
-                sources={[source]}
-                yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
-                // zOffset={trackRender === TrackRender.Spline ? -trackWorldHeight * idx : undefined}
-                emphasis={emphasis.includes(source.trackId)}
-                onEmphasisChange={(v) => onEmphasisChange(source.trackId, v ? "add" : "remove")}
-                theme={theme}
-                scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
-                trackRender={trackRender}
-              />
-            ),
-        )}
+        {sourceRowIds.map((sourceId, idx) => (
+          <DataRenderer
+            key={sourceId}
+            viewId={viewId}
+            height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
+            sourceRowId={sourceId}
+            yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
+            // zOffset={trackRender === TrackRender.Spline ? -trackWorldHeight * idx : undefined}
+            emphasis={emphasis.includes(sourceId)}
+            onEmphasisChange={(v) => onEmphasisChange(sourceId, v ? "add" : "remove")}
+            theme={theme}
+            scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
+          />
+        ))}
         {trackRender === TrackRender.Spline && (
           <SharedSplineBackground
-            animationId={animationId}
-            namespaceId={namespaceId}
-            instanceSettings={instanceSettings}
+            sourceRowId={viewId}
             height={availableHeight}
-            trackIds={uniq(sources.map((r) => r.trackId))}
             yOffset={0}
             theme={theme}
           />
@@ -215,17 +207,10 @@ export const TracksRenderer = memo(function TracksRenderer({
         <FrustumBackground
           height={availableHeight}
           visibility="transparent"
-          z={-trackWorldHeight * sources.length - 0.1}
+          z={-trackWorldHeight * sourceRowIds.length - 0.1}
           pointerEvents={playbackGestures}
         />
       </group>
     </>
   );
 });
-
-function splineCapableSource(source: Source): boolean {
-  if (source.type === "number") return true;
-  if (["vector3", "vector2", "euler", "rgb", "hsl"].includes(source.type) && source.attribute)
-    return true;
-  return false;
-}

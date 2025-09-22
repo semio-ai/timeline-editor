@@ -13,4 +13,5 @@ export interface View {
   trackRender: TrackRender;
   activeAnimationInstance: string;
   sourcesByAnimationInstance: Record<string, Source[]>;
+  sourceRowIds: string[];
 }

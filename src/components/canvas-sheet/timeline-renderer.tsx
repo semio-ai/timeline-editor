@@ -1,16 +1,14 @@
 import { memo, useMemo } from "react";
+import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
-import { usePlaybackGestures } from "../../../hooks";
-import { Source } from "../../../types";
+import { usePlaybackGestures, useAnimationStore } from "../../hooks";
+import { AnimationData } from "../../store-types";
 import { DataRenderer } from "./data-renderer";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
 import { BoundsOverlay } from "./overlays/bounds-overlay";
 import { TickBackground } from "./overlays/tick-background";
-import { useAnimationStore } from "../../hooks";
-import { useShallow } from "zustand/shallow";
-import { AnimationData } from "../../store-types";
 
 export interface TimelineRendererProps {
   viewId: string;
@@ -36,7 +34,8 @@ export const TimelineRenderer = memo(function TimelineRenderer({
       <BoundsOverlay height={36} theme={theme} />
       <DataRenderer
         height={36}
-        sourceRow={sourceRow}
+        viewId={viewId}
+        sourceRowId={viewId}
         theme={theme}
         measureFromBottom
         showBackground={false}

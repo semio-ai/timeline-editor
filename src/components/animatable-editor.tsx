@@ -63,6 +63,7 @@ function InnerAnimatableEditor({
   const value = useMemo(() => {
     if (storedValue === undefined) return undefined;
     if (typeof storedValue === "number") return storedValue;
+    if (typeof storedValue === "string") return storedValue;
     if (typeof storedValue === "object" && data.attribute) {
       return (storedValue as unknown as Record<string, number>)[data.attribute];
     } else return undefined;
@@ -71,6 +72,7 @@ function InnerAnimatableEditor({
   const defaultValue = useMemo(() => {
     if (animatableValue === undefined) return 0;
     if (typeof animatableValue.default === "number") return animatableValue.default;
+    if (typeof animatableValue.default === "string") return animatableValue.default;
     if (typeof animatableValue.default === "object" && data.attribute) {
       return (animatableValue.default as unknown as Record<string, number>)[data.attribute] ?? 0;
     } else return 0;
@@ -103,7 +105,7 @@ function InnerAnimatableEditor({
 
   const updateTrack = useAnimationStore(useShallow((state: AnimationActions) => state.updateTrack));
 
-  if (data.type === "number") {
+  if (data.type === "number" && typeof rawValue === "number") {
     return (
       <SliderNumberField
         size={Size.Sm}
@@ -115,7 +117,7 @@ function InnerAnimatableEditor({
           limits.max !== Infinity
         }
         disabled={playing}
-        value={renderTransformer((rawValue as number) ?? (animatableValue.default as number))}
+        value={renderTransformer(rawValue)}
         min={limits.min !== undefined ? renderTransformer(limits.min) : undefined}
         max={limits.max !== undefined ? renderTransformer(limits.max) : undefined}
         color={color}
@@ -129,10 +131,10 @@ function InnerAnimatableEditor({
         className="flex-1"
       />
     );
-  } else if (data.type === "string") {
+  } else if (data.type === "string" && typeof rawValue === "string") {
     return (
       <TextField
-        value={(rawValue as string) || (animatableValue.default as string)}
+        value={rawValue}
         readOnly={playing}
         size={Size.Sm}
         onChange={(v) => handleValueChange(v)}

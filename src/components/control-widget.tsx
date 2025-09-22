@@ -20,14 +20,7 @@ import {
   IconRuler2,
 } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
-import {
-  type Keypoint,
-  type Track,
-  type AnimationInstanceSettings,
-  type Animation,
-  type SourceRow,
-  InstancedFrameInfo,
-} from "../types";
+import { type SourceRow, InstancedFrameInfo } from "../types";
 import { useAnimationStore, useColors, usePlayerSubscription } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { computeWorldStamp, computeLocalStamp } from "../functions";

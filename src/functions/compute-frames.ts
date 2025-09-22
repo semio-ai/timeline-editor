@@ -1,5 +1,5 @@
 import type { RawValue } from "@semio/utils";
-import { Track, InstancedFrameInfo } from "../types";
+import { Track, InstancedFrameInfo, SourceRow } from "../types";
 
 /**
  * Computes the frames from the given tracks.
@@ -9,16 +9,20 @@ import { Track, InstancedFrameInfo } from "../types";
  * that belong to that frame.
  *
  * @param tracks - A record of track IDs to `Track` objects. Each `Track` object contains an array of points.
+ * @param sourceRow - A `SourceRow` object that contains data about the source of the data.
  * @param draggingFrameIds - Optional array of frame IDs that are currently being dragged and should not be merged.
  * @returns An array of `InstancedFrameInfo` objects, each representing a frame with its associated points.
  */
 export function computeFrames(
   tracks: Record<string, Track<RawValue>>,
+  sourceRow: SourceRow,
   draggingFrameIds?: string[],
 ): InstancedFrameInfo[] {
   const instancedFrameInfo: InstancedFrameInfo[] = [];
 
-  Object.entries(tracks).forEach(([trackId, trackData]: [string, Track<RawValue>]) => {
+  sourceRow.data.forEach((sourceRowData) => {
+    const trackId = sourceRowData.trackId;
+    const trackData = tracks[trackId];
     trackData.points.forEach((point) => {
       const isDragging = draggingFrameIds?.includes(point.id) ?? false;
 
@@ -34,12 +38,20 @@ export function computeFrames(
         return framePointsDragging === isDragging;
       });
 
+      // If the sourceRowData specifies an attribute, extract the specific value, and set the type of point to number.
+      const valueType = sourceRowData.attribute !== undefined ? "number" : sourceRowData.type;
+      const value =
+        sourceRowData.attribute && typeof point.value === "object"
+          ? (point.value as any)[sourceRowData.attribute]
+          : point.value;
+
       if (matchingFrameIndex >= 0) {
         // Add point to existing frame
         instancedFrameInfo[matchingFrameIndex].points.push({
+          ...sourceRowData,
           id: point.id,
-          value: point.value,
-          trackId,
+          type: valueType,
+          value,
         });
         // Update frame ID based on all points in this frame
         const pointIds = instancedFrameInfo[matchingFrameIndex].points
@@ -61,7 +73,7 @@ export function computeFrames(
         instancedFrameInfo.push({
           id: point.id,
           stamp: point.stamp,
-          points: [{ id: point.id, value: point.value, trackId }],
+          points: [{ ...sourceRowData, id: point.id, value, type: valueType, trackId }],
           transitions: point.transitions,
         });
       }

@@ -5,9 +5,10 @@ import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
 import { MotionValue } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
-import { AnimationInstanceSettings, Source, SourceRow, TrackRender } from "../../types";
+import { SourceRow, TrackRender } from "../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
 import { calculatePaddedFrustum } from "../../viewport-utils";
+import { AnimationData } from "../../store-types";
 import { useAnimationStore } from "../../hooks";
 import { MotionCanvasProvider } from "./shared/motion-canvas-provider";
 import { HudSection } from "./hud-section";
@@ -18,30 +19,23 @@ import { TimelineRenderer } from "./timeline-renderer";
 
 export interface CanvasSheetProps {
   viewId: string;
-  sourceRows: SourceRow[];
   scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
-  expanded: string[];
   emphasis: string[];
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   fonts?: {
     mono?: string; // Path to monospace font, falls back to system default
     ui?: string; // Path to UI font, falls back to system default
   };
-  trackRender?: TrackRender; // Render mode for tracks, e.g. Key, Transition, Preview, Curve, etc.
 }
 
 export const CanvasSheet = memo(function CanvasSheet({
   viewId,
-  sourceRows = [],
-  expanded = [],
-  timelineFilter = [],
   scrollValue,
   theme = Theme.Light,
   emphasis = [],
   onEmphasisChange = () => {},
   fonts = {},
-  trackRender = TrackRender.Key,
 }: CanvasSheetProps) {
   // Get initial viewport from player store to prevent camera bounds flash
   const initialViewport = usePlayerStore(useShallow((state) => state.player.viewport));
@@ -79,18 +73,12 @@ export const CanvasSheet = memo(function CanvasSheet({
         }}
       >
         <CanvasContent
-          animationId={animationId}
-          namespaceId={namespaceId}
-          instanceSettings={instanceSettings}
-          tracks={tracks}
-          expanded={expanded}
-          timelineFilter={timelineFilter}
+          viewId={viewId}
           scrollValue={scrollValue}
           theme={theme}
           emphasis={emphasis}
           onEmphasisChange={onEmphasisChange}
           fonts={fonts}
-          trackRender={trackRender}
         />
       </Canvas>
     </TooltipHost>
@@ -98,12 +86,7 @@ export const CanvasSheet = memo(function CanvasSheet({
 });
 
 interface CanvasContentProps {
-  animationId: string; // Unique ID for the animation
-  namespaceId: string; // Namespace for the animation, used for scoping
-  instanceSettings: AnimationInstanceSettings; // Settings for the animation instance
-  tracks?: string[];
-  expanded?: string[];
-  timelineFilter?: string[];
+  viewId: string;
   scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
   emphasis: string[];
@@ -112,54 +95,24 @@ interface CanvasContentProps {
     mono?: string; // Path to monospace font, falls back to system default
     ui?: string; // Path to UI font, falls back to system default
   };
-  trackRender?: TrackRender; // Render mode for tracks, e.g. Key, Transition, Preview, Curve, etc.
 }
 
 const CanvasContent = memo(function CanvasContent({
-  animationId,
-  namespaceId,
-  instanceSettings,
+  viewId,
   theme,
   scrollValue,
-  trackRender,
-  tracks = [],
-  expanded = [],
-  timelineFilter = [],
   emphasis = [],
   onEmphasisChange = () => {},
   fonts = {},
 }: CanvasContentProps) {
   const bgColor = theme === Theme.Dark ? "#202020" : "#EFEFEF";
 
-  const [trackData, animatableData] = useAnimationStore(
-    useShallow((state) => [state.tracks, state.animatables]),
+  const rowIds = useAnimationStore(
+    useShallow((state: AnimationData) => state.editorViews[viewId].sourceRowIds),
   );
-
-  const sources: Source[] = useMemo(() => {
-    const result: Source[] = [];
-    tracks.forEach((trackId) => {
-      const track = trackData[trackId];
-      if (!track) return;
-      const animatable = animatableData[track.animatableId];
-      if (!animatable) return;
-
-      // Always add the main track row
-      result.push({ trackId, type: animatable.type });
-
-      // If the track is expanded and has attributes, add each attribute as a separate row
-      // in addition to the main track row;
-      if (
-        (expanded.includes(trackId) || trackRender === TrackRender.Spline) &&
-        collapsibleTypes.includes(animatable.type)
-      ) {
-        typeAttributes[animatable.type].forEach((attr) => {
-          result.push({ trackId, type: animatable.type, attribute: attr });
-        });
-      }
-    });
-
-    return result;
-  }, [tracks, expanded, animatableData, trackData, trackRender]);
+  const trackRender = useAnimationStore(
+    useShallow((state: AnimationData) => state.editorViews[viewId].trackRender),
+  );
 
   // TrackList region offsets
   // When we allow nested/composite tracks these will need to be dynamic
@@ -172,8 +125,8 @@ const CanvasContent = memo(function CanvasContent({
   const totalContentHeightPx = useMemo(() => {
     return trackRender === TrackRender.Spline
       ? size.height - topOffsetPx - bottomOffsetPx
-      : sources.length * trackHeight;
-  }, [trackRender, size.height, topOffsetPx, bottomOffsetPx, sources.length, trackHeight]);
+      : rowIds.length * trackHeight;
+  }, [trackRender, size.height, topOffsetPx, bottomOffsetPx, rowIds.length, trackHeight]);
 
   return (
     <>
@@ -188,10 +141,7 @@ const CanvasContent = memo(function CanvasContent({
       />
       <MotionCanvasProvider label="MainCamera">
         <TracksRenderer
-          animationId={animationId}
-          namespaceId={namespaceId}
-          instanceSettings={instanceSettings}
-          sources={sources}
+          viewId={viewId}
           scrollValue={scrollValue}
           topOffsetPx={topOffsetPx}
           bottomOffsetPx={bottomOffsetPx}
@@ -199,7 +149,6 @@ const CanvasContent = memo(function CanvasContent({
           emphasis={emphasis}
           onEmphasisChange={onEmphasisChange}
           theme={theme}
-          trackRender={trackRender}
         />
       </MotionCanvasProvider>
 
@@ -223,14 +172,7 @@ const CanvasContent = memo(function CanvasContent({
         renderPriority={2}
         gap={72}
       >
-        <TimelineRenderer
-          filter={timelineFilter}
-          animationId={animationId}
-          namespaceId={namespaceId}
-          instanceSettings={instanceSettings}
-          theme={theme}
-          sources={sources}
-        />
+        <TimelineRenderer viewId={viewId} theme={theme} />
       </HudSection>
 
       {/* Minimap HUD: 36px tall */}
@@ -260,13 +202,3 @@ const CanvasContent = memo(function CanvasContent({
     </>
   );
 });
-
-const collapsibleTypes = ["vector3", "vector2", "euler", "rgb", "hsl"];
-
-const typeAttributes: Record<string, string[]> = {
-  vector3: ["x", "y", "z"],
-  vector2: ["x", "y"],
-  euler: ["r", "p", "y"],
-  rgb: ["r", "g", "b"],
-  hsl: ["h", "s", "l"],
-};
