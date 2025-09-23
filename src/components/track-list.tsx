@@ -4,7 +4,7 @@ import { clsx } from "clsx";
 import { ScrollArea } from "@semio/ui";
 import { MotionValue } from "motion/react";
 import { useAnimationStore } from "../hooks";
-import { AnimationActions, AnimationData } from "../store-types";
+import { AnimationData } from "../store-types";
 import { ControlWidget } from "./control-widget";
 
 export interface TrackListProps {
@@ -28,10 +28,6 @@ export function TrackList({
 
   const sourceRows = useAnimationStore(
     useShallow((state: AnimationData) => sourceRowIds.map((id) => state.instancedTrackSources[id])),
-  );
-
-  const updateViewSource = useAnimationStore(
-    useShallow((state: AnimationActions) => state.updateViewSource),
   );
 
   return (
@@ -60,8 +56,6 @@ export function TrackList({
             <ControlWidget
               key={sourceRow.id}
               sourceRow={sourceRow}
-              expanded={sourceRow.expanded}
-              onExpandedChange={(v) => updateViewSource(viewId, sourceRow.id, v)}
               emphasis={emphasis.includes(sourceRow.id)}
               onEmphasisChange={(v) => onEmphasisChange(sourceRow.id, v ? "add" : "remove")}
             />

@@ -1,4 +1,4 @@
-import { useState, memo, useCallback, ReactNode, useEffect, useRef } from "react";
+import { useState, memo, useRef } from "react";
 import {
   Button,
   StaticIcon,
@@ -11,40 +11,25 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@semio/ui";
-import { getLookup, RawValue, AnimatableValue, usePlayerStore, PlayerData } from "@semio/utils";
-import {
-  IconHash,
-  IconDotsVertical,
-  IconChevronDown,
-  IconAngle,
-  IconRuler2,
-} from "@tabler/icons-react";
+import { uniq } from "lodash";
+import { shallow } from "zustand/shallow";
+import { usePlayerStore, PlayerData } from "@semio/utils";
+import { IconDotsVertical, IconChevronDown } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
 import { type SourceRow, InstancedFrameInfo } from "../types";
 import { useAnimationStore, useColors, usePlayerSubscription } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
-import { computeWorldStamp, computeLocalStamp } from "../functions";
 import { TrackControl } from "./track-control";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
-import { uniq } from "lodash";
-import { shallow } from "zustand/shallow";
 
 export interface ControlWidgetProps {
   sourceRow: SourceRow;
-  expanded?: boolean;
-  onExpandedChange?: (expanded: boolean) => void;
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
 }
 
-function InnerControlWidget({
-  sourceRow,
-  expanded,
-  onExpandedChange,
-  emphasis,
-  onEmphasisChange,
-}: ControlWidgetProps) {
+function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWidgetProps) {
   // const [open, setOpen] = useState(expanded ?? false);
   const computedRowData = useAnimationStore(
     useShallow((state: AnimationData) => state.computedRowData[sourceRow.id]),
@@ -76,7 +61,6 @@ function InnerControlWidget({
     shallow,
   );
 
-  const animatableId = animatableIds.length === 1 ? animatableIds[0] : undefined;
   // const animation: Animation | undefined = useAnimationStore(
   //   useShallow((state) => (animationId ? state.animations[animationId] : undefined)),
   // );

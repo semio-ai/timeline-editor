@@ -81,6 +81,20 @@ export interface SourceRow {
   data: SourceRowData[];
 }
 
+/**
+ * A full specification for a given source
+ * @property {boolean} foreground - Whether the row is in the foreground or not
+ * @property {boolean} editable - Whether the row is editable or not
+ * @property {boolean} selectable - Whether the row is selectable or not
+ * @property {string} animationId - Unique identifier of the animation this source belongs to
+ * @property {string} namespaceId - Namespace identifier for organizing related animation sources
+ * @property {string} instanceId - Identifier for the specific instance this source belongs to
+ * @property {AnimatableValue["type"] | "group"} type - The data type of values stored in this track (e.g., number, vector3, color) or "group" for groups
+ * @property {string} trackId - Unique identifier for this specific track
+ * @property {string} animatableId - Identifier for the animatable object this track is associated with
+ * @property {string} [iconCode] - Optional icon code representing the type of animatable value
+ * @property {string} [attribute] - Optional attribute specifier for tracks that represent components of composite values (e.g., "x", "y", "z" for vector components). Will be replaced by composable primitive values in future versions.
+ */
 export interface SourceRowData {
   // Foreground (whether the row is in the foreground or not)
   foreground: boolean;
