@@ -384,6 +384,11 @@ export interface AnimationActions {
    */
   setAnimatables: (animatables: Record<string, AnimatableValue>) => void;
   /**
+   * Set the namespaces for the animation data.
+   * @param namespaces - Record of namespace ID to Namespace
+   */
+  setNamespaces: (namespaces: Record<string, Namespace>) => void;
+  /**
    * Set the preferences for the animation data.
    * @param preferences - The preferences to set.
    */

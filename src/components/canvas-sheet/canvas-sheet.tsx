@@ -97,6 +97,8 @@ interface CanvasContentProps {
   };
 }
 
+const defaultRowIds: string[] = [];
+
 const CanvasContent = memo(function CanvasContent({
   viewId,
   theme,
@@ -108,10 +110,10 @@ const CanvasContent = memo(function CanvasContent({
   const bgColor = theme === Theme.Dark ? "#202020" : "#EFEFEF";
 
   const rowIds = useAnimationStore(
-    useShallow((state: AnimationData) => state.editorViews[viewId].sourceRowIds),
+    useShallow((state: AnimationData) => state.editorViews[viewId]?.sourceRowIds ?? defaultRowIds),
   );
   const trackRender = useAnimationStore(
-    useShallow((state: AnimationData) => state.editorViews[viewId].trackRender),
+    useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),
   );
 
   // TrackList region offsets

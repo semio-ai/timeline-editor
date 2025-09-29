@@ -68,6 +68,7 @@ function AppWithAnimation({ onToggleExpand, height }: AnimationSheetProps): Reac
     setAnimations,
     setTracks,
     setAnimatables,
+    setNamespaces,
     createKeypoints: createKeypointsAction,
     updateFramerate,
     setTimeDisplay,
@@ -76,6 +77,7 @@ function AppWithAnimation({ onToggleExpand, height }: AnimationSheetProps): Reac
       setAnimations: state.setAnimations,
       setTracks: state.setTracks,
       setAnimatables: state.setAnimatables,
+      setNamespaces: state.setNamespaces,
       createKeypoints: state.createKeypoints,
       updateFramerate: state.updateFramerate,
       setTimeDisplay: state.setTimeDisplay,
@@ -92,11 +94,24 @@ function AppWithAnimation({ onToggleExpand, height }: AnimationSheetProps): Reac
       setAnimations(getSharedAnimation());
       setTracks(sharedTracks);
 
-      // Set up namespace info immediately after core data
-      const storeState = store.getState();
-      if (storeState.namespaces !== undefined) {
-        Object.assign(storeState, { namespaceInfo: createNamespaceInfo(SHARED_ANIMATION_ID) });
-      }
+      // Set up namespace with proper structure
+      setNamespaces({
+        default: {
+          id: "default",
+          name: "Default Namespace",
+          animationInstances: {
+            "instance-1": {
+              id: "instance-1",
+              animationId: SHARED_ANIMATION_ID,
+              settings: {
+                active: true,
+                offset: 0,
+                timescale: 1,
+              },
+            },
+          },
+        },
+      });
 
       // Create keyframes after all structure is in place
       const keypoints = createKeypoints();
@@ -114,6 +129,7 @@ function AppWithAnimation({ onToggleExpand, height }: AnimationSheetProps): Reac
     setAnimations,
     setTracks,
     setAnimatables,
+    setNamespaces,
     createKeypointsAction,
     updateFramerate,
     setTimeDisplay,
@@ -143,6 +159,7 @@ function SingleTrackApp(): ReactNode {
     setAnimations,
     setTracks,
     setAnimatables,
+    setNamespaces,
     createKeypoints: createKeypointsAction,
     updateFramerate,
     setTimeDisplay,
@@ -151,6 +168,7 @@ function SingleTrackApp(): ReactNode {
       setAnimations: state.setAnimations,
       setTracks: state.setTracks,
       setAnimatables: state.setAnimatables,
+      setNamespaces: state.setNamespaces,
       createKeypoints: state.createKeypoints,
       updateFramerate: state.updateFramerate,
       setTimeDisplay: state.setTimeDisplay,
@@ -167,11 +185,24 @@ function SingleTrackApp(): ReactNode {
       setAnimations(getSingleTrackAnimation());
       setTracks(singleTrackTracks);
 
-      // Set up namespace info immediately after core data
-      const storeState = store.getState();
-      if (storeState.namespaces !== undefined) {
-        Object.assign(storeState, { namespaceInfo: createNamespaceInfo(SHARED_ANIMATION_ID) });
-      }
+      // Set up namespace with proper structure
+      setNamespaces({
+        default: {
+          id: "default",
+          name: "Default Namespace",
+          animationInstances: {
+            "instance-1": {
+              id: "instance-1",
+              animationId: SHARED_ANIMATION_ID,
+              settings: {
+                active: true,
+                offset: 0,
+                timescale: 1,
+              },
+            },
+          },
+        },
+      });
 
       // Create keyframes after all structure is in place
       const keypoints = createSingleTrackKeypoints();
@@ -189,6 +220,7 @@ function SingleTrackApp(): ReactNode {
     setAnimations,
     setTracks,
     setAnimatables,
+    setNamespaces,
     createKeypointsAction,
     updateFramerate,
     setTimeDisplay,
@@ -218,6 +250,7 @@ function ComplexAnimationApp(): ReactNode {
     setAnimations,
     setTracks,
     setAnimatables,
+    setNamespaces,
     createKeypoints: createKeypointsAction,
     updateFramerate,
     setTimeDisplay,
@@ -226,6 +259,7 @@ function ComplexAnimationApp(): ReactNode {
       setAnimations: state.setAnimations,
       setTracks: state.setTracks,
       setAnimatables: state.setAnimatables,
+      setNamespaces: state.setNamespaces,
       createKeypoints: state.createKeypoints,
       updateFramerate: state.updateFramerate,
       setTimeDisplay: state.setTimeDisplay,
@@ -303,11 +337,24 @@ function ComplexAnimationApp(): ReactNode {
       setAnimations(complexAnimation);
       setTracks(complexTracks);
 
-      // Set up namespace info immediately after core data
-      const storeState = store.getState();
-      if (storeState.namespaces !== undefined) {
-        Object.assign(storeState, { namespaceInfo: createNamespaceInfo("complex-animation") });
-      }
+      // Set up namespace with proper structure
+      setNamespaces({
+        default: {
+          id: "default",
+          name: "Default Namespace",
+          animationInstances: {
+            "instance-1": {
+              id: "instance-1",
+              animationId: "complex-animation",
+              settings: {
+                active: true,
+                offset: 0,
+                timescale: 1,
+              },
+            },
+          },
+        },
+      });
 
       // Create keypoints after all structure is in place
       const complexKeypoints = [
@@ -341,6 +388,7 @@ function ComplexAnimationApp(): ReactNode {
     setAnimations,
     setTracks,
     setAnimatables,
+    setNamespaces,
     createKeypointsAction,
     updateFramerate,
     setTimeDisplay,

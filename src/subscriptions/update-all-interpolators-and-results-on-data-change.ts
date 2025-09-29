@@ -58,8 +58,9 @@ export function updateAllInterpolatorsAndResultsOnDataChange(
     {
       equalityFn: (current: AnimationsAndSubscribes, previous: AnimationsAndSubscribes) => {
         // We only care about cases where the individual track ids change across all animations
-        const allCurrent = new Set(Object.values(current.animations).map((a) => a.tracks));
-        const allPrevious = new Set(Object.values(previous.animations).map((a) => a.tracks));
+        // Flatten all track IDs into a single Set to avoid deep comparison of arrays
+        const allCurrent = new Set(Object.values(current.animations).flatMap((a) => a.tracks));
+        const allPrevious = new Set(Object.values(previous.animations).flatMap((a) => a.tracks));
         return (
           isEqual(allCurrent, allPrevious) &&
           shallow(current.namespaces, previous.namespaces) &&

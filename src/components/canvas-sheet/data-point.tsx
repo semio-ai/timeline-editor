@@ -54,15 +54,15 @@ export const DataPoint = memo(function DataPoint({
   const lineRef = useRef<THREE.Line>(null);
   const groupRef = useRef<THREE.Group>(null);
 
-  const clickMarker = useAnimationStore(useShallow((state) => state.clickMarker));
-  const startDragging = useAnimationStore(useShallow((state) => state.startDragging));
+  // const clickMarker = useAnimationStore(useShallow((state) => state.clickMarker));
+  // const startDragging = useAnimationStore(useShallow((state) => state.startDragging));
   const updateDragDelta = useAnimationStore(useShallow((state) => state.updateDragDelta));
   const commitDrag = useAnimationStore(useShallow((state) => state.commitDrag));
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
   const playing = usePlayerStore(useShallow((state) => state.player.running));
 
   // Get tracks for computing fresh frames when needed
-  const tracks = useAnimationStore(useShallow((state) => state.tracks));
+  // const tracks = useAnimationStore(useShallow((state) => state.tracks));
 
   // Track initial drag position to calculate proper delta
   const initialDragPosition = useRef<number>(0);

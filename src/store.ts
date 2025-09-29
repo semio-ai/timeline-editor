@@ -14,6 +14,7 @@ import {
   Source,
   SourceRow,
   TrackRender,
+  Namespace,
 } from "./types";
 import {
   AnimationData,
@@ -153,6 +154,13 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           state.animatables = animatables;
+        }),
+      );
+    },
+    setNamespaces: (namespaces: Record<string, Namespace>) => {
+      set(
+        produce((state: AnimationData): void => {
+          state.namespaces = namespaces;
         }),
       );
     },
@@ -414,17 +422,23 @@ export const AnimationSlice = (
       );
     },
     initAnimationSubscriptions: () => {
-      const unsubs = [
-        updatePlayerLoop,
-        updateOverallDuration,
-        updateInterpolationResultsOnStampChange,
-        updateAllInterpolatorsAndResultsOnDataChange,
-        updateInstancedTrackSources,
-        updateComputedRowData,
-        updateViewTrackSources,
-      ].map((fn) => fn(api, set, get));
+      let unsubs: (() => void)[] = [];
+
+      // Delay subscription initialization to prevent cascading updates during store creation
+      const timeoutId = setTimeout(() => {
+        unsubs = [
+          updatePlayerLoop,
+          updateOverallDuration,
+          updateInterpolationResultsOnStampChange,
+          updateAllInterpolatorsAndResultsOnDataChange,
+          updateInstancedTrackSources,
+          updateComputedRowData,
+          updateViewTrackSources,
+        ].map((fn) => fn(api, set, get));
+      }, 0);
 
       return () => {
+        clearTimeout(timeoutId);
         unsubs.forEach((unsub) => unsub());
       };
     },

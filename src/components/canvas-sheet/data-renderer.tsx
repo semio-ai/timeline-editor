@@ -93,15 +93,21 @@ export const DataRenderer = memo(function DataRenderer({
   );
 
   const trackRender = useAnimationStore(
-    useShallow((state: AnimationData) => state.editorViews[viewId].trackRender),
+    useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),
   );
 
-  const trackIds = useMemo(() => uniq(sourceRow.data.map((s) => s.trackId)), [sourceRow]);
+  const trackIds = useMemo(
+    () => (sourceRow ? uniq(sourceRow.data.map((s) => s.trackId)) : []),
+    [sourceRow],
+  );
   const color = useColors(trackIds);
 
   const keyForced: boolean = useMemo(() => {
+    if (!sourceRow) return true;
     return !sourceRow.data.every((d) => d.type === "number");
   }, [sourceRow]);
+
+  if (!sourceRow) return null;
 
   return (
     <group position={[0, yOffset, zOffset]}>

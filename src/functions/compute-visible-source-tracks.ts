@@ -3,6 +3,10 @@ import { Source, SourceGroup, SourceTrack } from "../types";
 
 export function computeVisibleSourceTracks(sources: Source[]): string[] {
   const openTracks = new Set<string>();
+  if (!sources) {
+    return [];
+  }
+
   sources.forEach((source) => {
     if (GROUP_TYPES.has(source.type)) {
       const sourceGroup = source as SourceGroup;

@@ -25,6 +25,10 @@ export function computeVerticalBounds(
   animatableValues: Record<string, AnimatableValue>,
   sources: SourceRow[],
 ): [number, number] {
+  if (!sources || sources.length === 0) {
+    return [-1, 1];
+  }
+
   let min = Number.POSITIVE_INFINITY;
   let max = Number.NEGATIVE_INFINITY;
   // First, get a default min and max value from the animatables;

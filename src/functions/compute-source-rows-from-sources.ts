@@ -7,6 +7,8 @@ import { GROUP_TYPES } from "../constants";
 export function computeSourceRowsFromSources(sources: Source[]): SourceRow[] {
   const rows: SourceRow[] = [];
 
+  if (!sources || sources.length === 0) return rows;
+
   sources.forEach((source: Source) => {
     if (GROUP_TYPES.has(source.type)) {
       // Get the list of SourceRows for the children;

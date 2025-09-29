@@ -90,7 +90,7 @@ export interface AnimationSheetCoreProps {
 export const AnimationSheetCore = memo(function AnimationSheetCore(
   props: AnimationSheetCoreProps,
 ): ReactNode {
-  return <InnerSheet3D {...props} />;
+  return <InnerSheet {...props} />;
 });
 
 /**
@@ -183,7 +183,7 @@ export const AnimationSheet = memo(function AnimationSheet({
   return content;
 });
 
-function InnerSheet3D({
+function InnerSheet({
   onToggleExpand,
   height = MIN_SHEET_HEIGHT,
   fonts = {},

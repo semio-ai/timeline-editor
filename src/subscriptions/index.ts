@@ -5,3 +5,4 @@ export { updateOverallDuration } from "./update-overall-duration";
 export { updatePlayerLoop } from "./update-player-loop";
 export { updateComputedRowData } from "./update-computed-row-data";
 export { updateViewTrackSources } from "./update-view-track-sources";
+export { updateViewSourceRowIds } from "./update-view-source-row-ids";

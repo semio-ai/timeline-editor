@@ -28,6 +28,8 @@ interface TracksRendererProps {
   theme?: ThemeMode;
 }
 
+const defaultSourceRowIds: string[] = [];
+
 export const TracksRenderer = memo(function TracksRenderer({
   viewId,
   trackHeight = 36,
@@ -42,11 +44,13 @@ export const TracksRenderer = memo(function TracksRenderer({
   const { size: motionSize } = useMotionCanvas();
 
   const sourceRowIds = useAnimationStore(
-    useShallow((state: AnimationData) => state.editorViews[viewId].sourceRowIds),
+    useShallow(
+      (state: AnimationData) => state.editorViews[viewId]?.sourceRowIds ?? defaultSourceRowIds,
+    ),
   );
 
   const trackRender = useAnimationStore(
-    useShallow((state: AnimationData) => state.editorViews[viewId].trackRender),
+    useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),
   );
 
   const availableHeight = size.height - topOffsetPx - bottomOffsetPx;

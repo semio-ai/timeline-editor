@@ -1,3 +1,4 @@
+import { shallow } from "zustand/shallow";
 import type {
   AnimationApi,
   AnimationData,
@@ -35,6 +36,17 @@ export function updateComputedRowData(
       });
 
       set({ computedRowData });
+    },
+    {
+      equalityFn: (a, b) => {
+        return (
+          shallow(a.dragState, b.dragState) &&
+          shallow(a.violations, b.violations) &&
+          shallow(a.tracks, b.tracks) &&
+          shallow(a.instancedTrackSources, b.instancedTrackSources) &&
+          shallow(a.animatables, b.animatables)
+        );
+      },
     },
   );
 }

@@ -7,6 +7,8 @@ export function computeTreeOptionsFromSources(
   sources: Source[],
   nameLookup: Record<string, string>,
 ): TreeOption[] {
+  if (!sources || sources.length === 0) return [];
+
   return sources.map((source) => {
     if (GROUP_TYPES.has(source.type)) {
       const sourceGroup = source as SourceGroup;

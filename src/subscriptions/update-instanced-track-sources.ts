@@ -114,10 +114,18 @@ export function updateInstancedTrackSources(
     {
       equalityFn: (current, previous) => {
         // We only care about cases where the individual track ids change across all animations
-        const allCurrentTracks = new Set(Object.values(current.animations).map((a) => a.tracks));
-        const allPreviousTracks = new Set(Object.values(previous.animations).map((a) => a.tracks));
-        const allCurrentGroups = new Set(Object.values(current.animations).map((a) => a.groups));
-        const allPreviousGroups = new Set(Object.values(previous.animations).map((a) => a.groups));
+        const allCurrentTracks = new Set(
+          Object.values(current.animations).flatMap((a) => a.tracks),
+        );
+        const allPreviousTracks = new Set(
+          Object.values(previous.animations).flatMap((a) => a.tracks),
+        );
+        const allCurrentGroups = new Set(
+          Object.values(current.animations).flatMap((a) => a.groups),
+        );
+        const allPreviousGroups = new Set(
+          Object.values(previous.animations).flatMap((a) => a.groups),
+        );
         return (
           isEqual(allCurrentTracks, allPreviousTracks) &&
           isEqual(allCurrentGroups, allPreviousGroups) &&
