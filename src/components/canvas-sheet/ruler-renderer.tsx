@@ -10,9 +10,9 @@ import {
   useAltKeyPressed,
   usePlaybackGestures,
   useInvariantScale,
-} from "../../../hooks";
-import type { AnimationData } from "../../../store-types";
-import { Z } from "../../../constants";
+} from "../../hooks";
+import type { AnimationData } from "../../store-types";
+import { Z } from "../../constants";
 import { TrackText } from "./shared/track-text";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadCart } from "./overlays/playhead-cart";

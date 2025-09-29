@@ -3,12 +3,18 @@ import { memo, useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useShallow } from "zustand/react/shallow";
 import { usePlayerStore, PlayerData } from "@semio/utils";
-import { useMotionValue, useSpring, useTransform, useMotionValueEvent } from "motion/react";
+import {
+  useMotionValue,
+  useSpring,
+  useTransform,
+  useMotionValueEvent,
+  MotionValue,
+} from "motion/react";
 import { shallow } from "zustand/shallow";
-import { useInvariantScale, useAnimationStore, usePlayerSubscription } from "../../../../hooks";
-import { AnimationData } from "../../../../store-types";
-import { SemanticTime } from "../../../../types";
-import { TIMELINE_PADDING, Z } from "../../../../constants";
+import { useInvariantScale, useAnimationStore, usePlayerSubscription } from "../../../hooks";
+import { AnimationData } from "../../../store-types";
+import { SemanticTime } from "../../../types";
+import { TIMELINE_PADDING, Z } from "../../../constants";
 
 // Theme colors matching the PlayheadCart approach
 const BASE_COLORS = {
@@ -43,7 +49,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
 
   usePlayerSubscription(
     (state: PlayerData) => state.player.bounds,
-    (bounds) => {
+    (bounds: [number, number]) => {
       leftSpring.set(bounds[0]);
       rightSpring.set(bounds[1]);
     },
@@ -51,7 +57,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
   );
 
   // Get invariant scale for zoom-independent sizing
-  const invariantScale = useInvariantScale();
+  const invariantScale: MotionValue<number> = useInvariantScale();
 
   const anyPreview = useAnimationStore(
     useShallow((state: AnimationData) =>
@@ -139,7 +145,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
   });
 
   // Update scale based on invariant scale
-  useMotionValueEvent(invariantScale, "change", (s) => {
+  useMotionValueEvent(invariantScale, "change", (s: number) => {
     if (markerLeftRef.current) {
       markerLeftRef.current.scale.x = s;
     }

@@ -4,7 +4,6 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
 import { mapValues } from "lodash";
 import { create } from "zustand";
-import { computeDefaultSourcesFromInstance } from "./functions/compute-default-sources-from-instance";
 import {
   Keypoint,
   Track,
@@ -36,10 +35,10 @@ import {
   createDefaultAnimation,
   updateControlColor,
 } from "./actions";
-import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
+// import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
 import {
   computeStoredAnimation,
-  computeMarkerSelection,
+  computeDefaultSourcesFromInstance,
   computeNextTime,
   computePreviousTime,
   computeUpdatedSources,
@@ -465,21 +464,21 @@ export const AnimationSlice = (
       shift?: boolean,
       mod?: boolean,
     ) => {
-      set((state: AnimationData) => {
-        const result = computeMarkerSelection(
-          markerInfo,
-          sources,
-          allMarkerInfo,
-          state.selection,
-          state.referenceMarker,
-          shift,
-          mod,
-        );
-        return {
-          selection: result.selection,
-          referenceMarker: result.reference,
-        };
-      });
+      // set((state: AnimationData) => {
+      // const result = computeMarkerSelection(
+      //   markerInfo,
+      //   sources,
+      //   allMarkerInfo,
+      //   state.selection,
+      //   state.referenceMarker,
+      //   shift,
+      //   mod,
+      // );
+      // return {
+      //   selection: result.selection,
+      //   referenceMarker: result.reference,
+      // };
+      // });
     },
     clearSelection: () => {
       set({ selection: [], referenceMarker: null });
@@ -539,32 +538,32 @@ export const AnimationSlice = (
 
     // Drag actions for virtual dragging functionality
     startDragging: (selection?: InstancedFrameInfo[]) => {
-      set(
-        produce((state: AnimationData) => {
-          startDragging(state, selection);
-        }),
-      );
+      // set(
+      //   produce((state: AnimationData) => {
+      //     startDragging(state, selection);
+      //   }),
+      // );
     },
     updateDragDelta: (deltaStamp: number, snapToFrames: boolean) => {
-      set(
-        produce((state: AnimationData) => {
-          updateDragDelta(state, deltaStamp, snapToFrames);
-        }),
-      );
+      // set(
+      //   produce((state: AnimationData) => {
+      //     updateDragDelta(state, deltaStamp, snapToFrames);
+      //   }),
+      // );
     },
     commitDrag: () => {
-      set(
-        produce((state: AnimationData) => {
-          commitDrag(state);
-        }),
-      );
+      // set(
+      //   produce((state: AnimationData) => {
+      //     commitDrag(state);
+      //   }),
+      // );
     },
     cancelDrag: () => {
-      set(
-        produce((state: AnimationData) => {
-          cancelDrag(state);
-        }),
-      );
+      // set(
+      //   produce((state: AnimationData) => {
+      //     cancelDrag(state);
+      //   }),
+      // );
     },
   };
 };

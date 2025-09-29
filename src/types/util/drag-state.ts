@@ -1,4 +1,4 @@
-import { DraggedKeypoint } from "../data/dragged-keypoint";
+import { DraggedKeypoint } from "./dragged-keypoint";
 
 /**
  * Interface representing the drag state.

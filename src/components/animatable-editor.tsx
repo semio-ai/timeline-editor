@@ -1,20 +1,15 @@
 import { memo, useCallback, useMemo } from "react";
-import { SliderNumberField, Size, TextField } from "@semio/ui";
+import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
 import {
   getLookup,
   RawValue,
-  RawVector3,
-  RawEuler,
-  AnimatableValue,
   toDegrees,
   toRadians,
-  RawRGB,
-  RawVector2,
   AnimatableVector3,
   AnimatableNumber,
 } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-import { SourceRowData, type Track } from "../types";
+import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { GROUP_TYPES } from "../constants";
@@ -32,7 +27,7 @@ export interface AnimatableEditorProps {
   playing: boolean;
   emphasis?: boolean;
   onEmphasisChange?: (v: boolean) => void;
-  handleValueChange: (value: RawValue) => void;
+  handleValueChange: (value: RawValue | ((current: RawValue) => RawValue)) => void;
 }
 
 function InnerAnimatableEditor({
@@ -43,7 +38,6 @@ function InnerAnimatableEditor({
   handleValueChange,
 }: AnimatableEditorProps) {
   const rawValueId = getLookup(data.namespaceId, data.animatableId);
-  const attribute = data.attribute;
 
   const color = useColors(data.trackId ?? data.animatableId);
 
@@ -64,6 +58,7 @@ function InnerAnimatableEditor({
     if (storedValue === undefined) return undefined;
     if (typeof storedValue === "number") return storedValue;
     if (typeof storedValue === "string") return storedValue;
+    if (typeof storedValue === "boolean") return storedValue;
     if (typeof storedValue === "object" && data.attribute) {
       return (storedValue as unknown as Record<string, number>)[data.attribute];
     } else return undefined;
@@ -73,6 +68,7 @@ function InnerAnimatableEditor({
     if (animatableValue === undefined) return 0;
     if (typeof animatableValue.default === "number") return animatableValue.default;
     if (typeof animatableValue.default === "string") return animatableValue.default;
+    if (typeof animatableValue.default === "boolean") return animatableValue.default;
     if (typeof animatableValue.default === "object" && data.attribute) {
       return (animatableValue.default as unknown as Record<string, number>)[data.attribute] ?? 0;
     } else return 0;
@@ -105,6 +101,26 @@ function InnerAnimatableEditor({
 
   const updateTrack = useAnimationStore(useShallow((state: AnimationActions) => state.updateTrack));
 
+  const onChange = useCallback(
+    (newValue: RawValue | ((change: RawValue) => RawValue)) => {
+      if (data.attribute) {
+        handleValueChange((previous: RawValue) => {
+          if (typeof previous === "object") {
+            return { ...previous, [data.attribute!]: newValue } as RawValue;
+          } else {
+            // This should not happen, so just return the previous value (no-op)
+            return previous;
+          }
+        });
+      } else {
+        handleValueChange(newValue);
+      }
+    },
+    [handleValueChange, data.attribute],
+  );
+
+  if (!rawValue) return;
+
   if (data.type === "number" && typeof rawValue === "number") {
     return (
       <SliderNumberField
@@ -116,13 +132,13 @@ function InnerAnimatableEditor({
           limits.min !== -Infinity &&
           limits.max !== Infinity
         }
-        disabled={playing}
+        disabled={playing || !data.editable}
         value={renderTransformer(rawValue)}
         min={limits.min !== undefined ? renderTransformer(limits.min) : undefined}
         max={limits.max !== undefined ? renderTransformer(limits.max) : undefined}
         color={color}
-        onChange={(v) => handleValueChange(renderInverse(v))}
-        label={track ? track.name : animatableValue.name}
+        onChange={(v) => onChange(renderInverse(v))}
+        label={(data.attribute ?? track) ? track.name : animatableValue.name}
         onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
         highlight={emphasis}
         units={data.iconCode === "rad" ? "°" : animatableValue.pub?.units}
@@ -135,219 +151,18 @@ function InnerAnimatableEditor({
     return (
       <TextField
         value={rawValue}
-        readOnly={playing}
+        readOnly={playing || !data.editable}
         size={Size.Sm}
-        onChange={(v) => handleValueChange(v)}
+        onChange={(v) => onChange(v)}
       />
     );
-  } else if (data.type === "boolean") {
+  } else if (data.type === "boolean" && typeof rawValue === "boolean") {
     return (
-      <TextField
-        value={track ? track.name : animatableValue.name}
-        readOnly={playing || !track}
+      <ToggleSquare
+        value={rawValue}
+        disabled={playing || !data.editable}
         size={Size.Sm}
-        onChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
-      />
-    );
-  } else if (
-    animatableValue.type === "vector3" &&
-    (attribute === "x" || attribute === "y" || attribute === "z")
-  ) {
-    const index = indexLookups[animatableValue.type][attribute];
-    return (
-      <SliderNumberField
-        size={Size.Sm}
-        strictText={false}
-        strictSlider={
-          animatableValue.constraints?.min?.[index] !== -Infinity &&
-          animatableValue.constraints?.max?.[index] !== Infinity &&
-          animatableValue.constraints?.min?.[index] !== undefined &&
-          animatableValue.constraints?.max?.[index] !== undefined
-        }
-        disabled={playing}
-        value={
-          (rawValue as RawVector3 | undefined)?.[attribute] ??
-          (animatableValue.default[attribute] as number)
-        }
-        min={animatableValue.constraints?.min?.[index] ?? undefined}
-        max={animatableValue.constraints?.max?.[index] ?? undefined}
-        visualMin={animatableValue.constraints?.min?.[index] ?? 0}
-        visualMax={animatableValue.constraints?.max?.[index] ?? 1}
-        color={color}
-        onChange={(v) => {
-          if (attribute === "x") {
-            handleValueChange({
-              x: v,
-              y: (rawValue as RawVector3)?.y ?? animatableValue.default.y,
-              z: (rawValue as RawVector3)?.z ?? animatableValue.default.z,
-            });
-          } else if (attribute === "y") {
-            handleValueChange({
-              x: (rawValue as RawVector3)?.x ?? animatableValue.default.x,
-              y: v,
-              z: (rawValue as RawVector3)?.z ?? animatableValue.default.z,
-            });
-          } else if (attribute === "z") {
-            handleValueChange({
-              x: (rawValue as RawVector3)?.x ?? animatableValue.default.x,
-              y: (rawValue as RawVector3)?.y ?? animatableValue.default.z,
-              z: v,
-            });
-          }
-        }}
-        units={animatableValue.pub?.units}
-        label={attribute}
-        highlight={emphasis}
-        onHighlightChange={onEmphasisChange}
-      />
-    );
-  } else if (animatableValue.type === "vector2" && (attribute === "x" || attribute === "y")) {
-    const index = indexLookups[animatableValue.type][attribute];
-    return (
-      <SliderNumberField
-        size={Size.Sm}
-        strictText={false}
-        strictSlider={
-          animatableValue.constraints?.min?.[index] !== -Infinity &&
-          animatableValue.constraints?.max?.[index] !== Infinity &&
-          animatableValue.constraints?.min?.[index] !== undefined &&
-          animatableValue.constraints?.max?.[index] !== undefined
-        }
-        disabled={playing}
-        value={
-          (rawValue as RawVector3 | undefined)?.[attribute] ??
-          (animatableValue.default[attribute] as number)
-        }
-        min={animatableValue.constraints?.min?.[index] ?? undefined}
-        max={animatableValue.constraints?.max?.[index] ?? undefined}
-        visualMin={animatableValue.constraints?.min?.[index] ?? 0}
-        visualMax={animatableValue.constraints?.max?.[index] ?? 1}
-        color={color}
-        onChange={(v) => {
-          if (attribute === "x") {
-            handleValueChange({
-              x: v,
-              y: (rawValue as RawVector2)?.y ?? animatableValue.default.y,
-            });
-          } else if (attribute === "y") {
-            handleValueChange({
-              x: (rawValue as RawVector2)?.x ?? animatableValue.default.x,
-              y: v,
-            });
-          }
-        }}
-        units={animatableValue.pub?.units}
-        label={attribute}
-        highlight={emphasis}
-        onHighlightChange={onEmphasisChange}
-      />
-    );
-  } else if (
-    animatableValue.type === "euler" &&
-    (attribute === "r" || attribute === "p" || attribute === "y")
-  ) {
-    const index = indexLookups[animatableValue.type][attribute];
-    return (
-      <SliderNumberField
-        size={Size.Sm}
-        units="°"
-        strictText={false}
-        strictSlider={
-          animatableValue.constraints?.min?.[index] !== -Infinity &&
-          animatableValue.constraints?.max?.[index] !== Infinity &&
-          animatableValue.constraints?.min?.[index] !== undefined &&
-          animatableValue.constraints?.max?.[index] !== undefined
-        }
-        visualMin={0}
-        visualMax={360}
-        disabled={playing}
-        value={toDegrees(
-          (rawValue as RawEuler | undefined)?.[attribute] ??
-            (animatableValue.default[attribute] as number),
-        )}
-        min={
-          animatableValue.constraints?.min?.[index]
-            ? toDegrees(animatableValue.constraints?.min?.[index])
-            : undefined
-        }
-        max={
-          animatableValue.constraints?.max?.[index]
-            ? toDegrees(animatableValue.constraints?.max?.[index])
-            : undefined
-        }
-        color={color}
-        onChange={(v) => {
-          const vr = toRadians(v);
-          if (attribute === "r") {
-            handleValueChange({
-              r: vr,
-              p: (rawValue as RawEuler)?.p ?? animatableValue.default.p,
-              y: (rawValue as RawEuler)?.y ?? animatableValue.default.y,
-            });
-          } else if (attribute === "p") {
-            handleValueChange({
-              r: (rawValue as RawEuler)?.r ?? animatableValue.default.r,
-              p: vr,
-              y: (rawValue as RawEuler)?.y ?? animatableValue.default.y,
-            });
-          } else if (attribute === "y") {
-            handleValueChange({
-              r: (rawValue as RawEuler)?.r ?? animatableValue.default.r,
-              p: (rawValue as RawEuler)?.p ?? animatableValue.default.p,
-              y: vr,
-            });
-          }
-        }}
-        label={attribute}
-        highlight={emphasis}
-        onHighlightChange={onEmphasisChange}
-      />
-    );
-  } else if (
-    animatableValue.type === "rgb" &&
-    (attribute === "r" || attribute === "g" || attribute === "b")
-  ) {
-    const index = indexLookups[animatableValue.type][attribute];
-    return (
-      <SliderNumberField
-        size={Size.Sm}
-        strictText
-        strictSlider
-        disabled={playing}
-        value={
-          (rawValue as RawRGB | undefined)?.[attribute] ??
-          ((animatableValue.default as RawRGB)[attribute] as number)
-        }
-        min={animatableValue.constraints?.min?.[index] ?? undefined}
-        max={animatableValue.constraints?.max?.[index] ?? undefined}
-        visualMin={animatableValue.constraints?.min?.[index] ?? 0}
-        visualMax={animatableValue.constraints?.max?.[index] ?? 1}
-        color={color}
-        onChange={(v) => {
-          if (attribute === "r") {
-            handleValueChange({
-              r: v,
-              g: (rawValue as RawRGB)?.g ?? (animatableValue.default as RawRGB).g,
-              b: (rawValue as RawRGB)?.b ?? (animatableValue.default as RawRGB).b,
-            });
-          } else if (attribute === "g") {
-            handleValueChange({
-              r: (rawValue as RawRGB)?.r ?? (animatableValue.default as RawRGB).r,
-              g: v,
-              b: (rawValue as RawRGB)?.b ?? (animatableValue.default as RawRGB).b,
-            });
-          } else if (attribute === "b") {
-            handleValueChange({
-              r: (rawValue as RawRGB)?.r ?? (animatableValue.default as RawRGB).r,
-              g: (rawValue as RawRGB)?.g ?? (animatableValue.default as RawRGB).g,
-              b: v,
-            });
-          }
-        }}
-        units={animatableValue.pub?.units}
-        label={attribute}
-        highlight={emphasis}
-        onHighlightChange={onEmphasisChange}
+        onChange={(v) => onChange(v)}
       />
     );
   } else {

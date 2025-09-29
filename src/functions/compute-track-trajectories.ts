@@ -1,5 +1,5 @@
 import { getLookup, PlayerDirection, RawValue } from "@semio/utils";
-import { InstancedFrameInfo, Track, TrackInterpolators } from "../types";
+import { InstancedFrameInfo, SourceRow, Track, TrackInterpolators } from "../types";
 import {
   PositionAndEffortTrajectoryPoint,
   PositionAndVelocityTrajectoryPoint,
@@ -14,6 +14,7 @@ import { rawValueMultiplyScalar } from "./raw-value-math";
  *
  * @param tracks - The set of tracks indexed by their *name* (intended for the trajectory jointNames field)
  * @param trackInterpolators - The set of interpolators indexed by their *lookup* (intended for the trajectory points field)
+ * @param sourceRow - The source row containing the data for the tracks
  * @param namespace - The namespace for the tracks, used to get the correct interpolator
  * @param animationDuration - The duration of the animation
  * @param currentStamp - The current timestamp
@@ -24,6 +25,7 @@ import { rawValueMultiplyScalar } from "./raw-value-math";
 export function computeTrackTrajectories(
   tracks: Record<string, Track<RawValue>>,
   trackInterpolators: TrackInterpolators,
+  sourceRow: SourceRow,
   namespace: string,
   animationDuration: number,
   currentStamp: number,
@@ -32,7 +34,7 @@ export function computeTrackTrajectories(
 ): TrajectoryMessage {
   const trackNames = Object.keys(tracks);
 
-  const frames: InstancedFrameInfo[] = computeFrames(tracks);
+  const frames: InstancedFrameInfo[] = computeFrames(tracks, sourceRow);
   const points: TrajectoryPointArray = frames.map((frame) => {
     const p: PositionAndVelocityTrajectoryPoint = {
       positions: [],

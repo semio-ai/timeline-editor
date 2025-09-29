@@ -1,4 +1,4 @@
-import { InstancedFrameInfo, Source } from "../types";
+import { InstancedFrameInfo, Source, SourceRow } from "../types";
 import { compareInstancedFrames, FrameComparison } from "./compare-instanced-frames";
 
 /**
@@ -23,16 +23,16 @@ function isMarkerSelected(
  */
 function markersShareTrack(
   marker1: InstancedFrameInfo,
-  sources1: Source[],
+  sources1: SourceRow,
   marker2: InstancedFrameInfo,
-  sources2: Source[],
+  sources2: SourceRow,
 ): boolean {
   // Check if the sources arrays represent the same tracks
-  if (sources1.length !== sources2.length) return false;
+  if (sources1.data.length !== sources2.data.length) return false;
 
   // Compare track IDs from sources
-  const trackIds1 = sources1.map((s) => s.trackId).sort();
-  const trackIds2 = sources2.map((s) => s.trackId).sort();
+  const trackIds1 = sources1.data.map((s) => s.trackId).sort();
+  const trackIds2 = sources2.data.map((s) => s.trackId).sort();
 
   return trackIds1.every((id, idx) => id === trackIds2[idx]);
 }
@@ -81,12 +81,12 @@ function removeFromSelection(
 function addRangeBetween(
   fromStamp: number,
   toStamp: number,
-  sources: Source[],
+  sources: SourceRow,
   allMarkersInTrack: InstancedFrameInfo[],
 ): InstancedFrameInfo[] {
   const minStamp = Math.min(fromStamp, toStamp);
   const maxStamp = Math.max(fromStamp, toStamp);
-  const trackIds = sources.map((s) => s.trackId);
+  const trackIds = sources.data.map((s) => s.trackId);
 
   const markersInRange = allMarkersInTrack.filter((m) => {
     if (m.stamp < minStamp || m.stamp > maxStamp) {
@@ -167,7 +167,7 @@ function mergeIntoSelection(
  */
 export function computeMarkerSelection(
   clickedMarker: InstancedFrameInfo,
-  clickedSources: Source[],
+  clickedSources: SourceRow,
   allMarkersInTrack: InstancedFrameInfo[],
   currentSelection: InstancedFrameInfo[],
   currentReference: { marker: InstancedFrameInfo; sources: Source[]; isAddMode?: boolean } | null,

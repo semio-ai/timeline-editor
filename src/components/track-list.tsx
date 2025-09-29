@@ -15,6 +15,8 @@ export interface TrackListProps {
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
 }
 
+const defaultRowIds: string[] = [];
+
 export function TrackList({
   viewId,
   height = 240,
@@ -23,7 +25,7 @@ export function TrackList({
   onEmphasisChange = () => {},
 }: TrackListProps): ReactNode {
   const sourceRowIds = useAnimationStore(
-    useShallow((state: AnimationData) => state.editorViews[viewId].sourceRowIds),
+    useShallow((state: AnimationData) => state.editorViews[viewId]?.sourceRowIds ?? defaultRowIds),
   );
 
   const sourceRows = useAnimationStore(

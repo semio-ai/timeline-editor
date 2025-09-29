@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useMemo } from "react";
 import * as THREE from "three";
 import { useMotionValue, useMotionValueEvent } from "motion/react";
-import { useTween, UseTweenConfig } from "../../../hooks/use-tween";
+import { useTween, UseTweenConfig } from "../../hooks/use-tween";
 
 export interface AnimatedInProps {
   children: React.ReactNode;

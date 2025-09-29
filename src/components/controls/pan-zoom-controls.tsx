@@ -8,8 +8,8 @@ import {
   calculatePaddedFrustum,
   getDataViewportFromFrustum,
   setFrustumFromDataViewport,
-} from "../../../viewport-utils";
-import { TrackRender } from "../../../types";
+} from "../../viewport-utils";
+import { TrackRender } from "../../types";
 
 export interface PanZoomControlsProps {
   enabled?: boolean;

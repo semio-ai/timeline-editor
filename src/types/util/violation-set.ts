@@ -1,4 +1,4 @@
-import type { Violation } from "./violation";
+import type { Violation } from "../data/violation";
 
 /**
  * A set of violations to render in a given track

@@ -1,28 +1,13 @@
 import { memo, useMemo } from "react";
 import { useShallow } from "zustand/shallow";
-import { RawValue, useDeepSelector } from "@semio/utils";
 import { Theme } from "@semio/ui";
 import { MotionValue } from "motion";
 import { Instances } from "@react-three/drei";
-import { pick, uniq } from "lodash";
+import { uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../hooks";
-import {
-  AnimationInstanceSettings,
-  InstancedFrameInfo,
-  Source,
-  SourceRow,
-  Track,
-  TrackRender,
-} from "../../types";
+import { SourceRow, TrackRender } from "../../types";
 import { AnimationData } from "../../store-types";
-import {
-  computeTransitionSegments,
-  computeVerticalBounds,
-  computeViolationSet,
-  computeVirtualFrames,
-} from "../../functions";
 import { Z } from "../../constants";
-import { computeFilledInterpGaps } from "../../functions/compute-filled-interp-gaps";
 import { DataPoint } from "./data-point";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";

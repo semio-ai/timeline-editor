@@ -6,9 +6,9 @@ import { Instances, Instance } from "@react-three/drei";
 import { MotionValue, useMotionValueEvent } from "motion/react";
 import { Theme } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
-import { useAnimationStore, useInvariantScale } from "../../../../hooks";
-import type { AnimationData } from "../../../../store-types";
-import { Z } from "../../../../constants";
+import { useAnimationStore, useInvariantScale } from "../../../hooks";
+import type { AnimationData } from "../../../store-types";
+import { Z } from "../../../constants";
 
 interface TickBackgroundProps {
   height: number;

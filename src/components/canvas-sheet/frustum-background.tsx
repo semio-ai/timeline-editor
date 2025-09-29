@@ -3,9 +3,9 @@ import { MotionValue, useMotionValueEvent, useSpring } from "motion/react";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
-import { useAnimationStore, useInvariantScale } from "../../../hooks";
-import { TIMELINE_PADDING } from "../../../constants";
-import { getBackgroundElementProps, getEmphasisOpacity, ThemeMode } from "../../../functions";
+import { useAnimationStore, useInvariantScale } from "../../hooks";
+import { TIMELINE_PADDING } from "../../constants";
+import { getBackgroundElementProps, getEmphasisOpacity, ThemeMode } from "../../functions";
 
 interface FrustumBackgroundProps {
   color?: string;

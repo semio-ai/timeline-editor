@@ -34,12 +34,14 @@ export function InnerTimeDisplay({
   );
 
   const prevKeyframeTime = useMemo(() => {
+    if (!computedData) return 0;
     return computePreviousTime(computedData.virtualFrames, stamp, bounds, true);
-  }, [stamp, bounds, computedData.virtualFrames]);
+  }, [stamp, bounds, computedData]);
 
   const nextKeyframeTime = useMemo(() => {
+    if (!computedData) return 1;
     return computeNextTime(computedData.virtualFrames, stamp, bounds, true);
-  }, [stamp, bounds, computedData.virtualFrames]);
+  }, [stamp, bounds, computedData]);
 
   const { resetPlayer, updatePlayerBounds } = usePlayerStore(
     useShallow((state: PlayerActions) => ({

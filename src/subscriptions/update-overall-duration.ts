@@ -18,10 +18,12 @@ export function updateOverallDuration(
   return api.subscribe(
     (state: AnimationData) => ({
       animations: state.animations,
-      namespaces: state.namespaceInfo,
+      namespaces: state.namespaces,
     }),
     ({ animations, namespaces }) => {
-      const instances = Object.values(namespaces).flatMap((ns) => Object.values(ns));
+      const instances = Object.values(namespaces).flatMap((ns) =>
+        Object.values(ns.animationInstances),
+      );
       const maxDuration = Math.max(
         // Require that the player duration is at least 1000ms
         1000,

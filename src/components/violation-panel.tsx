@@ -2,8 +2,8 @@ import { Fragment, useMemo } from "react";
 import { clsx } from "clsx";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { uniq } from "lodash";
-import { Violation, ViolationSegment, ViolationType } from "../../types";
-import { useColors, useNames } from "../../hooks";
+import { Violation, ViolationSegment, ViolationType } from "../types";
+import { useColors, useNames } from "../hooks";
 
 export interface ViolationPanelProps {
   segment: ViolationSegment;
@@ -11,7 +11,7 @@ export interface ViolationPanelProps {
 }
 
 export function ViolationPanel({ segment, violations }: ViolationPanelProps) {
-  const uniqueTracks = useMemo(() => {
+  const uniqueTracks: string[] = useMemo(() => {
     return uniq(segment.violations.map((violationId) => violations[violationId].trackId));
   }, [segment, violations]);
 

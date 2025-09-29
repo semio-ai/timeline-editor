@@ -1,5 +1,5 @@
 import { MotionValue } from "motion/react";
-import { useMotionCanvas } from "../components/three/canvas-sheet/shared/motion-canvas-context";
+import { useMotionCanvas } from "../components/canvas-sheet/shared/motion-canvas-context";
 
 export function useInvariantScale(): MotionValue<number> {
   // Create a motion value that represents an invariant scale

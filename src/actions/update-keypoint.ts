@@ -1,71 +1,117 @@
 import { RawValue, usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import { Keypoint } from "../types";
+import { computeTrackInterpolator } from "../functions";
+
+export interface KeypointDelta<T extends RawValue> extends Omit<Keypoint<T>, "stamp" | "value"> {
+  stamp: number | ((current: number) => number);
+  value: T | ((current: T) => T);
+}
 
 /**
  * Updates or adds a keypoint in the specified track within the animation state.
  *
  * @param state - The current animation data state.
  * @param trackId - The ID of the track to update.
- * @param keypoint - The keypoint data to update or add. If updating, it should match by id or stamp.
- * @param canMerge - If true, allows merging of keypoints with the same stamp. Defaults to true.
+ * @param keypoint - The keypoint data to update or add. If updating, it should match by id or stamp (which can only match via a non-delta update).
  * @returns The updated or newly added keypoint, or undefined if the track does not exist.
  */
 export function updateKeypoint(
   state: AnimationData,
   trackId: string,
-  keypoint: Partial<Keypoint<RawValue>>,
-  canMerge = true,
+  keypoint: Partial<Keypoint<RawValue>> | KeypointDelta<RawValue>,
+  _matchSlopeWhenInserting = true,
 ): Keypoint<RawValue> | undefined {
   const track = state.tracks[trackId];
   if (!track) {
     return;
   }
-  // Match by id or stamp (if canMerge)
   const points = track.points;
   const existingPoints = points.filter(
-    (point) => point.id === keypoint.id || (canMerge && point.stamp === keypoint.stamp),
+    (point) => point.id === keypoint.id || point.stamp === keypoint.stamp,
   );
   if (existingPoints.length === 1) {
     const existingPoint = existingPoints[0];
-    if (existingPoint.id === keypoint.id) {
-      Object.assign(existingPoint, keypoint);
-    } else {
-      // We have to remove the existing point and add a new merged one.
-      const merged = { ...existingPoint, ...keypoint };
-      const filteredPoints = points.filter((p) => p.id !== existingPoint.id);
-      const index = filteredPoints.findIndex((point) => point.stamp > merged.stamp);
-      if (index === -1) {
-        filteredPoints.push(merged as Keypoint<RawValue>);
-      } else {
-        filteredPoints.splice(index, 0, merged as Keypoint<RawValue>);
-      }
-      state.tracks[trackId].points = filteredPoints;
-    }
-
-    return existingPoint as Keypoint<RawValue>;
+    const updatedPoint = getUpdatedPoint(existingPoint, keypoint);
+    // Remove any points already present that have the same stamp or id
+    const newPoints = points.filter(
+      (p) => p.id !== existingPoint.id || p.stamp !== existingPoint.stamp,
+    );
+    state.tracks[trackId].points = [...newPoints, updatedPoint];
+    return updatedPoint as Keypoint<RawValue>;
   } else if (existingPoints.length > 1) {
-    // If there are multiple points with the same id or stamp, we should only merge the one
-    // with the same id, unless canMerge is true, in which case we should merge all of them.
-    const aggregatedPoint: Keypoint<RawValue> = [...existingPoints, keypoint].reduce(
-      (acc, kp) => ({ ...acc, ...kp }),
-      { ...existingPoints[0], id: keypoint.id },
-    ) as Keypoint<RawValue>;
-    const newPoints = points.filter((p) => !existingPoints.includes(p));
-    const index = points.findIndex((point) => point.stamp > aggregatedPoint.stamp);
-    if (index === -1) {
-      newPoints.push(aggregatedPoint);
-    } else {
-      newPoints.splice(index, 0, aggregatedPoint);
+    // Check to see if there is only one point with the same id, versus matching by stamp.
+    const idMatches = existingPoints.filter((p) => p.id === keypoint.id);
+    if (idMatches.length === 1) {
+      // Update the existing point (based on id), and then clear out any other points with the same stamp/id
+      const updatedPoint = getUpdatedPoint(idMatches[0], keypoint);
+      const newPoints = points.filter(
+        (p) => p.id !== updatedPoint.id || p.stamp !== updatedPoint.stamp,
+      );
+      state.tracks[trackId].points = [...newPoints, updatedPoint];
+      return updatedPoint as Keypoint<RawValue>;
     }
-    state.tracks[trackId].points = newPoints;
-    return aggregatedPoint;
-  } else if (keypoint.value !== undefined) {
+    // If there are multiple id matches, then we are probably in some erroroneous state.
+    // We should pick the first id match and update it, then clear out any other points with the same stamp/id;
+    // First, log a warning message to indicate the issue
+    console.warn(
+      `Multiple points with the same id (${idMatches[0].id}) found. Updating the first one.`,
+    );
+    const updatedPoint = getUpdatedPoint(idMatches[0], keypoint);
+    const newPoints = points.filter(
+      (p) => p.id !== updatedPoint.id || p.stamp !== updatedPoint.stamp,
+    );
+    state.tracks[trackId].points = [...newPoints, updatedPoint];
+    return updatedPoint as Keypoint<RawValue>;
+  } else if (keypoint.value !== undefined || existingPoints.length === 0) {
+    // We need to insert a new point because one does not yet exist
+    if (track.points.length === 0) {
+      // If the track is empty, we should insert a point at the default value for the animatable value;
+      // By definition, this overrides the `matchSlopeWhenInserting` field because the new slope will always be 0.
+      const defaultValue = state.animatables[track.animatableId]?.default;
+      if (defaultValue !== undefined) {
+        const newPoint = {
+          id: crypto.randomUUID(),
+          stamp: usePlayerStore.getState().player.stamp,
+          value: defaultValue,
+        } as Keypoint<RawValue>;
+        track.points.push(newPoint);
+      }
+    } else {
+      // We need to insert a new point somewhere in the track.
+      // TODO: To do this, we need to use a splitting algorithm to compute a new set
+      // of points for the track that maintains the overall shape of the track.
+      // However, for now we will just insert a point at the specified or default value,
+      // using the default easing method.
+    }
+    let stamp = usePlayerStore.getState().player.stamp;
+    if (typeof keypoint.stamp === "number") {
+      stamp = keypoint.stamp;
+    } else if (typeof keypoint.stamp === "function") {
+      stamp = keypoint.stamp(stamp);
+    }
     const newPoint = {
       id: crypto.randomUUID(),
-      stamp: usePlayerStore.getState().player.stamp,
-      ...keypoint,
+      stamp,
+      value: state.animatables[track.animatableId]?.default,
     } as Keypoint<RawValue>;
+
+    if (typeof keypoint.value === "function") {
+      // We need to lookup the current value
+      const interpolator = computeTrackInterpolator(track, {
+        id: "default",
+        animationId: "default",
+        settings: { offset: 0, timescale: 1, active: true },
+      });
+      const interpolatedValue = interpolator(stamp);
+      if (interpolatedValue === undefined) {
+        newPoint.value = state.animatables[track.animatableId]?.default;
+      } else {
+        newPoint.value = keypoint.value(interpolatedValue);
+      }
+    } else if (keypoint.value !== undefined) {
+      newPoint.value = keypoint.value;
+    }
 
     const index = points.findIndex((point) => point.stamp > newPoint.stamp);
     if (index === -1) {
@@ -76,4 +122,25 @@ export function updateKeypoint(
     state.tracks[trackId].points = points;
     return newPoint;
   }
+}
+
+function getUpdatedPoint(
+  existingPoint: Keypoint<RawValue>,
+  update: Partial<Keypoint<RawValue>> | KeypointDelta<RawValue>,
+): Keypoint<RawValue> {
+  let stamp = existingPoint.stamp;
+  let value = existingPoint.value;
+  if (update.stamp !== undefined && typeof update.stamp !== "function") {
+    stamp = update.stamp;
+  } else if (update.stamp !== undefined && typeof update.stamp === "function") {
+    stamp = update.stamp(existingPoint.stamp);
+  }
+  if (update.value !== undefined && typeof update.value !== "function") {
+    value = update.value;
+  } else if (update.value !== undefined && typeof update.value === "function") {
+    value = update.value(existingPoint.value);
+  }
+  const cleanUpdate: Partial<Keypoint<RawValue>> = { ...update, stamp, value };
+  const updatedPoint = { ...existingPoint, ...cleanUpdate };
+  return updatedPoint;
 }

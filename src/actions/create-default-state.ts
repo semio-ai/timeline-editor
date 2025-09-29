@@ -20,7 +20,7 @@ export const createDefaultState = (): AnimationData => {
     values: new Map(),
     velocities: new Map(),
     trackInterpolators: {},
-    namespaceInfo: {},
+    namespaces: {},
     animations: {},
     tracks: {},
     duration: 5000,
@@ -43,6 +43,7 @@ export const createDefaultState = (): AnimationData => {
 
     dragState: null,
     editorViews: {},
-    instancedTrackSources: [],
+    instancedTrackSources: {},
+    computedRowData: {},
   };
 };

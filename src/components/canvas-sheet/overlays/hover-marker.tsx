@@ -2,8 +2,8 @@ import { Theme } from "@semio/ui";
 import { useRef, memo } from "react";
 import * as THREE from "three";
 import { useMotionValueEvent } from "motion/react";
-import { useHoverSpring, useInvariantScale } from "../../../../hooks";
-import { Z } from "../../../../constants";
+import { useHoverSpring, useInvariantScale } from "../../../hooks";
+import { Z } from "../../../constants";
 
 export interface HoverMarkerProps {
   height?: number;

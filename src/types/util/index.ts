@@ -8,4 +8,4 @@ export type { Preview } from "./preview";
 export { TrackRender } from "./track-render";
 export type { Source, SourceGroup, SourceTrack, SourceRow, SourceRowData } from "./source";
 export type { View } from "./view";
-export type { ViolationSet } from "./violation-set";
+export type { ViolationSet, ViolationSegment } from "./violation-set";

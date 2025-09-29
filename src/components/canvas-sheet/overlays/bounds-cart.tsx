@@ -15,10 +15,10 @@ import {
   useDragGestures,
   useAltKeyPressed,
   usePlayerSubscription,
-} from "../../../../hooks";
-import { AnimationData, AnimationActions } from "../../../../store-types";
-import { SemanticTime } from "../../../../types";
-import { TIMELINE_PADDING, Z } from "../../../../constants";
+} from "../../../hooks";
+import { AnimationData, AnimationActions } from "../../../store-types";
+import { SemanticTime } from "../../../types";
+import { TIMELINE_PADDING, Z } from "../../../constants";
 
 // Theme colors matching the PlayheadCart approach
 const BASE_COLORS = {

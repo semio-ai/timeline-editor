@@ -4,7 +4,7 @@ import { SelectTree, Size, TreeOption, Variant } from "@semio/ui";
 import { getLookup } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { shallow } from "zustand/shallow";
-import { pick, uniq } from "lodash";
+import { uniq } from "lodash";
 import {
   useAnimationStore,
   useColors,
@@ -15,31 +15,32 @@ import {
 } from "../hooks";
 import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
 import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
-import { TrackInterpolators, InstancedFrameInfo } from "../types";
+import { InstancedFrameInfo } from "../types";
 import { AnimationActions, AnimationData } from "../store-types";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
 
 export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
-  const { source, viewData, namespaces, animations } = useAnimationStore(
-    useShallow((state: AnimationData) => ({
-      source: state.instancedTrackSources[viewId],
-      viewData: state.editorViews[viewId],
-      namespaces: state.namespaces,
-      animations: state.animations,
-    })),
-  );
+  const { source, computedRowData, interpolators, viewData, namespaces, animations } =
+    useAnimationStore(
+      useShallow((state: AnimationData) => ({
+        source: state.instancedTrackSources[viewId],
+        computedRowData: state.computedRowData[viewId],
+        interpolators: state.trackInterpolators,
+        viewData: state.editorViews[viewId],
+        namespaces: state.namespaces,
+        animations: state.animations,
+      })),
+    );
 
   const trackAnimatableLookup = useTrackAnimatableLookup();
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
 
-  const color = useColors(uniq(source.data.map((s) => s.trackId)));
+  const hasData = source && computedRowData && viewData;
+
+  const color = useColors(hasData ? uniq(source.data.map((s) => s.trackId)) : []);
 
   const nameLookup = useNameLookup();
-
-  const computedRowData = useAnimationStore(
-    useShallow((state: AnimationData) => state.computedRowData[viewId]),
-  );
 
   const { updateKeypoints, removeKeypoints, updateViewSources } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
@@ -49,14 +50,6 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
     })),
   );
 
-  const lookups = useMemo(() => {
-    return uniq(source.data.map((d) => getLookup(d.namespaceId, d.trackId)));
-  }, [source]);
-
-  const interpolators = useAnimationStore(
-    useShallow((state) => pick(state.trackInterpolators, lookups) as TrackInterpolators),
-  );
-
   const [instancedFrame, setInstancedFrame] = useState<InstancedFrameInfo | undefined>(undefined);
   const stampRef = useRef<number>(0);
 
@@ -64,9 +57,9 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
     (state) => ({ running: state.player.running, stamp: state.player.stamp }),
     ({ running, stamp }) => {
       stampRef.current = stamp;
-      if (running) {
+      if (running && hasData) {
         setInstancedFrame(undefined);
-      } else {
+      } else if (hasData) {
         const f = computedRowData.virtualFrames.find((s) => s.stamp === stamp);
         setInstancedFrame(f);
       }
@@ -137,6 +130,10 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
     },
     [updateViewSources, viewId],
   );
+
+  if (!hasData) {
+    return null;
+  }
 
   return (
     <div className="flex flex-1 flex-row h-9 items-center gap-1 pl-1">

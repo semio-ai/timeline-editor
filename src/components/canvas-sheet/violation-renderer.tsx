@@ -1,11 +1,11 @@
 import { memo, useState } from "react";
 import { Theme, useTooltipAnchor, useTooltipTrigger } from "@semio/ui";
 import { MotionValue } from "motion/react";
-import { useColors, useDiagonalMaterial } from "../../../hooks";
-import { ViolationSet } from "../../../types";
+import { useColors, useDiagonalMaterial } from "../../hooks";
+import { ViolationSet } from "../../types";
 import { ViolationPanel } from "../violation-panel";
-import { Z } from "../../../constants";
-import { getBackgroundElementProps, getThemeAwareOpacity } from "../../../functions";
+import { Z } from "../../constants";
+import { getBackgroundElementProps, getThemeAwareOpacity } from "../../functions";
 
 // Renders a single violation segment as a mesh
 const ViolationSegment = memo(function ViolationSegment({

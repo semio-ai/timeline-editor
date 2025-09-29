@@ -10,8 +10,8 @@ import {
   useTween,
   usePlaybackGestures,
   useViewportDragGestures,
-} from "../../../hooks";
-import { Z } from "../../../constants";
+} from "../../hooks";
+import { Z } from "../../constants";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";

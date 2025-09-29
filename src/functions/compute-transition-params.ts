@@ -41,14 +41,14 @@ export function computeTransitionParams(
   bounds: { min: number; max: number } = { min: 0, max: 1 },
 ): TransitionParams {
   // Use cubic-ease-in-out as default transtion params
-  const defaultTransitionIn = { x: 0.65, y: 0 };
-  const defaultTransitionOut = { x: 0.35, y: 1 };
+  const defaultTransitionOut = { x: 0.65, y: 0 };
+  const defaultTransitionIn = { x: 0.35, y: 1 };
   // Note, the start transition out is the beginning of the transition segment.
   // The end transition in is the end of the transition segment.
 
   if (trackRender === TrackRender.Transition) {
-    const cp1Raw = start.transitions?.out ?? defaultTransitionIn;
-    const cp2Raw = end.transitions?.in ?? defaultTransitionOut;
+    const cp1Raw = start.transitions?.out ?? defaultTransitionOut;
+    const cp2Raw = end.transitions?.in ?? defaultTransitionIn;
     const cp1 = { x: (end.stamp - start.stamp) * cp1Raw.x + start.stamp, y: cp1Raw.y };
     const cp2 = { x: (end.stamp - start.stamp) * cp2Raw.x + start.stamp, y: cp2Raw.y };
     return {
@@ -112,11 +112,11 @@ export function computeTransitionParams(
     const startYNormalized = (startValue - bounds.min) / (bounds.max - bounds.min);
     const endYNormalized = (endValue - bounds.min) / (bounds.max - bounds.min);
 
-    const cp1Raw = start.transitions?.out ?? defaultTransitionIn;
-    const cp2Raw = end.transitions?.in ?? defaultTransitionOut;
+    const cp1Raw = start.transitions?.out ?? defaultTransitionOut;
+    const cp2Raw = end.transitions?.in ?? defaultTransitionIn;
 
-    const cp1YComputed = startYNormalized * cp1Raw.y + endYNormalized * (1 - cp1Raw.y);
-    const cp2YComputed = startYNormalized * cp2Raw.y + endYNormalized * (1 - cp2Raw.y);
+    const cp1YComputed = startYNormalized * cp1Raw.y + endYNormalized * cp1Raw.y;
+    const cp2YComputed = startYNormalized * cp2Raw.y + endYNormalized * cp2Raw.y;
     const cp1 = { x: (end.stamp - start.stamp) * cp1Raw.x + start.stamp, y: cp1YComputed };
     const cp2 = { x: (end.stamp - start.stamp) * cp2Raw.x + start.stamp, y: cp2YComputed };
     return {

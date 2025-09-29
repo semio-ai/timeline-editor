@@ -3,7 +3,7 @@ export * from "./create-default-animation";
 export * from "./create-default-state";
 export * from "./create-keypoint";
 export * from "./create-track";
-export * from "./drag";
+// export * from "./drag";
 export * from "./remove-animation";
 export * from "./remove-keypoint";
 export * from "./remove-track";

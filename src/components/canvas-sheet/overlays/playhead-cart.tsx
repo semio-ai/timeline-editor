@@ -24,10 +24,10 @@ import {
   useInvariantScale,
   useTween,
   useDragGestures,
-} from "../../../../hooks";
-import { TIMELINE_PADDING, Z } from "../../../../constants";
-import { AnimationData, AnimationActions } from "../../../../store-types";
-import { SemanticTime } from "../../../../types";
+} from "../../../hooks";
+import { TIMELINE_PADDING, Z } from "../../../constants";
+import { AnimationData, AnimationActions } from "../../../store-types";
+import { SemanticTime } from "../../../types";
 import { useMotionCanvas } from "../shared/motion-canvas-context";
 
 const CONE_RADIUS = 4; // Radius of the cone for the vertical pointer

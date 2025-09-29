@@ -1,12 +1,11 @@
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
 import { MotionValue } from "motion";
-import { pick, uniq } from "lodash";
+import { uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../hooks";
 import { Z } from "../../constants";
 import { AnimationData } from "../../store-types";
-import { computeViolationSet } from "../../functions";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 

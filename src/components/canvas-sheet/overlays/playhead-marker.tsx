@@ -3,10 +3,10 @@ import { useRef, memo, useEffect } from "react";
 import * as THREE from "three";
 import { useShallow } from "zustand/shallow";
 import { useMotionValueEvent, useSpring, useTransform } from "motion/react";
-import { usePlayheadSpring, useInvariantScale, useAnimationStore } from "../../../../hooks";
-import { SemanticTime } from "../../../../types";
-import { AnimationData } from "../../../../store-types";
-import { Z } from "../../../../constants";
+import { usePlayheadSpring, useInvariantScale, useAnimationStore } from "../../../hooks";
+import { SemanticTime } from "../../../types";
+import { AnimationData } from "../../../store-types";
+import { Z } from "../../../constants";
 
 export interface PlayheadMarkerProps {
   height?: number;

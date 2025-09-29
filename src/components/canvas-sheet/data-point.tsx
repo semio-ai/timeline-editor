@@ -8,7 +8,7 @@ import { usePlayerStore } from "@semio/utils";
 import { Theme } from "@semio/ui";
 import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
 import { clamp } from "lodash";
-import { InstancedFrameInfo, Source, SourceRow, TrackRender } from "../../types";
+import { InstancedFrameInfo, SourceRow, TrackRender } from "../../types";
 import { useAnimationStore, useColors, useInvariantScale, useAltKeyPressed } from "../../hooks";
 import {
   compareInstancedFrames,
@@ -16,8 +16,6 @@ import {
   computeOklabMix,
   createLinearScale,
   FrameComparison,
-  computeFrames,
-  computeCollapsedSourceRow,
 } from "../../functions";
 
 const BG_MULTIPLIER = 1.2;
@@ -50,11 +48,7 @@ export const DataPoint = memo(function DataPoint({
   verticalBounds = { min: -18, max: 18 },
   sourceRow,
 }: DataPointProps) {
-  const collapsedSourceRow = useMemo(() => computeCollapsedSourceRow(sourceRow), [sourceRow]);
-  const sourceCount = collapsedSourceRow.data.length;
-  const computedData = useAnimationStore(
-    useShallow((state) => state.computedRowData[collapsedSourceRow.id]),
-  );
+  const sourceCount = sourceRow.data.length;
   const instanceRefFg = useRef<PositionMesh>(null);
   const instanceRefBg = useRef<PositionMesh>(null);
   const lineRef = useRef<THREE.Line>(null);
