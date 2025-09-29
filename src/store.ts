@@ -182,21 +182,14 @@ export const AnimationSlice = (
     addView: (view: Partial<View> & { id: string }) => {
       set((state: AnimationData) => {
         const namespaces = Object.keys(state.namespaces);
-        if (namespaces.length === 0) {
-          throw new Error("Cannot add a view when there are no namespaces.");
-        }
 
         // Generate default sources for all animation instances across all namespaces
         const sourcesByAnimationInstance: Record<string, Source[]> = {};
-        let firstAnimationInstanceId: string | null = null;
         const sourceRowIds: string[] = [];
 
         for (const namespace of namespaces) {
           const animationInstances = Object.values(state.namespaces[namespace].animationInstances);
           for (const animationInstance of animationInstances) {
-            if (!firstAnimationInstanceId) {
-              firstAnimationInstanceId = animationInstance.id;
-            }
             const sources = computeDefaultSourcesFromInstance(
               namespace,
               animationInstance,
@@ -211,14 +204,9 @@ export const AnimationSlice = (
           }
         }
 
-        if (!firstAnimationInstanceId) {
-          throw new Error("Cannot add a view when there are no animation instances.");
-        }
-
         const defaultView: View = {
           id: view.id,
           trackRender: view.trackRender ?? TrackRender.Key,
-          activeAnimationInstance: firstAnimationInstanceId,
           sourcesByAnimationInstance,
           sourceRowIds,
         };

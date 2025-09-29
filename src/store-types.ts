@@ -120,6 +120,10 @@ export interface AnimationData {
    */
   editorViews: Record<string, View>;
   /**
+   * The active animation instance (if any)
+   */
+  activeAnimationInstance?: string;
+  /**
    * Global set of instanced track sources
    */
   instancedTrackSources: Record<string, SourceRow>;

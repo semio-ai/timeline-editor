@@ -15,8 +15,11 @@ export function updateViewTrackSources(
   _get: AnimationStoreGetter,
 ): () => void {
   return api.subscribe(
-    (state: AnimationData) => ({ editorViews: state.editorViews }),
-    ({ editorViews }, { editorViews: prevEditorViews }) => {
+    (state: AnimationData) => ({
+      editorViews: state.editorViews,
+      activeAnimationInstance: state.activeAnimationInstance,
+    }),
+    ({ editorViews, activeAnimationInstance }, { editorViews: prevEditorViews }) => {
       const removedIds = Object.keys(prevEditorViews).filter((id) => !editorViews[id]);
       // For each view, we need to add an entry in the set of instancedTrackSources
       // reflecting the timeline.
@@ -28,7 +31,7 @@ export function updateViewTrackSources(
         const allSources = Object.values(view.sourcesByAnimationInstance).flat();
         const consolidated = computeConsolidatedSourceRow(
           allSources,
-          view.activeAnimationInstance,
+          activeAnimationInstance,
           view.id,
         );
         newInstancedTrackSources[view.id] = consolidated;
