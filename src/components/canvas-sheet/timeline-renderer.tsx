@@ -33,9 +33,9 @@ export const TimelineRenderer = memo(function TimelineRenderer({
       <PlayheadMarker height={36} theme={theme} />
       <BoundsOverlay height={36} theme={theme} />
       <DataRenderer
-        height={36}
         viewId={viewId}
-        sourceRowId={viewId}
+        height={36}
+        sourceRowId="global"
         theme={theme}
         measureFromBottom
         showBackground={false}

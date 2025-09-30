@@ -31,6 +31,10 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
     })),
   );
 
+  if (sourceRow.data.length !== 1 || sourceRow.data[0].type !== "number") {
+    return null;
+  }
+
   return (
     <Instances>
       {/* Shared geometry and material for all instances */}

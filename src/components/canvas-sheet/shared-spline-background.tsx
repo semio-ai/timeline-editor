@@ -30,9 +30,11 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
   const computedData = useAnimationStore(
     useShallow((state: AnimationData) => state.computedRowData[sourceRowId]),
   );
-  const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
+  const trackIds = uniq(sourceRow?.data.map((d) => d.trackId) || []);
 
   const color = useColors(trackIds);
+
+  if (!sourceRow || !computedData) return null;
 
   return (
     <group position={[0, yOffset, 0]}>
