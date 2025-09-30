@@ -53,7 +53,7 @@ export function TrackList({
           style={{ maxHeight: height }}
           motionScrollY={scrollY}
         >
-          <div className="w-full">
+          <div className="w-full p-1">
             {sourceRows.map((sourceRow) => (
               <ControlWidget
                 key={sourceRow.id}

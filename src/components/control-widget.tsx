@@ -97,7 +97,7 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
   const iconCode = isGroup ? "group" : sourceRow.data[0].iconCode || "Group";
 
   return (
-    <div className="w-full grid grid-cols-[64px_16px_1fr_16px] pl-1 pr-2 gap-2 h-9 items-center overflow-hidden">
+    <div className="w-full grid grid-cols-[64px_16px_1fr_16px] pl-1 pr-2 gap-2 h-9 items-center">
       <TrackControl
         disabled={allReadonly}
         source={sourceRow}
@@ -168,7 +168,7 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
           }}
         />
       ) : (
-        <div className="flex-1 flex min-w-0 overflow-hidden">
+        <div className="flex-1 flex min-w-0">
           <AnimatableEditor
             data={sourceRow.data[0]}
             playing={playing}
