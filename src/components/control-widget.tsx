@@ -11,6 +11,7 @@ import {
 } from "@semio/ui";
 import { uniq } from "lodash";
 import { shallow } from "zustand/shallow";
+import { clsx } from "clsx";
 import { usePlayerStore, PlayerData, getLookup, RawValue } from "@semio/utils";
 import { IconDotsVertical, IconChevronDown } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
@@ -28,7 +29,6 @@ import { AnimationActions, AnimationData } from "../store-types";
 import { TrackControl } from "./track-control";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
-import { clsx } from "clsx";
 
 export interface ControlWidgetProps {
   sourceRow: SourceRow;
