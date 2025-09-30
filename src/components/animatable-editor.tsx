@@ -119,6 +119,16 @@ function InnerAnimatableEditor({
     [handleValueChange, data.attribute],
   );
 
+  const label = useMemo(() => {
+    if (data.attribute) {
+      return data.attribute;
+    } else if (track?.name) {
+      return track.name;
+    } else {
+      return animatableValue.name;
+    }
+  }, [data.attribute, track.name, animatableValue.name]);
+
   if (rawValue === undefined) return;
 
   if (data.type === "number" && typeof rawValue === "number") {
@@ -138,7 +148,7 @@ function InnerAnimatableEditor({
         max={limits.max !== undefined ? renderTransformer(limits.max) : undefined}
         color={color}
         onChange={(v) => onChange(renderInverse(v))}
-        label={(data.attribute ?? track) ? track.name : animatableValue.name}
+        label={label}
         onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
         highlight={emphasis}
         units={data.iconCode === "rad" ? "°" : animatableValue.pub?.units}

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { ScrollArea } from "@semio/ui";
-import { MotionValue } from "motion/react";
+import { AnimatePresence, MotionValue, motion } from "motion/react";
 import { useAnimationStore } from "../hooks";
 import { AnimationData } from "../store-types";
 import { ControlWidget } from "./control-widget";
@@ -53,15 +53,23 @@ export function TrackList({
           style={{ maxHeight: height }}
           motionScrollY={scrollY}
         >
-          <div className="w-full p-1">
-            {sourceRows.map((sourceRow) => (
-              <ControlWidget
-                key={sourceRow.id}
-                sourceRow={sourceRow}
-                emphasis={emphasis.includes(sourceRow.id)}
-                onEmphasisChange={(v) => onEmphasisChange(sourceRow.id, v ? "add" : "remove")}
-              />
-            ))}
+          <div className="w-full">
+            <AnimatePresence>
+              {sourceRows.map((sourceRow) => (
+                <motion.div
+                  key={sourceRow.id}
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20, transition: { duration: 0.15, ease: "easeInOut" } }}
+                >
+                  <ControlWidget
+                    sourceRow={sourceRow}
+                    emphasis={emphasis.includes(sourceRow.id)}
+                    onEmphasisChange={(v) => onEmphasisChange(sourceRow.id, v ? "add" : "remove")}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </ScrollArea>
       </div>

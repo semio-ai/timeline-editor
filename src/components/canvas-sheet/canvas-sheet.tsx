@@ -174,7 +174,7 @@ const CanvasContent = memo(function CanvasContent({
         renderPriority={2}
         gap={72}
       >
-        <TimelineRenderer viewId={viewId} theme={theme} />
+        <TimelineRenderer theme={theme} />
       </HudSection>
 
       {/* Minimap HUD: 36px tall */}

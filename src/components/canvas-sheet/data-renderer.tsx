@@ -5,7 +5,7 @@ import { MotionValue } from "motion";
 import { Instances } from "@react-three/drei";
 import { uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../hooks";
-import { SourceRow, TrackRender } from "../../types";
+import { InstancedFrameInfo, SourceRow, TrackRender } from "../../types";
 import { AnimationData } from "../../store-types";
 import { Z } from "../../constants";
 import { DataPoint } from "./data-point";
@@ -15,23 +15,21 @@ import { TransitionSegment } from "./transition-segment";
 
 const DataPointsRenderer = memo(function DataPointsRenderer({
   sourceRow,
+  frames,
+  verticalBounds,
   theme = Theme.Light,
   trackRender = TrackRender.Key,
   height = 36,
 }: {
   sourceRow: SourceRow;
+  frames: InstancedFrameInfo[];
+  verticalBounds: { min: number; max: number };
   theme?: Theme.Light | Theme.Dark;
   trackRender?: TrackRender;
   height?: number;
 }) {
-  const { frameData, verticalBounds } = useAnimationStore(
-    useShallow((state: AnimationData) => ({
-      frameData: state.computedRowData[sourceRow.id].virtualFrames,
-      verticalBounds: state.computedRowData[sourceRow.id].verticalBounds,
-    })),
-  );
-
-  if (sourceRow.data.length !== 1 || sourceRow.data[0].type !== "number") {
+  // If the track render is spline, but the row is a group, ignore it
+  if (trackRender === TrackRender.Spline && sourceRow.data.length > 1) {
     return null;
   }
 
@@ -42,7 +40,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
       <meshBasicMaterial toneMapped={false} />
 
       {/* Individual instances */}
-      {frameData.map((data) => (
+      {frames.map((data) => (
         <DataPoint
           key={data.id}
           data={data}
@@ -58,7 +56,6 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
 });
 
 export interface DataRendererProps {
-  viewId: string;
   sourceRowId: string;
   height?: number;
   emphasis?: boolean;
@@ -69,6 +66,7 @@ export interface DataRendererProps {
   scrollOffset?: MotionValue<number>;
   measureFromBottom?: boolean;
   showBackground?: boolean;
+  trackRender?: TrackRender;
 }
 
 // WARNING: This component passes frameData as props to child components
@@ -77,7 +75,6 @@ export interface DataRendererProps {
 // This architectural issue will be resolved in Phase 2+ refactoring
 // See: docs/dragging-architecture-proposal.md and docs/phase2-preparation.md
 export const DataRenderer = memo(function DataRenderer({
-  viewId,
   sourceRowId,
   height = 36,
   emphasis = false,
@@ -88,16 +85,13 @@ export const DataRenderer = memo(function DataRenderer({
   scrollOffset = new MotionValue(0),
   measureFromBottom = false,
   showBackground = true,
+  trackRender = TrackRender.Key,
 }: DataRendererProps) {
   const sourceRow = useAnimationStore(
     useShallow((state: AnimationData) => state.instancedTrackSources[sourceRowId]),
   );
   const computedData = useAnimationStore(
     useShallow((state: AnimationData) => state.computedRowData[sourceRowId]),
-  );
-
-  const trackRender = useAnimationStore(
-    useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),
   );
 
   const trackIds = useMemo(
@@ -114,13 +108,18 @@ export const DataRenderer = memo(function DataRenderer({
   if (!sourceRow) return null;
 
   return (
-    <group position={[0, yOffset, zOffset]}>
+    <group
+      position={[0, yOffset, zOffset]}
+      onClick={() => console.log("clicked", sourceRow, computedData)}
+    >
       {/* Render the hexagons/visuals for each keyed point */}
       {/* PROBLEM: frameData is passed as props here, creating stale references in DataPoint components */}
       {/* After drag operations, individual DataPoint components retain old stamp values */}
       {/* Phase 2+ will eliminate this prop drilling by having components subscribe to store directly */}
       <DataPointsRenderer
         sourceRow={sourceRow}
+        frames={computedData.virtualFrames}
+        verticalBounds={computedData.verticalBounds}
         theme={theme}
         trackRender={trackRender}
         height={height - 1}

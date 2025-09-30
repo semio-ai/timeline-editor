@@ -178,7 +178,7 @@ export const TracksRenderer = memo(function TracksRenderer({
         {sourceRowIds.map((sourceId, idx) => (
           <DataRenderer
             key={sourceId}
-            viewId={viewId}
+            trackRender={trackRender}
             height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
             sourceRowId={sourceId}
             yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
