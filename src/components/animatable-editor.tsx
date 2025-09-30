@@ -119,7 +119,7 @@ function InnerAnimatableEditor({
     [handleValueChange, data.attribute],
   );
 
-  if (!rawValue) return;
+  if (rawValue === undefined) return;
 
   if (data.type === "number" && typeof rawValue === "number") {
     return (
@@ -165,8 +165,6 @@ function InnerAnimatableEditor({
         onChange={(v) => onChange(v)}
       />
     );
-  } else {
-    return null;
   }
 }
 

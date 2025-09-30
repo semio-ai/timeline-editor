@@ -4,5 +4,6 @@ export { updateInterpolationResultsOnStampChange } from "./update-interpolation-
 export { updateOverallDuration } from "./update-overall-duration";
 export { updatePlayerLoop } from "./update-player-loop";
 export { updateComputedRowData } from "./update-computed-row-data";
-export { updateViewTrackSources } from "./update-view-track-sources";
-export { updateViewSourceRowIds } from "./update-view-source-row-ids";
+export { updateConsolidatedSourceRow } from "./update-consolidated-source-row";
+export { updateGlobalSources } from "./update-global-sources";
+export { updateSourceRowIds } from "./update-source-row-ids";

@@ -21,17 +21,25 @@ import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
 
 export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
-  const { source, computedRowData, interpolators, viewData, namespaces, animations } =
-    useAnimationStore(
-      useShallow((state: AnimationData) => ({
-        source: state.instancedTrackSources[viewId],
-        computedRowData: state.computedRowData[viewId],
-        interpolators: state.trackInterpolators,
-        viewData: state.editorViews[viewId],
-        namespaces: state.namespaces,
-        animations: state.animations,
-      })),
-    );
+  const {
+    source,
+    computedRowData,
+    interpolators,
+    viewData,
+    namespaces,
+    animations,
+    sourcesByAnimationInstance,
+  } = useAnimationStore(
+    useShallow((state: AnimationData) => ({
+      source: state.instancedTrackSources.global,
+      computedRowData: state.computedRowData?.global,
+      interpolators: state.trackInterpolators,
+      viewData: state.editorViews[viewId],
+      namespaces: state.namespaces,
+      animations: state.animations,
+      sourcesByAnimationInstance: state.sourcesByAnimationInstance,
+    })),
+  );
 
   const trackAnimatableLookup = useTrackAnimatableLookup();
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
@@ -42,11 +50,11 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
 
   const nameLookup = useNameLookup();
 
-  const { updateKeypoints, removeKeypoints, updateViewSources } = useAnimationStore(
+  const { updateKeypoints, removeKeypoints, updateSources } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
       updateKeypoints: state.updateKeypoints,
       removeKeypoints: state.removeKeypoints,
-      updateViewSources: state.updateViewSources,
+      updateSources: state.updateSources,
     })),
   );
 
@@ -89,7 +97,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
             label: animations[instance.animationId]?.name || "Unnamed Instance",
             icon: <DataIcon iconCode="group" className="w-3/5 h-3/5" />,
             children: computeTreeOptionsFromSources(
-              viewData.sourcesByAnimationInstance[instance.id],
+              sourcesByAnimationInstance[instance.id],
               nameLookup,
             ),
           };
@@ -97,9 +105,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           // Then add the instance option to the namespace option;
           namespaceOption.children!.push(instanceOption);
           // Add visible tracks to the values;
-          const visibleTracks = computeVisibleSourceTracks(
-            viewData.sourcesByAnimationInstance[instance.id],
-          );
+          const visibleTracks = computeVisibleSourceTracks(sourcesByAnimationInstance[instance.id]);
           visibleTracks.forEach((t) => values.push(t));
         });
 
@@ -107,7 +113,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       });
 
       return { treeOptions: options, treeValues: values };
-    }, [viewData, namespaces, nameLookup, animations]);
+    }, [sourcesByAnimationInstance, namespaces, nameLookup, animations]);
 
   const handleChangeSelection = useCallback(
     (_: string[], changes: { id: string; operation: "add" | "remove" }[]) => {
@@ -126,9 +132,9 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
         base,
       );
 
-      updateViewSources(viewId, updates);
+      updateSources(updates);
     },
-    [updateViewSources, viewId],
+    [updateSources],
   );
 
   if (!hasData) {

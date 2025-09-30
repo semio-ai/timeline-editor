@@ -128,7 +128,15 @@ export interface AnimationData {
    */
   instancedTrackSources: Record<string, SourceRow>;
   /**
-   * Computed Row Data. Keys correspond to the instancedTrackSources keys.
+   * Global sources shared across all views (computed from namespaces/animations)
+   */
+  sourcesByAnimationInstance: Record<string, Source[]>;
+  /**
+   * Global source row IDs shared across all views
+   */
+  sourceRowIds: string[];
+  /**
+   * Computed row data, storing visualization-specific data
    */
   computedRowData: Record<string, ComputedRowData>;
 }
@@ -158,23 +166,19 @@ export interface AnimationActions {
    */
   clearSelection: () => void;
   /**
-   * Update the expanded state of a source group in a view.
-   * @param viewId - The ID of the view containing the source group.
+   * Update the expanded and hidden state of a source group globally.
    * @param groupId - The ID of the source group to update.
    * @param expanded - Whether the group is expanded or collapsed.
-   * Note: This does not affect the underlying animation data, only the view state.
+   * @param hidden - Whether the group is hidden or visible.
+   * Note: This affects all views since sources are now globally managed.
    */
-  updateViewSource: (viewId: string, groupId: string, expanded?: boolean, hidden?: boolean) => void;
+  updateSource: (groupId: string, expanded?: boolean, hidden?: boolean) => void;
   /**
-   * Update multiple expanded states of source groups in a view at once.
-   * @param viewId - The ID of the view containing the source groups.
-   * @param groupStates - A record mapping group IDs to their expanded state (true for expanded, false for collapsed).
-   * Note: This does not affect the underlying animation data, only the view state.
+   * Update multiple source groups' expanded and hidden states globally at once.
+   * @param groupStates - A record mapping group IDs to their expanded and hidden states.
+   * Note: This affects all views since sources are now globally managed.
    */
-  updateViewSources: (
-    viewId: string,
-    groupStates: Record<string, { expanded?: boolean; hidden?: boolean }>,
-  ) => void;
+  updateSources: (groupStates: Record<string, { expanded?: boolean; hidden?: boolean }>) => void;
   /**
    * Update all values in the store.
    * @param values - A map of values to update.

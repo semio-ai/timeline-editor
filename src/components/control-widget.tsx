@@ -1,4 +1,4 @@
-import { useState, memo, useRef } from "react";
+import { useState, memo, useRef, useCallback } from "react";
 import {
   Button,
   StaticIcon,
@@ -7,7 +7,6 @@ import {
   Dropdown,
   NestedLabel,
   NestedColorPicker,
-  CollapsibleTrigger,
   TextField,
 } from "@semio/ui";
 import { uniq } from "lodash";
@@ -29,6 +28,7 @@ import { AnimationActions, AnimationData } from "../store-types";
 import { TrackControl } from "./track-control";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
+import { clsx } from "clsx";
 
 export interface ControlWidgetProps {
   sourceRow: SourceRow;
@@ -74,12 +74,20 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     shallow,
   );
 
-  const { updateKeypoints, removeKeypoints, updateTrack } = useAnimationStore(
+  const { updateKeypoints, removeKeypoints, updateTrack, updateSource } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
       updateKeypoints: state.updateKeypoints,
       removeKeypoints: state.removeKeypoints,
       updateTrack: state.updateTrack,
+      updateSource: state.updateSource,
     })),
+  );
+
+  const updateExpanded = useCallback(
+    (expanded: boolean) => {
+      updateSource(sourceRow.id, expanded);
+    },
+    [updateSource, sourceRow.id],
   );
 
   const color = useColors(trackIds);
@@ -89,7 +97,7 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
   const iconCode = isGroup ? "group" : sourceRow.data[0].iconCode || "Group";
 
   return (
-    <div className="grid grid-cols-[64px_16px_1fr_16px] pl-1 pr-2 gap-2 h-9 items-center">
+    <div className="w-full grid grid-cols-[64px_16px_1fr_16px] pl-1 pr-2 gap-2 h-9 items-center overflow-hidden">
       <TrackControl
         disabled={allReadonly}
         source={sourceRow}
@@ -126,18 +134,23 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
         }}
       />
       {isGroup ? (
-        <CollapsibleTrigger asChild>
-          <Button
-            size="fit"
-            visuals="inverted"
-            color={color}
-            leftIcon={
-              <IconChevronDown
-                className={sourceRow.expanded ? "rotate-180 size-3" : "rotate-0 size-3"}
-              />
-            }
-          />
-        </CollapsibleTrigger>
+        <Button
+          size="fit"
+          visuals="inverted"
+          color={color}
+          onClick={() => {
+            console.log("clicked", sourceRow.expanded);
+            updateExpanded(!sourceRow.expanded);
+          }}
+          leftIcon={
+            <IconChevronDown
+              className={clsx(
+                "transition-transform",
+                sourceRow.expanded ? "-rotate-180 size-3" : "rotate-0 size-3",
+              )}
+            />
+          }
+        />
       ) : (
         <StaticIcon size="fit" className="size-3" color={color}>
           <DataIcon iconCode={iconCode} size="13px" />
@@ -145,6 +158,8 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
       )}
       {isGroup ? (
         <TextField
+          size={Size.Sm}
+          color={color}
           value={name}
           onChange={(val) => {
             trackIds.forEach((id) => {
@@ -153,7 +168,7 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
           }}
         />
       ) : (
-        <div className="flex-1 flex">
+        <div className="flex-1 flex min-w-0 overflow-hidden">
           <AnimatableEditor
             data={sourceRow.data[0]}
             playing={playing}

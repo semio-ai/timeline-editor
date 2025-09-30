@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
 import { MotionValue } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
-import { SourceRow, TrackRender } from "../../types";
+import { TrackRender } from "../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
 import { calculatePaddedFrustum } from "../../viewport-utils";
 import { AnimationData } from "../../store-types";
@@ -110,7 +110,7 @@ const CanvasContent = memo(function CanvasContent({
   const bgColor = theme === Theme.Dark ? "#202020" : "#EFEFEF";
 
   const rowIds = useAnimationStore(
-    useShallow((state: AnimationData) => state.editorViews[viewId]?.sourceRowIds ?? defaultRowIds),
+    useShallow((state: AnimationData) => state.sourceRowIds ?? defaultRowIds),
   );
   const trackRender = useAnimationStore(
     useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),

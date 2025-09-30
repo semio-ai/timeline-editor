@@ -19,8 +19,9 @@ export function updateInstancedTrackSources(
       animations: state.animations,
       animatables: state.animatables,
       tracks: state.tracks,
+      sourcesByAnimationInstance: state.sourcesByAnimationInstance,
     }),
-    ({ namespaces, animations, animatables, tracks }) => {
+    ({ namespaces, animations, animatables, tracks, sourcesByAnimationInstance }) => {
       // console.log(namespaceInfo, animations, subscribes);
       // for each namespace -> for each instance -> for each track in the instance's aninimation subscribe... to namespace/track
       if (!namespaces) return;
@@ -48,8 +49,15 @@ export function updateInstancedTrackSources(
               // If the track type is complex, we need to add both the top-level track and the attribute entries
               if (COMPLEX_TYPES.has(trackType)) {
                 const id = `${namespaceId}/${instance.id}/${trackId}`;
+                // Find the corresponding source to get its expanded state
+                const sources = sourcesByAnimationInstance[instance.id] || [];
+                const sourceGroup = sources.find((s) => s.id === id);
+                const expanded =
+                  sourceGroup && "expanded" in sourceGroup ? sourceGroup.expanded : undefined;
+
                 instancedTrackSources[id] = {
                   id: `${namespaceId}/${instance.id}/${trackId}`,
+                  expanded,
                   data: TYPE_FIELDS[trackType as string].map((field) => ({
                     foreground: true,
                     selectable: true,
@@ -129,7 +137,8 @@ export function updateInstancedTrackSources(
         return (
           isEqual(allCurrentTracks, allPreviousTracks) &&
           isEqual(allCurrentGroups, allPreviousGroups) &&
-          shallow(current.namespaces, previous.namespaces)
+          shallow(current.namespaces, previous.namespaces) &&
+          shallow(current.sourcesByAnimationInstance, previous.sourcesByAnimationInstance)
         );
       },
     },

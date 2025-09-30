@@ -24,7 +24,7 @@ export function InnerTimeDisplay({
   const updateDuration = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateDuration),
   );
-  const computedData = useAnimationStore(useShallow((state) => state.computedRowData[viewId]));
+  const computedData = useAnimationStore(useShallow((state) => state.computedRowData?.global));
 
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
 

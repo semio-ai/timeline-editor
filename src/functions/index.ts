@@ -9,6 +9,7 @@ export * from "./compute-instance-time";
 // export * from "./compute-marker-selection";
 export * from "./compute-row-data";
 export * from "./compute-source-rows-from-sources";
+export * from "./compute-visible-source-row-ids";
 // export * from "./compute-split-track";
 export * from "./compute-transition-segments";
 export * from "./compute-stored-animation";

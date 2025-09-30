@@ -44,9 +44,7 @@ export const TracksRenderer = memo(function TracksRenderer({
   const { size: motionSize } = useMotionCanvas();
 
   const sourceRowIds = useAnimationStore(
-    useShallow(
-      (state: AnimationData) => state.editorViews[viewId]?.sourceRowIds ?? defaultSourceRowIds,
-    ),
+    useShallow((state: AnimationData) => state.sourceRowIds ?? defaultSourceRowIds),
   );
 
   const trackRender = useAnimationStore(

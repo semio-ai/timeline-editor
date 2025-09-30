@@ -44,6 +44,8 @@ export const createDefaultState = (): AnimationData => {
     dragState: null,
     editorViews: {},
     instancedTrackSources: {},
+    sourcesByAnimationInstance: {},
+    sourceRowIds: [],
     computedRowData: {},
   };
 };

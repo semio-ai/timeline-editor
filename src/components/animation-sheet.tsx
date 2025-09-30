@@ -351,9 +351,8 @@ function InnerSheet({
 
                 {/* Track List - Row 2 */}
 
-                {/* 3D Track List with color-coded tracks */}
+                {/* Track List with color-coded tracks */}
                 <TrackList
-                  viewId={viewId}
                   height={height - MIN_SHEET_HEIGHT}
                   scrollY={scrollY}
                   emphasis={emphasis}

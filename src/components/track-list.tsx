@@ -8,7 +8,6 @@ import { AnimationData } from "../store-types";
 import { ControlWidget } from "./control-widget";
 
 export interface TrackListProps {
-  viewId: string;
   height?: number;
   scrollY?: MotionValue<number>;
   emphasis: string[];
@@ -18,14 +17,13 @@ export interface TrackListProps {
 const defaultRowIds: string[] = [];
 
 export function TrackList({
-  viewId,
   height = 240,
   scrollY,
   emphasis = [],
   onEmphasisChange = () => {},
 }: TrackListProps): ReactNode {
   const sourceRowIds = useAnimationStore(
-    useShallow((state: AnimationData) => state.editorViews[viewId]?.sourceRowIds ?? defaultRowIds),
+    useShallow((state: AnimationData) => state.sourceRowIds ?? defaultRowIds),
   );
 
   const sourceRows = useAnimationStore(
@@ -40,6 +38,7 @@ export function TrackList({
       )}
     >
       <div
+        className="w-full overflow-hidden"
         onWheel={(e) => {
           // CRITICAL: Prevent ScrollArea from independently handling wheel events
           // ScrollArea should only respond to motionScrollY changes from canvas gesture system
@@ -50,18 +49,20 @@ export function TrackList({
       >
         <ScrollArea
           orientation="vertical"
-          className="pr-1"
+          className="pr-1 w-full"
           style={{ maxHeight: height }}
           motionScrollY={scrollY}
         >
-          {sourceRows.map((sourceRow) => (
-            <ControlWidget
-              key={sourceRow.id}
-              sourceRow={sourceRow}
-              emphasis={emphasis.includes(sourceRow.id)}
-              onEmphasisChange={(v) => onEmphasisChange(sourceRow.id, v ? "add" : "remove")}
-            />
-          ))}
+          <div className="w-full">
+            {sourceRows.map((sourceRow) => (
+              <ControlWidget
+                key={sourceRow.id}
+                sourceRow={sourceRow}
+                emphasis={emphasis.includes(sourceRow.id)}
+                onEmphasisChange={(v) => onEmphasisChange(sourceRow.id, v ? "add" : "remove")}
+              />
+            ))}
+          </div>
         </ScrollArea>
       </div>
     </div>

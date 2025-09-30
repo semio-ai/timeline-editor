@@ -39,11 +39,9 @@ import {
 // import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
 import {
   computeStoredAnimation,
-  computeDefaultSourcesFromInstance,
   computeNextTime,
   computePreviousTime,
   computeUpdatedSources,
-  computeSourceRowsFromSources,
 } from "./functions";
 import {
   updatePlayerLoop,
@@ -52,7 +50,9 @@ import {
   updateAllInterpolatorsAndResultsOnDataChange,
   updateInstancedTrackSources,
   updateComputedRowData,
-  updateViewTrackSources,
+  updateConsolidatedSourceRow,
+  updateGlobalSources,
+  updateSourceRowIds,
 } from "./subscriptions";
 import { View } from "./types/util/view";
 
@@ -65,29 +65,24 @@ export const AnimationSlice = (
 ) => {
   return {
     ...createDefaultState(),
-    updateViewSource: (viewId: string, groupId: string, expanded?: boolean, hidden?: boolean) => {
+    updateSource: (groupId: string, expanded?: boolean, hidden?: boolean) => {
       set(
         produce((state: AnimationData) => {
-          if (!state.editorViews[viewId]) return;
-
+          // Updates global sources, affecting all views
           const updates = { [groupId]: { expanded, hidden } };
-          state.editorViews[viewId].sourcesByAnimationInstance = mapValues(
-            state.editorViews[viewId].sourcesByAnimationInstance,
+          state.sourcesByAnimationInstance = mapValues(
+            state.sourcesByAnimationInstance,
             (instanceSources) => computeUpdatedSources(instanceSources, updates),
           );
         }),
       );
     },
-    updateViewSources: (
-      viewId: string,
-      updates: Record<string, { expanded?: boolean; hidden?: boolean }>,
-    ) => {
+    updateSources: (updates: Record<string, { expanded?: boolean; hidden?: boolean }>) => {
       set(
         produce((state: AnimationData) => {
-          if (!state.editorViews[viewId]) return;
-
-          state.editorViews[viewId].sourcesByAnimationInstance = mapValues(
-            state.editorViews[viewId].sourcesByAnimationInstance,
+          // Updates global sources, affecting all views
+          state.sourcesByAnimationInstance = mapValues(
+            state.sourcesByAnimationInstance,
             (instanceSources) => computeUpdatedSources(instanceSources, updates),
           );
         }),
@@ -189,36 +184,13 @@ export const AnimationSlice = (
     },
     addView: (view: Partial<View> & { id: string }) => {
       set((state: AnimationData) => {
-        const namespaces = Object.keys(state.namespaces);
-
-        // Generate default sources for all animation instances across all namespaces
-        const sourcesByAnimationInstance: Record<string, Source[]> = {};
-        const sourceRowIds: string[] = [];
-
-        for (const namespace of namespaces) {
-          const animationInstances = Object.values(state.namespaces[namespace].animationInstances);
-          for (const animationInstance of animationInstances) {
-            const sources = computeDefaultSourcesFromInstance(
-              namespace,
-              animationInstance,
-              state.animations,
-              state.animatables,
-              state.tracks,
-            );
-
-            sourcesByAnimationInstance[animationInstance.id] = sources;
-            const sourceRows = computeSourceRowsFromSources(sources);
-            sourceRows.forEach((sourceRow) => sourceRowIds.push(sourceRow.id));
-          }
-        }
-
         const defaultView: View = {
           id: view.id,
           trackRender: view.trackRender ?? TrackRender.Key,
-          sourcesByAnimationInstance,
-          sourceRowIds,
         };
-        return { editorViews: { ...state.editorViews, [view.id]: { ...defaultView, ...view } } };
+        return {
+          editorViews: { ...state.editorViews, [view.id]: { ...defaultView, ...view } },
+        };
       });
     },
     updateView: (viewId: string, view: Partial<View>) => {
@@ -432,8 +404,10 @@ export const AnimationSlice = (
           updateInterpolationResultsOnStampChange,
           updateAllInterpolatorsAndResultsOnDataChange,
           updateInstancedTrackSources,
+          updateGlobalSources,
+          updateSourceRowIds,
           updateComputedRowData,
-          updateViewTrackSources,
+          updateConsolidatedSourceRow,
         ].map((fn) => fn(api, set, get));
       }, 0);
 
