@@ -7,20 +7,18 @@ import { SemanticTime } from "../types";
 import { useAnimationStore } from "../hooks";
 
 export interface SkipButtonProps {
-  viewId: string;
   semanticTime: SemanticTime;
   onMouseEnter?: MouseEventHandler<HTMLButtonElement>;
   onMouseLeave?: MouseEventHandler<HTMLButtonElement>;
 }
 
 export function SkipButton({
-  viewId,
   semanticTime,
   onMouseEnter,
   onMouseLeave,
 }: SkipButtonProps): ReactNode {
   const sourceRow = useAnimationStore(
-    useShallow((state: AnimationData) => state.instancedTrackSources[viewId]),
+    useShallow((state: AnimationData) => state.instancedTrackSources.global),
   );
 
   const [skipToNextKeyframe, skiptToPrevKeyframe, skipToStart, skipToEnd] = useAnimationStore(

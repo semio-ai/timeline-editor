@@ -8,14 +8,12 @@ import { SemanticTime } from "../types";
 import { computeNextTime, computePreviousTime } from "../functions";
 
 export interface TimeDisplayProps {
-  viewId: string;
   semanticTime?: SemanticTime;
   displayMethod?: TimeDisplayMethod;
   valueOverride?: number;
 }
 
 export function InnerTimeDisplay({
-  viewId,
   semanticTime = SemanticTime.Current,
   displayMethod,
   valueOverride,

@@ -368,7 +368,7 @@ function InnerSheet({
 
                 {/* Time Controls - Row 4 */}
                 <div className="pr-2">
-                  <TimeControls viewId={viewId} />
+                  <TimeControls />
                 </div>
 
                 {/* Minimap View - Row 4 */}

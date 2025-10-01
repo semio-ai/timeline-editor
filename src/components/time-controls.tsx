@@ -10,7 +10,7 @@ import { AnimationData } from "../store-types";
 import { TimeDisplay } from "./time-display";
 import { SkipButton } from "./skip-button";
 
-export function TimeControls({ viewId }: { viewId: string }): ReactNode {
+export function TimeControls(): ReactNode {
   const previews = useAnimationStore(useShallow((state: AnimationData) => state.previews));
   const nonHoverPreviews = previews.filter((p) => p.semanticTime !== SemanticTime.Hover);
   const { playPlayer, pausePlayer, running } = usePlayerStore(
@@ -26,7 +26,7 @@ export function TimeControls({ viewId }: { viewId: string }): ReactNode {
       <div
         className={clsx("min-w-16 h-7 rounded-xs grid grid-cols-3 items-center justify-between")}
       >
-        <SkipButton semanticTime={SemanticTime.BoundsStart} viewId={viewId} />
+        <SkipButton semanticTime={SemanticTime.BoundsStart} />
         <Button
           size="fit"
           onClick={() => {
@@ -41,11 +41,10 @@ export function TimeControls({ viewId }: { viewId: string }): ReactNode {
           }
           visuals="inverted"
         />
-        <SkipButton semanticTime={SemanticTime.BoundsEnd} viewId={viewId} />
+        <SkipButton semanticTime={SemanticTime.BoundsEnd} />
       </div>
       <div className="flex flex-1 flex-row items-center">
         <TimeDisplay
-          viewId={viewId}
           valueOverride={
             nonHoverPreviews.length === 1 &&
             [SemanticTime.Backward, SemanticTime.Forward].includes(nonHoverPreviews[0].semanticTime)
