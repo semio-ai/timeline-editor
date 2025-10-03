@@ -43,7 +43,19 @@ export const DataPoint = memo(function DataPoint({
   verticalBounds = { min: -18, max: 18 },
   sourceRow,
 }: DataPointProps) {
-  const sourceCount = sourceRow.data.length;
+  // Get fresh data from store
+  const data = useAnimationStore(
+    useShallow((state) => {
+      const computed = state.computedRowData[sourceRowId];
+      return computed?.virtualFrames.find((f) => f.id === markerId);
+    }),
+  );
+  const { stamp, points } = data ?? {
+    stamp: 0,
+    points: [] as (SourceRowData & { id: string; value: RawValue })[],
+  };
+
+  const sourceCount = points.length;
   const instanceRefFg = useRef<PositionMesh>(null);
   const instanceRefBg = useRef<PositionMesh>(null);
   const lineRef = useRef<THREE.Line>(null);
@@ -56,6 +68,9 @@ export const DataPoint = memo(function DataPoint({
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
   const playing = usePlayerStore(useShallow((state) => state.player.running));
 
+  const selectablePoints: (SourceRowData & { id: string; value: RawValue })[] = points.filter(
+    (d) => d.selectable,
+  );
   // Get tracks for computing fresh frames when needed
   // const tracks = useAnimationStore(useShallow((state) => state.tracks));
 
@@ -77,9 +92,15 @@ export const DataPoint = memo(function DataPoint({
         return state.selectionState.pathSet.has(markerPath);
       }
 
-      // Check if all points are represented in the selection
-      // A marker is selected if all its constituent points are selected
-      for (const point of markerData.points) {
+      // Check if all SELECTABLE points are represented in the selection
+      // A marker is selected if all its selectable points are selected
+      // Non-selectable points are ignored when determining selection state
+      // If there are no selectable points, the marker cannot be selected
+      if (selectablePoints.length === 0) {
+        return false;
+      }
+
+      for (const point of selectablePoints) {
         // Construct the canonical path for this point
         const pointPath = `${point.namespaceId}/${point.instanceId}/${point.trackId}`;
 
@@ -125,11 +146,11 @@ export const DataPoint = memo(function DataPoint({
         }
 
         if (!pointIsSelected) {
-          return false; // At least one point is not selected
+          return false; // At least one selectable point is not selected
         }
       }
 
-      // All points are selected
+      // All selectable points are selected
       return true;
     }),
   );
@@ -145,19 +166,6 @@ export const DataPoint = memo(function DataPoint({
 
   const [isHovered, setIsHovered] = useState(false);
   const altPressed = useAltKeyPressed();
-
-  // Get fresh data from store
-  const data = useAnimationStore(
-    useShallow((state) => {
-      const computed = state.computedRowData[sourceRowId];
-      return computed?.virtualFrames.find((f) => f.id === markerId);
-    }),
-  );
-
-  const { stamp, points } = data ?? {
-    stamp: 0,
-    points: [] as (SourceRowData & { id: string; value: RawValue })[],
-  };
 
   const linearScale = useMemo(() => {
     const buffer = height * 0.4;
@@ -191,7 +199,7 @@ export const DataPoint = memo(function DataPoint({
     }
   }, [initialValue, yPosition, trackRender]);
 
-  const baseColor = useColors(points.map((p) => p.trackId));
+  const baseColor = useColors(selectablePoints.map((p) => p.trackId));
   const baseBackdropColor = useMemo(() => {
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);
   }, [baseColor, theme]);
@@ -347,18 +355,25 @@ export const DataPoint = memo(function DataPoint({
 
         event.stopPropagation();
 
+        // Filter to only selectable points
+        const selectablePoints = points.filter((p) => p.selectable);
+
+        // Create the marker path for reference tracking
+        const markerPath = createMarkerPath(sourceRowId, markerId);
+
         console.log(
           JSON.stringify({
             markerId,
             sourceRowId,
             shiftKey,
             metaKey: metaKey || event.ctrlKey,
-            points,
+            selectablePoints,
+            markerPath,
           }),
         );
 
-        // Use ID-based click marker - no stale data issues
-        clickMarker(markerId, sourceRowId, shiftKey, metaKey || event.ctrlKey);
+        // Use points-based click marker
+        clickMarker(selectablePoints, markerPath, shiftKey, metaKey || event.ctrlKey);
       },
       onDragStart: ({ event }) => {
         if (playing) return;
@@ -371,7 +386,10 @@ export const DataPoint = memo(function DataPoint({
 
         // Auto-select if not already selected
         if (!isSelected) {
-          clickMarker(markerId, sourceRowId, false, false);
+          // Filter to only selectable points
+          const selectablePoints = points.filter((p) => p.selectable !== false);
+          const markerPath = createMarkerPath(sourceRowId, markerId);
+          clickMarker(selectablePoints, markerPath, false, false);
         }
 
         // Start dragging with current selection

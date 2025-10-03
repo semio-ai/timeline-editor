@@ -1,82 +1,80 @@
 import { AnimationData } from "../store-types";
+import { SourceRowData } from "../types";
 import {
   parseMarkerPath,
   createMarkerPath,
   updateSelectionState,
-  getSelectionUnit,
   getRangeSelection,
   addToSelection,
   removeFromSelection,
-  isUnitFullySelected,
-  filterSelectionByInstance,
   createEmptySelectionState,
+  filterSelectionByInstance,
 } from "../functions/selection-state-manager";
-import { getMarkerById, getMarkerInstanceId } from "../functions/marker-utils";
 
 /**
- * Handles clicking on a marker using the new path-based selection system
+ * Handles clicking on a marker using the points-based selection system
  * Supports group selection, timeline selection, and instance switching
  *
  * @param state - The animation data state
- * @param markerId - The ID of the clicked marker
- * @param sourceRowId - The ID of the source row
+ * @param clickedPoints - The actual points that were clicked (pre-filtered for selectable)
+ * @param markerPath - The full marker path for reference tracking
  * @param shift - Whether shift key is pressed (range selection)
  * @param mod - Whether modifier key is pressed (multi-select)
  * @returns Updated state with new selection
  */
 export function clickMarkerAction(
   state: AnimationData,
-  markerId: string,
-  sourceRowId: string,
+  clickedPoints: (SourceRowData & { id: string })[],
+  markerPath: string,
   shift?: boolean,
   mod?: boolean,
 ): Partial<AnimationData> {
-  // Look up fresh data using IDs
-  const sourceRow = state.instancedTrackSources[sourceRowId];
-  const computedData = state.computedRowData[sourceRowId];
-  const markerInfo = computedData?.virtualFrames.find((f) => f.id === markerId);
+  // Extract instance IDs from clicked points
+  const clickedInstances = new Set(
+    clickedPoints.filter((p) => p.instanceId).map((p) => p.instanceId),
+  );
 
-  if (!markerInfo || !sourceRow) return {};
-
-  // Create the clicked marker path
-  const clickedPath = createMarkerPath(sourceRowId, markerId);
-
-  // Extract instance ID from marker's points
-  const clickedInstanceId = getMarkerInstanceId(markerInfo);
+  // Determine the target instance
+  let clickedInstanceId: string | undefined;
+  if (clickedInstances.size === 1) {
+    clickedInstanceId = [...clickedInstances][0];
+  } else if (clickedInstances.size > 1) {
+    // Multiple instances in clicked points - use active or first
+    clickedInstanceId = state.activeAnimationInstance || [...clickedInstances][0];
+  } else {
+    // No instance info (shouldn't happen with proper points)
+    clickedInstanceId = state.activeAnimationInstance;
+  }
 
   // Initialize selection state if it doesn't exist
   const currentSelectionState = state.selectionState || createEmptySelectionState();
 
-  console.log("[clickMarkerAction] Instance info", {
-    clickedInstanceId,
-    currentActiveInstance: state.activeAnimationInstance,
-    willSwitch:
-      state.activeAnimationInstance && clickedInstanceId !== state.activeAnimationInstance,
-    needsInit: !state.activeAnimationInstance,
-  });
-
   // Check if switching animation instances
   if (state.activeAnimationInstance && clickedInstanceId !== state.activeAnimationInstance) {
     // Different instance - clear selection and switch
+    // Find all paths that contain the clicked points for the new instance
+    const instancePoints = clickedPoints.filter((p) => p.instanceId === clickedInstanceId);
+    const selectionPaths = findPathsContainingPoints(state, instancePoints);
+
     return {
       activeAnimationInstance: clickedInstanceId,
-      selectionState: updateSelectionState(state, [clickedPath], clickedPath),
+      selectionState: updateSelectionState(state, selectionPaths, markerPath),
     };
   }
 
   // If no active instance is set, we need to set it
   const needsInstanceUpdate = !state.activeAnimationInstance;
 
-  // Get the selection unit for this click
-  const selectionUnit = getSelectionUnit(state, sourceRowId, markerId);
+  // Find all paths that contain the clicked points
+  const selectionUnit = findPathsContainingPoints(state, clickedPoints);
 
   // Handle modifier keys
   if (mod && !shift) {
     // Ctrl/Cmd click - toggle selection
-    const unitFullySelected = isUnitFullySelected(currentSelectionState, selectionUnit);
+    const allSelected = selectionUnit.every((path) => currentSelectionState.pathSet.has(path));
 
     let newPaths: string[];
-    if (unitFullySelected) {
+    if (allSelected) {
       // Remove the entire unit from selection
       newPaths = removeFromSelection(currentSelectionState, selectionUnit);
     } else {
@@ -95,16 +93,10 @@ export function clickMarkerAction(
 
   if (shift && currentSelectionState.referenceMarker) {
     // Shift click - range selection
-    const rangePaths = getRangeSelection(state, currentSelectionState.referenceMarker, clickedPath);
-
-    // Check if we're in add mode (previous action was ctrl-click)
-    const referenceInfo = currentSelectionState.markerInfo.get(
-      currentSelectionState.referenceMarker,
-    );
-    const isAddMode = referenceInfo?.value === true; // You might store this differently
+    const rangePaths = getRangeSelection(state, currentSelectionState.referenceMarker, markerPath);
 
     let newPaths: string[];
-    if (isAddMode) {
+    if (mod) {
       // Add range to existing selection
       newPaths = addToSelection(currentSelectionState, rangePaths);
     } else {
@@ -112,49 +104,14 @@ export function clickMarkerAction(
       newPaths = rangePaths;
     }
 
-    // Filter to active instance only
-    const instanceFilteredPaths = newPaths.filter((path) => {
-      const parsed = parseMarkerPath(path);
-      return parsed.instanceId === state.activeAnimationInstance;
-    });
-
     return {
-      selectionState: updateSelectionState(
-        state,
-        instanceFilteredPaths,
-        currentSelectionState.referenceMarker,
-      ),
+      selectionState: updateSelectionState(state, newPaths, currentSelectionState.referenceMarker),
     };
   }
 
   // Simple click - replace selection with unit
-  // Filter to active instance only
-  const activeInstance = state.activeAnimationInstance || clickedInstanceId;
-  console.log("[clickMarkerAction] Before instance filtering", {
-    selectionUnit,
-    activeInstance,
-    stateActiveInstance: state.activeAnimationInstance,
-    clickedInstanceId,
-  });
-  const instanceFilteredUnit = selectionUnit.filter((path) => {
-    const parsed = parseMarkerPath(path);
-    const matches = parsed.instanceId === activeInstance;
-    console.log("[clickMarkerAction] Filter check", {
-      path,
-      parsedInstanceId: parsed.instanceId,
-      activeInstance,
-      matches,
-    });
-    return matches;
-  });
-  console.log("[clickMarkerAction] After instance filtering", {
-    instanceFilteredUnit,
-    originalCount: selectionUnit.length,
-    filteredCount: instanceFilteredUnit.length,
-  });
-
   const result: Partial<AnimationData> = {
-    selectionState: updateSelectionState(state, instanceFilteredUnit, clickedPath),
+    selectionState: updateSelectionState(state, selectionUnit, markerPath),
   };
 
   // Set the active instance if it wasn't set
@@ -166,66 +123,44 @@ export function clickMarkerAction(
 }
 
 /**
- * Handles timeline selection where all markers at a given timestamp are selected
- * Only selects markers from the active animation instance
+ * Find all marker paths that contain the specified points
+ * This replaces the old getSelectionUnit function with a points-based approach
  */
-function handleTimelineSelection(
+function findPathsContainingPoints(
   state: AnimationData,
-  markerId: string,
-  sourceRowId: string,
-  mod: boolean,
-): Partial<AnimationData> {
-  const markerInfo = state.computedRowData[sourceRowId]?.virtualFrames.find(
-    (f) => f.id === markerId,
-  );
-  if (!markerInfo) return {};
+  targetPoints: (SourceRowData & { id: string })[],
+): string[] {
+  const paths: string[] = [];
 
-  const currentSelectionState = state.selectionState || createEmptySelectionState();
-  const activeInstance = state.activeAnimationInstance;
-  if (!activeInstance) return {};
+  // Create point signatures for efficient matching
+  const targetSignatures = new Set(targetPoints.map((p) => createPointSignature(p)));
 
-  // Get all markers at this timestamp
-  const allPathsAtStamp: string[] = [];
+  // Search all computed row data
+  for (const [rowPath, rowData] of Object.entries(state.computedRowData || {})) {
+    for (const frame of rowData.virtualFrames || []) {
+      if (!frame.points || frame.points.length === 0) continue;
 
-  for (const [rowPath, rowData] of Object.entries(state.computedRowData)) {
-    // Check if this row belongs to the active instance
-    const pathParts = rowPath.split("/");
-    if (pathParts.length >= 2 && pathParts[1] === activeInstance) {
-      // Find markers at the same stamp
-      const markersAtStamp =
-        rowData.virtualFrames?.filter((f) => f.stamp === markerInfo.stamp) || [];
-      for (const marker of markersAtStamp) {
-        allPathsAtStamp.push(createMarkerPath(rowPath, marker.id));
+      // Check if this frame contains ANY of our target points
+      const hasTargetPoint = frame.points.some((p) =>
+        targetSignatures.has(createPointSignature(p)),
+      );
+
+      if (hasTargetPoint) {
+        paths.push(createMarkerPath(rowPath, frame.id));
       }
     }
   }
 
-  if (mod) {
-    // Check if all markers at this stamp are selected
-    const allSelected = allPathsAtStamp.every((path) => currentSelectionState.pathSet.has(path));
+  return paths;
+}
 
-    let newPaths: string[];
-    if (allSelected) {
-      // Remove all markers at this stamp
-      newPaths = removeFromSelection(currentSelectionState, allPathsAtStamp);
-    } else {
-      // Add all markers at this stamp
-      newPaths = addToSelection(currentSelectionState, allPathsAtStamp);
-    }
-
-    return {
-      selectionState: updateSelectionState(state, newPaths, currentSelectionState.referenceMarker),
-    };
-  } else {
-    // Simple click - select all at this stamp
-    return {
-      selectionState: updateSelectionState(
-        state,
-        allPathsAtStamp,
-        createMarkerPath(sourceRowId, markerId),
-      ),
-    };
-  }
+/**
+ * Create a unique signature for a point for matching
+ */
+function createPointSignature(point: SourceRowData & { id?: string }): string {
+  // Use the point's id field if available (from marker data), otherwise fall back to animatableId
+  const pointId = "id" in point && point.id ? point.id : point.animatableId;
+  return `${point.namespaceId}/${point.instanceId}/${point.trackId}/${point.attribute || ""}#${pointId}`;
 }
 
 /**
@@ -304,32 +239,4 @@ export function invertSelectionAction(state: AnimationData): Partial<AnimationDa
   return {
     selectionState: updateSelectionState(state, newPaths),
   };
-}
-
-/**
- * Helper to check if this is a timeline row
- */
-function isTimelineRow(sourceRowId: string, sourceRow: any): boolean {
-  return sourceRowId === "timeline" || sourceRow?.id === "timeline";
-}
-
-/**
- * Main entry point that decides whether to use timeline selection or regular selection
- */
-export function clickMarkerWithTimelineSupport(
-  state: AnimationData,
-  markerId: string,
-  sourceRowId: string,
-  shift?: boolean,
-  mod?: boolean,
-): Partial<AnimationData> {
-  const sourceRow = state.instancedTrackSources[sourceRowId];
-
-  // Check if this is the timeline
-  if (isTimelineRow(sourceRowId, sourceRow)) {
-    return handleTimelineSelection(state, markerId, sourceRowId, mod || false);
-  }
-
-  // Use regular click handler
-  return clickMarkerAction(state, markerId, sourceRowId, shift, mod);
 }

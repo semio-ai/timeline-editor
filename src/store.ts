@@ -11,6 +11,7 @@ import {
   SemanticTime,
   Preview,
   SourceRow,
+  SourceRowData,
   TrackRender,
   Namespace,
 } from "./types";
@@ -427,15 +428,19 @@ export const AnimationSlice = (
      * 4. Shift-click on a marker when that track does not have the reference acts like ctrl-click, except that it doesn't toggle off (only adds if not added) and sets the reference to that marker.
      * 5. If ctrl-click toggles off the reference point, a new reference point must be selected (via shift-click or ctrl-click) before any shift-spanning selection can happen.
      *
-     * @param markerInfo - The marker that was clicked
-     * @param sources - The sources for the clicked marker's track
-     * @param allMarkerInfo - All markers in the track (used for range selection)
+     * @param clickedPoints - The actual points that were clicked (pre-filtered for selectable)
+     * @param markerPath - The full marker path for reference tracking (sourceRowId#markerId)
      * @param shift - Whether shift key is held
      * @param mod - Whether mod key (Cmd on Mac, Ctrl on PC) is held
      */
-    clickMarker: (markerId: string, sourceRowId: string, shift?: boolean, mod?: boolean) => {
+    clickMarker: (
+      clickedPoints: (SourceRowData & { id: string })[],
+      markerPath: string,
+      shift?: boolean,
+      mod?: boolean,
+    ) => {
       set((state: AnimationData) => {
-        const result = clickMarkerAction(state, markerId, sourceRowId, shift, mod);
+        const result = clickMarkerAction(state, clickedPoints, markerPath, shift, mod);
         return {
           ...state,
           ...result,

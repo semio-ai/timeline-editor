@@ -12,6 +12,7 @@ import type {
   Source,
   DragState,
   SourceRow,
+  SourceRowData,
   View,
   ComputedRowData,
   Namespace,
@@ -138,14 +139,19 @@ export interface AnimationData {
  */
 export interface AnimationActions {
   /**
-   * Click a marker - ID-based with automatic instance handling
-   * @param markerId - The ID of the clicked marker.
-   * @param sourceRowId - The ID of the source row containing the marker.
+   * Click a marker - Points-based with automatic instance handling
+   * @param clickedPoints - The actual points data that were clicked (pre-filtered for selectable)
+   * @param markerPath - The full marker path for reference tracking (sourceRowId#markerId)
    * @param shift - Whether the shift key is pressed.
    * @param mod - Whether a modifier key (ctrl/cmd) is pressed.
    * @returns
    */
-  clickMarker: (markerId: string, sourceRowId: string, shift?: boolean, mod?: boolean) => void;
+  clickMarker: (
+    clickedPoints: (SourceRowData & { id: string })[],
+    markerPath: string,
+    shift?: boolean,
+    mod?: boolean,
+  ) => void;
   /**
    *
    */
