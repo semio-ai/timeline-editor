@@ -9,7 +9,6 @@ import type {
   Violation,
   StoredAnimation,
   Preview,
-  InstancedFrameInfo,
   Source,
   DragState,
   SourceRow,

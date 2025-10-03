@@ -1,7 +1,6 @@
-import type { AnimationData } from "../store-types";
-import type { Track, Keypoint, Animation, Namespace } from "../types";
 import { RawValue, AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
+import type { Track, Animation, Namespace } from "../types";
 import { createAnimationStore, type AnimationStore } from "../store";
 
 // Animation IDs
@@ -258,7 +257,7 @@ function createTracks(): Record<string, Track<RawValue>> {
       animatableId: ANIMATABLE_IDS.OPACITY,
       points: [
         { id: "o0", stamp: 0, value: 0 },
-        { id: "o1", stamp: 0.3, value: 1 },
+        { id: "o1", stamp: 0.15, value: 1 },
         { id: "o2", stamp: 0.6, value: 1 },
         { id: "o3", stamp: 1, value: 0 },
       ],

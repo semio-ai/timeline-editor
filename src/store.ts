@@ -10,8 +10,6 @@ import {
   StoredAnimation,
   SemanticTime,
   Preview,
-  InstancedFrameInfo,
-  Source,
   SourceRow,
   TrackRender,
   Namespace,
@@ -36,12 +34,7 @@ import {
   createDefaultAnimation,
   updateControlColor,
 } from "./actions";
-import {
-  clickMarkerAction,
-  clearSelectionAction,
-  selectAllAction,
-  invertSelectionAction,
-} from "./actions/click-marker";
+import { clickMarkerAction } from "./actions/click-marker";
 import { createEmptySelectionState } from "./functions/selection-state-manager";
 import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
 import {
