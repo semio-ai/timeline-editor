@@ -67,8 +67,8 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
       if (running) {
         setInstancedFrame(undefined);
       } else {
-        const f = computedRowData.virtualFrames.find((s) => s.stamp === stamp);
-        setInstancedFrame(f);
+        const f = computedRowData?.virtualFrames?.find((s) => s.stamp === stamp);
+        setInstancedFrame(f ?? undefined);
       }
     },
     shallow,

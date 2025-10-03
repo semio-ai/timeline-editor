@@ -221,7 +221,7 @@ function InnerSheet({
     [viewId, updateView],
   );
 
-  const getAnimationsToSave = useAnimationStore(useShallow((state) => state.getAnimationsToSave));
+  const state = useAnimationStore((s) => s);
 
   const scrollY = useMotionValue(0);
 
@@ -323,7 +323,7 @@ function InnerSheet({
                     value={popped}
                     onChange={(v) => {
                       setPopped(v);
-                      console.log(JSON.stringify(getAnimationsToSave()[0]));
+                      console.log(JSON.stringify(state));
                     }}
                     label="Pop Out"
                     // disabled

@@ -9,3 +9,15 @@ export { TrackRender } from "./track-render";
 export type { Source, SourceGroup, SourceTrack, SourceRow, SourceRowData } from "./source";
 export type { View } from "./view";
 export type { ViolationSet, ViolationSegment } from "./violation-set";
+export type {
+  SelectionState,
+  RowSelectionState,
+  MarkerMetadata,
+  ParsedMarkerPath,
+  PathEntity,
+  SelectionUnit,
+  SelectionOperationResult,
+  SelectionRange,
+  MarkerExistence,
+} from "./selection-state";
+export { EntityType } from "./selection-state";

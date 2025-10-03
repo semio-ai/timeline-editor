@@ -40,10 +40,11 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
       <meshBasicMaterial toneMapped={false} />
 
       {/* Individual instances */}
-      {frames.map((data) => (
+      {frames.map((frame) => (
         <DataPoint
-          key={data.id}
-          data={data}
+          key={frame.id}
+          markerId={frame.id}
+          sourceRowId={sourceRow.id}
           sourceRow={sourceRow}
           theme={theme}
           trackRender={trackRender}

@@ -67,6 +67,7 @@ export function updateAllInterpolatorsAndResultsOnDataChange(
           isEqual(current.subscribes.length, previous.subscribes.length)
         );
       },
+      fireImmediately: true,
     },
   );
 }

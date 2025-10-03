@@ -43,6 +43,6 @@ export function updateInterpolationResultsOnStampChange(
       updateValues(result);
       updateVelocities(velocities);
     },
-    { equalityFn: shallow },
+    { equalityFn: shallow, fireImmediately: true },
   );
 }

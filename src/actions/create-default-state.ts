@@ -1,5 +1,6 @@
 import { TimeDisplay } from "@semio/ui";
 import { AnimationData } from "../store-types";
+import { createEmptySelectionState } from "../functions/selection-state-manager";
 // import { createDefaultAnimation } from "./create-default-animation";
 
 /**
@@ -29,8 +30,7 @@ export const createDefaultState = (): AnimationData => {
     timeDisplay: TimeDisplay.Frames,
     playerInterval: undefined,
     previews: [],
-    selection: [],
-    referenceMarker: null,
+    selectionState: createEmptySelectionState(),
     preferences: {
       hoverDashedLine: false,
       dataPreviews: true,

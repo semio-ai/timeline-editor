@@ -47,6 +47,7 @@ export function updateComputedRowData(
           shallow(a.animatables, b.animatables)
         );
       },
+      fireImmediately: true,
     },
   );
 }

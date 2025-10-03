@@ -4,29 +4,23 @@ import { useGesture } from "@use-gesture/react";
 import { useThree } from "@react-three/fiber";
 import { Instance, Line, PositionMesh, useCursor } from "@react-three/drei";
 import * as THREE from "three";
-import { usePlayerStore } from "@semio/utils";
+import { RawValue, usePlayerStore } from "@semio/utils";
 import { Theme } from "@semio/ui";
 import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
 import { clamp } from "lodash";
-import { InstancedFrameInfo, SourceRow, TrackRender } from "../../types";
+import { SourceRow, SourceRowData, TrackRender } from "../../types";
 import { useAnimationStore, useColors, useInvariantScale, useAltKeyPressed } from "../../hooks";
-import {
-  compareInstancedFrames,
-  compareInstancedFramesIgnoringStamp,
-  computeOklabMix,
-  createLinearScale,
-  FrameComparison,
-} from "../../functions";
+import { computeOklabMix, createLinearScale } from "../../functions";
+import { createMarkerPath } from "../../functions/selection-state-manager";
 
 const BG_MULTIPLIER = 1.2;
 
 export interface DataPointProps {
   height?: number;
-  // WARNING: This data prop can become stale after drag operations
-  // The stamp value may not reflect the actual position after dragging
-  // This is a known issue that will be resolved in Phase 2+ refactoring
-  // See: docs/dragging-architecture-proposal.md
-  data: InstancedFrameInfo;
+  // ID-based props for data lookup - eliminates stale data issues
+  markerId: string;
+  sourceRowId: string;
+  // Visual props only
   theme?: Theme.Dark | Theme.Light;
   trackRender?: TrackRender;
   verticalBounds?: { min: number; max: number };
@@ -41,7 +35,8 @@ export interface DataPointProps {
 // subscribe directly to computed store state rather than receiving props.
 // See: docs/phase2-preparation.md for migration details
 export const DataPoint = memo(function DataPoint({
-  data,
+  markerId,
+  sourceRowId,
   theme = Theme.Light,
   trackRender = TrackRender.Key,
   height = 36,
@@ -54,8 +49,8 @@ export const DataPoint = memo(function DataPoint({
   const lineRef = useRef<THREE.Line>(null);
   const groupRef = useRef<THREE.Group>(null);
 
-  // const clickMarker = useAnimationStore(useShallow((state) => state.clickMarker));
-  // const startDragging = useAnimationStore(useShallow((state) => state.startDragging));
+  const clickMarker = useAnimationStore(useShallow((state) => state.clickMarker));
+  const startDragging = useAnimationStore(useShallow((state) => state.startDragging));
   const updateDragDelta = useAnimationStore(useShallow((state) => state.updateDragDelta));
   const commitDrag = useAnimationStore(useShallow((state) => state.commitDrag));
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
@@ -72,34 +67,97 @@ export const DataPoint = memo(function DataPoint({
 
   const isSelected = useAnimationStore(
     useShallow((state) => {
-      // Use stamp-ignoring comparison during drag to maintain selection visual
-      const compareFunc = state.dragState?.isDragging
-        ? compareInstancedFramesIgnoringStamp
-        : compareInstancedFrames;
+      // Get the marker's data
+      const computed = state.computedRowData[sourceRowId];
+      const markerData = computed?.virtualFrames.find((f) => f.id === markerId);
 
-      const comparisons: FrameComparison[] = state.selection.map((s) => compareFunc(s, data));
-      return (
-        comparisons.includes(FrameComparison.Equal) ||
-        comparisons.includes(FrameComparison.Superset)
-      );
+      if (!markerData?.points || markerData.points.length === 0) {
+        // No points data, fall back to direct path check
+        const markerPath = createMarkerPath(sourceRowId, markerId);
+        return state.selectionState.pathSet.has(markerPath);
+      }
+
+      // Check if all points are represented in the selection
+      // A marker is selected if all its constituent points are selected
+      for (const point of markerData.points) {
+        // Construct the canonical path for this point
+        const pointPath = `${point.namespaceId}/${point.instanceId}/${point.trackId}`;
+
+        // Check if this specific point is selected anywhere
+        let pointIsSelected = false;
+
+        if (point.attribute) {
+          // For attributes, check both the attribute path and parent path (fuzzy matching)
+          const attrPath = `${pointPath}/${point.attribute}`;
+          const attrMarkerPath = createMarkerPath(attrPath, point.id);
+
+          // Check direct attribute selection
+          if (state.selectionState.pathSet.has(attrMarkerPath)) {
+            pointIsSelected = true;
+          } else {
+            // Check if parent group includes this point
+            // Look for any selected marker in the parent path that contains this point
+            for (const selectedPath of state.selectionState.pathSet) {
+              if (selectedPath.startsWith(`${pointPath}#`)) {
+                const [, selectedMarkerId] = selectedPath.split("#");
+                const parentData = state.computedRowData[pointPath];
+                const parentMarker = parentData?.virtualFrames.find(
+                  (f) => f.id === selectedMarkerId,
+                );
+                if (
+                  parentMarker?.points?.some(
+                    (p) =>
+                      p.id === point.id &&
+                      p.attribute === point.attribute &&
+                      p.trackId === point.trackId,
+                  )
+                ) {
+                  pointIsSelected = true;
+                  break;
+                }
+              }
+            }
+          }
+        } else {
+          // For non-attribute points, just check the direct path
+          const pointMarkerPath = createMarkerPath(pointPath, point.id);
+          pointIsSelected = state.selectionState.pathSet.has(pointMarkerPath);
+        }
+
+        if (!pointIsSelected) {
+          return false; // At least one point is not selected
+        }
+      }
+
+      // All points are selected
+      return true;
     }),
   );
 
   const isReference = useAnimationStore(
     useShallow((state) => {
-      if (!state.referenceMarker) return false;
-      // Use stamp-ignoring comparison during drag to maintain reference visual
-      const compareFunc = state.dragState?.isDragging
-        ? compareInstancedFramesIgnoringStamp
-        : compareInstancedFrames;
-      return compareFunc(state.referenceMarker.marker, data) === FrameComparison.Equal;
+      if (!state.selectionState.referenceMarker) return false;
+      // Path-based reference check
+      const markerPath = createMarkerPath(sourceRowId, markerId);
+      return state.selectionState.referenceMarker === markerPath;
     }),
   );
 
   const [isHovered, setIsHovered] = useState(false);
   const altPressed = useAltKeyPressed();
 
-  const { stamp, points } = data;
+  // Get fresh data from store
+  const data = useAnimationStore(
+    useShallow((state) => {
+      const computed = state.computedRowData[sourceRowId];
+      return computed?.virtualFrames.find((f) => f.id === markerId);
+    }),
+  );
+
+  const { stamp, points } = data ?? {
+    stamp: 0,
+    points: [] as (SourceRowData & { id: string; value: RawValue })[],
+  };
 
   const linearScale = useMemo(() => {
     const buffer = height * 0.4;
@@ -109,12 +167,12 @@ export const DataPoint = memo(function DataPoint({
   const rawInitial: number = useMemo(() => {
     if (sourceCount !== 1) return 0;
     if (sourceRow.data[0].type !== "number") return 0;
-    if (data.points.length !== 1) return 0;
-    const point = data.points[0];
+    if (points.length !== 1) return 0;
+    const point = points[0];
     if (typeof point.value !== "number") return 0;
 
     return point.value;
-  }, [sourceCount, sourceRow, data]);
+  }, [sourceCount, sourceRow, points]);
 
   const initialValue = linearScale(rawInitial);
 
@@ -284,66 +342,42 @@ export const DataPoint = memo(function DataPoint({
       onHover: ({ hovering }) => {
         setIsHovered(hovering ?? false);
       },
-      // onClick: ({ event, shiftKey, metaKey, dragging }) => {
-      //   if (playing) return;
+      onClick: ({ event, shiftKey, metaKey }) => {
+        if (playing || justFinishedDragging.current) return;
 
-      //   // Ignore clicks that are part of a drag gesture
-      //   if (dragging) return;
+        event.stopPropagation();
 
-      //   // Ignore clicks immediately after drag to maintain selection
-      //   if (justFinishedDragging.current) {
-      //     justFinishedDragging.current = false;
-      //     return;
-      //   }
+        console.log(
+          JSON.stringify({
+            markerId,
+            sourceRowId,
+            shiftKey,
+            metaKey: metaKey || event.ctrlKey,
+            points,
+          }),
+        );
 
-      //   event.stopPropagation();
+        // Use ID-based click marker - no stale data issues
+        clickMarker(markerId, sourceRowId, shiftKey, metaKey || event.ctrlKey);
+      },
+      onDragStart: ({ event }) => {
+        if (playing) return;
 
-      //   // WORKAROUND for stale props issue:
-      //   // Compute fresh frames to ensure we have the latest data after any drag operations
-      //   // This prevents issues where allData might be stale after dragging
-      //   const freshFrames = computeFrames(tracks);
+        event?.stopPropagation();
 
-      //   // Find the actual frame that matches this data point's current position
-      //   // This is crucial after dragging as the data prop might have stale stamp values
-      //   // BUG: Despite this workaround, the last selected marker in a multi-selection
-      //   // drag may still not be selectable due to the component's stale data prop
-      //   // This will be fixed in Phase 2+ refactoring - see docs/dragging-architecture-proposal.md
-      //   const currentFrame = freshFrames.find((f) =>
-      //     f.points.some((p) => data.points.some((dp) => dp.id === p.id)),
-      //   );
+        // Get initial position
+        const initialPosition = getTimelinePositionFromEvent(event);
+        initialDragPosition.current = initialPosition;
 
-      //   if (!currentFrame) {
-      //     console.warn(`Could not find frame for data point ${data.id}`);
-      //     return;
-      //   }
+        // Auto-select if not already selected
+        if (!isSelected) {
+          clickMarker(markerId, sourceRowId, false, false);
+        }
 
-      //   // Create a frame with only the clicked marker's points, using the current timestamp
-      //   // This prevents selecting all markers at the same timestamp after dragging
-      //   const clickedMarkerFrame = {
-      //     ...currentFrame,
-      //     points: currentFrame.points.filter((p) => data.points.some((dp) => dp.id === p.id)),
-      //   };
+        // Start dragging with current selection
+        startDragging();
+      },
 
-      //   // Handle multi-select with shift and cmd/ctrl keys
-      //   clickMarker(clickedMarkerFrame, sources, freshFrames, shiftKey, metaKey || event.ctrlKey);
-      // },
-      // onDragStart: ({ event }) => {
-      //   if (playing) return;
-
-      //   event?.stopPropagation();
-
-      //   // Get initial position
-      //   const initialPosition = getTimelinePositionFromEvent(event);
-      //   initialDragPosition.current = initialPosition;
-
-      //   // Auto-select if not already selected
-      //   if (!isSelected) {
-      //     clickMarker(data, sources, allData, false, false);
-      //   }
-
-      //   // Start dragging with current selection
-      //   startDragging();
-      // },
       onDrag: ({ movement: [mx], first, event, altKey }) => {
         if (playing || first) return;
 
@@ -391,6 +425,9 @@ export const DataPoint = memo(function DataPoint({
       eventOptions: { passive: false },
     },
   );
+
+  // Early return if data not found
+  if (!data) return null;
 
   return (
     <group ref={groupRef as any}>

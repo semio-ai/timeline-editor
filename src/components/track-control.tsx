@@ -37,10 +37,10 @@ export function TrackControl({
   usePlayerSubscription(
     (state) => ({ running: state.player.running, stamp: state.player.stamp }),
     ({ running, stamp }) => {
-      if (running) {
+      if (running || computedData === undefined) {
         setPrevKeyframeTime(undefined);
         setNextKeyframeTime(undefined);
-      } else {
+      } else if (computedData) {
         const prev = computePreviousTime(computedData.virtualFrames, stamp, bounds, true);
         const next = computeNextTime(computedData.virtualFrames, stamp, bounds, true);
         setPrevKeyframeTime(prev);

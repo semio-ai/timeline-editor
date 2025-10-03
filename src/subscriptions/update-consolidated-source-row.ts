@@ -51,6 +51,7 @@ export function updateConsolidatedSourceRow(
           a.activeAnimationInstance === b.activeAnimationInstance
         );
       },
+      fireImmediately: true,
     },
   );
 }

@@ -35,6 +35,7 @@ export function updateSourceRowIds(
       equalityFn: (current, previous) => {
         return shallow(current.sourcesByAnimationInstance, previous.sourcesByAnimationInstance);
       },
+      fireImmediately: true,
     },
   );
 }

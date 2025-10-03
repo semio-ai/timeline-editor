@@ -17,6 +17,7 @@ import type {
   ComputedRowData,
   Namespace,
 } from "./types";
+import type { SelectionState } from "./types/util/selection-state";
 
 /**
  * Interface representing the data structure for animation.
@@ -72,19 +73,11 @@ export interface AnimationData {
    * Previews for parts of the animation other than the current time.
    */
   previews: Preview[];
-  /**
-   * Selection Data
-   */
-  selection: InstancedFrameInfo[];
 
   /**
-   * Reference marker for shift-click range selection
+   * Path-based selection state
    */
-  referenceMarker: {
-    marker: InstancedFrameInfo;
-    sources: Source[];
-    isAddMode?: boolean;
-  } | null;
+  selectionState: SelectionState;
 
   /**
    * Some configurable preferences.
@@ -146,21 +139,14 @@ export interface AnimationData {
  */
 export interface AnimationActions {
   /**
-   * Click a marker
-   * @param markerInfo - The marker's InstancedFrameInfo.
-   * @param sources - The sources for the clicked marker's track.
-   * @param allTrackInfo - All markers in the track.
+   * Click a marker - ID-based with automatic instance handling
+   * @param markerId - The ID of the clicked marker.
+   * @param sourceRowId - The ID of the source row containing the marker.
    * @param shift - Whether the shift key is pressed.
    * @param mod - Whether a modifier key (ctrl/cmd) is pressed.
    * @returns
    */
-  clickMarker: (
-    markerInfo: InstancedFrameInfo,
-    sources: Source[],
-    allTrackInfo: InstancedFrameInfo[],
-    shift?: boolean,
-    mod?: boolean,
-  ) => void;
+  clickMarker: (markerId: string, sourceRowId: string, shift?: boolean, mod?: boolean) => void;
   /**
    *
    */
@@ -406,10 +392,10 @@ export interface AnimationActions {
   updateAnimationDuration: (animationId: string, duration: number, rescale: boolean) => void;
 
   /**
-   * Start a drag operation with the current selection or provided selection.
-   * @param selection - Optional selection to drag, defaults to current selection
+   * Start a drag operation with the current selection or provided marker IDs.
+   * @param markerIds - Optional array of marker IDs to drag, defaults to current selection
    */
-  startDragging: (selection?: InstancedFrameInfo[]) => void;
+  startDragging: (markerIds?: string[]) => void;
 
   /**
    * Update the drag delta during a drag operation.

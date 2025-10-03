@@ -25,6 +25,6 @@ export function updatePlayerLoop(
         set({ playerInterval: newInterval });
       }
     },
-    { equalityFn: shallow },
+    { equalityFn: shallow, fireImmediately: true },
   );
 }

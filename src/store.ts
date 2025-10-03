@@ -36,7 +36,14 @@ import {
   createDefaultAnimation,
   updateControlColor,
 } from "./actions";
-// import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
+import {
+  clickMarkerAction,
+  clearSelectionAction,
+  selectAllAction,
+  invertSelectionAction,
+} from "./actions/click-marker";
+import { createEmptySelectionState } from "./functions/selection-state-manager";
+import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
 import {
   computeStoredAnimation,
   computeNextTime,
@@ -433,31 +440,19 @@ export const AnimationSlice = (
      * @param shift - Whether shift key is held
      * @param mod - Whether mod key (Cmd on Mac, Ctrl on PC) is held
      */
-    clickMarker: (
-      markerInfo: InstancedFrameInfo,
-      sources: Source[],
-      allMarkerInfo: InstancedFrameInfo[],
-      shift?: boolean,
-      mod?: boolean,
-    ) => {
-      // set((state: AnimationData) => {
-      // const result = computeMarkerSelection(
-      //   markerInfo,
-      //   sources,
-      //   allMarkerInfo,
-      //   state.selection,
-      //   state.referenceMarker,
-      //   shift,
-      //   mod,
-      // );
-      // return {
-      //   selection: result.selection,
-      //   referenceMarker: result.reference,
-      // };
-      // });
+    clickMarker: (markerId: string, sourceRowId: string, shift?: boolean, mod?: boolean) => {
+      set((state: AnimationData) => {
+        const result = clickMarkerAction(state, markerId, sourceRowId, shift, mod);
+        return {
+          ...state,
+          ...result,
+        };
+      });
     },
     clearSelection: () => {
-      set({ selection: [], referenceMarker: null });
+      set({
+        selectionState: createEmptySelectionState(),
+      });
     },
     addPreview: (preview: Preview) => {
       set((state: AnimationData) => ({
@@ -512,34 +507,26 @@ export const AnimationSlice = (
       }));
     },
 
-    // Drag actions for virtual dragging functionality
-    startDragging: (selection?: InstancedFrameInfo[]) => {
-      // set(
-      //   produce((state: AnimationData) => {
-      //     startDragging(state, selection);
-      //   }),
-      // );
+    // Drag actions - ID-based with instance validation
+    startDragging: (markerIds?: string[]) => {
+      const state = get();
+      startDragging(state, markerIds);
+      set(state);
     },
     updateDragDelta: (deltaStamp: number, snapToFrames: boolean) => {
-      // set(
-      //   produce((state: AnimationData) => {
-      //     updateDragDelta(state, deltaStamp, snapToFrames);
-      //   }),
-      // );
+      const state = get();
+      updateDragDelta(state, deltaStamp, snapToFrames);
+      set(state);
     },
     commitDrag: () => {
-      // set(
-      //   produce((state: AnimationData) => {
-      //     commitDrag(state);
-      //   }),
-      // );
+      const state = get();
+      commitDrag(state);
+      set(state);
     },
     cancelDrag: () => {
-      // set(
-      //   produce((state: AnimationData) => {
-      //     cancelDrag(state);
-      //   }),
-      // );
+      const state = get();
+      cancelDrag(state);
+      set(state);
     },
   };
 };

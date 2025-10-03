@@ -141,6 +141,7 @@ export function updateInstancedTrackSources(
           shallow(current.sourcesByAnimationInstance, previous.sourcesByAnimationInstance)
         );
       },
+      fireImmediately: true,
     },
   );
 }

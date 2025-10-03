@@ -23,3 +23,4 @@ export * from "./actions";
 export * from "./utils/context-providers";
 
 export * from "./functions";
+export * from "./test-fixtures";

@@ -71,6 +71,7 @@ export function updateGlobalSources(
           shallow(current.animatables, previous.animatables)
         );
       },
+      fireImmediately: true,
     },
   );
 }
