@@ -8,7 +8,7 @@ import { RawValue, usePlayerStore } from "@semio/utils";
 import { Theme } from "@semio/ui";
 import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
 import { clamp } from "lodash";
-import { SourceRow, SourceRowData, TrackRender } from "../../types";
+import { SourceRowData, TrackRender } from "../../types";
 import { useAnimationStore, useColors, useInvariantScale, useAltKeyPressed } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
 import { createMarkerPath } from "../../functions/selection-state-manager";
@@ -24,7 +24,6 @@ export interface DataPointProps {
   theme?: Theme.Dark | Theme.Light;
   trackRender?: TrackRender;
   verticalBounds?: { min: number; max: number };
-  sourceRow: SourceRow;
 }
 
 // KNOWN ISSUE: After dragging markers, the data prop becomes stale
@@ -41,7 +40,6 @@ export const DataPoint = memo(function DataPoint({
   trackRender = TrackRender.Key,
   height = 36,
   verticalBounds = { min: -18, max: 18 },
-  sourceRow,
 }: DataPointProps) {
   // Get fresh data from store
   const data = useAnimationStore(
@@ -174,13 +172,13 @@ export const DataPoint = memo(function DataPoint({
 
   const rawInitial: number = useMemo(() => {
     if (sourceCount !== 1) return 0;
-    if (sourceRow.data[0].type !== "number") return 0;
+    if (points[0].type !== "number") return 0;
     if (points.length !== 1) return 0;
     const point = points[0];
     if (typeof point.value !== "number") return 0;
 
     return point.value;
-  }, [sourceCount, sourceRow, points]);
+  }, [sourceCount, points]);
 
   const initialValue = linearScale(rawInitial);
 
@@ -355,9 +353,6 @@ export const DataPoint = memo(function DataPoint({
 
         event.stopPropagation();
 
-        // Filter to only selectable points
-        const selectablePoints = points.filter((p) => p.selectable);
-
         // Create the marker path for reference tracking
         const markerPath = createMarkerPath(sourceRowId, markerId);
 
@@ -387,7 +382,6 @@ export const DataPoint = memo(function DataPoint({
         // Auto-select if not already selected
         if (!isSelected) {
           // Filter to only selectable points
-          const selectablePoints = points.filter((p) => p.selectable !== false);
           const markerPath = createMarkerPath(sourceRowId, markerId);
           clickMarker(selectablePoints, markerPath, false, false);
         }

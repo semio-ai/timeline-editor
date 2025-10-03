@@ -45,7 +45,6 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
           key={frame.id}
           markerId={frame.id}
           sourceRowId={sourceRow.id}
-          sourceRow={sourceRow}
           theme={theme}
           trackRender={trackRender}
           height={height}
