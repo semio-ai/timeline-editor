@@ -10,9 +10,9 @@ import {
   NAMESPACE_IDS,
   INSTANCE_IDS,
   TRACK_IDS,
-} from "../test-fixtures/animation-store-factory";
-import type { AnimationStore } from "../store";
-import { createMarkerPath } from "../functions/selection-state-manager";
+} from "../../test-fixtures/animation-store-factory";
+import type { AnimationStore } from "../../store";
+import { createMarkerPath } from "../../functions/selection-state-manager";
 
 describe("Visual Selection: Selectable Points Only", () => {
   let store: AnimationStore;

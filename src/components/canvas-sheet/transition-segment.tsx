@@ -83,7 +83,9 @@ export const TransitionSegment = memo(function TransitionSegment({
   const cp2Y = useSpring(transitionCurve.cp2Y, { stiffness: 300, damping: 30 });
 
   return (
-    <>
+    <group
+      onClick={() => console.log("transition-segment", transitionParams, sourceRow, start, end)}
+    >
       {(trackRender === TrackRender.Preview || trackRender === TrackRender.Transition) &&
         !isEmpty && (
           <MotionCubicBezierFill
@@ -136,6 +138,6 @@ export const TransitionSegment = memo(function TransitionSegment({
         segments={50}
         z={isEmpty ? 0 : 2}
       />
-    </>
+    </group>
   );
 });

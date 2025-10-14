@@ -1,237 +1,179 @@
-# Animation System Documentation Index
-
-## Overview
+# @semio/animation Documentation
+
+`@semio/animation` supplies the shared animation timeline, selection, and gesture system used across Semio surfaces. The package exposes React components (timeline HUD, track controls, playback widgets), the zustand store that powers them, helper actions for manipulating animation data, and a suite of utilities for rendering and validating animated motion.
+
+This document captures the current organization, data structures, and runtime flow of the library. Pair it with the root `AGENTS.md` and `packages/animation/AGENTS.md` when planning new work.
+
+## Package Anatomy
+
+| Path | Purpose | Notes |
+| --- | --- | --- |
+| `src/index.tsx` | Package entry point | Re-exports public components, hooks, store helpers, actions, utilities, and test fixtures. Keep this file authoritative for public API shape. |
+| `src/components/` | React components for the animation sheet, controls, HUD, and visualization widgets | Split into focused sub-folders (`animation-sheet`, `controls`, `canvas-sheet`, etc.). Components consume the zustand store via hooks and context. |
+| `src/actions/` | Pure Immer reducers mutating `AnimationData` | Includes creation/update/removal of animations, tracks, keypoints, color controls, and drag orchestration (`actions/drag/*`). All mutations flow through these helpers. |
+| `src/functions/` | Pure computation helpers and derived data builders | Houses frame interpolation, source-tree management, drag math, virtual frame generation, selection-state helpers, and rendering-specific transforms. |
+| `src/hooks/` | React hooks for interacting with the store, gestures, and rendering primitives | Includes gesture bindings (`use-drag-gestures`, `use-zoom-gestures`), spring helpers, player integration, and selectors (`use-animation-store`). |
+| `src/subscriptions/` | Store subscriptions registered at init | Maintain derived state (interpolators, computed rows, global sources), synchronize with the shared player store, and clean up via unsubscribe handles. |
+| `src/store.ts` | zustand store slice factory | Composes `AnimationData` state with `AnimationActions`, wires Immer-based updates, and bootstraps subscriptions. |
+| `src/store-types.ts` | Canonical types for store state and actions | Documented source of truth for the data model. Update alongside behaviour changes. |
+| `src/types/` | Domain types for animations, sources, views, and drag state | Structured by `data/` and `util/` folders; heavily referenced by consumer apps. |
+| `src/test-fixtures/` | Reusable sample animations/tracks | Use these when adding Vitest coverage or Storybook scenarios. |
+| `src/tests/` | Vitest suites (currently commented while refactors land) | Re-enable/update when functionality becomes active. |
+| `docs/` | Architecture and migration notes | Add supplementary deep dives here; keep this README as the high-level map. Prune/merge supplementary deep dives when no longer relevant or outdated. |
+
+## Core Data Model
+
+The zustand store (`AnimationData` in `store-types.ts`) is the single source of truth. Key fields:
+
+- `values` / `velocities`: `Map<string, RawValue>` keyed by namespace-qualified IDs describing the sampled value/velocity at the current stamp. Updates propagate to the player and consuming apps.
+- `trackInterpolators`: Cache of active interpolators (`TrackInterpolators`) used to sample values and detect violations.
+- `namespaces`: Namespaced animation instances keyed by ID. Encodes instance/group relationships so overlapping tracks do not stomp each other.
+- `animations` / `tracks`: Canonical animation metadata (`StoredAnimation` + `Track<RawValue>`) loaded in the editor. Tracks reference keypoints and interpolator configuration.
+- `selectionState`: Path-based selection record managed via `functions/selection-state-manager.ts`. Replaces the earlier point-array selection.
+- `previews`: Semantic time markers (`Preview`) for scrubbers, hover, etc.
+- `dragState`: Structure describing in-progress virtual drag operations, including original keypoint positions and offsets.
+- `editorViews`: Multi-window configuration (see `types/util/view.ts`) capturing view mode, active source rows, and layout preferences.
+- `sourcesByAnimationInstance` / `instancedTrackSources`: Hierarchical representation of animation data grouped by animation, namespace, and instance.
+- `sourceRowIds` / `computedRowData`: Flattened view model for rendering timeline rows and computing virtual frames.
+- `violations`: Track-level validation results (e.g., interpolation or constraint issues).
+- `preferences`: UI toggles (hover dashed line, data previews) synced with consuming apps.
+- `animatables`: Temporary bridge storing legacy animatable metadata during migration.
+
+Updates to these structures should go through the corresponding actions and pure helpers—avoid direct mutations in components.
+
+## Actions & Mutations
+
+All state changes flow through the `src/actions` layer. Notable groups:
+
+- **Animation lifecycle**: `addAnimation`, `removeAnimation`, `createNewDefaultAnimation`, `setAnimations`, `getStorableAnimation` (with serialization logic in `functions/compute-stored-animation.ts`).
+- **Track & keypoint editing**: `createTrack`, `updateTrack`, `removeTrack`, `createKeypoint`, `updateKeypoint`, `removeKeypoint`, plus batch variants for multi-edit operations. These functions ensure track metadata stays in sync with `animations[...]`.
+- **Selection & gestures**: `clickMarker` coordinates modifier-key behaviour and ties into the selection state. Drag-specific actions (`startDragging`, `updateDragDelta`, `commitDrag`, `cancelDrag`) maintain ID-based selections, update virtual frames, and resample values through helper functions such as `apply-drag-offsets.ts`.
+- **Preferences**: `setPreferences` maintain UI-specific metadata while keeping mutations pure.
+
+Each action assumes Immer-managed drafts—pass the zustand state into the helper instead of mutating directly.
+
+## Derived State & Subscriptions
+
+`initAnimationSubscriptions` registers long-lived observers (see `src/subscriptions`):
+
+- `updatePlayerLoop` and `updateOverallDuration` keep the global player (`@semio/utils`) aligned with sheet bounds and duration changes.
+- `updateAllInterpolatorsAndResultsOnDataChange` and `updateInterpolationResultsOnStampChange` recompute `values`, `velocities`, and `trackInterpolators` as data or playback stamp changes.
+- `updateInstancedTrackSources`, `updateGlobalSources`, `updateSourceRowIds`, `updateConsolidatedSourceRow`, and `updateComputedRowData` build the view model consumed by sheet components and Storybook demos.
 
-This directory contains comprehensive documentation for the animation system's drag and selection functionality, including the Phase 2 refactoring that moved computational logic from components to the store. The documentation reflects both the completed architectural changes and the remaining implementation work needed to enable full functionality.
+Subscriptions return teardown functions; `initAnimationSubscriptions` defers registration with `setTimeout` to avoid cascading updates during initial store creation.
 
-**Current Status**: Store-based architecture is complete. Drag and selection functionality is implemented but temporarily disabled pending ID-based refactoring to eliminate stale data issues.
+## Data Flow Overview
 
-**Estimated Time to Full Functionality**: 4-6 days
+```mermaid
+stateDiagram-v2
+  direction LR
 
-## Document Structure
+  state "Animation" as Animation
+  state "Track<RawValue>" as TrackRaw
+  state "AnimationInstance" as AnimInstance
+  state "AnimatableValue" as AnimValue
+  state "DragState" as DragState
+  state "PlayerData" as PlayerData
 
-### 📊 Status Reports
+  state "Source[]" as SourceArray
+  state "SourceRow" as SourceRow
+  state "SourceRow (global view)" as GlobalSourceRow
 
-#### [`implementation-status.md`](./implementation-status.md)
-**Purpose**: Comprehensive status report of the Phase 2 refactoring
-**Contents**:
-- Current implementation state (what's complete, partial, pending)
-- Known issues and their solutions
-- Architecture comparison (proposal vs. actual)
-- Performance metrics and expectations
-- Risk assessment and recommendations
+  state "InstancedFrameInfo[]" as InstancedFrames
+  state "InstancePair[]" as TransitionPairs
+  state "{min,max} bounds" as Bounds
+  state "ViolationSet" as ViolationSet
+  state "ComputedRowData" as ComputedRowData
+  state "SelectionState" as SelectionState
 
-**Key Finding**: Store-based computation is complete; drag/selection actions need enabling with ID-based refactoring
+  state "TrackInterpolators" as TrackInterpolators
+  state "Map<string, RawValue>" as Values
+  state "Map<string, RawValue> (velocities)" as Velocities
+  state "Record<string, Violation[]>" as ViolationMap
+  state "TrajectoryMessage" as TrajectoryMessage
 
----
+  [*] --> Animation
+  [*] --> TrackRaw
+  [*] --> AnimInstance
+  [*] --> AnimValue
+  [*] --> DragState
+  [*] --> PlayerData
 
-### 🏗️ Architecture Documents
+  Animation --> SourceArray : updateGlobalSources<br/>computeDefaultSourcesFromInstance
+  TrackRaw --> SourceArray : updateGlobalSources
+  AnimInstance --> SourceArray : updateGlobalSources
+  AnimValue --> SourceArray : updateGlobalSources
 
-#### [`dragging-architecture-proposal.md`](./dragging-architecture-proposal.md) *(Updated)*
-**Purpose**: Master architecture document for virtual dragging system
-**Contents**:
-- Core principles of virtual dragging
-- Store structure with `dragState` and `computedRowData`
-- Implementation details of virtual frame computation
-- Component simplification patterns
-- Performance considerations
+  SourceArray --> SourceRow : updateInstancedTrackSources
+  SourceArray --> GlobalSourceRow : computeConsolidatedSourceRow
 
-**Status**: Architecture implemented, awaiting activation
+  SourceRow --> InstancedFrames : computeVirtualFrames<br/>computeFrames
+  DragState --> InstancedFrames : applyDragOffsets
+  InstancedFrames --> TransitionPairs : computeTransitionSegments<br/>computeFilledInterpGaps
 
-#### [`id-based-architecture.md`](./id-based-architecture.md) *(New)*
-**Purpose**: Solution to eliminate stale data issues through ID-based references
-**Contents**:
-- Problem analysis (stale data from prop drilling)
-- ID-based reference pattern
-- Animation instance boundaries
-- Helper functions for ID lookups
-- Migration from object-based to ID-based actions
+  SourceRow --> Bounds : computeVerticalBounds
+  TrackRaw --> Bounds : computeVerticalBounds
+  AnimValue --> Bounds : computeVerticalBounds
 
-**Key Innovation**: Pass only IDs (`markerId`, `sourceRowId`) instead of full data objects
+  ViolationMap --> ViolationSet : computeViolationSet
 
-#### [`selection-rules.md`](./selection-rules.md) *(New)*
-**Purpose**: Comprehensive selection behavior specification
-**Contents**:
-- Animation instance constraints for multi-selection
-- Detailed behavior for each selection mode (click, ctrl-click, shift-click)
-- Data structure definitions
-- Validation rules and helper functions
-- Edge cases and testing scenarios
+  TransitionPairs --> ComputedRowData : updateComputedRowData
+  Bounds --> ComputedRowData : updateComputedRowData
+  ViolationSet --> ComputedRowData : updateComputedRowData
+  InstancedFrames --> ComputedRowData : updateComputedRowData
+  SourceRow --> ComputedRowData : updateComputedRowData
+  GlobalSourceRow --> ComputedRowData : updateComputedRowData
 
-**Key Constraint**: Multi-selection only allowed within same animation instance
+  ComputedRowData --> SelectionState : selection-state-manager
 
----
+  TrackRaw --> TrackInterpolators : computeTrackInterpolator
+  AnimInstance --> TrackInterpolators : computeTrackInterpolator
+  AnimValue --> TrackInterpolators : computeTrackInterpolator
 
-### 📋 Implementation Guides
+  TrackInterpolators --> Values : updateInterpolationResultsOnStampChange
+  TrackInterpolators --> Velocities : updateInterpolationResultsOnStampChange
+  PlayerData --> Values : updateInterpolationResultsOnStampChange
+  PlayerData --> Velocities : updateInterpolationResultsOnStampChange
 
-#### [`go-forward-plan.md`](./go-forward-plan.md) *(Updated)*
-**Purpose**: Detailed day-by-day implementation plan
-**Contents**:
-- Day 1: ID-based refactoring (6-8 hours)
-- Day 2: Enable core actions (4-6 hours)
-- Day 3: Wire UI events (6-8 hours)
-- Day 4: Component integration (6-8 hours)
-- Day 5: Interpolators & polish (4-6 hours)
-- Day 6: Testing & bug fixes (4-6 hours)
+  TrackInterpolators --> ViolationMap : computeTrackViolations
+  AnimValue --> ViolationMap : computeTrackViolations
+  TrackRaw --> ViolationMap : computeTrackViolations
 
-**Total Timeline**: 4-6 working days
+  TrackInterpolators --> TrajectoryMessage : computeTrackTrajectories
+  SourceRow --> TrajectoryMessage : computeTrackTrajectories
+  PlayerData --> TrajectoryMessage : computeTrackTrajectories
+```
 
-#### [`migration-checklist.md`](./migration-checklist.md) *(Updated)*
-**Purpose**: Detailed checklist for Phase 2+ migration
-**Contents**:
-- Pre-migration setup ✅ (Complete)
-- Store infrastructure ✅ (Complete)
-- Virtual state management ✅ (Mostly complete)
-- Component migration ⚠️ (Partial)
-- Testing & validation ❌ (Pending)
-- Release preparation ❌ (Pending)
 
-**Current Focus**: Enable drag/selection actions and complete component integration
+## Rendering Surface
 
-#### [`quick-enable-guide.md`](./quick-enable-guide.md) *(New)*
-**Purpose**: Step-by-step guide to immediately enable drag/selection
-**Contents**:
-- Exact code changes needed (5 locations)
-- Line-by-line uncommenting instructions
-- Build verification steps
-- Troubleshooting guide
+- `AnimationSheet` / `AnimationSheetCore` compose the timeline UI (headers, controls, track list, canvas).
+- `ControlWidget`, `TrackControl`, `MotionCubicBezierLine/MotionCubicBezierFill`, and the `controls/` subtree power the HUD and inspector.
+- `canvas-sheet/` contains Three.js powered visualizations, pairing with gesture hooks for pan/zoom.
+- Components rely on `AnimationContext` + `useAnimationStore` to bind to store slices; avoid re-exporting raw store handles from components.
 
-**Time Required**: 15-30 minutes for basic enabling
+Storybook stories live in `apps/docs/stories` under the `Animation/` namespace. When adding new UI, create a companion story grouped by package name so the centralized docs stay organized.
 
----
+## Gestures & Springs
 
-## 🔑 Key Concepts
+Hooks under `src/hooks` wrap `@use-gesture/react`, and custom math helpers to provide:
 
-### Store-Based Computation
-All frame calculations, interpolations, and violations are computed in the store via subscriptions, not in components.
+- Drag/zoom gestures (`use-drag-gestures`).
+- Positioning, rendering springs (`use-hover-spring`, `use-playhead-spring`, `use-invariant-scale`).
+- Visuals/Name context exposure (`use-names`, `use-colors`, `use-track-animatables`).
+- Camera helpers for Three.js scenes (`use-ortho-camera-setup`).
 
-### Virtual Dragging
-Drag operations show preview positions without modifying actual keypoints until commit.
+Use these hooks rather than inlining gesture logic inside components; they encapsulate the ID-based selection system and store mutations.
 
-### ID-Based References
-Components pass only IDs; store actions look up fresh data, eliminating stale reference bugs.
+## Testing & Fixtures
 
-### Animation Instance Boundaries
-Multi-selection is constrained to markers within the same animation instance.
+- Vitest suites in `src/tests` illustrate how to exercise reducers and derived data helpers. Some suites are currently commented pending the ID-based selection rollout—revive or extend them as features stabilize.
+- Fixtures in `src/test-fixtures` provide deterministic animations/tracks. Reuse them in tests and Storybook to keep scenarios consistent.
 
-### Computed Row Data
-The store maintains `computedRowData` indexed by `sourceRowId` containing:
-- `virtualFrames`: Frames with drag preview positions
-- `interpolations`: Transition segments
-- `verticalBounds`: Min/max bounds
-- `violationSet`: Detected violations
+## Working Notes
 
----
+- Keep documentation in sync with major architectural changes (selection refactors, gesture migrations, virtualization updates). Add deep dives under `docs/` for large efforts and link them from PRs.
+- Record TODOs with `TODO(semio-agent):` and reference the relevant doc when partial work remains.
+- When altering exported types or store shape, update this README (data model section) and note the changes in `packages/animation/AGENTS.md`.
 
-## 🚀 Quick Start Paths
-
-### For Immediate Enabling (30 minutes)
-1. Read [`quick-enable-guide.md`](./quick-enable-guide.md)
-2. Follow step-by-step uncommenting instructions
-3. Verify build and run tests
-
-### For Full Implementation (4-6 days)
-1. Review [`implementation-status.md`](./implementation-status.md) for current state
-2. Follow [`go-forward-plan.md`](./go-forward-plan.md) day by day
-3. Use [`migration-checklist.md`](./migration-checklist.md) to track progress
-
-### For Understanding Architecture
-1. Read [`dragging-architecture-proposal.md`](./dragging-architecture-proposal.md) for overall design
-2. Study [`id-based-architecture.md`](./id-based-architecture.md) for refactoring approach
-3. Review [`selection-rules.md`](./selection-rules.md) for behavior specifications
-
----
-
-## 📁 Related Code Locations
-
-### Store Implementation
-- `/src/store.ts` - Main store with disabled actions
-- `/src/store-types.ts` - Type definitions
-- `/src/actions/drag/` - Drag action implementations (disabled)
-
-### Computation Functions
-- `/src/functions/compute-row-data.ts` - Main computation aggregator
-- `/src/functions/compute-virtual-frames.ts` - Virtual frame computation
-- `/src/functions/apply-drag-offsets.ts` - Drag offset application
-- `/src/functions/compute-marker-selection.ts` - Selection logic
-
-### Components
-- `/src/components/canvas-sheet/data-renderer.tsx` - Main renderer (simplified)
-- `/src/components/canvas-sheet/data-point.tsx` - Individual markers (needs update)
-
-### Subscriptions
-- `/src/subscriptions/update-computed-row-data.ts` - Reactive computation updates
-
-### Tests
-- `/src/tests/drag-*.test.ts` - Drag functionality tests
-- `/src/tests/compute-marker-selection.test.ts` - Selection logic tests
-
----
-
-## 🎯 Current Priorities
-
-### Immediate (Day 1)
-1. **ID-based refactoring** - Eliminate stale data issues
-2. Update selection state structure
-3. Add animation instance tracking
-
-### Short-term (Days 2-3)
-1. Enable drag and selection actions
-2. Wire UI event handlers
-3. Update components to use IDs
-
-### Medium-term (Days 4-6)
-1. Complete component integration
-2. Implement dual interpolators
-3. Comprehensive testing
-
----
-
-## ⚠️ Critical Constraints
-
-1. **Animation Instance Boundary**: Multi-selection only within same instance
-2. **ID-Based References**: Never pass full data objects to actions
-3. **Virtual State**: Drag shows preview without modifying actual data
-4. **Store Computation**: All calculations happen in store, not components
-
----
-
-## 📈 Success Metrics
-
-- ✅ Store-based computation working
-- ✅ Virtual frame calculations accurate
-- ⚠️ Drag/selection actions ready but disabled
-- ❌ ID-based refactoring pending
-- ❌ Component integration incomplete
-- ❌ Dual interpolators not implemented
-
----
-
-## 🔄 Document Update History
-
-- **October 2025**: Major update reflecting completed Phase 2 architecture
-- **Added**: ID-based architecture, selection rules, quick enable guide
-- **Updated**: All existing documents to reflect current implementation
-- **Status**: Ready for final implementation phase
-
----
-
-## 📞 Getting Help
-
-When working with this system:
-1. Start with this README for orientation
-2. Consult specific documents for detailed information
-3. Check code comments in mentioned files
-4. Run tests to verify behavior
-5. Follow the day-by-day plan in `go-forward-plan.md`
-
----
-
-## Next Steps
-
-1. **Begin with Day 1** of [`go-forward-plan.md`](./go-forward-plan.md)
-2. **Implement ID-based refactoring** per [`id-based-architecture.md`](./id-based-architecture.md)
-3. **Follow checklist** in [`migration-checklist.md`](./migration-checklist.md)
-4. **Test thoroughly** using scenarios in [`selection-rules.md`](./selection-rules.md)
-
-The architecture is sound and implementation is straightforward. The main work is refactoring to use IDs and enabling what's already built.
+Staying aligned with these patterns keeps `@semio/animation` reliable for downstream apps and easier for future contributors—human or automated—to navigate.

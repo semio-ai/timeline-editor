@@ -21,6 +21,7 @@ export function computeConsolidatedSourceRow(
       // If there is an active instance, only the data from that instance is selectable/editable
       // Otherwise, use the original flags
       selectable: activeInstance ? data.instanceId === activeInstance : data.selectable,
+      foreground: activeInstance ? data.instanceId === activeInstance : true,
       editable: activeInstance
         ? data.instanceId === activeInstance && data.editable
         : data.editable,

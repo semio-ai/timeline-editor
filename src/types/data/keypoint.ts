@@ -3,7 +3,7 @@ import { RawValue, RawVector2 } from "@semio/utils";
 /**
  * A single point in time on a track, with a specific value, at a specific time stamp.
  * @property id - a unique identifier for the keypoint.
- * @property stamp - the time stamp that this keypoint occurs at.
+ * @property stamp - the time stamp that this keypoint occurs at (normalized to the duration of the animation, 0 start and 1 end).
  * @property value - the value of the keypoint (currently either string or number).
  * @property transitions - optional transitions for the keypoint, which function as the control points on a cubic bezier curve, normalized to 0-1.
  * @description As a collection of points and interpolations, this departs partially from standard practice, which configures transitions as the segment after

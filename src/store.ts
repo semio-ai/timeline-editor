@@ -398,8 +398,7 @@ export const AnimationSlice = (
       let unsubs: (() => void)[] = [];
 
       // Delay subscription initialization to prevent cascading updates during store creation
-      const timeoutId = setTimeout(() => {
-        unsubs = [
+      unsubs = [
           updatePlayerLoop,
           updateOverallDuration,
           updateInterpolationResultsOnStampChange,
@@ -410,10 +409,8 @@ export const AnimationSlice = (
           updateComputedRowData,
           updateConsolidatedSourceRow,
         ].map((fn) => fn(api, set, get));
-      }, 0);
 
       return () => {
-        clearTimeout(timeoutId);
         unsubs.forEach((unsub) => unsub());
       };
     },

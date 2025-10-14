@@ -66,8 +66,19 @@ export const DataPoint = memo(function DataPoint({
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
   const playing = usePlayerStore(useShallow((state) => state.player.running));
 
+  const activeAnimationInstance = useAnimationStore(
+    useShallow((state) => state.activeAnimationInstance),
+  );
+
   const selectablePoints: (SourceRowData & { id: string; value: RawValue })[] = points.filter(
     (d) => d.selectable,
+  );
+  const unselectablePoints: (SourceRowData & { id: string; value: RawValue })[] = points.filter(
+    (d) => !d.selectable,
+  );
+
+  const selectablePointsInActiveInstance = selectablePoints.every(
+    (p) => p.instanceId === activeAnimationInstance,
   );
   // Get tracks for computing fresh frames when needed
   // const tracks = useAnimationStore(useShallow((state) => state.tracks));
@@ -197,7 +208,31 @@ export const DataPoint = memo(function DataPoint({
     }
   }, [initialValue, yPosition, trackRender]);
 
-  const baseColor = useColors(selectablePoints.map((p) => p.trackId));
+  // Determine rendering behavior for TrackRender.Key based on point selectability
+  const hasSelectablePoints = selectablePoints.length > 0;
+  const hasUnselectablePoints = unselectablePoints.length > 0;
+
+  // For TrackRender.Key: show line when there are any unselectable points
+  const shouldShowLineForKey = trackRender === TrackRender.Key && hasUnselectablePoints;
+
+  const baseColor = useColors(
+    selectablePoints.length > 0
+      ? selectablePoints.map((p) => p.trackId)
+      : points.map((p) => p.trackId),
+  );
+  // Always call the hook, but only use it if needed
+  const unselectablePointColors = useColors(
+    unselectablePoints.length > 0 ? unselectablePoints.map((p) => p.trackId) : ["default"], // Provide a fallback when there are no unselectable points
+  );
+
+  const unselectableColor = hasUnselectablePoints ? unselectablePointColors : baseColor;
+  const activeAdjustedBaseColor = useMemo(() => {
+    return computeOklabMix(
+      baseColor,
+      theme === Theme.Dark ? "#202020" : "#EFEFEF",
+      selectablePointsInActiveInstance ? 0 : 0.4,
+    );
+  }, [selectablePointsInActiveInstance, baseColor, theme]);
   const baseBackdropColor = useMemo(() => {
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);
   }, [baseColor, theme]);
@@ -207,8 +242,14 @@ export const DataPoint = memo(function DataPoint({
   const selectionColor = useMemo(() => {
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#FFFFFF" : "#000000", 0.8);
   }, [baseColor, theme]);
+  const unselectableLineColor = useMemo(() => {
+    return computeOklabMix(unselectableColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.5);
+  }, [unselectableColor, theme]);
 
-  const showsLine = RENDERS_WITH_LINES.includes(trackRender);
+  const showsLine = RENDERS_WITH_LINES.includes(trackRender) || shouldShowLineForKey;
+  // For TrackRender.Key: only show hexagon when there are selectable points
+  // For other render types: always show hexagon
+  const shouldShowHexagon = trackRender === TrackRender.Key ? hasSelectablePoints : true;
 
   const lineOpacity = useSpring(
     showsLine ? 1 : 0,
@@ -223,7 +264,11 @@ export const DataPoint = memo(function DataPoint({
   const fillIndex = useMotionValue(getFillIndex(isHovered, isSelected, isReference));
   const backdropIndex = useMotionValue(getBackdropIndex(isSelected, isReference));
 
-  const fillColor = useTransform(fillIndex, [0, 0.5, 1], [baseColor, hoverColor, selectionColor]);
+  const fillColor = useTransform(
+    fillIndex,
+    [0, 0.5, 1],
+    [activeAdjustedBaseColor, hoverColor, selectionColor],
+  );
 
   const backdropColor = useTransform(
     backdropIndex,
@@ -443,24 +488,28 @@ export const DataPoint = memo(function DataPoint({
 
   return (
     <group ref={groupRef as any}>
-      <Instance
-        ref={instanceRefFg}
-        position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, 10]}
-        rotation={[Math.PI / 2, 0, 0]}
-        scale={[scaleX.get(), 1, 1]}
-        // eslint-dissable-next-line
-        color={fillColor.get()}
-        {...(bind() as any)}
-      />
-      {/* Render a darker hexagon in the background */}
-      <Instance
-        ref={instanceRefBg}
-        position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, 2]}
-        rotation={[Math.PI / 2, 0, 0]}
-        scale={[scaleX.get() * bgScale.get(), 1, bgScale.get()]}
-        // eslint-dissable-next-line
-        color={backdropColor.get()}
-      />
+      {shouldShowHexagon && (
+        <>
+          <Instance
+            ref={instanceRefFg}
+            position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, 10]}
+            rotation={[Math.PI / 2, 0, 0]}
+            scale={[scaleX.get(), 1, 1]}
+            // eslint-dissable-next-line
+            color={fillColor.get()}
+            {...(bind() as any)}
+          />
+          {/* Render a darker hexagon in the background */}
+          <Instance
+            ref={instanceRefBg}
+            position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, 2]}
+            rotation={[Math.PI / 2, 0, 0]}
+            scale={[scaleX.get() * bgScale.get(), 1, bgScale.get()]}
+            // eslint-dissable-next-line
+            color={backdropColor.get()}
+          />
+        </>
+      )}
       {/* Render a vertical line at the stamp */}
       <Line
         ref={lineRef as any}
@@ -468,10 +517,11 @@ export const DataPoint = memo(function DataPoint({
           [stamp, height / -2 + 1, 1],
           [stamp, height / 2 - 1, 1],
         ]}
-        color={baseColor}
+        color={shouldShowLineForKey ? unselectableLineColor : baseColor}
         lineWidth={2}
         opacity={lineOpacity.get()}
         transparent
+        // Lines are non-interactive when showing unselectable points
       />
     </group>
   );

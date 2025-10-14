@@ -9,14 +9,14 @@ import {
   NAMESPACE_IDS,
   INSTANCE_IDS,
   TRACK_IDS,
-} from "../test-fixtures/animation-store-factory";
-import type { AnimationStore } from "../store";
+} from "../../test-fixtures/animation-store-factory";
+import type { AnimationStore } from "../../store";
 import {
   createMarkerPath,
   parseMarkerPath,
   isMarkerSelected,
   getSelectionUnit,
-} from "../functions/selection-state-manager";
+} from "../../functions/selection-state-manager";
 
 describe("Selection Issue: Timeline vs Track Marker Selection", () => {
   let store: AnimationStore;
@@ -56,7 +56,7 @@ describe("Selection Issue: Timeline vs Track Marker Selection", () => {
 
     // Get the global marker data
     const globalMarkerData = state.computedRowData[globalRowId]?.virtualFrames.find(
-      (f) => f.id === globalMarkerId,
+      (f: any) => f.id === globalMarkerId,
     );
 
     console.log("\n=== Global Marker Data ===");
@@ -87,7 +87,7 @@ describe("Selection Issue: Timeline vs Track Marker Selection", () => {
     const trackMarkerId = "o1"; // The individual track marker
 
     const trackMarkerData = state.computedRowData[trackRowId]?.virtualFrames.find(
-      (f) => f.id === trackMarkerId,
+      (f: any) => f.id === trackMarkerId,
     );
 
     console.log("\n=== Track Marker Data ===");
@@ -179,7 +179,7 @@ describe("Selection Issue: Timeline vs Track Marker Selection", () => {
 
     // Get the track marker data and filter for selectable points
     const trackMarkerData = state.computedRowData[trackRowId]?.virtualFrames.find(
-      (f) => f.id === trackMarkerId,
+      (f: any) => f.id === trackMarkerId,
     );
     const selectableTrackPoints =
       trackMarkerData?.points?.filter((p) => p.selectable !== false) || [];
@@ -254,7 +254,7 @@ describe("Selection Issue: Timeline vs Track Marker Selection", () => {
 
     // Click on alpha instance marker
     const alphaMarkerData = state.computedRowData[alphaTrackRowId]?.virtualFrames.find(
-      (f) => f.id === "o1",
+      (f: any) => f.id === "o1",
     );
     const selectableAlphaPoints =
       alphaMarkerData?.points?.filter((p) => p.selectable !== false) || [];
@@ -277,7 +277,7 @@ describe("Selection Issue: Timeline vs Track Marker Selection", () => {
 
     // Now click on beta instance marker (should switch instances)
     const betaMarkerData = state.computedRowData[betaTrackRowId]?.virtualFrames.find(
-      (f) => f.id === "o1",
+      (f: any) => f.id === "o1",
     );
     const selectableBetaPoints =
       betaMarkerData?.points?.filter((p) => p.selectable !== false) || [];

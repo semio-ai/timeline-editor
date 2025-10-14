@@ -233,7 +233,7 @@ function createTracks(): Record<string, Track<RawValue>> {
         { id: "px3", stamp: 0.7, value: { x: -5, y: 5, z: 10 } },
         { id: "px4", stamp: 1, value: { x: 0, y: 0, z: 14 } },
       ],
-      settings: { color: "#FF6B6B" },
+      settings: { color: "#00FFFF" },
     },
 
     // Scale track - starts at 0.2, ends at 0.8 (partial range)
