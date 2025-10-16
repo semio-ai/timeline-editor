@@ -36,3 +36,56 @@ With mod/cmd-click, it is possible to extend the current selection across rows, 
 ## Visuals
 
 When a marker is "selected", it adopts a different visual than a deselected one. Selection state can come in two different variants, namely if it is a "reference" marker or just selected. Full details on this visual difference is provided in the implementation of the `DataPoint`, but generally selection results in an outline (light/dark depending on current theme) around the colored marker, while references invert this pattern, putting the color in the outline and the light/dark color as the marker color. Generally, the `selectable` flag, along with the `foreground` and `editable` flags, when negative, result in the element being rendered with a non-interactive visual (vertical line only). If the data contains mixed values, these are separated out visually, but rules should also be enforced in the API.
+
+## On Row IDs
+
+For row ids, we need unique ids, even when individual tracks may appear multiple times when present in multiple animation instances. We do this by constructing unique paths/addresses that reflect this hierarchy, and use a standard pattern for describing the different levels, with different delimiters indicating semantic and effective differences. The first portion of this path/address is separated by `/` elements:
+
+`{namespaceId}/{instanceId}/`
+
+This portion allows us to characterize each row according to both the namespace it is in, as well as the specific animation instance. The next portion of the path/address reflects the structure of individual groups and tracks within. For now, we only allow two possible levels of nesting (with complex datatypes in tracks producing `SourceGroup` and `SourceTrack` entries). In the future, we will allow arbitrary nesting and organization while removing complex datatypes, simplifying the relationship. Until then, if a `Track` is a simple type, the address would look like
+
+`{namespaceId}/{instanceId}/{trackId}`
+
+For complex datatypes, the top-level path `{namespaceId}/{instanceId}/{trackId}` would correspond to the `SourceGroup`, while individual sub-paths `{namespaceId}/{instanceId}/{trackId}.{attribute}` refer to `SourceTracks` with attribute flags. Note that the `trackId` is effectively the `groupId` here.
+
+Again, in the future, we will simplify the group and complex datatype relationship, such that `SourceTracks` only point to simple data, and there is no `attribute` flag. In this case, it will be possible to arbitrarily nest groups, such that paths such as `{namespaceId}/{instanceId}/{groupId}.{attribute}.{subattribute}.{subsubattribute}` are possible, such that the `subsubattribute` points to a single `Track`, while the `groupId`, `attribute`, and `subattribute` all correspond to `SourceGroup` elements.
+
+
+# Working Space
+- **Spec Alignment**
+  - `basic-selection.test.ts` exercises single-click replacement, instance switching, and grouped-track selection, matching the behaviors defined in the *Single Click* section.
+  - `modifier-selection.test.ts` covers Ctrl/Cmd toggling, row-scoped Shift ranges, and combined modifiers, aligning with the *Shift-click* and *MOD/CMD-Click* rules.
+  - `global-track-selection.test.ts` verifies bidirectional syncing between global and track markers and ensures selections remain bound to the active animation instance as described in *General notes*.
+  - `visual-selection.test.ts` enforces the rule that markers only appear selected when all selectable points are selected, consistent with the mixed-data guidance in *General notes*.
+
+- **Coverage Gaps**
+  - No test asserts that `foreground` data alone drives the visual-selected state, leaving the “foreground-only check” note unverified.
+  - Non-interactive flags beyond `selectable` (`editable`, `foreground` false) are not exercised, so we lack guardrails for the “non-interactive visual” expectations.
+  - Modifier tests do not confirm that a valid Cmd/Mod click resets the reference marker, which the *MOD/CMD-Click* section now specifies.
+  - Off-click deselection behavior is documented but only indirectly covered through `clearSelection()`; the canvas interaction path is untested.
+
+- **Test Failures (latest run)**
+  - `packages/animation/src/tests/selection/click-marker-action.test.ts:132` reports six selected paths after Ctrl/Cmd extension where the spec expects three, implying selection units include duplicate surfaces (global + track) that the doc treats as a single conceptual marker.
+  - `packages/animation/src/tests/selection/click-marker-action.test.ts:165` shows Ctrl/Cmd selection clearing the range instead of expanding it, so the implementation behaves like single-select contrary to the multi-select expectations.
+  - `packages/animation/src/tests/selection/click-marker-action.test.ts:187`, `packages/animation/src/tests/selection/global-track-selection.test.ts:167`, and `packages/animation/src/tests/selection/modifier-selection.test.ts:340` all fail to locate position/vector markers (`px*`), indicating computed row data is missing the grouped track points that the spec assumes are available.
+  - `packages/animation/src/tests/selection/global-track-selection.test.ts:147` reveals a path-format mismatch (`global#id` vs `global/id`), so the spec’s URI-style paths diverge from the selection manager’s actual hash-delimited representation.
+  - `packages/animation/src/tests/selection/global-track-selection.test.ts:350` shows global markers not appearing selected when their track counterparts are, meaning the visual propagation guaranteed in *General notes* is not happening.
+  - `packages/animation/src/tests/selection/modifier-selection.test.ts:162` and `packages/animation/src/tests/selection/modifier-selection.test.ts:197` demonstrate Cmd/Ctrl clicks failing to retain prior selections, contradicting the toggle semantics described in *MOD/CMD-Click*.
+  - `packages/animation/src/tests/selection/modifier-selection.test.ts:304` keeps the old reference marker after a cross-row shift click, while the doc states the reference should relocate when a new row becomes the focus.
+
+- **Proposed Selection State Redesign**
+  - Store selection purely as `{ trackId: string; keypointId: string }` pairs scoped to the active instance. Concretely, represent this as `Map<TrackId, Set<KeypointId>>`, and lift instance awareness into the surrounding store (`activeAnimationInstance` already enforces single-instance selection).
+  - Track the reference marker separately as `{ rowId: SourceRowId; anchor: { trackId; keypointId }; stamp: number }`, since range selection depends on row-local ordering rather than marker replication across surfaces.
+  - Derive view state on demand: when rendering a marker, mark it selected if all of its foreground `InstancedFrameInfo.points` map to selected keypoint pairs; reference styling applies when the marker’s `(rowId, markerId)` matches the stored reference tuple.
+  - Event rules under this scheme:
+    - **Single click**: resolve the marker to its constituent keypoint pairs, replace the selected map with those pairs, and update the reference descriptor to the clicked row/anchor.
+    - **Shift-click**: if the incoming rowId matches the reference rowId, collect all keypoints between the anchor stamp and the clicked stamp (inclusive) and replace or extend selection depending on whether Cmd/Mod is also pressed; if the row differs, treat as a single click per the spec’s row-scoping rule.
+    - **Cmd/Mod-click**: toggle membership of the marker’s keypoint pairs within the map and update the reference anchor to the newly clicked row so subsequent Shift ranges originate from the latest explicit click.
+    - **Global row clicks**: expand the marker to the subset of keypoint pairs whose instanceId matches `activeAnimationInstance`; this keeps cross-instance data out of the selection set while still lighting up mirrored views.
+    - **Canvas off-click**: clear the map and null the reference descriptor while leaving `activeAnimationInstance` untouched, matching the deselect behavior outlined earlier in the doc.
+
+- **Next Steps**
+  - Migration is underway: the store, selection helpers, drag flow, and `DataPoint` now use the keypoint-based state. Remaining work includes migrating the selection test suite and any UI surfaces still depending on marker paths.
+  - Continue refining the migration checklist in `packages/animation/docs/selection-migration.md`, especially the outstanding helper/component/test updates.
+  - Decide whether to recompute the reference stamp lazily (lookup on shift-click) or maintain it reactively when drag operations settle; document the final decision before wiring additional consumers.

@@ -2,6 +2,7 @@ import { RawValue, AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import type { Track, Animation, Namespace } from "../types";
 import { createAnimationStore, type AnimationStore } from "../store";
+import { createEmptySelectionState } from "../functions/selection-state-manager";
 
 // Animation IDs
 export const ANIMATION_IDS = {
@@ -537,8 +538,7 @@ export function createTestAnimationStore(options?: {
     tracks,
     namespaces,
 
-    // Active instance
-    activeAnimationInstance: activeInstance,
+    selectionState: createEmptySelectionState(activeInstance),
 
     // Basic settings
     duration: 10000, // Will be computed from animations
@@ -593,7 +593,7 @@ export function createMinimalAnimationStore(): AnimationStore {
         },
       },
     },
-    activeAnimationInstance: "main",
+    selectionState: createEmptySelectionState("main"),
     duration: 2000,
     framerate: 30,
     timeDisplay: TimeDisplay.Frames,

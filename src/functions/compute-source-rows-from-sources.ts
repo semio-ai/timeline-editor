@@ -29,7 +29,7 @@ export function computeSourceRowsFromSources(sources: Source[]): SourceRow[] {
       const sourceTrack = source as SourceTrack;
       if (sourceTrack.hidden) return;
       rows.push({
-        id: `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}${sourceTrack.attribute ? `/${sourceTrack.attribute}` : ""}`,
+        id: `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}${sourceTrack.attribute ? `.${sourceTrack.attribute}` : ""}`,
         data: [
           {
             foreground: true,

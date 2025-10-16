@@ -31,7 +31,7 @@ export function computeVisibleSourceRowIds(sources: Source[]): string[] {
       const sourceTrack = source as SourceTrack;
       if (!sourceTrack.hidden) {
         const trackId = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}${
-          sourceTrack.attribute ? `/${sourceTrack.attribute}` : ""
+          sourceTrack.attribute ? `.${sourceTrack.attribute}` : ""
         }`;
         visibleIds.push(trackId);
       }

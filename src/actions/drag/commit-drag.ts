@@ -1,8 +1,6 @@
 import type { RawValue } from "@semio/utils";
 import type { AnimationData } from "../../store-types";
 import type { Track, DraggedKeypoint } from "../../types";
-import { getMarkerById } from "../../functions/marker-utils";
-import { parseMarkerPath } from "../../functions/selection-state-manager";
 
 /**
  * Commit the current drag operation, applying all changes.
@@ -15,20 +13,6 @@ export function commitDrag(state: AnimationData): void {
   if (!state.dragState?.isDragging) {
     return;
   }
-
-  // Store the IDs of all selected keypoints before updating
-  const selectedKeypointIds = new Set<string>();
-
-  // Get fresh marker data for each selected path
-  state.selectionState.paths.forEach((path) => {
-    const { sourceRowId, markerId } = parseMarkerPath(path);
-    const marker = getMarkerById(state, markerId, sourceRowId);
-    if (marker) {
-      marker.points.forEach((point) => {
-        selectedKeypointIds.add(point.id);
-      });
-    }
-  });
 
   // Apply drag offsets to all dragged keypoints
   state.dragState.draggedKeypoints.forEach((dragInfo: DraggedKeypoint) => {

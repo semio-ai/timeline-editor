@@ -75,7 +75,8 @@ export interface AnimationData {
   previews: Preview[];
 
   /**
-   * Path-based selection state
+   * Keypoint-based selection state scoped to a single animation instance.
+   * Replaces the previous combination of `selectionState` + `activeAnimationInstance`.
    */
   selectionState: SelectionState;
 
@@ -113,10 +114,6 @@ export interface AnimationData {
    */
   editorViews: Record<string, View>;
   /**
-   * The active animation instance (if any)
-   */
-  activeAnimationInstance?: string;
-  /**
    * Global set of instanced track sources
    */
   instancedTrackSources: Record<string, SourceRow>;
@@ -148,7 +145,8 @@ export interface AnimationActions {
    */
   clickMarker: (
     clickedPoints: (SourceRowData & { id: string })[],
-    markerPath: string,
+    rowId: string,
+    markerId: string,
     shift?: boolean,
     mod?: boolean,
   ) => void;

@@ -15,9 +15,9 @@ export function updateConsolidatedSourceRow(
   return api.subscribe(
     (state: AnimationData) => ({
       sourcesByAnimationInstance: state.sourcesByAnimationInstance,
-      activeAnimationInstance: state.activeAnimationInstance,
+      activeInstanceId: state.selectionState.instanceId,
     }),
-    ({ sourcesByAnimationInstance, activeAnimationInstance }) => {
+    ({ sourcesByAnimationInstance, activeInstanceId }) => {
       // Compute a single consolidated source row for all views
       const allSources = Object.values(sourcesByAnimationInstance).flat();
 
@@ -32,8 +32,8 @@ export function updateConsolidatedSourceRow(
 
       const consolidated = computeConsolidatedSourceRow(
         allSources,
-        activeAnimationInstance,
-        "global", // Use a global identifier instead of view-specific
+        activeInstanceId ?? undefined,
+        "global",
       );
 
       set((state) => ({
@@ -44,13 +44,9 @@ export function updateConsolidatedSourceRow(
       }));
     },
     {
-      equalityFn: (a, b) => {
-        // Compare sources and active instance
-        return (
-          shallow(a.sourcesByAnimationInstance, b.sourcesByAnimationInstance) &&
-          a.activeAnimationInstance === b.activeAnimationInstance
-        );
-      },
+      equalityFn: (a, b) =>
+        shallow(a.sourcesByAnimationInstance, b.sourcesByAnimationInstance) &&
+        a.activeInstanceId === b.activeInstanceId,
       fireImmediately: true,
     },
   );

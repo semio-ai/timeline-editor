@@ -11,7 +11,6 @@ import { clamp } from "lodash";
 import { SourceRowData, TrackRender } from "../../types";
 import { useAnimationStore, useColors, useInvariantScale, useAltKeyPressed } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
-import { createMarkerPath } from "../../functions/selection-state-manager";
 
 const BG_MULTIPLIER = 1.2;
 
@@ -66,8 +65,8 @@ export const DataPoint = memo(function DataPoint({
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
   const playing = usePlayerStore(useShallow((state) => state.player.running));
 
-  const activeAnimationInstance = useAnimationStore(
-    useShallow((state) => state.activeAnimationInstance),
+  const activeInstanceId = useAnimationStore(
+    useShallow((state) => state.selectionState.instanceId),
   );
 
   const selectablePoints: (SourceRowData & { id: string; value: RawValue })[] = points.filter(
@@ -77,8 +76,8 @@ export const DataPoint = memo(function DataPoint({
     (d) => !d.selectable,
   );
 
-  const selectablePointsInActiveInstance = selectablePoints.every(
-    (p) => p.instanceId === activeAnimationInstance,
+  const selectablePointsInActiveInstance = selectablePoints.every((p) =>
+    activeInstanceId ? p.instanceId === activeInstanceId : true,
   );
   // Get tracks for computing fresh frames when needed
   // const tracks = useAnimationStore(useShallow((state) => state.tracks));
@@ -91,85 +90,22 @@ export const DataPoint = memo(function DataPoint({
 
   const isSelected = useAnimationStore(
     useShallow((state) => {
-      // Get the marker's data
-      const computed = state.computedRowData[sourceRowId];
-      const markerData = computed?.virtualFrames.find((f) => f.id === markerId);
+      const { selectionState } = state;
+      const instanceId = selectionState.instanceId;
+      if (!instanceId) return false;
+      const relevantPoints = selectablePoints.filter((point) => point.instanceId === instanceId);
+      if (relevantPoints.length === 0) return false;
 
-      if (!markerData?.points || markerData.points.length === 0) {
-        // No points data, fall back to direct path check
-        const markerPath = createMarkerPath(sourceRowId, markerId);
-        return state.selectionState.pathSet.has(markerPath);
-      }
-
-      // Check if all SELECTABLE points are represented in the selection
-      // A marker is selected if all its selectable points are selected
-      // Non-selectable points are ignored when determining selection state
-      // If there are no selectable points, the marker cannot be selected
-      if (selectablePoints.length === 0) {
-        return false;
-      }
-
-      for (const point of selectablePoints) {
-        // Construct the canonical path for this point
-        const pointPath = `${point.namespaceId}/${point.instanceId}/${point.trackId}`;
-
-        // Check if this specific point is selected anywhere
-        let pointIsSelected = false;
-
-        if (point.attribute) {
-          // For attributes, check both the attribute path and parent path (fuzzy matching)
-          const attrPath = `${pointPath}/${point.attribute}`;
-          const attrMarkerPath = createMarkerPath(attrPath, point.id);
-
-          // Check direct attribute selection
-          if (state.selectionState.pathSet.has(attrMarkerPath)) {
-            pointIsSelected = true;
-          } else {
-            // Check if parent group includes this point
-            // Look for any selected marker in the parent path that contains this point
-            for (const selectedPath of state.selectionState.pathSet) {
-              if (selectedPath.startsWith(`${pointPath}#`)) {
-                const [, selectedMarkerId] = selectedPath.split("#");
-                const parentData = state.computedRowData[pointPath];
-                const parentMarker = parentData?.virtualFrames.find(
-                  (f) => f.id === selectedMarkerId,
-                );
-                if (
-                  parentMarker?.points?.some(
-                    (p) =>
-                      p.id === point.id &&
-                      p.attribute === point.attribute &&
-                      p.trackId === point.trackId,
-                  )
-                ) {
-                  pointIsSelected = true;
-                  break;
-                }
-              }
-            }
-          }
-        } else {
-          // For non-attribute points, just check the direct path
-          const pointMarkerPath = createMarkerPath(pointPath, point.id);
-          pointIsSelected = state.selectionState.pathSet.has(pointMarkerPath);
-        }
-
-        if (!pointIsSelected) {
-          return false; // At least one selectable point is not selected
-        }
-      }
-
-      // All selectable points are selected
-      return true;
+      return relevantPoints.every((point) =>
+        selectionState.keypoints.get(point.trackId)?.has(point.id),
+      );
     }),
   );
 
   const isReference = useAnimationStore(
     useShallow((state) => {
-      if (!state.selectionState.referenceMarker) return false;
-      // Path-based reference check
-      const markerPath = createMarkerPath(sourceRowId, markerId);
-      return state.selectionState.referenceMarker === markerPath;
+      const reference = state.selectionState.reference;
+      return reference?.rowId === sourceRowId && reference?.markerId === markerId;
     }),
   );
 
@@ -398,22 +334,7 @@ export const DataPoint = memo(function DataPoint({
 
         event.stopPropagation();
 
-        // Create the marker path for reference tracking
-        const markerPath = createMarkerPath(sourceRowId, markerId);
-
-        console.log(
-          JSON.stringify({
-            markerId,
-            sourceRowId,
-            shiftKey,
-            metaKey: metaKey || event.ctrlKey,
-            selectablePoints,
-            markerPath,
-          }),
-        );
-
-        // Use points-based click marker
-        clickMarker(selectablePoints, markerPath, shiftKey, metaKey || event.ctrlKey);
+        clickMarker(selectablePoints, sourceRowId, markerId, shiftKey, metaKey || event.ctrlKey);
       },
       onDragStart: ({ event }) => {
         if (playing) return;
@@ -426,9 +347,7 @@ export const DataPoint = memo(function DataPoint({
 
         // Auto-select if not already selected
         if (!isSelected) {
-          // Filter to only selectable points
-          const markerPath = createMarkerPath(sourceRowId, markerId);
-          clickMarker(selectablePoints, markerPath, false, false);
+          clickMarker(selectablePoints, sourceRowId, markerId, false, false);
         }
 
         // Start dragging with current selection

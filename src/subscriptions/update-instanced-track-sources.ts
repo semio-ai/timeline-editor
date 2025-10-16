@@ -73,9 +73,9 @@ export function updateInstancedTrackSources(
                 };
 
                 TYPE_FIELDS[trackType as string].forEach((field) => {
-                  const fieldId = `${namespaceId}/${instance.id}/${trackId}/${field}`;
+                  const fieldId = `${namespaceId}/${instance.id}/${trackId}.${field}`;
                   instancedTrackSources[fieldId] = {
-                    id: `${namespaceId}/${instance.id}/${trackId}/${field}`,
+                    id: `${namespaceId}/${instance.id}/${trackId}.${field}`,
                     data: [
                       {
                         foreground: true,

@@ -35,7 +35,7 @@ import {
   createDefaultAnimation,
   updateControlColor,
 } from "./actions";
-import { clickMarkerAction } from "./actions/click-marker";
+import { clickMarkerAction, clearSelectionAction } from "./actions/click-marker";
 import { createEmptySelectionState } from "./functions/selection-state-manager";
 import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
 import {
@@ -432,12 +432,13 @@ export const AnimationSlice = (
      */
     clickMarker: (
       clickedPoints: (SourceRowData & { id: string })[],
-      markerPath: string,
+      rowId: string,
+      markerId: string,
       shift?: boolean,
       mod?: boolean,
     ) => {
       set((state: AnimationData) => {
-        const result = clickMarkerAction(state, clickedPoints, markerPath, shift, mod);
+        const result = clickMarkerAction(state, clickedPoints, rowId, markerId, shift, mod);
         return {
           ...state,
           ...result,
@@ -445,9 +446,7 @@ export const AnimationSlice = (
       });
     },
     clearSelection: () => {
-      set({
-        selectionState: createEmptySelectionState(),
-      });
+      set((state: AnimationData) => clearSelectionAction(state));
     },
     addPreview: (preview: Preview) => {
       set((state: AnimationData) => ({
