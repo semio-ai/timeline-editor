@@ -22,7 +22,7 @@ type ComplexField = keyof ComplexRawValue;
  * {TrackRender.Preview} & {TrackRender.Spline}
  * The transition line is a curved line indicating the change in value between the two instanced-frame-info parameters.
  * The x-coordinates are set according to the stamps of the start and end instanced-frame-info parameters.
- * The y-coordinates are normalized to the range [0, 1], indicating the values of the start and end relative to the bounds (default transition form).
+ * The y-coordinates use the raw values pulled from each frame so consumers can render the real-space curve.
  * If the area is empty, the transition is a flat line connecting the start and end values.
  */
 export interface TransitionParams {
@@ -32,23 +32,25 @@ export interface TransitionParams {
   cp2: { x: number; y: number };
 }
 
+const DEFAULT_TRANSITION_OUT = { x: 0.65, y: 0 };
+const DEFAULT_TRANSITION_IN = { x: 0.35, y: 1 };
+
 export function computeTransitionParams(
   source: SourceRow,
   start: InstancedFrameInfo,
   end: InstancedFrameInfo,
   isEmpty: boolean,
   trackRender: TrackRender,
-  bounds: { min: number; max: number } = { min: 0, max: 1 },
+  _bounds: { min: number; max: number } = { min: 0, max: 1 },
 ): TransitionParams {
   // Use cubic-ease-in-out as default transtion params
-  const defaultTransitionOut = { x: 0.65, y: 0 };
-  const defaultTransitionIn = { x: 0.35, y: 1 };
+
   // Note, the start transition out is the beginning of the transition segment.
   // The end transition in is the end of the transition segment.
 
   if (trackRender === TrackRender.Transition) {
-    const cp1Raw = start.transitions?.out ?? defaultTransitionOut;
-    const cp2Raw = end.transitions?.in ?? defaultTransitionIn;
+    const cp1Raw = start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
+    const cp2Raw = end.transitions?.in ?? DEFAULT_TRANSITION_IN;
     const cp1 = { x: (end.stamp - start.stamp) * cp1Raw.x + start.stamp, y: cp1Raw.y };
     const cp2 = { x: (end.stamp - start.stamp) * cp2Raw.x + start.stamp, y: cp2Raw.y };
     return {
@@ -108,20 +110,21 @@ export function computeTransitionParams(
       };
     }
 
-    // Compute the normalized values according to the given transition and bounds.
-    const startYNormalized = (startValue - bounds.min) / (bounds.max - bounds.min);
-    const endYNormalized = (endValue - bounds.min) / (bounds.max - bounds.min);
+    const cp1Raw = start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
+    const cp2Raw = end.transitions?.in ?? DEFAULT_TRANSITION_IN;
 
-    const cp1Raw = start.transitions?.out ?? defaultTransitionOut;
-    const cp2Raw = end.transitions?.in ?? defaultTransitionIn;
-
-    const cp1YComputed = startYNormalized * cp1Raw.y + endYNormalized * cp1Raw.y;
-    const cp2YComputed = startYNormalized * cp2Raw.y + endYNormalized * cp2Raw.y;
-    const cp1 = { x: (end.stamp - start.stamp) * cp1Raw.x + start.stamp, y: cp1YComputed };
-    const cp2 = { x: (end.stamp - start.stamp) * cp2Raw.x + start.stamp, y: cp2YComputed };
+    const delta = endValue - startValue || 0;
+    const cp1 = {
+      x: (end.stamp - start.stamp) * cp1Raw.x + start.stamp,
+      y: startValue + delta * cp1Raw.y,
+    };
+    const cp2 = {
+      x: (end.stamp - start.stamp) * cp2Raw.x + start.stamp,
+      y: startValue + delta * cp2Raw.y,
+    };
     return {
-      start: { x: start.stamp, y: startYNormalized },
-      end: { x: end.stamp, y: endYNormalized },
+      start: { x: start.stamp, y: startValue },
+      end: { x: end.stamp, y: endValue },
       cp1,
       cp2,
     };

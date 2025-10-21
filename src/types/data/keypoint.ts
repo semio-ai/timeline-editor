@@ -15,9 +15,24 @@ import { RawValue, RawVector2 } from "@semio/utils";
  * the transition from A to B is constructed as the out from A to the in of B, and
  * the transition from B to C is constructed as the out from B to the in of C.
  * Thus, the configuration of these transitions is as follows:
- * A: `{ out: {x: 0.65} }`
- * B: `{ in: {x: 0.35}, out: {x: 0.65} }`
- * C: `{ in: {x: 0.35} }`
+ * A: `{ out: {x: 0.65, y: 0} }`
+ * B: `{ in: {x: 0.35, y: 1}, out: {x: 0.65, y: 0} }`
+ * C: `{ in: {x: 0.35, y: 1} }`
+ *
+ * The resulting transitions (in parametric space) are:
+ * A to B: cubic-bezier(0.65, 0, 0.35, 1)
+ * B to C: cubic-bezier(0.65, 0, 0.35, 1)
+ *
+ * In a more sophisticated example, consider keypoints D, E, and F, with the following transitions:
+ * D: `{ out: {x: 0.5, y: 0} }`
+ * E: `{ in: {x: 0.2, y: 1}, out: {x: 0.8, y: 0} }`
+ * F: `{ in: {x: 0.3, y: 1} }`
+ *
+ * The resulting transitions (in parametric space) are:
+ * D to E: cubic-bezier(0.5, 0, 0.2, 1)
+ * E to F: cubic-bezier(0.8, 0, 0.3, 1)
+ *
+ * If not specified, the transitions default to cubic-bezier(0.65, 0, 0.35, 1) (ease-in-out-cubic)
  */
 export interface Keypoint<DataType extends RawValue> {
   id: string;

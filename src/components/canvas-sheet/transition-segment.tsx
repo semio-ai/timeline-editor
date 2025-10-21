@@ -65,7 +65,17 @@ export const TransitionSegment = memo(function TransitionSegment({
 
   const buffer = height * 0.4;
 
-  const renderScaleY = useMemo(() => createLinearScale([0, 1], [-buffer, buffer]), [buffer]);
+  const renderScaleY = useMemo(() => {
+    if (trackRender === TrackRender.Preview || trackRender === TrackRender.Spline) {
+      const min = verticalBounds.min;
+      const max = verticalBounds.max;
+      if (max === min) {
+        return () => 0;
+      }
+      return createLinearScale([min, max], [-buffer, buffer]);
+    }
+    return createLinearScale([0, 1], [-buffer, buffer]);
+  }, [buffer, trackRender, verticalBounds.min, verticalBounds.max]);
 
   // Calculate buffer color using theme-based mixing
   const bufferColor = useMemo(() => {
