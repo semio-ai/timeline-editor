@@ -1,22 +1,30 @@
 /**
  * Click Marker Action Tests
- * Tests the click marker action with complete store instance
+ * Verifies the click marker action using the keypoint-driven selection model.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createTestAnimationStore,
   createMinimalAnimationStore,
   NAMESPACE_IDS,
   INSTANCE_IDS,
   TRACK_IDS,
-  ANIMATABLE_IDS,
 } from "../../test-fixtures/animation-store-factory";
 import type { AnimationStore } from "../../store";
-import { createMarkerPath, parseMarkerPath } from "../../functions/selection-state-manager";
+import {
+  clickMarkerWith,
+  findMarker,
+  getMarkerPoints,
+  keypointsToSignatures,
+  pointsToSignatures,
+  selectionSignatures,
+} from "./selection-test-helpers";
+import { collectRangeKeypoints } from "../../functions/selection-state-manager";
 
 describe("Click Marker Action with Complete Store", () => {
   let store: AnimationStore;
+  let cleanup: (() => void) | undefined;
 
   beforeEach(async () => {
     store = createTestAnimationStore({
@@ -25,383 +33,232 @@ describe("Click Marker Action with Complete Store", () => {
       activeInstance: INSTANCE_IDS.ALPHA_SHARED,
     });
 
-    // Initialize subscriptions and wait for computed data
-    const cleanup = store.getState().initAnimationSubscriptions();
+    cleanup = store.getState().initAnimationSubscriptions();
     await new Promise((resolve) => setTimeout(resolve, 10));
+  });
 
-    // Cleanup after test
-    return cleanup;
+  afterEach(() => {
+    cleanup?.();
+    cleanup = undefined;
   });
 
   describe("Click Action Fundamentals", () => {
-    it("should execute clickMarker action through store", () => {
-      const state = store.getState();
+    it("replaces the selection and updates the reference on a plain click", () => {
       const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
       const markerId = "o1";
 
-      // Find the marker data
-      const markerData = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId,
+      const points = clickMarkerWith(store, trackRowId, markerId);
+      const { selectionState } = store.getState();
+
+      expect(selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_SHARED);
+      expect(selectionState.reference).toEqual({ rowId: trackRowId, markerId });
+      expect(selectionSignatures(selectionState)).toEqual(
+        pointsToSignatures(points, selectionState.instanceId),
       );
-
-      expect(markerData).toBeDefined();
-      const selectablePoints = markerData?.points?.filter((p) => p.selectable) || [];
-      const path = createMarkerPath(trackRowId, markerId);
-
-      // Execute click action
-      store.getState().clickMarker(selectablePoints, path, false, false);
-
-      // Verify selection state was updated
-      const newState = store.getState();
-      expect(newState.selectionState.paths).toContain(path);
-      expect(newState.selectionState.referenceMarker).toBe(path);
     });
 
-    it("should handle click on non-existent marker gracefully", () => {
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
-      const nonExistentPath = createMarkerPath(trackRowId, "non-existent");
-
-      // Click with empty points array
-      store.getState().clickMarker([], nonExistentPath, false, false);
-
-      // Should not crash, selection should be empty or unchanged
-      const newState = store.getState();
-      expect(newState.selectionState).toBeDefined();
-    });
-
-    it("should update selection state immutably", () => {
-      const originalState = store.getState();
-      const originalSelectionState = originalState.selectionState;
-
+    it("clears selection when no selectable points are provided", () => {
       const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
       const markerId = "s1";
-      const markerData = originalState.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId,
+
+      const initialSelection = store.getState().selectionState;
+      expect(initialSelection.keypoints.size).toBe(0);
+
+      // Seed a selection so we can verify it clears.
+      clickMarkerWith(store, trackRowId, markerId);
+      expect(store.getState().selectionState.keypoints.size).toBeGreaterThan(0);
+
+      store.getState().clickMarker([], trackRowId, "non-existent");
+      const nextSelection = store.getState().selectionState;
+
+      expect(selectionSignatures(nextSelection)).toEqual([]);
+      expect(nextSelection.reference).toBeNull();
+      expect(nextSelection.instanceId).toBe(initialSelection.instanceId);
+    });
+
+    it("creates new selection objects when the selection changes", () => {
+      const originalSelection = store.getState().selectionState;
+      const originalMap = originalSelection.keypoints;
+
+      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
+      clickMarkerWith(store, trackRowId, "s1");
+
+      const updatedSelection = store.getState().selectionState;
+      expect(updatedSelection).not.toBe(originalSelection);
+      expect(updatedSelection.keypoints).not.toBe(originalMap);
+    });
+  });
+
+  describe("Modifier selection behavior", () => {
+    const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
+
+    it("ctrl/cmd-click toggles markers and updates the reference when adding", () => {
+      const firstPoints = clickMarkerWith(store, trackRowId, "o0");
+
+      let { selectionState } = store.getState();
+      const expectedFirst = pointsToSignatures(firstPoints, selectionState.instanceId);
+      expect(selectionSignatures(selectionState)).toEqual(expectedFirst);
+      expect(selectionState.reference).toEqual({ rowId: trackRowId, markerId: "o0" });
+
+      const secondPoints = clickMarkerWith(store, trackRowId, "o2", { mod: true });
+      selectionState = store.getState().selectionState;
+      const expectedSecond = pointsToSignatures(secondPoints, selectionState.instanceId);
+      const expectedCombined = Array.from(new Set([...expectedFirst, ...expectedSecond])).sort();
+
+      expect(selectionSignatures(selectionState)).toEqual(expectedCombined);
+      expect(selectionState.reference).toEqual({ rowId: trackRowId, markerId: "o2" });
+    });
+
+    it("ctrl/cmd-click retains the previous reference when toggling a non-reference marker off", () => {
+      const firstPoints = clickMarkerWith(store, trackRowId, "o0");
+      const firstSelection = store.getState().selectionState;
+      const expectedFirst = pointsToSignatures(firstPoints, firstSelection.instanceId);
+      expect(selectionSignatures(firstSelection)).toEqual(expectedFirst);
+
+      const secondPoints = clickMarkerWith(store, trackRowId, "o2", { mod: true });
+      const afterAdd = store.getState().selectionState;
+      const expectedSecond = pointsToSignatures(secondPoints, afterAdd.instanceId);
+      const expectedCombined = Array.from(new Set([...expectedFirst, ...expectedSecond])).sort();
+      expect(selectionSignatures(afterAdd)).toEqual(expectedCombined);
+      expect(afterAdd.reference).toEqual({ rowId: trackRowId, markerId: "o2" });
+
+      const removePoints = getMarkerPoints(store, trackRowId, "o0");
+      store.getState().clickMarker(removePoints, trackRowId, "o0", false, true);
+
+      const { selectionState } = store.getState();
+      expect(selectionSignatures(selectionState)).toEqual(expectedSecond);
+      expect(selectionState.reference).toEqual({ rowId: trackRowId, markerId: "o2" });
+    });
+
+    it("clears the reference when ctrl/cmd-click toggles off the current reference marker", () => {
+      clickMarkerWith(store, trackRowId, "o1");
+      const initial = store.getState().selectionState;
+      expect(initial.reference).toEqual({ rowId: trackRowId, markerId: "o1" });
+
+      const points = getMarkerPoints(store, trackRowId, "o1");
+      store.getState().clickMarker(points, trackRowId, "o1", false, true);
+
+      const { selectionState } = store.getState();
+      expect(selectionSignatures(selectionState)).toEqual([]);
+      expect(selectionState.reference).toBeNull();
+      expect(selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_SHARED);
+    });
+  });
+
+  describe("Shift selection behavior", () => {
+    it("selects a contiguous range within a row without moving the reference", () => {
+      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
+      clickMarkerWith(store, trackRowId, "o0");
+      const referenceSelection = store.getState().selectionState;
+      expect(referenceSelection.reference).toEqual({ rowId: trackRowId, markerId: "o0" });
+
+      clickMarkerWith(store, trackRowId, "o2", { shift: true });
+      const { selectionState } = store.getState();
+
+      const rangeAddresses = collectRangeKeypoints(
+        store.getState().computedRowData[trackRowId],
+        selectionState.instanceId!,
+        "o0",
+        "o2",
       );
-      const path = createMarkerPath(trackRowId, markerId);
 
-      store
-        .getState()
-        .clickMarker(markerData?.points?.filter((p) => p.selectable) || [], path, false, false);
+      expect(selectionSignatures(selectionState)).toEqual(keypointsToSignatures(rangeAddresses));
+      expect(selectionState.reference).toEqual({ rowId: trackRowId, markerId: "o0" });
+    });
 
-      const newState = store.getState();
+    it("treats shift-click in a different row as a plain click", () => {
+      const opacityRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
+      const scaleRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
 
-      // Selection state should be a new object
-      expect(newState.selectionState).not.toBe(originalSelectionState);
-      expect(newState.selectionState.paths).toContain(path);
+      clickMarkerWith(store, opacityRowId, "o1");
+      const firstSelection = store.getState().selectionState;
+      expect(firstSelection.reference).toEqual({ rowId: opacityRowId, markerId: "o1" });
+
+      const points = clickMarkerWith(store, scaleRowId, "s2", { shift: true });
+      const { selectionState } = store.getState();
+
+      expect(selectionSignatures(selectionState)).toEqual(
+        pointsToSignatures(points, selectionState.instanceId),
+      );
+      expect(selectionState.reference).toEqual({ rowId: scaleRowId, markerId: "s2" });
     });
   });
 
-  describe("Selection State Integration", () => {
-    it("should properly integrate with selection state manager", () => {
-      const state = store.getState();
+  describe("Instance and namespace handling", () => {
+    it("switches the active instance when selecting from another namespace", () => {
+      const alphaRow = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
+      const betaRow = `${NAMESPACE_IDS.BETA}/${INSTANCE_IDS.BETA_SHARED}/${TRACK_IDS.OPACITY}`;
 
-      // Select multiple markers to test state management
-      const markers = [
-        {
-          rowId: `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`,
-          id: "o0",
-        },
-        {
-          rowId: `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`,
-          id: "o1",
-        },
-        {
-          rowId: `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`,
-          id: "s1",
-        },
-      ];
+      clickMarkerWith(store, alphaRow, "o1");
+      expect(store.getState().selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_SHARED);
 
-      markers.forEach((marker, index) => {
-        const markerData = state.computedRowData[marker.rowId]?.virtualFrames.find(
-          (f) => f.id === marker.id,
-        );
-        const path = createMarkerPath(marker.rowId, marker.id);
+      const betaPoints = clickMarkerWith(store, betaRow, "o1");
+      const { selectionState } = store.getState();
 
-        store.getState().clickMarker(
-          markerData?.points?.filter((p) => p.selectable) || [],
-          path,
-          false,
-          index > 0, // Use Ctrl for all but first
-        );
-      });
-
-      const finalState = store.getState();
-
-      // All markers should be selected
-      expect(finalState.selectionState.paths.length).toBe(3);
-
-      // PathSet should be in sync
-      expect(finalState.selectionState.pathSet.size).toBe(3);
-    });
-
-    it("should maintain selection state consistency across operations", () => {
-      const state = store.getState();
-
-      // Perform a series of selection operations
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.POSITION}`;
-
-      // Select first marker
-      const marker1 = state.computedRowData[trackRowId]?.virtualFrames.find((f) => f.id === "px0");
-      const path1 = createMarkerPath(trackRowId, "px0");
-      store
-        .getState()
-        .clickMarker(marker1?.points?.filter((p) => p.selectable) || [], path1, false, false);
-
-      let currentState = store.getState();
-      const selectionCount1 = currentState.selectionState.paths.length;
-
-      // Add second marker with Ctrl
-      const marker2 = state.computedRowData[trackRowId]?.virtualFrames.find((f) => f.id === "px2");
-      const path2 = createMarkerPath(trackRowId, "px2");
-      store
-        .getState()
-        .clickMarker(marker2?.points?.filter((p) => p.selectable) || [], path2, false, true);
-
-      currentState = store.getState();
-      const selectionCount2 = currentState.selectionState.paths.length;
-
-      // Selection should have grown
-      expect(selectionCount2).toBeGreaterThan(selectionCount1);
-
-      // Clear selection
-      store.getState().clearSelection();
-
-      currentState = store.getState();
-      expect(currentState.selectionState.paths.length).toBe(0);
-      expect(currentState.selectionState.pathSet.size).toBe(0);
-      expect(currentState.selectionState.referenceMarker).toBeNull();
+      expect(selectionState.instanceId).toBe(INSTANCE_IDS.BETA_SHARED);
+      expect(selectionSignatures(selectionState)).toEqual(
+        pointsToSignatures(betaPoints, selectionState.instanceId),
+      );
+      expect(selectionState.reference).toEqual({ rowId: betaRow, markerId: "o1" });
     });
   });
 
-  describe("Track Type Specific Behavior", () => {
-    it("should handle vector3 track selection", () => {
-      const state = store.getState();
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.POSITION}`;
+  describe("Track type coverage", () => {
+    it("selects all vector components in a group track marker", () => {
       const markerId = "px1";
-
-      const markerData = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId,
+      const marker = findMarker(
+        store,
+        markerId,
+        (rowId) =>
+          rowId.includes(`${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}`) &&
+          rowId.includes(TRACK_IDS.POSITION),
       );
 
-      expect(markerData).toBeDefined();
-      expect(markerData?.points).toBeDefined();
+      store.getState().clickMarker(marker.points, marker.rowId, markerId);
+      const { selectionState } = store.getState();
 
-      // Vector3 might have multiple points (x, y, z)
-      const selectablePoints = markerData?.points?.filter((p) => p.selectable) || [];
-      const path = createMarkerPath(trackRowId, markerId);
-
-      store.getState().clickMarker(selectablePoints, path, false, false);
-
-      const newState = store.getState();
-      expect(newState.selectionState.paths).toContain(path);
+      expect(selectionSignatures(selectionState)).toEqual(
+        pointsToSignatures(marker.points, selectionState.instanceId),
+      );
     });
 
-    it("should handle euler rotation track selection", () => {
-      const state = store.getState();
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_EXCLUSIVE}/${TRACK_IDS.ROTATION}`;
+    it("handles euler rotation tracks", () => {
       const markerId = "rx0";
-
-      const markerData = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId,
+      const marker = findMarker(
+        store,
+        markerId,
+        (rowId) =>
+          rowId.includes(`${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_EXCLUSIVE}`) &&
+          rowId.includes(TRACK_IDS.ROTATION),
       );
 
-      if (markerData) {
-        const selectablePoints = markerData.points?.filter((p) => p.selectable) || [];
-        const path = createMarkerPath(trackRowId, markerId);
+      store.getState().clickMarker(marker.points, marker.rowId, markerId);
+      const { selectionState } = store.getState();
 
-        store.getState().clickMarker(selectablePoints, path, false, false);
-
-        const newState = store.getState();
-        expect(newState.selectionState.paths).toContain(path);
-      }
-    });
-
-    it("should handle simple numeric track selection", () => {
-      const state = store.getState();
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
-      const markerId = "s1";
-
-      const markerData = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId,
+      expect(selectionSignatures(selectionState)).toEqual(
+        pointsToSignatures(marker.points, selectionState.instanceId),
       );
-
-      expect(markerData).toBeDefined();
-      const selectablePoints = markerData?.points?.filter((p) => p.selectable) || [];
-      const path = createMarkerPath(trackRowId, markerId);
-
-      store.getState().clickMarker(selectablePoints, path, false, false);
-
-      const newState = store.getState();
-      expect(newState.selectionState.paths).toContain(path);
     });
   });
 
-  describe("Instance and Namespace Handling", () => {
-    it("should handle selection across different namespaces", () => {
-      const state = store.getState();
-
-      // Select from ALPHA namespace
-      const alphaTrackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
-      const alphaMarkerId = "o1";
-      const alphaMarkerData = state.computedRowData[alphaTrackRowId]?.virtualFrames.find(
-        (f) => f.id === alphaMarkerId,
-      );
-      const alphaPath = createMarkerPath(alphaTrackRowId, alphaMarkerId);
-
-      store
-        .getState()
-        .clickMarker(
-          alphaMarkerData?.points?.filter((p) => p.selectable) || [],
-          alphaPath,
-          false,
-          false,
-        );
-
-      // Verify ALPHA marker is selected
-      expect(store.getState().selectionState.paths).toContain(alphaPath);
-
-      // Try to select from BETA namespace (should switch instance)
-      const betaTrackRowId = `${NAMESPACE_IDS.BETA}/${INSTANCE_IDS.BETA_SHARED}/${TRACK_IDS.OPACITY}`;
-      const betaMarkerId = "o1";
-      const betaMarkerData = state.computedRowData[betaTrackRowId]?.virtualFrames.find(
-        (f) => f.id === betaMarkerId,
-      );
-      const betaPath = createMarkerPath(betaTrackRowId, betaMarkerId);
-
-      store
-        .getState()
-        .clickMarker(
-          betaMarkerData?.points?.filter((p) => p.selectable) || [],
-          betaPath,
-          false,
-          false,
-        );
-
-      const finalState = store.getState();
-
-      // Should have switched to BETA instance
-      expect(finalState.activeAnimationInstance).toBe(INSTANCE_IDS.BETA_SHARED);
-
-      // BETA marker should be selected, ALPHA should not
-      expect(finalState.selectionState.paths).toContain(betaPath);
-      expect(finalState.selectionState.paths).not.toContain(alphaPath);
-    });
-
-    it("should preserve instance when using Ctrl/Cmd within same instance", () => {
-      const state = store.getState();
-      const initialInstance = state.activeAnimationInstance;
-
-      // Select multiple markers within same instance
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
-
-      const marker1 = state.computedRowData[trackRowId]?.virtualFrames.find((f) => f.id === "o0");
-      const path1 = createMarkerPath(trackRowId, "o0");
-      store
-        .getState()
-        .clickMarker(marker1?.points?.filter((p) => p.selectable) || [], path1, false, false);
-
-      const marker2 = state.computedRowData[trackRowId]?.virtualFrames.find((f) => f.id === "o2");
-      const path2 = createMarkerPath(trackRowId, "o2");
-      store.getState().clickMarker(
-        marker2?.points?.filter((p) => p.selectable) || [],
-        path2,
-        false,
-        true, // Ctrl to add
-      );
-
-      // Instance should not have changed
-      expect(store.getState().activeAnimationInstance).toBe(initialInstance);
-
-      // Both markers should be selected
-      const finalState = store.getState();
-      expect(finalState.selectionState.paths).toContain(path1);
-      expect(finalState.selectionState.paths).toContain(path2);
-    });
-  });
-
-  describe("Minimal Store Configuration", () => {
-    it("should work with minimal store configuration", async () => {
+  describe("Minimal store configuration", () => {
+    it("supports marker selection in the minimal store", async () => {
       const minimalStore = createMinimalAnimationStore();
-
-      // Initialize subscriptions
-      const cleanup = minimalStore.getState().initAnimationSubscriptions();
+      const minimalCleanup = minimalStore.getState().initAnimationSubscriptions();
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const state = minimalStore.getState();
-
-      // Find a marker in the minimal setup
-      const trackRowId = `default/main/${TRACK_IDS.SCALE}`;
+      const rowId = `default/main/${TRACK_IDS.SCALE}`;
       const markerId = "s0";
 
-      const markerData = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId,
+      const points = clickMarkerWith(minimalStore, rowId, markerId);
+      const { selectionState } = minimalStore.getState();
+
+      expect(selectionSignatures(selectionState)).toEqual(
+        pointsToSignatures(points, selectionState.instanceId),
       );
+      expect(selectionState.reference).toEqual({ rowId, markerId });
 
-      expect(markerData).toBeDefined();
-
-      const selectablePoints = markerData?.points?.filter((p) => p.selectable) || [];
-      const path = createMarkerPath(trackRowId, markerId);
-
-      // Click the marker
-      minimalStore.getState().clickMarker(selectablePoints, path, false, false);
-
-      // Verify selection
-      const newState = minimalStore.getState();
-      expect(newState.selectionState.paths).toContain(path);
-      expect(newState.selectionState.referenceMarker).toBe(path);
-
-      cleanup();
-    });
-  });
-
-  describe("Edge Cases and Error Handling", () => {
-    it("should handle empty points array", () => {
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
-      const path = createMarkerPath(trackRowId, "o1");
-
-      // Click with empty points
-      store.getState().clickMarker([], path, false, false);
-
-      // Should not crash
-      const state = store.getState();
-      expect(state.selectionState).toBeDefined();
-    });
-
-    it("should handle invalid marker paths gracefully", () => {
-      // Test with malformed path
-      const invalidPath = "invalid/path/format";
-
-      store.getState().clickMarker([], invalidPath, false, false);
-
-      // Should not crash
-      const state = store.getState();
-      expect(state.selectionState).toBeDefined();
-    });
-
-    it("should handle rapid consecutive clicks", () => {
-      const state = store.getState();
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
-
-      // Perform rapid clicks
-      const markers = ["o0", "o1", "o2", "o3"];
-
-      markers.forEach((markerId) => {
-        const markerData = state.computedRowData[trackRowId]?.virtualFrames.find(
-          (f) => f.id === markerId,
-        );
-        const path = createMarkerPath(trackRowId, markerId);
-
-        store
-          .getState()
-          .clickMarker(markerData?.points?.filter((p) => p.selectable) || [], path, false, false);
-      });
-
-      // Should have the last clicked marker selected
-      const finalState = store.getState();
-      const lastPath = createMarkerPath(trackRowId, "o3");
-      expect(finalState.selectionState.paths).toContain(lastPath);
-      expect(finalState.selectionState.referenceMarker).toBe(lastPath);
+      minimalCleanup?.();
     });
   });
 });

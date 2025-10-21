@@ -399,36 +399,36 @@ export const AnimationSlice = (
 
       // Delay subscription initialization to prevent cascading updates during store creation
       unsubs = [
-          updatePlayerLoop,
-          updateOverallDuration,
-          updateInterpolationResultsOnStampChange,
-          updateAllInterpolatorsAndResultsOnDataChange,
-          updateInstancedTrackSources,
-          updateGlobalSources,
-          updateSourceRowIds,
-          updateComputedRowData,
-          updateConsolidatedSourceRow,
-        ].map((fn) => fn(api, set, get));
+        updatePlayerLoop,
+        updateOverallDuration,
+        updateInterpolationResultsOnStampChange,
+        updateAllInterpolatorsAndResultsOnDataChange,
+        updateInstancedTrackSources,
+        updateGlobalSources,
+        updateSourceRowIds,
+        updateComputedRowData,
+        updateConsolidatedSourceRow,
+      ].map((fn) => fn(api, set, get));
 
       return () => {
         unsubs.forEach((unsub) => unsub());
       };
     },
     /**
-     * Handle marker click with various modifier key behaviors for selection
+     * Handle marker click with various modifier key behaviors for selection.
      *
-     * Selection Behaviors:
-     * 1. Click (without modifier) on a marker always replaces the selection, and sets that marker to be the current reference.
-     * 2. Ctrl-click can work across tracks, and toggles a given marker's selection, and updates the current reference to that marker (if toggled to be selected)
-     * 3. Shift-click within a track when the last selected/activated marker is in that track selects all between the reference marker and the clicked marker.
-     *    The newly clicked marker does not update the reference.
-     * 4. Shift-click on a marker when that track does not have the reference acts like ctrl-click, except that it doesn't toggle off (only adds if not added) and sets the reference to that marker.
-     * 5. If ctrl-click toggles off the reference point, a new reference point must be selected (via shift-click or ctrl-click) before any shift-spanning selection can happen.
+     * Selection behaviors:
+     * 1. A plain click replaces the current selection and sets the clicked marker as the reference.
+     * 2. Ctrl/Cmd-click toggles a marker in the selection (cross-row allowed) and, when adding, updates the reference to that marker.
+     * 3. Shift-click within the reference row selects the range between the anchor and clicked markers without updating the reference.
+     * 4. Shift-click in any other row behaves like a plain click (replaces selection and moves the reference).
+     * 5. If Ctrl/Cmd-click removes the reference marker, the reference is cleared until another marker is explicitly clicked.
      *
-     * @param clickedPoints - The actual points that were clicked (pre-filtered for selectable)
-     * @param markerPath - The full marker path for reference tracking (sourceRowId#markerId)
-     * @param shift - Whether shift key is held
-     * @param mod - Whether mod key (Cmd on Mac, Ctrl on PC) is held
+     * @param clickedPoints - The actual points that were clicked (pre-filtered for selectable).
+     * @param rowId - The source row containing the marker.
+     * @param markerId - The marker identifier within the row.
+     * @param shift - Whether shift key is held.
+     * @param mod - Whether mod key (Cmd on Mac, Ctrl on PC) is held.
      */
     clickMarker: (
       clickedPoints: (SourceRowData & { id: string })[],

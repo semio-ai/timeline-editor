@@ -1,9 +1,9 @@
 /**
  * Modifier Key Selection Tests
- * Tests selection with modifier keys: Ctrl/Cmd for toggle, Shift for range
+ * Exercises Ctrl/Cmd toggles and Shift range selection against the keypoint model.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createTestAnimationStore,
   NAMESPACE_IDS,
@@ -12,12 +12,18 @@ import {
 } from "../../test-fixtures/animation-store-factory";
 import type { AnimationStore } from "../../store";
 import {
-  createMarkerPath,
-  parseMarkerPath,
-} from "../../functions/selection-state-manager";
+  clickMarkerWith,
+  findMarker,
+  getMarkerPoints,
+  keypointsToSignatures,
+  pointsToSignatures,
+  selectionSignatures,
+} from "./selection-test-helpers";
+import { collectRangeKeypoints } from "../../functions/selection-state-manager";
 
 describe("Modifier Key Selection", () => {
   let store: AnimationStore;
+  let cleanup: (() => void) | undefined;
 
   beforeEach(async () => {
     store = createTestAnimationStore({
@@ -26,415 +32,198 @@ describe("Modifier Key Selection", () => {
       activeInstance: INSTANCE_IDS.ALPHA_SHARED,
     });
 
-    // Initialize subscriptions and wait for computed data
-    const cleanup = store.getState().initAnimationSubscriptions();
+    cleanup = store.getState().initAnimationSubscriptions();
     await new Promise((resolve) => setTimeout(resolve, 10));
+  });
 
-    // Cleanup after test
-    return cleanup;
+  afterEach(() => {
+    cleanup?.();
+    cleanup = undefined;
   });
 
   describe("Ctrl/Cmd Click (Toggle Selection)", () => {
-    it("should add to selection when marker not selected", () => {
-      const state = store.getState();
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
+    const opacityRow = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
 
-      // Select first marker
-      const markerId1 = "o0";
-      const markerData1 = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId1,
-      );
-      const path1 = createMarkerPath(trackRowId, markerId1);
-      store.getState().clickMarker(
-        markerData1?.points?.filter((p) => p.selectable) || [],
-        path1,
-        false,
-        false,
-      );
+    it("adds markers to the selection and updates the reference", () => {
+      const firstPoints = clickMarkerWith(store, opacityRow, "o0");
+      let { selectionState } = store.getState();
+      const expectedFirst = pointsToSignatures(firstPoints, selectionState.instanceId);
 
-      // Verify first selection
-      let currentState = store.getState();
-      expect(currentState.selectionState.paths).toContain(path1);
-      const initialSelectionCount = currentState.selectionState.paths.length;
+      expect(selectionSignatures(selectionState)).toEqual(expectedFirst);
+      expect(selectionState.reference).toEqual({ rowId: opacityRow, markerId: "o0" });
 
-      // Ctrl/Cmd click second marker to add to selection
-      const markerId2 = "o2";
-      const markerData2 = currentState.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId2,
-      );
-      const path2 = createMarkerPath(trackRowId, markerId2);
-      store.getState().clickMarker(
-        markerData2?.points?.filter((p) => p.selectable) || [],
-        path2,
-        false,
-        true, // Ctrl/Cmd modifier
-      );
+      const secondPoints = clickMarkerWith(store, opacityRow, "o2", { mod: true });
+      selectionState = store.getState().selectionState;
+      const expectedSecond = pointsToSignatures(secondPoints, selectionState.instanceId);
+      const expectedCombined = Array.from(new Set([...expectedFirst, ...expectedSecond])).sort();
 
-      // Verify both are selected
-      currentState = store.getState();
-      expect(currentState.selectionState.paths).toContain(path1);
-      expect(currentState.selectionState.paths).toContain(path2);
-      expect(currentState.selectionState.paths.length).toBeGreaterThan(initialSelectionCount);
+      expect(selectionSignatures(selectionState)).toEqual(expectedCombined);
+      expect(selectionState.reference).toEqual({ rowId: opacityRow, markerId: "o2" });
     });
 
-    it("should remove from selection when marker already selected", () => {
-      const state = store.getState();
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
+    it("removes a marker when toggled again and clears the reference if it was the anchor", () => {
+      clickMarkerWith(store, opacityRow, "o1");
+      const initialSelection = store.getState().selectionState;
+      expect(initialSelection.reference).toEqual({ rowId: opacityRow, markerId: "o1" });
 
-      // Select two markers
-      const markerId1 = "o0";
-      const markerData1 = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId1,
-      );
-      const path1 = createMarkerPath(trackRowId, markerId1);
-      store.getState().clickMarker(
-        markerData1?.points?.filter((p) => p.selectable) || [],
-        path1,
-        false,
-        false,
-      );
+      const points = getMarkerPoints(store, opacityRow, "o1");
+      store.getState().clickMarker(points, opacityRow, "o1", false, true);
 
-      const markerId2 = "o1";
-      const markerData2 = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId2,
-      );
-      const path2 = createMarkerPath(trackRowId, markerId2);
-      store.getState().clickMarker(
-        markerData2?.points?.filter((p) => p.selectable) || [],
-        path2,
-        false,
-        true, // Add to selection
-      );
-
-      // Verify both selected
-      let currentState = store.getState();
-      expect(currentState.selectionState.paths).toContain(path1);
-      expect(currentState.selectionState.paths).toContain(path2);
-
-      // Ctrl/Cmd click first marker again to deselect
-      store.getState().clickMarker(
-        markerData1?.points?.filter((p) => p.selectable) || [],
-        path1,
-        false,
-        true, // Ctrl/Cmd to toggle off
-      );
-
-      // Verify only second marker remains selected
-      currentState = store.getState();
-      expect(currentState.selectionState.paths).not.toContain(path1);
-      expect(currentState.selectionState.paths).toContain(path2);
+      const { selectionState } = store.getState();
+      expect(selectionSignatures(selectionState)).toEqual([]);
+      expect(selectionState.reference).toBeNull();
+      expect(selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_SHARED);
     });
 
-    it("should toggle entire group when clicking group track with Ctrl/Cmd", () => {
-      const state = store.getState();
-      const groupTrackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.POSITION}`;
-      const simpleTrackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
+    it("supports toggling markers across different tracks within the same instance", () => {
+      type MarkerDefinition =
+        | { rowId: string; markerId: string }
+        | { markerId: string; predicate: (rowId: string) => boolean };
 
-      // First select a simple marker
-      const simpleMarkerId = "s0";
-      const simpleMarkerData = state.computedRowData[simpleTrackRowId]?.virtualFrames.find(
-        (f) => f.id === simpleMarkerId,
-      );
-      const simplePath = createMarkerPath(simpleTrackRowId, simpleMarkerId);
-      store.getState().clickMarker(
-        simpleMarkerData?.points?.filter((p) => p.selectable) || [],
-        simplePath,
-        false,
-        false,
-      );
-
-      // Ctrl/Cmd click a group marker to add entire group
-      const groupMarkerId = "px1";
-      const groupMarkerData = state.computedRowData[groupTrackRowId]?.virtualFrames.find(
-        (f) => f.id === groupMarkerId,
-      );
-      const groupPath = createMarkerPath(groupTrackRowId, groupMarkerId);
-      store.getState().clickMarker(
-        groupMarkerData?.points?.filter((p) => p.selectable) || [],
-        groupPath,
-        false,
-        true, // Ctrl/Cmd modifier
-      );
-
-      const currentState = store.getState();
-      // Should contain both the simple marker and the group marker
-      expect(currentState.selectionState.paths).toContain(simplePath);
-      expect(currentState.selectionState.paths).toContain(groupPath);
-      // Selection should have grown
-      expect(currentState.selectionState.paths.length).toBeGreaterThan(1);
-    });
-
-    it("should handle Ctrl/Cmd click across different track types", () => {
-      const state = store.getState();
-
-      // Select from different track types
-      const tracks = [
-        { rowId: `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`, markerId: "o1" },
-        { rowId: `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`, markerId: "s1" },
-        { rowId: `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.POSITION}`, markerId: "px2" },
+      const definitions: MarkerDefinition[] = [
+        { rowId: opacityRow, markerId: "o1" },
+        {
+          rowId: `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`,
+          markerId: "s1",
+        },
+        {
+          markerId: "px2",
+          predicate: (rowId: string) =>
+            rowId.includes(`${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}`) &&
+            rowId.includes(TRACK_IDS.POSITION),
+        },
       ];
 
-      const paths: string[] = [];
+      const expectedSignatures = new Set<string>();
 
-      tracks.forEach((track, index) => {
-        const markerData = state.computedRowData[track.rowId]?.virtualFrames.find(
-          (f) => f.id === track.markerId,
-        );
-        const path = createMarkerPath(track.rowId, track.markerId);
-        paths.push(path);
+      definitions.forEach((definition, index) => {
+        const markerContext =
+          "rowId" in definition
+            ? {
+                rowId: definition.rowId,
+                points: getMarkerPoints(store, definition.rowId, definition.markerId),
+              }
+            : findMarker(store, definition.markerId, definition.predicate);
 
-        store.getState().clickMarker(
-          markerData?.points?.filter((p) => p.selectable) || [],
-          path,
-          false,
-          index > 0, // Use Ctrl/Cmd for all but the first
+        store
+          .getState()
+          .clickMarker(
+            markerContext.points,
+            markerContext.rowId,
+            definition.markerId,
+            false,
+            index > 0,
+          );
+
+        const { selectionState } = store.getState();
+        const markerSignatures = pointsToSignatures(
+          markerContext.points,
+          selectionState.instanceId,
         );
+        markerSignatures.forEach((signature) => expectedSignatures.add(signature));
       });
 
-      // All should be selected
-      const currentState = store.getState();
-      paths.forEach((path) => {
-        expect(currentState.selectionState.paths).toContain(path);
-      });
+      const { selectionState } = store.getState();
+      expect(selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_SHARED);
+      expect(selectionSignatures(selectionState)).toEqual(Array.from(expectedSignatures).sort());
     });
   });
 
   describe("Shift Click (Range Selection)", () => {
-    it("should select range between reference and clicked marker", () => {
-      const state = store.getState();
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
+    const opacityRow = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
 
-      // Select first marker to establish reference
-      const markerId1 = "o0";
-      const markerData1 = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId1,
-      );
-      const path1 = createMarkerPath(trackRowId, markerId1);
-      store.getState().clickMarker(
-        markerData1?.points?.filter((p) => p.selectable) || [],
-        path1,
-        false,
-        false,
+    it("selects the range between the reference and the clicked marker", () => {
+      clickMarkerWith(store, opacityRow, "o0");
+      clickMarkerWith(store, opacityRow, "o2", { shift: true });
+
+      const { selectionState } = store.getState();
+      const range = collectRangeKeypoints(
+        store.getState().computedRowData[opacityRow],
+        selectionState.instanceId!,
+        "o0",
+        "o2",
       );
 
-      // Shift-click third marker to select range
-      const markerId3 = "o2";
-      const markerData3 = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId3,
-      );
-      const path3 = createMarkerPath(trackRowId, markerId3);
-      store.getState().clickMarker(
-        markerData3?.points?.filter((p) => p.selectable) || [],
-        path3,
-        true, // Shift modifier
-        false,
-      );
-
-      const currentState = store.getState();
-
-      // Should include start and end markers
-      expect(currentState.selectionState.paths).toContain(path1);
-      expect(currentState.selectionState.paths).toContain(path3);
-
-      // Should also include any markers between them (o1)
-      const path2 = createMarkerPath(trackRowId, "o1");
-      expect(currentState.selectionState.paths).toContain(path2);
+      expect(selectionSignatures(selectionState)).toEqual(keypointsToSignatures(range));
+      expect(selectionState.reference).toEqual({ rowId: opacityRow, markerId: "o0" });
     });
 
-    it("should handle shift-click without reference marker", () => {
-      const state = store.getState();
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
+    it("treats a shift click without an existing reference as a simple click", () => {
+      const scaleRow = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
+      const points = clickMarkerWith(store, scaleRow, "s1", { shift: true });
 
-      // Shift-click without any prior selection (no reference)
-      const markerId = "s1";
-      const markerData = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId,
+      const { selectionState } = store.getState();
+      expect(selectionSignatures(selectionState)).toEqual(
+        pointsToSignatures(points, selectionState.instanceId),
       );
-      const path = createMarkerPath(trackRowId, markerId);
-      store.getState().clickMarker(
-        markerData?.points?.filter((p) => p.selectable) || [],
-        path,
-        true, // Shift modifier
-        false,
-      );
-
-      const currentState = store.getState();
-
-      // Should just select the clicked marker since no reference
-      expect(currentState.selectionState.paths).toContain(path);
-      expect(currentState.selectionState.referenceMarker).toBe(path);
+      expect(selectionState.reference).toEqual({ rowId: scaleRow, markerId: "s1" });
     });
 
-    it("should handle shift-click across different rows (should not range select)", () => {
-      const state = store.getState();
+    it("falls back to a simple click when the clicked marker is in a different row", () => {
+      const scaleRow = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
+      clickMarkerWith(store, opacityRow, "o1");
+      const points = clickMarkerWith(store, scaleRow, "s2", { shift: true });
 
-      // Select marker in first track
-      const trackRowId1 = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
-      const markerId1 = "o1";
-      const markerData1 = state.computedRowData[trackRowId1]?.virtualFrames.find(
-        (f) => f.id === markerId1,
+      const { selectionState } = store.getState();
+      expect(selectionSignatures(selectionState)).toEqual(
+        pointsToSignatures(points, selectionState.instanceId),
       );
-      const path1 = createMarkerPath(trackRowId1, markerId1);
-      store.getState().clickMarker(
-        markerData1?.points?.filter((p) => p.selectable) || [],
-        path1,
-        false,
-        false,
-      );
-
-      // Shift-click marker in different track (different row)
-      const trackRowId2 = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
-      const markerId2 = "s1";
-      const markerData2 = state.computedRowData[trackRowId2]?.virtualFrames.find(
-        (f) => f.id === markerId2,
-      );
-      const path2 = createMarkerPath(trackRowId2, markerId2);
-      store.getState().clickMarker(
-        markerData2?.points?.filter((p) => p.selectable) || [],
-        path2,
-        true, // Shift modifier
-        false,
-      );
-
-      const currentState = store.getState();
-
-      // Should only select the newly clicked marker (no range across rows)
-      expect(currentState.selectionState.paths).toContain(path2);
-      expect(currentState.selectionState.paths).not.toContain(path1);
-      expect(currentState.selectionState.referenceMarker).toBe(path2);
+      expect(selectionState.reference).toEqual({ rowId: scaleRow, markerId: "s2" });
     });
 
-    it("should select range in group tracks", () => {
-      const state = store.getState();
-      const groupTrackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.POSITION}`;
+    it("extends an existing range when shift and cmd/ctrl are combined", () => {
+      clickMarkerWith(store, opacityRow, "o0");
+      clickMarkerWith(store, opacityRow, "o2", { shift: true });
+      const afterRange = store.getState().selectionState;
+      const initialRange = selectionSignatures(afterRange);
 
-      // Select first position marker
-      const markerId1 = "px0";
-      const markerData1 = state.computedRowData[groupTrackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId1,
-      );
-      const path1 = createMarkerPath(groupTrackRowId, markerId1);
-      store.getState().clickMarker(
-        markerData1?.points?.filter((p) => p.selectable) || [],
-        path1,
-        false,
-        false,
+      clickMarkerWith(store, opacityRow, "o3", { shift: true, mod: true });
+      const { selectionState } = store.getState();
+      const extendedRange = collectRangeKeypoints(
+        store.getState().computedRowData[opacityRow],
+        selectionState.instanceId!,
+        "o0",
+        "o3",
       );
 
-      // Shift-click third position marker
-      const markerId3 = "px2";
-      const markerData3 = state.computedRowData[groupTrackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId3,
+      expect(selectionSignatures(selectionState)).toEqual(
+        Array.from(new Set([...initialRange, ...keypointsToSignatures(extendedRange)])).sort(),
       );
-      const path3 = createMarkerPath(groupTrackRowId, markerId3);
-      store.getState().clickMarker(
-        markerData3?.points?.filter((p) => p.selectable) || [],
-        path3,
-        true, // Shift modifier
-        false,
-      );
-
-      const currentState = store.getState();
-
-      // Should include start, end, and middle markers
-      expect(currentState.selectionState.paths).toContain(path1);
-      expect(currentState.selectionState.paths).toContain(path3);
-
-      // Should also include px1 (the marker in between)
-      const path2 = createMarkerPath(groupTrackRowId, "px1");
-      expect(currentState.selectionState.paths).toContain(path2);
+      expect(selectionState.reference).toEqual({ rowId: opacityRow, markerId: "o0" });
     });
 
-    it("should update reference marker on shift-click", () => {
-      const state = store.getState();
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
+    it("preserves earlier row selections when creating a new shift range", () => {
+      const scaleRow = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
 
-      // Select first marker
-      const markerId1 = "s0";
-      const markerData1 = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId1,
-      );
-      const path1 = createMarkerPath(trackRowId, markerId1);
-      store.getState().clickMarker(
-        markerData1?.points?.filter((p) => p.selectable) || [],
-        path1,
-        false,
-        false,
+      clickMarkerWith(store, scaleRow, "s0");
+      clickMarkerWith(store, scaleRow, "s3", { shift: true });
+
+      const scaleSelection = store.getState().selectionState;
+      const instanceId = scaleSelection.instanceId!;
+      const scaleRange = collectRangeKeypoints(
+        store.getState().computedRowData[scaleRow],
+        instanceId,
+        "s0",
+        "s3",
       );
 
-      // Reference should be the first marker
-      expect(store.getState().selectionState.referenceMarker).toBe(path1);
+      clickMarkerWith(store, opacityRow, "o2", { mod: true });
+      clickMarkerWith(store, opacityRow, "o1", { shift: true });
 
-      // Shift-click to select range
-      const markerId3 = "s2";
-      const markerData3 = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId3,
-      );
-      const path3 = createMarkerPath(trackRowId, markerId3);
-      store.getState().clickMarker(
-        markerData3?.points?.filter((p) => p.selectable) || [],
-        path3,
-        true,
-        false,
+      const stateAfter = store.getState();
+      const opacityRange = collectRangeKeypoints(
+        stateAfter.computedRowData[opacityRow],
+        stateAfter.selectionState.instanceId!,
+        "o1",
+        "o2",
       );
 
-      // Reference should remain the first marker after range selection
-      const currentState = store.getState();
-      expect(currentState.selectionState.referenceMarker).toBe(path1);
-    });
-  });
+      const expected = Array.from(
+        new Set([...keypointsToSignatures(scaleRange), ...keypointsToSignatures(opacityRange)]),
+      ).sort();
 
-  describe("Combined Modifiers", () => {
-    it("should handle Shift+Ctrl/Cmd (extend range selection)", () => {
-      const state = store.getState();
-      const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
-
-      // Select first marker
-      const markerId1 = "o0";
-      const markerData1 = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId1,
-      );
-      const path1 = createMarkerPath(trackRowId, markerId1);
-      store.getState().clickMarker(
-        markerData1?.points?.filter((p) => p.selectable) || [],
-        path1,
-        false,
-        false,
-      );
-
-      // Shift-click to select range to o2
-      const markerId2 = "o2";
-      const markerData2 = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId2,
-      );
-      const path2 = createMarkerPath(trackRowId, markerId2);
-      store.getState().clickMarker(
-        markerData2?.points?.filter((p) => p.selectable) || [],
-        path2,
-        true, // Shift
-        false,
-      );
-
-      // Now Shift+Ctrl/Cmd click to extend range
-      const markerId3 = "o3";
-      const markerData3 = state.computedRowData[trackRowId]?.virtualFrames.find(
-        (f) => f.id === markerId3,
-      );
-      const path3 = createMarkerPath(trackRowId, markerId3);
-      store.getState().clickMarker(
-        markerData3?.points?.filter((p) => p.selectable) || [],
-        path3,
-        true, // Shift
-        true, // Ctrl/Cmd
-      );
-
-      const currentState = store.getState();
-
-      // Should have all markers from o0 to o3
-      expect(currentState.selectionState.paths).toContain(path1);
-      expect(currentState.selectionState.paths).toContain(path2);
-      expect(currentState.selectionState.paths).toContain(path3);
-      expect(currentState.selectionState.paths).toContain(createMarkerPath(trackRowId, "o1"));
+      expect(selectionSignatures(stateAfter.selectionState)).toEqual(expected);
+      expect(stateAfter.selectionState.reference).toEqual({ rowId: opacityRow, markerId: "o2" });
     });
   });
 });

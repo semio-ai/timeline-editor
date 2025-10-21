@@ -1,4 +1,4 @@
-import type { SourceRowData } from "../util/source";
+import type { SourceRowData } from "./source";
 
 export interface SelectionAnchor {
   rowId: string;

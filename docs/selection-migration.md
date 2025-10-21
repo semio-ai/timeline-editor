@@ -56,6 +56,7 @@ interface SelectionActions {
 ### 4. Update derived selectors and helpers
 - [x] Replaced `selection-state-manager.ts` with keypoint-centric helpers (`extractKeypoints`, `collectRangeKeypoints`, etc.).
 - [ ] Audit remaining consumers that still depend on marker-path helpers (tests + debugging utilities) and migrate them.
+  - Introduced shared test helpers (`selection-test-helpers.ts`) and migrated the click-marker, basic-selection, modifier-selection, visual-selection, and global-track-selection suites off `createMarkerPath`/`pathSet`; runtime selectors (`isMarkerSelected`, etc.) still pending.
 
 ### 5. Migrate renderers and hooks
 - [~] `DataPoint` now reads from the new selection structure and uses the refactored click action. Remaining surfaces (row headers, keyboard handlers) still expect path utilities.
@@ -67,12 +68,15 @@ interface SelectionActions {
 - [ ] Clean up deprecated helpers/loggers after the consumer audit.
 
 ### 7. Refresh test coverage
-- Update selection test fixtures to assert against keypoint ids rather than path strings.
+- [ ] Update selection test fixtures to assert against keypoint ids rather than path strings.
+  - Completed for the migrated suites above; remaining debug/drag fixtures still emit path strings.
 - Add new tests that cover:
   - Modifier behavior (reference updates, toggling)
   - Range selection after marker drag (confirms stamp lookup is live)
   - Global-row filtering (only active instance keypoints selected)
 - [ ] Migrate the selection test suite to the new helper conventions (currently still path-based and failing).
+  - Completed for `basic-selection.test.ts`, `click-marker-action.test.ts`, `global-track-selection.test.ts`, `modifier-selection.test.ts`, and `visual-selection.test.ts`; remaining suites (`timeline-track-selection-debug`, drag/virtual-frame diagnostics) still rely on path-based assertions.
+  - Added regression coverage that preserves multi-row selections when a new shift range is created in a different row.
 - Remove any path-format assertions that no longer apply.
 
 ### 8. Documentation and handoff

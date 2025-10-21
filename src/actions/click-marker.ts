@@ -96,7 +96,12 @@ function handleShiftSelection(
   extend?: boolean,
 ): SelectionState {
   const reference = selection.reference!;
-  const rangeKeypoints = collectRangeKeypoints(row, instanceId, reference.markerId, anchor.markerId);
+  const rangeKeypoints = collectRangeKeypoints(
+    row,
+    instanceId,
+    reference.markerId,
+    anchor.markerId,
+  );
 
   if (rangeKeypoints.length === 0) {
     // No range resolved; fall back to simple replace using current marker.
@@ -108,7 +113,25 @@ function handleShiftSelection(
     return setReference(next, reference);
   }
 
-  return replaceKeypoints(selection, rangeKeypoints, instanceId, reference);
+  const tracksToReplace = new Set(rangeKeypoints.map((kp) => kp.trackId));
+  let baseSelection = selection;
+
+  if (tracksToReplace.size > 0) {
+    const removal: KeypointAddress[] = [];
+    selection.keypoints.forEach((ids, trackId) => {
+      if (!tracksToReplace.has(trackId)) return;
+      ids.forEach((keypointId) => {
+        removal.push({ trackId, keypointId });
+      });
+    });
+
+    if (removal.length > 0) {
+      baseSelection = removeKeypoints(selection, removal);
+    }
+  }
+
+  const next = addKeypoints(baseSelection, rangeKeypoints);
+  return setReference(next, reference);
 }
 
 function handleModifierToggle(
@@ -120,7 +143,10 @@ function handleModifierToggle(
 
   if (alreadySelected) {
     const next = removeKeypoints(selection, markerKeypoints);
-    return setReference(next, hasAllKeypoints(next, markerKeypoints) ? anchor : null);
+    const isReference =
+      selection.reference?.rowId === anchor.rowId &&
+      selection.reference?.markerId === anchor.markerId;
+    return setReference(next, isReference ? null : (selection.reference ?? null));
   }
 
   const next = addKeypoints(selection, markerKeypoints);

@@ -334,6 +334,8 @@ export const DataPoint = memo(function DataPoint({
 
         event.stopPropagation();
 
+        console.log(JSON.stringify({ selectablePoints, sourceRowId, markerId, shiftKey, metaKey }));
+
         clickMarker(selectablePoints, sourceRowId, markerId, shiftKey, metaKey || event.ctrlKey);
       },
       onDragStart: ({ event }) => {
