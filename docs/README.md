@@ -21,6 +21,11 @@ This document captures the current organization, data structures, and runtime fl
 | `src/tests/` | Vitest suites (currently commented while refactors land) | Re-enable/update when functionality becomes active. |
 | `docs/` | Architecture and migration notes | Add supplementary deep dives here; keep this README as the high-level map. Prune/merge supplementary deep dives when no longer relevant or outdated. |
 
+## Migration Plans
+
+- [ ] [Selection State Migration](./selection-migration.md)
+- [ ] [Canvas Sheet Layering & Contrast Migration](./canvas-sheet-layering-migration.md)
+
 ## Core Data Model
 
 The zustand store (`AnimationData` in `store-types.ts`) is the single source of truth. Key fields:
