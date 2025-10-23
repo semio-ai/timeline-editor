@@ -21,12 +21,13 @@ export function updateSourceRowIds(
       sourcesByAnimationInstance: state.sourcesByAnimationInstance,
     }),
     ({ sourcesByAnimationInstance }) => {
-      const sourceRowIds: string[] = [];
+      const sourceRowIds = { flat: [] as string[], spline: [] as string[] };
 
       // Compute visible row IDs from all animation instances
       Object.values(sourcesByAnimationInstance).forEach((sources) => {
         const visibleIds = computeVisibleSourceRowIds(sources);
-        visibleIds.forEach((id) => sourceRowIds.push(id));
+        sourceRowIds.flat.push(...visibleIds.flat);
+        sourceRowIds.spline.push(...visibleIds.spline);
       });
 
       set({ sourceRowIds });

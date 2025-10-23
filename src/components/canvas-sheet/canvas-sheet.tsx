@@ -98,6 +98,18 @@ interface CanvasContentProps {
 }
 
 const defaultRowIds: string[] = [];
+const defaultRowLookup = { flat: defaultRowIds, spline: defaultRowIds };
+
+function normalizeRowLookup(rows: AnimationData["sourceRowIds"] | undefined): {
+  flat: string[];
+  spline: string[];
+} {
+  if (!rows) return defaultRowLookup;
+  if (Array.isArray(rows)) {
+    return { flat: rows, spline: rows };
+  }
+  return rows;
+}
 
 const CanvasContent = memo(function CanvasContent({
   viewId,
@@ -109,8 +121,8 @@ const CanvasContent = memo(function CanvasContent({
 }: CanvasContentProps) {
   const bgColor = theme === Theme.Dark ? "#202020" : "#EFEFEF";
 
-  const rowIds = useAnimationStore(
-    useShallow((state: AnimationData) => state.sourceRowIds ?? defaultRowIds),
+  const rowIdLookup = useAnimationStore(
+    useShallow((state: AnimationData) => normalizeRowLookup(state.sourceRowIds)),
   );
   const trackRender = useAnimationStore(
     useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),
@@ -123,12 +135,13 @@ const CanvasContent = memo(function CanvasContent({
   const trackHeight = 36;
 
   const size = useThree((t) => t.size);
+  const flatRowCount = rowIdLookup.flat.length;
 
   const totalContentHeightPx = useMemo(() => {
     return trackRender === TrackRender.Spline
       ? size.height - topOffsetPx - bottomOffsetPx
-      : rowIds.length * trackHeight;
-  }, [trackRender, size.height, topOffsetPx, bottomOffsetPx, rowIds.length, trackHeight]);
+      : flatRowCount * trackHeight;
+  }, [trackRender, size.height, topOffsetPx, bottomOffsetPx, flatRowCount, trackHeight]);
 
   return (
     <>

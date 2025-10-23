@@ -7,6 +7,12 @@ export { SemanticTime } from "./semantic-time";
 export type { Preview } from "./preview";
 export { TrackRender } from "./track-render";
 export type { Source, SourceGroup, SourceTrack, SourceRow, SourceRowData } from "./source";
+export type { VisibleSourceRowIds } from "./source-row-ids";
 export type { View } from "./view";
 export type { ViolationSet, ViolationSegment } from "./violation-set";
-export type { SelectionState, SelectionAnchor, MarkerPoint, KeypointAddress } from "./selection-state";
+export type {
+  SelectionState,
+  SelectionAnchor,
+  MarkerPoint,
+  KeypointAddress,
+} from "./selection-state";

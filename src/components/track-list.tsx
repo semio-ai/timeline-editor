@@ -15,6 +15,18 @@ export interface TrackListProps {
 }
 
 const defaultRowIds: string[] = [];
+const defaultRowLookup = { flat: defaultRowIds, spline: defaultRowIds };
+
+function normalizeRowLookup(rows: AnimationData["sourceRowIds"] | undefined): {
+  flat: string[];
+  spline: string[];
+} {
+  if (!rows) return defaultRowLookup;
+  if (Array.isArray(rows)) {
+    return { flat: rows, spline: rows };
+  }
+  return rows;
+}
 
 export function TrackList({
   height = 240,
@@ -22,12 +34,14 @@ export function TrackList({
   emphasis = [],
   onEmphasisChange = () => {},
 }: TrackListProps): ReactNode {
-  const sourceRowIds = useAnimationStore(
-    useShallow((state: AnimationData) => state.sourceRowIds ?? defaultRowIds),
+  const sourceRowIdLookup = useAnimationStore(
+    useShallow((state: AnimationData) => normalizeRowLookup(state.sourceRowIds)),
   );
 
+  const flatRowIds = sourceRowIdLookup.flat;
+
   const sourceRows = useAnimationStore(
-    useShallow((state: AnimationData) => sourceRowIds.map((id) => state.instancedTrackSources[id])),
+    useShallow((state: AnimationData) => flatRowIds.map((id) => state.instancedTrackSources[id])),
   );
 
   return (

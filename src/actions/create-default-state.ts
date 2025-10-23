@@ -45,7 +45,10 @@ export const createDefaultState = (): AnimationData => {
     editorViews: {},
     instancedTrackSources: {},
     sourcesByAnimationInstance: {},
-    sourceRowIds: [],
+    sourceRowIds: {
+      flat: [],
+      spline: [],
+    },
     computedRowData: {},
   };
 };

@@ -1,42 +1,42 @@
-import type { Source, SourceGroup, SourceTrack } from "../types";
+import type { Source, SourceGroup, SourceTrack, VisibleSourceRowIds } from "../types";
 import { GROUP_TYPES } from "../constants";
 
 /**
- * Computes the list of visible source row IDs based on the expanded state of groups.
- * Groups are always visible, but their children are only visible when the group is expanded.
- *
- * @param sources - The source tree to process
- * @returns Array of visible source row IDs
+ * Computes both the flat (groups + leaves) and spline (leaf-only) lists of source row IDs
+ * based on the expanded state of groups. Groups are always included in the flat list, but
+ * only expanded groups contribute their children to either list.
  */
-export function computeVisibleSourceRowIds(sources: Source[]): string[] {
-  const visibleIds: string[] = [];
+export function computeVisibleSourceRowIds(sources: Source[]): VisibleSourceRowIds {
+  const accumulator: VisibleSourceRowIds = { flat: [], spline: [] };
 
-  if (!sources || sources.length === 0) return visibleIds;
+  if (!sources || sources.length === 0) {
+    return accumulator;
+  }
 
+  collectVisibleIds(sources, accumulator);
+  return accumulator;
+}
+
+function collectVisibleIds(sources: Source[], acc: VisibleSourceRowIds): void {
   sources.forEach((source: Source) => {
     if (GROUP_TYPES.has(source.type)) {
       const sourceGroup = source as SourceGroup;
-      // The group itself is always visible
       const groupId = `${source.namespaceId}/${source.instanceId}/${sourceGroup.groupId}`;
-      visibleIds.push(groupId);
+      acc.flat.push(groupId);
 
-      // Only process children if the group is expanded
       if (sourceGroup.expanded) {
-        // Recursively get visible IDs from children
-        const childIds = computeVisibleSourceRowIds(sourceGroup.children);
-        visibleIds.push(...childIds);
+        collectVisibleIds(sourceGroup.children, acc);
       }
     } else {
-      // It's a leaf track - add it if not hidden
       const sourceTrack = source as SourceTrack;
-      if (!sourceTrack.hidden) {
-        const trackId = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}${
-          sourceTrack.attribute ? `.${sourceTrack.attribute}` : ""
-        }`;
-        visibleIds.push(trackId);
-      }
+      if (sourceTrack.hidden) return;
+
+      const trackId = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}${
+        sourceTrack.attribute ? `.${sourceTrack.attribute}` : ""
+      }`;
+
+      acc.flat.push(trackId);
+      acc.spline.push(trackId);
     }
   });
-
-  return visibleIds;
 }

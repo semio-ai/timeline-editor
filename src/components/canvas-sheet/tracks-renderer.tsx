@@ -29,6 +29,18 @@ interface TracksRendererProps {
 }
 
 const defaultSourceRowIds: string[] = [];
+const defaultSourceRowLookup = { flat: defaultSourceRowIds, spline: defaultSourceRowIds };
+
+function normalizeRowLookup(rows: AnimationData["sourceRowIds"] | undefined): {
+  flat: string[];
+  spline: string[];
+} {
+  if (!rows) return defaultSourceRowLookup;
+  if (Array.isArray(rows)) {
+    return { flat: rows, spline: rows };
+  }
+  return rows;
+}
 
 export const TracksRenderer = memo(function TracksRenderer({
   viewId,
@@ -43,13 +55,16 @@ export const TracksRenderer = memo(function TracksRenderer({
   const { size, camera } = useThree();
   const { size: motionSize } = useMotionCanvas();
 
-  const sourceRowIds = useAnimationStore(
-    useShallow((state: AnimationData) => state.sourceRowIds ?? defaultSourceRowIds),
+  const sourceRowLookup = useAnimationStore(
+    useShallow((state: AnimationData) => normalizeRowLookup(state.sourceRowIds)),
   );
 
   const trackRender = useAnimationStore(
     useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),
   );
+
+  const sourceRowIds =
+    trackRender === TrackRender.Spline ? sourceRowLookup.spline : sourceRowLookup.flat;
 
   const availableHeight = size.height - topOffsetPx - bottomOffsetPx;
 

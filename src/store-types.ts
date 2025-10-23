@@ -15,6 +15,7 @@ import type {
   SourceRowData,
   View,
   ComputedRowData,
+  VisibleSourceRowIds,
   Namespace,
 } from "./types";
 import type { SelectionState } from "./types/util/selection-state";
@@ -124,7 +125,7 @@ export interface AnimationData {
   /**
    * Global source row IDs shared across all views
    */
-  sourceRowIds: string[];
+  sourceRowIds: VisibleSourceRowIds;
   /**
    * Computed row data, storing visualization-specific data
    */
