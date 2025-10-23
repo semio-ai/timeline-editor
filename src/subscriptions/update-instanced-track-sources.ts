@@ -20,8 +20,16 @@ export function updateInstancedTrackSources(
       animatables: state.animatables,
       tracks: state.tracks,
       sourcesByAnimationInstance: state.sourcesByAnimationInstance,
+      activeAnimationId: state.selectionState.instanceId,
     }),
-    ({ namespaces, animations, animatables, tracks, sourcesByAnimationInstance }) => {
+    ({
+      namespaces,
+      animations,
+      animatables,
+      tracks,
+      sourcesByAnimationInstance,
+      activeAnimationId,
+    }) => {
       // console.log(namespaceInfo, animations, subscribes);
       // for each namespace -> for each instance -> for each track in the instance's aninimation subscribe... to namespace/track
       if (!namespaces) return;
@@ -39,6 +47,7 @@ export function updateInstancedTrackSources(
           }
 
           if (animation) {
+            const foreground = !activeAnimationId || activeAnimationId === instance.id;
             animation.tracks.forEach((trackId) => {
               const animatable = animatables[tracks[trackId].animatableId];
               if (!animatable) return;
@@ -54,12 +63,11 @@ export function updateInstancedTrackSources(
                 const sourceGroup = sources.find((s) => s.id === id);
                 const expanded =
                   sourceGroup && "expanded" in sourceGroup ? sourceGroup.expanded : undefined;
-
                 instancedTrackSources[id] = {
                   id: `${namespaceId}/${instance.id}/${trackId}`,
                   expanded,
                   data: TYPE_FIELDS[trackType as string].map((field) => ({
-                    foreground: true,
+                    foreground,
                     selectable: true,
                     editable: true,
                     animationId: animation.id,
@@ -78,7 +86,7 @@ export function updateInstancedTrackSources(
                     id: `${namespaceId}/${instance.id}/${trackId}.${field}`,
                     data: [
                       {
-                        foreground: true,
+                        foreground,
                         selectable: true,
                         editable: true,
                         animationId: animation.id,
@@ -99,7 +107,7 @@ export function updateInstancedTrackSources(
                   id: `${namespaceId}/${instance.id}/${trackId}`,
                   data: [
                     {
-                      foreground: true,
+                      foreground,
                       selectable: true,
                       editable: true,
                       animationId: animation.id,

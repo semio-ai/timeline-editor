@@ -70,10 +70,10 @@ export const DataPoint = memo(function DataPoint({
   );
 
   const selectablePoints: (SourceRowData & { id: string; value: RawValue })[] = points.filter(
-    (d) => d.selectable,
+    (d) => d.foreground,
   );
   const unselectablePoints: (SourceRowData & { id: string; value: RawValue })[] = points.filter(
-    (d) => !d.selectable,
+    (d) => !d.foreground,
   );
 
   const selectablePointsInActiveInstance = selectablePoints.every((p) =>
