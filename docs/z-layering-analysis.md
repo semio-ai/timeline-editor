@@ -87,7 +87,13 @@ Moving to coarse filter planes (inactive animation overlay, non-selected overlay
    * With rows sitting in minimal z bands, we can add per-bucket filter quads between bands (`inactive`, `active-unselected`, `selected`) without risking z fighting. These quads live slightly above the highest `baseZ` in the bucket.
    * Benefits: de-emphasis happens once per bucket, colour calculations simplify, and spline mode can still separate inactive vs active rows.
 
-4. **Add Layering Utilities**
+4. **Compute Layer Bands in Store Subscriptions**
+   * Instead of a runtime context, we can stamp the per-point depth band (`foregroundSelected`, `foreground`, `background`) when `instancedTrackSources` are materialised. The subscription already knows `selectionState.instanceId` and can cheaply look up `selectionState.keypoints`, so each `SourceRowData` leaves the store with the correct band baked in.
+   * Instanced meshes still apply ±ε offsets relative to the band-specific base (`foregroundZ`, `backgroundZ`) exported from the layering helpers, keeping foreground and background points separated even inside a single frame.
+   * The consolidated “global” row becomes trivial: it simply flattens the per-point data (the band info is already there), so the timeline view stays in sync with the individual track rows.
+   * Tests can now assert the assignment logic without needing Three.js rendering—just inspect the `SourceRowData` payloads in store unit tests.
+
+5. **Add Layering Utilities**
    * Centralise both base-z assignment and render-order constants in a single module so future components (e.g., halo outlines) integrate easily.
 
 ## Next Questions
@@ -101,6 +107,13 @@ By staging in this order—(1) per-row base z bands, (2) utilities, (3) filter p
 ## Migration Inventory
 
 Below is a concrete checklist for migrating the current codebase to the “flat row + renderOrder” formulation.
+
+### Progress
+
+- ✅ Added layering helpers (`ROW_DEPTH_EPSILON`, `computeRowBaseZ`, `RenderOrder`).
+- ✅ `TracksRenderer` now assigns a unique base depth to every row—spline and non-spline alike—so depth testing stays reliable regardless of scroll mode.
+- ✅ `DataRenderer`, `DataPoint`, and `TransitionSegment` respect the new base depth. Instanced hexagons still use tiny per-instance offsets (±`ROW_DEPTH_EPSILON` fractions) because drei does not expose per-instance `renderOrder`; the offsets prevent self-occlusion while rows remain effectively flat overall.
+- 🔄 Remaining: propagate consistent ordering to ancillary overlays (violations/backgrounds) if needed, introduce bucket-level filter planes, and centralise any future row overlays through the layering utilities.
 
 ### 1. Layering Utilities
 
@@ -169,9 +182,9 @@ Below is a concrete checklist for migrating the current codebase to the “flat 
 
 | Legacy Element                              | Old z (relative) | New RenderOrder Placeholder              |
 |---------------------------------------------|------------------|------------------------------------------|
-| DataPoint foreground hexagon                | 10               | `RenderOrder.DataPointFill`              |
-| DataPoint backplate hexagon                 | 2                | `RenderOrder.DataPointBackplate`         |
-| DataPoint vertical line                     | 1                | `RenderOrder.DataPointLine`              |
+| DataPoint foreground hexagon                | 10               | Row base + small positive ε (instanced)  |
+| DataPoint backplate hexagon                 | 2                | Row base − small ε (instanced)           |
+| DataPoint vertical line                     | 1                | `RenderOrder.DataPointLine` (depthWrite=false) |
 | Transition fill                             | 1                | `RenderOrder.TransitionFill`             |
 | Transition line                             | 0 or 2           | `RenderOrder.TransitionLine`             |
 | Violation markers (row)                     | −300 (`Z`)       | `RenderOrder.RowViolations` (optional)   |
@@ -179,3 +192,8 @@ Below is a concrete checklist for migrating the current codebase to the “flat 
 | SharedSplineBackground (spline mode)        | varied           | `RenderOrder.RowBackgroundSpline`        |
 
 Use this table as the seed for the shared `RenderOrder` map. Once the constants are defined, each component can import the relevant entry and assign it to `renderOrder`.
+### Layer Bands from Store Subscriptions
+
+* **Fit:** High. Rather than introducing a new runtime context, we can classify each `SourceRowData` when `instancedTrackSources` (or the consolidated row) are produced. The subscription already has access to `selectionState.instanceId` and `selectionState.keypoints`, so it can stamp `layerBand: "foregroundSelected" | "foreground" | "background"` alongside the existing metadata.
+* **Advantages:** Rendering stays dumb—components simply read the band and add the predefined offset. It also makes the consolidated/global row trivial because the band travels with the point data, and it enables unit tests that assert layering without Three.js involvement.
+* **Considerations:** We still need a deterministic merge rule when a frame mixes categories (highest-priority band wins), and the subscription equalityFn must include the new band so updates propagate correctly. Transition segments reuse the same band resolution.

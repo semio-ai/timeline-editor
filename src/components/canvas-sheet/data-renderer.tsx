@@ -61,7 +61,7 @@ export interface DataRendererProps {
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
   yOffset?: number;
-  zOffset?: number;
+  baseZ?: number;
   theme?: Theme.Light | Theme.Dark;
   scrollOffset?: MotionValue<number>;
   measureFromBottom?: boolean;
@@ -80,7 +80,7 @@ export const DataRenderer = memo(function DataRenderer({
   emphasis = false,
   onEmphasisChange = () => {},
   yOffset = 0,
-  zOffset = 0,
+  baseZ = 0,
   theme = Theme.Light,
   scrollOffset = new MotionValue(0),
   measureFromBottom = false,
@@ -109,7 +109,7 @@ export const DataRenderer = memo(function DataRenderer({
 
   return (
     <group
-      position={[0, yOffset, zOffset]}
+      position={[0, yOffset, baseZ]}
       onClick={() => console.log("clicked", sourceRow, computedData)}
     >
       {/* Render the hexagons/visuals for each keyed point */}

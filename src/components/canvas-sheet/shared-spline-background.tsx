@@ -13,6 +13,7 @@ export interface SharedSplineBackgroundProps {
   sourceRowId: string; // Settings for the animation instance
   height?: number;
   yOffset?: number;
+  baseZ?: number;
   theme?: Theme.Light | Theme.Dark;
   scrollOffset?: MotionValue<number>;
 }
@@ -21,6 +22,7 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
   sourceRowId,
   height = 36,
   yOffset = 0,
+  baseZ = 0,
   theme = Theme.Light,
   scrollOffset = new MotionValue(0),
 }: SharedSplineBackgroundProps) {
@@ -37,7 +39,7 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
   if (!sourceRow || !computedData) return null;
 
   return (
-    <group position={[0, yOffset, 0]}>
+    <group position={[0, yOffset, baseZ]}>
       {/* Render violations */}
       <ViolationRenderer
         violationSet={computedData.violationSet}

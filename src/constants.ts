@@ -58,3 +58,35 @@ export const TYPE_FIELDS: Record<string, string[]> = {
   rgb: ["r", "g", "b"],
   hsl: ["h", "s", "l"],
 };
+
+/**
+ * Small positive increment that keeps each track row at a unique depth value
+ * while still allowing the global overlays (ticks, HUD, etc.) to use the
+ * existing Z constants without requiring large gaps.
+ */
+export const ROW_DEPTH_EPSILON = 0.01;
+
+/**
+ * Computes the base Z position for a given row index. Rows are spaced by a
+ * minimal epsilon so depth testing can still differentiate them, but they
+ * remain effectively flat relative to the overlays rendered in front/behind.
+ */
+export function computeRowBaseZ(rowIndex: number): number {
+  return rowIndex * ROW_DEPTH_EPSILON;
+}
+
+/**
+ * Render order priorities for meshes that belong to an individual track row.
+ * Smaller numbers render first. Keep these values centralised so the relative
+ * ordering stays predictable across components that participate in the same
+ * row band.
+ */
+export enum RenderOrder {
+  RowBackdrop = 100,
+  TransitionFill = 200,
+  DataPointBackplate = 300,
+  DataPointFill = 400,
+  TransitionLine = 500,
+  DataPointLine = 600,
+  RowOverlay = 700,
+}

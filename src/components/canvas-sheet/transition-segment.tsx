@@ -6,6 +6,7 @@ import { TrackRender, InstancedFrameInfo, SourceRow } from "../../types";
 import { computeOklabMix, createLinearScale } from "../../functions";
 import { computeTransitionParams } from "../../functions/compute-transition-params";
 import { useTransitionCurve } from "../../hooks";
+import { ROW_DEPTH_EPSILON } from "../../constants";
 
 export interface TransitionSegmentProps {
   start: InstancedFrameInfo;
@@ -92,6 +93,9 @@ export const TransitionSegment = memo(function TransitionSegment({
   const cp1Y = useSpring(transitionCurve.cp1Y, { stiffness: 300, damping: 30 });
   const cp2Y = useSpring(transitionCurve.cp2Y, { stiffness: 300, damping: 30 });
 
+  const fillDepth = -ROW_DEPTH_EPSILON * 0.2;
+  const lineDepth = ROW_DEPTH_EPSILON * 0.2;
+
   return (
     <group
       onClick={() => console.log("transition-segment", transitionParams, sourceRow, start, end)}
@@ -120,7 +124,7 @@ export const TransitionSegment = memo(function TransitionSegment({
             color={color}
             opacity={0.5}
             segments={50}
-            z={1}
+            z={fillDepth}
           />
         )}
       <MotionCubicBezierLine
@@ -146,7 +150,7 @@ export const TransitionSegment = memo(function TransitionSegment({
         transparent
         dashed={false}
         segments={50}
-        z={isEmpty ? 0 : 2}
+        z={isEmpty ? fillDepth : lineDepth}
       />
     </group>
   );

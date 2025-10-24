@@ -24,6 +24,7 @@ export interface MotionCubicBezierLineProps {
 
   // Z coordinate (static for now)
   z?: number;
+  renderOrder?: number;
 
   // Styling properties
   color?: string;
@@ -90,6 +91,7 @@ export function MotionCubicBezierLine({
   onPointerOver,
   onPointerOut,
   onClick,
+  renderOrder,
 }: MotionCubicBezierLineProps) {
   // Force re-render when motion values change using conventional pattern
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
@@ -139,6 +141,9 @@ export function MotionCubicBezierLine({
       onPointerOver={onPointerOver}
       onPointerOut={onPointerOut}
       onClick={onClick}
+      renderOrder={renderOrder}
+      depthWrite={false}
+      depthTest={true}
     />
   );
 }

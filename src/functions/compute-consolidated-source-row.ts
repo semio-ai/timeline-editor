@@ -11,21 +11,11 @@ export function computeConsolidatedSourceRow(
     data: [],
   };
 
-  const unconsolidatedRows = computeSourceRowsFromSources(sources);
+  const unconsolidatedRows = computeSourceRowsFromSources(sources, activeInstance);
 
   sourceRow.data = unconsolidatedRows
     .flatMap((row) => row.data)
-    .filter((data) => data.type !== "group")
-    .map((data) => ({
-      ...data,
-      // If there is an active instance, only the data from that instance is selectable/editable
-      // Otherwise, use the original flags
-      selectable: activeInstance ? data.instanceId === activeInstance : data.selectable,
-      foreground: activeInstance ? data.instanceId === activeInstance : true,
-      editable: activeInstance
-        ? data.instanceId === activeInstance && data.editable
-        : data.editable,
-    }));
+    .filter((data) => data.type !== "group");
 
   sourceRow.id = idOverride ?? commonString(unconsolidatedRows.map((data) => data.id));
 

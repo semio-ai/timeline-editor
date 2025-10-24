@@ -8,6 +8,7 @@ import { useOrthoCameraSetup, usePlaybackGestures, useAnimationStore } from "../
 import { TrackRender } from "../../types";
 import { AnimationData } from "../../store-types";
 import { ThemeMode } from "../../functions";
+import { computeRowBaseZ, ROW_DEPTH_EPSILON } from "../../constants";
 import { DataRenderer } from "./data-renderer";
 import { SharedSplineBackground } from "./shared-spline-background";
 import { HoverMarker } from "./overlays/hover-marker";
@@ -190,25 +191,30 @@ export const TracksRenderer = memo(function TracksRenderer({
   return (
     <>
       <group ref={groupRef as any}>
-        {sourceRowIds.map((sourceId, idx) => (
-          <DataRenderer
-            key={sourceId}
-            trackRender={trackRender}
-            height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
-            sourceRowId={sourceId}
-            yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
-            // zOffset={trackRender === TrackRender.Spline ? -trackWorldHeight * idx : undefined}
-            emphasis={emphasis.includes(sourceId)}
-            onEmphasisChange={(v) => onEmphasisChange(sourceId, v ? "add" : "remove")}
-            theme={theme}
-            scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
-          />
-        ))}
+        {sourceRowIds.map((sourceId, idx) => {
+          const baseZ = computeRowBaseZ(idx);
+
+          return (
+            <DataRenderer
+              key={sourceId}
+              trackRender={trackRender}
+              height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
+              sourceRowId={sourceId}
+              yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
+              baseZ={baseZ}
+              emphasis={emphasis.includes(sourceId)}
+              onEmphasisChange={(v) => onEmphasisChange(sourceId, v ? "add" : "remove")}
+              theme={theme}
+              scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
+            />
+          );
+        })}
         {trackRender === TrackRender.Spline && (
           <SharedSplineBackground
             sourceRowId={viewId}
             height={availableHeight}
             yOffset={0}
+            baseZ={-ROW_DEPTH_EPSILON}
             theme={theme}
           />
         )}

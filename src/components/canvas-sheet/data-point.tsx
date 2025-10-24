@@ -11,6 +11,7 @@ import { clamp } from "lodash";
 import { SourceRowData, TrackRender } from "../../types";
 import { useAnimationStore, useColors, useInvariantScale, useAltKeyPressed } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
+import { RenderOrder, ROW_DEPTH_EPSILON } from "../../constants";
 
 const BG_MULTIPLIER = 1.2;
 
@@ -69,14 +70,14 @@ export const DataPoint = memo(function DataPoint({
     useShallow((state) => state.selectionState.instanceId),
   );
 
-  const selectablePoints: (SourceRowData & { id: string; value: RawValue })[] = points.filter(
+  const foregroundPoints: (SourceRowData & { id: string; value: RawValue })[] = points.filter(
     (d) => d.foreground,
   );
-  const unselectablePoints: (SourceRowData & { id: string; value: RawValue })[] = points.filter(
+  const backgroundPoints: (SourceRowData & { id: string; value: RawValue })[] = points.filter(
     (d) => !d.foreground,
   );
 
-  const selectablePointsInActiveInstance = selectablePoints.every((p) =>
+  const foregroundPointsInActiveInstance = foregroundPoints.every((p) =>
     activeInstanceId ? p.instanceId === activeInstanceId : true,
   );
   // Get tracks for computing fresh frames when needed
@@ -93,7 +94,7 @@ export const DataPoint = memo(function DataPoint({
       const { selectionState } = state;
       const instanceId = selectionState.instanceId;
       if (!instanceId) return false;
-      const relevantPoints = selectablePoints.filter((point) => point.instanceId === instanceId);
+      const relevantPoints = foregroundPoints.filter((point) => point.instanceId === instanceId);
       if (relevantPoints.length === 0) return false;
 
       return relevantPoints.every((point) =>
@@ -145,30 +146,30 @@ export const DataPoint = memo(function DataPoint({
   }, [initialValue, yPosition, trackRender]);
 
   // Determine rendering behavior for TrackRender.Key based on point selectability
-  const hasSelectablePoints = selectablePoints.length > 0;
-  const hasUnselectablePoints = unselectablePoints.length > 0;
+  const hasForegroundPoints = foregroundPoints.length > 0;
+  const hasBackgroundPoints = backgroundPoints.length > 0;
 
   // For TrackRender.Key: show line when there are any unselectable points
-  const shouldShowLineForKey = trackRender === TrackRender.Key && hasUnselectablePoints;
+  const shouldShowLineForKey = trackRender === TrackRender.Key && hasBackgroundPoints;
 
   const baseColor = useColors(
-    selectablePoints.length > 0
-      ? selectablePoints.map((p) => p.trackId)
+    foregroundPoints.length > 0
+      ? foregroundPoints.map((p) => p.trackId)
       : points.map((p) => p.trackId),
   );
   // Always call the hook, but only use it if needed
   const unselectablePointColors = useColors(
-    unselectablePoints.length > 0 ? unselectablePoints.map((p) => p.trackId) : ["default"], // Provide a fallback when there are no unselectable points
+    backgroundPoints.length > 0 ? backgroundPoints.map((p) => p.trackId) : ["default"], // Provide a fallback when there are no unselectable points
   );
 
-  const unselectableColor = hasUnselectablePoints ? unselectablePointColors : baseColor;
+  const unselectableColor = hasBackgroundPoints ? unselectablePointColors : baseColor;
   const activeAdjustedBaseColor = useMemo(() => {
     return computeOklabMix(
       baseColor,
       theme === Theme.Dark ? "#202020" : "#EFEFEF",
-      selectablePointsInActiveInstance ? 0 : 0.4,
+      foregroundPointsInActiveInstance ? 0 : 0.4,
     );
-  }, [selectablePointsInActiveInstance, baseColor, theme]);
+  }, [foregroundPointsInActiveInstance, baseColor, theme]);
   const baseBackdropColor = useMemo(() => {
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);
   }, [baseColor, theme]);
@@ -183,9 +184,8 @@ export const DataPoint = memo(function DataPoint({
   }, [unselectableColor, theme]);
 
   const showsLine = RENDERS_WITH_LINES.includes(trackRender) || shouldShowLineForKey;
-  // For TrackRender.Key: only show hexagon when there are selectable points
-  // For other render types: always show hexagon
-  const shouldShowHexagon = trackRender === TrackRender.Key ? hasSelectablePoints : true;
+  // Only show hexagon when there are foreground points
+  const shouldShowHexagon = hasForegroundPoints;
 
   const lineOpacity = useSpring(
     showsLine ? 1 : 0,
@@ -249,14 +249,6 @@ export const DataPoint = memo(function DataPoint({
       if ("color" in instanceRefBg.current) {
         instanceRefBg.current.color.set(c);
       }
-    }
-  });
-
-  // Set the line opacity based on the lineOpacity spring
-  useMotionValueEvent(lineOpacity, "change", (v) => {
-    if (lineRef.current) {
-      (lineRef.current.material as THREE.LineBasicMaterial).opacity = v;
-      (lineRef.current.material as THREE.LineBasicMaterial).transparent = v < 1;
     }
   });
 
@@ -327,16 +319,20 @@ export const DataPoint = memo(function DataPoint({
   const bind = useGesture(
     {
       onHover: ({ hovering }) => {
+        if (!hasForegroundPoints) return;
         setIsHovered(hovering ?? false);
       },
       onClick: ({ event, shiftKey, metaKey }) => {
+        console.log(JSON.stringify({ foregroundPoints, backgroundPoints }));
         if (playing || justFinishedDragging.current) return;
+
+        if (!hasForegroundPoints) return;
 
         event.stopPropagation();
 
-        console.log(JSON.stringify({ selectablePoints, sourceRowId, markerId, shiftKey, metaKey }));
+        console.log(JSON.stringify({ foregroundPoints, sourceRowId, markerId, shiftKey, metaKey }));
 
-        clickMarker(selectablePoints, sourceRowId, markerId, shiftKey, metaKey || event.ctrlKey);
+        clickMarker(foregroundPoints, sourceRowId, markerId, shiftKey, metaKey || event.ctrlKey);
       },
       onDragStart: ({ event }) => {
         if (playing) return;
@@ -349,7 +345,7 @@ export const DataPoint = memo(function DataPoint({
 
         // Auto-select if not already selected
         if (!isSelected) {
-          clickMarker(selectablePoints, sourceRowId, markerId, false, false);
+          clickMarker(foregroundPoints, sourceRowId, markerId, false, false);
         }
 
         // Start dragging with current selection
@@ -407,23 +403,30 @@ export const DataPoint = memo(function DataPoint({
   // Early return if data not found
   if (!data) return null;
 
+  const backplateDepth = -ROW_DEPTH_EPSILON * 0.4;
+  const fillDepth = 0;
+  const lineDepth = ROW_DEPTH_EPSILON * 0.4;
+
   return (
-    <group ref={groupRef as any}>
+    <group ref={groupRef as any} {...(bind() as any)}>
       {shouldShowHexagon && (
         <>
           <Instance
             ref={instanceRefFg}
-            position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, 10]}
+            position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, fillDepth]}
             rotation={[Math.PI / 2, 0, 0]}
             scale={[scaleX.get(), 1, 1]}
             // eslint-dissable-next-line
             color={fillColor.get()}
-            {...(bind() as any)}
           />
           {/* Render a darker hexagon in the background */}
           <Instance
             ref={instanceRefBg}
-            position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, 2]}
+            position={[
+              stamp,
+              trackRender === TrackRender.Spline ? yPosition.get() : 0,
+              backplateDepth,
+            ]}
             rotation={[Math.PI / 2, 0, 0]}
             scale={[scaleX.get() * bgScale.get(), 1, bgScale.get()]}
             // eslint-dissable-next-line
@@ -435,13 +438,13 @@ export const DataPoint = memo(function DataPoint({
       <Line
         ref={lineRef as any}
         points={[
-          [stamp, height / -2 + 1, 1],
-          [stamp, height / 2 - 1, 1],
+          [stamp, height / -2 + 1, lineDepth],
+          [stamp, height / 2 - 1, lineDepth],
         ]}
         color={shouldShowLineForKey ? unselectableLineColor : baseColor}
         lineWidth={2}
-        opacity={lineOpacity.get()}
-        transparent
+        visible={showsLine}
+        renderOrder={RenderOrder.DataPointLine}
         // Lines are non-interactive when showing unselectable points
       />
     </group>
