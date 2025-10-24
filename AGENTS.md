@@ -19,6 +19,7 @@ This workspace provides reusable animation timeline, gesture, and HUD components
 - Prefer the fixtures in `src/test-fixtures` for scenario coverage; extend them rather than crafting ad-hoc data inside tests.
 - Since the three.js and react-three/fiber environment does not work well with vitest browser mode for ui testing, we should instead thoroughly test the gesture-based actions that get called from individual components, mocking the behaviors as exhaustively as possible.
 - Never bulk-generate build artifacts (`*.js`, `*.d.ts`, maps) under `src/`. If a tool emits them for diagnostics, clean the files immediately—do not leave the tree polluted or run generators across the entire source folder unless you plan to stage the results.
+- Avoid nested ternary expressions in this package; favor straightforward `if`/`else` branches for readability and to keep lint noise down.
 
 ## Store & Actions Guidance
 - All stateful logic flows through `src/store.ts` and action modules under `src/actions`. Maintain purity: actions should only mutate Draft state passed by Immer.

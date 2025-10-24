@@ -44,15 +44,34 @@ export function computeSourceRowsFromSources(
       if (sourceTrack.hidden) return;
       const foreground =
         !activeAnimationInstance || sourceTrack.instanceId === activeAnimationInstance;
-      const trackKey = sourceTrack.attribute
-        ? `${sourceTrack.trackId}.${sourceTrack.attribute}`
-        : sourceTrack.trackId;
-      const isSelected =
-        foreground &&
-        (selectedTrackIds.has(trackKey) ||
-          selectedTrackIds.has(`${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${trackKey}`));
+      const baseTrackKey = sourceTrack.trackId;
+      const namespacedBaseTrackKey = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${baseTrackKey}`;
+      let attributeTrackKey: string | undefined;
+      let namespacedAttributeTrackKey: string | undefined;
+      if (sourceTrack.attribute) {
+        attributeTrackKey = `${sourceTrack.trackId}.${sourceTrack.attribute}`;
+        namespacedAttributeTrackKey = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${attributeTrackKey}`;
+      }
 
-      const mainBand = !foreground ? LayerBand.Background : LayerBand.ForegroundUnselected;
+      const baseSelected =
+        foreground &&
+        (selectedTrackIds.has(baseTrackKey) || selectedTrackIds.has(namespacedBaseTrackKey));
+      const attributeSelected =
+        foreground &&
+        Boolean(attributeTrackKey) &&
+        (selectedTrackIds.has(attributeTrackKey!) ||
+          (namespacedAttributeTrackKey && selectedTrackIds.has(namespacedAttributeTrackKey)));
+
+      const isSelected = baseSelected || attributeSelected;
+
+      let mainBand: LayerBand;
+      if (!foreground) {
+        mainBand = LayerBand.Background;
+      } else if (baseSelected) {
+        mainBand = LayerBand.ForegroundSelected;
+      } else {
+        mainBand = LayerBand.ForegroundUnselected;
+      }
       const layerBand = isSelected ? LayerBand.ForegroundSelected : mainBand;
 
       rows.push({

@@ -316,11 +316,11 @@ export const DataPoint = memo(function DataPoint({
             backgroundPoints,
           }),
         );
+        event.stopPropagation();
         if (playing || justFinishedDragging.current) return;
 
         if (!hasSelectedForegroundPoints && !hasUnselectedForegroundPoints) return;
 
-        event.stopPropagation();
         clickMarker(
           combinedForegroundPoints,
           sourceRowId,
