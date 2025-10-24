@@ -75,7 +75,7 @@ function createAnimatables(): Record<string, AnimatableValue> {
         public: true,
         output: "transform.position",
         units: "m",
-        color: "#FF6B6B",
+        color: "#6BFFFF",
       },
     },
     [ANIMATABLE_IDS.SCALE]: {

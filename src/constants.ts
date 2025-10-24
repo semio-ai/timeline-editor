@@ -37,7 +37,9 @@ export enum Z {
 
   // Track content/data is rendered between the bounds overlay and the violations.
   ForegroundDataSelected = 20,
+  SelectedUnselectedBoundary = 10,
   ForegroundDataUnselected = 0,
+  ForegroundBackgroundBoundary = -10,
   BackgroundData = -20,
 
   // Violations are rendered in front of ticks and background, but behind data.

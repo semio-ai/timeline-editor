@@ -2,6 +2,7 @@ import { memo } from "react";
 import { Theme } from "@semio/ui";
 import { usePlaybackGestures } from "../../hooks";
 import { TrackRender } from "../../types";
+import { Z } from "../../constants";
 import { DataRenderer } from "./data-renderer";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
@@ -21,6 +22,22 @@ export const TimelineRenderer = memo(function TimelineRenderer({
 
   return (
     <>
+      <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]}>
+        <planeGeometry args={[1.1, 36]} />
+        <meshBasicMaterial
+          color={theme === Theme.Dark ? "#000000" : "#000000"}
+          transparent
+          opacity={0.4}
+        />
+      </mesh>
+      <mesh position={[0.5, 0, Z.SelectedUnselectedBoundary]}>
+        <planeGeometry args={[1.1, 36]} />
+        <meshBasicMaterial
+          color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
+          transparent
+          opacity={0.3}
+        />
+      </mesh>
       <TickBackground height={36} theme={theme} />
       <HoverMarker height={36} theme={theme} />
       <PlayheadMarker height={36} theme={theme} />

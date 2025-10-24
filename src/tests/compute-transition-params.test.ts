@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { computeTransitionParams } from "../functions/compute-transition-params";
-import { TrackRender, type InstancedFrameInfo, type SourceRow } from "../types";
+import { LayerBand, TrackRender, type InstancedFrameInfo, type SourceRow } from "../types";
 
 const baseRowData: SourceRow["data"][number] = {
-  foreground: true,
   editable: true,
   selectable: true,
+  layerBand: LayerBand.ForegroundSelected,
   animationId: "anim",
   namespaceId: "namespace",
   instanceId: "instance",
@@ -40,14 +40,10 @@ describe("computeTransitionParams real-space conversion", () => {
       },
     };
 
-    const params = computeTransitionParams(
-      sourceRow,
-      start,
-      end,
-      false,
-      TrackRender.Preview,
-      { min: 0, max: 20 },
-    );
+    const params = computeTransitionParams(sourceRow, start, end, false, TrackRender.Preview, {
+      min: 0,
+      max: 20,
+    });
 
     expect(params.start).toEqual({ x: 0, y: 10 });
     expect(params.end).toEqual({ x: 1, y: 20 });
@@ -70,14 +66,10 @@ describe("computeTransitionParams real-space conversion", () => {
       points: [{ ...baseRowData, id: "point:end", value: 5 }],
     };
 
-    const params = computeTransitionParams(
-      sourceRow,
-      start,
-      end,
-      false,
-      TrackRender.Spline,
-      { min: -10, max: 10 },
-    );
+    const params = computeTransitionParams(sourceRow, start, end, false, TrackRender.Spline, {
+      min: -10,
+      max: 10,
+    });
 
     expect(params.start).toEqual({ x: 0.1, y: -5 });
     expect(params.end).toEqual({ x: 0.9, y: 5 });

@@ -39,6 +39,17 @@ Row de-emphasis mixes multiple mechanisms today:
 
 Moving to coarse filter planes (inactive animation overlay, non-selected overlay) would simplify row colour logic but requires reliable per-group z separation to avoid z fighting.
 
+### Implementation Update – Global Boundary Planes (2024-05-17)
+
+The initial prototype positioned per-row filter quads using `computeRowBaseZ`, but that added pointer-event noise and complicated scroll transforms. The revised implementation keeps the planes fixed in the HUD stack:
+
+* Two meshes live alongside the hover/tick overlays in `TracksRenderer`, anchored at `Z.ForegroundBackgroundBoundary` and `Z.SelectedUnselectedBoundary`.
+* Each plane spans the full track height (similar to spline background) and uses lightweight opacity (0.4 and 0.3 respectively). Because they sit in the global HUD group, they never inherit row scroll transforms.
+* Individual point colours now rely purely on the store-provided `layerBand`; the quads simply reinforce the separation visually without per-point dimming math.
+* The same pattern mirrors in `TimelineRenderer`, so the consolidated row honours the layered look without bespoke logic.
+
+This approach preserved the earlier goal—single, semi-opaque filters—while avoiding the extra bookkeeping required for row-index z anchors.
+
 ## Strategy Evaluation
 
 ### Track-Level Z Bands

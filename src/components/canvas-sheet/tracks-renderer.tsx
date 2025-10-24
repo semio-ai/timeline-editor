@@ -8,7 +8,7 @@ import { useOrthoCameraSetup, usePlaybackGestures, useAnimationStore } from "../
 import { TrackRender } from "../../types";
 import { AnimationData } from "../../store-types";
 import { ThemeMode } from "../../functions";
-import { ROW_DEPTH_EPSILON } from "../../constants";
+import { ROW_DEPTH_EPSILON, Z } from "../../constants";
 import { DataRenderer } from "./data-renderer";
 import { SharedSplineBackground } from "./shared-spline-background";
 import { HoverMarker } from "./overlays/hover-marker";
@@ -217,6 +217,23 @@ export const TracksRenderer = memo(function TracksRenderer({
 
       {/* Render the hover markers and add a gesture detector */}
       <group position={[0, trackAreaCenterY, 0]}>
+        <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]}>
+          <planeGeometry args={[1.1, availableHeight]} />
+          <meshBasicMaterial
+            color={theme === Theme.Dark ? "#000000" : "#000000"}
+            transparent
+            opacity={0.4}
+          />
+        </mesh>
+        <mesh position={[0.5, 0, Z.SelectedUnselectedBoundary]}>
+          <planeGeometry args={[1.1, availableHeight]} />
+          <meshBasicMaterial
+            color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
+            transparent
+            opacity={0.3}
+          />
+        </mesh>
+
         <TickBackground height={availableHeight} theme={theme} />
         <HoverMarker height={availableHeight} theme={theme} />
         <PlayheadMarker height={availableHeight} theme={theme} />
