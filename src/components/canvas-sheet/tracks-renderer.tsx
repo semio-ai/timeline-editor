@@ -201,7 +201,7 @@ export const TracksRenderer = memo(function TracksRenderer({
               height={trackRender === TrackRender.Spline ? availableHeight : trackHeight}
               sourceRowId={sourceId}
               yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
-              baseZ={baseZ}
+              baseZ={0}
               emphasis={emphasis.includes(sourceId)}
               onEmphasisChange={(v) => onEmphasisChange(sourceId, v ? "add" : "remove")}
               theme={theme}

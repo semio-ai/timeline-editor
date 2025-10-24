@@ -1,12 +1,19 @@
 import { uniq } from "lodash";
-import type { Source, SourceGroup, SourceRow, SourceTrack } from "../types";
+import {
+  LayerBand,
+  type Source,
+  type SourceGroup,
+  type SourceRow,
+  type SourceTrack,
+} from "../types";
 import { GROUP_TYPES } from "../constants";
 
 // A utility function to convert a nested source structure into a flat list of rows.
 // Each
 export function computeSourceRowsFromSources(
   sources: Source[],
-  activeAnimationInstance?: string,
+  activeAnimationInstance?: string | null,
+  selectedTrackIds: Set<string> = new Set(),
 ): SourceRow[] {
   const rows: SourceRow[] = [];
 
@@ -18,6 +25,7 @@ export function computeSourceRowsFromSources(
       const childRows = computeSourceRowsFromSources(
         (source as SourceGroup).children,
         activeAnimationInstance,
+        selectedTrackIds,
       );
       if (childRows.length === 0) return;
       // Compute the unique set of trackIds/attributes in the children;
@@ -36,13 +44,24 @@ export function computeSourceRowsFromSources(
       if (sourceTrack.hidden) return;
       const foreground =
         !activeAnimationInstance || sourceTrack.instanceId === activeAnimationInstance;
+      const trackKey = sourceTrack.attribute
+        ? `${sourceTrack.trackId}.${sourceTrack.attribute}`
+        : sourceTrack.trackId;
+      const isSelected =
+        foreground &&
+        (selectedTrackIds.has(trackKey) ||
+          selectedTrackIds.has(`${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${trackKey}`));
+
+      const mainBand = !foreground ? LayerBand.Background : LayerBand.ForegroundUnselected;
+      const layerBand = isSelected ? LayerBand.ForegroundSelected : mainBand;
+
       rows.push({
         id: `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}${sourceTrack.attribute ? `.${sourceTrack.attribute}` : ""}`,
         data: [
           {
-            foreground,
             selectable: foreground,
             editable: !sourceTrack.readonly,
+            layerBand,
             type: sourceTrack.type,
             animationId: sourceTrack.animationId,
             namespaceId: sourceTrack.namespaceId,

@@ -4,7 +4,7 @@ This note captures the current layering behaviour in the canvas sheet, the reaso
 
 ## Foreground Flag
 
-`SourceRowData.foreground` (packages/animation/src/types/util/source.ts:75) is set to `true` in all `instancedTrackSources` rows. Nothing at render time inspects it any more, so the flag no longer distinguishes foreground vs background content. Any layering logic needs to rely on explicit z offsets or `renderOrder`.
+`SourceRowData.foreground` (packages/animation/src/types/util/source.ts:75) is set to `true` in all `instancedTrackSources` rows. Nothing at render time inspects it any more, so the flag no longer distinguishes foreground vs background content. Any layering logic needs to rely on explicit z offsets or `renderOrder`. To solve this we now stamp a `layerBand` per `SourceRowData` entry in the store subscriptions, making the fore/background (and selection) distinction explicit.
 
 ## Active Z Constants
 
@@ -143,6 +143,7 @@ Below is a concrete checklist for migrating the current codebase to the “flat 
   - `DataPointLine` (highest)
 - Set `depthTest={true}` and `depthWrite={true}` on materials (default), and assign `renderOrder={RenderOrder.DataPointFill}` etc.
 - Ensure instanced meshes receive the `renderOrder`. Drei’s `<Instances>` exposes a `renderOrder` prop—set it once per instancer.
+- Each `SourceRowData` now carries a `layerBand` flag (`background` / `foreground` / `foregroundSelected`), stamped in the store subscriptions. Components resolve band offsets from the shared constants (`LAYER_BAND_OFFSETS`) so instanced meshes and transition segments land in the correct bucket without recomputing selection state at render time.
 
 ### 5. TransitionSegment
 

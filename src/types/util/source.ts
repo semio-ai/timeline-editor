@@ -1,4 +1,5 @@
 import { AnimatableValue } from "@semio/utils";
+import type { LayerBand } from "./layer-band";
 
 /**
  * Base interface for all source types containing common identification properties.
@@ -97,11 +98,13 @@ export interface SourceRow {
  */
 export interface SourceRowData {
   // Foreground (whether the row is in the foreground or not)
-  foreground: boolean;
+  // foreground: boolean;
   // Editable (whether the row is editable or not)
   editable: boolean;
   // Selectable (whether the row is selectable or not)
   selectable: boolean;
+  // Layer band for z-index management within the row
+  layerBand: LayerBand;
 
   // Source information
   animationId: string;

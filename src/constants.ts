@@ -1,4 +1,5 @@
 import { Transition } from "motion";
+import { LayerBand } from "./types";
 
 export const TIMELINE_PADDING = 10;
 export const DEFAULT_ANIMATION_ID = "default-animation";
@@ -35,7 +36,9 @@ export enum Z {
   OutOfBoundsOverlay = 91,
 
   // Track content/data is rendered between the bounds overlay and the violations.
-  // TBD
+  ForegroundDataSelected = 20,
+  ForegroundDataUnselected = 0,
+  BackgroundData = -20,
 
   // Violations are rendered in front of ticks and background, but behind data.
   Violations = -300,
@@ -90,3 +93,15 @@ export enum RenderOrder {
   DataPointLine = 600,
   RowOverlay = 700,
 }
+
+export const LAYER_BAND_OFFSETS: Record<LayerBand, number> = {
+  [LayerBand.Background]: Z.BackgroundData,
+  [LayerBand.ForegroundUnselected]: Z.ForegroundDataUnselected,
+  [LayerBand.ForegroundSelected]: Z.ForegroundDataSelected,
+};
+
+export const LAYER_BAND_PRIORITY: Record<LayerBand, number> = {
+  [LayerBand.Background]: 0,
+  [LayerBand.ForegroundUnselected]: 1,
+  [LayerBand.ForegroundSelected]: 2,
+};

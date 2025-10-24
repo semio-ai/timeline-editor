@@ -6,7 +6,7 @@ import type {
   AnimationStoreGetter,
   AnimationStoreSetter,
 } from "../store-types";
-import { SourceRow } from "../types";
+import { LayerBand, SourceRow } from "../types";
 
 export function updateInstancedTrackSources(
   api: AnimationApi,
@@ -21,6 +21,7 @@ export function updateInstancedTrackSources(
       tracks: state.tracks,
       sourcesByAnimationInstance: state.sourcesByAnimationInstance,
       activeAnimationId: state.selectionState.instanceId,
+      selectedKeypoints: state.selectionState.keypoints,
     }),
     ({
       namespaces,
@@ -29,10 +30,31 @@ export function updateInstancedTrackSources(
       tracks,
       sourcesByAnimationInstance,
       activeAnimationId,
+      selectedKeypoints,
     }) => {
       // console.log(namespaceInfo, animations, subscribes);
       // for each namespace -> for each instance -> for each track in the instance's aninimation subscribe... to namespace/track
       if (!namespaces) return;
+
+      const selectedTrackLookup = new Set<string>();
+      const registerSelectionKey = (key: string) => {
+        if (!key) return;
+        selectedTrackLookup.add(key);
+        const tail = key.split("/").pop();
+        if (tail) {
+          selectedTrackLookup.add(tail);
+          const base = tail.split(".")[0];
+          if (base) {
+            selectedTrackLookup.add(base);
+          }
+        }
+      };
+
+      selectedKeypoints.forEach((keypointIds, trackKey) => {
+        if (keypointIds && keypointIds.size > 0) {
+          registerSelectionKey(trackKey);
+        }
+      });
 
       const instancedTrackSources: Record<string, SourceRow> = {};
       Object.entries(namespaces).forEach(([namespaceId, namespace]) => {
@@ -52,6 +74,17 @@ export function updateInstancedTrackSources(
               const animatable = animatables[tracks[trackId].animatableId];
               if (!animatable) return;
 
+              const trackRowId = `${namespaceId}/${instance.id}/${trackId}`;
+              const trackSelected =
+                foreground &&
+                (selectedTrackLookup.has(trackRowId) || selectedTrackLookup.has(trackId));
+
+              const baseBand = !foreground
+                ? LayerBand.Background
+                : trackSelected
+                  ? LayerBand.ForegroundSelected
+                  : LayerBand.ForegroundUnselected;
+
               // get the type of the animatable;
               const trackType = animatable.type;
 
@@ -66,29 +99,43 @@ export function updateInstancedTrackSources(
                 instancedTrackSources[id] = {
                   id: `${namespaceId}/${instance.id}/${trackId}`,
                   expanded,
-                  data: TYPE_FIELDS[trackType as string].map((field) => ({
-                    foreground,
-                    selectable: true,
-                    editable: true,
-                    animationId: animation.id,
-                    namespaceId,
-                    instanceId: instance.id,
-                    type: "group",
-                    trackId,
-                    animatableId: animatable.id,
-                    attribute: field,
-                  })),
+                  data: TYPE_FIELDS[trackType as string].map((field) => {
+                    const fieldTrackId = `${trackRowId}.${field}`;
+                    const fieldSelected =
+                      foreground &&
+                      (selectedTrackLookup.has(fieldTrackId) ||
+                        selectedTrackLookup.has(`${trackId}.${field}`));
+                    const fieldBand = fieldSelected ? LayerBand.ForegroundSelected : baseBand;
+
+                    return {
+                      selectable: foreground,
+                      editable: true,
+                      layerBand: fieldBand,
+                      animationId: animation.id,
+                      namespaceId,
+                      instanceId: instance.id,
+                      type: "group",
+                      trackId,
+                      animatableId: animatable.id,
+                      attribute: field,
+                    };
+                  }),
                 };
 
                 TYPE_FIELDS[trackType as string].forEach((field) => {
                   const fieldId = `${namespaceId}/${instance.id}/${trackId}.${field}`;
+                  const fieldTrackId = `${trackRowId}.${field}`;
+                  const fieldSelected =
+                    foreground &&
+                    (selectedTrackLookup.has(fieldTrackId) ||
+                      selectedTrackLookup.has(`${trackId}.${field}`));
                   instancedTrackSources[fieldId] = {
                     id: `${namespaceId}/${instance.id}/${trackId}.${field}`,
                     data: [
                       {
-                        foreground,
-                        selectable: true,
+                        selectable: foreground,
                         editable: true,
+                        layerBand: fieldSelected ? LayerBand.ForegroundSelected : baseBand,
                         animationId: animation.id,
                         namespaceId,
                         instanceId: instance.id,
@@ -107,9 +154,9 @@ export function updateInstancedTrackSources(
                   id: `${namespaceId}/${instance.id}/${trackId}`,
                   data: [
                     {
-                      foreground,
-                      selectable: true,
+                      selectable: foreground,
                       editable: true,
+                      layerBand: baseBand,
                       animationId: animation.id,
                       namespaceId,
                       instanceId: instance.id,
@@ -142,7 +189,21 @@ export function updateInstancedTrackSources(
         const allPreviousGroups = new Set(
           Object.values(previous.animations).flatMap((a) => a.groups),
         );
+
+        const selectionSignature = (selection: AnimationData["selectionState"]["keypoints"]) =>
+          Array.from(selection.entries())
+            .map(([trackKey, ids]) => ({
+              trackKey,
+              ids: Array.from(ids).sort(),
+            }))
+            .sort((left, right) => left.trackKey.localeCompare(right.trackKey));
+
         return (
+          current.activeAnimationId === previous.activeAnimationId &&
+          isEqual(
+            selectionSignature(current.selectedKeypoints),
+            selectionSignature(previous.selectedKeypoints),
+          ) &&
           isEqual(allCurrentTracks, allPreviousTracks) &&
           isEqual(allCurrentGroups, allPreviousGroups) &&
           shallow(current.namespaces, previous.namespaces) &&

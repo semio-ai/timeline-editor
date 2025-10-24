@@ -3,7 +3,8 @@ import { computeSourceRowsFromSources } from "./compute-source-rows-from-sources
 
 export function computeConsolidatedSourceRow(
   sources: Source[],
-  activeInstance?: string,
+  activeInstance: string | null,
+  selectedTrackIds: Set<string>,
   idOverride?: string,
 ): SourceRow {
   const sourceRow: SourceRow = {
@@ -11,7 +12,11 @@ export function computeConsolidatedSourceRow(
     data: [],
   };
 
-  const unconsolidatedRows = computeSourceRowsFromSources(sources, activeInstance);
+  const unconsolidatedRows = computeSourceRowsFromSources(
+    sources,
+    activeInstance,
+    selectedTrackIds,
+  );
 
   sourceRow.data = unconsolidatedRows
     .flatMap((row) => row.data)
