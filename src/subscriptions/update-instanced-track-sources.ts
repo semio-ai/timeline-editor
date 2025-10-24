@@ -79,11 +79,10 @@ export function updateInstancedTrackSources(
                 foreground &&
                 (selectedTrackLookup.has(trackRowId) || selectedTrackLookup.has(trackId));
 
-              const baseBand = !foreground
-                ? LayerBand.Background
-                : trackSelected
-                  ? LayerBand.ForegroundSelected
-                  : LayerBand.ForegroundUnselected;
+              const foregroundBand = trackSelected
+                ? LayerBand.ForegroundSelected
+                : LayerBand.ForegroundUnselected;
+              const baseBand = !foreground ? LayerBand.Background : foregroundBand;
 
               // get the type of the animatable;
               const trackType = animatable.type;

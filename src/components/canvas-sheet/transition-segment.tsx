@@ -2,11 +2,11 @@ import { memo, useMemo } from "react";
 import { useSpring } from "motion/react";
 import { Theme } from "@semio/ui";
 import { MotionCubicBezierLine, MotionCubicBezierFill } from "../utilities";
-import { TrackRender, InstancedFrameInfo, SourceRow, LayerBand, SourceRowData } from "../../types";
+import { TrackRender, InstancedFrameInfo, SourceRow, LayerBand } from "../../types";
 import { computeOklabMix, createLinearScale } from "../../functions";
 import { computeTransitionParams } from "../../functions/compute-transition-params";
 import { useTransitionCurve } from "../../hooks";
-import { ROW_DEPTH_EPSILON, LAYER_BAND_PRIORITY, RenderOrder, Z } from "../../constants";
+import { ROW_DEPTH_EPSILON, Z } from "../../constants";
 
 export interface TransitionSegmentProps {
   start: InstancedFrameInfo;
@@ -18,6 +18,7 @@ export interface TransitionSegmentProps {
   isEmpty?: boolean;
   theme?: Theme.Light | Theme.Dark;
   color: string;
+  highestLayer?: LayerBand;
 }
 
 /**
@@ -51,6 +52,7 @@ export const TransitionSegment = memo(function TransitionSegment({
   isEmpty = false,
   color,
   theme,
+  highestLayer = LayerBand.Background,
 }: TransitionSegmentProps) {
   // Determine line thickness based on track render mode
   const lineWidth = useMemo(() => {
@@ -93,22 +95,11 @@ export const TransitionSegment = memo(function TransitionSegment({
   const cp1Y = useSpring(transitionCurve.cp1Y, { stiffness: 300, damping: 30 });
   const cp2Y = useSpring(transitionCurve.cp2Y, { stiffness: 300, damping: 30 });
 
-  const resolveFrameBand = (points: SourceRowData[]): LayerBand => {
-    return points.reduce<LayerBand>((current, point) => {
-      return LAYER_BAND_PRIORITY[point.layerBand] > LAYER_BAND_PRIORITY[current]
-        ? point.layerBand
-        : current;
-    }, LayerBand.Background);
-  };
-
-  // Base the placement on the highest priority band of the two endpoints
-  const band = resolveFrameBand([...start.points, ...end.points]);
-
   // Lookup the z-value based on the layerband
-  const z = LAYER_TO_Z[band];
+  const z = LAYER_TO_Z[highestLayer];
   // Compute depths for fill and line to avoid z-fighting
-  const fillDepth = z - ROW_DEPTH_EPSILON * 0.2;
-  const lineDepth = z + ROW_DEPTH_EPSILON * 0.2;
+  const fillDepth = z - ROW_DEPTH_EPSILON * 0.4;
+  const lineDepth = z - ROW_DEPTH_EPSILON * 0.2;
 
   return (
     <group

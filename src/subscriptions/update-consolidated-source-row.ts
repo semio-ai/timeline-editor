@@ -1,4 +1,5 @@
 import { shallow } from "zustand/shallow";
+import { isEqual } from "lodash";
 import type {
   AnimationApi,
   AnimationData,
@@ -6,7 +7,6 @@ import type {
   AnimationStoreSetter,
 } from "../store-types";
 import { computeConsolidatedSourceRow } from "../functions";
-import { isEqual } from "lodash";
 
 export function updateConsolidatedSourceRow(
   api: AnimationApi,

@@ -11,7 +11,12 @@ import { clamp, uniq } from "lodash";
 import { SourceRowData, TrackRender, LayerBand } from "../../types";
 import { useAnimationStore, useColors, useInvariantScale, useAltKeyPressed } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
-import { RenderOrder, ROW_DEPTH_EPSILON, Z } from "../../constants";
+import {
+  RenderOrder,
+  ROW_DEPTH_EPSILON,
+  LAYER_BAND_OFFSETS,
+  LAYER_BAND_PRIORITY,
+} from "../../constants";
 
 const BG_MULTIPLIER = 1.2;
 
@@ -65,6 +70,7 @@ export const DataPoint = memo(function DataPoint({
   const commitDrag = useAnimationStore(useShallow((state) => state.commitDrag));
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
   const playing = usePlayerStore(useShallow((state) => state.player.running));
+  const selectionState = useAnimationStore(useShallow((state) => state.selectionState));
 
   const unselectedForegroundPoints = points.filter(
     (d) => d.layerBand === LayerBand.ForegroundUnselected,
@@ -74,13 +80,7 @@ export const DataPoint = memo(function DataPoint({
   );
   const backgroundPoints = points.filter((d) => d.layerBand === LayerBand.Background);
 
-  // const foregroundPointsInActiveInstance = foregroundPoints.every((p) =>
-  //   activeInstanceId ? p.instanceId === activeInstanceId : true,
-  // );
-  // Get tracks for computing fresh frames when needed
-  // const tracks = useAnimationStore(useShallow((state) => state.tracks));
-  //
-  const foregroundPoints = useMemo(
+  const combinedForegroundPoints = useMemo(
     () => [...unselectedForegroundPoints, ...selectedForegroundPoints],
     [unselectedForegroundPoints, selectedForegroundPoints],
   );
@@ -91,14 +91,23 @@ export const DataPoint = memo(function DataPoint({
   // Track if we just finished dragging to prevent immediate click
   const justFinishedDragging = useRef<boolean>(false);
 
-  const isSelected = selectedForegroundPoints.length > 0;
+  const selectedInstanceId = selectionState.instanceId;
+  const selectedKeypoints = selectionState.keypoints;
+  const selectedPoints = useMemo(() => {
+    if (!selectedInstanceId) return [];
+    return combinedForegroundPoints.filter((point) => {
+      if (point.instanceId !== selectedInstanceId) return false;
+      const trackSelections = selectedKeypoints.get(point.trackId);
+      return trackSelections ? trackSelections.has(point.id) : false;
+    });
+  }, [combinedForegroundPoints, selectedInstanceId, selectedKeypoints]);
 
-  const isReference = useAnimationStore(
-    useShallow((state) => {
-      const reference = state.selectionState.reference;
-      return reference?.rowId === sourceRowId && reference?.markerId === markerId;
-    }),
-  );
+  const isSelected = selectedPoints.length > 0;
+
+  const isReference = useMemo(() => {
+    const reference = selectionState.reference;
+    return reference?.rowId === sourceRowId && reference?.markerId === markerId;
+  }, [selectionState.reference, sourceRowId, markerId]);
 
   const [isHovered, setIsHovered] = useState(false);
   const altPressed = useAltKeyPressed();
@@ -136,31 +145,33 @@ export const DataPoint = memo(function DataPoint({
   }, [initialValue, yPosition, trackRender]);
 
   // Determine rendering behavior for TrackRender.Key based on point selectability
-  const hasSelectedForegroundPoints = selectedForegroundPoints.length > 0;
-  const hasUnselectedForegroundPoints = unselectedForegroundPoints.length > 0;
+  const hasSelectedForegroundPoints = selectedPoints.length > 0;
+  const hasUnselectedForegroundPoints = combinedForegroundPoints.length - selectedPoints.length > 0;
   const hasBackgroundPoints = backgroundPoints.length > 0;
 
   // For TrackRender.Key: show line when there are any unselectable points
   const shouldShowLineForKey = trackRender === TrackRender.Key && hasBackgroundPoints;
 
-  const colorBasisPoints = useMemo(() => {
-    const foregroundPointTracks = uniq(foregroundPoints.map((p) => p.trackId));
-    if (foregroundPointTracks.length > 0) {
-      return foregroundPointTracks;
-    } else if (RENDERS_WITH_LINES.includes(trackRender)) {
-      return backgroundPoints.map((p) => p.trackId);
-    } else {
-      return backgroundPoints.map((p) => p.trackId);
+  const foregroundTrackIds = useMemo(() => {
+    if (combinedForegroundPoints.length === 0) {
+      return [] as string[];
     }
-  }, [foregroundPoints, backgroundPoints, trackRender]);
+    return uniq(combinedForegroundPoints.map((point) => point.trackId));
+  }, [combinedForegroundPoints]);
 
-  const baseColor = useColors(colorBasisPoints);
-  // Always call the hook, but only use it if needed
-  const unselectablePointColors = useColors(
-    backgroundPoints.length > 0 ? backgroundPoints.map((p) => p.trackId) : ["default"],
+  const colorTrackIds = useMemo(() => {
+    if (foregroundTrackIds.length > 0) {
+      return foregroundTrackIds;
+    }
+    return backgroundPoints.map((point) => point.trackId);
+  }, [foregroundTrackIds, backgroundPoints]);
+
+  const fallbackTrackIds = useMemo(() => points.map((point) => point.trackId), [points]);
+
+  const baseColor = useColors(colorTrackIds.length > 0 ? colorTrackIds : fallbackTrackIds);
+  const backgroundColor = useColors(
+    backgroundPoints.length > 0 ? backgroundPoints.map((point) => point.trackId) : ["default"],
   );
-
-  const unselectableColor = hasBackgroundPoints ? unselectablePointColors : baseColor;
 
   const baseBackdropColor = useMemo(() => {
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);
@@ -171,13 +182,11 @@ export const DataPoint = memo(function DataPoint({
   const selectionColor = useMemo(() => {
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#FFFFFF" : "#000000", 0.8);
   }, [baseColor, theme]);
-  const unselectableLineColor = useMemo(() => {
-    return computeOklabMix(unselectableColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.5);
-  }, [unselectableColor, theme]);
 
+  const lineColor = hasBackgroundPoints ? backgroundColor : baseColor;
   const showsLine = RENDERS_WITH_LINES.includes(trackRender) || shouldShowLineForKey;
   // For key render, only show hexagon when there are foreground points; otherwise always show
-  const shouldShowHexagon = hasSelectedForegroundPoints || hasUnselectedForegroundPoints;
+  const shouldShowHexagon = combinedForegroundPoints.length > 0;
 
   const fillIndex = useMotionValue(getFillIndex(isHovered, isSelected, isReference));
   const backdropIndex = useMotionValue(getBackdropIndex(isSelected, isReference));
@@ -303,8 +312,7 @@ export const DataPoint = memo(function DataPoint({
       onClick: ({ event, shiftKey, metaKey }) => {
         console.log(
           JSON.stringify({
-            selectedForegroundPoints,
-            unselectedForegroundPoints,
+            combinedForegroundPoints,
             backgroundPoints,
           }),
         );
@@ -314,7 +322,7 @@ export const DataPoint = memo(function DataPoint({
 
         event.stopPropagation();
         clickMarker(
-          [...unselectedForegroundPoints, ...selectedForegroundPoints],
+          combinedForegroundPoints,
           sourceRowId,
           markerId,
           shiftKey,
@@ -332,13 +340,7 @@ export const DataPoint = memo(function DataPoint({
 
         // Auto-select if not already selected
         if (!isSelected) {
-          clickMarker(
-            [...unselectedForegroundPoints, ...selectedForegroundPoints],
-            sourceRowId,
-            markerId,
-            false,
-            false,
-          );
+          clickMarker(combinedForegroundPoints, sourceRowId, markerId, false, false);
         }
 
         // Start dragging with current selection
@@ -393,21 +395,31 @@ export const DataPoint = memo(function DataPoint({
     },
   );
 
+  const resolvedBand = useMemo(() => {
+    const allPoints = hasBackgroundPoints
+      ? [...combinedForegroundPoints, ...backgroundPoints]
+      : combinedForegroundPoints;
+    if (allPoints.length === 0) {
+      return LayerBand.Background;
+    }
+    return allPoints.reduce((current, point) => {
+      const band = point.layerBand ?? LayerBand.Background;
+      return LAYER_BAND_PRIORITY[band] > LAYER_BAND_PRIORITY[current] ? band : current;
+    }, LayerBand.Background);
+  }, [combinedForegroundPoints, backgroundPoints, hasBackgroundPoints]);
+
   // Early return if data not found
   if (!data) return null;
 
-  const foregroundBand: LayerBand = hasSelectedForegroundPoints
-    ? LayerBand.ForegroundSelected
-    : LayerBand.ForegroundUnselected;
-  const foregroundZ =
-    Z[
-      foregroundBand === LayerBand.ForegroundSelected
-        ? "ForegroundDataSelected"
-        : "ForegroundDataUnselected"
-    ];
+  const foregroundBand =
+    resolvedBand === LayerBand.Background ? LayerBand.ForegroundUnselected : resolvedBand;
+  const foregroundZ = LAYER_BAND_OFFSETS[foregroundBand];
+
   const backplateDepth = foregroundZ - ROW_DEPTH_EPSILON * 0.2;
   const fillDepth = foregroundZ + ROW_DEPTH_EPSILON * 0.2;
-  const lineDepth = Z.BackgroundData;
+  const lineDepth = hasBackgroundPoints
+    ? LAYER_BAND_OFFSETS[LayerBand.Background] + ROW_DEPTH_EPSILON * 0.1
+    : foregroundZ + ROW_DEPTH_EPSILON * 0.4;
 
   return (
     <group ref={groupRef as any} {...(bind() as any)}>
@@ -443,7 +455,7 @@ export const DataPoint = memo(function DataPoint({
           [stamp, height / -2 + 1, lineDepth],
           [stamp, height / 2 - 1, lineDepth],
         ]}
-        color={shouldShowLineForKey ? unselectableLineColor : baseColor}
+        color={lineColor}
         lineWidth={2}
         visible={showsLine}
         renderOrder={RenderOrder.DataPointLine}

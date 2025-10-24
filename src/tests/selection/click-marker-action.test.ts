@@ -12,6 +12,7 @@ import {
   TRACK_IDS,
 } from "../../test-fixtures/animation-store-factory";
 import type { AnimationStore } from "../../store";
+import { collectRangeKeypoints } from "../../functions/selection-state-manager";
 import {
   clickMarkerWith,
   findMarker,
@@ -20,7 +21,6 @@ import {
   pointsToSignatures,
   selectionSignatures,
 } from "./selection-test-helpers";
-import { collectRangeKeypoints } from "../../functions/selection-state-manager";
 
 describe("Click Marker Action with Complete Store", () => {
   let store: AnimationStore;

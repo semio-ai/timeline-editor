@@ -143,7 +143,7 @@ export function MotionCubicBezierLine({
       onClick={onClick}
       renderOrder={renderOrder}
       depthWrite={false}
-      depthTest={true}
+      depthTest
     />
   );
 }

@@ -13,7 +13,7 @@ import { GROUP_TYPES } from "../constants";
 export function computeSourceRowsFromSources(
   sources: Source[],
   activeAnimationInstance?: string | null,
-  selectedTrackIds: Set<string> = new Set(),
+  selectedTrackIds = new Set<string>(),
 ): SourceRow[] {
   const rows: SourceRow[] = [];
 

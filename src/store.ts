@@ -36,7 +36,6 @@ import {
   updateControlColor,
 } from "./actions";
 import { clickMarkerAction, clearSelectionAction } from "./actions/click-marker";
-import { createEmptySelectionState } from "./functions/selection-state-manager";
 import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
 import {
   computeStoredAnimation,

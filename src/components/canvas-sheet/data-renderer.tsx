@@ -5,7 +5,7 @@ import { MotionValue } from "motion";
 import { Instances } from "@react-three/drei";
 import { uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../hooks";
-import { InstancedFrameInfo, SourceRow, TrackRender } from "../../types";
+import { InstancedFrameInfo, LayerBand, SourceRow, TrackRender } from "../../types";
 import { AnimationData } from "../../store-types";
 import { Z } from "../../constants";
 import { DataPoint } from "./data-point";
@@ -98,6 +98,23 @@ export const DataRenderer = memo(function DataRenderer({
     () => (sourceRow ? uniq(sourceRow.data.map((s) => s.trackId)) : []),
     [sourceRow],
   );
+  const transitionLayer: LayerBand = useMemo(() => {
+    const allLayers = uniq(
+      computedData.virtualFrames.flatMap((vf) => vf.points).map((p) => p.layerBand),
+    );
+    if (allLayers.length === 0) {
+      return LayerBand.Background;
+    }
+    if (allLayers.length === 1) {
+      return allLayers[0];
+    } else if (allLayers.includes(LayerBand.ForegroundUnselected)) {
+      return LayerBand.ForegroundUnselected;
+    } else if (allLayers.includes(LayerBand.ForegroundSelected)) {
+      return LayerBand.ForegroundSelected;
+    } else {
+      return LayerBand.Background;
+    }
+  }, [computedData.virtualFrames]);
   const color = useColors(trackIds);
 
   const keyForced: boolean = useMemo(() => {
@@ -138,6 +155,7 @@ export const DataRenderer = memo(function DataRenderer({
           isEmpty={segment.buffer}
           theme={theme}
           color={color}
+          highestLayer={transitionLayer}
         />
       ))}
 
