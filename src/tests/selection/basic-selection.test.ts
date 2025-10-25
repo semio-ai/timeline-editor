@@ -12,10 +12,10 @@ import {
   TRACK_IDS,
 } from "../../test-fixtures/animation-store-factory";
 import type { AnimationStore } from "../../store";
+import { flushMicrotasks } from "../utils/flush-microtasks";
 import {
   clickMarkerWith,
   findMarker,
-  getMarkerPoints,
   pointsToSignatures,
   selectionSignatures,
 } from "./selection-test-helpers";
@@ -32,7 +32,8 @@ describe("Basic Selection Operations", () => {
     });
 
     cleanup = store.getState().initAnimationSubscriptions();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Flush microtasks so subscriptions settle without relying on timers
+    await flushMicrotasks();
   });
 
   afterEach(() => {
@@ -142,7 +143,8 @@ describe("Basic Selection Operations", () => {
     it("supports selection in the minimal animation store", async () => {
       const minimalStore = createMinimalAnimationStore();
       const minimalCleanup = minimalStore.getState().initAnimationSubscriptions();
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // Flush microtasks so subscriptions settle without relying on timers
+      await flushMicrotasks();
 
       const rowId = `default/main/${TRACK_IDS.SCALE}`;
       const points = clickMarkerWith(minimalStore, rowId, "s0");

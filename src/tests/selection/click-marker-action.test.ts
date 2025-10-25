@@ -13,6 +13,7 @@ import {
 } from "../../test-fixtures/animation-store-factory";
 import type { AnimationStore } from "../../store";
 import { collectRangeKeypoints } from "../../functions/selection-state-manager";
+import { flushMicrotasks } from "../utils/flush-microtasks";
 import {
   clickMarkerWith,
   findMarker,
@@ -34,7 +35,8 @@ describe("Click Marker Action with Complete Store", () => {
     });
 
     cleanup = store.getState().initAnimationSubscriptions();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Flush microtasks so subscriptions settle without relying on timers
+    await flushMicrotasks();
   });
 
   afterEach(() => {
@@ -186,10 +188,8 @@ describe("Click Marker Action with Complete Store", () => {
 
   describe("Instance and namespace handling", () => {
     it("keeps the active instance when selecting background-only namespaces", () => {
-      const alphaRow = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
       const betaRow = `${NAMESPACE_IDS.BETA}/${INSTANCE_IDS.BETA_SHARED}/${TRACK_IDS.OPACITY}`;
 
-      const alphaPoints = clickMarkerWith(store, alphaRow, "o1");
       expect(store.getState().selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_SHARED);
 
       const betaPoints = clickMarkerWith(store, betaRow, "o1");
@@ -244,7 +244,8 @@ describe("Click Marker Action with Complete Store", () => {
     it("supports marker selection in the minimal store", async () => {
       const minimalStore = createMinimalAnimationStore();
       const minimalCleanup = minimalStore.getState().initAnimationSubscriptions();
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // Flush microtasks so subscriptions settle without relying on timers
+      await flushMicrotasks();
 
       const rowId = `default/main/${TRACK_IDS.SCALE}`;
       const markerId = "s0";

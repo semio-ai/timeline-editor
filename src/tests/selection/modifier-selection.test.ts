@@ -12,6 +12,7 @@ import {
 } from "../../test-fixtures/animation-store-factory";
 import type { AnimationStore } from "../../store";
 import { collectRangeKeypoints } from "../../functions/selection-state-manager";
+import { flushMicrotasks } from "../utils/flush-microtasks";
 import {
   clickMarkerWith,
   findMarker,
@@ -33,7 +34,8 @@ describe("Modifier Key Selection", () => {
     });
 
     cleanup = store.getState().initAnimationSubscriptions();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Flush microtasks so subscriptions settle without relying on timers
+    await flushMicrotasks();
   });
 
   afterEach(() => {

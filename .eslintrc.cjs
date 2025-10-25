@@ -26,6 +26,7 @@ module.exports = {
           "side",
           "receiveShadow",
           "depthTest",
+          "depthWrite",
           "dispose",
           "disableNormalPass",
           "visibleEdgeColor",

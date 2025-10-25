@@ -35,11 +35,11 @@ export enum Z {
   // Out of Bounds overlay is below the minimap, but above most other elements.
   OutOfBoundsOverlay = 91,
 
+  TrackSwitchingBoundary = 15,
   // Track content/data is rendered between the bounds overlay and the violations.
   ForegroundDataSelected = 20,
   SelectedUnselectedBoundary = 10,
   ForegroundDataUnselected = 0,
-  TrackSwitchingBoundary = -5,
   ForegroundBackgroundBoundary = -10,
   BackgroundData = -20,
 

@@ -28,13 +28,23 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   trackRender?: TrackRender;
   height?: number;
 }) {
+  const visibleHexFrameCount = useMemo(
+    () => frames.filter((f) => f.points.some((p) => p.layerBand !== LayerBand.Background)).length,
+    [frames],
+  );
+
+  const instanceCount = visibleHexFrameCount * 2;
+
+  // Unique key to force re-creation when sourceRow or instanceCount changes
+  const instancesKey = `${sourceRow.id}:${instanceCount.toString()}`;
+
   // If the track render is spline, but the row is a group, ignore it
   if (trackRender === TrackRender.Spline && sourceRow.data.length > 1) {
     return null;
   }
 
   return (
-    <Instances>
+    <Instances key={instancesKey} limit={Math.max(instanceCount, 1024)} range={instanceCount}>
       {/* Shared geometry and material for all instances */}
       <cylinderGeometry args={[5, 5, 1, 6]} />
       <meshBasicMaterial toneMapped={false} />
@@ -157,9 +167,16 @@ export const DataRenderer = memo(function DataRenderer({
           position={[0.5, 0, Z.TrackSwitchingBoundary]}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={handleTrackSwitch}
+          renderOrder={1000}
         >
           <planeGeometry args={[1, height]} />
-          <meshBasicMaterial color="#ff0000" transparent opacity={0} />
+          <meshBasicMaterial
+            color="#000000"
+            transparent
+            opacity={0}
+            depthWrite={false}
+            depthTest={false}
+          />
         </mesh>
       )}
       {/* Render the hexagons/visuals for each keyed point */}

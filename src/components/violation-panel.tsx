@@ -15,6 +15,19 @@ export function ViolationPanel({ segment, violations }: ViolationPanelProps) {
     return uniq(segment.violations.map((violationId) => violations[violationId].trackId));
   }, [segment, violations]);
 
+  const defaultViolations: Violation[] = [];
+  const collapsedViolations = segment.violations.reduce((list, v) => {
+    const violation = violations[v];
+    if (!violation) return list;
+    const existing = list.find(
+      (item) => item.type === violation.type && item.trackId === violation.trackId,
+    );
+    if (!existing) {
+      list.push(violation);
+    }
+    return list;
+  }, defaultViolations);
+
   const name = useNames(uniqueTracks, "MultipleTracks");
   const color = useColors(uniqueTracks);
 
@@ -37,11 +50,11 @@ export function ViolationPanel({ segment, violations }: ViolationPanelProps) {
       </div>
 
       <div className="p-2 grid grid-cols-3 gap-2">
-        {segment.violations.map((violationId) => {
+        {collapsedViolations.map((violation) => {
           return (
             <ViolationDescription
-              key={violationId}
-              violation={violations[violationId]}
+              key={violation.id}
+              violation={violation}
               onlyTrack={uniqueTracks.length <= 1}
             />
           );

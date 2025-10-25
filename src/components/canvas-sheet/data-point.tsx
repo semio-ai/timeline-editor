@@ -11,12 +11,7 @@ import { clamp } from "lodash";
 import { SourceRowData, TrackRender, LayerBand } from "../../types";
 import { useAnimationStore, useColors, useInvariantScale, useAltKeyPressed } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
-import {
-  RenderOrder,
-  ROW_DEPTH_EPSILON,
-  LAYER_BAND_OFFSETS,
-  LAYER_BAND_PRIORITY,
-} from "../../constants";
+import { ROW_DEPTH_EPSILON, LAYER_BAND_OFFSETS, LAYER_BAND_PRIORITY } from "../../constants";
 
 const BG_MULTIPLIER = 1.2;
 
@@ -310,12 +305,6 @@ export const DataPoint = memo(function DataPoint({
         setIsHovered(hovering ?? false);
       },
       onClick: ({ event, shiftKey, metaKey }) => {
-        console.log(
-          JSON.stringify({
-            combinedForegroundPoints,
-            backgroundPoints,
-          }),
-        );
         event.stopPropagation();
         if (playing || justFinishedDragging.current) return;
 
@@ -458,7 +447,6 @@ export const DataPoint = memo(function DataPoint({
         color={lineColor}
         lineWidth={2}
         visible={showsLine}
-        renderOrder={RenderOrder.DataPointLine}
         // Lines are non-interactive when showing unselectable points
       />
     </group>

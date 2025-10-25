@@ -25,6 +25,7 @@ This document captures the current organization, data structures, and runtime fl
 
 - [ ] [Selection State Migration](./selection-migration.md)
 - [ ] [Canvas Sheet Layering & Contrast Migration](./canvas-sheet-layering-migration.md)
+- [ ] Centralize test microtask flushing by adding a shared helper (e.g., `flushMicrotasks`) and replacing `setTimeout`-based waits in tests
 
 ## Core Data Model
 
