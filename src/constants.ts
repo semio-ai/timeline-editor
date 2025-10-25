@@ -39,6 +39,7 @@ export enum Z {
   ForegroundDataSelected = 20,
   SelectedUnselectedBoundary = 10,
   ForegroundDataUnselected = 0,
+  TrackSwitchingBoundary = -5,
   ForegroundBackgroundBoundary = -10,
   BackgroundData = -20,
 

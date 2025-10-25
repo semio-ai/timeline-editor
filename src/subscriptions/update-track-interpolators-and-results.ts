@@ -70,22 +70,39 @@ export function updateTrackInterpolatorsAndResults(
       newViolations = [
         ...newViolations,
         ...(animatableValue
-          ? computeTrackViolations(trackInterp, duration, trackId, namespace, animatableValue)
+          ? computeTrackViolations(
+              trackInterp,
+              duration,
+              trackId,
+              namespace,
+              instance.id,
+              animatableValue,
+            )
           : []),
       ];
 
-      set((state: AnimationData) => ({
-        trackInterpolators: {
-          ...state.trackInterpolators,
-          [lookup]: {
-            value: trackInterp,
-            derivative: derivativeInterp,
+      set((state: AnimationData) => {
+        const previousViolations = state.violations[trackId] ?? [];
+        const preservedViolations = previousViolations.filter(
+          (violation) => violation.namespace !== namespace || violation.instanceId !== instance.id,
+        );
+
+        return {
+          trackInterpolators: {
+            ...state.trackInterpolators,
+            [lookup]: {
+              value: trackInterp,
+              derivative: derivativeInterp,
+            },
           },
-        },
-        values: new Map([...state.values, ...newVals]),
-        velocities: new Map([...state.velocities, ...newVelocities]),
-        violations: { ...state.violations, [trackId]: newViolations },
-      }));
+          values: new Map([...state.values, ...newVals]),
+          velocities: new Map([...state.velocities, ...newVelocities]),
+          violations: {
+            ...state.violations,
+            [trackId]: [...preservedViolations, ...newViolations],
+          },
+        };
+      });
     },
     { fireImmediately: true, equalityFn: shallow },
   );

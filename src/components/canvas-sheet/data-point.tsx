@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { RawValue, usePlayerStore } from "@semio/utils";
 import { Theme } from "@semio/ui";
 import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
-import { clamp, uniq } from "lodash";
+import { clamp } from "lodash";
 import { SourceRowData, TrackRender, LayerBand } from "../../types";
 import { useAnimationStore, useColors, useInvariantScale, useAltKeyPressed } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
@@ -149,29 +149,30 @@ export const DataPoint = memo(function DataPoint({
   const hasUnselectedForegroundPoints = combinedForegroundPoints.length - selectedPoints.length > 0;
   const hasBackgroundPoints = backgroundPoints.length > 0;
 
+  const highestPriorityIds = useMemo(() => {
+    if (selectedForegroundPoints.length > 0) {
+      return selectedForegroundPoints.map((point) => point.trackId);
+    } else if (unselectedForegroundPoints.length > 0) {
+      return unselectedForegroundPoints.map((point) => point.trackId);
+    }
+    return [];
+  }, [selectedForegroundPoints, unselectedForegroundPoints]);
+
+  const vertLineIds = useMemo(() => {
+    if (RENDERS_WITH_LINES.includes(trackRender)) {
+      return highestPriorityIds;
+    } else if (hasUnselectedForegroundPoints) {
+      return unselectedForegroundPoints.map((point) => point.trackId);
+    } else {
+      return [];
+    }
+  }, [trackRender, highestPriorityIds, hasUnselectedForegroundPoints, unselectedForegroundPoints]);
+
   // For TrackRender.Key: show line when there are any unselectable points
   const shouldShowLineForKey = trackRender === TrackRender.Key && hasBackgroundPoints;
 
-  const foregroundTrackIds = useMemo(() => {
-    if (combinedForegroundPoints.length === 0) {
-      return [] as string[];
-    }
-    return uniq(combinedForegroundPoints.map((point) => point.trackId));
-  }, [combinedForegroundPoints]);
-
-  const colorTrackIds = useMemo(() => {
-    if (foregroundTrackIds.length > 0) {
-      return foregroundTrackIds;
-    }
-    return backgroundPoints.map((point) => point.trackId);
-  }, [foregroundTrackIds, backgroundPoints]);
-
-  const fallbackTrackIds = useMemo(() => points.map((point) => point.trackId), [points]);
-
-  const baseColor = useColors(colorTrackIds.length > 0 ? colorTrackIds : fallbackTrackIds);
-  const backgroundColor = useColors(
-    backgroundPoints.length > 0 ? backgroundPoints.map((point) => point.trackId) : ["default"],
-  );
+  const baseColor = useColors(highestPriorityIds);
+  const lineColor = useColors(vertLineIds);
 
   const baseBackdropColor = useMemo(() => {
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);
@@ -183,7 +184,6 @@ export const DataPoint = memo(function DataPoint({
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#FFFFFF" : "#000000", 0.8);
   }, [baseColor, theme]);
 
-  const lineColor = hasBackgroundPoints ? backgroundColor : baseColor;
   const showsLine = RENDERS_WITH_LINES.includes(trackRender) || shouldShowLineForKey;
   // For key render, only show hexagon when there are foreground points; otherwise always show
   const shouldShowHexagon = combinedForegroundPoints.length > 0;

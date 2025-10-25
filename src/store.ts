@@ -55,6 +55,7 @@ import {
   updateSourceRowIds,
 } from "./subscriptions";
 import { View } from "./types/util/view";
+import { createEmptySelectionState } from "./functions/selection-state-manager";
 
 enableMapSet();
 
@@ -446,6 +447,9 @@ export const AnimationSlice = (
     },
     clearSelection: () => {
       set((state: AnimationData) => clearSelectionAction(state));
+    },
+    focusSelectionInstance: (instanceId: string) => {
+      set(() => ({ selectionState: createEmptySelectionState(instanceId) }));
     },
     addPreview: (preview: Preview) => {
       set((state: AnimationData) => ({

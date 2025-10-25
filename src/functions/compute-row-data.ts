@@ -15,7 +15,31 @@ export function computeRowData(
   dragState: DragState | null,
 ): ComputedRowData {
   const trackIds = uniq(sourceRow.data.map((t) => t.trackId));
-  const filteredViolations = pick(violations, trackIds);
+  const instanceIds = new Set(sourceRow.data.map((t) => t.instanceId));
+  const namespaceIds = new Set(sourceRow.data.map((t) => t.namespaceId));
+
+  const filteredViolations = trackIds.reduce<Record<string, Violation[]>>((acc, trackId) => {
+    const trackViolations = violations[trackId];
+    if (!trackViolations || trackViolations.length === 0) {
+      return acc;
+    }
+
+    const scopedViolations = trackViolations.filter((violation) => {
+      if (instanceIds.size > 0 && !instanceIds.has(violation.instanceId)) {
+        return false;
+      }
+      if (namespaceIds.size > 0 && !namespaceIds.has(violation.namespace)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (scopedViolations.length > 0) {
+      acc[trackId] = scopedViolations;
+    }
+
+    return acc;
+  }, {});
   const violationSet = computeViolationSet(filteredViolations);
   const relevantTracks = pick(tracks, trackIds);
   const virtualFrames = computeVirtualFrames(relevantTracks, sourceRow, dragState);

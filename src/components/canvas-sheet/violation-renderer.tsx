@@ -1,8 +1,9 @@
 import { memo, useState } from "react";
+import { useShallow } from "zustand/shallow";
 import { Theme, useTooltipAnchor, useTooltipTrigger } from "@semio/ui";
 import { MotionValue } from "motion/react";
-import { useColors, useDiagonalMaterial } from "../../hooks";
-import { ViolationSet } from "../../types";
+import { useAnimationStore, useColors, useDiagonalMaterial } from "../../hooks";
+import { Violation, ViolationSet } from "../../types";
 import { ViolationPanel } from "../violation-panel";
 import { Z } from "../../constants";
 import { getBackgroundElementProps, getThemeAwareOpacity } from "../../functions";
@@ -16,6 +17,7 @@ const ViolationSegment = memo(function ViolationSegment({
   yOffset = new MotionValue(0),
   measureFromBottom = false,
   trackY = false,
+  activeAnimationId,
 }: {
   segment: {
     id: string;
@@ -23,11 +25,12 @@ const ViolationSegment = memo(function ViolationSegment({
     violations: string[];
   };
   yOffset: MotionValue<number>;
-  violations: Record<string, any>;
+  violations: Record<string, Violation>;
   height?: number;
   theme?: Theme.Light | Theme.Dark;
   measureFromBottom?: boolean;
   trackY?: boolean;
+  activeAnimationId?: string;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -51,7 +54,13 @@ const ViolationSegment = memo(function ViolationSegment({
 
   // Get all track IDs involved in this segment
   const trackIds = Array.from(
-    new Set(segment.violations.map((id) => violations[id].trackId as string)),
+    new Set(
+      segment.violations
+        // We will want to filter to only show colors for violations in color if they
+        // belong to the active animation in the future.
+        .filter((id) => violations[id].instanceId === activeAnimationId)
+        .map((id) => violations[id].trackId as string),
+    ),
   );
   const color = useColors(trackIds);
 
@@ -92,6 +101,10 @@ const ViolationSegment = memo(function ViolationSegment({
       material={diagonalMaterial as any}
       onPointerOver={(e) => {
         // e.stopPropagation();
+        console.log(
+          "violation",
+          segment.violations.map((id) => violations[id]),
+        );
         setHovered(true);
         onPointerMove?.(e);
         show();
@@ -126,6 +139,9 @@ export const ViolationRenderer = memo(function ViolationRenderer({
   measureFromBottom = false,
   trackY = false,
 }: ViolationRendererProps) {
+  const activeAnimationId = useAnimationStore(
+    useShallow((state) => state.selectionState.instanceId),
+  );
   return (
     <>
       {violationSet.segments.map((segment) => (
@@ -138,6 +154,7 @@ export const ViolationRenderer = memo(function ViolationRenderer({
           yOffset={yOffset}
           measureFromBottom={measureFromBottom}
           trackY={trackY}
+          activeAnimationId={activeAnimationId ?? undefined}
         />
       ))}
     </>

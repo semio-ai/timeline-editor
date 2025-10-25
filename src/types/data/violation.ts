@@ -12,6 +12,7 @@ export interface Violation {
   type: ViolationType;
   trackId: string;
   namespace: string;
+  instanceId: string;
 }
 
 /**

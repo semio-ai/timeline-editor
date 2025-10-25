@@ -23,17 +23,24 @@ test("An animation that shifts from within to outside bounds gets a bounds error
   const track1Interpolator = computeTrackInterpolator(track1, defaultInstance);
 
   // Compute the track violations
-  const violations = computeTrackViolations(track1Interpolator, 2000, "track1", "default", {
-    id: "some-animatable-id",
-    name: "Some Animatable",
-    type: "number",
-    default: 0,
-    constraints: {
-      min: -1,
-      max: 0,
-      velocity: 10,
+  const violations = computeTrackViolations(
+    track1Interpolator,
+    2000,
+    "track1",
+    "default",
+    defaultInstance.id,
+    {
+      id: "some-animatable-id",
+      name: "Some Animatable",
+      type: "number",
+      default: 0,
+      constraints: {
+        min: -1,
+        max: 0,
+        velocity: 10,
+      },
     },
-  });
+  );
 
   expect(violations.length).toEqual(1);
   expect(violations[0]?.type).toEqual(ViolationType.Upper);
@@ -63,17 +70,24 @@ test("An animation with a velocity limit of 0 returns a violation for the entire
   const track1Interpolator = computeTrackInterpolator(track1, defaultInstance);
 
   // Compute the track violations
-  const violations = computeTrackViolations(track1Interpolator, 2000, "track1", "default", {
-    id: "some-animatable-id",
-    name: "Some Animatable",
-    type: "number",
-    default: 0,
-    constraints: {
-      min: -1,
-      max: 1,
-      velocity: 0,
+  const violations = computeTrackViolations(
+    track1Interpolator,
+    2000,
+    "track1",
+    "default",
+    defaultInstance.id,
+    {
+      id: "some-animatable-id",
+      name: "Some Animatable",
+      type: "number",
+      default: 0,
+      constraints: {
+        min: -1,
+        max: 1,
+        velocity: 0,
+      },
     },
-  });
+  );
 
   expect(violations.length).toEqual(1);
   expect(violations[0]?.type).toEqual(ViolationType.Velocity);

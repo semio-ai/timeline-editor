@@ -156,6 +156,11 @@ export interface AnimationActions {
    */
   clearSelection: () => void;
   /**
+   * Force-focus a particular animation instance by clearing the current selection (keypoints +
+   * reference) and seeding the selection state with the provided instance id.
+   */
+  focusSelectionInstance: (instanceId: string) => void;
+  /**
    * Update the expanded and hidden state of a source group globally.
    * @param groupId - The ID of the source group to update.
    * @param expanded - Whether the group is expanded or collapsed.

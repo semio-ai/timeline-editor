@@ -185,21 +185,20 @@ describe("Click Marker Action with Complete Store", () => {
   });
 
   describe("Instance and namespace handling", () => {
-    it("switches the active instance when selecting from another namespace", () => {
+    it("keeps the active instance when selecting background-only namespaces", () => {
       const alphaRow = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
       const betaRow = `${NAMESPACE_IDS.BETA}/${INSTANCE_IDS.BETA_SHARED}/${TRACK_IDS.OPACITY}`;
 
-      clickMarkerWith(store, alphaRow, "o1");
+      const alphaPoints = clickMarkerWith(store, alphaRow, "o1");
       expect(store.getState().selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_SHARED);
 
       const betaPoints = clickMarkerWith(store, betaRow, "o1");
       const { selectionState } = store.getState();
 
-      expect(selectionState.instanceId).toBe(INSTANCE_IDS.BETA_SHARED);
-      expect(selectionSignatures(selectionState)).toEqual(
-        pointsToSignatures(betaPoints, selectionState.instanceId),
-      );
-      expect(selectionState.reference).toEqual({ rowId: betaRow, markerId: "o1" });
+      expect(betaPoints.length).toBe(0);
+      expect(selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_SHARED);
+      expect(selectionSignatures(selectionState)).toEqual([]);
+      expect(selectionState.reference).toBeNull();
     });
   });
 

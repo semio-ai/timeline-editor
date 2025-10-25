@@ -58,6 +58,8 @@ export function computeTrackViolations(
   trackId: string,
   // Namespace to use
   namespace: string,
+  // Animation Instance Id
+  instanceId: string,
   // The animatable value paired to the track
   animatableValue: AnimatableValue,
 ): Violation[] {
@@ -100,6 +102,7 @@ export function computeTrackViolations(
               type: violationType,
               trackId,
               namespace,
+              instanceId,
             } as Violation;
           } else if (openViolation !== undefined) {
             // Update the end time of the current open violation

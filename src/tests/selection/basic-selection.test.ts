@@ -106,7 +106,7 @@ describe("Basic Selection Operations", () => {
   });
 
   describe("Instance Switching", () => {
-    it("switches instances when a marker from another instance is clicked", () => {
+    it("ignores clicks from other instances when they are background-only", () => {
       const alphaRow = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
       const betaRow = `${NAMESPACE_IDS.BETA}/${INSTANCE_IDS.BETA_SHARED}/${TRACK_IDS.OPACITY}`;
 
@@ -119,13 +119,12 @@ describe("Basic Selection Operations", () => {
       );
 
       const betaPoints = clickMarkerWith(store, betaRow, "o1");
+      expect(betaPoints.length).toBe(0);
       selectionState = store.getState().selectionState;
 
-      expect(selectionState.instanceId).toBe(INSTANCE_IDS.BETA_SHARED);
-      expect(selectionSignatures(selectionState)).toEqual(
-        pointsToSignatures(betaPoints, selectionState.instanceId),
-      );
-      expect(selectionState.reference).toEqual({ rowId: betaRow, markerId: "o1" });
+      expect(selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_SHARED);
+      expect(selectionSignatures(selectionState)).toEqual([]);
+      expect(selectionState.reference).toBeNull();
     });
 
     it("keeps the current instance when clicking within the same instance", () => {

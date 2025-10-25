@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useCallback } from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
 import { MotionValue } from "motion";
@@ -6,8 +6,8 @@ import { Instances } from "@react-three/drei";
 import { uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../hooks";
 import { InstancedFrameInfo, LayerBand, SourceRow, TrackRender } from "../../types";
-import { AnimationData } from "../../store-types";
-import { Z } from "../../constants";
+import { AnimationData, AnimationActions } from "../../store-types";
+import { DEFAULT_COLOR, Z } from "../../constants";
 import { DataPoint } from "./data-point";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
@@ -87,11 +87,16 @@ export const DataRenderer = memo(function DataRenderer({
   showBackground = true,
   trackRender = TrackRender.Key,
 }: DataRendererProps) {
+  type StoreState = AnimationData & AnimationActions;
   const sourceRow = useAnimationStore(
-    useShallow((state: AnimationData) => state.instancedTrackSources[sourceRowId]),
+    useShallow((state: StoreState) => state.instancedTrackSources[sourceRowId]),
   );
   const computedData = useAnimationStore(
-    useShallow((state: AnimationData) => state.computedRowData[sourceRowId]),
+    useShallow((state: StoreState) => state.computedRowData[sourceRowId]),
+  );
+  const selectionState = useAnimationStore(useShallow((state: StoreState) => state.selectionState));
+  const focusSelectionInstance = useAnimationStore(
+    useShallow((state: StoreState) => state.focusSelectionInstance),
   );
 
   const trackIds = useMemo(
@@ -117,6 +122,24 @@ export const DataRenderer = memo(function DataRenderer({
   }, [computedData.virtualFrames]);
   const color = useColors(trackIds);
 
+  const uniqueInstanceId = useMemo(() => {
+    if (!sourceRow) return undefined;
+    const ids = uniq(sourceRow.data.map((data) => data.instanceId).filter(Boolean));
+    return ids.length === 1 ? ids[0] : undefined;
+  }, [sourceRow]);
+
+  const shouldRenderTrackSwitchOverlay =
+    Boolean(uniqueInstanceId) && selectionState.instanceId !== uniqueInstanceId;
+
+  const handleTrackSwitch = useCallback(
+    (event?: { stopPropagation?: () => void }) => {
+      event?.stopPropagation?.();
+      if (!uniqueInstanceId) return;
+      focusSelectionInstance(uniqueInstanceId);
+    },
+    [focusSelectionInstance, uniqueInstanceId],
+  );
+
   const keyForced: boolean = useMemo(() => {
     if (!sourceRow) return true;
     return !sourceRow.data.every((d) => d.type === "number");
@@ -129,6 +152,16 @@ export const DataRenderer = memo(function DataRenderer({
       position={[0, yOffset, baseZ]}
       onClick={() => console.log("clicked", sourceRow, computedData)}
     >
+      {shouldRenderTrackSwitchOverlay && trackRender !== TrackRender.Spline && (
+        <mesh
+          position={[0.5, 0, Z.TrackSwitchingBoundary]}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={handleTrackSwitch}
+        >
+          <planeGeometry args={[1, height]} />
+          <meshBasicMaterial color="#ff0000" transparent opacity={0} />
+        </mesh>
+      )}
       {/* Render the hexagons/visuals for each keyed point */}
       {/* PROBLEM: frameData is passed as props here, creating stale references in DataPoint components */}
       {/* After drag operations, individual DataPoint components retain old stamp values */}
@@ -154,7 +187,12 @@ export const DataRenderer = memo(function DataRenderer({
           sourceRow={sourceRow}
           isEmpty={segment.buffer}
           theme={theme}
-          color={color}
+          color={
+            transitionLayer === LayerBand.ForegroundSelected ||
+            transitionLayer === LayerBand.ForegroundUnselected
+              ? color
+              : DEFAULT_COLOR
+          }
           highestLayer={transitionLayer}
         />
       ))}
