@@ -18,7 +18,7 @@ export interface TransitionSegmentProps {
   isEmpty?: boolean;
   theme?: Theme.Light | Theme.Dark;
   color: string;
-  highestLayer?: LayerBand;
+  layer?: LayerBand;
 }
 
 /**
@@ -52,7 +52,7 @@ export const TransitionSegment = memo(function TransitionSegment({
   isEmpty = false,
   color,
   theme,
-  highestLayer = LayerBand.Background,
+  layer = LayerBand.Background,
 }: TransitionSegmentProps) {
   // Determine line thickness based on track render mode
   const lineWidth = useMemo(() => {
@@ -96,7 +96,7 @@ export const TransitionSegment = memo(function TransitionSegment({
   const cp2Y = useSpring(transitionCurve.cp2Y, { stiffness: 300, damping: 30 });
 
   // Lookup the z-value based on the layerband
-  const z = LAYER_TO_Z[highestLayer];
+  const z = LAYER_TO_Z[layer];
   // Compute depths for fill and line to avoid z-fighting
   const fillDepth = z - ROW_DEPTH_EPSILON * 0.4;
   const lineDepth = z - ROW_DEPTH_EPSILON * 0.2;

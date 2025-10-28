@@ -1,5 +1,6 @@
 import { useMemo, useEffect } from "react";
 import { MotionValue } from "motion";
+import { useMotionValueEvent, useSpring } from "motion/react";
 import { ShaderMaterial, Color, Vector2, Vector4 } from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { Theme } from "@semio/ui";
@@ -49,6 +50,7 @@ const fragmentShader = `
   uniform float stripeSpacing;
   uniform float yOffset;
   uniform float measureFromBottom;
+  uniform float globalOpacity;
 
   varying vec2 vScreenPos;
 
@@ -62,8 +64,8 @@ const fragmentShader = `
     float pattern = mod(diagonal, stripeSpacing);
     float stripeAlpha = step(pattern, stripeWidth);
 
-    // Blend baseline opacity with stripe
-    float finalAlpha = mix(baselineOpacity * opacity, opacity, stripeAlpha);
+    // Blend baseline opacity with stripe and apply global fade
+    float finalAlpha = mix(baselineOpacity * opacity, opacity, stripeAlpha) * globalOpacity;
 
     if (finalAlpha < 0.01) discard;
     gl_FragColor = vec4(color, finalAlpha);
@@ -80,6 +82,7 @@ export interface DiagonalMaterialOptions {
   useHighlight?: boolean;
   yOffset?: MotionValue<number>;
   measureFromBottom?: boolean;
+  globalOpacityMV?: MotionValue<number>;
 }
 
 export function useDiagonalMaterial({
@@ -92,6 +95,7 @@ export function useDiagonalMaterial({
   useHighlight = false,
   yOffset = new MotionValue(0),
   measureFromBottom = false,
+  globalOpacityMV,
 }: DiagonalMaterialOptions = {}) {
   const { camera, viewport } = useThree();
 
@@ -110,6 +114,33 @@ export function useDiagonalMaterial({
     return getThemeAwareOpacity(baselineOpacity, theme);
   }, [baselineOpacity, theme]);
 
+  // Initialize the spring at the theme-aware opacity to avoid per-segment intro fade.
+  const opacitySpring = useSpring(themeAwareOpacity, {
+    visualDuration: 0.3,
+    damping: 30,
+  });
+
+  useMotionValueEvent(opacitySpring, "change", (o) => {
+    if (material.uniforms) {
+      material.uniforms.opacity.value = o;
+    }
+  });
+
+  // Update globalOpacity uniform when the provided motion value changes.
+  // Use a stable fallback MotionValue so we don't construct one per render, and
+  // keep hooks order stable without subscribing to changing instances.
+  const defaultGlobalOpacityMV = useMemo(() => new MotionValue(1), []);
+  useMotionValueEvent(globalOpacityMV ?? defaultGlobalOpacityMV, "change", (g) => {
+    if (material.uniforms) {
+      material.uniforms.globalOpacity.value = g;
+    }
+  });
+
+  // Animate to new theme/hover opacity targets on change, but no initial fade-in.
+  useEffect(() => {
+    opacitySpring.set(themeAwareOpacity);
+  }, [opacitySpring, themeAwareOpacity]);
+
   const material = useMemo(() => {
     return new ShaderMaterial({
       transparent: true,
@@ -126,6 +157,7 @@ export function useDiagonalMaterial({
         cameraZoom: { value: 1.0 },
         yOffset: { value: yOffset.get() },
         measureFromBottom: { value: measureFromBottom ? 1.0 : 0.0 },
+        globalOpacity: { value: globalOpacityMV?.get?.() ?? 1 },
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- We want to prevent recreation and instead update uniforms
@@ -149,12 +181,12 @@ export function useDiagonalMaterial({
   useEffect(() => {
     if (material.uniforms) {
       material.uniforms.color.value.set(finalColor);
-      material.uniforms.opacity.value = themeAwareOpacity;
       material.uniforms.baselineOpacity.value = themeAwareBaselineOpacity;
       material.uniforms.stripeWidth.value = stripeWidth;
       material.uniforms.stripeSpacing.value = stripeSpacing;
       material.uniforms.yOffset.value = yOffset.get();
       material.uniforms.measureFromBottom.value = measureFromBottom ? 1.0 : 0.0;
+      material.uniforms.globalOpacity.value = globalOpacityMV?.get?.() ?? 1;
       material.needsUpdate = true;
     }
   }, [
@@ -166,6 +198,7 @@ export function useDiagonalMaterial({
     stripeSpacing,
     yOffset,
     measureFromBottom,
+    globalOpacityMV,
   ]);
 
   useEffect(() => {

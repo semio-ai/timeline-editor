@@ -1,12 +1,11 @@
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme, useTooltipAnchor, useTooltipTrigger } from "@semio/ui";
-import { MotionValue } from "motion/react";
+import { MotionValue, useSpring } from "motion/react";
 import { useAnimationStore, useColors, useDiagonalMaterial } from "../../hooks";
-import { Violation, ViolationSet } from "../../types";
+import { LayerBand, Violation, ViolationSet } from "../../types";
 import { ViolationPanel } from "../violation-panel";
 import { Z } from "../../constants";
-import { getBackgroundElementProps, getThemeAwareOpacity } from "../../functions";
 
 // Renders a single violation segment as a mesh
 const ViolationSegment = memo(function ViolationSegment({
@@ -18,6 +17,8 @@ const ViolationSegment = memo(function ViolationSegment({
   measureFromBottom = false,
   trackY = false,
   activeAnimationId,
+  layer = LayerBand.Background,
+  globalOpacityMV,
 }: {
   segment: {
     id: string;
@@ -31,6 +32,8 @@ const ViolationSegment = memo(function ViolationSegment({
   measureFromBottom?: boolean;
   trackY?: boolean;
   activeAnimationId?: string;
+  layer?: LayerBand;
+  globalOpacityMV?: MotionValue<number>;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -64,27 +67,18 @@ const ViolationSegment = memo(function ViolationSegment({
   );
   const color = useColors(trackIds);
 
-  // Get theme-aware opacity that increases when hovered
-  const baseOpacity = 0.3;
-  const hoveredOpacity = 0.45;
-  const { opacity: themeAwareOpacity } = getBackgroundElementProps(
-    color,
-    hovered ? hoveredOpacity : baseOpacity,
-    theme,
-    false, // We'll handle highlight separately
-  );
-
   // Create diagonal material using the hook with theme-aware properties
   const diagonalMaterial = useDiagonalMaterial({
     color,
-    opacity: themeAwareOpacity,
-    baselineOpacity: getThemeAwareOpacity(0.1, theme),
+    opacity: LAYER_TO_OPACITY[layer] + (hovered ? 0.2 : 0),
+    baselineOpacity: LAYER_TO_BASELINE_OPACITY[layer],
     stripeWidth: 8.0,
     stripeSpacing: 16.0,
     theme,
     yOffset,
     useHighlight: theme === Theme.Dark, // Keep your existing logic
     measureFromBottom,
+    globalOpacityMV,
   });
 
   // Geometry: width = end - start, centered at (start + end)/2
@@ -108,6 +102,7 @@ const ViolationSegment = memo(function ViolationSegment({
         setHovered(true);
         onPointerMove?.(e);
         show();
+        e.stopPropagation();
       }}
       onPointerOut={(_e) => {
         // e.stopPropagation();
@@ -117,7 +112,7 @@ const ViolationSegment = memo(function ViolationSegment({
       }}
       onPointerMove={onPointerMove}
     >
-      <boxGeometry args={[width, height, 1]} />
+      <boxGeometry args={[width, height, 0]} />
     </mesh>
   );
 });
@@ -129,6 +124,7 @@ export interface ViolationRendererProps {
   yOffset?: MotionValue<number>;
   measureFromBottom?: boolean;
   trackY?: boolean;
+  layer?: LayerBand;
 }
 
 export const ViolationRenderer = memo(function ViolationRenderer({
@@ -138,10 +134,19 @@ export const ViolationRenderer = memo(function ViolationRenderer({
   yOffset = new MotionValue(0),
   measureFromBottom = false,
   trackY = false,
+  layer = LayerBand.Background,
 }: ViolationRendererProps) {
   const activeAnimationId = useAnimationStore(
     useShallow((state) => state.selectionState.instanceId),
   );
+
+  const globalOpacityMV = useSpring(0, { visualDuration: 0.3, damping: 30 });
+
+  useEffect(() => {
+    const t = setTimeout(() => globalOpacityMV.set(1), 50);
+    return () => clearTimeout(t);
+  }, [globalOpacityMV]);
+
   return (
     <>
       {violationSet.segments.map((segment) => (
@@ -155,8 +160,22 @@ export const ViolationRenderer = memo(function ViolationRenderer({
           measureFromBottom={measureFromBottom}
           trackY={trackY}
           activeAnimationId={activeAnimationId ?? undefined}
+          layer={layer}
+          globalOpacityMV={globalOpacityMV}
         />
       ))}
     </>
   );
 });
+
+const LAYER_TO_OPACITY: Record<LayerBand, number> = {
+  [LayerBand.Background]: 0.25,
+  [LayerBand.ForegroundUnselected]: 0.5,
+  [LayerBand.ForegroundSelected]: 0.75,
+};
+
+const LAYER_TO_BASELINE_OPACITY: Record<LayerBand, number> = {
+  [LayerBand.Background]: 0.15,
+  [LayerBand.ForegroundUnselected]: 0.2,
+  [LayerBand.ForegroundSelected]: 0.25,
+};

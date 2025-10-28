@@ -25,7 +25,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
       <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]}>
         <planeGeometry args={[1.1, 36]} />
         <meshBasicMaterial
-          color={theme === Theme.Dark ? "#000000" : "#000000"}
+          color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
           transparent
           opacity={0.4}
         />

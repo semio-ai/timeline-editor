@@ -210,7 +210,7 @@ export const DataRenderer = memo(function DataRenderer({
               ? color
               : DEFAULT_COLOR
           }
-          highestLayer={transitionLayer}
+          layer={transitionLayer}
         />
       ))}
 
@@ -222,13 +222,19 @@ export const DataRenderer = memo(function DataRenderer({
           height={height - 1}
           yOffset={scrollOffset}
           measureFromBottom={measureFromBottom}
+          layer={transitionLayer}
         />
       )}
 
       {/* Render a background for the Active region, and the General Background */}
       {showBackground && trackIds.length > 0 && trackRender !== TrackRender.Spline && (
         <FrustumBackground
-          color={color}
+          color={
+            transitionLayer === LayerBand.ForegroundSelected ||
+            transitionLayer === LayerBand.ForegroundUnselected
+              ? color
+              : DEFAULT_COLOR
+          }
           height={height - 1}
           z={Z.Background}
           onHoverChange={onEmphasisChange}

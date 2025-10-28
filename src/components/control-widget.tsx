@@ -1,4 +1,4 @@
-import { useState, memo, useRef, useCallback } from "react";
+import { useState, memo, useRef, useCallback, useMemo } from "react";
 import {
   Button,
   StaticIcon,
@@ -24,7 +24,7 @@ import {
   usePlayerSubscription,
   useTrackAnimatableLookup,
 } from "../hooks";
-import { GROUP_TYPES } from "../constants";
+import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
 import { AnimationActions, AnimationData } from "../store-types";
 import { TrackControl } from "./track-control";
 import { AnimatableEditor } from "./animatable-editor";
@@ -60,6 +60,13 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
   const [instancedFrame, setInstancedFrame] = useState<InstancedFrameInfo | undefined>(undefined);
   const stampRef = useRef<number>(0);
 
+  const activeAnimationId = useAnimationStore(
+    useShallow((state) => state.selectionState.instanceId),
+  );
+  const active = useMemo(() => {
+    return sourceRow.data.some((d) => d.instanceId === activeAnimationId);
+  }, [sourceRow, activeAnimationId]);
+
   usePlayerSubscription(
     (state) => ({ running: state.player.running, stamp: state.player.stamp }),
     ({ running, stamp }) => {
@@ -90,7 +97,8 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     [updateSource, sourceRow.id],
   );
 
-  const color = useColors(trackIds);
+  const trueColor = useColors(trackIds);
+  const color = active ? trueColor : DEFAULT_COLOR;
   const name = useNames(trackIds);
 
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
@@ -171,6 +179,7 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
         <div className="flex-1 flex min-w-0">
           <AnimatableEditor
             data={sourceRow.data[0]}
+            active={active}
             playing={playing}
             emphasis={emphasis}
             onEmphasisChange={onEmphasisChange}

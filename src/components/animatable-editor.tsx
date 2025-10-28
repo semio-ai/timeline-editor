@@ -12,7 +12,7 @@ import { useShallow } from "zustand/react/shallow";
 import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
-import { GROUP_TYPES } from "../constants";
+import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
 
 const indexLookups: Record<string, Record<string, number>> = {
   vector3: { x: 0, y: 1, z: 2 },
@@ -28,6 +28,7 @@ export interface AnimatableEditorProps {
   emphasis?: boolean;
   onEmphasisChange?: (v: boolean) => void;
   handleValueChange: (value: RawValue | ((current: RawValue) => RawValue)) => void;
+  active?: boolean;
 }
 
 function InnerAnimatableEditor({
@@ -36,10 +37,12 @@ function InnerAnimatableEditor({
   emphasis,
   onEmphasisChange,
   handleValueChange,
+  active = true,
 }: AnimatableEditorProps) {
   const rawValueId = getLookup(data.namespaceId, data.animatableId);
 
-  const color = useColors(data.trackId ?? data.animatableId);
+  const trueColor = useColors(data.trackId ?? data.animatableId);
+  const color = active ? trueColor : DEFAULT_COLOR;
 
   const storedValue: RawValue | undefined = useAnimationStore(
     useShallow((state: AnimationData) => {
