@@ -60,12 +60,37 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
   const [instancedFrame, setInstancedFrame] = useState<InstancedFrameInfo | undefined>(undefined);
   const stampRef = useRef<number>(0);
 
-  const activeAnimationId = useAnimationStore(
-    useShallow((state) => state.selectionState.instanceId),
+  // Compute unique instance for this row (must be exactly one)
+  const uniqueInstanceId = useMemo(() => {
+    const ids = uniq(
+      sourceRow.data.map((d) => d.instanceId).filter((v): v is string => Boolean(v)),
+    );
+    return ids.length === 1 ? ids[0] : undefined;
+  }, [sourceRow.data]);
+
+  const selectionInstanceId = useAnimationStore(
+    useShallow((state: AnimationData) => state.selectionState.instanceId),
   );
-  const active = useMemo(() => {
-    return sourceRow.data.some((d) => d.instanceId === activeAnimationId);
-  }, [sourceRow, activeAnimationId]);
+  const focusSelectionInstance = useAnimationStore(
+    useShallow((state: AnimationActions) => state.focusSelectionInstance),
+  );
+
+  // Row is considered active if it has no unique instance mapping (mixed/group) OR it matches the selected instance
+  const isActive = useMemo(
+    () => !uniqueInstanceId || selectionInstanceId === uniqueInstanceId,
+    [uniqueInstanceId, selectionInstanceId],
+  );
+
+  const handleActivate = useCallback(
+    (e?: { stopPropagation?: () => void; preventDefault?: () => void }) => {
+      e?.stopPropagation?.();
+      e?.preventDefault?.();
+      if (uniqueInstanceId) {
+        focusSelectionInstance(uniqueInstanceId);
+      }
+    },
+    [focusSelectionInstance, uniqueInstanceId],
+  );
 
   usePlayerSubscription(
     (state) => ({ running: state.player.running, stamp: state.player.stamp }),
@@ -98,155 +123,180 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
   );
 
   const trueColor = useColors(trackIds);
-  const color = active ? trueColor : DEFAULT_COLOR;
+  const color = isActive ? trueColor : DEFAULT_COLOR;
   const name = useNames(trackIds);
 
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
   const iconCode = isGroup ? "group" : sourceRow.data[0].iconCode || "Group";
 
   return (
-    <div className="w-full grid grid-cols-[64px_16px_1fr_16px] pl-1 pr-2 gap-2 h-9 items-center">
-      <TrackControl
-        disabled={allReadonly}
-        source={sourceRow}
-        filled={instancedFrame !== undefined}
-        color={color}
-        onHexClick={() => {
-          if (instancedFrame !== undefined) {
-            const removals = instancedFrame.points.map((p) => ({
-              trackId: p.trackId,
-              keypointId: p.id,
-            }));
-            removeKeypoints(removals);
-          } else {
-            const datumAnimatablePairs = sourceRow.data.map((datum) => ({
-              datum,
-              animatableId: trackAnimatableLookup[datum.trackId].id,
-            }));
-            const updates = datumAnimatablePairs
-              .map(({ datum, animatableId }) => {
-                const value = interpolators[getLookup(datum.namespaceId, animatableId)]?.value?.(
-                  stampRef.current,
-                );
-                return {
-                  trackId: datum.trackId,
-                  keypoint: {
-                    value,
-                    stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](stampRef.current),
-                  },
-                };
-              })
-              .filter((u) => u.keypoint.value !== undefined);
-            updateKeypoints(updates, true);
-          }
-        }}
-      />
-      {isGroup ? (
-        <Button
-          size="fit"
-          visuals="inverted"
-          color={color}
-          onClick={() => {
-            console.log("clicked", sourceRow.expanded);
-            updateExpanded(!sourceRow.expanded);
+    <div className="relative w-full">
+      {/* Interaction guard overlay when inactive; click or Enter/Space activates the row */}
+      {!isActive && uniqueInstanceId && (
+        <div
+          role="button"
+          tabIndex={0}
+          className="absolute inset-0 z-10 cursor-pointer"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={handleActivate}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              handleActivate(e);
+            }
           }}
-          leftIcon={
-            <IconChevronDown
-              className={clsx(
-                "transition-transform",
-                sourceRow.expanded ? "-rotate-180 size-3" : "rotate-0 size-3",
-              )}
-            />
-          }
+          aria-label={`Activate ${sourceRow.id}`}
         />
-      ) : (
-        <StaticIcon size="fit" className="size-3" color={color}>
-          <DataIcon iconCode={iconCode} size="13px" />
-        </StaticIcon>
       )}
-      {isGroup ? (
-        <TextField
-          size={Size.Sm}
+      <div
+        className={clsx(
+          "w-full grid grid-cols-[64px_16px_1fr_16px] pl-1 pr-2 gap-2 h-9 items-center",
+          !isActive && uniqueInstanceId && "pointer-events-none select-none",
+        )}
+      >
+        <TrackControl
+          disabled={allReadonly || !isActive}
+          source={sourceRow}
+          filled={instancedFrame !== undefined}
           color={color}
-          value={name}
-          onChange={(val) => {
-            trackIds.forEach((id) => {
-              updateTrack({ id, name: val });
-            });
-          }}
-        />
-      ) : (
-        <div className="flex-1 flex min-w-0">
-          <AnimatableEditor
-            data={sourceRow.data[0]}
-            active={active}
-            playing={playing}
-            emphasis={emphasis}
-            onEmphasisChange={onEmphasisChange}
-            handleValueChange={(change) => {
+          onHexClick={() => {
+            if (instancedFrame !== undefined) {
+              const removals = instancedFrame.points.map((p) => ({
+                trackId: p.trackId,
+                keypointId: p.id,
+              }));
+              removeKeypoints(removals);
+            } else {
               const datumAnimatablePairs = sourceRow.data.map((datum) => ({
                 datum,
                 animatableId: trackAnimatableLookup[datum.trackId].id,
               }));
               const updates = datumAnimatablePairs
                 .map(({ datum, animatableId }) => {
-                  const value: RawValue | undefined = interpolators[
-                    getLookup(datum.namespaceId, animatableId)
-                  ]?.value?.(stampRef.current);
-                  const defaultValue = animatables[animatableId].default;
-                  if (typeof change === "function") {
-                    const newValue = change(value ?? defaultValue);
-                    return {
-                      trackId: datum.trackId,
-                      keypoint: {
-                        value: newValue,
-                        stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](
-                          stampRef.current,
-                        ),
-                      },
-                    };
-                  } else {
-                    return {
-                      trackId: datum.trackId,
-                      keypoint: {
-                        change,
-                        stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](
-                          stampRef.current,
-                        ),
-                      },
-                    };
-                  }
+                  const value = interpolators[getLookup(datum.namespaceId, animatableId)]?.value?.(
+                    stampRef.current,
+                  );
+                  return {
+                    trackId: datum.trackId,
+                    keypoint: {
+                      value,
+                      stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](
+                        stampRef.current,
+                      ),
+                    },
+                  };
                 })
                 .filter((u) => u.keypoint.value !== undefined);
               updateKeypoints(updates, true);
+            }
+          }}
+        />
+        {isGroup ? (
+          <Button
+            size="fit"
+            visuals="inverted"
+            color={color}
+            onClick={() => {
+              console.log("clicked", sourceRow.expanded);
+              updateExpanded(!sourceRow.expanded);
             }}
-          />
-        </div>
-      )}
-      <div className="w-3 flex items-center justify-around mr-1">
-        <Dropdown
-          variant={Variant.Info}
-          trigger={
-            <span>
-              <Button
-                size={Size.Xs}
-                className="flex items-center justify-center"
-                visuals="inverted"
-                leftIcon={<IconDotsVertical className="size-3/5" />}
+            leftIcon={
+              <IconChevronDown
+                className={clsx(
+                  "transition-transform",
+                  sourceRow.expanded ? "-rotate-180 size-3" : "rotate-0 size-3",
+                )}
               />
-            </span>
-          }
-        >
-          <NestedLabel>Control Settings</NestedLabel>
-          <NestedColorPicker
-            variant={Variant.Info}
-            disabled={trackIds.length > 1}
-            value={color}
-            onChange={(v) => {
-              updateControlColor(trackIds[0], v);
+            }
+          />
+        ) : (
+          <StaticIcon size="fit" className="size-3" color={color}>
+            <DataIcon iconCode={iconCode} size="13px" />
+          </StaticIcon>
+        )}
+        {isGroup ? (
+          <TextField
+            size={Size.Sm}
+            color={color}
+            value={name}
+            onChange={(val) => {
+              trackIds.forEach((id) => {
+                updateTrack({ id, name: val });
+              });
             }}
           />
-        </Dropdown>
+        ) : (
+          <div className="flex-1 flex min-w-0">
+            <AnimatableEditor
+              data={sourceRow.data[0]}
+              active={isActive}
+              playing={playing}
+              emphasis={emphasis}
+              onEmphasisChange={onEmphasisChange}
+              handleValueChange={(change) => {
+                const datumAnimatablePairs = sourceRow.data.map((datum) => ({
+                  datum,
+                  animatableId: trackAnimatableLookup[datum.trackId].id,
+                }));
+                const updates = datumAnimatablePairs
+                  .map(({ datum, animatableId }) => {
+                    const value: RawValue | undefined = interpolators[
+                      getLookup(datum.namespaceId, animatableId)
+                    ]?.value?.(stampRef.current);
+                    const defaultValue = animatables[animatableId].default;
+                    if (typeof change === "function") {
+                      const newValue = change(value ?? defaultValue);
+                      return {
+                        trackId: datum.trackId,
+                        keypoint: {
+                          value: newValue,
+                          stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](
+                            stampRef.current,
+                          ),
+                        },
+                      };
+                    } else {
+                      return {
+                        trackId: datum.trackId,
+                        keypoint: {
+                          change,
+                          stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](
+                            stampRef.current,
+                          ),
+                        },
+                      };
+                    }
+                  })
+                  .filter((u) => u.keypoint.value !== undefined);
+                updateKeypoints(updates, true);
+              }}
+            />
+          </div>
+        )}
+        <div className="w-3 flex items-center justify-around mr-1">
+          <Dropdown
+            variant={Variant.Info}
+            trigger={
+              <span>
+                <Button
+                  size={Size.Xs}
+                  className="flex items-center justify-center"
+                  visuals="inverted"
+                  leftIcon={<IconDotsVertical className="size-3/5" />}
+                />
+              </span>
+            }
+          >
+            <NestedLabel>Control Settings</NestedLabel>
+            <NestedColorPicker
+              variant={Variant.Info}
+              disabled={trackIds.length > 1}
+              value={color}
+              onChange={(v) => {
+                updateControlColor(trackIds[0], v);
+              }}
+            />
+          </Dropdown>
+        </div>
       </div>
     </div>
   );

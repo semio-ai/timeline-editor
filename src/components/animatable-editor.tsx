@@ -145,7 +145,7 @@ function InnerAnimatableEditor({
           limits.min !== -Infinity &&
           limits.max !== Infinity
         }
-        disabled={playing || !data.editable}
+        disabled={playing || !data.editable || !active}
         value={renderTransformer(rawValue)}
         min={limits.min !== undefined ? renderTransformer(limits.min) : undefined}
         max={limits.max !== undefined ? renderTransformer(limits.max) : undefined}
@@ -164,7 +164,7 @@ function InnerAnimatableEditor({
     return (
       <TextField
         value={rawValue}
-        readOnly={playing || !data.editable}
+        readOnly={playing || !data.editable || !active}
         size={Size.Sm}
         onChange={(v) => onChange(v)}
       />
@@ -173,7 +173,7 @@ function InnerAnimatableEditor({
     return (
       <ToggleSquare
         value={rawValue}
-        disabled={playing || !data.editable}
+        disabled={playing || !data.editable || !active}
         size={Size.Sm}
         onChange={(v) => onChange(v)}
       />
