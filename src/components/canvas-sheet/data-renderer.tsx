@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback } from "react";
+import { memo, useMemo, useCallback, useRef, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
 import { MotionValue } from "motion";
@@ -131,6 +131,16 @@ export const DataRenderer = memo(function DataRenderer({
     }
   }, [computedData.virtualFrames]);
   const color = useColors(trackIds);
+  const hoverCountRef = useRef(0);
+  const [isRowHovered, setIsRowHovered] = useState(false);
+
+  const handleSegmentHoverChange = useCallback((hovering: boolean) => {
+    hoverCountRef.current = Math.max(0, hoverCountRef.current + (hovering ? 1 : -1));
+    if (hoverCountRef.current < 0) {
+      hoverCountRef.current = 0;
+    }
+    setIsRowHovered(hoverCountRef.current > 0);
+  }, []);
 
   const uniqueInstanceId = useMemo(() => {
     if (!sourceRow) return undefined;
@@ -204,6 +214,8 @@ export const DataRenderer = memo(function DataRenderer({
           sourceRow={sourceRow}
           isEmpty={segment.buffer}
           theme={theme}
+          onHoverChange={handleSegmentHoverChange}
+          isRowHovered={isRowHovered}
           color={
             transitionLayer === LayerBand.ForegroundSelected ||
             transitionLayer === LayerBand.ForegroundUnselected

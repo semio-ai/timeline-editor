@@ -445,7 +445,7 @@ export const DataPoint = memo(function DataPoint({
           [stamp, height / 2 - 1, lineDepth],
         ]}
         color={lineColor}
-        lineWidth={2}
+        lineWidth={2.5}
         visible={showsLine}
         // Lines are non-interactive when showing unselectable points
       />

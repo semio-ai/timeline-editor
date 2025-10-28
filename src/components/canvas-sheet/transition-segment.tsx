@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useState, useEffect } from "react";
 import { useSpring } from "motion/react";
 import { useThree } from "@react-three/fiber";
 import { useCursor } from "@react-three/drei";
@@ -21,6 +21,8 @@ export interface TransitionSegmentProps {
   theme?: Theme.Light | Theme.Dark;
   color: string;
   layer?: LayerBand;
+  onHoverChange?: (hovered: boolean) => void;
+  isRowHovered?: boolean;
 }
 
 /**
@@ -55,6 +57,8 @@ export const TransitionSegment = memo(function TransitionSegment({
   color,
   theme,
   layer = LayerBand.Background,
+  onHoverChange,
+  isRowHovered = false,
 }: TransitionSegmentProps) {
   // Determine line thickness based on track render mode
   const lineWidth = useMemo(() => {
@@ -104,8 +108,45 @@ export const TransitionSegment = memo(function TransitionSegment({
   const lineDepth = z - ROW_DEPTH_EPSILON * 0.2;
   const clickLine = useAnimationStore((state) => state.clickLine);
   const [isHovered, setIsHovered] = useState(false);
+  const isInteractive =
+    !isEmpty &&
+    (layer === LayerBand.ForegroundSelected || layer === LayerBand.ForegroundUnselected);
   const gl = useThree((s) => s.gl);
-  useCursor(isHovered, "pointer", "auto", gl.domElement);
+  useCursor(isInteractive && isHovered, "pointer", "auto", gl.domElement);
+
+  useEffect(() => {
+    if (!isInteractive && isHovered) {
+      setIsHovered(false);
+    }
+  }, [isInteractive, isHovered]);
+
+  useEffect(() => {
+    return () => {
+      if (isInteractive && isHovered) {
+        onHoverChange?.(false);
+      }
+    };
+  }, [isInteractive, isHovered, onHoverChange]);
+
+  const hoverColor = useMemo(
+    () => computeOklabMix(bufferColor, theme === Theme.Dark ? "#FFFFFF" : "#000000", 0.4),
+    [bufferColor, theme],
+  );
+  const emphasize = isInteractive && isRowHovered;
+  const lineDisplayColor = emphasize ? hoverColor : bufferColor;
+  const fillDisplayColor = color;
+
+  const handlePointerEnter = () => {
+    if (!isInteractive) return;
+    setIsHovered(true);
+    onHoverChange?.(true);
+  };
+
+  const handlePointerOut = () => {
+    if (!isInteractive) return;
+    setIsHovered(false);
+    onHoverChange?.(false);
+  };
 
   return (
     <group>
@@ -130,7 +171,7 @@ export const TransitionSegment = memo(function TransitionSegment({
             }}
             baseline={-height * 0.4}
             baselineExtension={height * 0.1}
-            color={color}
+            color={fillDisplayColor}
             opacity={0.5}
             segments={50}
             z={fillDepth}
@@ -139,9 +180,10 @@ export const TransitionSegment = memo(function TransitionSegment({
           />
         )}
       <group
-        onPointerEnter={() => setIsHovered(true)}
-        onPointerOut={() => setIsHovered(false)}
+        onPointerEnter={handlePointerEnter}
+        onPointerOut={handlePointerOut}
         onClick={(event) => {
+          if (!isInteractive) return;
           console.log();
           event?.stopPropagation?.();
           clickLine(
@@ -169,8 +211,8 @@ export const TransitionSegment = memo(function TransitionSegment({
             x: transitionCurve.cp2X,
             y: cp2Y,
           }}
-          color={bufferColor}
-          lineWidth={lineWidth}
+          color={lineDisplayColor}
+          lineWidth={lineWidth + (isRowHovered ? 0.5 : 0)}
           opacity={isEmpty && trackRender === TrackRender.Transition ? 0.0 : 1.0}
           transparent
           dashed={false}
