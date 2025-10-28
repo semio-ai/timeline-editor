@@ -1,12 +1,14 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import { useSpring } from "motion/react";
+import { useThree } from "@react-three/fiber";
+import { useCursor } from "@react-three/drei";
 import { Theme } from "@semio/ui";
 import { MotionCubicBezierLine, MotionCubicBezierFill } from "../utilities";
 import { TrackRender, InstancedFrameInfo, SourceRow, LayerBand } from "../../types";
 import { computeOklabMix, createLinearScale } from "../../functions";
 import { computeTransitionParams } from "../../functions/compute-transition-params";
-import { useTransitionCurve } from "../../hooks";
-import { ROW_DEPTH_EPSILON, Z } from "../../constants";
+import { useTransitionCurve, useAnimationStore } from "../../hooks";
+import { DEFAULT_COLOR, ROW_DEPTH_EPSILON, Z } from "../../constants";
 
 export interface TransitionSegmentProps {
   start: InstancedFrameInfo;
@@ -100,11 +102,13 @@ export const TransitionSegment = memo(function TransitionSegment({
   // Compute depths for fill and line to avoid z-fighting
   const fillDepth = z - ROW_DEPTH_EPSILON * 0.4;
   const lineDepth = z - ROW_DEPTH_EPSILON * 0.2;
+  const clickLine = useAnimationStore((state) => state.clickLine);
+  const [isHovered, setIsHovered] = useState(false);
+  const gl = useThree((s) => s.gl);
+  useCursor(isHovered, "pointer", "auto", gl.domElement);
 
   return (
-    <group
-      onClick={() => console.log("transition-segment", transitionParams, sourceRow, start, end)}
-    >
+    <group>
       {(trackRender === TrackRender.Preview || trackRender === TrackRender.Transition) &&
         !isEmpty && (
           <MotionCubicBezierFill
@@ -134,33 +138,75 @@ export const TransitionSegment = memo(function TransitionSegment({
             // renderOrder={RenderOrder.TransitionFill}
           />
         )}
-      <MotionCubicBezierLine
-        start={{
-          x: transitionCurve.startX,
-          y: startY,
+      <group
+        onPointerEnter={() => setIsHovered(true)}
+        onPointerOut={() => setIsHovered(false)}
+        onClick={(event) => {
+          console.log();
+          event?.stopPropagation?.();
+          clickLine(
+            sourceRow.id,
+            `${start.id}:${end.id}`,
+            event.shiftKey,
+            event.metaKey || event.ctrlKey,
+          );
         }}
-        end={{
-          x: transitionCurve.endX,
-          y: endY,
-        }}
-        controlPoint1={{
-          x: transitionCurve.cp1X,
-          y: cp1Y,
-        }}
-        controlPoint2={{
-          x: transitionCurve.cp2X,
-          y: cp2Y,
-        }}
-        color={bufferColor}
-        lineWidth={lineWidth}
-        opacity={isEmpty && trackRender === TrackRender.Transition ? 0.0 : 1.0}
-        transparent
-        dashed={false}
-        segments={50}
-        z={isEmpty ? fillDepth : lineDepth}
-        // This doesn't seem to help with the visibility either way?
-        // renderOrder={isEmpty ? RenderOrder.TransitionFill : RenderOrder.TransitionLine}
-      />
+      >
+        <MotionCubicBezierLine
+          start={{
+            x: transitionCurve.startX,
+            y: startY,
+          }}
+          end={{
+            x: transitionCurve.endX,
+            y: endY,
+          }}
+          controlPoint1={{
+            x: transitionCurve.cp1X,
+            y: cp1Y,
+          }}
+          controlPoint2={{
+            x: transitionCurve.cp2X,
+            y: cp2Y,
+          }}
+          color={bufferColor}
+          lineWidth={lineWidth}
+          opacity={isEmpty && trackRender === TrackRender.Transition ? 0.0 : 1.0}
+          transparent
+          dashed={false}
+          segments={50}
+          z={isEmpty ? fillDepth : lineDepth}
+          // This doesn't seem to help with the visibility either way?
+          // renderOrder={isEmpty ? RenderOrder.TransitionFill : RenderOrder.TransitionLine}
+        />
+        <MotionCubicBezierLine
+          start={{
+            x: transitionCurve.startX,
+            y: startY,
+          }}
+          end={{
+            x: transitionCurve.endX,
+            y: endY,
+          }}
+          controlPoint1={{
+            x: transitionCurve.cp1X,
+            y: cp1Y,
+          }}
+          controlPoint2={{
+            x: transitionCurve.cp2X,
+            y: cp2Y,
+          }}
+          color={DEFAULT_COLOR}
+          lineWidth={8}
+          opacity={0}
+          transparent
+          dashed={false}
+          segments={20}
+          z={isEmpty ? fillDepth : lineDepth}
+          // This doesn't seem to help with the visibility either way?
+          // renderOrder={isEmpty ? RenderOrder.TransitionFill : RenderOrder.TransitionLine}
+        />
+      </group>
     </group>
   );
 });

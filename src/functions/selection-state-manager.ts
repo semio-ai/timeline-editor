@@ -1,4 +1,11 @@
-import type { ComputedRowData, InstancedFrameInfo, SelectionState, SelectionAnchor, MarkerPoint, KeypointAddress } from "../types";
+import type {
+  ComputedRowData,
+  InstancedFrameInfo,
+  SelectionState,
+  SelectionAnchor,
+  MarkerPoint,
+  KeypointAddress,
+} from "../types";
 
 /**
  * Create an empty selection state. Optionally seed with a known instance id.
@@ -99,30 +106,26 @@ export function clearSelection(selection: SelectionState): SelectionState {
   };
 }
 
-export function setReference(selection: SelectionState, reference: SelectionAnchor | null): SelectionState {
+export function setReference(
+  selection: SelectionState,
+  reference: SelectionAnchor | null,
+): SelectionState {
   return {
     ...selection,
     reference,
   };
 }
 
-export function hasAllKeypoints(
-  selection: SelectionState,
-  keypoints: KeypointAddress[],
-): boolean {
+export function hasAllKeypoints(selection: SelectionState, keypoints: KeypointAddress[]): boolean {
   for (const { trackId, keypointId } of keypoints) {
-    const set = selection.keypoints.get(trackId);
-    if (!set || !set.has(keypointId)) {
+    if (!selection.keypoints.get(trackId)?.has(keypointId)) {
       return false;
     }
   }
   return keypoints.length > 0;
 }
 
-export function isMarkerSelected(
-  selection: SelectionState,
-  markerPoints: MarkerPoint[],
-): boolean {
+export function isMarkerSelected(selection: SelectionState, markerPoints: MarkerPoint[]): boolean {
   if (!selection.instanceId) return false;
   const addresses = extractKeypoints(markerPoints, selection.instanceId);
   return hasAllKeypoints(selection, addresses);
@@ -160,7 +163,7 @@ export function extractKeypointsFromFrame(
   instanceId: string,
 ): KeypointAddress[] {
   return frame.points
-    .filter((point) => point.instanceId === instanceId && point.selectable !== false)
+    .filter((point) => point.instanceId === instanceId && (point.selectable ?? true))
     .map((point) => ({ trackId: point.trackId, keypointId: point.id }));
 }
 

@@ -152,6 +152,16 @@ export interface AnimationActions {
     mod?: boolean,
   ) => void;
   /**
+   * Click a transition segment (row-wide selection).
+   * Operates on the entire set of foreground keypoints in the row for the current selectionState.instanceId.
+   * Segment clicks never modify the selection reference. Shift acts like a plain click.
+   * @param rowId - The source row being clicked.
+   * @param segmentId - The identifier of the segment clicked (used for telemetry; selection is row-wide).
+   * @param shift - Whether the shift key is pressed.
+   * @param mod - Whether a modifier key (ctrl/cmd) is pressed.
+   */
+  clickLine: (rowId: string, segmentId: string, shift?: boolean, mod?: boolean) => void;
+  /**
    *
    */
   clearSelection: () => void;

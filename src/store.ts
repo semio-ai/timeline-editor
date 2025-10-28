@@ -56,6 +56,7 @@ import {
 } from "./subscriptions";
 import { View } from "./types/util/view";
 import { createEmptySelectionState } from "./functions/selection-state-manager";
+import { clickLineAction } from "./actions/click-line";
 
 enableMapSet();
 
@@ -439,6 +440,15 @@ export const AnimationSlice = (
     ) => {
       set((state: AnimationData) => {
         const result = clickMarkerAction(state, clickedPoints, rowId, markerId, shift, mod);
+        return {
+          ...state,
+          ...result,
+        };
+      });
+    },
+    clickLine: (rowId: string, segmentId: string, shift?: boolean, mod?: boolean) => {
+      set((state: AnimationData) => {
+        const result = clickLineAction(state, rowId, segmentId, shift, mod);
         return {
           ...state,
           ...result,

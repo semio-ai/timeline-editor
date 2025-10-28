@@ -31,7 +31,7 @@ export function getMarkerPoints(
   markerId: string,
 ): MarkerPoint[] {
   const frame = getMarkerFrame(store, rowId, markerId);
-  return (frame.points ?? []).filter((point) => point.selectable !== false);
+  return (frame.points ?? []).filter((point) => point.selectable ?? true);
 }
 
 export function clickMarkerWith(
@@ -59,7 +59,8 @@ export function pointsToSignatures(points: MarkerPoint[], instanceId: string | n
   if (!instanceId) return [];
   const signatures = new Set<string>();
   for (const point of points) {
-    if (point.instanceId === instanceId && point.selectable !== false) {
+    const isSelectable = point.selectable ?? true;
+    if (point.instanceId === instanceId && isSelectable) {
       signatures.add(`${point.trackId}:${point.id}`);
     }
   }
@@ -90,7 +91,7 @@ export function findMarker(
     if (predicate && !predicate(rowId)) continue;
     const frame = row.virtualFrames?.find((candidate) => candidate.id === markerId);
     if (!frame) continue;
-    const points = (frame.points ?? []).filter((point) => point.selectable !== false);
+    const points = (frame.points ?? []).filter((point) => point.selectable ?? true);
     return { rowId, frame, points };
   }
 

@@ -17,13 +17,34 @@ Selection has a specific meaning in this context, since there is a distinction b
 
 What this source information means, however is that there is an interaction between the concepts of _rows_, _tracks_, and _animation instances_. Generally speaking, rows are the visual way that users perceive the [possibly hierarchical] organization of tracks. If a marker is clicked within a row, it isn't something in the _row_ that is selected, but rather a pointer to the keypoint data of an individual animation's track[s], conditioned on the animation instance. This matters for cases like the timeline (the `global` row) or rows derived from groups generally, since these rows effectively aggregate the information of their children (according to the `SourceRowData`). If a given marker within that row contains an `InstancedFrameInfo` entry with only a single marker in it, and that marker is selected, it doesn't matter whether it is in the row that was actually clicked. As long as an `InstancedFrameInfo` _only_ contains information from selected markers, it is _visualized_ as selected. If a group-derived marker whose `InstancedFrameInfo` mixes selected _and_ unselected markers, we use the unselected visuals. As a further clarification, however, the check to see whether an indivdiual group-derived marker is visualized as selected only considers data in the foreground for this check (see `SourceRowInfo`). As such, if the only foreground data marker in the point is selected, but there are unselected data _not_ in the foreground, it would be visualized as selected. Similarly, data marked as not being `selectable` are not added to the selection.
 
-The only case where a given `SourceRow` can contain entries that span `AnimationInstances` is in the `global` or timeline row. Specifically in this case, the `computeConsolidatedSourceRow` function takes in the `activeInstance` prop, such that any elements not in the activeAnimationInstance are non-interactive. Thus, selection can only happen on rows with data spanning _single_ animation instances, or in the `global` row _within the current active animation instance_.
+The only case where a given `SourceRow` can contain entries that span `AnimationInstances` is in the `global` or timeline row. In this case, selection is filtered by `selectionState.instanceId`, such that any elements not in that instance are non-interactive. Thus, selection can only happen on rows with data spanning single animation instances, or in the global row within the current selected instance.
 
 ## Single Click
 
-When clicking a marker without any modifier keys, that marker should be considered "selected". If a marker is already selected, this replaces the current selection. Since only one animation instance can be marked as active at a given time (see state.activeAnimationInstance, which is the id for whichever animation instance is currently active), clicking on a marker from an animation instance other than the current one also marks the animation instance corresponding to the newly clicked marker as the active animation instance. This also sets the clicked marker to being the "reference" marker, in the event that the user goes on to do a multi-select operation. Off-clicking in the canvas editor (any space other than a marker) deselects the current marker and removes it as a reference, but does not change the current active animation instance. Additionally, it should be noted that selecting a marker within a `SourceRow` derived from a group with multiple children tracks effectively selects all keypoints specified within the `InstancedFrameInfo`.
+When clicking a marker without any modifier keys, that marker should be considered "selected". If a marker is already selected, this replaces the current selection. Since only one animation instance can be marked as active at a given time (see `selectionState.instanceId`, which identifies the animation instance whose keypoints are currently selectable), clicking on a marker from an animation instance other than the current one sets `selectionState.instanceId` to the instance corresponding to the newly clicked marker. This also sets the clicked marker to being the "reference" marker, in the event that the user goes on to do a multi-select operation. Off-clicking in the canvas editor (any space other than a marker) deselects the current marker and removes it as a reference, but does not change `selectionState.instanceId`. Additionally, it should be noted that selecting a marker within a `SourceRow` derived from a group with multiple children tracks effectively selects all keypoints specified within the `InstancedFrameInfo`. For transition segments, a plain click behaves analogously but operates on the set of foreground keypoints in the row (regardless of segment span) (see “Transition Segment (Row) Click”).
 
 - Question: For the “replace current selection” step, should we clear `selectionState.pathSet` entirely before re-adding the clicked marker paths, or preserve other paths that belong to the same `InstancedFrameInfo`? Answer: This specification is only considering the expected behavior and conceptualization of the selection state, given the data structures for things like `SourceRowData`, `InstancedFrameInfo`, and `Keypoint`. It is explicitly not considering in this portion of the document how the selection state is formalized as a data structure, since that may have to change from its current version in order to produce this specified behavior.
+
+## Transition Segment (Row) Click
+
+Clicking a transition segment within a row acts on all foreground keypoints in that row (not just the segment’s span). The selection rules are:
+- If none or only a subset of the segment’s foreground keypoints are currently selected, the click selects all of the segment’s foreground keypoints in that row.
+- If all of the segment’s foreground keypoints are already selected, the click deselects the entire row segment (removes those keypoints from the selection).
+
+Row-scoping and instances:
+- A transition-segment click cannot select across animation instances. If a row contains mixed instances (e.g., the global row), only keypoints belonging to the current `selectionState.instanceId` are considered/selectable.
+- If the current reference marker is in a different row, a plain click on a segment acts as a fresh single click (replaces selection with the segment’s foreground keypoints and sets the new reference in that row).
+- Holding Cmd/Ctrl while clicking a segment in a different row toggles that segment’s foreground keypoints according to the rules above without clearing existing selection, and does not change the reference marker.
+
+Shift behavior:
+- Shift-clicking transition segments behaves like a plain click. There is no special range behavior for segments.
+- Optionally, we may later support selecting all rows between the reference row and the clicked row if that becomes trivial to implement, but it is not required.
+
+Action shape:
+- Introduce a dedicated action, e.g. `clickLine({ rowId, segmentId, shift?, mod? })`, with semantics mirroring `clickMarker` where possible. It should:
+  - Resolve the set of foreground `{trackId, keypointId}` pairs for the row within the active instance.
+  - Apply the same replace/toggle/range rules as marker selection.
+  - Do not modify the selection reference on segment clicks; preserve the prior reference marker from the previous row.
 
 ## Shift-click
 
@@ -33,7 +54,7 @@ Shift-clicking does **not** clear selections that were previously accumulated in
 
 ## MOD/CMD-Click
 
-With mod/cmd-click, it is possible to extend the current selection across rows, or in separate regions within rows. Like with shift-click, this extension only works _within_ the current activeAnimationInstance, and attempting to mod/cmd-click a marker in a row other than the activeAnimationInstance functions as a simple click. If valid, it resets the reference marker to the clicked marker, unlike shift-click. Shift-clicking or mod/cmd-clicking after this point can continue in a chain until either an invalid selection is performed (e.g. outside the activeAnimationInstance) or a non-marker area is clicked, thereby allowing large selections of disjoint regions to be created. If a marker currently in the selection is mod/cmd-clicked, it should act as a toggle that deselects/reselects the clicked marker.
+With mod/cmd-click, it is possible to extend the current selection across rows, or in separate regions within rows. This applies to both marker clicks and transition-segment (row) clicks. Like with shift-click, this extension only works _within_ the current `selectionState.instanceId`, and attempting to mod/cmd-click a marker/segment in a row other than the current `selectionState.instanceId` functions as a simple click. If valid, marker clicks reset the reference to the clicked marker; segment clicks do not modify the reference. Shift-clicking or mod/cmd-clicking after this point can continue in a chain until either an invalid selection is performed (e.g. outside the current `selectionState.instanceId`) or a non-interactive area is clicked, thereby allowing large selections of disjoint regions to be created. If a marker or segment currently in the selection is mod/cmd-clicked, it acts as a toggle that deselects/reselects the corresponding keypoints (for segments: all foreground keypoints in the row).
 
 ## Visuals
 
@@ -84,8 +105,8 @@ Again, in the future, we will simplify the group and complex datatype relationsh
     - **Single click**: resolve the marker to its constituent keypoint pairs, replace the selected map with those pairs, and update the reference descriptor to the clicked row/anchor.
     - **Shift-click**: if the incoming rowId matches the reference rowId, collect all keypoints between the anchor stamp and the clicked stamp (inclusive) and replace or extend selection depending on whether Cmd/Mod is also pressed; if the row differs, treat as a single click per the spec’s row-scoping rule.
     - **Cmd/Mod-click**: toggle membership of the marker’s keypoint pairs within the map and update the reference anchor to the newly clicked row so subsequent Shift ranges originate from the latest explicit click.
-    - **Global row clicks**: expand the marker to the subset of keypoint pairs whose instanceId matches `activeAnimationInstance`; this keeps cross-instance data out of the selection set while still lighting up mirrored views.
-    - **Canvas off-click**: clear the map and null the reference descriptor while leaving `activeAnimationInstance` untouched, matching the deselect behavior outlined earlier in the doc.
+    - **Global row clicks**: expand the marker to the subset of keypoint pairs whose instanceId matches `selectionState.instanceId`; this keeps cross-instance data out of the selection set while still lighting up mirrored views.
+    - **Canvas off-click**: clear the map and null the reference descriptor while leaving `selectionState.instanceId` untouched, matching the deselect behavior outlined earlier in the doc.
 
 - **Next Steps**
   - Migration is underway: the store, selection helpers, drag flow, and `DataPoint` now use the keypoint-based state. Remaining work includes migrating the selection test suite and any UI surfaces still depending on marker paths.

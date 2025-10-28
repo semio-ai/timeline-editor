@@ -2,6 +2,7 @@ import { useReducer } from "react";
 import { Line } from "@react-three/drei";
 import { useMotionValueEvent, MotionValue } from "motion/react";
 import * as THREE from "three";
+import { ThreeEvent } from "@react-three/fiber";
 
 export interface MotionCubicBezierLineProps {
   // Motion values for the four control points
@@ -39,7 +40,8 @@ export interface MotionCubicBezierLineProps {
   // Event handlers
   onPointerOver?: (event: any) => void;
   onPointerOut?: (event: any) => void;
-  onClick?: (event: any) => void;
+  onPointerEnter?: (event: any) => void;
+  onClick?: (event: ThreeEvent<MouseEvent>) => void;
 }
 
 /**
@@ -90,6 +92,7 @@ export function MotionCubicBezierLine({
   segments = 20,
   onPointerOver,
   onPointerOut,
+  onPointerEnter,
   onClick,
   renderOrder,
 }: MotionCubicBezierLineProps) {
@@ -140,6 +143,7 @@ export function MotionCubicBezierLine({
       dashed={dashed}
       onPointerOver={onPointerOver}
       onPointerOut={onPointerOut}
+      onPointerEnter={onPointerEnter}
       onClick={onClick}
       renderOrder={renderOrder}
       depthWrite={false}
