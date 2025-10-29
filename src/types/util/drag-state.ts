@@ -1,11 +1,75 @@
-import { DraggedKeypoint } from "./dragged-keypoint";
+import type { RawValue } from "@semio/utils";
 
-/**
- * Interface representing the drag state.
- */
+export type DragAxis = "horizontal" | "vertical" | "both";
+
+export interface DragStampTransform {
+  offset: number;
+  timescale: number;
+}
+
+export interface ValueScale {
+  domain: [number, number];
+  clamp: boolean;
+  precision?: number;
+}
+
+interface PointerPosition {
+  x: number;
+  y: number;
+}
+
+export interface DragAnchorRef {
+  keypointId: string;
+  trackId: string;
+  rowId: string;
+  markerId: string;
+  attributePath?: string[];
+  valueScale?: ValueScale;
+}
+
 export interface DragState {
-  isDragging: boolean;
-  draggedKeypoints: Map<string, DraggedKeypoint>; // keypointId -> drag info
-  startPositions: Map<string, number>; // keypointId -> original stamp
-  deltaStamp: number; // Current drag offset
+  axis: DragAxis;
+  instanceId: string;
+  instanceTransform: DragStampTransform;
+  anchor: DragAnchorRef;
+  pointerOrigin: PointerPosition;
+  stampOrigin?: number;
+  stampDelta?: {
+    raw: number;
+    snapped?: number;
+  };
+  anchorValueOrigin?: number;
+  normalizedValueDelta?: number;
+  modifiers: {
+    alt: boolean;
+    shift: boolean;
+    meta: boolean;
+  };
+}
+
+export interface DragStartInput {
+  origin: PointerPosition;
+  axis: DragAxis;
+  markerId: string;
+  rowId: string;
+}
+
+export interface DragUpdateInput {
+  pointer: PointerPosition;
+  normalizedStamp?: {
+    current: number;
+    snapped?: number;
+  };
+  normalizedValueDelta?: number;
+  modifiers: DragState["modifiers"];
+}
+
+export interface KeypointCommitDelta {
+  id: string;
+  trackId: string;
+  stamp?: number;
+  value?: {
+    path?: string[];
+    next: (current: RawValue) => RawValue;
+  };
 }

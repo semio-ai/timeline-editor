@@ -4,8 +4,12 @@ import { useThree } from "@react-three/fiber";
 import { clamp } from "lodash";
 import * as THREE from "three";
 
+type GestureConfig = Parameters<typeof useGesture>[1];
+type DragConfig = GestureConfig extends { drag?: infer T } ? T : never;
+
 export interface DragGestureOptions {
   disabled?: boolean;
+  dragOptions?: DragConfig;
   onDragStart?: (position: number) => void;
   onDrag?: (position: number, altKey: boolean) => void;
   onDragEnd?: (position: number) => void;
@@ -27,10 +31,11 @@ export interface DragGestureHandlers {
  */
 export const useDragGestures = ({
   disabled = false,
+  dragOptions,
   onDragStart,
   onDrag,
   onDragEnd,
-}: DragGestureOptions = {}): DragGestureHandlers => {
+}: DragGestureOptions): DragGestureHandlers => {
   const { camera, size } = useThree();
 
   // Convert screen movement to timeline position (0-1)
@@ -120,6 +125,7 @@ export const useDragGestures = ({
     {
       enabled: !disabled,
       eventOptions: { passive: false, capture: false },
+      ...(dragOptions ? { drag: dragOptions } : {}),
     },
   );
 

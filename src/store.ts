@@ -14,6 +14,8 @@ import {
   SourceRowData,
   TrackRender,
   Namespace,
+  DragUpdateInput,
+  DragStartInput,
 } from "./types";
 import {
   AnimationData,
@@ -36,7 +38,7 @@ import {
   updateControlColor,
 } from "./actions";
 import { clickMarkerAction, clearSelectionAction } from "./actions/click-marker";
-import { startDragging, updateDragDelta, commitDrag, cancelDrag } from "./actions/drag";
+import { startDrag, updateDrag, commitDrag, cancelDrag } from "./actions/drag";
 import {
   computeStoredAnimation,
   computeNextTime,
@@ -515,25 +517,33 @@ export const AnimationSlice = (
     },
 
     // Drag actions - ID-based with instance validation
-    startDragging: (markerIds?: string[]) => {
-      const state = get();
-      startDragging(state, markerIds);
-      set(state);
+    startDrag: (input: DragStartInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          startDrag(state, input);
+        }),
+      );
     },
-    updateDragDelta: (deltaStamp: number, snapToFrames: boolean) => {
-      const state = get();
-      updateDragDelta(state, deltaStamp, snapToFrames);
-      set(state);
+    updateDrag: (input: DragUpdateInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateDrag(state, input);
+        }),
+      );
     },
     commitDrag: () => {
-      const state = get();
-      commitDrag(state);
-      set(state);
+      set(
+        produce((state: AnimationData): void => {
+          commitDrag(state);
+        }),
+      );
     },
     cancelDrag: () => {
-      const state = get();
-      cancelDrag(state);
-      set(state);
+      set(
+        produce((state: AnimationData): void => {
+          cancelDrag(state);
+        }),
+      );
     },
   };
 };

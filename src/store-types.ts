@@ -11,6 +11,8 @@ import type {
   Preview,
   Source,
   DragState,
+  DragStartInput,
+  DragUpdateInput,
   SourceRow,
   SourceRowData,
   View,
@@ -109,7 +111,7 @@ export interface AnimationData {
   /**
    * Current drag state for virtual dragging functionality.
    */
-  dragState: DragState | null;
+  dragState?: DragState;
   /**
    * Views for different windows of the animation editor
    */
@@ -411,17 +413,14 @@ export interface AnimationActions {
   updateAnimationDuration: (animationId: string, duration: number, rescale: boolean) => void;
 
   /**
-   * Start a drag operation with the current selection or provided marker IDs.
-   * @param markerIds - Optional array of marker IDs to drag, defaults to current selection
+   * Start a drag operation anchored to the provided marker.
    */
-  startDragging: (markerIds?: string[]) => void;
+  startDrag: (input: DragStartInput) => void;
 
   /**
-   * Update the drag delta during a drag operation.
-   * @param deltaStamp - The time offset to apply
-   * @param snapToFrames - Whether to snap to frame boundaries
+   * Update the active drag with pointer deltas.
    */
-  updateDragDelta: (deltaStamp: number, snapToFrames: boolean) => void;
+  updateDrag: (input: DragUpdateInput) => void;
 
   /**
    * Commit the current drag operation, applying all changes.

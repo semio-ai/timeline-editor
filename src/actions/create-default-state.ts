@@ -41,7 +41,7 @@ export const createDefaultState = (): AnimationData => {
 
     animatables: {},
 
-    dragState: null,
+    dragState: undefined,
     editorViews: {},
     instancedTrackSources: {},
     sourcesByAnimationInstance: {},

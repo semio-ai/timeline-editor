@@ -1,0 +1,22 @@
+# Editor MVP Description
+
+- [ ] Correct interpolation methods (currently still using ease-in-out for everything)
+- [ ] Full handle support
+  - [ ] Handles on Bezier Curves
+    - [ ] Alt allows one handle to be scaled/rotated independently from the complement
+    - [ ] Shift constrains handle movement to the same angle
+    - [ ] Shift+Alt constrains the movement to the same angle, but allows independent scaling
+    - [ ] Hotkey to reset handles to flat
+  - [ ] Key addition in mid-transitions (use a tangent calculation)
+  - [ ] Visual/Size Adjustments for nearby keypoints
+- [ ] Selection
+  - [X] Single selection
+  - [X] Multi selection (Shift + Click, CTRL + Click)
+  - [ ] Box selection (Click + Drag) (?)
+- [ ] Move selected keyframes (Click + Drag)
+  - [ ] Click + Drag
+  - [ ] Mode switching with T or G keys (plus X/Y)
+- [ ] Cut/Copy/Paste keyframes (CTRL + X, CTRL + C, CTRL + V)
+- [ ] Locking specific tracks/splines
+- [ ] Show/Hide of individual tracks (specific visual depending on TrackRender mode)
+- [ ] Scaling when multiple keyframes are selected (with S keybinding)

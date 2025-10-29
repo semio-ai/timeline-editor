@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import type { AnimationStore } from "../../store";
+import type { MarkerPoint } from "../../types";
+import { isMarkerSelected } from "../../functions/selection-state-manager";
 import {
   createTestAnimationStore,
   NAMESPACE_IDS,
   INSTANCE_IDS,
   TRACK_IDS,
 } from "../../test-fixtures/animation-store-factory";
-import type { AnimationStore } from "../../store";
 import {
   clickMarkerWith,
   getMarkerFrame,
   getMarkerPoints,
   selectionSignatures,
 } from "./selection-test-helpers";
-import { isMarkerSelected } from "../../functions/selection-state-manager";
-import type { MarkerPoint } from "../../types";
 
 const GLOBAL_ROW_ID = "global";
 
@@ -29,7 +29,9 @@ describe("Visual Selection", () => {
     });
 
     cleanup = store.getState().initAnimationSubscriptions();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 10);
+    });
   });
 
   afterEach(() => {
@@ -49,16 +51,18 @@ describe("Visual Selection", () => {
 
     const unrelatedFrame = store
       .getState()
-      .computedRowData[GLOBAL_ROW_ID]?.virtualFrames.find(
-        (frame) =>
-          !(frame.points ?? []).some(
-            (point) =>
-              point.trackId === TRACK_IDS.OPACITY &&
-              point.instanceId === INSTANCE_IDS.ALPHA_SHARED &&
-              point.id === "o1" &&
-              point.selectable !== false,
-          ),
-      );
+      .computedRowData[GLOBAL_ROW_ID]?.virtualFrames.find((frame) => {
+        const includesAnchor = (frame.points ?? []).some((point) => {
+          const matchesAnchor =
+            point.trackId === TRACK_IDS.OPACITY &&
+            point.instanceId === INSTANCE_IDS.ALPHA_SHARED &&
+            point.id === "o1";
+          const isSelectable = point.selectable ?? true;
+          return matchesAnchor && isSelectable;
+        });
+
+        return !includesAnchor;
+      });
 
     if (!unrelatedFrame) {
       throw new Error("Expected at least one unrelated global marker for comparison");

@@ -1,19 +1,24 @@
 import { useEffect, useMemo, useRef, memo, useState, useCallback } from "react";
 import { useShallow } from "zustand/shallow";
-import { useGesture } from "@use-gesture/react";
-import { useThree } from "@react-three/fiber";
+import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { Instance, Line, PositionMesh, useCursor } from "@react-three/drei";
 import * as THREE from "three";
-import { RawValue, usePlayerStore } from "@semio/utils";
+import { RawValue, usePlayerStore, closestFrame } from "@semio/utils";
 import { Theme } from "@semio/ui";
 import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
-import { clamp } from "lodash";
 import { SourceRowData, TrackRender, LayerBand } from "../../types";
-import { useAnimationStore, useColors, useInvariantScale, useAltKeyPressed } from "../../hooks";
+import {
+  useAnimationStore,
+  useColors,
+  useInvariantScale,
+  useAltKeyPressed,
+  useDragGestures,
+} from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
 import { ROW_DEPTH_EPSILON, LAYER_BAND_OFFSETS, LAYER_BAND_PRIORITY } from "../../constants";
 
 const BG_MULTIPLIER = 1.2;
+type PointerGestureEvent = ThreeEvent<MouseEvent>;
 
 export interface DataPointProps {
   height?: number;
@@ -60,10 +65,12 @@ export const DataPoint = memo(function DataPoint({
   const groupRef = useRef<THREE.Group>(null);
 
   const clickMarker = useAnimationStore(useShallow((state) => state.clickMarker));
-  const startDragging = useAnimationStore(useShallow((state) => state.startDragging));
-  const updateDragDelta = useAnimationStore(useShallow((state) => state.updateDragDelta));
+  const startDragAction = useAnimationStore(useShallow((state) => state.startDrag));
+  const updateDragAction = useAnimationStore(useShallow((state) => state.updateDrag));
   const commitDrag = useAnimationStore(useShallow((state) => state.commitDrag));
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
+  const duration = useAnimationStore(useShallow((state) => state.duration));
+  const framerate = useAnimationStore(useShallow((state) => state.framerate));
   const playing = usePlayerStore(useShallow((state) => state.player.running));
   const selectionState = useAnimationStore(useShallow((state) => state.selectionState));
 
@@ -81,10 +88,10 @@ export const DataPoint = memo(function DataPoint({
   );
 
   // Track initial drag position to calculate proper delta
-  const initialDragPosition = useRef<number>(0);
 
   // Track if we just finished dragging to prevent immediate click
   const justFinishedDragging = useRef<boolean>(false);
+  const dragDidMoveRef = useRef<boolean>(false);
 
   const selectedInstanceId = selectionState.instanceId;
   const selectedKeypoints = selectionState.keypoints;
@@ -106,6 +113,10 @@ export const DataPoint = memo(function DataPoint({
 
   const [isHovered, setIsHovered] = useState(false);
   const altPressed = useAltKeyPressed();
+  const frameCount = useMemo(() => {
+    if (!duration || !framerate) return null;
+    return Math.floor(framerate * (duration / 1000));
+  }, [duration, framerate]);
 
   const linearScale = useMemo(() => {
     const buffer = height * 0.4;
@@ -258,130 +269,141 @@ export const DataPoint = memo(function DataPoint({
     }
   });
 
-  // Get Three.js camera and size for coordinate conversion
-  const { camera, size } = useThree();
-
-  // Convert screen movement to timeline position (0-1)
-  const getTimelinePositionFromMovement = useCallback(
-    (movement: number, initial: number): number => {
-      // Convert screen movement to normalized coordinate space
-      const orthoCam = camera as THREE.OrthographicCamera;
-      const worldWidth = orthoCam.right - orthoCam.left;
-      const deltaX = (movement / size.width) * worldWidth;
-
-      // Calculate new position
-      const newPosition = initial + deltaX;
-      return clamp(newPosition, 0, 1);
+  const dragHandlers = useDragGestures({
+    disabled: playing,
+    dragOptions: {
+      threshold: 3,
+      preventScroll: true,
+      filterTaps: true,
+      pointer: { touch: false },
     },
-    [camera, size.width],
-  );
+    onDragStart: (position) => {
+      dragDidMoveRef.current = false;
 
-  // Convert pointer event to timeline position (for initial position)
-  const getTimelinePositionFromEvent = useCallback(
-    (event: any): number => {
-      // Try to use intersection point if available (from Three.js event)
-      if (event?.point) {
-        return clamp(event.point.x as number, 0, 1);
+      if (!isSelected) {
+        clickMarker(combinedForegroundPoints, sourceRowId, markerId, false, false);
       }
 
-      // Fallback: convert screen position to normalized coordinate
-      const clientX = (event?.clientX ?? event?.nativeEvent?.clientX ?? 0) as number;
-      const normalizedX = clientX / size.width;
-
-      // For orthographic camera, map screen space to world space
-      const orthoCamera = camera as THREE.OrthographicCamera;
-      const worldX = orthoCamera.left + normalizedX * (orthoCamera.right - orthoCamera.left);
-
-      return clamp(worldX, 0, 1);
+      startDragAction({
+        origin: { x: position, y: 0 },
+        axis: "horizontal",
+        markerId,
+        rowId: sourceRowId,
+      });
     },
-    [camera, size.width],
+    onDrag: (position, altKey) => {
+      dragDidMoveRef.current = true;
+
+      const shouldSnap = !(altKey || altPressed);
+      const snappedPosition =
+        shouldSnap && frameCount && frameCount > 0 ? closestFrame(position, frameCount) : undefined;
+
+      updateDragAction({
+        pointer: { x: position, y: 0 },
+        normalizedStamp: {
+          current: position,
+          snapped: snappedPosition,
+        },
+        modifiers: {
+          alt: altKey || altPressed,
+          shift: false,
+          meta: false,
+        },
+      });
+    },
+    onDragEnd: () => {
+      if (!dragDidMoveRef.current) {
+        cancelDrag();
+        return;
+      }
+
+      justFinishedDragging.current = true;
+      setTimeout(() => {
+        justFinishedDragging.current = false;
+      }, 100);
+
+      commitDrag();
+      dragDidMoveRef.current = false;
+    },
+  });
+
+  const handlePointerDown = useCallback(
+    (event: PointerGestureEvent) => {
+      justFinishedDragging.current = false;
+      dragDidMoveRef.current = false;
+      dragHandlers.onPointerDown?.(event);
+    },
+    [dragHandlers],
   );
 
-  // Use gesture for both click and drag handling
-  const bind = useGesture(
-    {
-      onHover: ({ hovering }) => {
-        if (!hasSelectedForegroundPoints && !hasUnselectedForegroundPoints) return;
-        setIsHovered(hovering ?? false);
-      },
-      onClick: ({ event, shiftKey, metaKey }) => {
-        event.stopPropagation();
-        if (playing || justFinishedDragging.current) return;
+  const handlePointerMove = useCallback(
+    (event: PointerGestureEvent) => {
+      dragHandlers.onPointerMove?.(event);
+    },
+    [dragHandlers],
+  );
 
-        if (!hasSelectedForegroundPoints && !hasUnselectedForegroundPoints) return;
+  const handlePointerUp = useCallback(
+    (event: PointerGestureEvent) => {
+      dragHandlers.onPointerUp?.(event);
+    },
+    [dragHandlers],
+  );
 
-        clickMarker(
-          combinedForegroundPoints,
-          sourceRowId,
-          markerId,
-          shiftKey,
-          metaKey || event.ctrlKey,
-        );
-      },
-      onDragStart: ({ event }) => {
-        if (playing) return;
-
-        event?.stopPropagation();
-
-        // Get initial position
-        const initialPosition = getTimelinePositionFromEvent(event);
-        initialDragPosition.current = initialPosition;
-
-        // Auto-select if not already selected
-        if (!isSelected) {
-          clickMarker(combinedForegroundPoints, sourceRowId, markerId, false, false);
-        }
-
-        // Start dragging with current selection
-        startDragging();
-      },
-
-      onDrag: ({ movement: [mx], first, event, altKey }) => {
-        if (playing || first) return;
-
-        event?.stopPropagation();
-
-        // Calculate position based on movement from initial
-        const position = getTimelinePositionFromMovement(mx, initialDragPosition.current);
-        const deltaInNormalized = position - initialDragPosition.current;
-
-        // Apply frame snapping if alt is not pressed
-        const shouldSnap = !altKey && !altPressed;
-
-        // Update drag delta in normalized space
-        updateDragDelta(deltaInNormalized, shouldSnap);
-      },
-      onDragEnd: ({ event, canceled }) => {
-        if (playing) return;
-
-        event?.stopPropagation();
-
-        // Set flag to prevent click event immediately after drag
+  const handlePointerCancel = useCallback(
+    (event: PointerGestureEvent) => {
+      dragHandlers.onPointerCancel?.(event);
+      if (dragDidMoveRef.current) {
         justFinishedDragging.current = true;
-        // Reset flag after a short delay to allow normal clicks again
         setTimeout(() => {
           justFinishedDragging.current = false;
         }, 100);
+      }
+      dragDidMoveRef.current = false;
+      cancelDrag();
+    },
+    [dragHandlers, cancelDrag],
+  );
 
-        if (canceled) {
-          // Revert the drag operation
-          cancelDrag();
-        } else {
-          // Commit the drag operation
-          commitDrag();
-        }
-      },
+  const handlePointerOver = useCallback(
+    (event: PointerGestureEvent) => {
+      event.stopPropagation();
+      if (!hasSelectedForegroundPoints && !hasUnselectedForegroundPoints) return;
+      setIsHovered(true);
     },
-    {
-      enabled: !playing,
-      drag: {
-        threshold: 3, // Require 3px movement before starting drag
-        preventScroll: true,
-        filterTaps: true, // This ensures clicks aren't treated as drags
-        pointer: { touch: false }, // Disable touch-based dragging to prevent conflicts
-      },
-      eventOptions: { passive: false },
+    [hasSelectedForegroundPoints, hasUnselectedForegroundPoints],
+  );
+
+  const handlePointerOut = useCallback((event: PointerGestureEvent) => {
+    event.stopPropagation();
+    setIsHovered(false);
+  }, []);
+
+  const handleClick = useCallback(
+    (event: PointerGestureEvent) => {
+      event.stopPropagation();
+      if (playing || justFinishedDragging.current) return;
+
+      if (!hasSelectedForegroundPoints && !hasUnselectedForegroundPoints) return;
+
+      clickMarker(
+        combinedForegroundPoints,
+        sourceRowId,
+        markerId,
+        event.shiftKey,
+        event.metaKey || event.ctrlKey,
+      );
     },
+    [
+      playing,
+      justFinishedDragging,
+      hasSelectedForegroundPoints,
+      hasUnselectedForegroundPoints,
+      clickMarker,
+      combinedForegroundPoints,
+      sourceRowId,
+      markerId,
+    ],
   );
 
   const resolvedBand = useMemo(() => {
@@ -411,7 +433,16 @@ export const DataPoint = memo(function DataPoint({
     : foregroundZ + ROW_DEPTH_EPSILON * 0.4;
 
   return (
-    <group ref={groupRef as any} {...(bind() as any)}>
+    <group
+      ref={groupRef as any}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
+      onClick={handleClick}
+    >
       {shouldShowHexagon && (
         <>
           <Instance

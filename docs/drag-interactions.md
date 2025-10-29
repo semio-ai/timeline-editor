@@ -10,9 +10,16 @@ This spec defines how drag gestures stage stamp/value updates before they are co
 - Produce visually uniform vertical displacement even when selected tracks have different numeric ranges or nested value paths.
 - Abort cleanly if the selection becomes invalid or the gesture is cancelled.
 
+## Implementation Workflow
+1. Re-read this document and the selection spec before making changes; treat them as the authoritative contract.
+2. Use the checkboxes in the plan below as the single source of truth for progress. Update them in-place as work lands, including links or notes to related PRs when available.
+3. Capture deviations, simplifications, or follow-ups under **Blackboard Notes** with a brief rationale and owner. If an item is resolved or intentionally abandoned, mark its checkbox and describe the resolution.
+4. Surface open questions inline (`TODO(semio-agent):` or `OPEN:`) so they are easy to find for the next contributor. Flag questions for the manager or leader as `INPUT_NEEDED` if they block progress. If such a case is encountered, notify the manager/user directly and pause work, making note of the current status in the document.
+5. Keep this document current—when implementation details shift (e.g., types change, helper signatures evolve), update both the spec text and the workflow notes so future work stays aligned.
+
 ## Implementation Plan (check off as work lands)
-- [ ] **Foundations** – Replace legacy `DragState` definitions (`types/util/drag-state.ts`, `store-types.ts`) with the anchor-first shape, update `AnimationActions` signatures, and remove unused migration helpers.
-- [ ] **Preview Plumbing** – Implement `applyDragDeltas` (or equivalent) so `computeRowData` reflects staged stamp/value deltas; ensure value scaling honors `ValueScale` and instance transforms.
+- [x] **Foundations** – Replace legacy `DragState` definitions (`types/util/drag-state.ts`, `store-types.ts`) with the anchor-first shape, update `AnimationActions` signatures, and remove unused migration helpers.
+- [x] **Preview Plumbing** – Implement `applyDragDeltas` (or equivalent) so `computeRowData` reflects staged stamp/value deltas; ensure value scaling honors `ValueScale` and instance transforms.
 - [ ] **Store Actions** – Implement `startDrag`, `updateDrag`, `commitDrag`, `cancelDrag` using the new selection-driven resolution, including modifier handling & delta persistence.
 - [ ] **Canvas Integration** – Wire Canvas sheet markers to the new actions (pointer down/up/move), reuse `useDragGestures`, and honor snapping vs. freeform behavior.
 - [ ] **Control Surfaces** – Update editor/control widgets to initiate vertical drags via the shared actions, including temporary keypoint insertion at the playhead when needed.
@@ -128,6 +135,7 @@ export interface DragStartInput {
   origin: { x: number; y: number };
   axis: DragAxis;
   markerId: string;                       // the clicked marker (anchor)
+  rowId: string;                          // source row containing the anchor marker
 }
 
 export interface DragUpdateInput {
@@ -184,27 +192,34 @@ Expose a helper that applies staged deltas before markers/segments are derived:
 ```ts
 export function applyDragDeltas(
   keypoint: Keypoint<RawValue>,
-  drag: DragState | undefined,
+  context: {
+    drag: DragState | undefined;
+    selection: SelectionState;
+    trackId: string;
+    bounds?: { min: number; max: number };
+    attributePath?: string[];
+  },
 ): Keypoint<RawValue> {
   // Clones the keypoint and applies the staged stamp/value shifts based on the shared deltas.
 }
 ```
 
 Usage rules:
-- `updateComputedRowData` invokes `applyDragDeltas` for every keypoint as it builds `InstancedFrameInfo`.
+- `updateComputedRowData` invokes `applyDragDeltas` for every keypoint as it builds `InstancedFrameInfo`, passing the active selection for context.
 - Horizontal previews add the local `stampDelta` (prefer snapped when provided; fall back to raw) before interpolation calculations.
 - Vertical previews clone and patch only the numeric component referenced by `attributePath`, leaving the rest of the value intact.
 - The helper uses the anchor-derived `normalizedValueDelta` and per-marker bounds (from `selectionState` context or row metadata) to keep the motion visually uniform.
 
 ## Legacy References
-- `functions/apply-drag-offsets.ts` demonstrates the previous normalization flow: offsets were applied in `[0, 1]` space, clamped, and followed by point resorting. The new proposal keeps the same guarantees but centralizes them in `applyDragDeltas`/`commitDrag` so we operate on local instance time rather than raw normalized space.
-- `hooks/use-drag-gestures.ts` shows how canvas interactions already provide normalized timeline positions. Reuse or adapt that hook for drag initiation to avoid duplicating coordinate math and to ensure drags continue when the cursor leaves the element.
+- Prior implementations (see `functions/apply-drag-offsets.ts` in commit history) applied offsets in `[0, 1]` space and resorted keypoints post-hoc. The current flow supersedes that approach by using `applyDragDeltas`/`commitDrag` directly in local instance time; the legacy helper is no longer called by runtime code.
+- `hooks/use-drag-gestures.ts` remains the canonical way to receive normalized timeline positions. Consumers can pass `dragOptions` (thresholds, tap filtering, pointer config) to standardize behaviour across surfaces.
 
 ## UI Integration
 
-- **Canvas markers**: call `startDrag` on pointer down (supplying the clicked marker), then drive `updateDrag` with the current pointer. Horizontal drags provide both `normalizedStamp.current` and `normalizedStamp.snapped`.
+- **Canvas markers**: call `startDrag` on pointer down (supplying the clicked marker), then drive `updateDrag` with the current pointer. Horizontal drags provide both `normalizedStamp.current` and `normalizedStamp.snapped`. Marker surfaces should pass `dragOptions` (e.g., `threshold`, `filterTaps`, `preventScroll`, `pointer: { touch: false }`) to `useDragGestures` so simple clicks do not enter drag mode prematurely. Current implementation snaps to frames by default (`closestFrame`) and allows freeform motion when `alt` is held, mirroring the playhead cart.
 - **Animatable editor / Control widgets**: treat slider drags as vertical drags using the same anchor-first flow. When editing the playhead without an existing keypoint, insert a temporary keypoint before `startDrag` so the staged delta references a real ID.
 - All surfaces pass modifier state through `DragUpdateInput`. Maintain consistent snapping semantics—default interactions snap to frames, while `alt` provides freeform drags just like `bounds-cart` and other timeline gestures.
+- **Vertical support**: marker drags currently emit only horizontal deltas; vertical adjustments (especially for `TrackRender.Spline`) remain future work once `normalizedValueDelta` plumbing is in place.
 
 ## Cancellation & Error Handling
 - If the selection changes or becomes empty during an active drag, automatically `cancelDrag`. This guarantees the anchor no longer conflicts with `selectionState`.

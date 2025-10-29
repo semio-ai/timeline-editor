@@ -113,8 +113,8 @@ stateDiagram-v2
   SourceArray --> SourceRow : updateInstancedTrackSources
   SourceArray --> GlobalSourceRow : computeConsolidatedSourceRow
 
-  SourceRow --> InstancedFrames : computeVirtualFrames<br/>computeFrames
-  DragState --> InstancedFrames : applyDragOffsets
+  SourceRow --> InstancedFrames : computeFrames
+  DragState --> InstancedFrames : applyDragDeltas
   InstancedFrames --> TransitionPairs : computeTransitionSegments<br/>computeFilledInterpGaps
 
   SourceRow --> Bounds : computeVerticalBounds

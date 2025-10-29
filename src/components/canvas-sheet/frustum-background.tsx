@@ -39,7 +39,7 @@ export const FrustumBackground = memo(function FrustumBackground({
   const justFinishedDraggingRef = useRef(false);
 
   useEffect(() => {
-    // If dragState becomes null (drag ended), mark that we just finished dragging
+    // If dragState becomes undefined (drag ended), mark that we just finished dragging
     if (!dragState && justFinishedDraggingRef.current) {
       // Clear the flag after a short delay to allow the click event to be ignored
       const timer = setTimeout(() => {
@@ -48,7 +48,7 @@ export const FrustumBackground = memo(function FrustumBackground({
       return () => clearTimeout(timer);
     }
     // If dragState is active, mark that we're dragging
-    if (dragState?.isDragging) {
+    if (dragState) {
       justFinishedDraggingRef.current = true;
     }
   }, [dragState]);

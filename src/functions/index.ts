@@ -1,4 +1,4 @@
-export * from "./apply-drag-offsets";
+export * from "./apply-drag-deltas";
 export * from "./compare-instanced-frames";
 export * from "./compute-adjacent-times";
 export * from "./compute-consolidated-source-row";
@@ -20,7 +20,6 @@ export * from "./compute-track-violations";
 export * from "./compute-tree-options-from-sources";
 export * from "./compute-vertical-bounds";
 export * from "./compute-violation-set";
-export * from "./compute-virtual-frames";
 export * from "./compute-visible-source-tracks";
 export * from "./create-linear-scale";
 export * from "./raw-value-math";

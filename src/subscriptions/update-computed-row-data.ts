@@ -16,12 +16,13 @@ export function updateComputedRowData(
   return api.subscribe(
     (state: AnimationData) => ({
       dragState: state.dragState,
+      selectionState: state.selectionState,
       violations: state.violations,
       tracks: state.tracks,
       instancedTrackSources: state.instancedTrackSources,
       animatables: state.animatables,
     }),
-    ({ dragState, violations, tracks, instancedTrackSources, animatables }) => {
+    ({ dragState, selectionState, violations, tracks, instancedTrackSources, animatables }) => {
       const computedRowData: Record<string, ComputedRowData> = {};
 
       Object.values(instancedTrackSources).forEach((instancedTrackSource) => {
@@ -31,6 +32,7 @@ export function updateComputedRowData(
           violations,
           animatables,
           dragState,
+          selectionState,
         );
         computedRowData[instancedTrackSource.id] = rowComputedData;
       });
@@ -41,6 +43,7 @@ export function updateComputedRowData(
       equalityFn: (a, b) => {
         return (
           shallow(a.dragState, b.dragState) &&
+          shallow(a.selectionState, b.selectionState) &&
           shallow(a.violations, b.violations) &&
           shallow(a.tracks, b.tracks) &&
           shallow(a.instancedTrackSources, b.instancedTrackSources) &&

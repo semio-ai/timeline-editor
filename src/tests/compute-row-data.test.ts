@@ -9,6 +9,7 @@ import {
   ViolationSet,
 } from "../types";
 import { computeRowData } from "../functions/compute-row-data";
+import { createEmptySelectionState } from "../functions/selection-state-manager";
 
 const TRACK_ID = "position";
 const ANIMATABLE_ID = "position";
@@ -97,8 +98,9 @@ describe("computeRowData violation scoping", () => {
     const alphaRow = makeRow(NAMESPACE_ALPHA, INSTANCE_ALPHA);
     const betaRow = makeRow(NAMESPACE_BETA, INSTANCE_BETA);
 
-    const alphaData = computeRowData(alphaRow, tracks, violations, animatables, null);
-    const betaData = computeRowData(betaRow, tracks, violations, animatables, null);
+    const selection = createEmptySelectionState();
+    const alphaData = computeRowData(alphaRow, tracks, violations, animatables, undefined, selection);
+    const betaData = computeRowData(betaRow, tracks, violations, animatables, undefined, selection);
 
     expect(Object.keys(alphaData.violationSet.violations).sort()).toEqual([
       "alpha-lower",

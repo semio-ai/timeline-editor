@@ -49,13 +49,37 @@ function rowForegroundSignatures(
  * Find the first row that contains at least one selectable foreground keypoint.
  * Optionally exclude specific rowIds.
  */
+function getRowTrackIds(store: AnimationStore, rowId: string): Set<string> {
+  const sourceRow = store.getState().instancedTrackSources[rowId];
+  const trackIds = new Set<string>();
+  if (sourceRow) {
+    sourceRow.data.forEach((entry) => {
+      if (entry.trackId) {
+        trackIds.add(entry.trackId);
+      }
+    });
+  }
+  return trackIds;
+}
+
 function findRowWithForeground(
   store: AnimationStore,
-  exclude: Set<string> = new Set<string>(),
+  excludeRows: Set<string> = new Set<string>(),
+  excludeTrackIds: Set<string> = new Set<string>(),
 ): string {
   const state = store.getState();
   for (const [rowId, row] of Object.entries(state.computedRowData)) {
-    if (exclude.has(rowId)) continue;
+    if (excludeRows.has(rowId)) continue;
+
+    const rowTrackIds = getRowTrackIds(store, rowId);
+    let conflicts = false;
+    rowTrackIds.forEach((trackId) => {
+      if (excludeTrackIds.has(trackId)) {
+        conflicts = true;
+      }
+    });
+    if (conflicts) continue;
+
     const hasForeground = (row.virtualFrames ?? []).some((frame) =>
       (frame.points ?? []).some(
         (p) =>
@@ -143,7 +167,8 @@ describe("Click Line Action with Complete Store", () => {
   it("cmd/ctrl toggles a row without clearing other rows; reference remains unchanged", () => {
     // Choose two distinct rows with foreground
     const rowA = findRowWithForeground(store);
-    const rowB = findRowWithForeground(store, new Set([rowA]));
+    const rowATracks = getRowTrackIds(store, rowA);
+    const rowB = findRowWithForeground(store, new Set([rowA]), rowATracks);
 
     const segA = deriveSegmentId(store, rowA);
     const segB = deriveSegmentId(store, rowB);
@@ -182,6 +207,7 @@ describe("Click Line Action with Complete Store", () => {
   it("shift-clicking a different row behaves like a plain click and does not change the reference", () => {
     // Establish a reference on rowA via marker click
     const rowA = findRowWithForeground(store);
+    const rowATracks = getRowTrackIds(store, rowA);
     const markerA = getAnyMarkerIdInRow(store, rowA);
     const pointsA = getMarkerPoints(store, rowA, markerA);
     store.getState().clickMarker(pointsA, rowA, markerA);
@@ -189,7 +215,7 @@ describe("Click Line Action with Complete Store", () => {
     expect(afterMarker.reference).toEqual({ rowId: rowA, markerId: markerA });
 
     // Shift-click on a different rowB should behave as a plain click (replace selection) and keep reference
-    const rowB = findRowWithForeground(store, new Set([rowA]));
+    const rowB = findRowWithForeground(store, new Set([rowA]), rowATracks);
     const segB = deriveSegmentId(store, rowB);
 
     store.getState().clickLine(rowB, segB, true, false);

@@ -1,6 +1,14 @@
 export type { ComputedRowData } from "./computed-row-data";
-export type { DragState } from "./drag-state";
-export type { DraggedKeypoint } from "./dragged-keypoint";
+export type {
+  DragAxis,
+  DragAnchorRef,
+  DragStampTransform,
+  DragState,
+  DragStartInput,
+  DragUpdateInput,
+  ValueScale,
+  KeypointCommitDelta,
+} from "./drag-state";
 export type { InstancePair } from "./instance-pair";
 export type { InstancedFrameInfo } from "./instanced-frame-info";
 export { SemanticTime } from "./semantic-time";

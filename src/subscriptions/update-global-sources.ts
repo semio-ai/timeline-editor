@@ -6,7 +6,7 @@ import type {
   AnimationStoreGetter,
   AnimationStoreSetter,
 } from "../store-types";
-import { Source, SourceGroup } from "../types";
+import { Source } from "../types";
 import { computeDefaultSourcesFromInstance } from "../functions";
 
 /**

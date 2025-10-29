@@ -5,11 +5,9 @@ import type { AnimationData } from "../../store-types";
  * @param state - The animation state to modify
  */
 export function cancelDrag(state: AnimationData): void {
-  // Exit early if not currently dragging
-  if (!state.dragState?.isDragging) {
+  if (!state.dragState) {
     return;
   }
 
-  // Simply clear drag state without applying any changes
-  state.dragState = null;
+  state.dragState = undefined;
 }
