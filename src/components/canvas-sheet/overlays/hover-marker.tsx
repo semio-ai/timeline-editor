@@ -2,7 +2,7 @@ import { Theme } from "@semio/ui";
 import { useRef, memo } from "react";
 import * as THREE from "three";
 import { useMotionValueEvent } from "motion/react";
-import { useHoverSpring, useInvariantScale } from "../../../hooks";
+import { useAnimationStore, useHoverSpring, useInvariantScale } from "../../../hooks";
 import { Z } from "../../../constants";
 
 export interface HoverMarkerProps {
@@ -18,6 +18,8 @@ export const HoverMarker = memo(function HoverMarker({
 }: HoverMarkerProps) {
   const markerRef = useRef<THREE.Mesh>(null);
   const color = theme === Theme.Light ? "#000000" : "#ffffff";
+
+  const isDragging = useAnimationStore((state) => state.dragState !== undefined);
 
   const scaleX = useInvariantScale();
   const hoverSpring = useHoverSpring();
@@ -39,6 +41,10 @@ export const HoverMarker = memo(function HoverMarker({
       }
     }
   });
+
+  if (isDragging) {
+    return null;
+  }
 
   return (
     <mesh ref={markerRef as any} scale={[scaleX.get(), 1, 1]} position={[0, 0, Z.PlayheadCart]}>

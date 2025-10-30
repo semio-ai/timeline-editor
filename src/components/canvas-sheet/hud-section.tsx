@@ -3,7 +3,7 @@ import { Hud } from "@react-three/drei";
 import { useMotionValueEvent, useTransform } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
-import { useThree } from "@react-three/fiber";
+import { ThreeEvent, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { usePlayerSubscription } from "../../hooks";
 import { Z } from "../../constants";
@@ -108,6 +108,7 @@ const HudContent = memo(function HudContent({
           visibility="opaque"
           z={Z.Hud}
           y={y}
+          pointerEvents={{ onPointerOver: (e: ThreeEvent<MouseEvent>) => e.stopPropagation() }}
         />
       )}
       <group ref={groupRef as any} position={[0, y.get(), 0]}>

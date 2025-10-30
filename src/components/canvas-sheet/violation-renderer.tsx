@@ -102,7 +102,6 @@ const ViolationSegment = memo(function ViolationSegment({
         setHovered(true);
         onPointerMove?.(e);
         show();
-        e.stopPropagation();
       }}
       onPointerOut={(_e) => {
         // e.stopPropagation();
