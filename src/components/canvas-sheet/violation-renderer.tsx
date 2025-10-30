@@ -94,7 +94,6 @@ const ViolationSegment = memo(function ViolationSegment({
       position={[x, y, Z.Violations]}
       material={diagonalMaterial as any}
       onPointerOver={(e) => {
-        // e.stopPropagation();
         console.log(
           "violation",
           segment.violations.map((id) => violations[id]),
