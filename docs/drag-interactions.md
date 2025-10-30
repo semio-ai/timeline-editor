@@ -20,8 +20,8 @@ This spec defines how drag gestures stage stamp/value updates before they are co
 ## Implementation Plan (check off as work lands)
 - [x] **Foundations** – Replace legacy `DragState` definitions (`types/util/drag-state.ts`, `store-types.ts`) with the anchor-first shape, update `AnimationActions` signatures, and remove unused migration helpers.
 - [x] **Preview Plumbing** – Implement `applyDragDeltas` (or equivalent) so `computeRowData` reflects staged stamp/value deltas; ensure value scaling honors `ValueScale` and instance transforms.
-- [ ] **Store Actions** – Implement `startDrag`, `updateDrag`, `commitDrag`, `cancelDrag` using the new selection-driven resolution, including modifier handling & delta persistence.
-- [ ] **Canvas Integration** – Wire Canvas sheet markers to the new actions (pointer down/up/move), reuse `useDragGestures`, and honor snapping vs. freeform behavior.
+- [x] **Store Actions** – Implement `startDrag`, `updateDrag`, `commitDrag`, `cancelDrag` using the new selection-driven resolution, including modifier handling & delta persistence.
+- [x] **Canvas Integration** – Wire Canvas sheet markers to the new actions (pointer down/up/move), reuse `useDragGestures`, and honor snapping vs. freeform behavior.
 - [ ] **Control Surfaces** – Update editor/control widgets to initiate vertical drags via the shared actions, including temporary keypoint insertion at the playhead when needed.
 - [ ] **Commit Pipeline** – Refactor keypoint updates to use `KeypointCommitDelta`/`applyKeypointDelta`, apply clamping, and maintain chronological ordering on commit.
 - [ ] **Validation & QA** – Add automated coverage where possible (unit tests for helpers, integration tests for selection → drag flow) and document manual QA (snapping, multi-axis, cancellation).
@@ -34,6 +34,7 @@ This spec defines how drag gestures stage stamp/value updates before they are co
 ### Blackboard Notes
 - [ ] _Example_: Confirm whether `normalizedValueDelta` is needed once vertical drags ship; remove if unused.
 - [ ] _Example_: Evaluate caching strategy for per-marker bounds; revisit if profiler shows lookup hotspots.
+- [x] Preview violations: `computeRowData` now recomputes violation sets with staged drag deltas and is covered by `drag-violation-preview.test.ts`.
 
 ## Selection & Instance Preconditions
 - `selectionState` must collapse to a single `instanceId`; mixed instances, namespaces, or non-editable rows block drag start.

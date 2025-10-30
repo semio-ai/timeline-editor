@@ -7,40 +7,58 @@ const toInstanceStamp = (globalStamp: number, transform: DragStampTransform): nu
 };
 
 export function updateDrag(state: AnimationData, input: DragUpdateInput): void {
-  const dragState = state.dragState;
-  if (!dragState) {
+  const current = state.dragState;
+  if (!current) {
     return;
   }
 
-  dragState.modifiers = input.modifiers;
+  const modifiers = { ...input.modifiers };
+
+  let stampDelta = current.stampDelta;
 
   if (
-    (dragState.axis === "horizontal" || dragState.axis === "both") &&
+    (current.axis === "horizontal" || current.axis === "both") &&
     input.normalizedStamp &&
-    typeof dragState.stampOrigin === "number"
+    typeof current.stampOrigin === "number"
   ) {
-    const baseStamp = dragState.stampOrigin;
-    const rawLocal = toInstanceStamp(input.normalizedStamp.current, dragState.instanceTransform);
+    const baseStamp = current.stampOrigin;
+    const rawLocal = toInstanceStamp(input.normalizedStamp.current, current.instanceTransform);
     const rawDelta = Number.isFinite(rawLocal - baseStamp) ? rawLocal - baseStamp : 0;
 
     let snappedDelta: number | undefined;
     if (typeof input.normalizedStamp.snapped === "number" && !input.modifiers.alt) {
       const snappedLocal = toInstanceStamp(
         input.normalizedStamp.snapped,
-        dragState.instanceTransform,
+        current.instanceTransform,
       );
       snappedDelta = Number.isFinite(snappedLocal - baseStamp)
         ? snappedLocal - baseStamp
         : rawDelta;
     }
 
-    dragState.stampDelta = {
+    const nextStampDelta = {
       raw: rawDelta,
       snapped: snappedDelta,
     };
+
+    if (
+      !stampDelta ||
+      !Object.is(stampDelta.raw, nextStampDelta.raw) ||
+      !Object.is(stampDelta.snapped, nextStampDelta.snapped)
+    ) {
+      stampDelta = nextStampDelta;
+    }
   }
 
+  let normalizedValueDelta = current.normalizedValueDelta;
   if (typeof input.normalizedValueDelta === "number") {
-    dragState.normalizedValueDelta = input.normalizedValueDelta;
+    normalizedValueDelta = input.normalizedValueDelta;
   }
+
+  state.dragState = {
+    ...current,
+    modifiers,
+    stampDelta,
+    normalizedValueDelta,
+  };
 }

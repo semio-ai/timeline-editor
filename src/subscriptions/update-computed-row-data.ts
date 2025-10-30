@@ -21,8 +21,19 @@ export function updateComputedRowData(
       tracks: state.tracks,
       instancedTrackSources: state.instancedTrackSources,
       animatables: state.animatables,
+      animations: state.animations,
+      namespaces: state.namespaces,
     }),
-    ({ dragState, selectionState, violations, tracks, instancedTrackSources, animatables }) => {
+    ({
+      dragState,
+      selectionState,
+      violations,
+      tracks,
+      instancedTrackSources,
+      animatables,
+      animations,
+      namespaces,
+    }) => {
       const computedRowData: Record<string, ComputedRowData> = {};
 
       Object.values(instancedTrackSources).forEach((instancedTrackSource) => {
@@ -33,6 +44,10 @@ export function updateComputedRowData(
           animatables,
           dragState,
           selectionState,
+          {
+            animations,
+            namespaces,
+          },
         );
         computedRowData[instancedTrackSource.id] = rowComputedData;
       });
@@ -47,7 +62,9 @@ export function updateComputedRowData(
           shallow(a.violations, b.violations) &&
           shallow(a.tracks, b.tracks) &&
           shallow(a.instancedTrackSources, b.instancedTrackSources) &&
-          shallow(a.animatables, b.animatables)
+          shallow(a.animatables, b.animatables) &&
+          shallow(a.animations, b.animations) &&
+          shallow(a.namespaces, b.namespaces)
         );
       },
       fireImmediately: true,
