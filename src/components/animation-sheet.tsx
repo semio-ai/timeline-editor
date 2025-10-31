@@ -13,6 +13,8 @@ import {
   useTheme,
   TooltipProvider,
   TooltipContext,
+  IconNormalized,
+  IconUniform,
 } from "@semio/ui";
 import {
   IconArrowUpRight,
@@ -23,7 +25,7 @@ import {
 } from "@tabler/icons-react";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
-import { TrackRender } from "../types";
+import { TrackRender, VerticalAxis } from "../types";
 import {
   useAnimationStore,
   ColorContextProvider,
@@ -211,12 +213,19 @@ function InnerSheet({
   // Extract information from the view about trackRender and timeline sources;
   const views = useAnimationStore(useShallow((state) => state.editorViews));
   const trackRender = views?.[viewId]?.trackRender || TrackRender.Key;
+  const verticalAxis = views?.[viewId]?.verticalAxis || VerticalAxis.Normalized;
 
   // Define callbacks that update the view properties in the store;
   const updateView = useAnimationStore(useShallow((state) => state.updateView));
   const setTrackRender = useCallback(
     (renderOption: TrackRender) => {
       updateView(viewId, { trackRender: renderOption });
+    },
+    [viewId, updateView],
+  );
+  const setVerticalAxis = useCallback(
+    (vAxis: VerticalAxis) => {
+      updateView(viewId, { verticalAxis: vAxis });
     },
     [viewId, updateView],
   );
@@ -317,6 +326,33 @@ function InnerSheet({
                       },
                     ]}
                   />
+
+                  <ToggleGroup
+                    bg
+                    visuals="icons"
+                    size={Size.Sm}
+                    value={
+                      trackRender === TrackRender.Spline ? verticalAxis : VerticalAxis.Normalized
+                    }
+                    onChange={(t: string) => {
+                      setVerticalAxis(t as VerticalAxis);
+                    }}
+                    options={[
+                      {
+                        value: VerticalAxis.Normalized,
+                        label: "Normalized Y",
+                        icon: <IconNormalized size="11px" />,
+                        disabled: trackRender !== TrackRender.Spline,
+                      },
+                      {
+                        value: VerticalAxis.Uniform,
+                        label: "Uniform Y",
+                        icon: <IconUniform size="11px" />,
+                        disabled: trackRender !== TrackRender.Spline,
+                      },
+                    ]}
+                  />
+
                   <ToggleSquare
                     sizing="inner"
                     size={Size.Sm}

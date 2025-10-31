@@ -70,6 +70,7 @@ export interface DataRendererProps {
   height?: number;
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
+  viewId?: string;
   yOffset?: number;
   baseZ?: number;
   theme?: Theme.Light | Theme.Dark;
@@ -89,6 +90,7 @@ export const DataRenderer = memo(function DataRenderer({
   height = 36,
   emphasis = false,
   onEmphasisChange = () => {},
+  viewId,
   yOffset = 0,
   baseZ = 0,
   theme = Theme.Light,
@@ -114,9 +116,8 @@ export const DataRenderer = memo(function DataRenderer({
     [sourceRow],
   );
   const transitionLayer: LayerBand = useMemo(() => {
-    const allLayers = uniq(
-      computedData.virtualFrames.flatMap((vf) => vf.points).map((p) => p.layerBand),
-    );
+    const frames = computedData?.virtualFrames ?? [];
+    const allLayers = uniq(frames.flatMap((vf) => vf.points).map((p) => p.layerBand));
     if (allLayers.length === 0) {
       return LayerBand.Background;
     }
@@ -129,7 +130,7 @@ export const DataRenderer = memo(function DataRenderer({
     } else {
       return LayerBand.Background;
     }
-  }, [computedData.virtualFrames]);
+  }, [computedData?.virtualFrames]);
   const color = useColors(trackIds);
   const hoverCountRef = useRef(0);
   const [isRowHovered, setIsRowHovered] = useState(false);
@@ -165,7 +166,20 @@ export const DataRenderer = memo(function DataRenderer({
     return !sourceRow.data.every((d) => d.type === "number");
   }, [sourceRow]);
 
+  const axisRange = useMemo(() => {
+    if (viewId && computedData.verticalAxisByView?.[viewId]) {
+      return computedData.verticalAxisByView[viewId];
+    }
+    return { ...computedData.verticalBounds, visualOffset: 0 };
+  }, [computedData.verticalAxisByView, computedData.verticalBounds, viewId]);
+
+  const effectiveVerticalBounds = useMemo(
+    () => ({ min: axisRange.min, max: axisRange.max }),
+    [axisRange.max, axisRange.min],
+  );
+
   if (!sourceRow) return null;
+  if (!sourceRow || !computedData) return null;
 
   return (
     <group
@@ -196,7 +210,7 @@ export const DataRenderer = memo(function DataRenderer({
       <DataPointsRenderer
         sourceRow={sourceRow}
         frames={computedData.virtualFrames}
-        verticalBounds={computedData.verticalBounds}
+        verticalBounds={effectiveVerticalBounds}
         theme={theme}
         trackRender={trackRender}
         height={height - 1}
@@ -210,7 +224,7 @@ export const DataRenderer = memo(function DataRenderer({
           end={segment.end}
           trackRender={keyForced ? TrackRender.Key : trackRender}
           height={height - 1}
-          verticalBounds={computedData.verticalBounds}
+          verticalBounds={effectiveVerticalBounds}
           sourceRow={sourceRow}
           isEmpty={segment.buffer}
           theme={theme}

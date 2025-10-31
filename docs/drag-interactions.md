@@ -118,7 +118,7 @@ Notes:
 ## Data Locality & Store Integration
 - `AnimationData.dragState` (see `store-types.ts`) carries this structure. Because the store already holds `selectionState`, `computedRowData`, and track data, we can derive the full drag context without duplicating keypoint lists.
 - Vertical bounds are available via `computedRowData[rowId].verticalBounds`. Fetching them introduces a cross-lookup each update; duplicating them in `dragState` costs more memory but avoids recomputing at the expense of potential staleness. Current plan:
-  - [x] **Option A (recommended)** – read bounds from `computedRowData` on demand. This ensures previews reflect any concurrent row recomputation and keeps `dragState` minimal.
+  - [x] **Option A (recommended)** – read bounds from `computedRowData` on demand. When the spline view toggles between **Normalized** and **Uniform** axes, the store now derives `verticalAxisByView` for each row. That range mirrors `verticalBounds` for non-spline renderers and becomes a view-scoped min/max when uniform scaling is active. Use it to translate the shared `normalizedValueDelta` into actual values so vertical drags stay aligned with what the user sees.
   - [ ] **Option B** – snapshot bounds (`ValueScale`) into `dragState`. Choose this only if repeated lookups prove too expensive and we can guarantee the snapshot stays valid for the drag duration.
 - Other cached data should follow the same guideline: prefer derivation from store slices unless profiling shows the cross-lookup to be a bottleneck.
 - Because the current codebase does not yet implement keypoint dragging, we can replace the legacy type wholesale instead of maintaining compatibility with fields like `draggedKeypoints` or `deltaStamp`.

@@ -16,6 +16,7 @@ import {
   Namespace,
   DragUpdateInput,
   DragStartInput,
+  VerticalAxis,
 } from "./types";
 import {
   AnimationData,
@@ -55,6 +56,7 @@ import {
   updateConsolidatedSourceRow,
   updateGlobalSources,
   updateSourceRowIds,
+  updateViewVerticalAxes,
 } from "./subscriptions";
 import { View } from "./types/util/view";
 import { createEmptySelectionState } from "./functions/selection-state-manager";
@@ -191,6 +193,7 @@ export const AnimationSlice = (
         const defaultView: View = {
           id: view.id,
           trackRender: view.trackRender ?? TrackRender.Key,
+          verticalAxis: view.verticalAxis ?? VerticalAxis.Normalized,
         };
         return {
           editorViews: { ...state.editorViews, [view.id]: { ...defaultView, ...view } },
@@ -410,6 +413,7 @@ export const AnimationSlice = (
         updateGlobalSources,
         updateSourceRowIds,
         updateComputedRowData,
+        updateViewVerticalAxes,
         updateConsolidatedSourceRow,
       ].map((fn) => fn(api, set, get));
 

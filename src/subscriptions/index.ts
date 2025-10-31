@@ -7,3 +7,4 @@ export { updateComputedRowData } from "./update-computed-row-data";
 export { updateConsolidatedSourceRow } from "./update-consolidated-source-row";
 export { updateGlobalSources } from "./update-global-sources";
 export { updateSourceRowIds } from "./update-source-row-ids";
+export { updateViewVerticalAxes } from "./update-view-vertical-axes";

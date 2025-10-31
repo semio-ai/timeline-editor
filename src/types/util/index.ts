@@ -17,6 +17,8 @@ export { TrackRender } from "./track-render";
 export type { Source, SourceGroup, SourceTrack, SourceRow, SourceRowData } from "./source";
 export { LayerBand } from "./layer-band";
 export type { VisibleSourceRowIds } from "./source-row-ids";
+export { VerticalAxis } from "./vertical-axis";
+export type { VerticalAxisRange } from "./vertical-axis";
 export type { View } from "./view";
 export type { ViolationSet, ViolationSegment } from "./violation-set";
 export type {

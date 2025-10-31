@@ -1,4 +1,5 @@
 import { TrackRender } from "./track-render";
+import { VerticalAxis } from "./vertical-axis";
 
 /**
  * A container to store information specific to a given editor view
@@ -8,4 +9,5 @@ import { TrackRender } from "./track-render";
 export interface View {
   id: string;
   trackRender: TrackRender;
+  verticalAxis: VerticalAxis;
 }
