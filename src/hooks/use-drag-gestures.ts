@@ -5,7 +5,12 @@ import { clamp } from "lodash";
 import * as THREE from "three";
 
 type GestureConfig = Parameters<typeof useGesture>[1];
-type DragConfig = GestureConfig extends { drag?: infer T } ? T : never;
+type DragConfig = GestureConfig & {
+  threshold?: number;
+  preventScroll?: boolean;
+  filterTaps?: boolean;
+  pointer?: { touch: boolean };
+};
 
 export interface DragGestureOptions {
   disabled?: boolean;
