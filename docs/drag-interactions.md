@@ -35,6 +35,8 @@ This spec defines how drag gestures stage stamp/value updates before they are co
 - [ ] _Example_: Confirm whether `normalizedValueDelta` is needed once vertical drags ship; remove if unused.
 - [ ] _Example_: Evaluate caching strategy for per-marker bounds; revisit if profiler shows lookup hotspots.
 - [x] Preview violations: `computeRowData` now recomputes violation sets with staged drag deltas and is covered by `drag-violation-preview.test.ts`.
+- [ ] Row padding: incorporate per-row vertical padding into backend-derived `verticalAxisByView` so drag normalization matches the on-screen vertical range exactly (prevents screen-space vs. value-space drift).
+- [ ] Immediate feedback: disable y-position animation on `data-point.tsx` and `transition-segment.tsx` while a drag is active for any selected `trackId`, so vertical drag previews update instantly (no spring smoothing) and match `applyDragDeltas` precisely.
 
 ## Selection & Instance Preconditions
 - `selectionState` must collapse to a single `instanceId`; mixed instances, namespaces, or non-editable rows block drag start.
@@ -62,7 +64,11 @@ If we ever relax the “selection change cancels drag” rule, revisit whether O
   }
   ```
   Because every selected marker belongs to the same instance, we compute this transform once and reuse it for all participants.
-- Vertical drags operate in screen space. `startDrag` records a `ValueScale` for the anchor marker so vertical motion can be normalized (e.g., pixels or a −1..1 gesture range). During previews/commits we map that normalized delta onto each selected track using their own bounds (from `computeRowData` or animatable metadata):
+- Vertical drags operate in screen space. `startDrag` records a `ValueScale` for the anchor so vertical motion can be normalized consistently across tracks. UI surfaces must supply `normalizedValueDelta` computed as:
+  - `normalizedValueDelta = -(pointerY - pointerOriginY) / pixelRange`
+    - Use a negative sign so dragging up increases values (screen Y grows downward).
+    - `pixelRange` must be the visible vertical height of the row’s value viewport. Include any vertical padding/margins that affect the plotted value space; ideally the backend exposes a view-aligned range (e.g., `verticalAxisByView`) that already accounts for row padding so screen-space drag maps exactly to value-space displacement.
+  - The same `normalizedValueDelta` is reused for all selected markers; per-marker scaling to real units happens in previews/commits using each row’s `verticalBounds` from `computeRowData` or the anchor’s `ValueScale.domain`.
   ```ts
   interface ValueScale {
     domain: [number, number];
@@ -163,7 +169,10 @@ export interface DragUpdateInput {
   - Default behavior snaps to `closestFrame`, so supply `normalizedStamp.snapped` and store it in `stampDelta.snapped`.
   - Holding `alt` bypasses snapping; leave `stampDelta.snapped` undefined so previews/commits use the raw delta.
   - Reserve `shift` for future precision overrides; ensure any implementation stays consistent with other timeline interactions.
-- For vertical drags, sets `normalizedValueDelta` from pointer movement relative to `pointerOrigin`. The anchor’s `ValueScale` translates physical motion into a normalized delta; the same delta is reused for all markers.
+- Vertical normalization input contract:
+  - UI surfaces compute `normalizedValueDelta = -(pointer.y - pointerOrigin.y) / pixelRange`, where `pixelRange` is the visual height of the control’s value viewport for the active row. Upward drag increases values (negative screen Y).
+  - The same `normalizedValueDelta` is reused for all selected markers; scaling to real units is performed in previews/commits using each marker’s bounds (`computedRowData[rowId].verticalBounds`) or the anchor’s `ValueScale.domain`.
+  - Keep `Alt` reserved for horizontal snap bypass. If a fine-adjust affordance is desired for vertical drags, use `Shift` to scale the delta (e.g., divide by 4) for consistency across surfaces.
 - Mutates `DragState` only; track data remains untouched.
 
 ### `commitDrag`
@@ -208,8 +217,8 @@ export function applyDragDeltas(
 Usage rules:
 - `updateComputedRowData` invokes `applyDragDeltas` for every keypoint as it builds `InstancedFrameInfo`, passing the active selection for context.
 - Horizontal previews add the local `stampDelta` (prefer snapped when provided; fall back to raw) before interpolation calculations.
-- Vertical previews clone and patch only the numeric component referenced by `attributePath`, leaving the rest of the value intact.
-- The helper uses the anchor-derived `normalizedValueDelta` and per-marker bounds (from `selectionState` context or row metadata) to keep the motion visually uniform.
+- Vertical previews clone and patch only the numeric component; resolve per-marker `attributePath` first (from the row/point), falling back to the anchor `attributePath`. Apply clamp (`ValueScale.clamp`) and precision (`ValueScale.precision`) during preview so visuals match commit.
+- The helper reuses the same anchor-derived `normalizedValueDelta` for all selected markers, scaling by each row’s `verticalBounds` range when available, or by the anchor `ValueScale.domain` as a fallback, to keep the motion visually uniform.
 
 ## Legacy References
 - Prior implementations (see `functions/apply-drag-offsets.ts` in commit history) applied offsets in `[0, 1]` space and resorted keypoints post-hoc. The current flow supersedes that approach by using `applyDragDeltas`/`commitDrag` directly in local instance time; the legacy helper is no longer called by runtime code.
@@ -218,9 +227,24 @@ Usage rules:
 ## UI Integration
 
 - **Canvas markers**: call `startDrag` on pointer down (supplying the clicked marker), then drive `updateDrag` with the current pointer. Horizontal drags provide both `normalizedStamp.current` and `normalizedStamp.snapped`. Marker surfaces should pass `dragOptions` (e.g., `threshold`, `filterTaps`, `preventScroll`, `pointer: { touch: false }`) to `useDragGestures` so simple clicks do not enter drag mode prematurely. Current implementation snaps to frames by default (`closestFrame`) and allows freeform motion when `alt` is held, mirroring the playhead cart.
-- **Animatable editor / Control widgets**: treat slider drags as vertical drags using the same anchor-first flow. When editing the playhead without an existing keypoint, insert a temporary keypoint before `startDrag` so the staged delta references a real ID.
-- All surfaces pass modifier state through `DragUpdateInput`. Maintain consistent snapping semantics—default interactions snap to frames, while `alt` provides freeform drags just like `bounds-cart` and other timeline gestures.
-- **Vertical support**: marker drags currently emit only horizontal deltas; vertical adjustments (especially for `TrackRender.Spline`) remain future work once `normalizedValueDelta` plumbing is in place.
+- **Animatable editor / Control widgets (vertical drags)**:
+  - Start: ensure the anchor exists (insert a temporary keypoint at the playhead if none), then `startDrag({ axis: "vertical", origin, markerId, rowId })`.
+  - Move: compute `normalizedValueDelta = -(pointer.y - pointerOrigin.y) / pixelRange`, where `pixelRange` is the visible height of the control’s value viewport for the active row. Pass it via `updateDrag({ normalizedValueDelta, modifiers, pointer })`. Use the same normalization on every move so screen-space motion maps to consistent value deltas across tracks with different ranges.
+  - End: call `commitDrag()` (or `cancelDrag()` if the gesture didn’t move or invariants failed).
+  - Use backend-provided `verticalAxisByView`/`verticalBounds` to keep the control’s visible vertical range in sync with preview/commit math; avoid hardcoding padding in the surface if the backend exposes it.
+- **Immediate feedback during vertical drag**: while a drag is active and the selection contains a track, disable y-position spring animation for any visuals associated with that `trackId` so previews track pointer motion exactly. Concretely:
+  - `data-point.tsx`: bypass the x+y-position springs and set values directly when the point’s `trackId` is in the current selection during an active drag.
+  - `transition-segment.tsx`: bypass the springs for control point x+y-values under the same condition.
+- All surfaces pass modifier state through `DragUpdateInput`. Maintain consistent snapping semantics—default interactions snap to frames, while `alt` provides freeform drags just like `bounds-cart` and other timeline gestures. If fine vertical control is desired, use `Shift` to scale `normalizedValueDelta` (e.g., divide by 4).
+- **Vertical support (canvas)**: marker-body drags currently emit only horizontal deltas; add dedicated vertical handles or modes for `TrackRender.Spline` later. When added, compute `normalizedValueDelta` from the row canvas viewport height (aligned with `verticalAxisByView`) to keep previews/commits visually uniform.
+
+## Validation & QA
+- Unit: verify `applyDragDeltas` vertical scaling with per-row `verticalBounds` and anchor `ValueScale.domain` fallback; apply clamp and precision; no-op for non-numeric leaves; prefer per-marker `attributePath` over the anchor path when present.
+- Integration: selection → `startDrag({ axis: "vertical" })` → `updateDrag({ normalizedValueDelta })` previews a uniform visible vertical displacement across tracks with different numeric ranges; `commitDrag()` writes match preview; points are sorted when horizontal deltas are present.
+- Padding alignment: confirm pixelRange normalization matches backend `verticalAxisByView`, including any per-row padding; no drift between screen-space motion and value change across control surfaces and canvas.
+- Immediate feedback: while a drag is active and a `trackId` is selected, visuals in `data-point.tsx` and `transition-segment.tsx` update y-positions without spring smoothing; no lag relative to pointer movement.
+- Modifiers: Alt bypasses only horizontal snapping; if fine vertical control is implemented, Shift scales `normalizedValueDelta` (e.g., divide by 4); ensure no unintended vertical snapping.
+- Fallbacks: when per-row bounds are unavailable, fall back to the anchor domain; if neither is available, treat `appliedRange` as 1 or cancel the gesture per spec; assert behavior in tests.
 
 ## Cancellation & Error Handling
 - If the selection changes or becomes empty during an active drag, automatically `cancelDrag`. This guarantees the anchor no longer conflicts with `selectionState`.

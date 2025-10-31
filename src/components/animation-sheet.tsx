@@ -331,9 +331,7 @@ function InnerSheet({
                     bg
                     visuals="icons"
                     size={Size.Sm}
-                    value={
-                      trackRender === TrackRender.Spline ? verticalAxis : VerticalAxis.Normalized
-                    }
+                    value={verticalAxis}
                     onChange={(t: string) => {
                       setVerticalAxis(t as VerticalAxis);
                     }}
