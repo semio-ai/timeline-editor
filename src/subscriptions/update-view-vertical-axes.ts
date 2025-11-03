@@ -42,6 +42,7 @@ interface ViewAxisContext {
   verticalAxis: VerticalAxis;
   rowIds: string[];
   rowSet: Set<string>;
+  isSplineView: boolean;
   uniformRange?: VerticalAxisRange;
 }
 
@@ -65,9 +66,9 @@ export function updateViewVerticalAxes(
       const viewContexts: ViewAxisContext[] = Object.entries(editorViews).map(([viewId, view]) => {
         const trackRender = view.trackRender ?? TrackRender.Key;
         const preferredAxis = view.verticalAxis ?? VerticalAxis.Normalized;
-        const verticalAxis =
-          trackRender === TrackRender.Spline ? preferredAxis : VerticalAxis.Normalized;
-        const rowIds = trackRender === TrackRender.Spline ? lookup.spline : lookup.flat;
+        const isSplineView = trackRender === TrackRender.Spline;
+        const verticalAxis = isSplineView ? preferredAxis : VerticalAxis.Normalized;
+        const rowIds = isSplineView ? lookup.spline : lookup.flat;
         const rowSet = new Set(rowIds);
 
         let uniformRange: VerticalAxisRange | undefined;
@@ -87,6 +88,16 @@ export function updateViewVerticalAxes(
             max = 1;
           }
 
+          // Apply symmetric padding for spline views so plotted values occupy ~80% of the visual height.
+          if (isSplineView) {
+            const span = max - min;
+            if (Number.isFinite(span) && span !== 0) {
+              const pad = span * 0.125; // 12.5% per side → 25% total expansion
+              min -= pad;
+              max += pad;
+            }
+          }
+
           uniformRange = { min, max, visualOffset: 0 };
         }
 
@@ -95,6 +106,7 @@ export function updateViewVerticalAxes(
           verticalAxis,
           rowIds,
           rowSet,
+          isSplineView,
           uniformRange,
         };
       });
@@ -134,12 +146,24 @@ export function updateViewVerticalAxes(
             return;
           }
 
+          // Base per-row bounds with optional symmetric padding for spline views.
+          let min = row.verticalBounds.min;
+          let max = row.verticalBounds.max;
+          if (context.isSplineView) {
+            const span = max - min;
+            if (Number.isFinite(span) && span !== 0) {
+              const pad = span * 0.125; // 12.5% per side → 25% total expansion
+              min -= pad;
+              max += pad;
+            }
+          }
+
           const range =
             context.verticalAxis === VerticalAxis.Uniform && context.uniformRange
               ? { ...context.uniformRange }
               : {
-                  min: row.verticalBounds.min,
-                  max: row.verticalBounds.max,
+                  min,
+                  max,
                   visualOffset: 0,
                 };
 

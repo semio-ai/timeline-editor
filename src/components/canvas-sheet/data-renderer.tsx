@@ -5,7 +5,13 @@ import { MotionValue } from "motion";
 import { Instances } from "@react-three/drei";
 import { uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../hooks";
-import { InstancedFrameInfo, LayerBand, SourceRow, TrackRender } from "../../types";
+import {
+  InstancedFrameInfo,
+  LayerBand,
+  SourceRow,
+  TrackRender,
+  VerticalAxisRange,
+} from "../../types";
 import { AnimationData, AnimationActions } from "../../store-types";
 import { DEFAULT_COLOR, Z } from "../../constants";
 import { DataPoint } from "./data-point";
@@ -17,6 +23,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   sourceRow,
   frames,
   verticalBounds,
+  verticalAxisRange,
   theme = Theme.Light,
   trackRender = TrackRender.Key,
   height = 36,
@@ -24,6 +31,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   sourceRow: SourceRow;
   frames: InstancedFrameInfo[];
   verticalBounds: { min: number; max: number };
+  verticalAxisRange?: VerticalAxisRange;
   theme?: Theme.Light | Theme.Dark;
   trackRender?: TrackRender;
   height?: number;
@@ -59,6 +67,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
           trackRender={trackRender}
           height={height}
           verticalBounds={verticalBounds}
+          verticalAxisRange={verticalAxisRange}
         />
       ))}
     </Instances>
@@ -170,7 +179,7 @@ export const DataRenderer = memo(function DataRenderer({
     if (viewId && computedData.verticalAxisByView?.[viewId]) {
       return computedData.verticalAxisByView[viewId];
     }
-    return { ...computedData.verticalBounds, visualOffset: 0 };
+    return { ...computedData.verticalBounds, visualOffset: 0, visualScale: 1 };
   }, [computedData.verticalAxisByView, computedData.verticalBounds, viewId]);
 
   const effectiveVerticalBounds = useMemo(
@@ -211,6 +220,7 @@ export const DataRenderer = memo(function DataRenderer({
         sourceRow={sourceRow}
         frames={computedData.virtualFrames}
         verticalBounds={effectiveVerticalBounds}
+        verticalAxisRange={axisRange}
         theme={theme}
         trackRender={trackRender}
         height={height - 1}
@@ -228,6 +238,7 @@ export const DataRenderer = memo(function DataRenderer({
           sourceRow={sourceRow}
           isEmpty={segment.buffer}
           theme={theme}
+          verticalAxisRange={axisRange}
           onHoverChange={handleSegmentHoverChange}
           isRowHovered={isRowHovered}
           color={

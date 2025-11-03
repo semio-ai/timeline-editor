@@ -137,9 +137,9 @@ export const useDragGestures = ({
           onDrag2D({
             x: position,
             normalizedValueDelta,
-            alt: !!altKey,
-            shift: !!shiftKey,
-            meta: !!metaKey,
+            alt: Boolean(altKey),
+            shift: Boolean(shiftKey),
+            meta: Boolean(metaKey),
           });
         }
 

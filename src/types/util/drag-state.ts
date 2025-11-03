@@ -52,6 +52,11 @@ export interface DragStartInput {
   axis: DragAxis;
   markerId: string;
   rowId: string;
+  /**
+   * Optional view-specific value scale to use for vertical drags.
+   * When provided, this takes precedence over row-derived vertical bounds.
+   */
+  valueScale?: ValueScale;
 }
 
 export interface DragUpdateInput {

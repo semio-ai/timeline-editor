@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { RawValue, usePlayerStore, closestFrame } from "@semio/utils";
 import { Theme } from "@semio/ui";
 import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
-import { SourceRowData, TrackRender, LayerBand } from "../../types";
+import { SourceRowData, TrackRender, LayerBand, VerticalAxisRange } from "../../types";
 import {
   useAnimationStore,
   useColors,
@@ -29,6 +29,7 @@ export interface DataPointProps {
   theme?: Theme.Dark | Theme.Light;
   trackRender?: TrackRender;
   verticalBounds?: { min: number; max: number };
+  verticalAxisRange?: VerticalAxisRange;
 }
 
 // KNOWN ISSUE: After dragging markers, the data prop becomes stale
@@ -45,6 +46,7 @@ export const DataPoint = memo(function DataPoint({
   trackRender = TrackRender.Key,
   height = 36,
   verticalBounds = { min: -18, max: 18 },
+  verticalAxisRange,
 }: DataPointProps) {
   // Get fresh data from store
   const data = useAnimationStore(
@@ -71,7 +73,12 @@ export const DataPoint = memo(function DataPoint({
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
   const duration = useAnimationStore(useShallow((state) => state.duration));
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
-  const playing = usePlayerStore(useShallow((state) => state.player.running));
+  const { playing, playerDuration } = usePlayerStore(
+    useShallow((state) => ({
+      playing: state.player.running,
+      playerDuration: state.player.duration,
+    })),
+  );
   const selectionState = useAnimationStore(useShallow((state) => state.selectionState));
 
   const unselectedForegroundPoints = points.filter(
@@ -93,6 +100,8 @@ export const DataPoint = memo(function DataPoint({
   const justFinishedDragging = useRef<boolean>(false);
 
   const dragDidMoveRef = useRef<boolean>(false);
+  const dragStartPointerRef = useRef<number | null>(null);
+  const dragAnchorStampRef = useRef<number | null>(null);
 
   const selectedInstanceId = selectionState.instanceId;
   const selectedKeypoints = selectionState.keypoints;
@@ -115,14 +124,55 @@ export const DataPoint = memo(function DataPoint({
   const [isHovered, setIsHovered] = useState(false);
   const altPressed = useAltKeyPressed();
   const frameCount = useMemo(() => {
-    if (!duration || !framerate) return null;
-    return Math.floor(framerate * (duration / 1000));
-  }, [duration, framerate]);
+    const baseDuration = typeof playerDuration === "number" ? playerDuration : duration;
+    if (!baseDuration || !framerate) return null;
+    return Math.floor(framerate * (baseDuration / 1000));
+  }, [duration, framerate, playerDuration]);
 
+  const isSpline = trackRender === TrackRender.Spline;
+  const visualScaleFactor = verticalAxisRange?.visualScale ?? 1;
+  const visualOffset = verticalAxisRange?.visualOffset ?? 0;
+  const valueRange = useMemo(() => {
+    if (!isSpline) {
+      return { min: 0, max: 0, span: 0 };
+    }
+    const span = Math.max(height * visualScaleFactor, 1);
+    const halfSpan = span / 2;
+    return {
+      min: -halfSpan + visualOffset,
+      max: halfSpan + visualOffset,
+      span,
+    };
+  }, [height, isSpline, visualScaleFactor, visualOffset]);
+  const valueRangeMin = valueRange.min;
+  const valueRangeMax = valueRange.max;
+  const valueRangeSpan = valueRange.span;
   const linearScale = useMemo(() => {
-    const buffer = height * 0.4;
-    return createLinearScale([verticalBounds.min, verticalBounds.max], [-buffer, buffer]);
-  }, [height, verticalBounds]);
+    if (!isSpline) {
+      return () => 0;
+    }
+    const domainMin = verticalBounds.min;
+    const domainMax = verticalBounds.max;
+    const domainSpan = domainMax - domainMin;
+    if (!Number.isFinite(domainSpan) || domainSpan === 0) {
+      return () => valueRangeMin;
+    }
+    return createLinearScale([domainMin, domainMax], [valueRangeMin, valueRangeMax]);
+  }, [isSpline, verticalBounds.min, verticalBounds.max, valueRangeMin, valueRangeMax]);
+  const pixelRangeY = isSpline ? Math.max(valueRangeSpan, 1) : undefined;
+  const dragValueScale = useMemo(() => {
+    if (!isSpline) return undefined;
+    const domainMin = verticalBounds.min;
+    const domainMax = verticalBounds.max;
+    const domainSpan = domainMax - domainMin;
+    if (!Number.isFinite(domainSpan) || domainSpan === 0) {
+      return undefined;
+    }
+    return {
+      domain: [domainMin, domainMax] as [number, number],
+      clamp: true,
+    };
+  }, [isSpline, verticalBounds.min, verticalBounds.max]);
 
   const rawInitial: number = useMemo(() => {
     if (sourceCount !== 1) return 0;
@@ -141,7 +191,6 @@ export const DataPoint = memo(function DataPoint({
     damping: 30,
   });
   const dragState = useAnimationStore(useShallow((state) => state.dragState));
-  const isSpline = trackRender === TrackRender.Spline;
   const includesDraggedTrack = useMemo(() => {
     if (!dragState || !selectionState?.keypoints) return false;
     const set = new Set<string>();
@@ -291,6 +340,20 @@ export const DataPoint = memo(function DataPoint({
     }
   });
 
+  const computeDragStamp = useCallback(
+    (pointerX: number, modifierAlt: boolean) => {
+      const anchorStamp = dragAnchorStampRef.current ?? stamp;
+      const startPointer = dragStartPointerRef.current ?? pointerX;
+      const raw = Math.min(1, Math.max(0, anchorStamp + (pointerX - startPointer)));
+      if (modifierAlt || !frameCount || frameCount <= 0) {
+        return { raw, snapped: undefined };
+      }
+      const snapped = Math.min(1, Math.max(0, closestFrame(raw, frameCount)));
+      return { raw, snapped };
+    },
+    [frameCount, stamp],
+  );
+
   const dragHandlers = useDragGestures({
     disabled: playing,
     dragOptions: {
@@ -299,41 +362,48 @@ export const DataPoint = memo(function DataPoint({
       filterTaps: true,
       pointer: { touch: false },
     },
-    pixelRangeY: height * 0.8,
+    pixelRangeY,
     onDrag2D: ({ x, normalizedValueDelta, alt, shift, meta }) => {
+      if (!isSpline) return;
+      const resolved = computeDragStamp(x, alt || altPressed);
       updateDragAction({
-        pointer: { x, y: 0 },
+        pointer: { x: resolved.raw, y: 0 },
         normalizedValueDelta,
+        normalizedStamp: {
+          current: resolved.raw,
+          snapped: resolved.snapped,
+        },
         modifiers: { alt, shift, meta },
       });
     },
     onDragStart: (_position) => {
       // Drag gesture has begun (past threshold) — start drag here, not on pointer down
       dragDidMoveRef.current = false;
+      dragStartPointerRef.current = _position;
+      dragAnchorStampRef.current = stamp;
 
       if (!isSelected) {
         clickMarker(points, sourceRowId, markerId, false, false);
       }
 
       startDragAction({
-        origin: { x: _position, y: 0 },
+        origin: { x: stamp, y: 0 },
         axis: isSpline ? "both" : "horizontal",
         markerId,
         rowId: sourceRowId,
+        ...(dragValueScale ? { valueScale: dragValueScale } : {}),
       });
     },
     onDrag: (position, altKey) => {
       dragDidMoveRef.current = true;
 
-      const shouldSnap = !(altKey || altPressed);
-      const snappedPosition =
-        shouldSnap && frameCount && frameCount > 0 ? closestFrame(position, frameCount) : undefined;
+      const resolved = computeDragStamp(position, altKey || altPressed);
 
       updateDragAction({
-        pointer: { x: position, y: 0 },
+        pointer: { x: resolved.raw, y: 0 },
         normalizedStamp: {
-          current: position,
-          snapped: snappedPosition,
+          current: resolved.raw,
+          snapped: resolved.snapped,
         },
         modifiers: {
           alt: altKey || altPressed,
@@ -354,6 +424,8 @@ export const DataPoint = memo(function DataPoint({
       }, 60);
       commitDrag();
       dragDidMoveRef.current = false;
+      dragStartPointerRef.current = null;
+      dragAnchorStampRef.current = null;
     },
   });
 
@@ -361,20 +433,13 @@ export const DataPoint = memo(function DataPoint({
     (event: PointerGestureEvent) => {
       justFinishedDragging.current = false;
       dragDidMoveRef.current = false;
+      dragStartPointerRef.current = null;
+      dragAnchorStampRef.current = null;
 
       // Allow pointer down even when no foreground points are present; drag start is handled in onDragStart
       dragHandlers.onPointerDown?.(event);
     },
-    [
-      dragHandlers,
-      isSelected,
-      clickMarker,
-      combinedForegroundPoints,
-      sourceRowId,
-      markerId,
-      hasSelectedForegroundPoints,
-      hasUnselectedForegroundPoints,
-    ],
+    [dragHandlers],
   );
 
   const handlePointerMove = useCallback(
@@ -402,6 +467,8 @@ export const DataPoint = memo(function DataPoint({
       }
       dragDidMoveRef.current = false;
       cancelDrag();
+      dragStartPointerRef.current = null;
+      dragAnchorStampRef.current = null;
     },
     [dragHandlers, cancelDrag],
   );
@@ -457,6 +524,10 @@ export const DataPoint = memo(function DataPoint({
   const lineDepth = hasBackgroundPoints
     ? LAYER_BAND_OFFSETS[LayerBand.Background] + ROW_DEPTH_EPSILON * 0.1
     : foregroundZ + ROW_DEPTH_EPSILON * 0.4;
+  let resolvedYPosition = 0;
+  if (trackRender === TrackRender.Spline) {
+    resolvedYPosition = isDragActive ? immediateY : yPosition.get();
+  }
 
   return (
     <group
@@ -473,15 +544,7 @@ export const DataPoint = memo(function DataPoint({
         <>
           <Instance
             ref={instanceRefFg}
-            position={[
-              stamp,
-              trackRender === TrackRender.Spline
-                ? isDragActive
-                  ? immediateY
-                  : yPosition.get()
-                : 0,
-              fillDepth,
-            ]}
+            position={[stamp, resolvedYPosition, fillDepth]}
             rotation={[Math.PI / 2, 0, 0]}
             scale={[scaleX.get(), 1, 1]}
             // eslint-dissable-next-line
@@ -490,15 +553,7 @@ export const DataPoint = memo(function DataPoint({
           {/* Render a darker hexagon in the background */}
           <Instance
             ref={instanceRefBg}
-            position={[
-              stamp,
-              trackRender === TrackRender.Spline
-                ? isDragActive
-                  ? immediateY
-                  : yPosition.get()
-                : 0,
-              backplateDepth,
-            ]}
+            position={[stamp, resolvedYPosition, backplateDepth]}
             rotation={[Math.PI / 2, 0, 0]}
             scale={[scaleX.get() * bgScale.get(), 1, bgScale.get()]}
             // eslint-dissable-next-line

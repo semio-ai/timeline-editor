@@ -4,7 +4,13 @@ import { useThree } from "@react-three/fiber";
 import { useCursor } from "@react-three/drei";
 import { Theme } from "@semio/ui";
 import { MotionCubicBezierLine, MotionCubicBezierFill } from "../utilities";
-import { TrackRender, InstancedFrameInfo, SourceRow, LayerBand } from "../../types";
+import {
+  TrackRender,
+  InstancedFrameInfo,
+  SourceRow,
+  LayerBand,
+  VerticalAxisRange,
+} from "../../types";
 import { computeOklabMix, createLinearScale } from "../../functions";
 import { computeTransitionParams } from "../../functions/compute-transition-params";
 import { useTransitionCurve, useAnimationStore } from "../../hooks";
@@ -17,6 +23,7 @@ export interface TransitionSegmentProps {
   trackRender: TrackRender;
   height: number;
   verticalBounds?: { min: number; max: number };
+  verticalAxisRange?: VerticalAxisRange;
   isEmpty?: boolean;
   theme?: Theme.Light | Theme.Dark;
   color: string;
@@ -59,6 +66,7 @@ export const TransitionSegment = memo(function TransitionSegment({
   layer = LayerBand.Background,
   onHoverChange,
   isRowHovered = false,
+  verticalAxisRange,
 }: TransitionSegmentProps) {
   // Determine line thickness based on track render mode
   const lineWidth = useMemo(() => {
@@ -73,9 +81,33 @@ export const TransitionSegment = memo(function TransitionSegment({
   );
 
   const buffer = height * 0.4;
+  const isSpline = trackRender === TrackRender.Spline;
+  const visualScaleFactor = verticalAxisRange?.visualScale ?? 1;
+  const visualOffset = verticalAxisRange?.visualOffset ?? 0;
+  const splineRange = useMemo(() => {
+    if (!isSpline) {
+      return { min: 0, max: 0, span: 0 };
+    }
+    const span = Math.max(height * visualScaleFactor, 1);
+    const halfSpan = span / 2;
+    return {
+      min: -halfSpan + visualOffset,
+      max: halfSpan + visualOffset,
+      span,
+    };
+  }, [height, isSpline, visualOffset, visualScaleFactor]);
 
   const renderScaleY = useMemo(() => {
-    if (trackRender === TrackRender.Preview || trackRender === TrackRender.Spline) {
+    if (isSpline) {
+      const domainMin = verticalBounds.min;
+      const domainMax = verticalBounds.max;
+      const domainSpan = domainMax - domainMin;
+      if (!Number.isFinite(domainSpan) || domainSpan === 0) {
+        return () => splineRange.min;
+      }
+      return createLinearScale([domainMin, domainMax], [splineRange.min, splineRange.max]);
+    }
+    if (trackRender === TrackRender.Preview) {
       const min = verticalBounds.min;
       const max = verticalBounds.max;
       if (max === min) {
@@ -84,7 +116,15 @@ export const TransitionSegment = memo(function TransitionSegment({
       return createLinearScale([min, max], [-buffer, buffer]);
     }
     return createLinearScale([0, 1], [-buffer, buffer]);
-  }, [buffer, trackRender, verticalBounds.min, verticalBounds.max]);
+  }, [
+    buffer,
+    isSpline,
+    splineRange.max,
+    splineRange.min,
+    trackRender,
+    verticalBounds.max,
+    verticalBounds.min,
+  ]);
 
   // Calculate buffer color using theme-based mixing
   const bufferColor = useMemo(() => {

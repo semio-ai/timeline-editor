@@ -98,12 +98,14 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
   const anchorAttributePath = anchorPoint.attribute ? [anchorPoint.attribute] : undefined;
   const anchorValueOrigin = extractNumericComponent(keypoint.value, anchorAttributePath);
 
-  const valueScale: ValueScale | undefined = rowData.verticalBounds
-    ? {
-        domain: [rowData.verticalBounds.min, rowData.verticalBounds.max],
-        clamp: true,
-      }
-    : undefined;
+  const valueScale: ValueScale | undefined =
+    (input as any)?.valueScale ??
+    (rowData.verticalBounds
+      ? {
+          domain: [rowData.verticalBounds.min, rowData.verticalBounds.max],
+          clamp: true,
+        }
+      : undefined);
 
   const dragState: DragState = {
     axis: input.axis,

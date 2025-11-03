@@ -122,7 +122,12 @@ export function applyDragDeltas(
         dragState.anchor.valueScale?.domain !== undefined
           ? dragState.anchor.valueScale.domain[1] - dragState.anchor.valueScale.domain[0]
           : undefined;
-      const verticalRange = bounds ? bounds.max - bounds.min : domainRange;
+      let verticalRange: number | undefined;
+      if (typeof domainRange === "number") {
+        verticalRange = domainRange;
+      } else if (bounds) {
+        verticalRange = bounds.max - bounds.min;
+      }
       const appliedRange =
         typeof verticalRange === "number" && Number.isFinite(verticalRange) && verticalRange !== 0
           ? verticalRange
