@@ -15,9 +15,26 @@ type DragConfig = GestureConfig & {
 export interface DragGestureOptions {
   disabled?: boolean;
   dragOptions?: DragConfig;
+  /**
+   * Height in pixels of the visible value viewport for the active row.
+   * Required to compute normalizedValueDelta for vertical drags.
+   */
+  pixelRangeY?: number;
   onDragStart?: (position: number) => void;
   onDrag?: (position: number, altKey: boolean) => void;
   onDragEnd?: (position: number) => void;
+  /**
+   * Optional 2D drag callback for consumers that need vertical normalized deltas.
+   * x is the normalized timeline position [0,1].
+   * normalizedValueDelta is -(movementY / pixelRangeY).
+   */
+  onDrag2D?: (args: {
+    x: number;
+    normalizedValueDelta: number;
+    alt: boolean;
+    shift: boolean;
+    meta: boolean;
+  }) => void;
 }
 
 export interface DragGestureHandlers {
@@ -40,6 +57,8 @@ export const useDragGestures = ({
   onDragStart,
   onDrag,
   onDragEnd,
+  pixelRangeY,
+  onDrag2D,
 }: DragGestureOptions): DragGestureHandlers => {
   const { camera, size } = useThree();
 
@@ -92,7 +111,7 @@ export const useDragGestures = ({
         // Stop propagation to prevent conflicts
         event?.stopPropagation?.();
       },
-      onDrag: ({ movement: [mx], first, memo, event, altKey }) => {
+      onDrag: ({ movement: [mx, my], first, memo, event, altKey, shiftKey, metaKey }) => {
         if (disabled) return;
 
         // On first drag frame, store the initial position
@@ -106,7 +125,23 @@ export const useDragGestures = ({
         const initialPosition = memo as number;
         const position = getTimelinePositionFromMovement(mx, initialPosition);
 
+        // Horizontal callback (legacy)
         onDrag?.(position, altKey);
+
+        // Vertical normalized delta for 2D consumers
+        if (typeof onDrag2D === "function") {
+          const normalizedValueDelta =
+            typeof my === "number" && typeof pixelRangeY === "number" && pixelRangeY > 0
+              ? -(my / pixelRangeY)
+              : 0;
+          onDrag2D({
+            x: position,
+            normalizedValueDelta,
+            alt: !!altKey,
+            shift: !!shiftKey,
+            meta: !!metaKey,
+          });
+        }
 
         // Stop propagation
         event?.stopPropagation?.();

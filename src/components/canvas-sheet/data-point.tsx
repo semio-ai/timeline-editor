@@ -91,6 +91,7 @@ export const DataPoint = memo(function DataPoint({
 
   // Track if we just finished dragging to prevent immediate click
   const justFinishedDragging = useRef<boolean>(false);
+
   const dragDidMoveRef = useRef<boolean>(false);
 
   const selectedInstanceId = selectionState.instanceId;
@@ -139,6 +140,25 @@ export const DataPoint = memo(function DataPoint({
     stiffness: 300,
     damping: 30,
   });
+  const dragState = useAnimationStore(useShallow((state) => state.dragState));
+  const isSpline = trackRender === TrackRender.Spline;
+  const includesDraggedTrack = useMemo(() => {
+    if (!dragState || !selectionState?.keypoints) return false;
+    const set = new Set<string>();
+    (points ?? []).forEach((p) => set.add(p.trackId));
+    for (const id of set) {
+      if (selectionState.keypoints.has(id)) return true;
+    }
+    return false;
+  }, [dragState, selectionState, points]);
+  const isDragActive = isSpline && includesDraggedTrack;
+  const numericCurrent = useMemo(() => {
+    if (sourceCount !== 1) return 0;
+    if (points[0].type !== "number") return 0;
+    const point = points[0];
+    return typeof point.value === "number" ? point.value : 0;
+  }, [sourceCount, points]);
+  const immediateY = linearScale(numericCurrent);
 
   const gl = useThree((s) => s.gl);
   // When the _value_ or track render changes, update the spring
@@ -246,7 +266,9 @@ export const DataPoint = memo(function DataPoint({
   });
 
   // Set the y position of the instances based on the yPosition spring
+  // During drag, bypass spring updates so visuals respond immediately
   useMotionValueEvent(yPosition, "change", (y) => {
+    if (isDragActive) return;
     if (instanceRefFg.current && instanceRefBg.current) {
       instanceRefFg.current.position.y = y;
       instanceRefBg.current.position.y = y;
@@ -272,21 +294,30 @@ export const DataPoint = memo(function DataPoint({
   const dragHandlers = useDragGestures({
     disabled: playing,
     dragOptions: {
-      threshold: 3,
+      threshold: 8,
       preventScroll: true,
       filterTaps: true,
       pointer: { touch: false },
     },
-    onDragStart: (position) => {
+    pixelRangeY: height * 0.8,
+    onDrag2D: ({ x, normalizedValueDelta, alt, shift, meta }) => {
+      updateDragAction({
+        pointer: { x, y: 0 },
+        normalizedValueDelta,
+        modifiers: { alt, shift, meta },
+      });
+    },
+    onDragStart: (_position) => {
+      // Drag gesture has begun (past threshold) — start drag here, not on pointer down
       dragDidMoveRef.current = false;
 
       if (!isSelected) {
-        clickMarker(combinedForegroundPoints, sourceRowId, markerId, false, false);
+        clickMarker(points, sourceRowId, markerId, false, false);
       }
 
       startDragAction({
-        origin: { x: position, y: 0 },
-        axis: "horizontal",
+        origin: { x: _position, y: 0 },
+        axis: isSpline ? "both" : "horizontal",
         markerId,
         rowId: sourceRowId,
       });
@@ -320,8 +351,7 @@ export const DataPoint = memo(function DataPoint({
       justFinishedDragging.current = true;
       setTimeout(() => {
         justFinishedDragging.current = false;
-      }, 100);
-
+      }, 60);
       commitDrag();
       dragDidMoveRef.current = false;
     },
@@ -331,9 +361,20 @@ export const DataPoint = memo(function DataPoint({
     (event: PointerGestureEvent) => {
       justFinishedDragging.current = false;
       dragDidMoveRef.current = false;
+
+      // Allow pointer down even when no foreground points are present; drag start is handled in onDragStart
       dragHandlers.onPointerDown?.(event);
     },
-    [dragHandlers],
+    [
+      dragHandlers,
+      isSelected,
+      clickMarker,
+      combinedForegroundPoints,
+      sourceRowId,
+      markerId,
+      hasSelectedForegroundPoints,
+      hasUnselectedForegroundPoints,
+    ],
   );
 
   const handlePointerMove = useCallback(
@@ -357,7 +398,7 @@ export const DataPoint = memo(function DataPoint({
         justFinishedDragging.current = true;
         setTimeout(() => {
           justFinishedDragging.current = false;
-        }, 100);
+        }, 60);
       }
       dragDidMoveRef.current = false;
       cancelDrag();
@@ -382,28 +423,13 @@ export const DataPoint = memo(function DataPoint({
   const handleClick = useCallback(
     (event: PointerGestureEvent) => {
       event.stopPropagation();
-      if (playing || justFinishedDragging.current) return;
+      if (playing) return;
 
-      if (!hasSelectedForegroundPoints && !hasUnselectedForegroundPoints) return;
+      if (points.length === 0) return;
 
-      clickMarker(
-        combinedForegroundPoints,
-        sourceRowId,
-        markerId,
-        event.shiftKey,
-        event.metaKey || event.ctrlKey,
-      );
+      clickMarker(points, sourceRowId, markerId, event.shiftKey, event.metaKey || event.ctrlKey);
     },
-    [
-      playing,
-      justFinishedDragging,
-      hasSelectedForegroundPoints,
-      hasUnselectedForegroundPoints,
-      clickMarker,
-      combinedForegroundPoints,
-      sourceRowId,
-      markerId,
-    ],
+    [playing, points, clickMarker, sourceRowId, markerId],
   );
 
   const resolvedBand = useMemo(() => {
@@ -447,7 +473,15 @@ export const DataPoint = memo(function DataPoint({
         <>
           <Instance
             ref={instanceRefFg}
-            position={[stamp, trackRender === TrackRender.Spline ? yPosition.get() : 0, fillDepth]}
+            position={[
+              stamp,
+              trackRender === TrackRender.Spline
+                ? isDragActive
+                  ? immediateY
+                  : yPosition.get()
+                : 0,
+              fillDepth,
+            ]}
             rotation={[Math.PI / 2, 0, 0]}
             scale={[scaleX.get(), 1, 1]}
             // eslint-dissable-next-line
@@ -458,7 +492,11 @@ export const DataPoint = memo(function DataPoint({
             ref={instanceRefBg}
             position={[
               stamp,
-              trackRender === TrackRender.Spline ? yPosition.get() : 0,
+              trackRender === TrackRender.Spline
+                ? isDragActive
+                  ? immediateY
+                  : yPosition.get()
+                : 0,
               backplateDepth,
             ]}
             rotation={[Math.PI / 2, 0, 0]}

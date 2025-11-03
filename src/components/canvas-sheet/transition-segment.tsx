@@ -101,6 +101,20 @@ export const TransitionSegment = memo(function TransitionSegment({
   const cp1Y = useSpring(transitionCurve.cp1Y, { stiffness: 300, damping: 30 });
   const cp2Y = useSpring(transitionCurve.cp2Y, { stiffness: 300, damping: 30 });
 
+  // Disable y-springs while dragging a segment that includes any selected track
+  const selectionState = useAnimationStore((state) => state.selectionState);
+  const dragState = useAnimationStore((state) => state.dragState);
+  const includesDraggedTrack = useMemo(() => {
+    if (!dragState || !selectionState?.keypoints) return false;
+    const trackset = new Set<string>(sourceRow.data.map((t) => t.trackId));
+    return Array.from(selectionState.keypoints.keys()).some((id) => trackset.has(id));
+  }, [sourceRow.data, dragState, selectionState]);
+
+  const mvStartY = includesDraggedTrack ? transitionCurve.startY : startY;
+  const mvEndY = includesDraggedTrack ? transitionCurve.endY : endY;
+  const mvCp1Y = includesDraggedTrack ? transitionCurve.cp1Y : cp1Y;
+  const mvCp2Y = includesDraggedTrack ? transitionCurve.cp2Y : cp2Y;
+
   // Lookup the z-value based on the layerband
   const z = LAYER_TO_Z[layer];
   // Compute depths for fill and line to avoid z-fighting
@@ -155,19 +169,19 @@ export const TransitionSegment = memo(function TransitionSegment({
           <MotionCubicBezierFill
             start={{
               x: transitionCurve.startX,
-              y: startY,
+              y: mvStartY,
             }}
             end={{
               x: transitionCurve.endX,
-              y: endY,
+              y: mvEndY,
             }}
             controlPoint1={{
               x: transitionCurve.cp1X,
-              y: cp1Y,
+              y: mvCp1Y,
             }}
             controlPoint2={{
               x: transitionCurve.cp2X,
-              y: cp2Y,
+              y: mvCp2Y,
             }}
             baseline={-height * 0.4}
             baselineExtension={height * 0.1}
@@ -197,19 +211,19 @@ export const TransitionSegment = memo(function TransitionSegment({
         <MotionCubicBezierLine
           start={{
             x: transitionCurve.startX,
-            y: startY,
+            y: mvStartY,
           }}
           end={{
             x: transitionCurve.endX,
-            y: endY,
+            y: mvEndY,
           }}
           controlPoint1={{
             x: transitionCurve.cp1X,
-            y: cp1Y,
+            y: mvCp1Y,
           }}
           controlPoint2={{
             x: transitionCurve.cp2X,
-            y: cp2Y,
+            y: mvCp2Y,
           }}
           color={lineDisplayColor}
           lineWidth={lineWidth + (isRowHovered ? 0.5 : 0)}
@@ -224,19 +238,19 @@ export const TransitionSegment = memo(function TransitionSegment({
         <MotionCubicBezierLine
           start={{
             x: transitionCurve.startX,
-            y: startY,
+            y: mvStartY,
           }}
           end={{
             x: transitionCurve.endX,
-            y: endY,
+            y: mvEndY,
           }}
           controlPoint1={{
             x: transitionCurve.cp1X,
-            y: cp1Y,
+            y: mvCp1Y,
           }}
           controlPoint2={{
             x: transitionCurve.cp2X,
-            y: cp2Y,
+            y: mvCp2Y,
           }}
           color={DEFAULT_COLOR}
           lineWidth={8}
