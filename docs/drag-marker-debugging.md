@@ -9,3 +9,17 @@
 - Introduced `mapWorldToTimeline` that converts world-space pointer positions (which include camera padding) into true timeline coordinates via `getDataViewportFromFrustum`.
 - Anchor/start refs now store timeline-space values; both horizontal and vertical updates use this mapping before snapping.
 - Pending verification: expects marker snapping to align with playhead cart across zoom levels.
+
+### 2025-02-16 – Vertical regression after commit
+- While dragging, the preview Y uses the padded spline axis (`verticalAxisByView`), because `DataPoint` passes those bounds into `startDrag` and `applyDragDeltas`.
+- `commitDrag` meanwhile rebuilds marker contexts from `computedRowData.verticalBounds`, which are the unpadded values. It substitutes these bounds when computing the persisted value delta.
+- The mismatch means the final value is scaled back toward the pre-padding domain, so the curve snaps inward as soon as the drag commits.
+- Fix should make `commitDrag` reference the same padded vertical range (or skip the context override) so the committed value matches the previewed drag position.
+
+### 2025-02-16 – Commit uses padded axis
+- Updated `commitDrag` to give precedence to the anchor’s `valueScale` domain when determining the vertical range and clamp bounds.
+- This keeps the normalization consistent with `startDrag`/`updateDrag`, so the committed value remains exactly where the preview left it.
+
+### 2025-02-16 – Commit reuses preview math
+- Refactored `commitDrag` to call `applyDragDeltas` for each selected keypoint, matching the preview logic byte-for-byte.
+- Guarantees the persisted results respect the same snapping and clamping applied during drag visualization.
