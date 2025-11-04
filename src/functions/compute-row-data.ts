@@ -10,6 +10,7 @@ import {
   Animation,
   Namespace,
 } from "../types";
+import { TYPE_FIELDS } from "../constants";
 import { applyDragDeltas } from "./apply-drag-deltas";
 import { computeViolationSet } from "./compute-violation-set";
 import { computeTransitionSegments } from "./compute-transition-segments";
@@ -84,6 +85,51 @@ export function computeRowData(
         )
       : undefined;
 
+  const constraintBoundsByTrack = new Map<string, { min: number; max: number } | undefined>();
+
+  const resolveConstraintBounds = (
+    animatable: AnimatableValue | undefined,
+    attributePath?: string[],
+  ): { min: number; max: number } | undefined => {
+    if (!animatable) return undefined;
+    const constraints = (animatable as any)?.constraints;
+
+    if (animatable.type === "number") {
+      const min = typeof constraints?.min === "number" ? constraints.min : undefined;
+      const max = typeof constraints?.max === "number" ? constraints.max : undefined;
+      return min !== undefined && max !== undefined ? { min, max } : undefined;
+    }
+
+    if (!attributePath || attributePath.length === 0) {
+      return undefined;
+    }
+
+    const attribute = attributePath[attributePath.length - 1];
+    const index = TYPE_FIELDS[animatable.type]?.indexOf(attribute) ?? -1;
+    if (index === -1) {
+      return undefined;
+    }
+
+    const constraintMin = constraints?.min?.[index];
+    const constraintMax = constraints?.max?.[index];
+    return typeof constraintMin === "number" && typeof constraintMax === "number"
+      ? { min: constraintMin, max: constraintMax }
+      : undefined;
+  };
+
+  trackIds.forEach((trackId) => {
+    const track = relevantTracks[trackId];
+    if (!track) {
+      constraintBoundsByTrack.set(trackId, undefined);
+      return;
+    }
+
+    const animatable = animatables[track.animatableId];
+    const attributePath = attributePathsByTrack.get(trackId);
+    const bounds = resolveConstraintBounds(animatable, attributePath);
+    constraintBoundsByTrack.set(trackId, bounds);
+  });
+
   const virtualFrames = computeFrames(relevantTracks, sourceRow, {
     draggingKeypointIds: keypointSelection,
     transformKeypoint: (keypoint, { trackId, source }) =>
@@ -91,7 +137,7 @@ export function computeRowData(
         dragState,
         selection: selectionState,
         trackId,
-        bounds: boundsForRow,
+        bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
         attributePath: source.attribute ? [source.attribute] : undefined,
       }),
   });
@@ -124,7 +170,7 @@ export function computeRowData(
             dragState,
             selection: selectionState,
             trackId,
-            bounds: boundsForRow,
+            bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
             attributePath: attributePathsByTrack.get(trackId),
           }),
         );

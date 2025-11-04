@@ -23,3 +23,7 @@
 ### 2025-02-16 – Commit reuses preview math
 - Refactored `commitDrag` to call `applyDragDeltas` for each selected keypoint, matching the preview logic byte-for-byte.
 - Guarantees the persisted results respect the same snapping and clamping applied during drag visualization.
+
+### 2025-02-16 – Preview violations use constraint bounds
+- Adjusted the row computation so previewed frames and violation checks use per-track constraint bounds (e.g., opacity 0–1) instead of the broader, padded row range.
+- Prevents temporary violation flashes when dragging beyond the visual clamp.
