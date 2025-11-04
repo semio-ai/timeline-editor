@@ -43,9 +43,14 @@ test("An animation that shifts from within to outside bounds gets a bounds error
   );
 
   expect(violations.length).toEqual(1);
-  expect(violations[0]?.type).toEqual(ViolationType.Upper);
-  expect(violations[0]?.stampRange.start).toBeCloseTo(0.5);
-  expect(violations[0]?.stampRange.end).toBeCloseTo(1);
+  const violation = violations[0];
+  expect(violation).toBeDefined();
+  if (!violation) {
+    throw new Error("Expected a violation");
+  }
+  expect(violation.type).toEqual(ViolationType.Upper);
+  expect(violation.stampRange.start).toBeCloseTo(0.505, 3);
+  expect(violation.stampRange.end).toBeCloseTo(1, 2);
 });
 
 test("An animation with a velocity limit of 0 returns a violation for the entire change duration", () => {

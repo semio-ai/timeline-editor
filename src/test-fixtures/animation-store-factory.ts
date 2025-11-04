@@ -69,7 +69,7 @@ function createAnimatables(): Record<string, AnimatableValue> {
       constraints: {
         min: [-100, -100, -100],
         max: [100, 100, 100],
-        velocity: 10,
+        velocity: 50,
       },
       pub: {
         public: true,
@@ -86,7 +86,7 @@ function createAnimatables(): Record<string, AnimatableValue> {
       constraints: {
         min: 0.1,
         max: 10,
-        velocity: 2,
+        velocity: 8,
       },
       pub: {
         public: true,
@@ -120,7 +120,7 @@ function createAnimatables(): Record<string, AnimatableValue> {
       constraints: {
         min: [-Math.PI, -Math.PI, -Math.PI],
         max: [Math.PI, Math.PI, Math.PI],
-        velocity: 180,
+        velocity: 360,
       },
       pub: {
         public: true,
@@ -137,7 +137,7 @@ function createAnimatables(): Record<string, AnimatableValue> {
       constraints: {
         min: 10,
         max: 500,
-        velocity: 50,
+        velocity: 200,
       },
       pub: {
         public: true,

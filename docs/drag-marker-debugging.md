@@ -41,3 +41,30 @@
 1. Extend `useTransitionCurve` (or a sibling hook) to return both the motion values and raw numbers for the control points so we can bypass springs when needed.
 2. In `TransitionSegment`, detect `includesDraggedTrack` and hand the raw numbers to a lightweight bezier renderer that sets positions synchronously, similar to the marker (`packages/animation/src/components/canvas-sheet/transition-segment.tsx:147-205`).
 3. Keep the existing motion-values path for idle playback so we preserve spring smoothing outside of active drags.
+
+### 2025-02-17 – Row interpolation pipeline still assumes ease curves
+- **Status**: The store-driven computation helpers (`packages/animation/src/functions/compute-row-data.ts`, `compute-track-interpolator.ts`, `compute-track-violations.ts`) still rebuild track interpolators with a global `easeInOutCubic` even though tracks now store per-keypoint cubic control points (`packages/animation/src/types/data/keypoint.ts`). Rendering already respects those controls via `compute-transition-params.ts`, so UI curves are accurate but the derived store data (virtual frames, violation previews) diverges.
+- **Store vs. render**: `computeRowData` runs inside the subscription pipeline (`packages/animation/src/subscriptions/update-computed-row-data.ts`, wired via `initAnimationSubscriptions` in `packages/animation/src/store.ts`), so the proposed changes live entirely in the derived-data layer. React components that render curves already consume the correct handles and will only benefit from the store handing them consistent data—no renderer changes expected.
+- **Proposal**: Rework `computeTrackInterpolator` so each adjacent keypoint pair produces a cubic Bézier segment derived from the keypoint `out`/`in` handles. Use world-space timestamps (current logic already normalizes stamps via `computeWorldStamp`). The interpolator should piecewise-evaluate these cubic splines rather than sampling an ease curve. Numbers can evaluate directly; vector/color values can reuse component-wise Bezier evaluation (Pomax’s `bezierjs` repo documents the basis functions and derivative math).
+- **Reference logic**: Rendering already constructs `cp1`/`cp2` by blending the normalized handles into timeline space (`packages/animation/src/functions/compute-transition-params.ts:70-123`). We can mirror that math in the store’s interpolation pipeline so the data backing computed rows matches the canvas output, without changing the React rendering code.
+- **Post-change note**: The updated interpolator now translates normalized sample times into instance world time before solving segment parameters (`packages/animation/src/functions/compute-track-interpolator.ts:138-182`). Without that conversion the preview violation pass (which samples in normalized space) diverged from the store’s post-commit results, so this step keeps drag-preview violations and the committed state perfectly aligned.
+
+#### Proposed implementation sketch
+1. Precompute a sorted segment list of `{ start, end, cp1, cp2 }`, where control points convert from normalized handle coords into global stamps and values (for numeric tracks) or per-component values (for complex types). This can live beside `computeTransitionParams` or share a helper.
+2. Replace the current `piecewise(easeInOutCubic, …)` call with a segment-aware interpreter:
+   - Find the segment covering `time`; normalize `u = (time - start.stamp)/(end.stamp - start.stamp)`.
+   - Evaluate the cubic using Bernstein polynomials. For multi-dimensional values, evaluate each component.
+   - Fall back to clamped start/end values outside the segment span.
+3. Cache per-track segment data so violation previews reuse it without recomputing control points for each sample.
+
+#### Violation/velocity checks without dense baking
+- Current violations probe the interpolator every ~10 ms (`compute-track-violations.ts:34-83`), which effectively “bakes” the spline. Once segments are true cubics we can improve this by solving each analytic constraint per segment:
+  1. For min/max: evaluate the cubic’s component extrema by solving the derivative quadratic; test the resulting parameter values plus endpoints.
+  2. For velocity: compute the first derivative analytically (see `compute-derivative-interpolator.ts` and the Bézier derivative formula) and compare magnitudes at extrema instead of finite differences.
+  3. For monotonic bounds (e.g., when velocity constraints only apply on numeric tracks), the derivative magnitude can be obtained directly from the cubic’s derivative polynomial, avoiding time slicing.
+- These refinements align with the techniques described in Pomax’s Bézier primer (`https://github.com/Pomax/bezierjs`), which provides reference implementations for extrema finding and derivative evaluation.
+
+#### Follow-up considerations
+- Update any downstream consumers (e.g., `compute-filled-interp-gaps`) that might assume linear/ease spacing.
+- Ensure drag previews reuse the same Bézier math so the virtual frames seen in the UI match persisted violations.
+- Store updates (subscriptions in `packages/animation/src/store.ts`, e.g., `initAnimationSubscriptions`) will automatically pick up the refined interpolator once the helper functions change; components consuming store selectors should not require modifications unless they relied on the old ease-only behavior.
