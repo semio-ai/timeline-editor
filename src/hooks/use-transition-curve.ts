@@ -1,6 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { MotionValue, useMotionValue } from "motion/react";
 import { TransitionParams } from "../functions/compute-transition-params";
+
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /**
  * Hook that generates motion values for a transition curve in normalized space (0-1).
@@ -35,7 +37,7 @@ export function useTransitionCurve(
   const cp2X = useMotionValue(transitionParams.cp2.x);
   const cp2Y = useMotionValue(yScale(transitionParams.cp2.y));
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     // Update control points based on transition parameters
     cp1X.set(transitionParams.cp1.x);
     cp1Y.set(yScale(transitionParams.cp1.y));
