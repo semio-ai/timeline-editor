@@ -127,6 +127,7 @@ const HudCamera = memo(function HudCamera({
   hudHeight?: number;
 }) {
   const { size } = useMotionCanvas();
+  const viewport = usePlayerStore(useShallow((state) => state.player.viewport as [number, number]));
 
   const camera: THREE.OrthographicCamera & { manual?: boolean } = useMemo(() => {
     const height = size.height.get();
@@ -153,9 +154,8 @@ const HudCamera = memo(function HudCamera({
   });
 
   useMotionValueEvent(size.width, "change", (width) => {
-    const viewport = usePlayerStore.getState().player.viewport;
     if (width > 0) {
-      const dataViewport: [number, number] = fixedCamera ? [0, 1] : (viewport as [number, number]);
+      const dataViewport: [number, number] = fixedCamera ? [0, 1] : viewport;
       const { left, right } = calculatePaddedFrustum(dataViewport, width, fixedCamera);
       camera.left = left;
       camera.right = right;
@@ -165,11 +165,9 @@ const HudCamera = memo(function HudCamera({
 
   usePlayerSubscription(
     (state) => state.player.viewport,
-    (viewport) => {
+    (vp: [number, number]) => {
       if (size.width.get() > 0) {
-        const dataViewport: [number, number] = fixedCamera
-          ? [0, 1]
-          : (viewport as [number, number]);
+        const dataViewport: [number, number] = fixedCamera ? [0, 1] : (vp as [number, number]);
         const { left, right } = calculatePaddedFrustum(dataViewport, size.width.get(), fixedCamera);
         camera.left = left;
         camera.right = right;

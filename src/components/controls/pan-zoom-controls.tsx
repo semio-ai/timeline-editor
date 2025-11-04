@@ -2,6 +2,7 @@ import { useEffect, useRef, forwardRef, memo } from "react";
 import { useThree } from "@react-three/fiber";
 import { OrthographicCamera, Vector2 } from "three";
 import { usePlayerStore } from "@semio/utils";
+import { useShallow } from "zustand/shallow";
 import { MotionValue } from "motion";
 import { useGesture } from "@use-gesture/react";
 import {
@@ -68,6 +69,15 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
   ) => {
     const { camera, gl, size } = useThree();
     const initialCameraWidth = useRef(1.0);
+    const viewport = usePlayerStore(
+      useShallow((state) => state.player.viewport as [number, number]),
+    );
+    const updatePlayerViewport = usePlayerStore((state) => state.updatePlayerViewport);
+    const viewportRef = useRef<[number, number]>(viewport);
+
+    useEffect(() => {
+      viewportRef.current = viewport;
+    }, [viewport]);
 
     // Store current settings in refs for gesture handlers
     const settingsRef = useRef({
@@ -122,27 +132,27 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
         return;
       }
 
-      // Store reference for viewport updates
+      const applyViewport = (vp: [number, number]) => {
+        const { left, right } = calculatePaddedFrustum(vp, size.width, false);
+        camera.left = left;
+        camera.right = right;
+        camera.updateProjectionMatrix();
+        initialCameraWidth.current = vp[1] - vp[0];
+      };
 
       // Subscribe to player store viewport changes
       const unsubscribe = usePlayerStore.subscribe(
         (state) => state.player.viewport,
-        (viewport) => {
+        (vp) => {
           if (size.width > 0) {
-            const { left, right } = calculatePaddedFrustum(viewport, size.width, false);
-            camera.left = left;
-            camera.right = right;
-            camera.updateProjectionMatrix();
+            viewportRef.current = vp;
+            applyViewport(vp);
           }
         },
       );
 
       // Initialize camera bounds
-      const currentViewport = usePlayerStore.getState().player.viewport;
-      const { left, right } = calculatePaddedFrustum(currentViewport, size.width, false);
-      camera.left = left;
-      camera.right = right;
-      camera.updateProjectionMatrix();
+      applyViewport(viewportRef.current);
 
       return unsubscribe;
     }, [camera, size.width]);
@@ -193,7 +203,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       camera.updateProjectionMatrix();
 
       // Notify player store
-      usePlayerStore.getState().updatePlayerViewport(newDataLeft, newDataRight);
+      updatePlayerViewport(newDataLeft, newDataRight);
     };
 
     // Zoom camera function
@@ -259,7 +269,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       camera.updateProjectionMatrix();
 
       // Notify player store
-      usePlayerStore.getState().updatePlayerViewport(newDataLeft, newDataRight);
+      updatePlayerViewport(newDataLeft, newDataRight);
     };
 
     // Handle vertical scrolling in track region

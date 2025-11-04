@@ -3,6 +3,7 @@ import { useGesture } from "@use-gesture/react";
 import { useThree } from "@react-three/fiber";
 import { clamp } from "lodash";
 import * as THREE from "three";
+import { getDataViewportFromFrustum } from "../viewport-utils";
 
 type GestureConfig = Parameters<typeof useGesture>[1];
 type DragConfig = GestureConfig & {
@@ -46,7 +47,7 @@ export interface DragGestureHandlers {
 
 /**
  * Hook for handling drag gestures in Three.js coordinate space using @use-gesture/react.
- * Converts screen coordinates to normalized timeline position (0-1).
+ * Converts screen coordinates to normalized timeline position (0-1) clamped to the current data viewport.
  *
  * This implementation uses @use-gesture/react which provides better drag handling that
  * continues even when the cursor moves off the element, preventing interruptions.
@@ -67,12 +68,20 @@ export const useDragGestures = ({
     (movement: number, initial: number): number => {
       // Convert screen movement to normalized coordinate space
       const orthoCam = camera as THREE.OrthographicCamera;
-      const worldWidth = orthoCam.right - orthoCam.left;
-      const deltaX = (movement / size.width) * worldWidth;
+      const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
+        { left: orthoCam.left, right: orthoCam.right },
+        Math.max(1, size.width),
+      );
+      const dataWidth = dataRight - dataLeft;
+      if (!Number.isFinite(dataWidth) || dataWidth === 0) {
+        return clamp(initial, 0, 1);
+      }
+      const deltaX = (movement / size.width) * dataWidth;
 
-      // Calculate new position
+      // Calculate new position (clamped to visible data range and absolute bounds)
       const newPosition = initial + deltaX;
-      return clamp(newPosition, 0, 1);
+      const clampedToViewport = Math.min(dataRight, Math.max(dataLeft, newPosition));
+      return clamp(clampedToViewport, 0, 1);
     },
     [camera, size.width],
   );
@@ -82,7 +91,14 @@ export const useDragGestures = ({
     (event: any): number => {
       // Try to use intersection point if available (from Three.js event)
       if (event?.point) {
-        return clamp(event.point.x as number, 0, 1);
+        const worldX = event.point.x as number;
+        const orthoCamera = camera as THREE.OrthographicCamera;
+        const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
+          { left: orthoCamera.left, right: orthoCamera.right },
+          Math.max(1, size.width),
+        );
+        const clamped = Math.min(dataRight, Math.max(dataLeft, worldX));
+        return clamp(clamped, 0, 1);
       }
 
       // Fallback: convert screen position to normalized coordinate
@@ -92,8 +108,14 @@ export const useDragGestures = ({
       // For orthographic camera, map screen space to world space
       const orthoCamera = camera as THREE.OrthographicCamera;
       const worldX = orthoCamera.left + normalizedX * (orthoCamera.right - orthoCamera.left);
+      const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
+        { left: orthoCamera.left, right: orthoCamera.right },
+        Math.max(1, size.width),
+      );
 
-      return clamp(worldX, 0, 1);
+      const clamped = Math.min(dataRight, Math.max(dataLeft, worldX));
+
+      return clamp(clamped, 0, 1);
     },
     [camera, size.width],
   );

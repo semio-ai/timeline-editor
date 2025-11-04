@@ -85,6 +85,14 @@ export const BoundsCart = memo(function BoundsCart({
   // Get canvas element for cursor container
   const { gl } = useThree();
 
+  const { updateBounds, playing, playerDuration } = usePlayerStore(
+    useShallow((state) => ({
+      updateBounds: state.updatePlayerBounds,
+      playing: state.player.running,
+      playerDuration: state.player.duration,
+    })),
+  );
+
   // Get bounds springs
   const leftSpring = useMotionValue<number>(usePlayerStore.getState().player.bounds[0]);
   const rightSpring = useMotionValue<number>(usePlayerStore.getState().player.bounds[1]);
@@ -102,14 +110,6 @@ export const BoundsCart = memo(function BoundsCart({
   const invariantScale = useInvariantScale();
 
   // Player and animation store
-  const { updateBounds, playing, playerDuration } = usePlayerStore(
-    useShallow((state) => ({
-      updateBounds: state.updatePlayerBounds,
-      playing: state.player.running,
-      playerDuration: state.player.duration,
-    })),
-  );
-
   const { framerate, addPreview, removePreview, previewLeft, previewRight } = useAnimationStore(
     useShallow((state: AnimationData & AnimationActions) => ({
       framerate: state.framerate as number,

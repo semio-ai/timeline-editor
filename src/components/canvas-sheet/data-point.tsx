@@ -16,7 +16,6 @@ import {
 } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
 import { ROW_DEPTH_EPSILON, LAYER_BAND_OFFSETS, LAYER_BAND_PRIORITY } from "../../constants";
-import { getDataViewportFromFrustum } from "../../viewport-utils";
 
 const BG_MULTIPLIER = 1.2;
 type PointerGestureEvent = ThreeEvent<MouseEvent>;
@@ -210,7 +209,6 @@ export const DataPoint = memo(function DataPoint({
   const immediateY = linearScale(numericCurrent);
 
   const gl = useThree((s) => s.gl);
-  const { camera, size } = useThree();
   // When the _value_ or track render changes, update the spring
   useEffect(() => {
     if (trackRender === TrackRender.Spline) {
@@ -341,34 +339,10 @@ export const DataPoint = memo(function DataPoint({
     }
   });
 
-  const mapWorldToTimeline = useCallback(
-    (worldX: number): number => {
-      const ortho = camera as THREE.OrthographicCamera;
-      const frustumLeft = ortho.left;
-      const frustumRight = ortho.right;
-      const frustumWidth = frustumRight - frustumLeft;
-      if (!Number.isFinite(frustumWidth) || frustumWidth === 0) {
-        return Math.min(1, Math.max(0, worldX));
-      }
-      const normalizedFrustum = (worldX - frustumLeft) / frustumWidth;
-      const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
-        { left: frustumLeft, right: frustumRight },
-        Math.max(1, size.width),
-      );
-      const dataWidth = dataRight - dataLeft;
-      if (!Number.isFinite(dataWidth) || dataWidth === 0) {
-        return Math.min(1, Math.max(0, normalizedFrustum));
-      }
-      const dataX = dataLeft + normalizedFrustum * dataWidth;
-      return Math.min(1, Math.max(0, dataX));
-    },
-    [camera, size.width],
-  );
-
   const computeDragStamp = useCallback(
     (pointerX: number, modifierAlt: boolean) => {
-      const timelinePointer = mapWorldToTimeline(pointerX);
-      const anchorTimeline = dragAnchorStampRef.current ?? mapWorldToTimeline(stamp);
+      const timelinePointer = Math.min(1, Math.max(0, pointerX));
+      const anchorTimeline = dragAnchorStampRef.current ?? stamp;
       const startPointer = dragStartPointerRef.current ?? timelinePointer;
       const raw = Math.min(1, Math.max(0, anchorTimeline + (timelinePointer - startPointer)));
       if (modifierAlt || !frameCount || frameCount <= 0) {
@@ -377,13 +351,12 @@ export const DataPoint = memo(function DataPoint({
       const snapped = Math.min(1, Math.max(0, closestFrame(raw, frameCount)));
       return { raw, snapped };
     },
-    [frameCount, mapWorldToTimeline, stamp],
+    [frameCount, stamp],
   );
 
   const dragHandlers = useDragGestures({
     disabled: playing,
     dragOptions: {
-      threshold: 8,
       preventScroll: true,
       filterTaps: true,
       pointer: { touch: false },
@@ -403,11 +376,11 @@ export const DataPoint = memo(function DataPoint({
       });
     },
     onDragStart: (_position) => {
-      // Drag gesture has begun (past threshold) — start drag here, not on pointer down
+      // Drag gesture has begun — start drag here, not on pointer down
       dragDidMoveRef.current = false;
-      const clampedStart = mapWorldToTimeline(_position);
+      const clampedStart = Math.min(1, Math.max(0, _position));
       dragStartPointerRef.current = clampedStart;
-      dragAnchorStampRef.current = mapWorldToTimeline(stamp);
+      dragAnchorStampRef.current = stamp;
       if (!isSelected) {
         clickMarker(points, sourceRowId, markerId, false, false);
       }
