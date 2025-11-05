@@ -13,6 +13,8 @@ import {
   usePlayerSubscription,
   useTrackAnimatableLookup,
 } from "../hooks";
+import { resolveComputedRowData } from "../utils/resolve-row-data";
+import { resolveTrackInterpolators } from "../utils/resolve-track-interpolator";
 import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
 import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
 import { InstancedFrameInfo } from "../types";
@@ -32,8 +34,8 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       source: state.instancedTrackSources.global,
-      computedRowData: state.computedRowData?.global,
-      interpolators: state.trackInterpolators,
+      computedRowData: resolveComputedRowData(state, "global"),
+      interpolators: resolveTrackInterpolators(state),
       viewData: state.editorViews[viewId],
       namespaces: state.namespaces,
       animations: state.animations,

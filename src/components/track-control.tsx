@@ -9,6 +9,7 @@ import { useAnimationStore, usePlayerSubscription } from "../hooks";
 import { computeNextTime, computePreviousTime } from "../functions";
 import { type AnimationData, type AnimationActions } from "../store-types";
 import { SemanticTime, SourceRow } from "../types";
+import { resolveComputedRowData } from "../utils/resolve-row-data";
 
 export interface TrackControlProps {
   color?: string;
@@ -26,7 +27,7 @@ export function TrackControl({
   disabled,
 }: TrackControlProps) {
   const computedData = useAnimationStore(
-    useShallow((state: AnimationData) => state.computedRowData[source.id]),
+    useShallow((state: AnimationData) => resolveComputedRowData(state, source.id)),
   );
 
   const bounds = usePlayerStore(useShallow((state) => state.player.bounds));

@@ -14,6 +14,7 @@ import {
 } from "../../types";
 import { AnimationData, AnimationActions } from "../../store-types";
 import { DEFAULT_COLOR, Z } from "../../constants";
+import { resolveComputedRowData } from "../../utils/resolve-row-data";
 import { DataPoint } from "./data-point";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
@@ -113,7 +114,7 @@ export const DataRenderer = memo(function DataRenderer({
     useShallow((state: StoreState) => state.instancedTrackSources[sourceRowId]),
   );
   const computedData = useAnimationStore(
-    useShallow((state: StoreState) => state.computedRowData[sourceRowId]),
+    useShallow((state: StoreState) => resolveComputedRowData(state, sourceRowId)),
   );
   const selectionState = useAnimationStore(useShallow((state: StoreState) => state.selectionState));
   const focusSelectionInstance = useAnimationStore(
@@ -176,11 +177,14 @@ export const DataRenderer = memo(function DataRenderer({
   }, [sourceRow]);
 
   const axisRange = useMemo(() => {
+    if (!computedData) {
+      return { min: -height / 2, max: height / 2, visualOffset: 0, visualScale: 1 };
+    }
     if (viewId && computedData.verticalAxisByView?.[viewId]) {
       return computedData.verticalAxisByView[viewId];
     }
     return { ...computedData.verticalBounds, visualOffset: 0, visualScale: 1 };
-  }, [computedData.verticalAxisByView, computedData.verticalBounds, viewId]);
+  }, [computedData, viewId, height]);
 
   const effectiveVerticalBounds = useMemo(
     () => ({ min: axisRange.min, max: axisRange.max }),

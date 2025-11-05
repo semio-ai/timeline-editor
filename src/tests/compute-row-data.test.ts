@@ -7,9 +7,11 @@ import {
   Violation,
   ViolationType,
   ViolationSet,
+  TrackKey,
 } from "../types";
 import { computeRowData } from "../functions/compute-row-data";
 import { createEmptySelectionState } from "../functions/selection-state-manager";
+import { buildTrackKey } from "../utils/track-key";
 
 const TRACK_ID = "position";
 const ANIMATABLE_ID = "position";
@@ -59,10 +61,12 @@ const animatables: Record<string, AnimatableValue> = {
   },
 };
 
-const violations: Record<string, Violation[]> = {
-  [TRACK_ID]: [
+const violations: Partial<Record<TrackKey, Violation[]>> = {
+  [buildTrackKey(NAMESPACE_ALPHA, INSTANCE_ALPHA, TRACK_ID)]: [
     makeViolation("alpha-upper", NAMESPACE_ALPHA, INSTANCE_ALPHA, { start: 0.1, end: 0.4 }),
     makeViolation("alpha-lower", NAMESPACE_ALPHA, INSTANCE_ALPHA, { start: 0.3, end: 0.6 }),
+  ],
+  [buildTrackKey(NAMESPACE_BETA, INSTANCE_BETA, TRACK_ID)]: [
     makeViolation("beta-upper", NAMESPACE_BETA, INSTANCE_BETA, { start: 0.2, end: 0.5 }),
     makeViolation("beta-lower", NAMESPACE_BETA, INSTANCE_BETA, { start: 0.45, end: 0.8 }),
   ],
@@ -88,9 +92,7 @@ function makeRow(namespaceId: string, instanceId: string): SourceRow {
 }
 
 function collectSegmentViolationIds(violationSet: ViolationSet): string[] {
-  return Array.from(
-    new Set(violationSet.segments.flatMap((segment) => segment.violations)),
-  ).sort();
+  return Array.from(new Set(violationSet.segments.flatMap((segment) => segment.violations))).sort();
 }
 
 describe("computeRowData violation scoping", () => {
@@ -99,7 +101,14 @@ describe("computeRowData violation scoping", () => {
     const betaRow = makeRow(NAMESPACE_BETA, INSTANCE_BETA);
 
     const selection = createEmptySelectionState();
-    const alphaData = computeRowData(alphaRow, tracks, violations, animatables, undefined, selection);
+    const alphaData = computeRowData(
+      alphaRow,
+      tracks,
+      violations,
+      animatables,
+      undefined,
+      selection,
+    );
     const betaData = computeRowData(betaRow, tracks, violations, animatables, undefined, selection);
 
     expect(Object.keys(alphaData.violationSet.violations).sort()).toEqual([
@@ -115,9 +124,6 @@ describe("computeRowData violation scoping", () => {
       "alpha-lower",
       "alpha-upper",
     ]);
-    expect(collectSegmentViolationIds(betaData.violationSet)).toEqual([
-      "beta-lower",
-      "beta-upper",
-    ]);
+    expect(collectSegmentViolationIds(betaData.violationSet)).toEqual(["beta-lower", "beta-upper"]);
   });
 });

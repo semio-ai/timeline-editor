@@ -9,8 +9,10 @@ import {
   Violation,
   Animation,
   Namespace,
+  TrackKey,
 } from "../types";
 import { TYPE_FIELDS } from "../constants";
+import { buildTrackKey } from "../utils/track-key";
 import { applyDragDeltas } from "./apply-drag-deltas";
 import { computeViolationSet } from "./compute-violation-set";
 import { computeTransitionSegments } from "./compute-transition-segments";
@@ -28,7 +30,7 @@ interface RowComputationContext {
 export function computeRowData(
   sourceRow: SourceRow,
   tracks: Record<string, Track<RawValue>>,
-  violations: Record<string, Violation[]>,
+  violations: Partial<Record<TrackKey, Violation[]>>,
   animatables: Record<string, AnimatableValue>,
   dragState: DragState | undefined,
   selectionState: SelectionState,
@@ -47,8 +49,22 @@ export function computeRowData(
     new Map(),
   );
 
+  const trackKeysByTrackId = new Map<string, TrackKey[]>();
+  sourceRow.data.forEach((datum) => {
+    const list = trackKeysByTrackId.get(datum.trackId) ?? [];
+    if (datum.namespaceId && datum.instanceId) {
+      const key = buildTrackKey(datum.namespaceId, datum.instanceId, datum.trackId);
+      if (!list.includes(key)) {
+        list.push(key);
+      }
+    }
+    trackKeysByTrackId.set(datum.trackId, list);
+  });
+
   const filteredViolations = trackIds.reduce<Record<string, Violation[]>>((acc, trackId) => {
-    const trackViolations = violations[trackId];
+    const trackKeys = trackKeysByTrackId.get(trackId) ?? [];
+    const byKey = trackKeys.flatMap((key) => violations[key] ?? []);
+    const trackViolations = byKey;
     if (!trackViolations || trackViolations.length === 0) {
       return acc;
     }

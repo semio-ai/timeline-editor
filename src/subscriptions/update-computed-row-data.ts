@@ -5,8 +5,8 @@ import type {
   AnimationStoreGetter,
   AnimationStoreSetter,
 } from "../store-types";
-import { ComputedRowData } from "../types";
-import { computeRowData } from "../functions/compute-row-data";
+import { ComputedRowData, TrackKey } from "../types";
+import { buildDerivedSnapshot } from "../functions";
 import { logDerivedEvent } from "../utils/derived-debug";
 
 export function updateComputedRowData(
@@ -18,7 +18,6 @@ export function updateComputedRowData(
     (state: AnimationData) => ({
       dragState: state.dragState,
       selectionState: state.selectionState,
-      violations: state.violations,
       tracks: state.tracks,
       instancedTrackSources: state.instancedTrackSources,
       animatables: state.animatables,
@@ -28,7 +27,6 @@ export function updateComputedRowData(
     ({
       dragState,
       selectionState,
-      violations,
       tracks,
       instancedTrackSources,
       animatables,
@@ -39,32 +37,41 @@ export function updateComputedRowData(
         dragActive: Boolean(dragState),
         selectionTracks: selectionState.keypoints.size,
         rowCount: Object.keys(instancedTrackSources).length,
-        violationTrackCount: Object.keys(violations).length,
       }));
 
-      const computedRowData: Record<string, ComputedRowData> = {};
-
-      Object.values(instancedTrackSources).forEach((instancedTrackSource) => {
-        const rowComputedData = computeRowData(
-          instancedTrackSource,
-          tracks,
-          violations,
-          animatables,
-          dragState,
-          selectionState,
-          {
-            animations,
-            namespaces,
-          },
-        );
-        computedRowData[instancedTrackSource.id] = rowComputedData;
+      const snapshotVersion = (api.getState().derivedSnapshot?.version ?? 0) + 1;
+      const snapshot = buildDerivedSnapshot({
+        tracks,
+        namespaces,
+        animations,
+        animatables,
+        instancedTrackSources,
+        dragState,
+        selectionState,
+        version: snapshotVersion,
       });
 
-      set({ computedRowData });
+      const computedRowData: Record<string, ComputedRowData> = {};
+      Object.entries(snapshot.rows).forEach(([rowId, row]) => {
+        computedRowData[rowId] = row.computed;
+      });
+
+      const canonicalViolations: AnimationData["violations"] = {};
+      Object.keys(snapshot.tracks).forEach((key) => {
+        const trackKey = key as TrackKey;
+        canonicalViolations[trackKey] = snapshot.tracks[trackKey].canonical.violations;
+      });
+
+      set({
+        derivedSnapshot: snapshot,
+        computedRowData,
+        violations: canonicalViolations,
+      });
 
       logDerivedEvent("updateComputedRowData", "end", () => ({
         dragActive: Boolean(api.getState().dragState),
         rowCount: Object.keys(computedRowData).length,
+        version: snapshot.version,
       }));
     },
     {
@@ -72,7 +79,6 @@ export function updateComputedRowData(
         return (
           shallow(a.dragState, b.dragState) &&
           shallow(a.selectionState, b.selectionState) &&
-          shallow(a.violations, b.violations) &&
           shallow(a.tracks, b.tracks) &&
           shallow(a.instancedTrackSources, b.instancedTrackSources) &&
           shallow(a.animatables, b.animatables) &&

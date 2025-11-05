@@ -19,6 +19,8 @@ import type {
   ComputedRowData,
   VisibleSourceRowIds,
   Namespace,
+  DerivedSnapshot,
+  TrackKey,
 } from "./types";
 import type { SelectionState } from "./types/util/selection-state";
 
@@ -26,6 +28,8 @@ import type { SelectionState } from "./types/util/selection-state";
  * Interface representing the data structure for animation.
  */
 export interface AnimationData {
+  derivedMode: "legacy" | "snapshot";
+  derivedSnapshot?: DerivedSnapshot;
   /**
    * Current values (output of interpolator).
    */
@@ -101,9 +105,9 @@ export interface AnimationData {
    */
   animationSubscribers: (() => void)[];
   /**
-   * A set of violations that have been detected in the animation, indexed by track id.
+   * Canonical violations keyed by namespaced track key (`namespaceId/instanceId/trackId`).
    */
-  violations: Record<string, Violation[]>;
+  violations: Partial<Record<TrackKey, Violation[]>>;
 
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   animatables: Record<string, AnimatableValue>;
@@ -186,6 +190,7 @@ export interface AnimationActions {
    * Note: This affects all views since sources are now globally managed.
    */
   updateSources: (groupStates: Record<string, { expanded?: boolean; hidden?: boolean }>) => void;
+  setDerivedMode: (mode: "legacy" | "snapshot") => void;
   /**
    * Update all values in the store.
    * @param values - A map of values to update.

@@ -1,5 +1,6 @@
 import type { AnimationStore } from "../../store";
 import type { KeypointAddress, MarkerPoint, SelectionState, InstancedFrameInfo } from "../../types";
+import { resolveComputedRowData } from "../../utils/resolve-row-data";
 
 export interface ModifierOptions {
   shift?: boolean;
@@ -12,7 +13,7 @@ export function getMarkerFrame(
   markerId: string,
 ): InstancedFrameInfo {
   const state = store.getState();
-  const row = state.computedRowData[rowId];
+  const row = resolveComputedRowData(state, rowId);
   if (!row) {
     throw new Error(`Row "${rowId}" not found in computedRowData.`);
   }
@@ -87,7 +88,9 @@ export function findMarker(
   predicate?: (rowId: string) => boolean,
 ): FoundMarker {
   const state = store.getState();
-  for (const [rowId, row] of Object.entries(state.computedRowData)) {
+  for (const rowId of Object.keys(state.instancedTrackSources)) {
+    const row = resolveComputedRowData(state, rowId);
+    if (!row) continue;
     if (predicate && !predicate(rowId)) continue;
     const frame = row.virtualFrames?.find((candidate) => candidate.id === markerId);
     if (!frame) continue;

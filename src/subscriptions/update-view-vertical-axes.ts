@@ -5,7 +5,7 @@ import {
   AnimationStoreGetter,
   AnimationStoreSetter,
 } from "../store-types";
-import { TrackRender, VerticalAxis, VerticalAxisRange } from "../types";
+import { TrackRender, VerticalAxis, VerticalAxisRange, ComputedRowData } from "../types";
 
 interface RowLookup {
   flat: string[];
@@ -56,9 +56,18 @@ export function updateViewVerticalAxes(
       computedRowData: state.computedRowData,
       editorViews: state.editorViews,
       sourceRowIds: state.sourceRowIds,
+      derivedMode: state.derivedMode,
+      derivedSnapshot: state.derivedSnapshot,
     }),
-    ({ computedRowData, editorViews, sourceRowIds }) => {
-      const hasRows = computedRowData && Object.keys(computedRowData).length > 0;
+    ({ computedRowData, editorViews, sourceRowIds, derivedMode, derivedSnapshot }) => {
+      const rowMap: Record<string, ComputedRowData> =
+        derivedMode === "snapshot" && derivedSnapshot
+          ? Object.fromEntries(
+              Object.entries(derivedSnapshot.rows).map(([rowId, row]) => [rowId, row.computed]),
+            )
+          : computedRowData;
+
+      const hasRows = rowMap && Object.keys(rowMap).length > 0;
       if (!hasRows) return;
 
       const lookup = normalizeRowLookup(sourceRowIds);
@@ -77,7 +86,7 @@ export function updateViewVerticalAxes(
           let max = Number.NEGATIVE_INFINITY;
 
           rowIds.forEach((rowId) => {
-            const row = computedRowData[rowId];
+            const row = rowMap[rowId];
             if (!row) return;
             min = Math.min(min, row.verticalBounds.min);
             max = Math.max(max, row.verticalBounds.max);
@@ -114,7 +123,7 @@ export function updateViewVerticalAxes(
       if (viewContexts.length === 0) {
         // Nothing to update but ensure we clear stale maps if necessary.
         let hasAnyVerticalMaps = false;
-        Object.values(computedRowData).forEach((row) => {
+        Object.values(rowMap).forEach((row) => {
           if (row.verticalAxisByView && Object.keys(row.verticalAxisByView).length > 0) {
             hasAnyVerticalMaps = true;
           }
@@ -122,8 +131,8 @@ export function updateViewVerticalAxes(
         if (!hasAnyVerticalMaps) {
           return;
         }
-        const clearedData: typeof computedRowData = {};
-        Object.entries(computedRowData).forEach(([rowId, row]) => {
+        const clearedData: Record<string, ComputedRowData> = {};
+        Object.entries(rowMap).forEach(([rowId, row]) => {
           if (row.verticalAxisByView && Object.keys(row.verticalAxisByView).length > 0) {
             clearedData[rowId] = { ...row, verticalAxisByView: undefined };
           } else {
@@ -134,10 +143,10 @@ export function updateViewVerticalAxes(
         return;
       }
 
-      const updates: Record<string, (typeof computedRowData)[string]> = {};
+      const updates: Record<string, ComputedRowData> = {};
       let anyChanges = false;
 
-      Object.entries(computedRowData).forEach(([rowId, row]) => {
+      Object.entries(rowMap).forEach(([rowId, row]) => {
         let rowChanged = false;
         const nextAxisByView: Record<string, VerticalAxisRange> = {};
 
@@ -198,12 +207,37 @@ export function updateViewVerticalAxes(
       });
 
       if (anyChanges) {
-        set((state) => {
-          const merged = { ...state.computedRowData };
+        set((state: AnimationData) => {
+          const mergedComputed = { ...state.computedRowData };
           Object.entries(updates).forEach(([rowId, row]) => {
-            merged[rowId] = row;
+            mergedComputed[rowId] = row;
           });
-          return { computedRowData: merged };
+
+          let nextSnapshot = state.derivedSnapshot;
+          if (state.derivedMode === "snapshot" && state.derivedSnapshot) {
+            const updatedRows = { ...state.derivedSnapshot.rows };
+            Object.entries(updates).forEach(([rowId, row]) => {
+              const existing = state.derivedSnapshot?.rows[rowId];
+              if (!existing) return;
+              updatedRows[rowId] = {
+                ...existing,
+                computed: row,
+              };
+            });
+            nextSnapshot = {
+              ...state.derivedSnapshot,
+              rows: updatedRows,
+            };
+          }
+
+          const result: Partial<AnimationData> = {
+            computedRowData: mergedComputed,
+          };
+          if (nextSnapshot !== state.derivedSnapshot) {
+            result.derivedSnapshot = nextSnapshot;
+          }
+
+          return result;
         });
       }
     },

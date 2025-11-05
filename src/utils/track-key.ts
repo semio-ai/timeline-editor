@@ -1,5 +1,7 @@
-export function buildTrackKey(namespaceId: string, instanceId: string, trackId: string): string {
-  return `${namespaceId}/${instanceId}/${trackId}`;
+import type { TrackKey } from "../types";
+
+export function buildTrackKey(namespaceId: string, instanceId: string, trackId: string): TrackKey {
+  return `${namespaceId}/${instanceId}/${trackId}` as TrackKey;
 }
 
 export function parseTrackKey(trackKey: string): {

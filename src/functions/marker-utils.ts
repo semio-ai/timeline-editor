@@ -4,6 +4,7 @@
 
 import { AnimationData } from "../store-types";
 import { InstancedFrameInfo } from "../types";
+import { resolveComputedRowData } from "../utils/resolve-row-data";
 
 /**
  * Helper to get fresh marker data by ID
@@ -17,7 +18,7 @@ export function getMarkerById(
   markerId: string,
   sourceRowId: string,
 ): InstancedFrameInfo | undefined {
-  const computedData = state.computedRowData[sourceRowId];
+  const computedData = resolveComputedRowData(state, sourceRowId);
   if (!computedData) return undefined;
 
   return computedData.virtualFrames.find((f) => f.id === markerId);

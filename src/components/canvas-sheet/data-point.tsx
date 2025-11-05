@@ -16,6 +16,7 @@ import {
 } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
 import { ROW_DEPTH_EPSILON, LAYER_BAND_OFFSETS, LAYER_BAND_PRIORITY } from "../../constants";
+import { resolveComputedRowData } from "../../utils/resolve-row-data";
 
 const BG_MULTIPLIER = 1.2;
 type PointerGestureEvent = ThreeEvent<MouseEvent>;
@@ -51,7 +52,7 @@ export const DataPoint = memo(function DataPoint({
   // Get fresh data from store
   const data = useAnimationStore(
     useShallow((state) => {
-      const computed = state.computedRowData[sourceRowId];
+      const computed = resolveComputedRowData(state, sourceRowId);
       return computed?.virtualFrames.find((f) => f.id === markerId);
     }),
   );

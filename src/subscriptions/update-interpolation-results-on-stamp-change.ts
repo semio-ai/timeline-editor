@@ -2,6 +2,7 @@ import { PlayerData, PlayerDirection, RawValue, usePlayerStore } from "@semio/ut
 import { shallow } from "zustand/shallow";
 import type { AnimationApi, AnimationStoreGetter, AnimationStoreSetter } from "../store-types";
 import { matchingIdentityRawValue, rawValueMultiplyScalar } from "../functions";
+import { resolveTrackInterpolators } from "../utils/resolve-track-interpolator";
 
 export function updateInterpolationResultsOnStampChange(
   _api: AnimationApi,
@@ -19,7 +20,7 @@ export function updateInterpolationResultsOnStampChange(
       currentDirection: state.player._currentDirection,
     }),
     ({ stamp, running, currentDirection, speed }) => {
-      const trackInterpolators = get().trackInterpolators;
+      const trackInterpolators = resolveTrackInterpolators(get());
       const result = new Map<string, RawValue | undefined>();
       const velocities = new Map<string, RawValue | undefined>();
       const multiplier = (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;

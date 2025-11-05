@@ -15,6 +15,7 @@ import {
 import { AnimationInstance, Violation } from "../types";
 import { computeDerivativeInterpolator } from "../functions/compute-derivative-interpolator";
 import { logDerivedEvent } from "../utils/derived-debug";
+import { buildTrackKey } from "../utils/track-key";
 
 export function updateTrackInterpolatorsAndResults(
   api: AnimationApi,
@@ -59,6 +60,7 @@ export function updateTrackInterpolatorsAndResults(
       let newViolations: Violation[] = [];
 
       const lookup = getLookup(namespace, track.animatableId ?? trackId);
+      const trackKey = buildTrackKey(namespace, instance.id, trackId);
 
       const trackInterp = computeTrackInterpolator(track, instance);
       const derivativeInterp = computeDerivativeInterpolator(trackInterp, duration);
@@ -96,11 +98,6 @@ export function updateTrackInterpolatorsAndResults(
       ];
 
       set((state: AnimationData) => {
-        const previousViolations = state.violations[trackId] ?? [];
-        const preservedViolations = previousViolations.filter(
-          (violation) => violation.namespace !== namespace || violation.instanceId !== instance.id,
-        );
-
         return {
           trackInterpolators: {
             ...state.trackInterpolators,
@@ -113,7 +110,7 @@ export function updateTrackInterpolatorsAndResults(
           velocities: new Map([...state.velocities, ...newVelocities]),
           violations: {
             ...state.violations,
-            [trackId]: [...preservedViolations, ...newViolations],
+            [trackKey]: newViolations,
           },
         };
       });

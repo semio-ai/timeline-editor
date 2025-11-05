@@ -1,5 +1,6 @@
 import type { AnimationData } from "../../store-types";
 import { applyDragDeltas } from "../../functions/apply-drag-deltas";
+import { resolveComputedRowData } from "../../utils/resolve-row-data";
 
 interface MarkerContext {
   attributePath?: string[];
@@ -8,7 +9,9 @@ interface MarkerContext {
 
 const buildMarkerContextLookup = (state: AnimationData): Map<string, MarkerContext> => {
   const lookup = new Map<string, MarkerContext>();
-  for (const computed of Object.values(state.computedRowData)) {
+  const rowIds = Object.keys(state.computedRowData);
+  for (const rowId of rowIds) {
+    const computed = resolveComputedRowData(state, rowId);
     if (!computed) continue;
     const bounds = computed.verticalBounds;
 

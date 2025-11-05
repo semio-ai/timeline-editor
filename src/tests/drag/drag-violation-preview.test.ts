@@ -9,6 +9,8 @@ import { clickMarkerWith } from "../selection/selection-test-helpers";
 import { computeTrackInterpolator } from "../../functions/compute-track-interpolator";
 import { computeTrackViolations } from "../../functions/compute-track-violations";
 import { Violation, ViolationType } from "../../types";
+import { buildTrackKey } from "../../utils/track-key";
+import { resolveComputedRowData } from "../../utils/resolve-row-data";
 
 function summarizeViolations(
   violations: Violation[],
@@ -47,7 +49,7 @@ describe("drag previews recompute violation overlays", () => {
       },
       violations: {
         ...state.violations,
-        [TRACK_IDS.SCALE]: [],
+        [buildTrackKey("default", "main", TRACK_IDS.SCALE)]: [],
       },
     }));
 
@@ -68,14 +70,14 @@ describe("drag previews recompute violation overlays", () => {
     expect(rowEntry).toBeDefined();
 
     const [rowId, sourceRow] = rowEntry!;
-    let row = store.getState().computedRowData[rowId];
+    let row = resolveComputedRowData(store.getState(), rowId);
     expect(row).toBeDefined();
-    const initialScaleViolations = Object.values(row.violationSet.violations).filter(
+    const initialScaleViolations = Object.values(row?.violationSet.violations ?? {}).filter(
       (violation) => violation.trackId === TRACK_IDS.SCALE,
     );
     expect(initialScaleViolations).toHaveLength(0);
 
-    const markerFrame = row.virtualFrames.find((frame) =>
+    const markerFrame = row?.virtualFrames.find((frame) =>
       frame.points.some((point) => point.id === "s-preview-2"),
     );
     expect(markerFrame).toBeDefined();
@@ -98,8 +100,8 @@ describe("drag previews recompute violation overlays", () => {
 
     await flushMicrotasks();
 
-    row = store.getState().computedRowData[rowId];
-    const previewViolations = Object.values(row.violationSet.violations).filter(
+    row = resolveComputedRowData(store.getState(), rowId);
+    const previewViolations = Object.values(row?.violationSet.violations ?? {}).filter(
       (violation) => violation.trackId === TRACK_IDS.SCALE,
     );
     expect(previewViolations.length).toBeGreaterThan(0);

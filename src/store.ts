@@ -61,6 +61,7 @@ import {
 import { View } from "./types/util/view";
 import { createEmptySelectionState } from "./functions/selection-state-manager";
 import { clickLineAction } from "./actions/click-line";
+import { resolveComputedRowData } from "./utils/resolve-row-data";
 
 enableMapSet();
 
@@ -91,6 +92,13 @@ export const AnimationSlice = (
             state.sourcesByAnimationInstance,
             (instanceSources) => computeUpdatedSources(instanceSources, updates),
           );
+        }),
+      );
+    },
+    setDerivedMode: (mode: "legacy" | "snapshot") => {
+      set(
+        produce((state: AnimationData) => {
+          state.derivedMode = mode;
         }),
       );
     },
@@ -313,7 +321,7 @@ export const AnimationSlice = (
       const state = get();
       const playerState = usePlayerStore.getState();
       const sourceRowId = sourceRow.id;
-      const computedData = state.computedRowData[sourceRowId];
+      const computedData = resolveComputedRowData(state, sourceRowId);
       if (!computedData) return;
 
       const instancedFrameData = computedData.virtualFrames;
@@ -332,7 +340,7 @@ export const AnimationSlice = (
       const state = get();
       const playerState = usePlayerStore.getState();
       const sourceRowId = sourceRow.id;
-      const computedData = state.computedRowData[sourceRowId];
+      const computedData = resolveComputedRowData(state, sourceRowId);
       if (!computedData) return;
 
       const instancedFrameData = computedData.virtualFrames;

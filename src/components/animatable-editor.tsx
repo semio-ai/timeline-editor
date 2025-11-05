@@ -13,6 +13,7 @@ import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
+import { resolveInterpolatedValues } from "../utils/resolve-values";
 
 const indexLookups: Record<string, Record<string, number>> = {
   vector3: { x: 0, y: 1, z: 2 },
@@ -45,9 +46,7 @@ function InnerAnimatableEditor({
   const color = active ? trueColor : DEFAULT_COLOR;
 
   const storedValue: RawValue | undefined = useAnimationStore(
-    useShallow((state: AnimationData) => {
-      return state.values.get(rawValueId);
-    }),
+    useShallow((state: AnimationData) => resolveInterpolatedValues(state).get(rawValueId)),
   );
 
   const { animatableValue, track } = useAnimationStore(

@@ -17,6 +17,7 @@ import {
   clearSelection,
   collectRangeKeypoints,
 } from "../functions/selection-state-manager";
+import { resolveComputedRowData } from "../utils/resolve-row-data";
 
 export function clickMarkerAction(
   state: AnimationData,
@@ -47,11 +48,12 @@ export function clickMarkerAction(
   }
 
   if (shift && selection.reference && selection.reference.rowId === rowId) {
+    const row = resolveComputedRowData(state, rowId);
     return {
       selectionState: handleShiftSelection(
         selection,
         anchor,
-        state.computedRowData[rowId],
+        row,
         markerKeypoints,
         instanceId,
         mod,

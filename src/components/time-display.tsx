@@ -6,6 +6,7 @@ import { useAnimationStore } from "../hooks";
 import type { AnimationActions } from "../store-types";
 import { SemanticTime } from "../types";
 import { computeNextTime, computePreviousTime } from "../functions";
+import { resolveComputedRowData } from "../utils/resolve-row-data";
 
 export interface TimeDisplayProps {
   semanticTime?: SemanticTime;
@@ -22,7 +23,9 @@ export function InnerTimeDisplay({
   const updateDuration = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateDuration),
   );
-  const computedData = useAnimationStore(useShallow((state) => state.computedRowData?.global));
+  const computedData = useAnimationStore(
+    useShallow((state) => resolveComputedRowData(state, "global")),
+  );
 
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
 

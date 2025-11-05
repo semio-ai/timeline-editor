@@ -16,6 +16,8 @@ import { usePlayerStore, PlayerData, getLookup, RawValue } from "@semio/utils";
 import { IconDotsVertical, IconChevronDown } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
 import { type SourceRow, InstancedFrameInfo } from "../types";
+import { resolveComputedRowData } from "../utils/resolve-row-data";
+import { resolveTrackInterpolators } from "../utils/resolve-track-interpolator";
 import {
   useAnimationStore,
   useColors,
@@ -39,7 +41,7 @@ export interface ControlWidgetProps {
 function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWidgetProps) {
   // const [open, setOpen] = useState(expanded ?? false);
   const computedRowData = useAnimationStore(
-    useShallow((state: AnimationData) => state.computedRowData[sourceRow.id]),
+    useShallow((state: AnimationData) => resolveComputedRowData(state, sourceRow.id)),
   );
 
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
@@ -51,7 +53,9 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     useShallow((state: AnimationActions) => state.updateControlColor),
   );
 
-  const interpolators = useAnimationStore(useShallow((state) => state.trackInterpolators));
+  const interpolators = useAnimationStore(
+    useShallow((state: AnimationData) => resolveTrackInterpolators(state)),
+  );
   const animatables = useAnimationStore(useShallow((state) => state.animatables));
 
   const trackAnimatableLookup = useTrackAnimatableLookup();

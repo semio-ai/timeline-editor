@@ -32,7 +32,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
   const { namespaces, animations, tracks, animatables } = inputs;
 
   const derivedTracks: Record<TrackKey, DerivedTrackSnapshot> = {};
-  const canonicalViolationsByTrackId: Record<string, Violation[]> = {};
+  const canonicalViolationsByTrackKey: Record<TrackKey, Violation[]> = {};
 
   Object.values(namespaces).forEach((namespace) => {
     Object.values(namespace.animationInstances).forEach((instance) => {
@@ -46,7 +46,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         const animatable = animatables[track.animatableId];
         if (!animatable) return;
 
-        const trackKey = buildTrackKey(namespace.id, instance.id, trackId) as TrackKey;
+        const trackKey = buildTrackKey(namespace.id, instance.id, trackId);
         const interpolator = computeTrackInterpolator(track, instance);
         const derivative = computeDerivativeInterpolator(interpolator, animation.duration);
         const canonicalViolations = computeTrackViolations(
@@ -71,7 +71,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
           },
         };
 
-        canonicalViolationsByTrackId[trackId] = canonicalViolations;
+        canonicalViolationsByTrackKey[trackKey] = canonicalViolations;
       });
     });
   });
@@ -81,7 +81,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
     const computed = computeRowData(
       sourceRow,
       inputs.tracks,
-      canonicalViolationsByTrackId,
+      canonicalViolationsByTrackKey,
       inputs.animatables,
       inputs.dragState,
       inputs.selectionState,
@@ -91,8 +91,8 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
       },
     );
 
-    const trackKeys = sourceRow.data.map(
-      (data) => buildTrackKey(data.namespaceId, data.instanceId, data.trackId) as TrackKey,
+    const trackKeys = sourceRow.data.map((data) =>
+      buildTrackKey(data.namespaceId, data.instanceId, data.trackId),
     );
 
     derivedRows[sourceRow.id] = {
