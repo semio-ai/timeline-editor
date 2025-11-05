@@ -18,7 +18,7 @@ export const createDefaultState = (): AnimationData => {
   // const defaultAnimation = createDefaultAnimation();
 
   return {
-    derivedMode: "legacy",
+    derivedMode: "snapshot",
     derivedSnapshot: undefined,
     values: new Map(),
     velocities: new Map(),

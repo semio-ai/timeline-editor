@@ -1,4 +1,4 @@
-import { useState, memo, useRef, useCallback, useMemo } from "react";
+import { useState, memo, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   Button,
   StaticIcon,
@@ -37,6 +37,48 @@ export interface ControlWidgetProps {
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
 }
+
+const ControlSettingsMenu = memo(function ControlSettingsMenu({
+  color,
+  trackIds,
+  isActive,
+  onUpdateColor,
+}: {
+  color: string;
+  trackIds: string[];
+  isActive: boolean;
+  onUpdateColor: (trackId: string, color: string) => void;
+}) {
+  const trigger = useMemo(
+    () => (
+      <span>
+        <Button
+          size={Size.Xs}
+          className="flex items-center justify-center"
+          visuals="inverted"
+          leftIcon={<IconDotsVertical className="size-3/5" />}
+        />
+      </span>
+    ),
+    [],
+  );
+
+  if (!isActive) return null;
+
+  return (
+    <Dropdown variant={Variant.Info} trigger={trigger}>
+      <NestedLabel>Control Settings</NestedLabel>
+      <NestedColorPicker
+        variant={Variant.Info}
+        disabled={trackIds.length > 1}
+        value={color}
+        onChange={(v) => {
+          if (trackIds[0]) onUpdateColor(trackIds[0], v);
+        }}
+      />
+    </Dropdown>
+  );
+});
 
 function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWidgetProps) {
   // const [open, setOpen] = useState(expanded ?? false);
@@ -96,19 +138,28 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     [focusSelectionInstance, uniqueInstanceId],
   );
 
-  usePlayerSubscription(
-    (state) => ({ running: state.player.running, stamp: state.player.stamp }),
-    ({ running, stamp }) => {
-      stampRef.current = stamp;
-      if (running) {
-        setInstancedFrame(undefined);
-      } else {
-        const f = computedRowData?.virtualFrames?.find((s) => s.stamp === stamp);
-        setInstancedFrame(f ?? undefined);
-      }
-    },
-    shallow,
+  const computedRowDataRef = useRef(computedRowData);
+  useEffect(() => {
+    computedRowDataRef.current = computedRowData;
+  }, [computedRowData]);
+
+  const playerSelector = useCallback(
+    (state: any) => ({ running: state.player.running, stamp: state.player.stamp }),
+    [],
   );
+
+  const playerCallback = useCallback(({ running, stamp }: { running: boolean; stamp: number }) => {
+    stampRef.current = stamp;
+    const currentRow = computedRowDataRef.current;
+    if (running || !currentRow) {
+      setInstancedFrame((prev) => (prev !== undefined ? undefined : prev));
+    } else {
+      const f = currentRow?.virtualFrames?.find((s) => s.stamp === stamp);
+      setInstancedFrame((prev) => (prev !== f ? (f ?? undefined) : prev));
+    }
+  }, []);
+
+  usePlayerSubscription(playerSelector, playerCallback, shallow);
 
   const { updateKeypoints, removeKeypoints, updateTrack, updateSource } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
@@ -277,29 +328,12 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
           </div>
         )}
         <div className="w-3 flex items-center justify-around mr-1">
-          <Dropdown
-            variant={Variant.Info}
-            trigger={
-              <span>
-                <Button
-                  size={Size.Xs}
-                  className="flex items-center justify-center"
-                  visuals="inverted"
-                  leftIcon={<IconDotsVertical className="size-3/5" />}
-                />
-              </span>
-            }
-          >
-            <NestedLabel>Control Settings</NestedLabel>
-            <NestedColorPicker
-              variant={Variant.Info}
-              disabled={trackIds.length > 1}
-              value={color}
-              onChange={(v) => {
-                updateControlColor(trackIds[0], v);
-              }}
-            />
-          </Dropdown>
+          <ControlSettingsMenu
+            color={color}
+            trackIds={trackIds}
+            isActive={isActive}
+            onUpdateColor={updateControlColor}
+          />
         </div>
       </div>
     </div>

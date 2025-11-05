@@ -1,5 +1,5 @@
 import { shallow } from "zustand/shallow";
-import {
+import type {
   AnimationApi,
   AnimationData,
   AnimationStoreGetter,
@@ -46,6 +46,150 @@ interface ViewAxisContext {
   uniformRange?: VerticalAxisRange;
 }
 
+function buildViewContexts(
+  rowMap: Record<string, ComputedRowData>,
+  editorViews: AnimationData["editorViews"],
+  sourceRowIds: AnimationData["sourceRowIds"],
+): ViewAxisContext[] {
+  const lookup = normalizeRowLookup(sourceRowIds);
+  return Object.entries(editorViews).map(([viewId, view]) => {
+    const trackRender = view.trackRender ?? TrackRender.Key;
+    const preferredAxis = view.verticalAxis ?? VerticalAxis.Normalized;
+    const isSplineView = trackRender === TrackRender.Spline;
+    const verticalAxis = isSplineView ? preferredAxis : VerticalAxis.Normalized;
+    const rowIds = isSplineView ? lookup.spline : lookup.flat;
+    const rowSet = new Set(rowIds);
+
+    let uniformRange: VerticalAxisRange | undefined;
+    if (verticalAxis === VerticalAxis.Uniform) {
+      let min = Number.POSITIVE_INFINITY;
+      let max = Number.NEGATIVE_INFINITY;
+
+      rowIds.forEach((rowId) => {
+        const row = rowMap[rowId];
+        if (!row) return;
+        min = Math.min(min, row.verticalBounds.min);
+        max = Math.max(max, row.verticalBounds.max);
+      });
+
+      if (!Number.isFinite(min) || !Number.isFinite(max)) {
+        min = -1;
+        max = 1;
+      }
+
+      if (isSplineView) {
+        const span = max - min;
+        if (Number.isFinite(span) && span !== 0) {
+          const pad = span * 0.125;
+          min -= pad;
+          max += pad;
+        }
+      }
+
+      uniformRange = { min, max, visualOffset: 0 };
+    }
+
+    return {
+      viewId,
+      verticalAxis,
+      rowIds,
+      rowSet,
+      isSplineView,
+      uniformRange,
+    };
+  });
+}
+
+export function projectRowVerticalAxes(
+  rowMap: Record<string, ComputedRowData>,
+  editorViews: AnimationData["editorViews"],
+  sourceRowIds: AnimationData["sourceRowIds"],
+): { rows: Record<string, ComputedRowData>; changed: boolean } {
+  const hasRows = rowMap && Object.keys(rowMap).length > 0;
+  if (!hasRows) {
+    return { rows: rowMap, changed: false };
+  }
+
+  const viewContexts = buildViewContexts(rowMap, editorViews, sourceRowIds);
+  const result: Record<string, ComputedRowData> = {};
+
+  if (viewContexts.length === 0) {
+    let changed = false;
+    Object.entries(rowMap).forEach(([rowId, row]) => {
+      if (row.verticalAxisByView && Object.keys(row.verticalAxisByView).length > 0) {
+        result[rowId] = { ...row, verticalAxisByView: undefined };
+        changed = true;
+      } else {
+        result[rowId] = row;
+      }
+    });
+    return { rows: result, changed };
+  }
+
+  let anyChanges = false;
+
+  Object.entries(rowMap).forEach(([rowId, row]) => {
+    let rowChanged = false;
+    const nextAxisByView: Record<string, VerticalAxisRange> = {};
+
+    viewContexts.forEach((context) => {
+      if (!context.rowSet.has(rowId)) return;
+
+      let min = row.verticalBounds.min;
+      let max = row.verticalBounds.max;
+      if (context.isSplineView) {
+        const span = max - min;
+        if (Number.isFinite(span) && span !== 0) {
+          const pad = span * 0.125;
+          min -= pad;
+          max += pad;
+        }
+      }
+
+      const range =
+        context.verticalAxis === VerticalAxis.Uniform && context.uniformRange
+          ? { ...context.uniformRange }
+          : {
+              min,
+              max,
+              visualOffset: 0,
+            };
+
+      const previous = row.verticalAxisByView?.[context.viewId];
+      nextAxisByView[context.viewId] = range;
+
+      if (
+        !previous ||
+        previous.min !== range.min ||
+        previous.max !== range.max ||
+        (previous.visualOffset ?? 0) !== (range.visualOffset ?? 0)
+      ) {
+        rowChanged = true;
+      }
+    });
+
+    if (row.verticalAxisByView) {
+      Object.keys(row.verticalAxisByView).forEach((viewId) => {
+        if (!(viewId in nextAxisByView)) {
+          rowChanged = true;
+        }
+      });
+    }
+
+    if (rowChanged) {
+      result[rowId] = {
+        ...row,
+        verticalAxisByView: Object.keys(nextAxisByView).length > 0 ? nextAxisByView : undefined,
+      };
+      anyChanges = true;
+    } else {
+      result[rowId] = row;
+    }
+  });
+
+  return { rows: result, changed: anyChanges };
+}
+
 export function updateViewVerticalAxes(
   api: AnimationApi,
   set: AnimationStoreSetter,
@@ -57,195 +201,24 @@ export function updateViewVerticalAxes(
       editorViews: state.editorViews,
       sourceRowIds: state.sourceRowIds,
       derivedMode: state.derivedMode,
-      derivedSnapshot: state.derivedSnapshot,
     }),
-    ({ computedRowData, editorViews, sourceRowIds, derivedMode, derivedSnapshot }) => {
-      const rowMap: Record<string, ComputedRowData> =
-        derivedMode === "snapshot" && derivedSnapshot
-          ? Object.fromEntries(
-              Object.entries(derivedSnapshot.rows).map(([rowId, row]) => [rowId, row.computed]),
-            )
-          : computedRowData;
-
-      const hasRows = rowMap && Object.keys(rowMap).length > 0;
-      if (!hasRows) return;
-
-      const lookup = normalizeRowLookup(sourceRowIds);
-
-      const viewContexts: ViewAxisContext[] = Object.entries(editorViews).map(([viewId, view]) => {
-        const trackRender = view.trackRender ?? TrackRender.Key;
-        const preferredAxis = view.verticalAxis ?? VerticalAxis.Normalized;
-        const isSplineView = trackRender === TrackRender.Spline;
-        const verticalAxis = isSplineView ? preferredAxis : VerticalAxis.Normalized;
-        const rowIds = isSplineView ? lookup.spline : lookup.flat;
-        const rowSet = new Set(rowIds);
-
-        let uniformRange: VerticalAxisRange | undefined;
-        if (verticalAxis === VerticalAxis.Uniform) {
-          let min = Number.POSITIVE_INFINITY;
-          let max = Number.NEGATIVE_INFINITY;
-
-          rowIds.forEach((rowId) => {
-            const row = rowMap[rowId];
-            if (!row) return;
-            min = Math.min(min, row.verticalBounds.min);
-            max = Math.max(max, row.verticalBounds.max);
-          });
-
-          if (!Number.isFinite(min) || !Number.isFinite(max)) {
-            min = -1;
-            max = 1;
-          }
-
-          // Apply symmetric padding for spline views so plotted values occupy ~80% of the visual height.
-          if (isSplineView) {
-            const span = max - min;
-            if (Number.isFinite(span) && span !== 0) {
-              const pad = span * 0.125; // 12.5% per side → 25% total expansion
-              min -= pad;
-              max += pad;
-            }
-          }
-
-          uniformRange = { min, max, visualOffset: 0 };
-        }
-
-        return {
-          viewId,
-          verticalAxis,
-          rowIds,
-          rowSet,
-          isSplineView,
-          uniformRange,
-        };
-      });
-
-      if (viewContexts.length === 0) {
-        // Nothing to update but ensure we clear stale maps if necessary.
-        let hasAnyVerticalMaps = false;
-        Object.values(rowMap).forEach((row) => {
-          if (row.verticalAxisByView && Object.keys(row.verticalAxisByView).length > 0) {
-            hasAnyVerticalMaps = true;
-          }
-        });
-        if (!hasAnyVerticalMaps) {
-          return;
-        }
-        const clearedData: Record<string, ComputedRowData> = {};
-        Object.entries(rowMap).forEach(([rowId, row]) => {
-          if (row.verticalAxisByView && Object.keys(row.verticalAxisByView).length > 0) {
-            clearedData[rowId] = { ...row, verticalAxisByView: undefined };
-          } else {
-            clearedData[rowId] = row;
-          }
-        });
-        set({ computedRowData: clearedData });
+    ({ computedRowData, editorViews, sourceRowIds, derivedMode }) => {
+      if (derivedMode === "snapshot") {
         return;
       }
 
-      const updates: Record<string, ComputedRowData> = {};
-      let anyChanges = false;
-
-      Object.entries(rowMap).forEach(([rowId, row]) => {
-        let rowChanged = false;
-        const nextAxisByView: Record<string, VerticalAxisRange> = {};
-
-        viewContexts.forEach((context) => {
-          if (!context.rowSet.has(rowId)) {
-            return;
-          }
-
-          // Base per-row bounds with optional symmetric padding for spline views.
-          let min = row.verticalBounds.min;
-          let max = row.verticalBounds.max;
-          if (context.isSplineView) {
-            const span = max - min;
-            if (Number.isFinite(span) && span !== 0) {
-              const pad = span * 0.125; // 12.5% per side → 25% total expansion
-              min -= pad;
-              max += pad;
-            }
-          }
-
-          const range =
-            context.verticalAxis === VerticalAxis.Uniform && context.uniformRange
-              ? { ...context.uniformRange }
-              : {
-                  min,
-                  max,
-                  visualOffset: 0,
-                };
-
-          const previous = row.verticalAxisByView?.[context.viewId];
-          nextAxisByView[context.viewId] = range;
-
-          if (
-            !previous ||
-            previous.min !== range.min ||
-            previous.max !== range.max ||
-            (previous.visualOffset ?? 0) !== (range.visualOffset ?? 0)
-          ) {
-            rowChanged = true;
-          }
-        });
-
-        if (row.verticalAxisByView) {
-          Object.keys(row.verticalAxisByView).forEach((viewId) => {
-            if (!(viewId in nextAxisByView)) {
-              rowChanged = true;
-            }
-          });
-        }
-
-        if (rowChanged) {
-          updates[rowId] = {
-            ...row,
-            verticalAxisByView: Object.keys(nextAxisByView).length > 0 ? nextAxisByView : undefined,
-          };
-          anyChanges = true;
-        }
-      });
-
-      if (anyChanges) {
-        set((state: AnimationData) => {
-          const mergedComputed = { ...state.computedRowData };
-          Object.entries(updates).forEach(([rowId, row]) => {
-            mergedComputed[rowId] = row;
-          });
-
-          let nextSnapshot = state.derivedSnapshot;
-          if (state.derivedMode === "snapshot" && state.derivedSnapshot) {
-            const updatedRows = { ...state.derivedSnapshot.rows };
-            Object.entries(updates).forEach(([rowId, row]) => {
-              const existing = state.derivedSnapshot?.rows[rowId];
-              if (!existing) return;
-              updatedRows[rowId] = {
-                ...existing,
-                computed: row,
-              };
-            });
-            nextSnapshot = {
-              ...state.derivedSnapshot,
-              rows: updatedRows,
-            };
-          }
-
-          const result: Partial<AnimationData> = {
-            computedRowData: mergedComputed,
-          };
-          if (nextSnapshot !== state.derivedSnapshot) {
-            result.derivedSnapshot = nextSnapshot;
-          }
-
-          return result;
-        });
+      const { rows, changed } = projectRowVerticalAxes(computedRowData, editorViews, sourceRowIds);
+      if (!changed) {
+        return;
       }
+      set({ computedRowData: rows });
     },
     {
       equalityFn: (a, b) =>
-        a.computedRowData === b.computedRowData &&
+        rowLookupEqual(normalizeRowLookup(a.sourceRowIds), normalizeRowLookup(b.sourceRowIds)) &&
         shallow(a.editorViews, b.editorViews) &&
-        rowLookupEqual(normalizeRowLookup(a.sourceRowIds), normalizeRowLookup(b.sourceRowIds)),
+        shallow(a.computedRowData, b.computedRowData) &&
+        a.derivedMode === b.derivedMode,
       fireImmediately: true,
     },
   );

@@ -63,19 +63,26 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   const [instancedFrame, setInstancedFrame] = useState<InstancedFrameInfo | undefined>(undefined);
   const stampRef = useRef<number>(0);
 
-  usePlayerSubscription(
-    (state) => ({ running: state.player.running, stamp: state.player.stamp }),
-    ({ running, stamp }) => {
-      stampRef.current = stamp;
-      if (running && hasData) {
-        setInstancedFrame(undefined);
-      } else if (hasData) {
-        const f = computedRowData.virtualFrames.find((s) => s.stamp === stamp);
-        setInstancedFrame(f);
-      }
-    },
-    shallow,
+  const computedRowDataRef = useRef(computedRowData);
+  computedRowDataRef.current = computedRowData;
+
+  const playerSelector = useCallback(
+    (state: any) => ({ running: state.player.running, stamp: state.player.stamp }),
+    [],
   );
+
+  const playerCallback = useCallback(({ running, stamp }: { running: boolean; stamp: number }) => {
+    stampRef.current = stamp;
+    const currentRow = computedRowDataRef.current;
+    if (running || !currentRow) {
+      setInstancedFrame((prev) => (prev !== undefined ? undefined : prev));
+    } else {
+      const f = currentRow.virtualFrames.find((s) => s.stamp === stamp);
+      setInstancedFrame((prev) => (prev !== f ? f : prev));
+    }
+  }, []);
+
+  usePlayerSubscription(playerSelector, playerCallback, shallow);
 
   const { treeOptions, treeValues }: { treeOptions: TreeOption[]; treeValues: string[] } =
     useMemo(() => {

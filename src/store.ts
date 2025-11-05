@@ -57,6 +57,7 @@ import {
   updateGlobalSources,
   updateSourceRowIds,
   updateViewVerticalAxes,
+  initDerivedOrchestrator,
 } from "./subscriptions";
 import { View } from "./types/util/view";
 import { createEmptySelectionState } from "./functions/selection-state-manager";
@@ -96,11 +97,20 @@ export const AnimationSlice = (
       );
     },
     setDerivedMode: (mode: "legacy" | "snapshot") => {
+      const prev = get().derivedMode;
+      if (prev === mode) return;
+      const existingCleanup = (api as any).__derivedCleanup as (() => void) | undefined;
+      if (typeof existingCleanup === "function") {
+        existingCleanup();
+        (api as any).__derivedCleanup = undefined;
+      }
       set(
         produce((state: AnimationData) => {
           state.derivedMode = mode;
         }),
       );
+      const cleanup = get().initAnimationSubscriptions();
+      (api as any).__derivedCleanup = cleanup;
     },
     updateValues: (values: Map<string, RawValue | undefined>) => {
       set(
@@ -409,25 +419,49 @@ export const AnimationSlice = (
       );
     },
     initAnimationSubscriptions: () => {
+      // Clean up any previous subscriptions for this store instance
+      const existingCleanup = (api as any).__derivedCleanup as (() => void) | undefined;
+      if (typeof existingCleanup === "function") {
+        existingCleanup();
+        (api as any).__derivedCleanup = undefined;
+      }
+
       let unsubs: (() => void)[] = [];
 
       // Delay subscription initialization to prevent cascading updates during store creation
-      unsubs = [
-        updatePlayerLoop,
-        updateOverallDuration,
-        updateInterpolationResultsOnStampChange,
-        updateAllInterpolatorsAndResultsOnDataChange,
-        updateInstancedTrackSources,
-        updateGlobalSources,
-        updateSourceRowIds,
-        updateComputedRowData,
-        updateViewVerticalAxes,
-        updateConsolidatedSourceRow,
-      ].map((fn) => fn(api, set, get));
+      const mode = get().derivedMode;
+      if (mode === "snapshot") {
+        // Orchestrator path: compute and publish derived slices atomically
+        unsubs = [
+          updatePlayerLoop,
+          updateOverallDuration,
+          initDerivedOrchestrator,
+          updateInstancedTrackSources,
+          updateGlobalSources,
+          updateSourceRowIds,
+          updateConsolidatedSourceRow,
+        ].map((fn) => fn(api, set, get));
+      } else {
+        // Legacy path: keep existing discrete subscriptions
+        unsubs = [
+          updatePlayerLoop,
+          updateOverallDuration,
+          updateInterpolationResultsOnStampChange,
+          updateAllInterpolatorsAndResultsOnDataChange,
+          updateInstancedTrackSources,
+          updateGlobalSources,
+          updateSourceRowIds,
+          updateComputedRowData,
+          updateViewVerticalAxes,
+          updateConsolidatedSourceRow,
+        ].map((fn) => fn(api, set, get));
+      }
 
-      return () => {
+      const cleanup = () => {
         unsubs.forEach((unsub) => unsub());
       };
+      (api as any).__derivedCleanup = cleanup;
+      return cleanup;
     },
     /**
      * Handle marker click with various modifier key behaviors for selection.

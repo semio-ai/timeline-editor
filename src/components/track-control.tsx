@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
@@ -35,21 +35,37 @@ export function TrackControl({
   const [prevKeyframeTime, setPrevKeyframeTime] = useState<number | undefined>(undefined);
   const [nextKeyframeTime, setNextKeyframeTime] = useState<number | undefined>(undefined);
 
-  usePlayerSubscription(
-    (state) => ({ running: state.player.running, stamp: state.player.stamp }),
-    ({ running, stamp }) => {
-      if (running || computedData === undefined) {
-        setPrevKeyframeTime(undefined);
-        setNextKeyframeTime(undefined);
-      } else if (computedData) {
-        const prev = computePreviousTime(computedData.virtualFrames, stamp, bounds, true);
-        const next = computeNextTime(computedData.virtualFrames, stamp, bounds, true);
-        setPrevKeyframeTime(prev);
-        setNextKeyframeTime(next);
-      }
-    },
-    shallow,
+  const computedDataRef = useRef(computedData);
+  useEffect(() => {
+    computedDataRef.current = computedData;
+  }, [computedData]);
+
+  const boundsRef = useRef(bounds);
+  useEffect(() => {
+    boundsRef.current = bounds;
+  }, [bounds]);
+
+  const playerSelector = useCallback(
+    (state: any) => ({ running: state.player.running, stamp: state.player.stamp }),
+    [],
   );
+
+  const playerCallback = useCallback(({ running, stamp }: { running: boolean; stamp: number }) => {
+    const currentComputed = computedDataRef.current;
+    const currentBounds = boundsRef.current;
+
+    if (running || currentComputed === undefined) {
+      setPrevKeyframeTime((v) => (v !== undefined ? undefined : v));
+      setNextKeyframeTime((v) => (v !== undefined ? undefined : v));
+    } else {
+      const prev = computePreviousTime(currentComputed.virtualFrames, stamp, currentBounds, true);
+      const next = computeNextTime(currentComputed.virtualFrames, stamp, currentBounds, true);
+      setPrevKeyframeTime((p) => (p !== prev ? prev : p));
+      setNextKeyframeTime((n) => (n !== next ? next : n));
+    }
+  }, []);
+
+  usePlayerSubscription(playerSelector, playerCallback, shallow);
 
   const enabledBack = prevKeyframeTime !== undefined;
   const enabledForward = nextKeyframeTime !== undefined;

@@ -1,4 +1,4 @@
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useRef } from "react";
 import type { AnimationData } from "../store-types";
 import { AnimationContext } from "../context";
 
@@ -19,8 +19,32 @@ export function useStoreSubscription<T>(
     throw new Error("useStoreSubscription must be used within an AnimationProvider");
   }
 
+  // Keep the latest selector/callback/equality in refs to avoid resubscribe loops
+  const selectorRef = useRef(selector);
+  const callbackRef = useRef(callback);
+  const equalityRef = useRef(equalityFn);
+
+  selectorRef.current = selector;
+  callbackRef.current = callback;
+  equalityRef.current = equalityFn;
+
   useEffect(() => {
-    const unsubscribe = store.subscribe(selector, callback, { equalityFn, fireImmediately: true });
+    const stableSelector = (state: AnimationData) => selectorRef.current(state);
+    const stableCallback = (next: T, prev: T) => {
+      const eq = equalityRef.current ?? ((a: T, b: T) => a === b);
+      if (!eq(next, prev)) {
+        callbackRef.current(next, prev);
+      }
+    };
+    const stableEquality = (a: T, b: T) => {
+      const eq = equalityRef.current;
+      return eq ? eq(a, b) : a === b;
+    };
+
+    const unsubscribe = store.subscribe(stableSelector, stableCallback, {
+      equalityFn: stableEquality,
+      fireImmediately: true,
+    });
     return unsubscribe;
-  }, [selector, callback, equalityFn, store]);
+  }, [store]);
 }
