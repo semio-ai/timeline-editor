@@ -14,6 +14,7 @@ import {
 } from "../functions";
 import { AnimationInstance, Violation } from "../types";
 import { computeDerivativeInterpolator } from "../functions/compute-derivative-interpolator";
+import { logDerivedEvent } from "../utils/derived-debug";
 
 export function updateTrackInterpolatorsAndResults(
   api: AnimationApi,
@@ -33,6 +34,19 @@ export function updateTrackInterpolatorsAndResults(
       if (!track) return;
 
       const playerState = usePlayerStore.getState();
+      const storeSnapshot = api.getState();
+      const selectedCount = Array.from(storeSnapshot.selectionState.keypoints.values()).reduce(
+        (total, ids) => total + ids.size,
+        0,
+      );
+
+      logDerivedEvent("updateTrackInterpolatorsAndResults", "start", () => ({
+        trackId,
+        namespace,
+        dragActive: Boolean(storeSnapshot.dragState),
+        selectedCount,
+        stamp: playerState.player.stamp,
+      }));
 
       const stamp = playerState.player.stamp;
       const playing = playerState.player.running;
@@ -103,6 +117,13 @@ export function updateTrackInterpolatorsAndResults(
           },
         };
       });
+
+      logDerivedEvent("updateTrackInterpolatorsAndResults", "end", () => ({
+        trackId,
+        namespace,
+        violationsCount: newViolations.length,
+        dragActive: Boolean(api.getState().dragState),
+      }));
     },
     { fireImmediately: true, equalityFn: shallow },
   );

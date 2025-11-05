@@ -282,9 +282,9 @@ Use this living checklist to plan the migration, log blockers, and document brea
 
 | # | Task | Status / Notes |
 | --- | --- | --- |
-| 1 | Instrument current subscribers to capture ordering/timing around `commitDrag` (focus: `updateTrackInterpolatorsAndResults` vs `updateComputedRowData`). | ☐ |
-| 2 | Introduce a `buildDerivedSnapshot` helper that mirrors existing outputs while still emitting legacy slices. | ☐ |
-| 3 | Add vitest coverage comparing legacy vs snapshot outputs (per-track interpolators/violations, per-row frames/interpolations). | ☐ |
+| 1 | Instrument current subscribers to capture ordering/timing around `commitDrag` (focus: `updateTrackInterpolatorsAndResults` vs `updateComputedRowData`). | ☑ Added `logDerivedEvent` helper and start/end logs in both subscribers. Enable via `globalThis.__SEMIO_DEBUG_DERIVED__ = true` (or `SEMIO_DEBUG_DERIVED=true`) to trace execution order; no behavioural change when disabled. |
+| 2 | Introduce a `buildDerivedSnapshot` helper that mirrors existing outputs while still emitting legacy slices. | ☑ Implemented `buildDerivedSnapshot` to compute per-track interpolators/violations and per-row `computeRowData` results from current store inputs. Helper is exported but unused; next step is to drive it from instrumentation/tests before switching consumers. |
+| 3 | Add vitest coverage comparing legacy vs snapshot outputs (per-track interpolators/violations, per-row frames/interpolations). | ☑ Added `build-derived-snapshot.test.ts` with factories to diff canonical interpolators/violations and row data against current helpers. |
 | 4 | Gate snapshot usage behind a store flag (`derivedMode`), enabling manual opt-in. | ☐ |
 | 5 | Switch `computedRowData` consumers to read from the snapshot while keeping legacy data in sync. | ☐ |
 | 6 | Switch `violations`, `trackInterpolators`, `values`, `velocities`, and axis consumers to snapshot projections. | ☐ |
@@ -303,3 +303,4 @@ Feel free to add sub-rows or timestamps when specific issues arise (e.g., cache 
 - `packages/animation/src/subscriptions/update-track-interpolators-and-results.ts`
 - `packages/animation/docs/drag-marker-debugging.md`
 - Undo/redo middleware uses zundo on the canonical store slices. Ensure the orchestrator produces derived snapshots *after* canonical mutations so zundo checkpoints remain valid. Preview-only data (drag state, derived snapshot) should remain outside the undo stack or be guarded via selectors passed to zundo.
+- `packages/animation/src/functions/build-derived-snapshot.ts` and `packages/animation/src/types/util/derived-snapshot.ts`

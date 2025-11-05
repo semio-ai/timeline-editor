@@ -7,6 +7,7 @@ import type {
 } from "../store-types";
 import { ComputedRowData } from "../types";
 import { computeRowData } from "../functions/compute-row-data";
+import { logDerivedEvent } from "../utils/derived-debug";
 
 export function updateComputedRowData(
   api: AnimationApi,
@@ -34,6 +35,13 @@ export function updateComputedRowData(
       animations,
       namespaces,
     }) => {
+      logDerivedEvent("updateComputedRowData", "start", () => ({
+        dragActive: Boolean(dragState),
+        selectionTracks: selectionState.keypoints.size,
+        rowCount: Object.keys(instancedTrackSources).length,
+        violationTrackCount: Object.keys(violations).length,
+      }));
+
       const computedRowData: Record<string, ComputedRowData> = {};
 
       Object.values(instancedTrackSources).forEach((instancedTrackSource) => {
@@ -53,6 +61,11 @@ export function updateComputedRowData(
       });
 
       set({ computedRowData });
+
+      logDerivedEvent("updateComputedRowData", "end", () => ({
+        dragActive: Boolean(api.getState().dragState),
+        rowCount: Object.keys(computedRowData).length,
+      }));
     },
     {
       equalityFn: (a, b) => {

@@ -27,3 +27,9 @@ export type {
   MarkerPoint,
   KeypointAddress,
 } from "./selection-state";
+export type {
+  TrackKey,
+  DerivedTrackSnapshot,
+  DerivedRowSnapshot,
+  DerivedSnapshot,
+} from "./derived-snapshot";

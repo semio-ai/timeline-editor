@@ -24,3 +24,4 @@ export * from "./compute-visible-source-tracks";
 export * from "./create-linear-scale";
 export * from "./raw-value-math";
 export * from "./get-icon-code";
+export * from "./build-derived-snapshot";
