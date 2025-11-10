@@ -1,4 +1,4 @@
-import { useState, memo, useRef, useCallback, useMemo, useEffect } from "react";
+import { useState, memo, useRef, useCallback, useMemo } from "react";
 import {
   Button,
   StaticIcon,
@@ -12,12 +12,10 @@ import {
 import { uniq } from "lodash";
 import { shallow } from "zustand/shallow";
 import { clsx } from "clsx";
-import { usePlayerStore, PlayerData, getLookup, RawValue } from "@semio/utils";
+import { usePlayerStore, PlayerData, RawValue } from "@semio/utils";
 import { IconDotsVertical, IconChevronDown } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
 import { type SourceRow, InstancedFrameInfo } from "../types";
-import { resolveComputedRowData } from "../utils/resolve-row-data";
-import { resolveTrackInterpolators } from "../utils/resolve-track-interpolator";
 import {
   useAnimationStore,
   useColors,
@@ -38,52 +36,10 @@ export interface ControlWidgetProps {
   onEmphasisChange?: (emphasis: boolean) => void;
 }
 
-const ControlSettingsMenu = memo(function ControlSettingsMenu({
-  color,
-  trackIds,
-  isActive,
-  onUpdateColor,
-}: {
-  color: string;
-  trackIds: string[];
-  isActive: boolean;
-  onUpdateColor: (trackId: string, color: string) => void;
-}) {
-  const trigger = useMemo(
-    () => (
-      <span>
-        <Button
-          size={Size.Xs}
-          className="flex items-center justify-center"
-          visuals="inverted"
-          leftIcon={<IconDotsVertical className="size-3/5" />}
-        />
-      </span>
-    ),
-    [],
-  );
-
-  if (!isActive) return null;
-
-  return (
-    <Dropdown variant={Variant.Info} trigger={trigger}>
-      <NestedLabel>Control Settings</NestedLabel>
-      <NestedColorPicker
-        variant={Variant.Info}
-        disabled={trackIds.length > 1}
-        value={color}
-        onChange={(v) => {
-          if (trackIds[0]) onUpdateColor(trackIds[0], v);
-        }}
-      />
-    </Dropdown>
-  );
-});
-
 function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWidgetProps) {
-  // const [open, setOpen] = useState(expanded ?? false);
+  // Select computed row data using snapshot-backed slice (stable identity)
   const computedRowData = useAnimationStore(
-    useShallow((state: AnimationData) => resolveComputedRowData(state, sourceRow.id)),
+    useShallow((state: AnimationData) => state.computedRowData[sourceRow.id]),
   );
 
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
@@ -95,9 +51,8 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     useShallow((state: AnimationActions) => state.updateControlColor),
   );
 
-  const interpolators = useAnimationStore(
-    useShallow((state: AnimationData) => resolveTrackInterpolators(state)),
-  );
+  // Resolve current interpolators from snapshot-maintained slice
+  const snapshot = useAnimationStore(useShallow((state: AnimationData) => state.derivedSnapshot));
   const animatables = useAnimationStore(useShallow((state) => state.animatables));
 
   const trackAnimatableLookup = useTrackAnimatableLookup();
@@ -121,7 +76,7 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     useShallow((state: AnimationActions) => state.focusSelectionInstance),
   );
 
-  // Row is considered active if it has no unique instance mapping (mixed/group) OR it matches the selected instance
+  // Row is active if it has no unique instance mapping OR it matches the selected instance
   const isActive = useMemo(
     () => !uniqueInstanceId || selectionInstanceId === uniqueInstanceId,
     [uniqueInstanceId, selectionInstanceId],
@@ -138,28 +93,20 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     [focusSelectionInstance, uniqueInstanceId],
   );
 
-  const computedRowDataRef = useRef(computedRowData);
-  useEffect(() => {
-    computedRowDataRef.current = computedRowData;
-  }, [computedRowData]);
-
-  const playerSelector = useCallback(
-    (state: any) => ({ running: state.player.running, stamp: state.player.stamp }),
-    [],
+  // Keep local instancedFrame preview in sync with player stamp (old pattern)
+  usePlayerSubscription(
+    (state) => ({ running: state.player.running, stamp: state.player.stamp }),
+    ({ running, stamp }) => {
+      stampRef.current = stamp;
+      if (running) {
+        setInstancedFrame(undefined);
+      } else {
+        const f = computedRowData?.virtualFrames?.find((s) => s.stamp === stamp);
+        setInstancedFrame(f ?? undefined);
+      }
+    },
+    shallow,
   );
-
-  const playerCallback = useCallback(({ running, stamp }: { running: boolean; stamp: number }) => {
-    stampRef.current = stamp;
-    const currentRow = computedRowDataRef.current;
-    if (running || !currentRow) {
-      setInstancedFrame((prev) => (prev !== undefined ? undefined : prev));
-    } else {
-      const f = currentRow?.virtualFrames?.find((s) => s.stamp === stamp);
-      setInstancedFrame((prev) => (prev !== f ? (f ?? undefined) : prev));
-    }
-  }, []);
-
-  usePlayerSubscription(playerSelector, playerCallback, shallow);
 
   const { updateKeypoints, removeKeypoints, updateTrack, updateSource } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
@@ -226,8 +173,9 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
                 animatableId: trackAnimatableLookup[datum.trackId].id,
               }));
               const updates = datumAnimatablePairs
-                .map(({ datum, animatableId }) => {
-                  const value = interpolators[getLookup(datum.namespaceId, animatableId)]?.value?.(
+                .map(({ datum }) => {
+                  const trackKey = `${datum.namespaceId}/${datum.instanceId}/${datum.trackId}`;
+                  const value = snapshot?.tracks[trackKey as any]?.canonical.interpolator(
                     stampRef.current,
                   );
                   return {
@@ -251,7 +199,6 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
             visuals="inverted"
             color={color}
             onClick={() => {
-              console.log("clicked", sourceRow.expanded);
               updateExpanded(!sourceRow.expanded);
             }}
             leftIcon={
@@ -294,9 +241,10 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
                 }));
                 const updates = datumAnimatablePairs
                   .map(({ datum, animatableId }) => {
-                    const value: RawValue | undefined = interpolators[
-                      getLookup(datum.namespaceId, animatableId)
-                    ]?.value?.(stampRef.current);
+                    const trackKey = `${datum.namespaceId}/${datum.instanceId}/${datum.trackId}`;
+                    const value: RawValue | undefined = snapshot?.tracks[
+                      trackKey as any
+                    ]?.canonical.interpolator(stampRef.current);
                     const defaultValue = animatables[animatableId].default;
                     if (typeof change === "function") {
                       const newValue = change(value ?? defaultValue);
@@ -328,264 +276,33 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
           </div>
         )}
         <div className="w-3 flex items-center justify-around mr-1">
-          <ControlSettingsMenu
-            color={color}
-            trackIds={trackIds}
-            isActive={isActive}
-            onUpdateColor={updateControlColor}
-          />
+          <Dropdown
+            variant={Variant.Info}
+            trigger={
+              <span>
+                <Button
+                  size={Size.Xs}
+                  className="flex items-center justify-center"
+                  visuals="inverted"
+                  leftIcon={<IconDotsVertical className="size-3/5" />}
+                />
+              </span>
+            }
+          >
+            <NestedLabel>Control Settings</NestedLabel>
+            <NestedColorPicker
+              variant={Variant.Info}
+              disabled={trackIds.length > 1}
+              value={color}
+              onChange={(v) => {
+                if (trackIds[0]) updateControlColor(trackIds[0], v);
+              }}
+            />
+          </Dropdown>
         </div>
       </div>
     </div>
   );
-
-  // return (
-  //   <CollapsibleRoot
-  //     className="w-full"
-  //     open={open}
-  //     onOpenChange={(v: boolean) => {
-  //       setOpen(v);
-  //       onExpandedChange?.(v);
-  //     }}
-  //     disabled={!animatableValue || !collapsibleTypes.includes(animatableValue.type)}
-  //   >
-  //     <div className="grid grid-cols-[64px_16px_1fr_16px] pl-1 pr-2 gap-2 h-9 items-center">
-  //       <WrappedTrackControl
-  //         animationId={animationId}
-  //         animatableValue={animatableValue}
-  //         namespace={namespace}
-  //         keypoint={keypoint}
-  //         track={track}
-  //         handleValueChange={handleValueChange}
-  //       />
-
-  //       <div className="flex-1 flex">
-  //         <AnimatableEditor
-  //           animatableValue={animatableValue}
-  //           playing={playing}
-  //           track={track}
-  //           namespace={namespace}
-  //           emphasis={emphasis}
-  //           onEmphasisChange={onEmphasisChange}
-  //           handleValueChange={handleValueChange}
-  //         />
-  //       </div>
-  //       <div className="w-3 flex items-center justify-around mr-1">
-  //         <Dropdown
-  //           variant={Variant.Info}
-  //           trigger={
-  //             <span>
-  //               <Button
-  //                 size={Size.Xs}
-  //                 className="flex items-center justify-center"
-  //                 visuals="inverted"
-  //                 leftIcon={<IconDotsVertical className="size-3/5" />}
-  //               />
-  //             </span>
-  //           }
-  //         >
-  //           <NestedLabel>Control Settings</NestedLabel>
-  //           <NestedColorPicker
-  //             variant={Variant.Info}
-  //             disabled={!track}
-  //             value={track?.settings?.color || "#737373"}
-  //             onChange={(v) => {
-  //               updateControlColor(track?.id || "", v);
-  //             }}
-  //           />
-  //         </Dropdown>
-  //       </div>
-  //     </div>
-  //     <CollapsibleContent>
-  //       {animatableValue.type === "vector3" && (
-  //         <>
-  //           {["x", "y", "z"].map((prop) => (
-  //             <div
-  //               key={prop}
-  //               className="grid grid-cols-[64px_16px_1fr_12px] gap-2 h-9 items-center"
-  //             >
-  //               <div className="w-16" />
-  //               <StaticIcon size="fit" className="size-3" color={color}>
-  //                 <DataIcon iconCode={animatableValue.pub?.units ?? ""} size="13px" />
-  //               </StaticIcon>
-
-  //               <div className="flex-1">
-  //                 <AnimatableEditor
-  //                   animatableValue={animatableValue}
-  //                   playing={playing}
-  //                   track={track}
-  //                   prop={prop}
-  //                   namespace={namespace}
-  //                   emphasis={emphasis}
-  //                   onEmphasisChange={onEmphasisChange}
-  //                   handleValueChange={handleValueChange}
-  //                 />
-  //               </div>
-  //               <div className="min-w-8" />
-  //             </div>
-  //           ))}
-  //         </>
-  //       )}
-  //       {animatableValue.type === "vector2" && (
-  //         <>
-  //           {["x", "y"].map((prop) => (
-  //             <div
-  //               key={prop}
-  //               className="grid grid-cols-[64px_16px_1fr_12px] gap-2 h-9 items-center"
-  //             >
-  //               <div className="w-16" />
-  //               <StaticIcon size="fit" className="size-4" color={track?.settings?.color}>
-  //                 <DataIcon iconCode={animatableValue.pub?.units ?? ""} size="13px" />
-  //               </StaticIcon>
-
-  //               <div className="flex-1">
-  //                 <AnimatableEditor
-  //                   animatableValue={animatableValue}
-  //                   playing={playing}
-  //                   track={track}
-  //                   prop={prop}
-  //                   namespace={namespace}
-  //                   emphasis={emphasis}
-  //                   onEmphasisChange={onEmphasisChange}
-  //                   handleValueChange={handleValueChange}
-  //                 />
-  //               </div>
-  //               <div className="min-w-8" />
-  //             </div>
-  //           ))}
-  //         </>
-  //       )}
-  //       {animatableValue.type === "euler" && (
-  //         <>
-  //           {["r", "p", "y"].map((prop) => (
-  //             <div
-  //               key={prop}
-  //               className="grid grid-cols-[64px_16px_1fr_12px] gap-2 h-9 items-center"
-  //             >
-  //               <div className="w-16" />
-  //               <StaticIcon size="fit" className="size-4" color={track?.settings?.color}>
-  //                 <DataIcon iconCode={animatableValue.pub?.units ?? ""} size="13px" />
-  //               </StaticIcon>
-
-  //               <div className="flex-1">
-  //                 <AnimatableEditor
-  //                   animatableValue={animatableValue}
-  //                   playing={playing}
-  //                   track={track}
-  //                   prop={prop}
-  //                   namespace={namespace}
-  //                   emphasis={emphasis}
-  //                   onEmphasisChange={onEmphasisChange}
-  //                   handleValueChange={handleValueChange}
-  //                 />
-  //               </div>
-  //               <div className="min-w-8" />
-  //             </div>
-  //           ))}
-  //         </>
-  //       )}
-  //       {animatableValue.type === "rgb" && (
-  //         <>
-  //           {["r", "g", "b"].map((prop) => (
-  //             <div key={prop} className="flex p-1 items-center h-[30px]">
-  //               <div className="w-11" />
-  //               <StaticIcon size="fit" className="w-3 h-3 pl-1 pr-2" color={track?.settings?.color}>
-  //                 <DataIcon iconCode={animatableValue.pub?.units ?? ""} size="13px" />
-  //               </StaticIcon>
-
-  //               <div className="flex-1">
-  //                 <AnimatableEditor
-  //                   animatableValue={animatableValue}
-  //                   playing={playing}
-  //                   track={track}
-  //                   prop={prop}
-  //                   namespace={namespace}
-  //                   emphasis={emphasis}
-  //                   onEmphasisChange={onEmphasisChange}
-  //                   handleValueChange={handleValueChange}
-  //                 />
-  //               </div>
-  //               <div className="min-w-8" />
-  //             </div>
-  //           ))}
-  //         </>
-  //       )}
-  //       {animatableValue.type === "hsl" && (
-  //         <>
-  //           {["h", "s", "l"].map((prop) => (
-  //             <div key={prop} className="flex p-1 items-center h-[30px]">
-  //               <div className="w-11" />
-  //               <StaticIcon size="fit" className="w-3 h-3 pl-1 pr-2" color={track?.settings?.color}>
-  //                 <DataIcon iconCode={animatableValue.pub?.units ?? ""} size="13px" />
-  //               </StaticIcon>
-
-  //               <div className="flex-1">
-  //                 <AnimatableEditor
-  //                   animatableValue={animatableValue}
-  //                   playing={playing}
-  //                   track={track}
-  //                   prop={prop}
-  //                   namespace={namespace}
-  //                   emphasis={emphasis}
-  //                   onEmphasisChange={onEmphasisChange}
-  //                   handleValueChange={handleValueChange}
-  //                 />
-  //               </div>
-  //               <div className="min-w-8" />
-  //             </div>
-  //           ))}
-  //         </>
-  //       )}
-  //     </CollapsibleContent>
-  //   </CollapsibleRoot>
-  // );
 }
 
 export const ControlWidget = memo(InnerControlWidget);
-
-// interface WrappedTrackControlProps {
-//   animationId?: string;
-//   track?: Track<RawValue>;
-//   namespace: string;
-//   keypoint?: Keypoint<RawValue>;
-//   handleValueChange: (value: RawValue) => void;
-//   animatableValue: AnimatableValue;
-// }
-
-// function InnerWrappedTrackControl({
-//   source,
-//   keypoint,
-//   handleValueChange,
-//   animatableValue,
-// }: WrappedTrackControlProps) {
-//   const rawValueId = getLookup(namespace, animatableValue.id);
-//   const rawValue: RawValue | undefined = useAnimationStore(
-//     useShallow((state: AnimationData) => {
-//       return state.values.get(rawValueId);
-//     }),
-//   );
-//   const removeKeypoint = useAnimationStore(
-//     useShallow((state: AnimationActions) => state.removeKeypoint),
-//   );
-
-//   const color = useColors(track?.id ?? animatableValue.id);
-
-//   return (
-//     <TrackControl
-//       disabled={!animationId}
-//       source={track ? [track.id] : []}
-//       filled={keypoint !== undefined}
-//       color={color}
-//       onHexClick={() => {
-//         if (keypoint && track) {
-//           removeKeypoint(track.id, keypoint.id);
-//         } else {
-//           const value = rawValue ?? animatableValue.default;
-//           handleValueChange(value);
-//         }
-//       }}
-//     />
-//   );
-// }
-
-// const WrappedTrackControl = memo(InnerWrappedTrackControl);

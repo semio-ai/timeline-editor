@@ -5,8 +5,6 @@ import type {
   Keypoint,
   Track,
   Animation,
-  TrackInterpolators,
-  Violation,
   StoredAnimation,
   Preview,
   Source,
@@ -20,7 +18,6 @@ import type {
   VisibleSourceRowIds,
   Namespace,
   DerivedSnapshot,
-  TrackKey,
 } from "./types";
 import type { SelectionState } from "./types/util/selection-state";
 
@@ -28,7 +25,7 @@ import type { SelectionState } from "./types/util/selection-state";
  * Interface representing the data structure for animation.
  */
 export interface AnimationData {
-  derivedMode: "legacy" | "snapshot";
+  // derivedMode: "legacy" | "snapshot";
   derivedSnapshot?: DerivedSnapshot;
   /**
    * Current values (output of interpolator).
@@ -38,10 +35,6 @@ export interface AnimationData {
    * Current values (output of interpolator).
    */
   velocities: Map<string, RawValue | undefined>;
-  /**
-   * Current set of track interpolators.
-   */
-  trackInterpolators: TrackInterpolators;
   /**
    * A record of animation instances and their namespaces, used for specifying how
    * values are written into state.values without overriding others.
@@ -104,11 +97,6 @@ export interface AnimationData {
    * A set of unsubscribers for individual animations.
    */
   animationSubscribers: (() => void)[];
-  /**
-   * Canonical violations keyed by namespaced track key (`namespaceId/instanceId/trackId`).
-   */
-  violations: Partial<Record<TrackKey, Violation[]>>;
-
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   animatables: Record<string, AnimatableValue>;
 
@@ -190,7 +178,6 @@ export interface AnimationActions {
    * Note: This affects all views since sources are now globally managed.
    */
   updateSources: (groupStates: Record<string, { expanded?: boolean; hidden?: boolean }>) => void;
-  setDerivedMode: (mode: "legacy" | "snapshot") => void;
   /**
    * Update all values in the store.
    * @param values - A map of values to update.

@@ -1,8 +1,8 @@
-import { PlayerData, PlayerDirection, RawValue, usePlayerStore } from "@semio/utils";
+import { PlayerData, PlayerDirection, RawValue, usePlayerStore, getLookup } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import type { AnimationApi, AnimationStoreGetter, AnimationStoreSetter } from "../store-types";
 import { matchingIdentityRawValue, rawValueMultiplyScalar } from "../functions";
-import { resolveTrackInterpolators } from "../utils/resolve-track-interpolator";
+import { parseTrackKey } from "../utils/track-key";
 
 export function updateInterpolationResultsOnStampChange(
   _api: AnimationApi,
@@ -20,27 +20,34 @@ export function updateInterpolationResultsOnStampChange(
       currentDirection: state.player._currentDirection,
     }),
     ({ stamp, running, currentDirection, speed }) => {
-      const trackInterpolators = resolveTrackInterpolators(get());
+      const snapshot = get().derivedSnapshot;
       const result = new Map<string, RawValue | undefined>();
       const velocities = new Map<string, RawValue | undefined>();
       const multiplier = (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
 
-      Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
-        // Handle velocity calculation.
-        const vel = interpolatorCollection.derivative(stamp);
-        if (vel !== undefined) {
-          if (running) {
-            velocities.set(key, rawValueMultiplyScalar(vel, multiplier));
+      if (snapshot) {
+        Object.entries(snapshot.tracks).forEach(([trackKey, track]) => {
+          const { namespaceId } = parseTrackKey(trackKey);
+          const animatableId = track.metadata?.animatableId;
+          if (!animatableId) return;
+          const lookup = getLookup(namespaceId, animatableId);
+
+          // Handle velocity calculation from canonical derivative.
+          const vel = track.canonical.derivative(stamp);
+          if (vel !== undefined) {
+            if (running) {
+              velocities.set(lookup, rawValueMultiplyScalar(vel, multiplier));
+            } else {
+              velocities.set(lookup, matchingIdentityRawValue(vel));
+            }
           } else {
-            const stoppedVel = matchingIdentityRawValue(vel);
-            velocities.set(key, stoppedVel);
+            velocities.set(lookup, undefined);
           }
-        } else {
-          velocities.set(key, undefined);
-        }
-        // Handle the value calculation.
-        result.set(key, interpolatorCollection.value(stamp));
-      });
+
+          // Handle current value from canonical interpolator.
+          result.set(lookup, track.canonical.interpolator(stamp));
+        });
+      }
       updateValues(result);
       updateVelocities(velocities);
     },

@@ -18,11 +18,9 @@ export const createDefaultState = (): AnimationData => {
   // const defaultAnimation = createDefaultAnimation();
 
   return {
-    derivedMode: "snapshot",
     derivedSnapshot: undefined,
     values: new Map(),
     velocities: new Map(),
-    trackInterpolators: {},
     namespaces: {},
     animations: {},
     tracks: {},
@@ -39,7 +37,6 @@ export const createDefaultState = (): AnimationData => {
     },
     trackSubscribers: [],
     animationSubscribers: [],
-    violations: {},
 
     animatables: {},
 

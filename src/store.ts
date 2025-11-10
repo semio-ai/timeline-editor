@@ -49,20 +49,15 @@ import {
 import {
   updatePlayerLoop,
   updateOverallDuration,
-  updateInterpolationResultsOnStampChange,
-  updateAllInterpolatorsAndResultsOnDataChange,
   updateInstancedTrackSources,
-  updateComputedRowData,
   updateConsolidatedSourceRow,
   updateGlobalSources,
   updateSourceRowIds,
-  updateViewVerticalAxes,
   initDerivedOrchestrator,
 } from "./subscriptions";
 import { View } from "./types/util/view";
 import { createEmptySelectionState } from "./functions/selection-state-manager";
 import { clickLineAction } from "./actions/click-line";
-import { resolveComputedRowData } from "./utils/resolve-row-data";
 
 enableMapSet();
 
@@ -95,22 +90,6 @@ export const AnimationSlice = (
           );
         }),
       );
-    },
-    setDerivedMode: (mode: "legacy" | "snapshot") => {
-      const prev = get().derivedMode;
-      if (prev === mode) return;
-      const existingCleanup = (api as any).__derivedCleanup as (() => void) | undefined;
-      if (typeof existingCleanup === "function") {
-        existingCleanup();
-        (api as any).__derivedCleanup = undefined;
-      }
-      set(
-        produce((state: AnimationData) => {
-          state.derivedMode = mode;
-        }),
-      );
-      const cleanup = get().initAnimationSubscriptions();
-      (api as any).__derivedCleanup = cleanup;
     },
     updateValues: (values: Map<string, RawValue | undefined>) => {
       set(
@@ -331,7 +310,7 @@ export const AnimationSlice = (
       const state = get();
       const playerState = usePlayerStore.getState();
       const sourceRowId = sourceRow.id;
-      const computedData = resolveComputedRowData(state, sourceRowId);
+      const computedData = state.computedRowData[sourceRowId];
       if (!computedData) return;
 
       const instancedFrameData = computedData.virtualFrames;
@@ -350,7 +329,7 @@ export const AnimationSlice = (
       const state = get();
       const playerState = usePlayerStore.getState();
       const sourceRowId = sourceRow.id;
-      const computedData = resolveComputedRowData(state, sourceRowId);
+      const computedData = state.computedRowData[sourceRowId];
       if (!computedData) return;
 
       const instancedFrameData = computedData.virtualFrames;
@@ -426,36 +405,16 @@ export const AnimationSlice = (
         (api as any).__derivedCleanup = undefined;
       }
 
-      let unsubs: (() => void)[] = [];
-
       // Delay subscription initialization to prevent cascading updates during store creation
-      const mode = get().derivedMode;
-      if (mode === "snapshot") {
-        // Orchestrator path: compute and publish derived slices atomically
-        unsubs = [
-          updatePlayerLoop,
-          updateOverallDuration,
-          initDerivedOrchestrator,
-          updateInstancedTrackSources,
-          updateGlobalSources,
-          updateSourceRowIds,
-          updateConsolidatedSourceRow,
-        ].map((fn) => fn(api, set, get));
-      } else {
-        // Legacy path: keep existing discrete subscriptions
-        unsubs = [
-          updatePlayerLoop,
-          updateOverallDuration,
-          updateInterpolationResultsOnStampChange,
-          updateAllInterpolatorsAndResultsOnDataChange,
-          updateInstancedTrackSources,
-          updateGlobalSources,
-          updateSourceRowIds,
-          updateComputedRowData,
-          updateViewVerticalAxes,
-          updateConsolidatedSourceRow,
-        ].map((fn) => fn(api, set, get));
-      }
+      const unsubs = [
+        updatePlayerLoop,
+        updateOverallDuration,
+        initDerivedOrchestrator,
+        updateInstancedTrackSources,
+        updateGlobalSources,
+        updateSourceRowIds,
+        updateConsolidatedSourceRow,
+      ].map((fn) => fn(api, set, get));
 
       const cleanup = () => {
         unsubs.forEach((unsub) => unsub());

@@ -1,15 +1,13 @@
-import { useMemo, useState, useRef, useCallback, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
 import { IconPlayerPlay, Button, IconKey } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
-import { shallow } from "zustand/shallow";
-import { useAnimationStore, usePlayerSubscription } from "../hooks";
+import { useAnimationStore } from "../hooks";
 import { computeNextTime, computePreviousTime } from "../functions";
 import { type AnimationData, type AnimationActions } from "../store-types";
 import { SemanticTime, SourceRow } from "../types";
-import { resolveComputedRowData } from "../utils/resolve-row-data";
 
 export interface TrackControlProps {
   color?: string;
@@ -27,45 +25,22 @@ export function TrackControl({
   disabled,
 }: TrackControlProps) {
   const computedData = useAnimationStore(
-    useShallow((state: AnimationData) => resolveComputedRowData(state, source.id)),
+    useShallow((state: AnimationData) => state.computedRowData[source.id]),
   );
 
   const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
 
-  const [prevKeyframeTime, setPrevKeyframeTime] = useState<number | undefined>(undefined);
-  const [nextKeyframeTime, setNextKeyframeTime] = useState<number | undefined>(undefined);
+  const running = usePlayerStore(useShallow((state) => state.player.running));
+  const stamp = usePlayerStore(useShallow((state) => state.player.stamp));
 
-  const computedDataRef = useRef(computedData);
-  useEffect(() => {
-    computedDataRef.current = computedData;
-  }, [computedData]);
-
-  const boundsRef = useRef(bounds);
-  useEffect(() => {
-    boundsRef.current = bounds;
-  }, [bounds]);
-
-  const playerSelector = useCallback(
-    (state: any) => ({ running: state.player.running, stamp: state.player.stamp }),
-    [],
-  );
-
-  const playerCallback = useCallback(({ running, stamp }: { running: boolean; stamp: number }) => {
-    const currentComputed = computedDataRef.current;
-    const currentBounds = boundsRef.current;
-
-    if (running || currentComputed === undefined) {
-      setPrevKeyframeTime((v) => (v !== undefined ? undefined : v));
-      setNextKeyframeTime((v) => (v !== undefined ? undefined : v));
-    } else {
-      const prev = computePreviousTime(currentComputed.virtualFrames, stamp, currentBounds, true);
-      const next = computeNextTime(currentComputed.virtualFrames, stamp, currentBounds, true);
-      setPrevKeyframeTime((p) => (p !== prev ? prev : p));
-      setNextKeyframeTime((n) => (n !== next ? next : n));
-    }
-  }, []);
-
-  usePlayerSubscription(playerSelector, playerCallback, shallow);
+  const prevKeyframeTime = useMemo(() => {
+    if (running || computedData === undefined) return undefined;
+    return computePreviousTime(computedData.virtualFrames, stamp, bounds, true);
+  }, [computedData, bounds, running, stamp]);
+  const nextKeyframeTime = useMemo(() => {
+    if (running || computedData === undefined) return undefined;
+    return computeNextTime(computedData.virtualFrames, stamp, bounds, true);
+  }, [computedData, bounds, running, stamp]);
 
   const enabledBack = prevKeyframeTime !== undefined;
   const enabledForward = nextKeyframeTime !== undefined;

@@ -1,19 +1,19 @@
 import { memo, useCallback, useMemo } from "react";
 import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
 import {
-  getLookup,
   RawValue,
   toDegrees,
   toRadians,
   AnimatableVector3,
   AnimatableNumber,
+  usePlayerStore,
+  PlayerData,
 } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
-import { resolveInterpolatedValues } from "../utils/resolve-values";
 
 const indexLookups: Record<string, Record<string, number>> = {
   vector3: { x: 0, y: 1, z: 2 },
@@ -40,14 +40,19 @@ function InnerAnimatableEditor({
   handleValueChange,
   active = true,
 }: AnimatableEditorProps) {
-  const rawValueId = getLookup(data.namespaceId, data.animatableId);
-
   const trueColor = useColors(data.trackId ?? data.animatableId);
   const color = active ? trueColor : DEFAULT_COLOR;
 
-  const storedValue: RawValue | undefined = useAnimationStore(
-    useShallow((state: AnimationData) => resolveInterpolatedValues(state).get(rawValueId)),
+  const snapshot = useAnimationStore(useShallow((state: AnimationData) => state.derivedSnapshot));
+  const stamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
+  const trackKey = useMemo(
+    () => `${data.namespaceId}/${data.instanceId}/${data.trackId}`,
+    [data.namespaceId, data.instanceId, data.trackId],
   );
+  const storedValue: RawValue | undefined = useMemo(() => {
+    const interp = snapshot?.tracks[trackKey as any]?.canonical.interpolator;
+    return interp ? interp(stamp) : undefined;
+  }, [trackKey, stamp, snapshot?.tracks]);
 
   const { animatableValue, track } = useAnimationStore(
     useShallow((state: AnimationData) => ({

@@ -1,20 +1,16 @@
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { SelectTree, Size, TreeOption, Variant } from "@semio/ui";
-import { getLookup } from "@semio/utils";
+import { usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-import { shallow } from "zustand/shallow";
 import { uniq } from "lodash";
 import {
   useAnimationStore,
   useColors,
   useLocalGlobalTransformLookup,
   useNameLookup,
-  usePlayerSubscription,
   useTrackAnimatableLookup,
 } from "../hooks";
-import { resolveComputedRowData } from "../utils/resolve-row-data";
-import { resolveTrackInterpolators } from "../utils/resolve-track-interpolator";
 import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
 import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
 import { InstancedFrameInfo } from "../types";
@@ -26,7 +22,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   const {
     source,
     computedRowData,
-    interpolators,
+    snapshot,
     viewData,
     namespaces,
     animations,
@@ -34,8 +30,8 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       source: state.instancedTrackSources.global,
-      computedRowData: resolveComputedRowData(state, "global"),
-      interpolators: resolveTrackInterpolators(state),
+      computedRowData: state.computedRowData.global,
+      snapshot: state.derivedSnapshot,
       viewData: state.editorViews[viewId],
       namespaces: state.namespaces,
       animations: state.animations,
@@ -60,29 +56,13 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
     })),
   );
 
-  const [instancedFrame, setInstancedFrame] = useState<InstancedFrameInfo | undefined>(undefined);
-  const stampRef = useRef<number>(0);
+  const running = usePlayerStore(useShallow((state) => state.player.running));
+  const stamp = usePlayerStore(useShallow((state) => state.player.stamp));
 
-  const computedRowDataRef = useRef(computedRowData);
-  computedRowDataRef.current = computedRowData;
-
-  const playerSelector = useCallback(
-    (state: any) => ({ running: state.player.running, stamp: state.player.stamp }),
-    [],
-  );
-
-  const playerCallback = useCallback(({ running, stamp }: { running: boolean; stamp: number }) => {
-    stampRef.current = stamp;
-    const currentRow = computedRowDataRef.current;
-    if (running || !currentRow) {
-      setInstancedFrame((prev) => (prev !== undefined ? undefined : prev));
-    } else {
-      const f = currentRow.virtualFrames.find((s) => s.stamp === stamp);
-      setInstancedFrame((prev) => (prev !== f ? f : prev));
-    }
-  }, []);
-
-  usePlayerSubscription(playerSelector, playerCallback, shallow);
+  const instancedFrame = useMemo<InstancedFrameInfo | undefined>(() => {
+    if (!computedRowData || running) return undefined;
+    return computedRowData.virtualFrames.find((s) => s.stamp === stamp);
+  }, [computedRowData, running, stamp]);
 
   const { treeOptions, treeValues }: { treeOptions: TreeOption[]; treeValues: string[] } =
     useMemo(() => {
@@ -169,15 +149,14 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
               animatableId: trackAnimatableLookup[datum.trackId].id,
             }));
             const updates = datumAnimatablePairs
-              .map(({ datum, animatableId }) => {
-                const value = interpolators[getLookup(datum.namespaceId, animatableId)]?.value?.(
-                  stampRef.current,
-                );
+              .map(({ datum }) => {
+                const trackKey = `${datum.namespaceId}/${datum.instanceId}/${datum.trackId}`;
+                const value = snapshot?.tracks[trackKey as any]?.canonical.interpolator(stamp);
                 return {
                   trackId: datum.trackId,
                   keypoint: {
                     value,
-                    stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](stampRef.current),
+                    stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](stamp),
                   },
                 };
               })
