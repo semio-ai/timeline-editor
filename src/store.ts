@@ -37,6 +37,7 @@ import {
   removeAnimation,
   createDefaultAnimation,
   updateControlColor,
+  insertKeypointAtWorldStamp as insertKeyAtWorldStampAction,
 } from "./actions";
 import { clickMarkerAction, clearSelectionAction } from "./actions/click-marker";
 import { startDrag, updateDrag, commitDrag, cancelDrag } from "./actions/drag";
@@ -395,6 +396,13 @@ export const AnimationSlice = (
       const state = get();
       return Object.keys(state.animations).map((animationId) =>
         state.getStorableAnimation(animationId),
+      );
+    },
+    insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => {
+      set(
+        produce((state: AnimationData) => {
+          insertKeyAtWorldStampAction(state, trackId, worldStamp, instanceId);
+        }),
       );
     },
     initAnimationSubscriptions: () => {

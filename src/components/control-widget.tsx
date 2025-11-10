@@ -1,4 +1,4 @@
-import { useState, memo, useRef, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import {
   Button,
   StaticIcon,
@@ -10,18 +10,16 @@ import {
   TextField,
 } from "@semio/ui";
 import { uniq } from "lodash";
-import { shallow } from "zustand/shallow";
 import { clsx } from "clsx";
 import { usePlayerStore, PlayerData, RawValue } from "@semio/utils";
 import { IconDotsVertical, IconChevronDown } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
-import { type SourceRow, InstancedFrameInfo } from "../types";
+import { type SourceRow } from "../types";
 import {
   useAnimationStore,
   useColors,
   useLocalGlobalTransformLookup,
   useNames,
-  usePlayerSubscription,
   useTrackAnimatableLookup,
 } from "../hooks";
 import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
@@ -58,9 +56,6 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
   const trackAnimatableLookup = useTrackAnimatableLookup();
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
 
-  const [instancedFrame, setInstancedFrame] = useState<InstancedFrameInfo | undefined>(undefined);
-  const stampRef = useRef<number>(0);
-
   // Compute unique instance for this row (must be exactly one)
   const uniqueInstanceId = useMemo(() => {
     const ids = uniq(
@@ -68,6 +63,18 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     );
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow.data]);
+
+  // Derive instanced frame directly from snapshot + current stamp; avoid local state to prevent staleness
+  const playerStamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
+  const currentLocalStamp = useMemo(() => {
+    if (!uniqueInstanceId) return playerStamp;
+    const toLocal = localGlobalTransformLookup.toLocal[uniqueInstanceId];
+    return typeof toLocal === "function" ? toLocal(playerStamp) : playerStamp;
+  }, [playerStamp, uniqueInstanceId, localGlobalTransformLookup]);
+  const instancedFrame = useMemo(
+    () => computedRowData?.virtualFrames?.find((s) => s.stamp === currentLocalStamp),
+    [computedRowData, currentLocalStamp],
+  );
 
   const selectionInstanceId = useAnimationStore(
     useShallow((state: AnimationData) => state.selectionState.instanceId),
@@ -93,27 +100,21 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     [focusSelectionInstance, uniqueInstanceId],
   );
 
-  // Keep local instancedFrame preview in sync with player stamp (old pattern)
-  usePlayerSubscription(
-    (state) => ({ running: state.player.running, stamp: state.player.stamp }),
-    ({ running, stamp }) => {
-      stampRef.current = stamp;
-      if (running) {
-        setInstancedFrame(undefined);
-      } else {
-        const f = computedRowData?.virtualFrames?.find((s) => s.stamp === stamp);
-        setInstancedFrame(f ?? undefined);
-      }
-    },
-    shallow,
-  );
+  // instancedFrame is derived from snapshot and currentLocalStamp; no subscription needed
 
-  const { updateKeypoints, removeKeypoints, updateTrack, updateSource } = useAnimationStore(
+  const {
+    updateKeypoints,
+    removeKeypoints,
+    updateTrack,
+    updateSource,
+    insertKeypointAtWorldStamp,
+  } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
       updateKeypoints: state.updateKeypoints,
       removeKeypoints: state.removeKeypoints,
       updateTrack: state.updateTrack,
       updateSource: state.updateSource,
+      insertKeypointAtWorldStamp: state.insertKeypointAtWorldStamp,
     })),
   );
 
@@ -168,28 +169,11 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
               }));
               removeKeypoints(removals);
             } else {
-              const datumAnimatablePairs = sourceRow.data.map((datum) => ({
-                datum,
-                animatableId: trackAnimatableLookup[datum.trackId].id,
-              }));
-              const updates = datumAnimatablePairs
-                .map(({ datum }) => {
-                  const trackKey = `${datum.namespaceId}/${datum.instanceId}/${datum.trackId}`;
-                  const value = snapshot?.tracks[trackKey as any]?.canonical.interpolator(
-                    stampRef.current,
-                  );
-                  return {
-                    trackId: datum.trackId,
-                    keypoint: {
-                      value,
-                      stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](
-                        stampRef.current,
-                      ),
-                    },
-                  };
-                })
-                .filter((u) => u.keypoint.value !== undefined);
-              updateKeypoints(updates, true);
+              // Insert a keypoint at the current world stamp for each datum using instanceId
+              // (value is resolved via derived snapshot interpolator inside the action).
+              sourceRow.data.forEach((datum) => {
+                insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
+              });
             }
           }}
         />
@@ -242,9 +226,11 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
                 const updates = datumAnimatablePairs
                   .map(({ datum, animatableId }) => {
                     const trackKey = `${datum.namespaceId}/${datum.instanceId}/${datum.trackId}`;
-                    const value: RawValue | undefined = snapshot?.tracks[
-                      trackKey as any
-                    ]?.canonical.interpolator(stampRef.current);
+                    const interp = snapshot?.tracks[trackKey as any]?.canonical.interpolator;
+                    const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
+                    const localStamp =
+                      typeof toLocal === "function" ? toLocal(playerStamp) : playerStamp;
+                    const value: RawValue | undefined = interp ? interp(localStamp) : undefined;
                     const defaultValue = animatables[animatableId].default;
                     if (typeof change === "function") {
                       const newValue = change(value ?? defaultValue);
@@ -252,9 +238,7 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
                         trackId: datum.trackId,
                         keypoint: {
                           value: newValue,
-                          stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](
-                            stampRef.current,
-                          ),
+                          stamp: localStamp,
                         },
                       };
                     } else {
@@ -262,9 +246,7 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
                         trackId: datum.trackId,
                         keypoint: {
                           change,
-                          stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](
-                            stampRef.current,
-                          ),
+                          stamp: localStamp,
                         },
                       };
                     }

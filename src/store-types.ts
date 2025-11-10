@@ -196,6 +196,11 @@ export interface AnimationActions {
    */
   removeView: (viewId: string) => void;
   /**
+   * Insert a keypoint at the given world (player) stamp for a specific instance.
+   * Computes the local stamp using instance transforms and derives value via the derived snapshot interpolator when available.
+   */
+  insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => void;
+  /**
    * Create a new animation, empty animation in the store.
    */
   createNewDefaultAnimation: () => void;
