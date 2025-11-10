@@ -23,7 +23,7 @@ This spec defines how drag gestures stage stamp/value updates before they are co
 - [x] **Store Actions** – Implement `startDrag`, `updateDrag`, `commitDrag`, `cancelDrag` using the new selection-driven resolution, including modifier handling & delta persistence.
 - [x] **Canvas Integration** – Wire Canvas sheet markers to the new actions (pointer down/up/move), reuse `useDragGestures`, and honor snapping vs. freeform behavior.
 - [ ] **Control Surfaces** – Update editor/control widgets to initiate vertical drags via the shared actions, including temporary keypoint insertion at the playhead when needed.
-- [ ] **Commit Pipeline** – Refactor keypoint updates to use `KeypointCommitDelta`/`applyKeypointDelta`, apply clamping, and maintain chronological ordering on commit.
+- [x] **Commit Pipeline** – `commitDrag` applies `applyDragDeltas` to canonical keypoints (using per-marker bounds/attributePath), clamps via anchor `ValueScale`/row bounds, and sorts points by `stamp` when horizontal deltas are present.
 - [ ] **Validation & QA** – Add automated coverage where possible (unit tests for helpers, integration tests for selection → drag flow) and document manual QA (snapping, multi-axis, cancellation).
 
 ## Blackboard Usage
@@ -32,9 +32,9 @@ This spec defines how drag gestures stage stamp/value updates before they are co
 - Mention open questions inline (e.g., TODO(semio-agent): ...) so future passes can resolve them before shipping.
 
 ### Blackboard Notes
-- [ ] _Example_: Confirm whether `normalizedValueDelta` is needed once vertical drags ship; remove if unused.
+- [x] _Example_: `normalizedValueDelta` is in active use for vertical drags; keep and document precision/clamp semantics.
 - [ ] _Example_: Evaluate caching strategy for per-marker bounds; revisit if profiler shows lookup hotspots.
-- [x] Preview violations: `computeRowData` now recomputes violation sets with staged drag deltas and is covered by `drag-violation-preview.test.ts`.
+- [x] Preview violations: `computeRowData` now recomputes violation sets with staged drag deltas (via orchestrator/derived snapshot).
 - [ ] Row padding: incorporate per-row vertical padding into backend-derived `verticalAxisByView` so drag normalization matches the on-screen vertical range exactly (prevents screen-space vs. value-space drift).
 - [ ] Immediate feedback: disable x- and y-position animation on `data-point.tsx` and `transition-segment.tsx` while a drag is active for any selected `trackId`, so drag previews update instantly (no spring smoothing) and match `applyDragDeltas` precisely.
 
@@ -52,9 +52,9 @@ This spec defines how drag gestures stage stamp/value updates before they are co
 
 ## Keypoint Resolution (feedback requested)
 - [x] **Option A (recommended)** – rely on `selectionState` (plus its tracked marker metadata) to resolve the active keypoints on demand, using the anchor only to define pointer deltas and normalization. This keeps drag state minimal and guarantees the drag reflects the latest selection. It matches the requirement that drags only start when all markers in the selection are eligible, so the selection remains the single source of truth.
-- [ ] **Option B** – snapshot a `targets` map at drag start. This guards against mid-drag selection churn at the cost of duplicating selection data. Because current UX cancels the drag when selection changes, we consider this duplication unnecessary unless we later allow selection mutations during a drag.
+- [ ] **Option B** – snapshot a `targets` map at drag start. This guards against mid-drag selection churn at the cost of duplicating selection data. Current implementation validates selection at commit (no automatic mid-drag cancellation). Surfaces may choose to cancel on selection change, but duplication remains unnecessary unless we allow selection mutations during a drag.
 
-If we ever relax the “selection change cancels drag” rule, revisit whether Option B becomes necessary.
+If we ever support mid-drag selection mutations, revisit whether Option B becomes necessary.
 
 ## Coordinate Systems
 - The timeline UI emits pointer movement in normalized global space (`[0, 1]` across the visible timeline). Horizontal drags convert that delta into **local** animation time via the captured `DragStampTransform`:
@@ -122,12 +122,12 @@ Notes:
 - `normalizedValueDelta` is shared so every selected marker moves the same visible distance; individual value updates scale this delta into real units using per-track bounds.
 
 ## Data Locality & Store Integration
-- `AnimationData.dragState` (see `store-types.ts`) carries this structure. Because the store already holds `selectionState`, `derivedSnapshot`, and track data, we can derive the full drag context without duplicating keypoint lists.
+- `AnimationData.dragState` (see `store-types.ts`) carries this structure. Because the store already holds `selectionState`, `derivedSnapshot`, and track data, we can derive the full drag context without duplicating keypoint lists. The derived orchestrator rebuilds `derivedSnapshot` during drag updates; selectors can key off `derivedSnapshot.version` for coherent previews.
 - Vertical bounds are available via `derivedSnapshot.rows[rowId].computed.verticalBounds`. Fetching them introduces a cross-lookup each update; duplicating them in `dragState` costs more memory but avoids recomputing at the expense of potential staleness. Current plan:
   - [x] **Option A (recommended)** – read bounds from `derivedSnapshot.rows[rowId].computed` on demand. When the spline view toggles between **Normalized** and **Uniform** axes, the orchestrator derives `verticalAxisByView` for each row. That range mirrors `verticalBounds` for non-spline renderers and becomes a view-scoped min/max when uniform scaling is active. Use it to translate the shared `normalizedValueDelta` into actual values so vertical drags stay aligned with what the user sees.
   - [ ] **Option B** – snapshot bounds (`ValueScale`) into `dragState`. Choose this only if repeated lookups prove too expensive and we can guarantee the snapshot stays valid for the drag duration.
 - Other cached data should follow the same guideline: prefer derivation from `derivedSnapshot` or canonical slices unless profiling shows the cross-lookup to be a bottleneck.
-- Because the current codebase does not yet implement keypoint dragging, we can replace the legacy type wholesale instead of maintaining compatibility with fields like `draggedKeypoints` or `deltaStamp`.
+- Keypoint dragging is implemented; legacy fields such as `draggedKeypoints`/`deltaStamp` were removed.
 
 ## Drag Actions
 ```ts
@@ -143,6 +143,11 @@ export interface DragStartInput {
   axis: DragAxis;
   markerId: string;                       // the clicked marker (anchor)
   rowId: string;                          // source row containing the anchor marker
+  /**
+   * Optional view-specific value scale to use for vertical drags.
+   * When provided, this takes precedence over row-derived vertical bounds.
+   */
+  valueScale?: ValueScale;
 }
 
 export interface DragUpdateInput {
@@ -176,22 +181,10 @@ export interface DragUpdateInput {
 - Mutates `DragState` only; track data remains untouched.
 
 ### `commitDrag`
-- Resolves the current selection to obtain the participating keypoints. If the selection no longer matches the anchor (e.g., deselection), `cancelDrag` is invoked instead.
-- Builds `KeypointCommitDelta` objects by combining the stored deltas with live keypoint data:
-  ```ts
-  interface KeypointCommitDelta {
-    id: string;
-    trackId: string;
-    stamp?: number;
-    value?: {
-      path?: string[];
-      next: (current: RawValue) => RawValue;
-    };
-  }
-  ```
-- Horizontal commits add `stampDelta.snapped ?? stampDelta.raw` (still in local time) to each keypoint’s current stamp.
-- Vertical commits convert `normalizedValueDelta` into per-track additive deltas using each marker’s bounds. These bounds come from `computeRowData`’s `verticalBounds` snapshot or the animatable definition if bounds are unavailable. Clamp when required.
-- Dispatch the deltas through `applyKeypointDelta` to keep writes predictable.
+- Validates selection and anchor membership; if they no longer match (e.g., deselection), clears `dragState` and returns without writes.
+- Applies `applyDragDeltas` to each selected keypoint using per-marker bounds (from the snapshot) and `attributePath` resolved from the marker/row. When horizontal deltas are present, re-sorts points by `stamp`.
+- Horizontal commits use `stampDelta.snapped ?? stampDelta.raw` (in local instance time).
+- Vertical commits convert `normalizedValueDelta` using row `verticalBounds` or the anchor `ValueScale.domain`, applying clamp/precision per `ValueScale`.
 
 ### `cancelDrag`
 - Clears `DragState`; no writes occur.
@@ -203,7 +196,7 @@ Expose a helper that applies staged deltas before markers/segments are derived:
 export function applyDragDeltas(
   keypoint: Keypoint<RawValue>,
   context: {
-    drag: DragState | undefined;
+    dragState: DragState | undefined;
     selection: SelectionState;
     trackId: string;
     bounds?: { min: number; max: number };
@@ -215,7 +208,7 @@ export function applyDragDeltas(
 ```
 
 Usage rules:
-- `updateComputedRowData` invokes `applyDragDeltas` for every keypoint as it builds `InstancedFrameInfo`, passing the active selection for context.
+- `computeRowData` invokes `applyDragDeltas` for every keypoint as it builds `InstancedFrameInfo`, passing the active selection for context.
 - Horizontal previews add the local `stampDelta` (prefer snapped when provided; fall back to raw) before interpolation calculations.
 - Vertical previews clone and patch only the numeric component; resolve per-marker `attributePath` first (from the row/point), falling back to the anchor `attributePath`. Apply clamp (`ValueScale.clamp`) and precision (`ValueScale.precision`) during preview so visuals match commit.
 - The helper reuses the same anchor-derived `normalizedValueDelta` for all selected markers, scaling by each row’s `verticalBounds` range when available, or by the anchor `ValueScale.domain` as a fallback, to keep the motion visually uniform.
@@ -225,6 +218,17 @@ Usage rules:
 - `hooks/use-drag-gestures.ts` remains the canonical way to receive normalized timeline positions. Consumers can pass `dragOptions` (thresholds, tap filtering, pointer config) to standardize behaviour across surfaces.
 
 ## UI Integration
+
+- Control widgets and editor integration (alignment and fixes):
+  - Use instance-scoped transforms for time mapping. When keying from controls, convert world/playhead stamp to local instance time using `localGlobalTransformLookup.toLocal[instanceId](stamp)`. Do not index by `namespaceId`. This fixes the runtime error seen when toggling keys in `control-widget.tsx`.
+  - Route control-surface drags through the shared drag pipeline for consistency with canvas markers:
+    - Start: ensure an anchor keypoint exists at the playhead. If none exists, insert a keypoint using the de Casteljau split (see “Key Insertion (de Casteljau) & Transition Normalization”), then focus/anchor selection to that marker and call `startDrag({ axis: "vertical", origin, markerId, rowId, valueScale })`. Derive `valueScale` from `derivedSnapshot.rows[rowId].computed.verticalBounds` or animatable constraints as a fallback.
+    - Move: compute `normalizedValueDelta` from the control’s visible height: `-(pointerY - originY) / pixelRange`; call `updateDrag({ normalizedValueDelta, modifiers, pointer })`.
+    - End/cancel: call `commitDrag()` or `cancelDrag()`.
+  - When toggling a key (hex button):
+    - If a key exists for all targets at the playhead: remove them.
+    - Otherwise: insert via de Casteljau at the playhead (world stamp), then anchor selection to the inserted marker(s) so subsequent drags use the shared pipeline.
+  - Marker resolution from controls: to obtain the `markerId` for `startDrag`, resolve it via `derivedSnapshot.rows[rowId].computed.virtualFrames` using `(trackId, keypointId)`; prefer a small utility to avoid duplicating this lookup logic in components.
 
 - **Canvas markers**: call `startDrag` on pointer down (supplying the clicked marker), then drive `updateDrag` with the current pointer. Horizontal drags provide both `normalizedStamp.current` and `normalizedStamp.snapped`. Marker surfaces should pass `dragOptions` (e.g., `threshold`, `filterTaps`, `preventScroll`, `pointer: { touch: false }`) to `useDragGestures` so simple clicks do not enter drag mode prematurely. Current implementation snaps to frames by default (`closestFrame`) and allows freeform motion when `alt` is held, mirroring the playhead cart.
 - **Animatable editor / Control widgets (vertical drags)**:
@@ -238,6 +242,72 @@ Usage rules:
 - All surfaces pass modifier state through `DragUpdateInput`. Maintain consistent snapping semantics—default interactions snap to frames, while `alt` provides freeform drags just like `bounds-cart` and other timeline gestures. If fine vertical control is desired, use `Shift` to scale `normalizedValueDelta` (e.g., divide by 4).
 - **Vertical support (canvas)**: marker-body drags currently emit only horizontal deltas; add dedicated vertical handles or modes for `TrackRender.Spline` later. When added, compute `normalizedValueDelta` from the row canvas viewport height (aligned with `verticalAxisByView`) to keep previews/commits visually uniform.
 
+- **Canvas markers**: call `startDrag` on pointer down (supplying the clicked marker), then drive `updateDrag` with the current pointer. Horizontal drags provide both `normalizedStamp.current` and `normalizedStamp.snapped`. Marker surfaces should pass `dragOptions` (e.g., `threshold`, `filterTaps`, `preventScroll`, `pointer: { touch: false }`) to `useDragGestures` so simple clicks do not enter drag mode prematurely. Current implementation snaps to frames by default (`closestFrame`) and allows freeform motion when `alt` is held, mirroring the playhead cart.
+- **Animatable editor / Control widgets (vertical drags)**:
+  - Start: ensure the anchor exists (insert a temporary keypoint at the playhead if none), then `startDrag({ axis: "vertical", origin, markerId, rowId })`.
+  - Move: compute `normalizedValueDelta = -(pointer.y - pointerOrigin.y) / pixelRange`, where `pixelRange` is the visible height of the control’s value viewport for the active row. Pass it via `updateDrag({ normalizedValueDelta, modifiers, pointer })`. Use the same normalization on every move so screen-space motion maps to consistent value deltas across tracks with different ranges.
+  - End: call `commitDrag()` (or `cancelDrag()` if the gesture didn’t move or invariants failed).
+  - Use backend-provided `verticalAxisByView`/`verticalBounds` to keep the control’s visible vertical range in sync with preview/commit math; avoid hardcoding padding in the surface if the backend exposes it.
+- **Immediate feedback during drag**: while a drag is active and the selection contains a track, disable x- and y-position spring animation for any visuals associated with that `trackId` so previews track pointer motion exactly. Concretely:
+  - `data-point.tsx`: bypass the position springs and set x/y directly when the point’s `trackId` is in the current selection during an active drag.
+  - `transition-segment.tsx`: bypass the springs for control point x/y values under the same condition.
+- All surfaces pass modifier state through `DragUpdateInput`. Maintain consistent snapping semantics—default interactions snap to frames, while `alt` provides freeform drags just like `bounds-cart` and other timeline gestures. If fine vertical control is desired, use `Shift` to scale `normalizedValueDelta` (e.g., divide by 4).
+- **Vertical support (canvas)**: marker-body drags currently emit only horizontal deltas; add dedicated vertical handles or modes for `TrackRender.Spline` later. When added, compute `normalizedValueDelta` from the row canvas viewport height (aligned with `verticalAxisByView`) to keep previews/commits visually uniform.
+
+## Key Insertion (de Casteljau) & Transition Normalization
+
+When adding a key at the playhead in the middle of a segment, insert using de Casteljau splitting so the curve shape is preserved exactly before and after insertion.
+
+- Motivation
+  - `compute-track-interpolator` evaluates cubic segments using normalized keypoint transitions: each segment’s endpoints are keypoint values, and control points are derived from normalized `{ x, y }` transitions around the “from” keypoint (`out`) and “to” keypoint (`in`).
+  - Inserting a key mid-segment should split the existing cubic at parameter u and convert the resulting control geometry back into normalized transitions around A (left), K (new), and B (right) so interpolation remains identical.
+
+- Segment setup (matching `compute-track-interpolator`)
+  - For adjacent points A → B in local instance time:
+    - P0 = (A.time, A.value)
+    - P3 = (B.time, B.value)
+    - Control times:
+      - cp1Time = A.time + (B.time - A.time) × clampX(A.transitions?.out?.x ?? 0.65)
+      - cp2Time = A.time + (B.time - A.time) × clampX(B.transitions?.in?.x ?? 0.35)
+    - Control values (per component/type):
+      - cp1Value = lerp(A.value, B.value, A.transitions?.out?.y ?? 0)
+      - cp2Value = lerp(A.value, B.value, B.transitions?.in?.y ?? 1)
+    - This yields cubic [P0, P1, P2, P3] with P1 = (cp1Time, cp1Value), P2 = (cp2Time, cp2Value).
+
+- Split with de Casteljau at u
+  - Let `u = (K.time - A.time) / (B.time - A.time)` where `K.time` is the local (instance) time for the new keypoint.
+  - Perform the construction:
+    - Q0 = lerp(P0, P1, u), Q1 = lerp(P1, P2, u), Q2 = lerp(P2, P3, u)
+    - R0 = lerp(Q0, Q1, u), R1 = lerp(Q1, Q2, u)
+    - S = lerp(R0, R1, u)  // the split point, becomes K
+  - Left cubic: [P0, Q0, R0, S]; Right cubic: [S, R1, Q2, P3].
+
+- Normalize controls back into keypoint transitions
+  - Convert absolute control times back to normalized x in [0, 1]:
+    - For a subsegment [X, Y], any `cpTime` becomes `x = (cpTime - X.time) / (Y.time - X.time)`.
+  - Convert control values back to normalized y weights:
+    - For numeric values: `y = (cpValue - X.value) / (Y.value - X.value)` with stable 0-div handling (fallback to 0 for out.y and 1 for in.y).
+    - For vectors/eulers/colors: compute y per component and pick a dominant component (largest |Y - X|) to infer a robust weight; fallback to 0.5 for degenerate spans.
+  - Assign transitions:
+    - A.transitions.out = parameters derived from [P0, Q0, R0, S] relative to [A, K].
+    - K.transitions.in/out = parameters derived from left/right subsegments around K.
+    - B.transitions.in = parameters derived from [S, R1, Q2, P3] relative to [K, B].
+  - Defaults: when original transitions are absent, use the `compute-track-interpolator` defaults (out: { x: 0.65, y: 0 }, in: { x: 0.35, y: 1 }).
+
+- Helper APIs to add
+  - Insert helper: `insert-keypoint-with-decasteljau(track, worldStamp, instance)` → inserts K at the appropriate local stamp, updates A/K/B transitions using the rules above, and returns the inserted point and index.
+  - Store action: `insertKeypointAtWorldStamp(trackId, worldStamp, instanceId)` → resolves the instance and calls the helper; used by controls and other surfaces.
+  - Marker resolution utility: map `(rowId, trackId, keypointId)` → `markerId` via `derivedSnapshot.rows[rowId].computed.virtualFrames` to anchor selection/drag from control surfaces.
+
+- Edge cases
+  - Zero-length segment (A.time == B.time): fall back to inserting at end of segment with default transitions, or refuse insertion.
+  - Identical values: choose y-weights that leave values unchanged (e.g., out.y = 0, in.y = 1).
+  - Type handling: support number, vector2, vector3, euler, rgb, hsl. For strings/booleans, use step semantics (pre-split vs. post-split) consistent with `compute-track-interpolator`.
+
+- Parameterization and tests alignment
+  - Ensure the parameterized shape is consistent with keypoint transition semantics in `types/data/keypoint.ts` and track semantics in `types/data/track.ts`.
+  - Validate against expectations in `src/tests/compute-transition-params.test.ts` (e.g., control points computed in real value space from normalized transitions).
+
 ## Validation & QA
 - Unit: verify `applyDragDeltas` vertical scaling with per-row `verticalBounds` and anchor `ValueScale.domain` fallback; apply clamp and precision; no-op for non-numeric leaves; prefer per-marker `attributePath` over the anchor path when present.
 - Integration: selection → `startDrag({ axis: "vertical" })` → `updateDrag({ normalizedValueDelta })` previews a uniform visible vertical displacement across tracks with different numeric ranges; `commitDrag()` writes match preview; points are sorted when horizontal deltas are present.
@@ -247,11 +317,11 @@ Usage rules:
 - Fallbacks: when per-row bounds are unavailable, fall back to the anchor domain; if neither is available, treat `appliedRange` as 1 or cancel the gesture per spec; assert behavior in tests.
 
 ## Cancellation & Error Handling
-- If the selection changes or becomes empty during an active drag, automatically `cancelDrag`. This guarantees the anchor no longer conflicts with `selectionState`.
+- If the selection changes or becomes empty during an active drag, we do not auto-cancel. Instead, `commitDrag` validates selection/anchor coherence and clears `dragState` without writes if invariants fail. Surfaces may choose to proactively cancel on selection change.
 - If the resolved selection fails to provide bounds for a vertical drag, either fall back to unclamped scaling or cancel (implementation choice).
 - Drag code never mutates `AnimationData` directly; only `commitDrag` performs writes.
 
 ## Future Work
 - Multi-axis gestures can be enabled by allowing both `normalizedStamp` and `normalizedValueDelta` in `updateDrag`, but they should remain opt-in per UI surface.
-- Once the new flow ships, remove `DragState.deltaStamp` and `DraggedKeypoint.currentOffset`.
+- Legacy fields `DragState.deltaStamp` and `DraggedKeypoint.currentOffset` have already been removed.
 - Re-evaluate the need for cached value bounds if vertical drags across many tracks reveal performance issues.
