@@ -30,7 +30,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       source: state.instancedTrackSources.global,
-      computedRowData: state.computedRowData.global,
+      computedRowData: state.derivedSnapshot?.rows?.global?.computed,
       snapshot: state.derivedSnapshot,
       viewData: state.editorViews[viewId],
       namespaces: state.namespaces,

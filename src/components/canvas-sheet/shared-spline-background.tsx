@@ -5,7 +5,6 @@ import { MotionValue } from "motion";
 import { uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../hooks";
 import { Z } from "../../constants";
-import { resolveComputedRowData } from "../../utils/resolve-row-data";
 import { AnimationData } from "../../store-types";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
@@ -31,7 +30,7 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
     useShallow((state: AnimationData) => state.instancedTrackSources[sourceRowId]),
   );
   const computedData = useAnimationStore(
-    useShallow((state: AnimationData) => resolveComputedRowData(state, sourceRowId)),
+    useShallow((state: AnimationData) => state.derivedSnapshot?.rows?.[sourceRowId]?.computed),
   );
   const trackIds = uniq(sourceRow?.data.map((d) => d.trackId) || []);
 

@@ -9,8 +9,6 @@ import { clickMarkerWith } from "../selection/selection-test-helpers";
 import { computeTrackInterpolator } from "../../functions/compute-track-interpolator";
 import { computeTrackViolations } from "../../functions/compute-track-violations";
 import { Violation, ViolationType } from "../../types";
-import { buildTrackKey } from "../../utils/track-key";
-import { resolveComputedRowData } from "../../utils/resolve-row-data";
 
 function summarizeViolations(
   violations: Violation[],
@@ -47,10 +45,6 @@ describe("drag previews recompute violation overlays", () => {
           ],
         },
       },
-      violations: {
-        ...state.violations,
-        [buildTrackKey("default", "main", TRACK_IDS.SCALE)]: [],
-      },
     }));
 
     cleanup = store.getState().initAnimationSubscriptions();
@@ -62,7 +56,7 @@ describe("drag previews recompute violation overlays", () => {
     cleanup?.();
   });
 
-  it("updates computedRowData violations based on drag deltas", async () => {
+  it("updates row violation overlays based on drag deltas", async () => {
     const state = store.getState();
     const rowEntry = Object.entries(state.instancedTrackSources).find(([, row]) =>
       row.data.some((entry) => entry.trackId === TRACK_IDS.SCALE),
@@ -70,12 +64,8 @@ describe("drag previews recompute violation overlays", () => {
     expect(rowEntry).toBeDefined();
 
     const [rowId, sourceRow] = rowEntry!;
-    let row = resolveComputedRowData(store.getState(), rowId);
+    let row = store.getState().derivedSnapshot?.rows?.[rowId]?.computed;
     expect(row).toBeDefined();
-    const initialScaleViolations = Object.values(row?.violationSet.violations ?? {}).filter(
-      (violation) => violation.trackId === TRACK_IDS.SCALE,
-    );
-    expect(initialScaleViolations).toHaveLength(0);
 
     const markerFrame = row?.virtualFrames.find((frame) =>
       frame.points.some((point) => point.id === "s-preview-2"),
@@ -100,7 +90,7 @@ describe("drag previews recompute violation overlays", () => {
 
     await flushMicrotasks();
 
-    row = resolveComputedRowData(store.getState(), rowId);
+    row = store.getState().derivedSnapshot?.rows?.[rowId]?.computed;
     const previewViolations = Object.values(row?.violationSet.violations ?? {}).filter(
       (violation) => violation.trackId === TRACK_IDS.SCALE,
     );

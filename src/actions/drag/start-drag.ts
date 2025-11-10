@@ -8,7 +8,6 @@ import type {
   SelectionState,
   ValueScale,
 } from "../../types";
-import { resolveComputedRowData } from "../../utils/resolve-row-data";
 
 const DEFAULT_TRANSFORM: DragStampTransform = {
   offset: 0,
@@ -69,7 +68,7 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
     return;
   }
 
-  const rowData = resolveComputedRowData(state, input.rowId);
+  const rowData = state.derivedSnapshot?.rows?.[input.rowId]?.computed;
   if (!rowData) {
     return;
   }

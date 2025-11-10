@@ -6,13 +6,7 @@ import type {
   AnimationStoreGetter,
   AnimationStoreSetter,
 } from "../store-types";
-import {
-  DerivedSnapshot,
-  TrackInterpolators,
-  TrackKey,
-  ComputedRowData,
-  Violation,
-} from "../types";
+import { DerivedSnapshot, TrackInterpolators, TrackKey, Violation } from "../types";
 import {
   matchingIdentityRawValue,
   rawValueMultiplyScalar,
@@ -32,12 +26,10 @@ interface DerivedInputs {
   selectionState: AnimationData["selectionState"];
   editorViews: AnimationData["editorViews"];
   sourceRowIds: AnimationData["sourceRowIds"];
-  derivedMode: AnimationData["derivedMode"];
 }
 
 interface DerivedComputation {
   snapshot: DerivedSnapshot;
-  computedRows: Record<string, ComputedRowData>;
   trackInterpolators: TrackInterpolators;
   canonicalViolations: Partial<Record<TrackKey, Violation[]>>;
   values: Map<string, RawValue | undefined>;
@@ -87,11 +79,7 @@ function computeDerivedState(
   inputs: DerivedInputs,
   versionHint: number,
   player: PlayerData,
-): DerivedComputation | undefined {
-  if (inputs.derivedMode !== "snapshot") {
-    return undefined;
-  }
-
+): DerivedComputation {
   const snapshot = buildDerivedSnapshot({
     tracks: inputs.tracks,
     namespaces: inputs.namespaces,
@@ -103,13 +91,10 @@ function computeDerivedState(
     version: versionHint,
   });
 
-  const computedRowData: Record<string, ComputedRowData> = {};
-  Object.entries(snapshot.rows).forEach(([rowId, row]) => {
-    computedRowData[rowId] = row.computed;
-  });
+  // inlined row map below
 
   const { rows: rowsWithAxes } = projectRowVerticalAxes(
-    computedRowData,
+    Object.fromEntries(Object.entries(snapshot.rows).map(([rowId, row]) => [rowId, row.computed])),
     inputs.editorViews,
     inputs.sourceRowIds,
   );
@@ -147,7 +132,6 @@ function computeDerivedState(
 
   return {
     snapshot: adjustedSnapshot,
-    computedRows: rowsWithAxes,
     trackInterpolators,
     canonicalViolations,
     values,
@@ -172,16 +156,11 @@ export function initDerivedOrchestrator(
     selectionState: get().selectionState,
     editorViews: get().editorViews,
     sourceRowIds: get().sourceRowIds,
-    derivedMode: get().derivedMode,
   };
 
   const maybeApplyDerived = (inputs: DerivedInputs) => {
     const versionHint = (latestSnapshot?.version ?? get().derivedSnapshot?.version ?? 0) + 1;
     const result = computeDerivedState(inputs, versionHint, usePlayerStore.getState());
-    if (!result) {
-      latestSnapshot = undefined;
-      return;
-    }
 
     latestSnapshot = result.snapshot;
 
@@ -193,7 +172,6 @@ export function initDerivedOrchestrator(
 
     set(() => ({
       derivedSnapshot: result.snapshot,
-      computedRowData: result.computedRows,
       trackInterpolators: result.trackInterpolators,
       violations: result.canonicalViolations,
       values: result.values,
@@ -212,13 +190,8 @@ export function initDerivedOrchestrator(
       selectionState: state.selectionState,
       editorViews: state.editorViews,
       sourceRowIds: state.sourceRowIds,
-      derivedMode: state.derivedMode,
     }),
     (inputs) => {
-      if (inputs.derivedMode !== "snapshot") {
-        latestSnapshot = undefined;
-        return;
-      }
       maybeApplyDerived(inputs);
     },
     { fireImmediately: true, equalityFn: shallow },
@@ -232,7 +205,7 @@ export function initDerivedOrchestrator(
       currentDirection: state.player._currentDirection,
     }),
     () => {
-      if (get().derivedMode !== "snapshot" || !latestSnapshot) {
+      if (!latestSnapshot) {
         return;
       }
 
@@ -245,9 +218,7 @@ export function initDerivedOrchestrator(
     { fireImmediately: true, equalityFn: shallow },
   );
 
-  if (initialInputs.derivedMode === "snapshot") {
-    maybeApplyDerived(initialInputs);
-  }
+  maybeApplyDerived(initialInputs);
 
   return () => {
     unsubscribeStore();

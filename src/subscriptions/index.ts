@@ -1,11 +1,10 @@
-export { updateAllInterpolatorsAndResultsOnDataChange } from "./update-all-interpolators-and-results-on-data-change";
 export { updateInstancedTrackSources } from "./update-instanced-track-sources";
-export { updateInterpolationResultsOnStampChange } from "./update-interpolation-results-on-stamp-change";
+
 export { updateOverallDuration } from "./update-overall-duration";
 export { updatePlayerLoop } from "./update-player-loop";
-export { updateComputedRowData } from "./update-computed-row-data";
+
 export { updateConsolidatedSourceRow } from "./update-consolidated-source-row";
 export { updateGlobalSources } from "./update-global-sources";
 export { updateSourceRowIds } from "./update-source-row-ids";
-export { updateViewVerticalAxes } from "./update-view-vertical-axes";
+
 export { initDerivedOrchestrator } from "./init-derived-orchestrator";

@@ -14,7 +14,6 @@ import type {
   SourceRow,
   SourceRowData,
   View,
-  ComputedRowData,
   VisibleSourceRowIds,
   Namespace,
   DerivedSnapshot,
@@ -25,7 +24,6 @@ import type { SelectionState } from "./types/util/selection-state";
  * Interface representing the data structure for animation.
  */
 export interface AnimationData {
-  // derivedMode: "legacy" | "snapshot";
   derivedSnapshot?: DerivedSnapshot;
   /**
    * Current values (output of interpolator).
@@ -87,16 +85,6 @@ export interface AnimationData {
     hoverDashedLine: boolean;
     dataPreviews: boolean;
   };
-  /**
-   * A set of unsubscribers for individual tracks (subscribers listen to changes in the track).
-   * These are used internally to update the interpolators when the animation structure changes
-   * and should not be modified directly.
-   */
-  trackSubscribers: (() => void)[];
-  /**
-   * A set of unsubscribers for individual animations.
-   */
-  animationSubscribers: (() => void)[];
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   animatables: Record<string, AnimatableValue>;
 
@@ -120,10 +108,6 @@ export interface AnimationData {
    * Global source row IDs shared across all views
    */
   sourceRowIds: VisibleSourceRowIds;
-  /**
-   * Computed row data, storing visualization-specific data
-   */
-  computedRowData: Record<string, ComputedRowData>;
 }
 
 /**

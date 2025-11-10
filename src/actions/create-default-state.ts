@@ -35,8 +35,6 @@ export const createDefaultState = (): AnimationData => {
       hoverDashedLine: false,
       dataPreviews: true,
     },
-    trackSubscribers: [],
-    animationSubscribers: [],
 
     animatables: {},
 
@@ -48,6 +46,5 @@ export const createDefaultState = (): AnimationData => {
       flat: [],
       spline: [],
     },
-    computedRowData: {},
   };
 };

@@ -158,7 +158,7 @@ describe("Click Marker Action with Complete Store", () => {
       const { selectionState } = store.getState();
 
       const rangeAddresses = collectRangeKeypoints(
-        store.getState().computedRowData[trackRowId],
+        store.getState().derivedSnapshot?.rows?.[trackRowId]?.computed,
         selectionState.instanceId!,
         "o0",
         "o2",

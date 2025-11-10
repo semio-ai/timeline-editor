@@ -1,8 +1,8 @@
 # Store Derived-State Consistency
 
 **Author**: semio-agent  
-**Status**: Investigation notes  
-**Last updated**: 2025-02-17
+**Status**: Living spec — snapshot orchestrator (snapshot-only mode)
+**Last updated**: 2025-11-10
 
 This document audits how the animation store produces preview feedback during drag operations and how the same data settles once a drag commits. The recent Bézier refactor highlighted that our subscription graph still lets derived slices update out of order, which produces visible “snap” artifacts (e.g., violations refiring after the mouse is released). The goal is to map the current dependencies and propose next steps that keep preview and post-commit state in lockstep.
 
@@ -18,18 +18,18 @@ This document audits how the animation store produces preview feedback during dr
 | `instancedTrackSources` | `Record<RowId, SourceRow>` | `updateInstancedTrackSources.ts` | Row definitions fed into row computations. |
 | `trackInterpolators` | `Map<LookupId, { value, derivative }>` | `updateTrackInterpolatorsAndResults.ts` | Recomputed per track whenever `tracks[...]` changes; also mutates `values`, `velocities`, and `violations`. |
 | `violations` | `Record<TrackId, Violation[]>` | Same subscription as above | Canonical, committed violations only (no preview). |
-| `computedRowData` | `Record<RowId, ComputedRowData>` | `updateComputedRowData.ts` | Generates `virtualFrames`, `interpolations`, `violationSet`, etc. Supports drag preview via `applyDragDeltas`. |
+| `derivedSnapshot` | `DerivedSnapshot` | Orchestrator | Source of truth for track-level (interpolators, violations) and row-level (`rows[rowId].computed`) derived data. |
 | `values`, `velocities` | `Map<LookupId, RawValue>` | `updateInterpolationResultsOnStampChange.ts` | Reads `trackInterpolators` + player state. |
 | `viewVerticalAxes` | `Record<ViewId, AxisRange>` | `updateViewVerticalAxes.ts` | Still maintained separately; interpolator math uses its own scaling. |
 
 ### Files of interest
 
-- `packages/animation/src/subscriptions/update-computed-row-data.ts`
-- `packages/animation/src/subscriptions/update-track-interpolators-and-results.ts`
-- `packages/animation/src/subscriptions/update-instanced-track-sources.ts`
+- `packages/animation/src/subscriptions/init-derived-orchestrator.ts` (source of truth; publishes `derivedSnapshot`, interpolators, violations, values, and velocities atomically)
+- `packages/animation/src/functions/build-derived-snapshot.ts`
 - `packages/animation/src/functions/compute-row-data.ts`
 - `packages/animation/src/functions/apply-drag-deltas.ts`
 - `packages/animation/src/actions/drag/commit-drag.ts`
+
 
 ---
 
@@ -37,22 +37,16 @@ This document audits how the animation store produces preview feedback during dr
 
 ### During drag (preview)
 1. `updateDrag` updates `dragState`.
-2. `updateComputedRowData` triggers (dependency on `dragState`).  
-   - Calls `computeRowData`, which applies `applyDragDeltas` to every selected keypoint before computing frames/interpolations/violation previews.  
-   - Violations at this stage use **committed** `state.violations` (i.e., last authoritative run) plus any preview recalculation inside `computeRowData`.
-3. No track mutation occurs, so `updateTrackInterpolatorsAndResults` is not involved; committed `violations` remain unchanged.
+2. The orchestrator rebuilds the `DerivedSnapshot` via `buildDerivedSnapshot` and writes `derivedSnapshot` and projections (interpolators, violations, values, velocities) in one atomic `set`.  
+   - `computeRowData` still applies `applyDragDeltas` before computing frames/interpolations and preview violations.  
+   - Track-level violations under `.canonical` remain authoritative; row-level previews are reflected in `snapshot.rows[rowId].computed.violationSet`.
 
-Preview visuals therefore depend mostly on `computedRowData` (markers/curves) and `dragState` (interaction helpers).
+
+Preview visuals are sourced from `snapshot.rows[rowId].computed` and are driven by `dragState`.
 
 ### On commit (`commitDrag`)
 1. `commitDrag` mutates selected `track.points` and clears `dragState`.
-2. Subscriptions fire in response to the same state update:
-   - **`updateTrackInterpolatorsAndResults`** recomputes interpolators & violations for the mutated track.  
-     - Writes to `trackInterpolators`, `values`, `velocities`, and replaces `violations[trackId]`.
-   - **`updateComputedRowData`** recomputes per-row structures using the new `tracks`, the current `violations`, and `dragState = undefined`.  
-     - Because subscriptions run independently, it can execute **before** the violations map is refreshed (it still sees the preview-era violation set).
-   - **Other subscriptions** (e.g., interpolation results on stamp change) also run.
-3. Once the violational list is replaced, `updateComputedRowData` may fire again (because `violations` changed). Whether that happens depends on the equality check and timing; even if it does, there is a window where the UI shows stale violations, leading to the apparent “snap” after releasing the mouse.
+2. The orchestrator recomputes canonical track interpolators/violations, projects `values`/`velocities`, and rebuilds row data with `dragState = undefined`, then publishes all derived slices atomically. This removes the ordering race between track-level violations and row recomputation.
 
 ---
 
@@ -126,7 +120,6 @@ function initDerivedOrchestrator(api: AnimationApi, set: AnimationStoreSetter, g
         previousInputs,
         existingDerived: {
           interpolators: get().trackInterpolators,
-          rowData: get().computedRowData,
           values: get().values,
           velocities: get().velocities,
         },
@@ -159,7 +152,7 @@ function initDerivedOrchestrator(api: AnimationApi, set: AnimationStoreSetter, g
    - Rebuild `verticalAxisByView` / `verticalWorldRangeByView` once per row or view if settings changed (replacing `updateViewVerticalAxes`).
 
 4. **Player Snapshot Phase**
-   - Using the new `trackInterpolators` plus the latest player stamp/direction/speed, derive `values` and `velocities` (merging what `updateInterpolationResultsOnStampChange` currently does).
+   - Using the new `trackInterpolators` plus the latest player stamp/direction/speed, derive `values` and `velocities`.
 
 5. **Output Assembly**
    - Merge all phased results into a single object returned from `recomputeDerivedState`, e.g.:
@@ -202,19 +195,19 @@ Today we recompute the same math in two places: once per track (`updateTrackInte
 #### Schema
 
 ```ts
-type TrackKey = `${namespaceId}/${instanceId}/${trackId}`;
+type TrackKey = `${string}/${string}/${string}`;
 
 interface DerivedTrack {
   canonical: {
     interpolator: TrackInterpolator;
-    derivative: TrackDerivative;
+    derivative: TrackInterpolator;
     violations: Violation[];
   };
   preview?: {
     interpolator?: TrackInterpolator;
     violations?: Violation[];
   };
-  metadata: {
+  metadata?: {
     animatableId: string;
     duration: number;
     timescale: number;
@@ -222,20 +215,16 @@ interface DerivedTrack {
 }
 
 interface DerivedRow {
-  id: RowId;
+  id: string;
   trackKeys: TrackKey[];
-  virtualFrames: InstancedFrameInfo[];
-  interpolations: TransitionSegment[];
-  violationSet: ViolationSet;
-  verticalAxisByView?: Record<ViewId, AxisRange>;
-  verticalWorldRangeByView?: Record<ViewId, WorldRange>;
+  computed: ComputedRowData;
 }
 
 interface DerivedSnapshot {
-  version: number;
+  version?: number;
   dragContext?: DragState;
   tracks: Record<TrackKey, DerivedTrack>;
-  rows: Record<RowId, DerivedRow>;
+  rows: Record<string, DerivedRow>;
 }
 ```
 
@@ -253,7 +242,7 @@ interface DerivedSnapshot {
      ```ts
      state.trackInterpolators → snapshot.tracks mapped to { interpolator, derivative }
      state.violations         → snapshot.tracks mapped to canonical violations
-     state.computedRowData    → snapshot.rows
+     UI reads snapshot.rows[rowId].computed directly
      ```
    - Preview consumers decide whether to use `.canonical` or `.preview` based on `dragState`.
 
@@ -285,7 +274,7 @@ Use this living checklist to plan the migration, log blockers, and document brea
 | 1 | Instrument current subscribers to capture ordering/timing around `commitDrag` (focus: `updateTrackInterpolatorsAndResults` vs `updateComputedRowData`). | ☑ Added `logDerivedEvent` helper and start/end logs in both subscribers. Enable via `globalThis.__SEMIO_DEBUG_DERIVED__ = true` (or `SEMIO_DEBUG_DERIVED=true`) to trace execution order; no behavioural change when disabled. |
 | 2 | Introduce a `buildDerivedSnapshot` helper that mirrors existing outputs while still emitting legacy slices. | ☑ Implemented `buildDerivedSnapshot` to compute per-track interpolators/violations and per-row `computeRowData` results from current store inputs. Helper is exported but unused; next step is to drive it from instrumentation/tests before switching consumers. |
 | 3 | Add vitest coverage comparing legacy vs snapshot outputs (per-track interpolators/violations, per-row frames/interpolations). | ☑ Added `build-derived-snapshot.test.ts` with factories to diff canonical interpolators/violations and row data against current helpers. |
-| 4 | Gate snapshot usage behind a store flag (`derivedMode`), enabling manual opt-in. | ☑ Added `derivedMode` (`legacy` \| `snapshot`) and `derivedSnapshot` fields to `AnimationData`, plus a `setDerivedMode` action for toggling. No consumers flip yet; flag readies manual opt-in. |
+| 4 | Remove `derivedMode` and run the snapshot orchestrator unconditionally. | ☑ Snapshot-only mode active; orchestrator computes and publishes `derivedSnapshot` and projections atomically. |
 | 5 | Switch `computedRowData` consumers to read from the snapshot while keeping legacy data in sync. | ☑ Core components/actions now resolve row data through `resolveComputedRowData`, which prefers the snapshot when `derivedMode === "snapshot"`. `updateComputedRowData` builds the snapshot first, then maps its rows back into the legacy cache so both paths stay aligned. Violations now hydrate through `TrackKey` lookups exclusively, keeping preview and commit parity across namespaces. |
 | 6 | Switch `violations`, `trackInterpolators`, `values`, `velocities`, and axis consumers to snapshot projections. | ☑ Snapshot mode now projects violations via `TrackKey`, resolves track interpolators, mirrors axis updates into the snapshot cache, and routes editor value reads through `resolveInterpolatedValues`/`resolveInterpolatedVelocities`. Remaining subscriber work moves to step 7 alongside the orchestrator. |
 | 7 | Replace legacy subscribers with the orchestrator that maintains the snapshot and publishes projections atomically. | ☐ |

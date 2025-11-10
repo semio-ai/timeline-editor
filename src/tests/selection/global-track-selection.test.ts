@@ -84,7 +84,7 @@ describe("Global vs Track Selection", () => {
 
     const unrelatedGlobal = store
       .getState()
-      .computedRowData[GLOBAL_ROW_ID]?.virtualFrames.find((frame) => {
+      .derivedSnapshot?.rows?.[GLOBAL_ROW_ID]?.computed?.virtualFrames.find((frame) => {
         const includesAnchor = (frame.points ?? []).some((point) => {
           const matchesAnchor =
             point.trackId === TRACK_IDS.OPACITY &&

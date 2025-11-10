@@ -40,7 +40,7 @@ The zustand store (`AnimationData` in `store-types.ts`) is the single source of 
 - `dragState`: Structure describing in-progress virtual drag operations, including original keypoint positions and offsets.
 - `editorViews`: Multi-window configuration (see `types/util/view.ts`) capturing view mode, active source rows, and layout preferences.
 - `sourcesByAnimationInstance` / `instancedTrackSources`: Hierarchical representation of animation data grouped by animation, namespace, and instance.
-- `sourceRowIds` / `computedRowData`: Flattened view model for rendering timeline rows and computing virtual frames.
+- `sourceRowIds`: Global order of visible rows for views; per-row computed data is read from `derivedSnapshot.rows[rowId].computed`.
 - `violations`: Track-level validation results (e.g., interpolation or constraint issues).
 - `preferences`: UI toggles (hover dashed line, data previews) synced with consuming apps.
 - `animatables`: Temporary bridge storing legacy animatable metadata during migration.
@@ -64,9 +64,9 @@ Each action assumes Immer-managed drafts—pass the zustand state into the helpe
 
 - `updatePlayerLoop` and `updateOverallDuration` keep the global player (`@semio/utils`) aligned with sheet bounds and duration changes.
 - `updateAllInterpolatorsAndResultsOnDataChange` and `updateInterpolationResultsOnStampChange` recompute `values`, `velocities`, and `trackInterpolators` as data or playback stamp changes.
-- `updateInstancedTrackSources`, `updateGlobalSources`, `updateSourceRowIds`, `updateConsolidatedSourceRow`, and `updateComputedRowData` build the view model consumed by sheet components and Storybook demos.
+- `updateInstancedTrackSources`, `updateGlobalSources`, `updateSourceRowIds`, and `updateConsolidatedSourceRow` build the canonical inputs for rows. The snapshot orchestrator (`initDerivedOrchestrator`) computes `derivedSnapshot` and projections consumed by sheet components and Storybook demos.
 
-Subscriptions return teardown functions; `initAnimationSubscriptions` defers registration with `setTimeout` to avoid cascading updates during initial store creation.
+Subscriptions return teardown functions; `initAnimationSubscriptions` wires the orchestrator and input subscriptions and defers registration to avoid cascading updates during initial store creation.
 
 ## Data Flow Overview
 
@@ -89,7 +89,7 @@ stateDiagram-v2
   state "InstancePair[]" as TransitionPairs
   state "{min,max} bounds" as Bounds
   state "ViolationSet" as ViolationSet
-  state "ComputedRowData" as ComputedRowData
+  state "Row (derivedSnapshot.rows[*].computed)" as RowComputed
   state "SelectionState" as SelectionState
 
   state "TrackInterpolators" as TrackInterpolators

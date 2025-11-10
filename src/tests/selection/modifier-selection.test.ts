@@ -140,7 +140,7 @@ describe("Modifier Key Selection", () => {
 
       const { selectionState } = store.getState();
       const range = collectRangeKeypoints(
-        store.getState().computedRowData[opacityRow],
+        store.getState().derivedSnapshot?.rows?.[opacityRow]?.computed,
         selectionState.instanceId!,
         "o0",
         "o2",
@@ -182,7 +182,7 @@ describe("Modifier Key Selection", () => {
       clickMarkerWith(store, opacityRow, "o3", { shift: true, mod: true });
       const { selectionState } = store.getState();
       const extendedRange = collectRangeKeypoints(
-        store.getState().computedRowData[opacityRow],
+        store.getState().derivedSnapshot?.rows?.[opacityRow]?.computed,
         selectionState.instanceId!,
         "o0",
         "o3",
@@ -203,7 +203,7 @@ describe("Modifier Key Selection", () => {
       const scaleSelection = store.getState().selectionState;
       const instanceId = scaleSelection.instanceId!;
       const scaleRange = collectRangeKeypoints(
-        store.getState().computedRowData[scaleRow],
+        store.getState().derivedSnapshot?.rows?.[scaleRow]?.computed,
         instanceId,
         "s0",
         "s3",
@@ -214,7 +214,7 @@ describe("Modifier Key Selection", () => {
 
       const stateAfter = store.getState();
       const opacityRange = collectRangeKeypoints(
-        stateAfter.computedRowData[opacityRow],
+        stateAfter.derivedSnapshot?.rows?.[opacityRow]?.computed,
         stateAfter.selectionState.instanceId!,
         "o1",
         "o2",

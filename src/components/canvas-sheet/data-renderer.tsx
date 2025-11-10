@@ -14,7 +14,6 @@ import {
 } from "../../types";
 import { AnimationData, AnimationActions } from "../../store-types";
 import { DEFAULT_COLOR, Z } from "../../constants";
-import { resolveComputedRowData } from "../../utils/resolve-row-data";
 import { DataPoint } from "./data-point";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
@@ -114,7 +113,7 @@ export const DataRenderer = memo(function DataRenderer({
     useShallow((state: StoreState) => state.instancedTrackSources[sourceRowId]),
   );
   const computedData = useAnimationStore(
-    useShallow((state: StoreState) => resolveComputedRowData(state, sourceRowId)),
+    useShallow((state: StoreState) => state.derivedSnapshot?.rows?.[sourceRowId]?.computed),
   );
   const selectionState = useAnimationStore(useShallow((state: StoreState) => state.selectionState));
   const focusSelectionInstance = useAnimationStore(

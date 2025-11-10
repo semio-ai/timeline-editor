@@ -16,7 +16,6 @@ import {
 } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
 import { ROW_DEPTH_EPSILON, LAYER_BAND_OFFSETS, LAYER_BAND_PRIORITY } from "../../constants";
-import { resolveComputedRowData } from "../../utils/resolve-row-data";
 
 const BG_MULTIPLIER = 1.2;
 type PointerGestureEvent = ThreeEvent<MouseEvent>;
@@ -33,13 +32,6 @@ export interface DataPointProps {
   verticalAxisRange?: VerticalAxisRange;
 }
 
-// KNOWN ISSUE: After dragging markers, the data prop becomes stale
-// The component retains the original stamp value while the actual keypoint
-// has moved in the store. This causes selection issues, particularly for
-// the last selected marker in a multi-selection drag.
-// This architectural issue will be resolved in Phase 2+ when components
-// subscribe directly to computed store state rather than receiving props.
-// See: docs/phase2-preparation.md for migration details
 export const DataPoint = memo(function DataPoint({
   markerId,
   sourceRowId,
@@ -52,7 +44,7 @@ export const DataPoint = memo(function DataPoint({
   // Get fresh data from store
   const data = useAnimationStore(
     useShallow((state) => {
-      const computed = resolveComputedRowData(state, sourceRowId);
+      const computed = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
       return computed?.virtualFrames.find((f) => f.id === markerId);
     }),
   );

@@ -1,10 +1,4 @@
-import { shallow } from "zustand/shallow";
-import type {
-  AnimationApi,
-  AnimationData,
-  AnimationStoreGetter,
-  AnimationStoreSetter,
-} from "../store-types";
+import type { AnimationData } from "../store-types";
 import { TrackRender, VerticalAxis, VerticalAxisRange, ComputedRowData } from "../types";
 
 interface RowLookup {
@@ -20,21 +14,6 @@ function normalizeRowLookup(rowIds: AnimationData["sourceRowIds"] | undefined): 
     return { flat: rowIds, spline: rowIds };
   }
   return rowIds;
-}
-
-function arraysEqual(left: string[], right: string[]): boolean {
-  if (left === right) return true;
-  if (left.length !== right.length) return false;
-  for (let i = 0; i < left.length; i += 1) {
-    if (left[i] !== right[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function rowLookupEqual(a: RowLookup, b: RowLookup): boolean {
-  return arraysEqual(a.flat, b.flat) && arraysEqual(a.spline, b.spline);
 }
 
 interface ViewAxisContext {
@@ -188,38 +167,4 @@ export function projectRowVerticalAxes(
   });
 
   return { rows: result, changed: anyChanges };
-}
-
-export function updateViewVerticalAxes(
-  api: AnimationApi,
-  set: AnimationStoreSetter,
-  _get: AnimationStoreGetter,
-): () => void {
-  return api.subscribe(
-    (state: AnimationData) => ({
-      computedRowData: state.computedRowData,
-      editorViews: state.editorViews,
-      sourceRowIds: state.sourceRowIds,
-      derivedMode: state.derivedMode,
-    }),
-    ({ computedRowData, editorViews, sourceRowIds, derivedMode }) => {
-      if (derivedMode === "snapshot") {
-        return;
-      }
-
-      const { rows, changed } = projectRowVerticalAxes(computedRowData, editorViews, sourceRowIds);
-      if (!changed) {
-        return;
-      }
-      set({ computedRowData: rows });
-    },
-    {
-      equalityFn: (a, b) =>
-        rowLookupEqual(normalizeRowLookup(a.sourceRowIds), normalizeRowLookup(b.sourceRowIds)) &&
-        shallow(a.editorViews, b.editorViews) &&
-        shallow(a.computedRowData, b.computedRowData) &&
-        a.derivedMode === b.derivedMode,
-      fireImmediately: true,
-    },
-  );
 }

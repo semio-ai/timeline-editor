@@ -25,7 +25,7 @@ export function TrackControl({
   disabled,
 }: TrackControlProps) {
   const computedData = useAnimationStore(
-    useShallow((state: AnimationData) => state.computedRowData[source.id]),
+    useShallow((state: AnimationData) => state.derivedSnapshot?.rows?.[source.id]?.computed),
   );
 
   const bounds = usePlayerStore(useShallow((state) => state.player.bounds));

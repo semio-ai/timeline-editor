@@ -310,7 +310,7 @@ export const AnimationSlice = (
       const state = get();
       const playerState = usePlayerStore.getState();
       const sourceRowId = sourceRow.id;
-      const computedData = state.computedRowData[sourceRowId];
+      const computedData = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
       if (!computedData) return;
 
       const instancedFrameData = computedData.virtualFrames;
@@ -329,7 +329,7 @@ export const AnimationSlice = (
       const state = get();
       const playerState = usePlayerStore.getState();
       const sourceRowId = sourceRow.id;
-      const computedData = state.computedRowData[sourceRowId];
+      const computedData = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
       if (!computedData) return;
 
       const instancedFrameData = computedData.virtualFrames;

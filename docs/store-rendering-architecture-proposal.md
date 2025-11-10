@@ -30,14 +30,14 @@ We propose:
    - This decouples gestures from pixel deltas and avoids camera-dependent drift.
 
 4) A consolidated “derived state” pass:
-   - Replace multiple overlapping subscriptions with a single orchestrator that recomputes per-row derived state from a minimal set of inputs and republishes consistent slices:
-     - `computedRowData[rowId]`: frames, interpolations, violations, verticalAxisByView, verticalWorldRangeByView.
+   - Replace multiple overlapping subscriptions with a single orchestrator that recomputes per-row derived state from a minimal set of inputs and publishes a normalized snapshot:
+     - writes to `derivedSnapshot.rows[rowId].computed`: frames, interpolations, violations, verticalAxisByView, verticalWorldRangeByView.
    - Use fine-grained equality checks and stable keys to prevent unnecessary work.
 
 5) Minimal, parsimonious store types:
    - Keep canonical data compact (tracks, animations, instances, animatables).
    - Separated minimal selection state, drag state (anchor-first), and editor view descriptors.
-   - Derived-only types live in `computedRowData`, are cacheable, and contain no redundant copies of canonical data.
+   - Derived-only types live under `derivedSnapshot.rows[*].computed`, are cacheable, and contain no redundant copies of canonical data.
 
 ---
 
@@ -90,7 +90,7 @@ Rationale: we define the world-space container height independently from camera 
 
 ### Minimal Derived (per row)
 
-- `ComputedRowData[rowId]`
+- `derivedSnapshot.rows[rowId].computed`
   - `virtualFrames: InstancedFrameInfo[]`
   - `interpolations: TransitionSegments[]`
   - `violationSet: ViolationSet`
@@ -117,9 +117,9 @@ Replace the current piecemeal update subscriptions with a consolidated derivatio
    - any additional constants/configs
 
 2) Orchestrator: `recomputeDerivedRows` (single subscription)
-   - For each `rowId`:
-     - Compute `verticalAxisByView[viewId]` (existing logic: Spline → padded domain per view, Preview/Transition → normalized or row bounds).
-     - Compute `verticalWorldRangeByView[viewId]` from `viewGeometry`:
+  - For each `rowId`:
+    - Compute `verticalAxisByView[viewId]` (existing logic: Spline → padded domain per view, Preview/Transition → normalized or row bounds).
+    - Compute `verticalWorldRangeByView[viewId]` from `viewGeometry`:
        - Spline:
          - `worldRange = [-H/2 + margin, +H/2 - margin]`, where `H = availableHeightWorld`
        - Preview/Transition:
@@ -127,7 +127,7 @@ Replace the current piecemeal update subscriptions with a consolidated derivatio
      - Compute frames, interpolations, and violations:
        - Pass a `transformKeypoint` callback using store `dragState` + `selectionState` → `applyDragDeltas` for previews.
        - Recompute violation previews if drag deltas change (as today).
-     - Produce a `ComputedRowData[rowId]` slice with all fields above.
+     - Write to `derivedSnapshot.rows[rowId].computed` with all fields above.
 
 3) Equality/short-circuit:
    - `shallow` equality over the root inputs and per-row data.
@@ -144,8 +144,8 @@ Benefits:
 ### Rendering
 
 - DataRenderer chooses the active mapping:
-  - `axis = computedRowData[rowId].verticalAxisByView?.[viewId] || {min, max}`
-  - `world = computedRowData[rowId].verticalWorldRangeByView?.[viewId]?.worldRange || defaultSlotRange`
+  - `axis = derivedSnapshot.rows[rowId].computed.verticalAxisByView?.[viewId] || {min, max}`
+  - `world = derivedSnapshot.rows[rowId].computed.verticalWorldRangeByView?.[viewId]?.worldRange || defaultSlotRange`
 - Build `S: value → worldY` via `createLinearScale([axis.min, axis.max], [world.min, world.max])`.
 - Components apply `S(value)` for:
   - `DataPoint` (marker)

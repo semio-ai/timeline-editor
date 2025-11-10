@@ -45,13 +45,13 @@ interface SelectionActions {
     rowId: SourceRowId,
     startMarkerId: string,
     endMarkerId: string,
-    computedRowData: ComputedRowDataMap,
+    rowsFromSnapshot: Record<string, ComputedRowData>,
   ): SelectionState;
 }
 ```
 - [x] Rebuilt `clickMarkerAction`, modifier toggles, and range handling; store-level actions return `Partial<AnimationData>` patches (parity with `clickMarkerAction`). Keep pure helpers that return `SelectionState` for unit tests.
 - [x] Removed reliance on path-based mutations; selection changes now read/write the keypoint map.
-- [x] Range selection now resolves marker stamps lazily from `computedRowData` (prevents stale references post-drag).
+- [x] Range selection now resolves marker stamps lazily from `derivedSnapshot.rows[rowId].computed` (prevents stale references post-drag).
 - [x] Implemented `clickLineAction` and added `clickLine` store action; segment clicks act on row-foreground keys and never modify the reference.
 
 ### 4. Update derived selectors and helpers
@@ -133,7 +133,7 @@ function clickLineAction(
 function applyClickLine(
   selection: SelectionState,
   context: { rowId: SourceRowId; segmentId: string; shift?: boolean; mod?: boolean },
-  computedRowData: ComputedRowDataMap,
+  rowsFromSnapshot: Record<string, ComputedRowData>,
 ): SelectionState;
 ```
 

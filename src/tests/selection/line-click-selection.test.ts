@@ -23,7 +23,7 @@ function rowForegroundSignatures(
   instanceId: string,
 ): string[] {
   const state = store.getState();
-  const row = state.computedRowData[rowId];
+  const row = state.derivedSnapshot?.rows?.[rowId]?.computed;
   if (!row) return [];
 
   const signatures = new Set<string>();
@@ -68,7 +68,8 @@ function findRowWithForeground(
   excludeTrackIds: Set<string> = new Set<string>(),
 ): string {
   const state = store.getState();
-  for (const [rowId, row] of Object.entries(state.computedRowData)) {
+  const rows = state.derivedSnapshot?.rows ?? {};
+  for (const [rowId, snapshotRow] of Object.entries(rows)) {
     if (excludeRows.has(rowId)) continue;
 
     const rowTrackIds = getRowTrackIds(store, rowId);
@@ -80,7 +81,8 @@ function findRowWithForeground(
     });
     if (conflicts) continue;
 
-    const hasForeground = (row.virtualFrames ?? []).some((frame) =>
+    const row = snapshotRow?.computed;
+    const hasForeground = (row?.virtualFrames ?? []).some((frame) =>
       (frame.points ?? []).some(
         (p) =>
           (p.selectable ?? true) &&
@@ -99,7 +101,7 @@ function findRowWithForeground(
  * Note: clickLine does not rely on segment resolution; this is for realistic inputs only.
  */
 function deriveSegmentId(store: AnimationStore, rowId: string): string {
-  const row = store.getState().computedRowData[rowId];
+  const row = store.getState().derivedSnapshot?.rows?.[rowId]?.computed;
   const frames = row?.virtualFrames ?? [];
   if (frames.length >= 2) {
     return `${frames[0].id}:${frames[1].id}`;
@@ -114,7 +116,7 @@ function deriveSegmentId(store: AnimationStore, rowId: string): string {
  * Get the first marker id present in a row, if any.
  */
 function getAnyMarkerIdInRow(store: AnimationStore, rowId: string): string {
-  const row = store.getState().computedRowData[rowId];
+  const row = store.getState().derivedSnapshot?.rows?.[rowId]?.computed;
   const frames = row?.virtualFrames ?? [];
   if (frames.length === 0) throw new Error(`No markers found in row "${rowId}"`);
   return frames[0].id;

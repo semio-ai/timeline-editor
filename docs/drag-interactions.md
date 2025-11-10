@@ -122,11 +122,11 @@ Notes:
 - `normalizedValueDelta` is shared so every selected marker moves the same visible distance; individual value updates scale this delta into real units using per-track bounds.
 
 ## Data Locality & Store Integration
-- `AnimationData.dragState` (see `store-types.ts`) carries this structure. Because the store already holds `selectionState`, `computedRowData`, and track data, we can derive the full drag context without duplicating keypoint lists.
-- Vertical bounds are available via `computedRowData[rowId].verticalBounds`. Fetching them introduces a cross-lookup each update; duplicating them in `dragState` costs more memory but avoids recomputing at the expense of potential staleness. Current plan:
-  - [x] **Option A (recommended)** – read bounds from `computedRowData` on demand. When the spline view toggles between **Normalized** and **Uniform** axes, the store now derives `verticalAxisByView` for each row. That range mirrors `verticalBounds` for non-spline renderers and becomes a view-scoped min/max when uniform scaling is active. Use it to translate the shared `normalizedValueDelta` into actual values so vertical drags stay aligned with what the user sees.
+- `AnimationData.dragState` (see `store-types.ts`) carries this structure. Because the store already holds `selectionState`, `derivedSnapshot`, and track data, we can derive the full drag context without duplicating keypoint lists.
+- Vertical bounds are available via `derivedSnapshot.rows[rowId].computed.verticalBounds`. Fetching them introduces a cross-lookup each update; duplicating them in `dragState` costs more memory but avoids recomputing at the expense of potential staleness. Current plan:
+  - [x] **Option A (recommended)** – read bounds from `derivedSnapshot.rows[rowId].computed` on demand. When the spline view toggles between **Normalized** and **Uniform** axes, the orchestrator derives `verticalAxisByView` for each row. That range mirrors `verticalBounds` for non-spline renderers and becomes a view-scoped min/max when uniform scaling is active. Use it to translate the shared `normalizedValueDelta` into actual values so vertical drags stay aligned with what the user sees.
   - [ ] **Option B** – snapshot bounds (`ValueScale`) into `dragState`. Choose this only if repeated lookups prove too expensive and we can guarantee the snapshot stays valid for the drag duration.
-- Other cached data should follow the same guideline: prefer derivation from store slices unless profiling shows the cross-lookup to be a bottleneck.
+- Other cached data should follow the same guideline: prefer derivation from `derivedSnapshot` or canonical slices unless profiling shows the cross-lookup to be a bottleneck.
 - Because the current codebase does not yet implement keypoint dragging, we can replace the legacy type wholesale instead of maintaining compatibility with fields like `draggedKeypoints` or `deltaStamp`.
 
 ## Drag Actions
@@ -171,7 +171,7 @@ export interface DragUpdateInput {
   - Reserve `shift` for future precision overrides; ensure any implementation stays consistent with other timeline interactions.
 - Vertical normalization input contract:
   - UI surfaces compute `normalizedValueDelta = -(pointer.y - pointerOrigin.y) / pixelRange`, where `pixelRange` is the visual height of the control’s value viewport for the active row. Upward drag increases values (negative screen Y).
-  - The same `normalizedValueDelta` is reused for all selected markers; scaling to real units is performed in previews/commits using each marker’s bounds (`computedRowData[rowId].verticalBounds`) or the anchor’s `ValueScale.domain`.
+  - The same `normalizedValueDelta` is reused for all selected markers; scaling to real units is performed in previews/commits using each marker’s bounds (`derivedSnapshot.rows[rowId].computed.verticalBounds`) or the anchor’s `ValueScale.domain`.
   - Keep `Alt` reserved for horizontal snap bypass. If a fine-adjust affordance is desired for vertical drags, use `Shift` to scale the delta (e.g., divide by 4) for consistency across surfaces.
 - Mutates `DragState` only; track data remains untouched.
 

@@ -14,7 +14,6 @@ import {
   hasAllKeypoints,
   clearSelection,
 } from "../functions/selection-state-manager";
-import { resolveComputedRowData } from "../utils/resolve-row-data";
 
 /**
  * Click a transition segment (row-wide action).
@@ -37,7 +36,7 @@ export function clickLineAction(
   shift?: boolean,
   mod?: boolean,
 ): Partial<AnimationData> {
-  const row: ComputedRowData | undefined = resolveComputedRowData(state, rowId);
+  const row: ComputedRowData | undefined = state.derivedSnapshot?.rows?.[rowId]?.computed;
   let selection = state.selectionState ?? createEmptySelectionState();
 
   // Resolve/confirm the instance to operate on.

@@ -39,7 +39,7 @@ export interface ControlWidgetProps {
 function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWidgetProps) {
   // Select computed row data using snapshot-backed slice (stable identity)
   const computedRowData = useAnimationStore(
-    useShallow((state: AnimationData) => state.computedRowData[sourceRow.id]),
+    useShallow((state: AnimationData) => state.derivedSnapshot?.rows?.[sourceRow.id]?.computed),
   );
 
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
