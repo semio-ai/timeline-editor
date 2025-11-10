@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, useEffect } from "react";
+import { memo, useMemo, useState, useEffect, useRef } from "react";
 import { useSpring } from "motion/react";
 import { useThree } from "@react-three/fiber";
 import { useCursor } from "@react-three/drei";
@@ -182,6 +182,20 @@ export const TransitionSegment = memo(function TransitionSegment({
     };
   }, [isInteractive, isHovered, onHoverChange]);
 
+  // Suppress line clicks immediately after a drag ends
+  const justFinishedDraggingRef = useRef(false);
+  useEffect(() => {
+    if (!dragState && justFinishedDraggingRef.current) {
+      const timer = setTimeout(() => {
+        justFinishedDraggingRef.current = false;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    if (dragState) {
+      justFinishedDraggingRef.current = true;
+    }
+  }, [dragState]);
+
   const hoverColor = useMemo(
     () => computeOklabMix(bufferColor, theme === Theme.Dark ? "#FFFFFF" : "#000000", 0.4),
     [bufferColor, theme],
@@ -237,6 +251,11 @@ export const TransitionSegment = memo(function TransitionSegment({
         onPointerEnter={handlePointerEnter}
         onPointerOut={handlePointerOut}
         onClick={(event) => {
+          // Ignore clicks that immediately follow a drag end
+          if (justFinishedDraggingRef.current) {
+            event?.stopPropagation?.();
+            return;
+          }
           if (!isInteractive) return;
           console.log();
           event?.stopPropagation?.();
