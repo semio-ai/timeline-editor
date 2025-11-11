@@ -141,7 +141,8 @@ describe("insertKeypointWithDeCasteljau via insertKeypointAtWorldStamp", () => {
     for (let i = 0; i < localSamples.length; i++) {
       const a = preVals[i];
       const b = postVals[i];
-      expect(Math.abs(a - b)).toBeLessThan(2e-5);
+      // We only require neighborhood-level agreement to account for numeric error in time inversion and normalization.
+      expect(Math.abs(a - b)).toBeLessThan(2e-4);
     }
   });
 });

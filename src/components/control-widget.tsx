@@ -213,6 +213,7 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
         ) : (
           <div className="flex-1 flex min-w-0">
             <AnimatableEditor
+              rowId={sourceRow.id}
               data={sourceRow.data[0]}
               active={isActive}
               playing={playing}

@@ -113,8 +113,8 @@ export function insertKeypointWithDeCasteljauLocal(
   const q2t = lerp(p2t, p3t, u);
   const r0t = lerp(q0t, q1t, u);
   const r1t = lerp(q1t, q2t, u);
-  // st (by construction) equals the local stamp within floating error
-  const stExact = localStamp; // Use exact requested time for normalization and K.stamp
+  const st = lerp(r0t, r1t, u); // Bezier-evaluated time at split
+  const stExact = localStamp; // Keep K.stamp equal to the requested time
 
   // De Casteljau for value (per type)
   const q0v = mixValue(p0v, p1v, u);
@@ -125,8 +125,8 @@ export function insertKeypointWithDeCasteljauLocal(
   const sv = mixValue(r0v, r1v, u);
 
   // Normalize control times and values back into transitions for left [A, K] and right [K, B]
-  const leftRange = Math.max(1e-12, stExact - p0t);
-  const rightRange = Math.max(1e-12, p3t - stExact);
+  const leftRange = Math.max(1e-12, st - p0t);
+  const rightRange = Math.max(1e-12, p3t - st);
 
   // Left segment [A, K]
   const aOutX = clamp01((q0t - p0t) / leftRange);
@@ -135,8 +135,8 @@ export function insertKeypointWithDeCasteljauLocal(
   const kInY = clamp01(inferWeightFromValue(p0v, sv, r0v));
 
   // Right segment [K, B]
-  const kOutX = clamp01((r1t - stExact) / rightRange);
-  const bInX = clamp01((q2t - stExact) / rightRange);
+  const kOutX = clamp01((r1t - st) / rightRange);
+  const bInX = clamp01((q2t - st) / rightRange);
   const kOutY = clamp01(inferWeightFromValue(sv, p3v, r1v));
   const bInY = clamp01(inferWeightFromValue(sv, p3v, q2v));
 
@@ -218,8 +218,23 @@ function evaluateBezierScalar(p0: number, p1: number, p2: number, p3: number, t:
 }
 
 /**
+ * Derivative of a cubic Bezier for scalar values.
+ */
+function evaluateBezierDerivativeScalar(
+  p0: number,
+  p1: number,
+  p2: number,
+  p3: number,
+  t: number,
+): number {
+  const mt = 1 - t;
+  // B'(t) = 3*(1 - t)^2*(p1 - p0) + 6*(1 - t)*t*(p2 - p1) + 3*t^2*(p3 - p2)
+  return 3 * mt * mt * (p1 - p0) + 6 * mt * t * (p2 - p1) + 3 * t * t * (p3 - p2);
+}
+
+/**
  * Solve for the parameter t such that the cubic Bezier in time equals the target.
- * Uses a bounded binary search similar to compute-track-interpolator.
+ * Uses bounded binary search followed by a Newton–Raphson refinement for higher precision.
  */
 function solveForParameterTime(
   p0t: number,
@@ -229,12 +244,14 @@ function solveForParameterTime(
   targetTime: number,
 ): number {
   if (p3t === p0t) return 0;
+
+  // 1) Binary search to bracket a good initial t
   let low = 0;
   let high = 1;
   let mid = 0;
-  const EPS = 1e-6;
-  const MAX_ITERS = 32;
-  for (let i = 0; i < MAX_ITERS; i += 1) {
+  const EPS = 1e-8;
+  const MAX_BIN_ITERS = 32;
+  for (let i = 0; i < MAX_BIN_ITERS; i += 1) {
     mid = (low + high) / 2;
     const estimate = evaluateBezierScalar(p0t, p1t, p2t, p3t, mid);
     const diff = estimate - targetTime;
@@ -247,7 +264,25 @@ function solveForParameterTime(
       high = mid;
     }
   }
-  return clamp01((low + high) / 2);
+  let t = clamp01((low + high) / 2);
+
+  // 2) Newton–Raphson refinement
+  const MAX_NR_ITERS = 8;
+  for (let k = 0; k < MAX_NR_ITERS; k += 1) {
+    const f = evaluateBezierScalar(p0t, p1t, p2t, p3t, t) - targetTime;
+    const fp = evaluateBezierDerivativeScalar(p0t, p1t, p2t, p3t, t);
+    if (!Number.isFinite(fp) || Math.abs(fp) < 1e-12) {
+      break; // derivative too small; avoid instability
+    }
+    const tNext = clamp01(t - f / fp);
+    if (Math.abs(tNext - t) < EPS) {
+      t = tNext;
+      break;
+    }
+    t = tNext;
+  }
+
+  return clamp01(t);
 }
 
 /**
