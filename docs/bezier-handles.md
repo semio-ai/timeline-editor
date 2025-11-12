@@ -269,6 +269,8 @@ This behavior ensures you can shape a transition by selecting either endpoint.
 - Effective indicator:
   - When the snapshot flags a clamp (effective ≠ raw), render a secondary smaller circle along the connector to show the runtime CP used by interpolators.
   - The connector segment between effective and raw positions makes the “trimmed” length obvious without changing interaction targets.
+  - Circles should use the existing `useInvariantScale` helper (the same pattern as marker hexagons and bounds carts) so their pixel diameter stays constant regardless of zoom.
+  - In development builds we temporarily render handles even without selection to aid debugging; production builds retain the documented selection gating.
 - Colors:
   - Use the same base color as the segment or track.
   - Slightly brighten on hover; emphasize when the parent row is hovered.
@@ -385,34 +387,6 @@ We reuse the drag/preview architecture in `docs/drag-interactions.md`, but speci
   - On first drag, create `transitions` with the existing (or default) `{in|out}` and apply edits.
 - Non-numeric or multi-source rows:
   - Handles are only shown for single-source numeric rows in Spline view (consistent with current Spline assumptions). If/when multi-attribute support expands, we will document attribute selection rules.
-
----
-
-## Implementation Plan (Phased)
-
-Phase 1 — Read-only visuals and selection gating
-- Add `BezierHandles` component.
-- Pull CP positions from the enriched `InstancePair` data emitted by the derived snapshot; avoid duplicating math in the component.
-- Show handles for segments where A or B marker is selected.
-- Render circle + connecting line to the respective keypoint hexagon.
-
-Phase 2 — Drag previews
-- Extend drag state with a handle anchor kind and a handle preview patch map keyed by `keypointId`.
-- Add actions: `startHandleDrag`, `updateHandleDrag`, `commitHandleDrag`, `cancelHandleDrag` (wrappers over generic drag actions are fine if we use an anchor kind).
-- In derivation, apply handle previews before building `InstancedFrameInfo` so `compute-transition-params.ts` sees updated transitions.
-- While dragging, bypass springs for affected visuals (curves and points) as already done for marker drags.
-
-Phase 3 — Commit path and tests
-- On commit, write normalized `{ x, y }` back to the target keypoint’s `transitions.{in|out}` via `updateKeypoint`.
-- Add unit tests for:
-  - Normalization math (x/y) given pointers and endpoints.
-  - Preview vs. commit equivalence (curve shape).
-  - Clamp behavior and degenerate segments.
-
-Phase 4 — Nice-to-haves
-- Precision mode (Shift).
-- Optional handle snapping for `x` to common fractions (0.25, 0.5, 0.75).
-- Additional snapping modes (e.g., common fractions for `x`) and tangent-length linking shortcuts beyond Shift/Alt.
 
 ---
 
@@ -543,7 +517,7 @@ Types and derived data proposals
 
 ## Phased Implementation Plan
 
-### Phase 1 — Type & Snapshot Plumbing [ Incomplete ]
+### Phase 1 — Type & Snapshot Plumbing [ Complete ]
 - Introduce `SegmentGeometry`, extend `InstancePair`, `ComputedRowData`, and (optionally) `InstancedFrameInfo` per the Type proposals. Verify TypeScript compiles and downstream imports update cleanly.
 - Update `buildDerivedSnapshot` to populate `geometry.raw` by combining canonical transitions + defaults + handle diffs, then call `clampMonotonicCubicSegment` to fill `geometry.effective` and flags.
 - Pre-bake render params needed by Transition/Preview/Spline (reuse helpers from `compute-transition-params.ts`) and store them under the geometry payload.
@@ -551,7 +525,7 @@ Types and derived data proposals
   - Unit tests or snapshots confirm derived data now includes both raw and effective CPs.
   - Existing consumers continue to function (temporary adapters can bridge until Phase 2 completes).
 
-### Phase 2 — Component Consumption & Visuals [ Incomplete ]
+### Phase 2 — Component Consumption & Visuals [ In Progress ]
 - Update `TransitionSegment` to read world control points and render params directly from `segment.geometry`, removing duplicated math.
 - Implement `BezierHandles` using the enriched geometry (raw vs effective indicators), hook into selection gating, and ensure the visual scale matches `TransitionSegment`.
 - Add effective-handle markers and connectors plus hover/selection styling as described in the Visuals section.

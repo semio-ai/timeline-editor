@@ -10,8 +10,11 @@ import {
   Animation,
   Namespace,
   TrackKey,
+  InstancePair,
+  EndpointTransitions,
+  TrackRender,
 } from "../types";
-import { TYPE_FIELDS } from "../constants";
+import { TYPE_FIELDS, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
 import { applyDragDeltas } from "./apply-drag-deltas";
 import { computeViolationSet } from "./compute-violation-set";
@@ -21,6 +24,8 @@ import { computeVerticalBounds } from "./compute-vertical-bounds";
 import { computeFrames } from "./compute-frames";
 import { computeTrackInterpolator } from "./compute-track-interpolator";
 import { computeTrackViolations } from "./compute-track-violations";
+import { clampMonotonicCubicSegment } from "./clamp-monotonic-cubic-segment";
+import { buildSegmentRenderParams } from "./build-segment-render-params";
 
 interface RowComputationContext {
   animations: Record<string, Animation>;
@@ -222,13 +227,77 @@ export function computeRowData(
 
   const explicitInterpolationSegments = computeTransitionSegments(virtualFrames, trackIds);
   const interpolations = computeFilledInterpGaps(explicitInterpolationSegments);
+  const segmentsWithGeometry = interpolations.map((segment) =>
+    attachSegmentGeometry(segment, sourceRow, boundsForRow),
+  );
 
   const rowComputedData: ComputedRowData = {
     violationSet,
     virtualFrames,
-    interpolations,
+    interpolations: segmentsWithGeometry,
     verticalBounds: boundsForRow,
   };
 
   return rowComputedData;
+}
+
+function attachSegmentGeometry(
+  segment: InstancePair,
+  sourceRow: SourceRow,
+  verticalBounds: { min: number; max: number },
+): InstancePair {
+  const rawTransitions: EndpointTransitions = {
+    startOut: segment.start.transitions?.out ?? DEFAULT_TRANSITION_OUT,
+    endIn: segment.end.transitions?.in ?? DEFAULT_TRANSITION_IN,
+  };
+
+  const rawRenderParams = buildSegmentRenderParams({
+    sourceRow,
+    start: segment.start,
+    end: segment.end,
+    isEmpty: Boolean(segment.buffer),
+    verticalBounds,
+    transitions: rawTransitions,
+  });
+
+  const splineParams = rawRenderParams[TrackRender.Spline] ?? rawRenderParams[TrackRender.Preview];
+  const startValue = splineParams?.start.y ?? 0;
+  const endValue = splineParams?.end.y ?? startValue;
+
+  const clampResult = clampMonotonicCubicSegment({
+    start: { stamp: segment.start.stamp, value: startValue },
+    end: { stamp: segment.end.stamp, value: endValue },
+    rawTransitions,
+  });
+
+  const effectiveRenderParams = buildSegmentRenderParams({
+    sourceRow,
+    start: segment.start,
+    end: segment.end,
+    isEmpty: Boolean(segment.buffer),
+    verticalBounds,
+    transitions: clampResult.transitionsEffective,
+  });
+
+  segment.geometry = {
+    raw: {
+      transitions: rawTransitions,
+      controlPoints: {
+        cp1: clampResult.cp1Raw,
+        cp2: clampResult.cp2Raw,
+      },
+      renderParams: rawRenderParams,
+    },
+    effective: {
+      transitions: clampResult.transitionsEffective,
+      controlPoints: {
+        cp1: clampResult.cp1Effective,
+        cp2: clampResult.cp2Effective,
+      },
+      renderParams: effectiveRenderParams,
+    },
+    flags: clampResult.flags,
+  };
+
+  return segment;
 }

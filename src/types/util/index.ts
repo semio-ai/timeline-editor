@@ -11,6 +11,14 @@ export type {
 } from "./drag-state";
 export type { InstancePair } from "./instance-pair";
 export type { InstancedFrameInfo } from "./instanced-frame-info";
+export type {
+  SegmentGeometry,
+  SegmentGeometryState,
+  WorldCP,
+  EndpointTransitions,
+  ClampFlags,
+  SegmentRenderParams,
+} from "./segment-geometry";
 export { SemanticTime } from "./semantic-time";
 export type { Preview } from "./preview";
 export { TrackRender } from "./track-render";

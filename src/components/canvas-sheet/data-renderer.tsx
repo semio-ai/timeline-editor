@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback, useRef, useState } from "react";
+import { Fragment, memo, useMemo, useCallback, useRef, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
 import { MotionValue } from "motion";
@@ -18,6 +18,7 @@ import { DataPoint } from "./data-point";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 import { TransitionSegment } from "./transition-segment";
+import { BezierHandles } from "./bezier-handles";
 
 const DataPointsRenderer = memo(function DataPointsRenderer({
   sourceRow,
@@ -175,6 +176,19 @@ export const DataRenderer = memo(function DataRenderer({
     return !sourceRow.data.every((d) => d.type === "number");
   }, [sourceRow]);
 
+  const rowHasSelection = useMemo(() => {
+    if (!sourceRow || !selectionState?.instanceId) return false;
+    const instanceMatchesRow = sourceRow.data.some(
+      (entry) => entry.instanceId === selectionState.instanceId,
+    );
+    if (!instanceMatchesRow) return false;
+    return sourceRow.data.some(
+      (entry) => (selectionState.keypoints.get(entry.trackId)?.size ?? 0) > 0,
+    );
+  }, [selectionState, sourceRow]);
+
+  const canRenderHandles = trackRender === TrackRender.Spline && !keyForced;
+
   const axisRange = useMemo(() => {
     if (!computedData) {
       return { min: -height / 2, max: height / 2, visualOffset: 0, visualScale: 1 };
@@ -192,6 +206,12 @@ export const DataRenderer = memo(function DataRenderer({
 
   if (!sourceRow) return null;
   if (!sourceRow || !computedData) return null;
+
+  const resolvedSegmentColor =
+    transitionLayer === LayerBand.ForegroundSelected ||
+    transitionLayer === LayerBand.ForegroundUnselected
+      ? color
+      : DEFAULT_COLOR;
 
   return (
     <group
@@ -230,29 +250,39 @@ export const DataRenderer = memo(function DataRenderer({
       />
 
       {/* Render transition segments */}
-      {computedData.interpolations.map((segment, index) => (
-        <TransitionSegment
-          key={`${segment.start.id}-${segment.end.id}-${index.toString()}`}
-          start={segment.start}
-          end={segment.end}
-          trackRender={keyForced ? TrackRender.Key : trackRender}
-          height={height - 1}
-          verticalBounds={effectiveVerticalBounds}
-          sourceRow={sourceRow}
-          isEmpty={segment.buffer}
-          theme={theme}
-          verticalAxisRange={axisRange}
-          onHoverChange={handleSegmentHoverChange}
-          isRowHovered={isRowHovered}
-          color={
-            transitionLayer === LayerBand.ForegroundSelected ||
-            transitionLayer === LayerBand.ForegroundUnselected
-              ? color
-              : DEFAULT_COLOR
-          }
-          layer={transitionLayer}
-        />
-      ))}
+      {computedData.interpolations.map((segment, index) => {
+        const renderMode = keyForced ? TrackRender.Key : trackRender;
+        const handlesVisible = canRenderHandles && !segment.buffer && rowHasSelection;
+
+        return (
+          <Fragment key={`${segment.start.id}-${segment.end.id}-${index.toString()}`}>
+            <TransitionSegment
+              trackRender={renderMode}
+              height={height - 1}
+              verticalBounds={effectiveVerticalBounds}
+              sourceRow={sourceRow}
+              segment={segment}
+              theme={theme}
+              verticalAxisRange={axisRange}
+              onHoverChange={handleSegmentHoverChange}
+              isRowHovered={isRowHovered}
+              color={resolvedSegmentColor}
+              layer={transitionLayer}
+            />
+            {handlesVisible && (
+              <BezierHandles
+                segment={segment}
+                height={height - 1}
+                verticalBounds={effectiveVerticalBounds}
+                verticalAxisRange={axisRange}
+                color={resolvedSegmentColor}
+                layer={transitionLayer}
+                isHighlighted={isRowHovered}
+              />
+            )}
+          </Fragment>
+        );
+      })}
 
       {/* Render violations */}
       {trackRender !== TrackRender.Spline && (

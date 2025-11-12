@@ -7,6 +7,8 @@ import {
 } from "../../functions";
 import { createTestAnimationStore } from "../../test-fixtures";
 import { parseTrackKey } from "../../utils/track-key";
+import { TrackRender } from "../../types";
+import type { TrackKey, Violation } from "../../types";
 
 describe("buildDerivedSnapshot", () => {
   test("matches existing per-track and per-row computations in test store", () => {
@@ -23,6 +25,8 @@ describe("buildDerivedSnapshot", () => {
       selectionState: state.selectionState,
       version: 1,
     });
+
+    const canonicalViolationsByTrackKey: Partial<Record<TrackKey, Violation[]>> = {};
 
     Object.entries(snapshot.tracks).forEach(([trackKey, derivedTrack]) => {
       const { namespaceId, instanceId, trackId } = parseTrackKey(trackKey);
@@ -46,6 +50,8 @@ describe("buildDerivedSnapshot", () => {
         animatable,
       );
 
+      canonicalViolationsByTrackKey[trackKey as TrackKey] = violations;
+
       expect(derivedTrack.canonical.violations.length).toEqual(violations.length);
 
       const snapshotValue = derivedTrack.canonical.interpolator(0.5);
@@ -64,7 +70,7 @@ describe("buildDerivedSnapshot", () => {
       const legacyRow = computeRowData(
         sourceRow,
         state.tracks,
-        state.violations,
+        canonicalViolationsByTrackKey,
         state.animatables,
         state.dragState,
         state.selectionState,
@@ -77,5 +83,16 @@ describe("buildDerivedSnapshot", () => {
       expect(rowSnapshot.computed.virtualFrames.length).toEqual(legacyRow.virtualFrames.length);
       expect(rowSnapshot.computed.interpolations.length).toEqual(legacyRow.interpolations.length);
     });
+
+    const rowWithSegments = Object.values(snapshot.rows).find(
+      (row) => row.computed.interpolations.length > 0,
+    );
+    if (!rowWithSegments) {
+      throw new Error("Expected at least one row with interpolation geometry");
+    }
+    const firstSegment = rowWithSegments.computed.interpolations[0];
+    expect(firstSegment.geometry?.raw?.transitions?.startOut).toBeDefined();
+    expect(firstSegment.geometry?.effective?.controlPoints?.cp1).toBeDefined();
+    expect(firstSegment.geometry?.effective?.renderParams?.[TrackRender.Transition]).toBeDefined();
   });
 });

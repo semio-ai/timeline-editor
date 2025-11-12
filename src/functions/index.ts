@@ -25,3 +25,5 @@ export * from "./create-linear-scale";
 export * from "./raw-value-math";
 export * from "./get-icon-code";
 export * from "./build-derived-snapshot";
+export * from "./clamp-monotonic-cubic-segment";
+export * from "./build-segment-render-params";

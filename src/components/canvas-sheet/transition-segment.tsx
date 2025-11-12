@@ -4,27 +4,21 @@ import { useThree } from "@react-three/fiber";
 import { useCursor } from "@react-three/drei";
 import { Theme } from "@semio/ui";
 import { MotionCubicBezierLine, MotionCubicBezierFill } from "../utilities";
-import {
-  TrackRender,
-  InstancedFrameInfo,
-  SourceRow,
-  LayerBand,
-  VerticalAxisRange,
-} from "../../types";
-import { computeOklabMix, createLinearScale } from "../../functions";
+import { TrackRender, SourceRow, LayerBand, VerticalAxisRange, InstancePair } from "../../types";
+import { computeOklabMix } from "../../functions";
 import { computeTransitionParams } from "../../functions/compute-transition-params";
 import { useTransitionCurve, useAnimationStore } from "../../hooks";
-import { DEFAULT_COLOR, ROW_DEPTH_EPSILON, Z } from "../../constants";
+import { DEFAULT_COLOR, ROW_DEPTH_EPSILON } from "../../constants";
+import { computeRenderScale } from "./utils/render-scale";
+import { getLayerZ } from "./utils/layers";
 
 export interface TransitionSegmentProps {
-  start: InstancedFrameInfo;
-  end: InstancedFrameInfo;
+  segment: InstancePair;
   sourceRow: SourceRow;
   trackRender: TrackRender;
   height: number;
   verticalBounds?: { min: number; max: number };
   verticalAxisRange?: VerticalAxisRange;
-  isEmpty?: boolean;
   theme?: Theme.Light | Theme.Dark;
   color: string;
   layer?: LayerBand;
@@ -54,13 +48,11 @@ export interface TransitionSegmentProps {
  * - Conditional fill rendering based on track render mode and buffer state
  */
 export const TransitionSegment = memo(function TransitionSegment({
-  start,
-  end,
   trackRender,
   height,
   verticalBounds = { min: 0, max: 1 },
   sourceRow,
-  isEmpty = false,
+  segment,
   color,
   theme,
   layer = LayerBand.Background,
@@ -68,6 +60,10 @@ export const TransitionSegment = memo(function TransitionSegment({
   isRowHovered = false,
   verticalAxisRange,
 }: TransitionSegmentProps) {
+  const start = segment.start;
+  const end = segment.end;
+  const isEmpty = Boolean(segment.buffer);
+
   // Determine line thickness based on track render mode
   const lineWidth = useMemo(() => {
     if (trackRender === TrackRender.Key) return 2.5;
@@ -75,56 +71,29 @@ export const TransitionSegment = memo(function TransitionSegment({
     return 2; // For Preview, Transition and Spline
   }, [trackRender]);
 
-  const transitionParams = useMemo(
-    () => computeTransitionParams(sourceRow, start, end, isEmpty, trackRender, verticalBounds),
-    [sourceRow, start, end, isEmpty, trackRender, verticalBounds],
+  const transitionParams = useMemo(() => {
+    const geometryParams =
+      trackRender === TrackRender.Spline ||
+      trackRender === TrackRender.Preview ||
+      trackRender === TrackRender.Transition
+        ? segment.geometry?.effective?.renderParams?.[trackRender]
+        : undefined;
+    if (geometryParams) {
+      return geometryParams;
+    }
+    return computeTransitionParams(sourceRow, start, end, isEmpty, trackRender, verticalBounds);
+  }, [segment.geometry, sourceRow, start, end, isEmpty, trackRender, verticalBounds]);
+
+  const { renderScaleY } = useMemo(
+    () =>
+      computeRenderScale({
+        trackRender,
+        height,
+        verticalBounds,
+        verticalAxisRange,
+      }),
+    [trackRender, height, verticalBounds, verticalAxisRange],
   );
-
-  const buffer = height * 0.4;
-  const isSpline = trackRender === TrackRender.Spline;
-  const visualScaleFactor = verticalAxisRange?.visualScale ?? 1;
-  const visualOffset = verticalAxisRange?.visualOffset ?? 0;
-  const splineRange = useMemo(() => {
-    if (!isSpline) {
-      return { min: 0, max: 0, span: 0 };
-    }
-    const span = Math.max(height * visualScaleFactor, 1);
-    const halfSpan = span / 2;
-    return {
-      min: -halfSpan + visualOffset,
-      max: halfSpan + visualOffset,
-      span,
-    };
-  }, [height, isSpline, visualOffset, visualScaleFactor]);
-
-  const renderScaleY = useMemo(() => {
-    if (isSpline) {
-      const domainMin = verticalBounds.min;
-      const domainMax = verticalBounds.max;
-      const domainSpan = domainMax - domainMin;
-      if (!Number.isFinite(domainSpan) || domainSpan === 0) {
-        return () => splineRange.min;
-      }
-      return createLinearScale([domainMin, domainMax], [splineRange.min, splineRange.max]);
-    }
-    if (trackRender === TrackRender.Preview) {
-      const min = verticalBounds.min;
-      const max = verticalBounds.max;
-      if (max === min) {
-        return () => 0;
-      }
-      return createLinearScale([min, max], [-buffer, buffer]);
-    }
-    return createLinearScale([0, 1], [-buffer, buffer]);
-  }, [
-    buffer,
-    isSpline,
-    splineRange.max,
-    splineRange.min,
-    trackRender,
-    verticalBounds.max,
-    verticalBounds.min,
-  ]);
 
   // Calculate buffer color using theme-based mixing
   const bufferColor = useMemo(() => {
@@ -156,7 +125,7 @@ export const TransitionSegment = memo(function TransitionSegment({
   const mvCp2Y = includesDraggedTrack ? transitionCurve.cp2Y : cp2Y;
 
   // Lookup the z-value based on the layerband
-  const z = LAYER_TO_Z[layer];
+  const z = getLayerZ(layer);
   // Compute depths for fill and line to avoid z-fighting
   const fillDepth = z - ROW_DEPTH_EPSILON * 0.4;
   const lineDepth = z - ROW_DEPTH_EPSILON * 0.2;
@@ -325,9 +294,3 @@ export const TransitionSegment = memo(function TransitionSegment({
     </group>
   );
 });
-
-const LAYER_TO_Z: Record<LayerBand, Z> = {
-  [LayerBand.Background]: Z.BackgroundData,
-  [LayerBand.ForegroundUnselected]: Z.ForegroundDataUnselected,
-  [LayerBand.ForegroundSelected]: Z.ForegroundDataSelected,
-};

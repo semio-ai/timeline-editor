@@ -1,6 +1,6 @@
 import { RawColor, RawEuler, RawVector3, RawVector2 } from "@semio/utils";
-import { type InstancedFrameInfo, SourceRow, TrackRender } from "../types";
-import { COMPLEX_TYPES } from "../constants";
+import { type InstancedFrameInfo, SourceRow, TrackRender, EndpointTransitions } from "../types";
+import { COMPLEX_TYPES, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 
 type ComplexRawValue = RawVector3 | RawVector2 | RawEuler | RawColor;
 type ComplexField = keyof ComplexRawValue;
@@ -32,8 +32,9 @@ export interface TransitionParams {
   cp2: { x: number; y: number };
 }
 
-const DEFAULT_TRANSITION_OUT = { x: 0.65, y: 0 };
-const DEFAULT_TRANSITION_IN = { x: 0.35, y: 1 };
+export interface ComputeTransitionParamsOptions {
+  transitions?: EndpointTransitions;
+}
 
 export function computeTransitionParams(
   source: SourceRow,
@@ -42,6 +43,7 @@ export function computeTransitionParams(
   isEmpty: boolean,
   trackRender: TrackRender,
   _bounds: { min: number; max: number } = { min: 0, max: 1 },
+  options?: ComputeTransitionParamsOptions,
 ): TransitionParams {
   // Use cubic-ease-in-out as default transtion params
 
@@ -49,8 +51,9 @@ export function computeTransitionParams(
   // The end transition in is the end of the transition segment.
 
   if (trackRender === TrackRender.Transition) {
-    const cp1Raw = start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
-    const cp2Raw = end.transitions?.in ?? DEFAULT_TRANSITION_IN;
+    const cp1Raw =
+      options?.transitions?.startOut ?? start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
+    const cp2Raw = options?.transitions?.endIn ?? end.transitions?.in ?? DEFAULT_TRANSITION_IN;
     const cp1 = { x: (end.stamp - start.stamp) * cp1Raw.x + start.stamp, y: cp1Raw.y };
     const cp2 = { x: (end.stamp - start.stamp) * cp2Raw.x + start.stamp, y: cp2Raw.y };
     return {
@@ -110,8 +113,9 @@ export function computeTransitionParams(
       };
     }
 
-    const cp1Raw = start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
-    const cp2Raw = end.transitions?.in ?? DEFAULT_TRANSITION_IN;
+    const cp1Raw =
+      options?.transitions?.startOut ?? start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
+    const cp2Raw = options?.transitions?.endIn ?? end.transitions?.in ?? DEFAULT_TRANSITION_IN;
 
     const delta = endValue - startValue || 0;
     const cp1 = {
