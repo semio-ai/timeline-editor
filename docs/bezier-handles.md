@@ -5,23 +5,21 @@
 - Centralize curve math in the derived snapshot
   - Compute canonical “raw” transitions (with defaults) and map them to world-space control points per segment during snapshot build.
   - Apply anti-knot clamping to produce “effective” control points (runtime-only) to guarantee monotonic X and prevent backtracks/knots.
-  - Optionally pre-bake “Transition” mode parameters (normalized y) so components do not perform normalization logic.
+  - Pre-bake render params for each view mode (Transition, Preview, Spline) so shared components simply look up geometry instead of recomputing formulas per render surface.
   - Rationale: a single authoritative computation per segment keeps visuals (curves, handles), interpolators, and violations consistent and avoids duplicating math in components.
 
 - Enrich `InstancePair` (segment-level) as the single source of truth
-  - Add fields:
-    - `transitionsRaw?: { startOut?: RawVector2; endIn?: RawVector2 }`
-    - `transitionsEffective?: { startOut?: RawVector2; endIn?: RawVector2 }`
-    - `controlPointsRaw?: { cp1?: {x,y}; cp2?: {x,y} }`
-    - `controlPointsEffective?: { cp1?: {x,y}; cp2?: {x,y} }`
-    - `flags?: { cp1Clamped?: boolean; cp2Clamped?: boolean; knotPrevented?: boolean }`
-    - (Optional) `renderParams` for pre-baked “Transition” mode if we want zero math in components
-  - Efficiency: compute once per segment in the derived pass (O(segments)); memory overhead is minimal (a few 2D points + flags).
+  - Add a `geometry?: SegmentGeometry` payload that packages raw/effective transitions, control points, render params per view, and clamp flags under predictable keys.
+  - Efficiency: compute once per segment in the derived pass (O(segments)); memory overhead is minimal (a handful of 2D points + metadata).
 
-- Always render handles; defaults become visible handles
-  - When a keypoint lacks explicit transitions, visualize defaults (ease-in-out) as the raw handles.
-  - Raw handles are interactive; effective handles are smaller/less-salient indicators along the connector toward the data-point, showing runtime clamp.
-  - As markers move, world-space handles resize because world = f(normalized, endpoints). On first manipulation, write explicit normalized transitions.
+- Handle gating and defaults
+  - Handles render only for segments whose parent row is in `TrackRender.Spline` **and** where at least one endpoint marker on that segment is selected (across all simultaneously selected rows).
+  - Within those visible segments, handles appear even when a keypoint has no explicit transition data; the defaults from `compute-transition-params.ts` become the raw, interactive handles so selection always exposes something tangible.
+  - Only the “inside” portion of a keypoint (toward the neighboring sample inside the editable range) shows a handle; the extrapolated flat span outside the row never renders a handle.
+  - Multiple selected rows can display multiple handle sets at once, but the drag system still allows manipulating one handle at a time.
+- Raw vs effective representations
+  - Raw handles always reflect the canonical normalized transitions (defaults or explicitly stored values) converted to world space; they track whatever data is persisted, including overshoot.
+  - Effective handles are derived during snapshot build via anti-knot clamping and feed interpolators, violations, and final curve rendering; when they differ from raw, we render the effective indicators as smaller markers along the connector so editors can see the runtime constraint.
 
 - Default coupling (cross-segment coordination)
   - Interior keypoint K couples `K.in` and `K.out` by default (no modifiers): colinear (180° apart) and equal magnitude (locked angle and length).
@@ -31,9 +29,9 @@
     - Shift+Alt: locked angle (colinear) with independent lengths.
   - Dragging one side updates the complementary side (spanning the two adjacent segments). Solve normalized transitions for both sides from world CPs and stage in preview.
 
-- Preview patches in drag state
-  - During handle drags, stage a small “handle preview patch map” keyed by keypoint ID (and side) with normalized transitions to apply.
-  - The derived builder consumes preview patches to produce up-to-date raw/effective CPs for both adjacent segments (coupling-aware) before rendering.
+- Preview diffs in drag state
+  - Handle drags write normalized transition overrides into a diff map stored on `dragState`; entries are keyed by keypoint ID with `{ in?, out? }` patches so coupling can update both sides atomically.
+  - The derived builder consumes these diffs (alongside stamp/value deltas) to produce up-to-date raw/effective geometry for both adjacent segments before rendering.
 
 - UI-only constraints during handle drags
   - Only enforce that a handle cannot cross its own keypoint X:
@@ -42,23 +40,24 @@
   - Allow overshoot in x (beyond neighbor; outside 0–1) and in y (below 0 or above 1). Any resulting backtrack is handled by the effective clamp at snapshot time; the raw handle remains interactive.
 
 - Component responsibilities (thin, view-focused)
-  - `TransitionSegment`: read precomputed segment geometry from `InstancePair` (effective CPs), apply view scaling (vertical axis) and draw. No curve math or normalization in the component.
-  - `BezierHandles` (new): read `controlPointsRaw` (interactive) and `controlPointsEffective` (smaller, grayed indicator), apply view scaling, and render handles + connectors. No curve math.
-  - `DataPoint`: focus on marker visuals/selection. Prefer segment-centric handle rendering; if marker-owned handles are needed later, the snapshot should expose an adjacency index to avoid O(n) scans.
+  - The derived snapshot publishes fully-populated segment geometry (raw & effective transitions, CP world positions, render-friendly params) so view components stay stateless and cross-view consistent.
+  - `TransitionSegment`: read precomputed effective geometry from `InstancePair`, apply view scaling (vertical axis) and draw. No curve math or normalization remains inside the component.
+  - `BezierHandles` (new): consume `controlPointsRaw` (interactive) and `controlPointsEffective` (smaller, grayed indicator) from the snapshot, apply the same view scaling used by `TransitionSegment`, and render handles + connectors.
+  - `DataPoint`: focus on marker visuals/selection. Prefer segment-centric handle rendering; if marker-owned handles are needed later, expose adjacency indices from the snapshot to avoid O(n) scans.
 
 - Zustand and immutability
   - Canonical writes happen via store actions; the derived orchestrator materializes a fresh snapshot (including segment geometry and flags) on changes.
   - Components subscribe to the snapshot and avoid recomputing curve math, improving coherence and performance.
 
-- Migration plan
-  1. Extend `InstancePair` with the new fields.
+- Migration plan (high level)
+  1. Introduce `SegmentGeometry`, update `InstancePair`/`ComputedRowData` references, and add optional adjacency mirrors on `InstancedFrameInfo`.
   2. Update the derived builder to:
-     - Resolve canonical transitions with defaults and apply preview patches (including coupling results).
-     - Compute world CPs (raw); run anti-knot clamp to get effective CPs and flags.
-     - (Optional) pre-bake normalized “Transition” params.
-  3. Update `TransitionSegment` to consume precomputed values; add `BezierHandles` to render raw/effective handles.
-  4. Implement handle drag helpers for coupling and world→normalized solving; wire preview patches into drag actions.
-  5. Add tests for coupling, anti-knot clamping, default-to-explicit transition promotion, and preview/commit equivalence.
+     - Resolve canonical transitions with defaults, apply handle diffs, and populate `geometry.raw`.
+     - Run `clampMonotonicCubicSegment` to fill `geometry.effective` + flags.
+     - Pre-bake render params for Transition/Preview/Spline modes where helpful.
+  3. Update `TransitionSegment`, upcoming `BezierHandles`, and interpolator consumers to read from `geometry` instead of recomputing control points.
+  4. Extend drag state (`DragAnchorRef`, `DragState`, `handleDiffs`) plus coupling helpers and commit pipeline to support handle drags.
+  5. Add tests for coupling, anti-knot clamping, default-to-explicit promotion, preview/commit equivalence, and snapshot serialization of the new geometry payload.
 
 
 Note: Helper APIs and type additions below are concrete proposals to support anti-knot clamping, marker-drag handle invariance, and raw/effective control-point visualization.
@@ -152,74 +151,58 @@ export function clampHandleAgainstOwnKeypointX(params: {
 ```
 
 Type additions/changes (proposals)
-- InstancePair: carry raw/effective transitions and world control points per segment so renderers and interpolators share a consistent view.
-```semio_studio/packages/animation/src/types/util/instance-pair.ts#L1-200
-import { InstancedFrameInfo } from "./instanced-frame-info";
-import type { RawVector2 } from "@semio/utils";
+- Segment geometry container
+  - Replace dozens of optional fields on `InstancePair` with a dedicated `SegmentGeometry` payload so consumers can destructure predictable shapes:
+  ```ts
+  export interface SegmentGeometry {
+    raw: {
+      transitions?: { startOut?: RawVector2; endIn?: RawVector2 };
+      controlPoints?: { cp1?: WorldCP; cp2?: WorldCP };
+      renderParams?: TransitionParams; // optional pre-baked view params
+    };
+    effective: {
+      transitions?: { startOut?: RawVector2; endIn?: RawVector2 };
+      controlPoints?: { cp1?: WorldCP; cp2?: WorldCP };
+      renderParams?: TransitionParams;
+    };
+    flags?: ClampFlags;
+  }
 
-export interface InstancePair {
-  start: InstancedFrameInfo;
-  end: InstancedFrameInfo;
-  buffer?: boolean;
+  export interface InstancePair {
+    start: InstancedFrameInfo;
+    end: InstancedFrameInfo;
+    buffer?: boolean;
+    geometry?: SegmentGeometry;
+  }
+  ```
+  - `buildDerivedSnapshot` is responsible for hydrating `geometry.raw` (canonical defaults + overrides), running `clampMonotonicCubicSegment`, and storing the results under `geometry.effective`.
+  - `TransitionSegment`, `BezierHandles`, interpolators, and QA overlays all read from the same `geometry` reference, eliminating redundant math and ensuring parity across views.
 
-  // Canonical (raw) normalized transitions used to generate raw CPs
-  transitionsRaw?: {
-    startOut?: RawVector2;
-    endIn?: RawVector2;
-  };
+- Drag state and diff map
+  - Extend `DragAnchorRef` with `kind: "marker" | "handle-in" | "handle-out"` and `neighborKeypointId` so the drag system understands which endpoint span to use.
+  - Augment `DragState` with:
+    ```ts
+    interface DragState {
+      // existing fields...
+      activeHandleId?: string; // `${keypointId}:${kind}`
+      handleDiffs?: Record<string, { in?: RawVector2; out?: RawVector2 }>;
+    }
+    ```
+  - `handleDiffs` captures preview patches for handles and can be consumed by `applyDragDeltas` (or a sibling helper) before frames/segments are derived.
+  - Coupling logic writes to multiple entries in the diff map atomically; `commitDrag` persists only the touched keypoints and clears the diff map afterwards.
 
-  // Effective normalized transitions after anti-knot clamp
-  transitionsEffective?: {
-    startOut?: RawVector2;
-    endIn?: RawVector2;
-  };
+- Instanced frame mirrors
+  - Optionally expose read-only “adjacent handle” mirrors so marker-centric components can highlight handles without re-scanning segments:
+  ```ts
+  export interface InstancedFrameInfo {
+    // existing fields...
+    adjHandlesRaw?: { out?: WorldCP; in?: WorldCP };
+    adjHandlesEffective?: { out?: WorldCP; in?: WorldCP };
+  }
+  ```
+  - These mirrors are derived from the same `SegmentGeometry` data structure; they exist purely for UI affordances and never get written back to canonical data.
 
-  // World CPs derived from raw (canonical) transitions
-  controlPointsRaw?: {
-    cp1?: { x: number; y: number }; // from startOut
-    cp2?: { x: number; y: number }; // from endIn
-  };
-
-  // World CPs after anti-knot clamping (used for visuals/interpolators)
-  controlPointsEffective?: {
-    cp1?: { x: number; y: number };
-    cp2?: { x: number; y: number };
-  };
-
-  // Summary flags for visualization/debugging
-  flags?: {
-    cp1Clamped?: boolean;
-    cp2Clamped?: boolean;
-    knotPrevented?: boolean;
-  };
-}
-```
-
-- No change is required to `InstancedFrameInfo` for raw/effective CPs since handles belong to the segment A → B, but if we later want per-frame visibility of “adjacent” handle positions for UI hover states, we can add optional read-only mirrors:
-```semio_studio/packages/animation/src/types/util/instanced-frame-info.ts#L1-200
-// Optional, UI-oriented mirrors (read-only; derived)
-export interface InstancedFrameInfo {
-  // ...
-  // adjHandlesRaw?: { out?: { x:number; y:number }; in?: { x:number; y:number } };
-  // adjHandlesEffective?: { out?: { x:number; y:number }; in?: { x:number; y:number } };
-}
-```
-
-- ComputedRowData remains structurally the same; consumers read `interpolations: InstancePair[]` which now carries raw/effective geometry:
-```semio_studio/packages/animation/src/types/util/computed-row-data.ts#L1-120
-export interface ComputedRowData {
-  virtualFrames: InstancedFrameInfo[];
-  interpolations: InstancePair[];          // now enriched with raw/effective CPs and transitions
-  verticalBounds: { min: number; max: number };
-  violationSet: ViolationSet;
-  verticalAxisByView?: Record<string, VerticalAxisRange>;
-}
-```
-
-- Derived snapshot: no core shape change needed; `buildDerivedSnapshot` should:
-  - Populate InstancePair.transitionsRaw/controlPointsRaw from canonical data.
-  - Run `clampMonotonicCubicSegment` per segment to fill transitionsEffective/controlPointsEffective and flags.
-  - Optionally reflect per-frame mirrors if we adopt the optional `InstancedFrameInfo` fields above.
+- ComputedRowData still carries `interpolations: InstancePair[]`, but each entry now contains a populated `geometry` blob. Downstream consumers do not need to compute curve math once `buildDerivedSnapshot` fills these fields.
 
 Implementation notes
 - Effective CP computation happens during snapshot build, so all downstream consumers (TransitionSegment, BezierHandles, interpolators, violations) use effective geometry in steady state and preview. The raw CPs are provided alongside for visualization of “extensions” and interactive handles.
@@ -272,6 +255,7 @@ These are the exact rules implemented by `compute-transition-params.ts`. Handles
   - If either A or B marker is selected for the same instance and track, show both handles for that segment.
   - If neither A nor B is selected, do not show handles.
 - Missing transitions: if the keypoint has no transitions, show handles at default parameters and initialize transitions on first drag/commit.
+- Multiple selections: if multiple rows/tracks meet the gating rules, render handles for all qualifying segments simultaneously; gesture handling still restricts drag operations to one handle at a time.
 
 This behavior ensures you can shape a transition by selecting either endpoint.
 
@@ -282,6 +266,9 @@ This behavior ensures you can shape a transition by selecting either endpoint.
 - Handle geometry:
   - A small circle (screen-size stabilized with invariant scale) at the control point.
   - A thin line from the keypoint’s hexagon to its handle (A → cp1 for out, B → cp2 for in).
+- Effective indicator:
+  - When the snapshot flags a clamp (effective ≠ raw), render a secondary smaller circle along the connector to show the runtime CP used by interpolators.
+  - The connector segment between effective and raw positions makes the “trimmed” length obvious without changing interaction targets.
 - Colors:
   - Use the same base color as the segment or track.
   - Slightly brighten on hover; emphasize when the parent row is hovered.
@@ -306,15 +293,13 @@ The handle renderer must use the same “domain → pixel” transform as `Trans
 
 - New component(s):
   - `BezierHandles` (or `TransitionHandles`): renders CP1 (A.out) and CP2 (B.in) for a single segment.
-    - Inputs: `start`, `end`, `sourceRow`, `trackRender`, `verticalBounds`, `verticalAxisRange`, `layer`, `color`, `isRowHovered`.
-    - Derived geometry:
-      - Compute CP1/CP2 world positions using the same formulas as `compute-transition-params.ts`.
-      - Map y to screen with the Spline vertical scale (same as `TransitionSegment`).
+    - Inputs: `segmentGeometry` (enriched `InstancePair` with raw/effective CPs), `sourceRow`, `trackRender`, `verticalBounds`, `verticalAxisRange`, `layer`, `color`, `isRowHovered`.
+    - Geometry arrives precomputed from the derived snapshot; the component only maps world y to pixels with the same scale used by `TransitionSegment`.
     - Interactivity:
       - Each handle is an interactive hotspot; on drag start, initiate handle drag; on move, preview; on end, commit.
       - A connecting line is non-interactive visual glue.
 - Integration:
-  - Render `BezierHandles` alongside each `TransitionSegment` that qualifies (Spline mode and selection gating).
+  - Render `BezierHandles` alongside each `TransitionSegment` that qualifies (Spline mode and selection gating); both read from the same `InstancePair` payload to ensure parity.
   - Follow the same grouping and depth strategy as `TransitionSegment` to keep visual ordering consistent.
 
 ---
@@ -325,25 +310,25 @@ The handle renderer must use the same “domain → pixel” transform as `Trans
   - Cursor changes to “pointer” over the handle.
   - Emphasize the handle and (optionally) the connecting line.
 - Drag:
+  - Only one handle drag is active at a time; starting a new handle drag cancels or commits the previous gesture first.
   - Begin: capture which handle (A.out or B.in) is being dragged and snapshot the segment endpoints needed to compute normalized coordinates.
   - Move:
     - Compute normalized `x` from pointer stamp relative to [A.stamp, B.stamp]:
-      - `x = clamp01((localStamp - A.stamp) / (B.stamp - A.stamp))`
+      - `x = (localStamp - A.stamp) / (B.stamp - A.stamp)` (allow <0 or >1 for overshoot).
     - Compute normalized `y` from pointer value relative to [A.value, B.value]:
-      - If `deltaY !== 0`, `y = clamp01((worldValue - A.value) / deltaY)`
-      - If `deltaY === 0`, keep existing `y` (no-op) or treat y as 0/1 by policy; visually, vertical changes don’t affect a flat segment.
-    - Update the corresponding transition in preview:
-      - A.out when dragging CP1; B.in when dragging CP2.
+      - If `deltaY !== 0`, `y = (worldValue - A.value) / deltaY` (allow <0 or >1).
+      - If `deltaY === 0`, keep existing `y` (no-op) or follow the degenerate span policy (defaults).
+    - Before staging the preview value, apply `clampHandleAgainstOwnKeypointX` so the world CP cannot cross its anchor keypoint’s X; otherwise leave the normalized numbers unconstrained.
+    - Update the corresponding transition in preview (A.out for CP1, B.in for CP2) via the handle-delta diff map.
   - End:
-  -   - Commit the new normalized `{ x, y }` into the keypoint’s `transitions` object, creating it if needed.
-  -   - Reset: provide a hotkey (TBD) to reset the selected keypoint’s handles to “flat”:
-  -     - For a segment A → B: set `A.transitions.out` to `{ x: 0.65, y: 0 }` and `B.transitions.in` to `{ x: 0.35, y: 1 }` (defaults used by `compute-transition-params.ts`).
+    - Commit the new normalized `{ x, y }` into the keypoint’s `transitions` object, creating it if needed.
+    - Reset: provide a hotkey (TBD) to reset the selected segment’s handles to defaults `{ out: {x: 0.65, y: 0}, in: {x: 0.35, y: 1} }`.
 - Modifiers and constraints:
--  - Clamp `x` and `y` to [0,1].
--  - Alt: independent rotation and scale of the dragged handle relative to its complement (the opposite handle on the same keypoint).
--  - Shift: constrain the dragged handle to remain colinear with its complement (same angle/tangent). Lengths mirror by default in this mode.
--  - Shift+Alt: keep the handles colinear (same angle) while allowing independent scaling (handle lengths may differ).
--  - Handle drags do not use horizontal frame snapping; Alt no longer means “bypass snap” for handles. Marker drags retain their existing Alt/Shift semantics per `drag-interactions.md`.
+  - Only the “no cross anchor X” constraint applies; `x`/`y` are otherwise free-form and may overshoot neighbors.
+  - Alt: independent rotation and scale of the dragged handle relative to its complement (the opposite handle on the same keypoint).
+  - Shift: constrain the dragged handle to remain colinear with its complement (same angle/tangent). Lengths mirror by default in this mode.
+  - Shift+Alt: keep the handles colinear (same angle) while allowing independent scaling (handle lengths may differ).
+  - Handle drags do not use horizontal frame snapping; Alt no longer means “bypass snap” for handles. Marker drags retain their existing Alt/Shift semantics per `drag-interactions.md`.
 
 ---
 
@@ -358,15 +343,15 @@ We reuse the drag/preview architecture in `docs/drag-interactions.md`, but speci
 - Transform inputs:
   - `instanceTransform` is still required to convert between global stamp and local instance time.
   - Vertical mapping uses the same view axis transform (`verticalBounds` or `verticalAxisRange`) as Spline.
-- Preview strategy:
-  - During a handle drag, we must reflect temporary transition updates in all segment computations.
-  - Two options:
-    - A) Patch transitions during derivation (recommended):
-      - Add a light-weight “handle previews” patch map to drag state, keyed by `keypointId`, with partial `{ in?: RawVector2; out?: RawVector2 }`.
-      - The derived orchestrator (or `computeRowData`) applies these patches to keypoints when building `InstancedFrameInfo`. Then `compute-transition-params.ts` sees the previewed transitions automatically.
-    - B) Clone-and-override segments inside `TransitionSegment`:
-      - Pass override cp1/cp2 directly to visual components without changing data inputs. Simpler to render but diverges from central preview derivation.
-  - Choose A to stay consistent with the global preview pipeline and keep all visuals in sync.
+- Preview diffs (generalized approach):
+  - Extend `dragState` with a diff map that can express handle overrides alongside the existing stamp/value deltas. Proposed shape:
+    - `handleDiffs?: Record<keypointId, { in?: RawVector2; out?: RawVector2 }>`
+    - Coupling logic writes to both the dragged handle and its complement before the diff is consumed.
+  - `applyDragDeltas` (or a sibling helper) merges `handleDiffs` into the virtual frames before `computeRowData` emits `InstancedFrameInfo`, so any downstream consumer automatically sees the preview geometry.
+  - This diff structure keeps the door open for future preview surfaces (e.g., curve warping) by treating drag previews as typed patches rather than bespoke booleans.
+- Derived snapshot consumption:
+  - `buildDerivedSnapshot` applies the diffs first, then runs the canonical-to-world conversion and anti-knot clamp so both raw and effective CPs are coherent during drag.
+  - Because the diff map lives in the store, any selection change or cancellation immediately clears it and forces the derived snapshot back to canonical data.
 - Commit:
   - On `commitDrag`, call `updateKeypoint` (or a new helper) to write the patched `transitions.{in|out}` back to the canonical keypoint.
   - Ensure the keypoint has a `transitions` object after commit.
@@ -380,10 +365,10 @@ We reuse the drag/preview architecture in `docs/drag-interactions.md`, but speci
   - A: `stampA`, `valueA`
   - B: `stampB`, `valueB`
   - Conversions:
-    - `x = clamp01((localPointerStamp - stampA) / (stampB - stampA))`
-    - `y = deltaY !== 0 ? clamp01((worldPointerValue - valueA) / (valueB - valueA)) : keep existing y`
+    - `x = (localPointerStamp - stampA) / (stampB - stampA)` (allow overshoot; enforce only the “no cross anchor X” constraint in world space).
+    - `y = deltaY !== 0 ? (worldPointerValue - valueA) / (valueB - valueA) : keep existing y`
 - For CP2 (B.in):
-  - Same formulas, but normalization still uses A’s origin; see `compute-transition-params.ts` (both cp1 and cp2 times are computed off A.stamp; both y’s are computed with A.value/deltaY).
+  - Same formulas, but normalization still uses A’s origin; see `compute-transition-params.ts` (both cp1 and cp2 times share A.stamp/A.value as the origin even when `x`/`y` fall outside [0,1]).
 - Pointer-to-world conversions:
   - X: normalized global stamp → local instance time using `instanceTransform`.
   - Y: invert the Spline view’s value scale:
@@ -407,7 +392,7 @@ We reuse the drag/preview architecture in `docs/drag-interactions.md`, but speci
 
 Phase 1 — Read-only visuals and selection gating
 - Add `BezierHandles` component.
-- Compute CP positions using the same formulas as `compute-transition-params.ts`.
+- Pull CP positions from the enriched `InstancePair` data emitted by the derived snapshot; avoid duplicating math in the component.
 - Show handles for segments where A or B marker is selected.
 - Render circle + connecting line to the respective keypoint hexagon.
 
@@ -461,14 +446,15 @@ Context and goals
       - cpWorld.y = A.value + deltaY * (B.transitions?.in?.y ?? 1)
   - After the marker’s new position/value A′ (or B′) is determined by the drag delta, re-solve normalized transitions from the stored cpWorld to keep the visual relationship intact:
     - For A.out after A moves (B constant):
-      - x′ = clamp01((cpWorld.x - A′.stamp) / (B.stamp - A′.stamp))
-      - y′ = deltaY′ !== 0 ? clamp01((cpWorld.y - A′.value) / (B.value - A′.value)) : keep previous y (or 0 by policy)
+      - x′ = (cpWorld.x - A′.stamp) / (B.stamp - A′.stamp)
+      - y′ = deltaY′ !== 0 ? (cpWorld.y - A′.value) / (B.value - A′.value) : keep previous y (or 0 by policy)
     - For B.in after B moves (A constant):
-      - x′ = clamp01((cpWorld.x - A.stamp) / (B′.stamp - A.stamp))
-      - y′ = deltaY′ !== 0 ? clamp01((cpWorld.y - A.value) / (B′.value - A.value)) : keep previous y (or 1 by policy)
+      - x′ = (cpWorld.x - A.stamp) / (B′.stamp - A.stamp)
+      - y′ = deltaY′ !== 0 ? (cpWorld.y - A.value) / (B′.value - A.value) : keep previous y (or 1 by policy)
   - Only apply this re-solve to handles that exist (i.e., when a keypoint hasn’t specified a transition, do not fabricate or update one).
   - Apply this in both preview (during drag) and commit paths so the visual invariance matches the final state.
   - Note: When the dragged keypoint sits between two segments, apply the rule to both adjacent handles (its out for left segment; its in for right segment) independently.
+  - Intentional default behavior: handles that still rely on the implicit ease-in-out defaults will move when the marker moves; invariance only applies after the user creates explicit transitions (typically on first handle edit).
 
 2) Anti-knot “effective length” when markers approach each other
 - When A and B move close enough that the raw handles would produce a backtrack (non-monotonic X) or a knot, shorten only the effective handle lengths used by rendering/interpolation until the curve is valid. Do not write these shortened handles back to canonical transitions.
@@ -505,22 +491,15 @@ Context and goals
 - Reset hotkey (TBD): reset handles to the flat defaults (`out: {x: 0.65, y: 0}`, `in: {x: 0.35, y: 1}`) for the selected segment’s endpoints.
 
 Types and derived data proposals
-- Drag anchor kinds (as previously proposed):
-  - `anchor.kind: "marker" | "handle-in" | "handle-out"`
-  - For handles, carry `neighborKeypointId` to resolve normalization span.
-- Snapshot extensions (per segment and frame):
-  - Expose both raw and effective transitions and world control points:
-    - `transitionsRaw: { in?: RawVector2; out?: RawVector2 }`
-    - `transitionsEffective: { in?: RawVector2; out?: RawVector2 }`
-    - `controlPointsRaw: { cp1: {x,y}, cp2: {x,y} }`
-    - `controlPointsEffective: { cp1: {x,y}, cp2: {x,y} }`
-    - `flags: { cpClamped?: boolean; knotPrevented?: boolean }`
-  - These can live on the segment-level structure emitted when building `InstancedFrameInfo` pairs, or in a sibling “segment computed” map referenced by `TransitionSegment` and `BezierHandles`.
-- Where to implement:
-  - Add an anti-knot helper used by `buildDerivedSnapshot`:
-    - Input: A, B, raw cp1/cp2
-    - Output: effective cp1/cp2 meeting P0.x ≤ P1.x ≤ P2.x ≤ P3.x, with minimal scaling toward anchors
-  - Ensure `init-derived-orchestrator.ts`’s flow uses the snapshot with effective control points when computing curve visuals and interpolators.
+- Drag anchor kinds (as previously proposed) gain `neighborKeypointId` and live on the expanded `DragAnchorRef` structure described earlier.
+- Snapshot extensions collapse into the `SegmentGeometry` container:
+  - `geometry.raw` holds canonical transitions/control points/render params.
+  - `geometry.effective` stores clamped equivalents plus render params for the active view.
+  - `geometry.flags` mirrors `ClampFlags` for visualization/debugging.
+  - Optional adjacency mirrors on `InstancedFrameInfo` reference these world-space CPs for marker-centric components.
+- Implementation notes:
+  - `clampMonotonicCubicSegment` remains the authoritative helper for anti-knot adjustments; call it during snapshot build after applying handle diffs.
+  - `init-derived-orchestrator.ts` and any interpolator builders must read effective geometry from the snapshot instead of recomputing control points locally.
 - Open items/notes:
   - Degenerate spans (A.stamp === B.stamp): skip X adjustments; clamp all CP.x to that stamp; handle Y gracefully.
   - Zero delta values (A.value === B.value): y-weight normalization becomes undefined; adopt a stable policy (keep previous y; out.y=0/in.y=1).
@@ -537,7 +516,7 @@ Types and derived data proposals
 - Drag behavior
   - Moving CP1 modifies `A.transitions.out` only; moving CP2 modifies `B.transitions.in` only.
   - Previews match committed results.
-  - x and y clamp to [0,1]; no glitches at degenerate spans.
+  - x and y may overshoot neighbors but handles never cross their own anchor stamp; degenerate spans follow the defined fallback policy.
   - Springs are bypassed during drag for affected visuals (curve and data-point).
 - Multi-selection
   - If either A or B is selected, both handles are shown for the segment.
@@ -559,3 +538,36 @@ Types and derived data proposals
 - `src/functions/compute-transition-params.ts` — Authoritative mapping from normalized transitions to world control points for all modes.
 - `src/components/canvas-sheet/transition-segment.tsx` — Spline curve rendering and y-scaling logic.
 - `src/components/canvas-sheet/data-point.tsx` — Marker visuals and drag affordances, including immediate feedback during drag.
+
+---
+
+## Phased Implementation Plan
+
+### Phase 1 — Type & Snapshot Plumbing [ Incomplete ]
+- Introduce `SegmentGeometry`, extend `InstancePair`, `ComputedRowData`, and (optionally) `InstancedFrameInfo` per the Type proposals. Verify TypeScript compiles and downstream imports update cleanly.
+- Update `buildDerivedSnapshot` to populate `geometry.raw` by combining canonical transitions + defaults + handle diffs, then call `clampMonotonicCubicSegment` to fill `geometry.effective` and flags.
+- Pre-bake render params needed by Transition/Preview/Spline (reuse helpers from `compute-transition-params.ts`) and store them under the geometry payload.
+- Checks:
+  - Unit tests or snapshots confirm derived data now includes both raw and effective CPs.
+  - Existing consumers continue to function (temporary adapters can bridge until Phase 2 completes).
+
+### Phase 2 — Component Consumption & Visuals [ Incomplete ]
+- Update `TransitionSegment` to read world control points and render params directly from `segment.geometry`, removing duplicated math.
+- Implement `BezierHandles` using the enriched geometry (raw vs effective indicators), hook into selection gating, and ensure the visual scale matches `TransitionSegment`.
+- Add effective-handle markers and connectors plus hover/selection styling as described in the Visuals section.
+- Checks:
+  - Visual comparison shows curve + handle positions stay in sync across views.
+  - Handles appear only for Spline rows with at least one selected endpoint; defaults display when transitions are undefined.
+
+### Phase 3 — Drag System & Preview Diffs [ Incomplete ]
+- Extend `DragAnchorRef` (`kind`, `neighborKeypointId`) and `DragState` (`handleDiffs`, `activeHandleId`) plus helper actions for starting/updating/canceling handle drags.
+- Update `applyDragDeltas` (or a sibling helper) so `handleDiffs` get merged before virtual frames are built; ensure coupling writes to both adjacent handles.
+- Implement UI constraints via `clampHandleAgainstOwnKeypointX`, add reset hotkey, and enforce “single handle drag at a time.”
+- Tests/validations:
+  - Unit tests for `solveNormalizedTransitionFromWorldCP`, coupling, handle diffs, and commit path.
+  - Manual QA covering overshoot, multi-selection, preview parity, and cancellation edge cases.
+
+### Phase 4 — QA, Telemetry, and Docs [ Incomplete ]
+- Expand automated coverage for anti-knot clamping, preview vs commit equivalence, and default-to-explicit promotion.
+- Run manual QA checklist (visibility gating, geometry parity, drag behavior, multi-selection) on representative animations.
+- Update README/agent docs with any new shortcuts (reset hotkey) or flows discovered during implementation, and ensure telemetry/logging captures handle drag actions if required.
