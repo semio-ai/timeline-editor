@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, useEffect, memo } from "react";
+import { useRef, useMemo, useState, useEffect, memo, useCallback } from "react";
 import * as THREE from "three";
 import { cubicBezier, MotionValue, useMotionValueEvent } from "motion/react";
 import { PlayerData, usePlayerStore } from "@semio/utils";
@@ -44,7 +44,10 @@ export const MinimapDisplay = memo(function MinimapDisplay({
   const { updatePlayerViewport, updatePlayerViewportBound } = usePlayerStore();
 
   // Store current viewport for drag calculations
-  const [currentViewport, setCurrentViewport] = useState<[number, number]>([0, 1]);
+  const [currentViewport, setCurrentViewport] = useState<[number, number]>(() => {
+    const viewport = usePlayerStore.getState().player.viewport;
+    return [viewport[0], viewport[1]];
+  });
 
   // Interaction state
   const [hovered, setHovered] = useState(false);
@@ -124,28 +127,31 @@ export const MinimapDisplay = memo(function MinimapDisplay({
   useCursor(dragging === "viewport", "grabbing", "auto", gl.domElement);
   useCursor(dragging === "left" || dragging === "right", "ew-resize", "auto", gl.domElement);
 
-  usePlayerSubscription(
-    (state: PlayerData) => state.player.viewport,
-    (viewport) => {
-      setCurrentViewport(viewport);
-      // Calculate width in 0-1 units
-      const rectWidth = viewport[1] - viewport[0];
+  const handleViewportChange = useCallback((viewport: [number, number]) => {
+    setCurrentViewport([viewport[0], viewport[1]]);
+  }, []);
 
-      if (rectRef.current) {
-        rectRef.current.position.set(viewport[0] + rectWidth / 2, 0, Z.Minimap);
-        rectRef.current.scale.set(rectWidth, currentHeight, 1);
-        rectRef.current.renderOrder = 1; // Render on top
-      }
+  const selectViewport = useCallback((state: PlayerData) => state.player.viewport, []);
 
-      if (leftHexRef.current && rightHexRef.current) {
-        // Position cylinders at rectangle edges, same Z but lower render order
-        leftHexRef.current.position.set(viewport[0], 0, Z.Minimap);
-        rightHexRef.current.position.set(viewport[1], 0, Z.Minimap);
-        leftHexRef.current.renderOrder = 0; // Render behind
-        rightHexRef.current.renderOrder = 0; // Render behind
-      }
-    },
-  );
+  usePlayerSubscription(selectViewport, handleViewportChange);
+
+  useEffect(() => {
+    const [start, end] = currentViewport;
+    const rectWidth = end - start;
+
+    if (rectRef.current) {
+      rectRef.current.position.set(start + rectWidth / 2, 0, Z.Minimap);
+      rectRef.current.scale.set(rectWidth, currentHeight, 1);
+      rectRef.current.renderOrder = 1; // Render on top
+    }
+
+    if (leftHexRef.current && rightHexRef.current) {
+      leftHexRef.current.position.set(start, 0, Z.Minimap);
+      rightHexRef.current.position.set(end, 0, Z.Minimap);
+      leftHexRef.current.renderOrder = 0; // Render behind
+      rightHexRef.current.renderOrder = 0; // Render behind
+    }
+  }, [currentViewport, currentHeight]);
 
   useFrame(({ viewport, camera: frameCamera }) => {
     if (leftHexRef.current && rightHexRef.current) {
