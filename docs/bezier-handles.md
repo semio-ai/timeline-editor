@@ -419,10 +419,9 @@ Context and goals
     - For A.out:
       - cpWorld.x = A.stamp + spanX * (A.transitions?.out?.x ?? 0.65)
       - cpWorld.y = A.value + deltaY * (A.transitions?.out?.y ?? 0)
-    - For B.in (mirrored semantics with cp time computed off **B**):
-      - cpWorld.x = B.stamp - spanX * (1 - (B.transitions?.in?.x ?? 0.35))
-      - cpWorld.y = B.value - deltaY * (1 - (B.transitions?.in?.y ?? 1))
-      - Bug note: the current implementation measures both control points from `A`, which flips `cp1.x`/`cp2.x` and forces needless anti-knot clamping. Phase tasks below track fixing the conversion + tests.
+    - For B.in (same origin as A.out—normalized transitions are measured from the start of the segment):
+      - cpWorld.x = A.stamp + spanX * (B.transitions?.in?.x ?? 0.35)
+      - cpWorld.y = A.value + deltaY * (B.transitions?.in?.y ?? 1)
   - After the marker’s new position/value A′ (or B′) is determined by the drag delta, re-solve normalized transitions from the stored cpWorld to keep the visual relationship intact:
     - For A.out after A moves (B constant):
       - x′ = (cpWorld.x - A′.stamp) / (B.stamp - A′.stamp)

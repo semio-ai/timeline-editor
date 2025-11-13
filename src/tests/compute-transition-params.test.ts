@@ -78,4 +78,48 @@ describe("computeTransitionParams real-space conversion", () => {
     expect(params.cp2.x).toBeCloseTo(0.1 + (0.9 - 0.1) * 0.35);
     expect(params.cp2.y).toBeCloseTo(5); // default in.y is 1
   });
+
+  test("transition view renders flat segments for empty leading gap", () => {
+    const start: InstancedFrameInfo = {
+      id: "gap:start",
+      stamp: 0,
+      points: [],
+    };
+    const end: InstancedFrameInfo = {
+      id: "gap:end",
+      stamp: 0.2,
+      points: [{ ...baseRowData, id: "point:end", value: 10 }],
+    };
+
+    const params = computeTransitionParams(sourceRow, start, end, true, TrackRender.Transition, {
+      min: 0,
+      max: 20,
+    });
+
+    expect(params.start.y).toBe(0);
+    expect(params.end.y).toBe(0);
+    expect(params.cp1.y).toBe(0);
+    expect(params.cp2.y).toBe(0);
+  });
+
+  test("transition view renders flat segments for empty trailing gap", () => {
+    const start: InstancedFrameInfo = {
+      id: "gap:start",
+      stamp: 0.8,
+      points: [{ ...baseRowData, id: "point:start", value: 5 }],
+    };
+    const end: InstancedFrameInfo = {
+      id: "gap:end",
+      stamp: 1,
+      points: [],
+    };
+
+    const params = computeTransitionParams(sourceRow, start, end, true, TrackRender.Transition, {
+      min: 0,
+      max: 20,
+    });
+
+    expect(params.start.y).toBe(1);
+    expect(params.end.y).toBe(1);
+  });
 });

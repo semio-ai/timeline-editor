@@ -17,7 +17,7 @@ describe("clampMonotonicCubicSegment", () => {
     expect(result.flags).toEqual({});
   });
 
-  it("clamps a handle that overshoots its anchor stamp", () => {
+  it("clamps a handle that overshoots its own anchor stamp", () => {
     const result = clampMonotonicCubicSegment({
       start: { stamp: 0, value: 0 },
       end: { stamp: 1, value: 1 },
@@ -32,7 +32,7 @@ describe("clampMonotonicCubicSegment", () => {
     expect(result.transitionsEffective.startOut?.x).toBeGreaterThanOrEqual(0);
   });
 
-  it("prevents knots when handles cross each other", () => {
+  it("does not clamp when handles cross but stay within anchors", () => {
     const result = clampMonotonicCubicSegment({
       start: { stamp: 0, value: 0 },
       end: { stamp: 1, value: 1 },
@@ -42,10 +42,22 @@ describe("clampMonotonicCubicSegment", () => {
       },
     });
 
-    expect(result.flags.knotPrevented).toBe(true);
-    expect(result.cp1Effective && result.cp2Effective).toBeDefined();
-    expect(
-      (result.cp1Effective?.x ?? 0) <= (result.cp2Effective?.x ?? 0),
-    ).toBe(true);
+    expect(result.cp1Effective).toEqual(result.cp1Raw);
+    expect(result.cp2Effective).toEqual(result.cp2Raw);
+    expect(result.flags.knotPrevented).toBeFalsy();
+  });
+
+  it("converts inbound handles relative to the start anchor", () => {
+    const result = clampMonotonicCubicSegment({
+      start: { stamp: 1, value: 2 },
+      end: { stamp: 3, value: 6 },
+      rawTransitions: {
+        startOut: { x: 0.25, y: 0.1 },
+        endIn: { x: 0.2, y: 0.6 },
+      },
+    });
+
+    expect(result.cp2Raw?.x).toBeCloseTo(1 + (3 - 1) * 0.2, 5);
+    expect(result.cp2Raw?.y).toBeCloseTo(2 + (6 - 2) * 0.6, 5);
   });
 });

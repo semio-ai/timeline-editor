@@ -20,7 +20,7 @@ export interface ClampOutput {
 }
 
 export function clampMonotonicCubicSegment(input: ClampInput): ClampOutput {
-  const epsilon = input.epsilon ?? EPSILON_DEFAULT;
+  // const epsilon = input.epsilon ?? EPSILON_DEFAULT;
   const startOut = input.rawTransitions.startOut ?? DEFAULT_TRANSITION_OUT;
   const endIn = input.rawTransitions.endIn ?? DEFAULT_TRANSITION_IN;
 
@@ -40,57 +40,31 @@ export function clampMonotonicCubicSegment(input: ClampInput): ClampOutput {
 
   if (span === 0) {
     if (cp1Effective) {
-      cp1Effective = { ...cp1Effective, x: startAnchor.x };
+      cp1Effective = clampHandleToX(startAnchor, cp1Effective, startAnchor.x);
       if (cp1Raw && !pointsEqual(cp1Raw, cp1Effective)) {
         flags.cp1Clamped = true;
       }
     }
     if (cp2Effective) {
-      cp2Effective = { ...cp2Effective, x: endAnchor.x };
+      cp2Effective = clampHandleToX(endAnchor, cp2Effective, endAnchor.x);
       if (cp2Raw && !pointsEqual(cp2Raw, cp2Effective)) {
         flags.cp2Clamped = true;
       }
     }
   } else {
-    const minX = Math.min(startAnchor.x, endAnchor.x);
-    const maxX = Math.max(startAnchor.x, endAnchor.x);
-
-    if (cp1Effective) {
-      const { clamped, point } = clampHandleAlongAnchor(startAnchor, cp1Effective, minX, maxX);
-      cp1Effective = point;
-      if (clamped) {
-        flags.cp1Clamped = true;
-      }
+    if (cp1Effective && cp1Effective.x < startAnchor.x) {
+      cp1Effective = clampHandleToX(startAnchor, cp1Effective, startAnchor.x);
+      flags.cp1Clamped = true;
     }
 
-    if (cp2Effective) {
-      const { clamped, point } = clampHandleAlongAnchor(endAnchor, cp2Effective, minX, maxX);
-      cp2Effective = point;
-      if (clamped) {
-        flags.cp2Clamped = true;
-      }
+    if (cp2Effective && cp2Effective.x > endAnchor.x) {
+      cp2Effective = clampHandleToX(endAnchor, cp2Effective, endAnchor.x);
+      flags.cp2Clamped = true;
     }
 
-    if (cp1Effective && cp2Effective && cp1Effective.x > cp2Effective.x - epsilon) {
-      const midpoint = (cp1Effective.x + cp2Effective.x) / 2;
-      const { clamped: cp1Adjusted, point: cp1Point } = clampHandleAlongAnchor(
-        startAnchor,
-        cp1Effective,
-        minX,
-        midpoint,
-      );
-      cp1Effective = cp1Point;
-      const { clamped: cp2Adjusted, point: cp2Point } = clampHandleAlongAnchor(
-        endAnchor,
-        cp2Effective,
-        midpoint,
-        maxX,
-      );
-      cp2Effective = cp2Point;
-      if (cp1Adjusted) flags.cp1Clamped = true;
-      if (cp2Adjusted) flags.cp2Clamped = true;
-      flags.knotPrevented = true;
-    }
+    // When both handles remain on their respective sides, we allow them to cross without
+    // shortening the raw distance. Any true knot/backtrack will be resolved once future
+    // phases add more precise detection logic.
   }
 
   const transitionsEffective: EndpointTransitions = {
@@ -124,35 +98,11 @@ function toWorldCP(
   };
 }
 
-function clampHandleAlongAnchor(
-  anchor: WorldCP,
-  cp: WorldCP,
-  minX: number,
-  maxX: number,
-): { point: WorldCP; clamped: boolean } {
-  let lowerBound = minX;
-  let upperBound = maxX;
-  if (lowerBound > upperBound) {
-    const center = (lowerBound + upperBound) / 2;
-    lowerBound = center;
-    upperBound = center;
-  }
-
-  let targetX = cp.x;
-  if (targetX < lowerBound) {
-    targetX = lowerBound;
-  } else if (targetX > upperBound) {
-    targetX = upperBound;
-  }
-
+function clampHandleToX(anchor: WorldCP, cp: WorldCP, targetX: number): WorldCP {
   if (Math.abs(targetX - cp.x) < EPSILON_DEFAULT) {
-    return { point: cp, clamped: false };
+    return cp;
   }
-
-  return {
-    point: scaleToX(anchor, cp, targetX),
-    clamped: true,
-  };
+  return scaleToX(anchor, cp, targetX);
 }
 
 function scaleToX(anchor: WorldCP, cp: WorldCP, targetX: number): WorldCP {

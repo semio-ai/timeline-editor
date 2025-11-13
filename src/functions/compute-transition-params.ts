@@ -70,8 +70,8 @@ export function computeTransitionParams(
     const cp1Raw =
       options?.transitions?.startOut ?? start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
     const cp2Raw = options?.transitions?.endIn ?? end.transitions?.in ?? DEFAULT_TRANSITION_IN;
-    const cp1 = { x: (end.stamp - start.stamp) * cp1Raw.x + start.stamp, y: cp1Raw.y };
-    const cp2 = { x: (end.stamp - start.stamp) * cp2Raw.x + start.stamp, y: cp2Raw.y };
+    const cp1 = { x: start.stamp + (end.stamp - start.stamp) * cp1Raw.x, y: cp1Raw.y };
+    const cp2 = { x: start.stamp + (end.stamp - start.stamp) * cp2Raw.x, y: cp2Raw.y };
     return {
       start: { x: start.stamp, y: 0 },
       end: { x: end.stamp, y: 1 },
@@ -135,11 +135,11 @@ export function computeTransitionParams(
 
     const delta = endValue - startValue || 0;
     const cp1 = {
-      x: (end.stamp - start.stamp) * cp1Raw.x + start.stamp,
+      x: start.stamp + (end.stamp - start.stamp) * cp1Raw.x,
       y: startValue + delta * cp1Raw.y,
     };
     const cp2 = {
-      x: (end.stamp - start.stamp) * cp2Raw.x + start.stamp,
+      x: start.stamp + (end.stamp - start.stamp) * cp2Raw.x,
       y: startValue + delta * cp2Raw.y,
     };
     return {
