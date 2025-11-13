@@ -4,6 +4,8 @@ export type {
   DragAnchorRef,
   DragStampTransform,
   DragState,
+  DragMarkerHandleOffsets,
+  DragHandleOffset,
   DragStartInput,
   DragUpdateInput,
   ValueScale,

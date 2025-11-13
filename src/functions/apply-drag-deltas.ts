@@ -1,5 +1,13 @@
-import type { RawValue } from "@semio/utils";
-import type { Keypoint, DragState, SelectionState, ValueScale } from "../types";
+import type { RawValue, RawVector2 } from "@semio/utils";
+import type {
+  Keypoint,
+  DragState,
+  DragMarkerHandleOffsets,
+  SelectionState,
+  ValueScale,
+  WorldCP,
+} from "../types";
+import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 
 interface ApplyDragContext {
   dragState?: DragState;
@@ -7,6 +15,7 @@ interface ApplyDragContext {
   trackId: string;
   bounds?: { min: number; max: number };
   attributePath?: string[];
+  trackPoints?: Keypoint<RawValue>[];
 }
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
@@ -90,7 +99,7 @@ const clampValue = (
 
 export function applyDragDeltas(
   keypoint: Keypoint<RawValue>,
-  { dragState, selection, trackId, bounds, attributePath }: ApplyDragContext,
+  { dragState, selection, trackId, bounds, attributePath, trackPoints }: ApplyDragContext,
 ): Keypoint<RawValue> {
   if (!dragState || dragState.instanceId !== selection.instanceId) {
     return keypoint;
@@ -139,13 +148,110 @@ export function applyDragDeltas(
     }
   }
 
-  if (nextStamp === keypoint.stamp && nextValue === keypoint.value) {
-    return keypoint;
+  let nextPoint = keypoint;
+  if (nextStamp !== keypoint.stamp || nextValue !== keypoint.value) {
+    nextPoint = {
+      ...keypoint,
+      stamp: nextStamp,
+      value: nextValue,
+    };
+  }
+
+  nextPoint = applyMarkerHandleOffsets(nextPoint, {
+    handleOffsets: dragState.markerHandleOffsets?.[keypoint.id],
+    attributePath: attributePath ?? dragState.anchor.attributePath,
+    trackPoints,
+  });
+
+  return nextPoint;
+}
+
+function applyMarkerHandleOffsets(
+  point: Keypoint<RawValue>,
+  params: {
+    handleOffsets?: DragMarkerHandleOffsets;
+    attributePath?: string[];
+    trackPoints?: Keypoint<RawValue>[];
+  },
+): Keypoint<RawValue> {
+  const { handleOffsets, attributePath, trackPoints } = params;
+  if (!handleOffsets || !trackPoints) {
+    return point;
+  }
+
+  const anchorValue = getNumericValue(point.value, attributePath);
+  if (typeof anchorValue !== "number") {
+    return point;
+  }
+
+  const nextTransitions: Keypoint<RawValue>["transitions"] = {
+    ...(point.transitions ?? {}),
+  };
+  let changed = false;
+
+  if (handleOffsets.out) {
+    const neighbor = trackPoints.find((p) => p.id === handleOffsets.out?.neighborKeypointId);
+    const neighborValue = neighbor ? getNumericValue(neighbor.value, attributePath) : undefined;
+    if (neighbor && typeof neighborValue === "number") {
+      const cpWorld: WorldCP = {
+        x: point.stamp + handleOffsets.out.delta.x,
+        y: anchorValue + handleOffsets.out.delta.y,
+      };
+      nextTransitions.out = solveNormalizedFromWorld({
+        cpWorld,
+        startStamp: point.stamp,
+        endStamp: neighbor.stamp,
+        startValue: anchorValue,
+        endValue: neighborValue,
+        fallback: handleOffsets.out.fallback ?? DEFAULT_TRANSITION_OUT,
+      });
+      changed = true;
+    }
+  }
+
+  if (handleOffsets.in) {
+    const neighbor = trackPoints.find((p) => p.id === handleOffsets.in?.neighborKeypointId);
+    const neighborValue = neighbor ? getNumericValue(neighbor.value, attributePath) : undefined;
+    if (neighbor && typeof neighborValue === "number") {
+      const cpWorld: WorldCP = {
+        x: point.stamp + handleOffsets.in.delta.x,
+        y: anchorValue + handleOffsets.in.delta.y,
+      };
+      nextTransitions.in = solveNormalizedFromWorld({
+        cpWorld,
+        startStamp: neighbor.stamp,
+        endStamp: point.stamp,
+        startValue: neighborValue,
+        endValue: anchorValue,
+        fallback: handleOffsets.in.fallback ?? DEFAULT_TRANSITION_IN,
+      });
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return point;
   }
 
   return {
-    ...keypoint,
-    stamp: nextStamp,
-    value: nextValue,
+    ...point,
+    transitions: nextTransitions,
   };
+}
+
+function solveNormalizedFromWorld(params: {
+  cpWorld: WorldCP;
+  startStamp: number;
+  endStamp: number;
+  startValue: number;
+  endValue: number;
+  fallback: RawVector2;
+}): RawVector2 {
+  const span = params.endStamp - params.startStamp;
+  const delta = params.endValue - params.startValue;
+  const normalizedX =
+    span === 0 ? params.fallback.x : (params.cpWorld.x - params.startStamp) / span;
+  const normalizedY =
+    delta === 0 ? params.fallback.y : (params.cpWorld.y - params.startValue) / delta;
+  return { x: normalizedX, y: normalizedY };
 }

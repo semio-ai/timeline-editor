@@ -1,4 +1,5 @@
-import type { RawValue } from "@semio/utils";
+import type { RawValue, RawVector2 } from "@semio/utils";
+import type { WorldCP } from "./segment-geometry";
 
 export type DragAxis = "horizontal" | "vertical" | "both";
 
@@ -45,6 +46,7 @@ export interface DragState {
     shift: boolean;
     meta: boolean;
   };
+  markerHandleOffsets?: Record<string, DragMarkerHandleOffsets>;
 }
 
 export interface DragStartInput {
@@ -77,4 +79,15 @@ export interface KeypointCommitDelta {
     path?: string[];
     next: (current: RawValue) => RawValue;
   };
+}
+
+export interface DragMarkerHandleOffsets {
+  out?: DragHandleOffset;
+  in?: DragHandleOffset;
+}
+
+export interface DragHandleOffset {
+  delta: Pick<WorldCP, "x" | "y">;
+  neighborKeypointId: string;
+  fallback?: RawVector2;
 }

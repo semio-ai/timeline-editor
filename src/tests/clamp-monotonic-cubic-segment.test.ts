@@ -32,7 +32,7 @@ describe("clampMonotonicCubicSegment", () => {
     expect(result.transitionsEffective.startOut?.x).toBeGreaterThanOrEqual(0);
   });
 
-  it("does not clamp when handles cross but stay within anchors", () => {
+  it("allows crossing handles when curve remains monotonic", () => {
     const result = clampMonotonicCubicSegment({
       start: { stamp: 0, value: 0 },
       end: { stamp: 1, value: 1 },
@@ -42,9 +42,9 @@ describe("clampMonotonicCubicSegment", () => {
       },
     });
 
+    expect(result.flags.knotPrevented).toBeFalsy();
     expect(result.cp1Effective).toEqual(result.cp1Raw);
     expect(result.cp2Effective).toEqual(result.cp2Raw);
-    expect(result.flags.knotPrevented).toBeFalsy();
   });
 
   it("converts inbound handles relative to the start anchor", () => {

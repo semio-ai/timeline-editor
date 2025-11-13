@@ -20,7 +20,7 @@ export interface ClampOutput {
 }
 
 export function clampMonotonicCubicSegment(input: ClampInput): ClampOutput {
-  // const epsilon = input.epsilon ?? EPSILON_DEFAULT;
+  const epsilon = input.epsilon ?? EPSILON_DEFAULT;
   const startOut = input.rawTransitions.startOut ?? DEFAULT_TRANSITION_OUT;
   const endIn = input.rawTransitions.endIn ?? DEFAULT_TRANSITION_IN;
 
@@ -62,9 +62,30 @@ export function clampMonotonicCubicSegment(input: ClampInput): ClampOutput {
       flags.cp2Clamped = true;
     }
 
-    // When both handles remain on their respective sides, we allow them to cross without
-    // shortening the raw distance. Any true knot/backtrack will be resolved once future
-    // phases add more precise detection logic.
+    const monotonicResult = enforceMonotonicX({
+      startAnchor,
+      endAnchor,
+      span,
+      epsilon,
+      cp1: cp1Effective,
+      cp2: cp2Effective,
+    });
+
+    if (monotonicResult?.cp1) {
+      if (!pointsEqual(cp1Effective, monotonicResult.cp1)) {
+        flags.cp1Clamped = true;
+        flags.knotPrevented = true;
+        cp1Effective = monotonicResult.cp1;
+      }
+    }
+
+    if (monotonicResult?.cp2) {
+      if (!pointsEqual(cp2Effective, monotonicResult.cp2)) {
+        flags.cp2Clamped = true;
+        flags.knotPrevented = true;
+        cp2Effective = monotonicResult.cp2;
+      }
+    }
   }
 
   const transitionsEffective: EndpointTransitions = {
@@ -135,4 +156,103 @@ function toNormalizedTransition(
 
 function pointsEqual(a: WorldCP, b: WorldCP): boolean {
   return Math.abs(a.x - b.x) < EPSILON_DEFAULT && Math.abs(a.y - b.y) < EPSILON_DEFAULT;
+}
+
+function enforceMonotonicX(params: {
+  startAnchor: WorldCP;
+  endAnchor: WorldCP;
+  span: number;
+  epsilon: number;
+  cp1?: WorldCP;
+  cp2?: WorldCP;
+}):
+  | {
+      cp1?: WorldCP;
+      cp2?: WorldCP;
+    }
+  | undefined {
+  const { startAnchor, endAnchor, cp1, cp2, span } = params;
+  if (!cp1 || !cp2 || span === 0) {
+    return undefined;
+  }
+
+  const cp1Normalized = (cp1.x - startAnchor.x) / span;
+  const cp2Normalized = (cp2.x - startAnchor.x) / span;
+
+  if (isMonotonicNormalized(cp1Normalized, cp2Normalized)) {
+    return undefined;
+  }
+
+  const clampedNormalized = clampNormalizedForMonotonic(cp1Normalized, cp2Normalized);
+  if (!clampedNormalized) {
+    return undefined;
+  }
+
+  const { cp1Normalized: nCp1, cp2Normalized: nCp2 } = clampedNormalized;
+  const targetCp1X = startAnchor.x + nCp1 * span;
+  const targetCp2X = startAnchor.x + nCp2 * span;
+
+  return {
+    cp1: clampHandleToX(startAnchor, cp1, targetCp1X),
+    cp2: clampHandleToX(endAnchor, cp2, targetCp2X),
+  };
+}
+
+function isMonotonicNormalized(cp1Normalized: number, cp2Normalized: number): boolean {
+  const derivativeMin = cubicDerivativeMinimum(cp1Normalized, cp2Normalized);
+  return derivativeMin > EPSILON_DEFAULT;
+}
+
+function clampNormalizedForMonotonic(
+  cp1Normalized: number,
+  cp2Normalized: number,
+): { cp1Normalized: number; cp2Normalized: number } | undefined {
+  const anchorOut = 0;
+  const anchorIn = 1;
+
+  const allows = (t: number) => {
+    const x1 = anchorOut + (cp1Normalized - anchorOut) * t;
+    const x2 = anchorIn + (cp2Normalized - anchorIn) * t;
+    return { x1, x2 };
+  };
+
+  let low = 0;
+  let high = 1;
+  let best: { cp1Normalized: number; cp2Normalized: number } | undefined = undefined;
+
+  for (let i = 0; i < 30; i++) {
+    const mid = (low + high) / 2;
+    const candidate = allows(mid);
+    if (isMonotonicNormalized(candidate.x1, candidate.x2)) {
+      best = { cp1Normalized: candidate.x1, cp2Normalized: candidate.x2 };
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  return best ?? { cp1Normalized: anchorOut, cp2Normalized: anchorIn };
+}
+
+function cubicDerivativeMinimum(cp1Normalized: number, cp2Normalized: number): number {
+  const x1 = cp1Normalized;
+  const x2 = cp2Normalized;
+  const a = 1 + 3 * (x1 - x2);
+  const b = 3 * (x2 - 2 * x1);
+  const c = 3 * x1;
+
+  const A = 3 * a;
+  const B = 2 * b;
+  const C = c;
+
+  const derivative = (t: number) => A * t * t + B * t + C;
+
+  let min = Math.min(derivative(0), derivative(1));
+  if (Math.abs(A) > EPSILON_DEFAULT) {
+    const t = -B / (2 * A);
+    if (t >= 0 && t <= 1) {
+      min = Math.min(min, derivative(t));
+    }
+  }
+  return min;
 }

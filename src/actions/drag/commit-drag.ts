@@ -103,6 +103,7 @@ export function commitDrag(state: AnimationData): void {
           trackId,
           bounds: context?.bounds,
           attributePath: context?.attributePath ?? dragState.anchor.attributePath,
+          trackPoints: track.points,
         });
       } else {
         nextPoint = applyDragDeltas(point, {
@@ -110,6 +111,7 @@ export function commitDrag(state: AnimationData): void {
           selection,
           trackId,
           attributePath: dragState.anchor.attributePath,
+          trackPoints: track.points,
         });
       }
 

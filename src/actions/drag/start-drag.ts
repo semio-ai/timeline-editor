@@ -1,11 +1,14 @@
-import type { RawValue } from "@semio/utils";
+import type { RawValue, RawVector2 } from "@semio/utils";
 import type { AnimationData } from "../../store-types";
 import type {
   DragStampTransform,
   DragStartInput,
   DragState,
+  DragMarkerHandleOffsets,
   InstancedFrameInfo,
+  Keypoint,
   SelectionState,
+  Track,
   ValueScale,
 } from "../../types";
 
@@ -129,5 +132,108 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
     },
   };
 
+  const markerHandleOffsets = computeMarkerHandleOffsets({
+    track,
+    keypoint,
+    attributePath: anchorAttributePath,
+  });
+
+  if (markerHandleOffsets) {
+    dragState.markerHandleOffsets = {
+      [keypoint.id]: markerHandleOffsets,
+    };
+  }
+
   state.dragState = dragState;
+}
+
+interface MarkerHandleParams {
+  track: Track<RawValue>;
+  keypoint: Keypoint<RawValue>;
+  attributePath?: string[];
+}
+
+function computeMarkerHandleOffsets({
+  track,
+  keypoint,
+  attributePath,
+}: MarkerHandleParams): DragMarkerHandleOffsets | undefined {
+  const anchorValue = extractNumericComponent(keypoint.value, attributePath);
+  if (typeof anchorValue !== "number") {
+    return undefined;
+  }
+
+  const pointIndex = track.points.findIndex((point) => point.id === keypoint.id);
+  if (pointIndex === -1) {
+    return undefined;
+  }
+
+  const offsets: DragMarkerHandleOffsets = {};
+
+  const nextPoint = track.points[pointIndex + 1];
+  const outTransition = keypoint.transitions?.out;
+  if (nextPoint && outTransition) {
+    const neighborValue = extractNumericComponent(nextPoint.value, attributePath);
+    if (typeof neighborValue === "number") {
+      const cpWorld = computeWorldCP({
+        startStamp: keypoint.stamp,
+        endStamp: nextPoint.stamp,
+        startValue: anchorValue,
+        endValue: neighborValue,
+        transition: outTransition,
+      });
+      offsets.out = {
+        neighborKeypointId: nextPoint.id,
+        delta: {
+          x: cpWorld.x - keypoint.stamp,
+          y: cpWorld.y - anchorValue,
+        },
+        fallback: outTransition,
+      };
+    }
+  }
+
+  const prevPoint = track.points[pointIndex - 1];
+  const inTransition = keypoint.transitions?.in;
+  if (prevPoint && inTransition) {
+    const neighborValue = extractNumericComponent(prevPoint.value, attributePath);
+    if (typeof neighborValue === "number") {
+      const cpWorld = computeWorldCP({
+        startStamp: prevPoint.stamp,
+        endStamp: keypoint.stamp,
+        startValue: neighborValue,
+        endValue: anchorValue,
+        transition: inTransition,
+      });
+      offsets.in = {
+        neighborKeypointId: prevPoint.id,
+        delta: {
+          x: cpWorld.x - keypoint.stamp,
+          y: cpWorld.y - anchorValue,
+        },
+        fallback: inTransition,
+      };
+    }
+  }
+
+  if (!offsets.in && !offsets.out) {
+    return undefined;
+  }
+
+  return offsets;
+}
+
+function computeWorldCP(params: {
+  startStamp: number;
+  endStamp: number;
+  startValue: number;
+  endValue: number;
+  transition: RawVector2;
+}): { x: number; y: number } {
+  const span = params.endStamp - params.startStamp;
+  const delta = params.endValue - params.startValue;
+  return {
+    x: params.startStamp + span * params.transition.x,
+    y: params.startValue + delta * params.transition.y,
+  };
 }
