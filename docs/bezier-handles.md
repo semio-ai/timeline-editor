@@ -529,7 +529,7 @@ Types and derived data proposals
   - Unit tests or snapshots confirm derived data now includes both raw and effective CPs.
   - Existing consumers continue to function (temporary adapters can bridge until Phase 2 completes).
 
-### Phase 2 — Component Consumption & Visuals [ In Progress ]
+### Phase 2 — Component Consumption & Visuals [ Complete ]
 - Update `TransitionSegment` to read world control points and render params directly from `segment.geometry`, removing duplicated math.
 - Implement `BezierHandles` using the enriched geometry (raw vs effective indicators), hook into selection gating, and ensure the visual scale matches `TransitionSegment`.
 - Add effective-handle markers and connectors plus hover/selection styling as described in the Visuals section.
@@ -537,7 +537,7 @@ Types and derived data proposals
   - Visual comparison shows curve + handle positions stay in sync across views.
   - Handles appear only for Spline rows with at least one selected endpoint; defaults display when transitions are undefined.
 
-### Phase 3 — Drag System & Preview Diffs [ Incomplete ]
+### Phase 3 — Drag System & Preview Diffs [ In Progress ]
 - Extend `DragAnchorRef` (`kind`, `neighborKeypointId`) and `DragState` (`handleDiffs`, `activeHandleId`) plus helper actions for starting/updating/canceling handle drags.
 - Update `applyDragDeltas` (or a sibling helper) so `handleDiffs` get merged before virtual frames are built; ensure coupling writes to both adjacent handles.
 - Fix the world/param conversion bug for `end.in` handles (ensure `compute-transition-params`/`clampMonotonicCubicSegment` measure the inbound CP off B, not A) and add regression tests so default cubic-bezier data no longer triggers false anti-knot clamps.

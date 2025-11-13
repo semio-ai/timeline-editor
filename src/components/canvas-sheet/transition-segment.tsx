@@ -72,15 +72,17 @@ export const TransitionSegment = memo(function TransitionSegment({
   }, [trackRender]);
 
   const transitionParams = useMemo(() => {
-    const geometryParams =
-      trackRender === TrackRender.Spline ||
+    if (
       trackRender === TrackRender.Preview ||
-      trackRender === TrackRender.Transition
-        ? segment.geometry?.effective?.renderParams?.[trackRender]
-        : undefined;
-    if (geometryParams) {
-      return geometryParams;
+      trackRender === TrackRender.Transition ||
+      trackRender === TrackRender.Spline
+    ) {
+      const geometryParams = segment.geometry?.effective?.renderParams?.[trackRender];
+      if (geometryParams) {
+        return geometryParams;
+      }
     }
+    // Fallback for Key mode (not precomputed) or legacy segments without geometry.
     return computeTransitionParams(sourceRow, start, end, isEmpty, trackRender, verticalBounds);
   }, [segment.geometry, sourceRow, start, end, isEmpty, trackRender, verticalBounds]);
 
