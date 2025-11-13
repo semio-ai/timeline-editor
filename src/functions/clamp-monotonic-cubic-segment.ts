@@ -71,7 +71,7 @@ export function clampMonotonicCubicSegment(input: ClampInput): ClampOutput {
       cp2: cp2Effective,
     });
 
-    if (monotonicResult?.cp1) {
+    if (monotonicResult?.cp1 && cp1Effective) {
       if (!pointsEqual(cp1Effective, monotonicResult.cp1)) {
         flags.cp1Clamped = true;
         flags.knotPrevented = true;
@@ -79,7 +79,7 @@ export function clampMonotonicCubicSegment(input: ClampInput): ClampOutput {
       }
     }
 
-    if (monotonicResult?.cp2) {
+    if (monotonicResult?.cp2 && cp2Effective) {
       if (!pointsEqual(cp2Effective, monotonicResult.cp2)) {
         flags.cp2Clamped = true;
         flags.knotPrevented = true;
@@ -218,7 +218,7 @@ function clampNormalizedForMonotonic(
 
   let low = 0;
   let high = 1;
-  let best: { cp1Normalized: number; cp2Normalized: number } | undefined = undefined;
+  let best: { cp1Normalized: number; cp2Normalized: number } | undefined;
 
   for (let i = 0; i < 30; i++) {
     const mid = (low + high) / 2;

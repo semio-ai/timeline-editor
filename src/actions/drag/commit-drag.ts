@@ -1,5 +1,8 @@
+import type { RawValue } from "@semio/utils";
 import type { AnimationData } from "../../store-types";
+import type { DragMarkerHandleOffsets, Track } from "../../types";
 import { applyDragDeltas } from "../../functions/apply-drag-deltas";
+import { parseHandleOffsetKey } from "../../utils/handle-offset-key";
 
 interface MarkerContext {
   attributePath?: string[];
@@ -26,6 +29,20 @@ const buildMarkerContextLookup = (state: AnimationData): Map<string, MarkerConte
     }
   }
   return lookup;
+};
+
+const collectHandleKeypointsForTrack = (
+  track: Track<RawValue>,
+  offsets?: Record<string, DragMarkerHandleOffsets>,
+): Set<string> | undefined => {
+  if (!offsets) {
+    return undefined;
+  }
+
+  const ids = Object.keys(offsets)
+    .map((key) => parseHandleOffsetKey(key).keypointId)
+    .filter((id) => track.points.some((point) => point.id === id));
+  return ids.length > 0 ? new Set(ids) : undefined;
 };
 
 /**
@@ -77,14 +94,20 @@ export function commitDrag(state: AnimationData): void {
 
   const markerContexts = hasVerticalDelta ? buildMarkerContextLookup(state) : undefined;
   for (const [trackId, keypointIds] of selection.keypoints.entries()) {
-    if (keypointIds.size === 0) continue;
-
     const track = state.tracks[trackId];
     if (!track) continue;
 
+    const combinedKeypointIds = new Set(keypointIds);
+    const handleKeypoints = collectHandleKeypointsForTrack(track, dragState.markerHandleOffsets);
+    handleKeypoints?.forEach((id) => combinedKeypointIds.add(id));
+
+    if (combinedKeypointIds.size === 0) {
+      continue;
+    }
+
     let trackMutated = false;
 
-    for (const keypointId of keypointIds) {
+    for (const keypointId of combinedKeypointIds) {
       const pointIndex = track.points.findIndex((point) => point.id === keypointId);
       if (pointIndex === -1) {
         continue;

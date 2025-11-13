@@ -8,6 +8,7 @@ import type {
   WorldCP,
 } from "../types";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
+import { buildHandleOffsetKey } from "../utils/handle-offset-key";
 
 interface ApplyDragContext {
   dragState?: DragState;
@@ -106,14 +107,21 @@ export function applyDragDeltas(
   }
 
   const trackSelection = selection.keypoints.get(trackId);
-  if (!trackSelection?.has(keypoint.id)) {
+  const handleKey = buildHandleOffsetKey(
+    keypoint.id,
+    attributePath ?? dragState.anchor.attributePath,
+  );
+  const handleOffsets = dragState.markerHandleOffsets?.[handleKey];
+  const isSelected = Boolean(trackSelection?.has(keypoint.id));
+
+  if (!isSelected && !handleOffsets) {
     return keypoint;
   }
 
   let nextStamp = keypoint.stamp;
   let nextValue = keypoint.value;
 
-  if ((dragState.axis === "horizontal" || dragState.axis === "both") && dragState.stampDelta) {
+  if (isSelected && (dragState.axis === "horizontal" || dragState.axis === "both") && dragState.stampDelta) {
     const stampDelta = dragState.stampDelta.snapped ?? dragState.stampDelta.raw;
     if (typeof stampDelta === "number" && Number.isFinite(stampDelta)) {
       nextStamp = clamp01(keypoint.stamp + stampDelta);
@@ -121,6 +129,7 @@ export function applyDragDeltas(
   }
 
   if (
+    isSelected &&
     (dragState.axis === "vertical" || dragState.axis === "both") &&
     typeof dragState.normalizedValueDelta === "number"
   ) {
@@ -158,9 +167,13 @@ export function applyDragDeltas(
   }
 
   nextPoint = applyMarkerHandleOffsets(nextPoint, {
-    handleOffsets: dragState.markerHandleOffsets?.[keypoint.id],
+    handleOffsets,
     attributePath: attributePath ?? dragState.anchor.attributePath,
     trackPoints,
+    dragState,
+    selection,
+    trackId,
+    bounds,
   });
 
   return nextPoint;
@@ -172,12 +185,54 @@ function applyMarkerHandleOffsets(
     handleOffsets?: DragMarkerHandleOffsets;
     attributePath?: string[];
     trackPoints?: Keypoint<RawValue>[];
+    dragState?: DragState;
+    selection?: SelectionState;
+    trackId: string;
+    bounds?: { min: number; max: number };
   },
 ): Keypoint<RawValue> {
-  const { handleOffsets, attributePath, trackPoints } = params;
+  const { handleOffsets, attributePath, trackPoints, dragState, selection, trackId, bounds } = params;
   if (!handleOffsets || !trackPoints) {
     return point;
   }
+
+  const resolveNeighbor = (neighborId?: string): Keypoint<RawValue> | undefined => {
+    if (!neighborId) {
+      return undefined;
+    }
+
+    const base = trackPoints.find((p) => p.id === neighborId);
+    if (!base) {
+      return undefined;
+    }
+
+    if (!dragState || !selection || dragState.instanceId !== selection.instanceId) {
+      return base;
+    }
+
+    const trackSelection = selection.keypoints.get(trackId);
+    if (!trackSelection?.has(neighborId)) {
+      return base;
+    }
+
+    const nextStamp = computePreviewStamp(base.stamp, dragState);
+    const nextValue = computePreviewValue(
+      base.value,
+      attributePath ?? dragState.anchor.attributePath,
+      dragState,
+      bounds,
+    );
+
+    if (nextStamp === base.stamp && nextValue === base.value) {
+      return base;
+    }
+
+    return {
+      ...base,
+      stamp: nextStamp,
+      value: nextValue,
+    };
+  };
 
   const anchorValue = getNumericValue(point.value, attributePath);
   if (typeof anchorValue !== "number") {
@@ -190,7 +245,7 @@ function applyMarkerHandleOffsets(
   let changed = false;
 
   if (handleOffsets.out) {
-    const neighbor = trackPoints.find((p) => p.id === handleOffsets.out?.neighborKeypointId);
+    const neighbor = resolveNeighbor(handleOffsets.out.neighborKeypointId);
     const neighborValue = neighbor ? getNumericValue(neighbor.value, attributePath) : undefined;
     if (neighbor && typeof neighborValue === "number") {
       const cpWorld: WorldCP = {
@@ -210,7 +265,7 @@ function applyMarkerHandleOffsets(
   }
 
   if (handleOffsets.in) {
-    const neighbor = trackPoints.find((p) => p.id === handleOffsets.in?.neighborKeypointId);
+    const neighbor = resolveNeighbor(handleOffsets.in.neighborKeypointId);
     const neighborValue = neighbor ? getNumericValue(neighbor.value, attributePath) : undefined;
     if (neighbor && typeof neighborValue === "number") {
       const cpWorld: WorldCP = {
@@ -237,6 +292,63 @@ function applyMarkerHandleOffsets(
     ...point,
     transitions: nextTransitions,
   };
+}
+
+function computePreviewStamp(stamp: number, dragState?: DragState): number {
+  const stampDelta = dragState?.stampDelta;
+  const axis = dragState?.axis;
+  if (!stampDelta || (axis !== "horizontal" && axis !== "both")) {
+    return stamp;
+  }
+
+  const delta = stampDelta.snapped ?? stampDelta.raw;
+  if (typeof delta !== "number" || !Number.isFinite(delta)) {
+    return stamp;
+  }
+
+  return clamp01(stamp + delta);
+}
+
+function computePreviewValue(
+  value: RawValue,
+  attributePath: string[] | undefined,
+  dragState?: DragState,
+  bounds?: { min: number; max: number },
+): RawValue {
+  if (
+    !dragState ||
+    typeof dragState.normalizedValueDelta !== "number" ||
+    (dragState.axis !== "vertical" && dragState.axis !== "both")
+  ) {
+    return value;
+  }
+
+  const path = attributePath ?? dragState.anchor.attributePath;
+  const current = getNumericValue(value, path);
+  if (typeof current !== "number") {
+    return value;
+  }
+
+  const domainRange = dragState.anchor.valueScale?.domain
+    ? dragState.anchor.valueScale.domain[1] - dragState.anchor.valueScale.domain[0]
+    : undefined;
+  let verticalRange: number | undefined;
+  if (typeof domainRange === "number") {
+    verticalRange = domainRange;
+  } else if (bounds) {
+    verticalRange = bounds.max - bounds.min;
+  }
+
+  const appliedRange =
+    typeof verticalRange === "number" && Number.isFinite(verticalRange) && verticalRange !== 0
+      ? verticalRange
+      : 1;
+
+  let candidate = current + dragState.normalizedValueDelta * appliedRange;
+  candidate = clampValue(candidate, bounds, dragState.anchor.valueScale);
+  candidate = applyPrecision(candidate, dragState.anchor.valueScale);
+
+  return setNumericValue(value, candidate, path);
 }
 
 function solveNormalizedFromWorld(params: {

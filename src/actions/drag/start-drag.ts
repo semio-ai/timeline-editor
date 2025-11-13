@@ -11,6 +11,7 @@ import type {
   Track,
   ValueScale,
 } from "../../types";
+import { buildHandleOffsetKey } from "../../utils/handle-offset-key";
 
 const DEFAULT_TRANSFORM: DragStampTransform = {
   offset: 0,
@@ -91,10 +92,11 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
     return;
   }
 
-  const keypoint = track.points.find((point) => point.id === anchorPoint.id);
-  if (!keypoint) {
+  const pointIndex = track.points.findIndex((point) => point.id === anchorPoint.id);
+  if (pointIndex === -1) {
     return;
   }
+  const keypoint = track.points[pointIndex];
 
   const transform = resolveInstanceTransform(state, selection.instanceId) ?? DEFAULT_TRANSFORM;
 
@@ -132,6 +134,8 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
     },
   };
 
+  const handleOffsetMap: Record<string, DragMarkerHandleOffsets> = {};
+
   const markerHandleOffsets = computeMarkerHandleOffsets({
     track,
     keypoint,
@@ -139,9 +143,44 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
   });
 
   if (markerHandleOffsets) {
-    dragState.markerHandleOffsets = {
-      [keypoint.id]: markerHandleOffsets,
-    };
+    const handleKey = buildHandleOffsetKey(keypoint.id, anchorAttributePath);
+    handleOffsetMap[handleKey] = markerHandleOffsets;
+  }
+
+  const prevPoint = track.points[pointIndex - 1];
+  if (prevPoint) {
+    const prevOffsets = computeMarkerHandleOffsets({
+      track,
+      keypoint: prevPoint,
+      attributePath: anchorAttributePath,
+    });
+    if (prevOffsets?.out && prevOffsets.out.neighborKeypointId === keypoint.id) {
+      const prevKey = buildHandleOffsetKey(prevPoint.id, anchorAttributePath);
+      handleOffsetMap[prevKey] = {
+        ...(handleOffsetMap[prevKey] ?? {}),
+        out: prevOffsets.out,
+      };
+    }
+  }
+
+  const nextPoint = track.points[pointIndex + 1];
+  if (nextPoint) {
+    const nextOffsets = computeMarkerHandleOffsets({
+      track,
+      keypoint: nextPoint,
+      attributePath: anchorAttributePath,
+    });
+    if (nextOffsets?.in && nextOffsets.in.neighborKeypointId === keypoint.id) {
+      const nextKey = buildHandleOffsetKey(nextPoint.id, anchorAttributePath);
+      handleOffsetMap[nextKey] = {
+        ...(handleOffsetMap[nextKey] ?? {}),
+        in: nextOffsets.in,
+      };
+    }
+  }
+
+  if (Object.keys(handleOffsetMap).length > 0) {
+    dragState.markerHandleOffsets = handleOffsetMap;
   }
 
   state.dragState = dragState;
