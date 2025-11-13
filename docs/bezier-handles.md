@@ -263,20 +263,22 @@ This behavior ensures you can shape a transition by selecting either endpoint.
 
 ## Visuals
 
-- Handle geometry:
-  - A small circle (screen-size stabilized with invariant scale) at the control point.
-  - A thin line from the keypoint’s hexagon to its handle (A → cp1 for out, B → cp2 for in).
-- Effective indicator:
-  - When the snapshot flags a clamp (effective ≠ raw), render a secondary smaller circle along the connector to show the runtime CP used by interpolators.
-  - The connector segment between effective and raw positions makes the “trimmed” length obvious without changing interaction targets.
-  - Circles should use the existing `useInvariantScale` helper (the same pattern as marker hexagons and bounds carts) so their pixel diameter stays constant regardless of zoom.
-  - In development builds we temporarily render handles even without selection to aid debugging; production builds retain the documented selection gating.
-- Colors:
-  - Use the same base color as the segment or track.
-  - Slightly brighten on hover; emphasize when the parent row is hovered.
+- Raw indicator:
+  - Raw CP position is represented by a filled circle (pixel-stabilized via `useInvariantScale`) rendered in the track/segment color.
+  - The solid circle is the only marker the editor interacts with; its position is always the canonical/raw CP.
+  - Default/fallback handles (i.e., when `transitions.{in|out}` is undefined) render with an “unfilled” interior by layering a smaller, partially transparent disk in the row’s background color in front of the solid circle. Offset the overlay toward camera by ~`ROW_DEPTH_EPSILON * 0.02` to avoid z-fighting.
+- Connector + effective gap:
+  - Draw a single connector from the keypoint hexagon to the effective CP (or raw when no clamp) with medium opacity so it blends into the spline.
+  - When `effective ≠ raw`, render the segment between `effective` and `raw` with a lighter/transparent stroke to show the trimmed portion while keeping the raw circle highlighted.
+  - No extra circle is needed for the effective point; all emphasis comes from the translucent connector gap.
+- Colors & emphasis:
+  - Use the base track color for connector + circle; dark mode background overlay uses theme background (near black) to hollow default handles.
+  - On hover or when the parent row is emphasized, raise connector opacity and brighten the circle slightly.
 - Layering:
-  - Render above the curve line and key hexagons when the parent track is selected.
-  - Use existing Z bands; reserve an additional epsilon to avoid z-fighting with the curve.
+  - Handles live above the spline line/fill and marker hexagons for the same row.
+  - Use the existing layer band → Z mapping plus sub-epsilon offsets: connector (`z - ε·0.05`), raw circle (`z - ε·0.1`), fallback overlay (`z - ε·0.08`), so decorations never z-fight with the curve or each other.
+- Dev-only visibility:
+  - In development builds we may render handles even without selection to debug geometry; production builds adhere to the gating rules above.
 
 ---
 
@@ -415,25 +417,27 @@ Context and goals
     - For A.out:
       - cpWorld.x = A.stamp + spanX * (A.transitions?.out?.x ?? 0.65)
       - cpWorld.y = A.value + deltaY * (A.transitions?.out?.y ?? 0)
-    - For B.in (mirrored semantics with cp time computed off A.stamp as per compute-transition-params.ts):
-      - cpWorld.x = A.stamp + spanX * (B.transitions?.in?.x ?? 0.35)
-      - cpWorld.y = A.value + deltaY * (B.transitions?.in?.y ?? 1)
+    - For B.in (mirrored semantics with cp time computed off **B**):
+      - cpWorld.x = B.stamp - spanX * (1 - (B.transitions?.in?.x ?? 0.35))
+      - cpWorld.y = B.value - deltaY * (1 - (B.transitions?.in?.y ?? 1))
+      - Bug note: the current implementation measures both control points from `A`, which flips `cp1.x`/`cp2.x` and forces needless anti-knot clamping. Phase tasks below track fixing the conversion + tests.
   - After the marker’s new position/value A′ (or B′) is determined by the drag delta, re-solve normalized transitions from the stored cpWorld to keep the visual relationship intact:
     - For A.out after A moves (B constant):
       - x′ = (cpWorld.x - A′.stamp) / (B.stamp - A′.stamp)
       - y′ = deltaY′ !== 0 ? (cpWorld.y - A′.value) / (B.value - A′.value) : keep previous y (or 0 by policy)
     - For B.in after B moves (A constant):
-      - x′ = (cpWorld.x - A.stamp) / (B′.stamp - A.stamp)
-      - y′ = deltaY′ !== 0 ? (cpWorld.y - A.value) / (B′.value - A.value) : keep previous y (or 1 by policy)
+      - x′ = 1 - (B′.stamp - cpWorld.x) / (B′.stamp - A.stamp)
+      - y′ = 1 - (B′.value - cpWorld.y) / (B′.value - A.value)
   - Only apply this re-solve to handles that exist (i.e., when a keypoint hasn’t specified a transition, do not fabricate or update one).
   - Apply this in both preview (during drag) and commit paths so the visual invariance matches the final state.
   - Note: When the dragged keypoint sits between two segments, apply the rule to both adjacent handles (its out for left segment; its in for right segment) independently.
   - Intentional default behavior: handles that still rely on the implicit ease-in-out defaults will move when the marker moves; invariance only applies after the user creates explicit transitions (typically on first handle edit).
 
-2) Anti-knot “effective length” when markers approach each other
+-2) Anti-knot “effective length” when markers approach each other
 - When A and B move close enough that the raw handles would produce a backtrack (non-monotonic X) or a knot, shorten only the effective handle lengths used by rendering/interpolation until the curve is valid. Do not write these shortened handles back to canonical transitions.
 - Policy:
   - Maintain the sufficient monotonic condition in X: P0.x ≤ P1.x ≤ P2.x ≤ P3.x. If violated, scale CPs toward their anchors along the line from keypoint to control so they satisfy the ordering with small epsilon margins.
+  - **Do not** clamp handles to the entire span `[A.x, B.x]`. The only pre-check before anti-knot split is the single-handle rule: `A.out` cannot cross `A.x` (parametric ≤ 0) and `B.in` cannot cross `B.x` (parametric ≥ 1). Overshoot toward the neighbor is allowed until it would invert `P1.x ≤ P2.x`.
   - Do not alter the canonical `transitions` stored on keypoints when reducing effective length; treat this as a runtime clamp.
   - The effective result is restored to the canonical shape automatically when markers are moved apart far enough to be valid again.
 - Where to compute effective handles:
@@ -536,6 +540,8 @@ Types and derived data proposals
 ### Phase 3 — Drag System & Preview Diffs [ Incomplete ]
 - Extend `DragAnchorRef` (`kind`, `neighborKeypointId`) and `DragState` (`handleDiffs`, `activeHandleId`) plus helper actions for starting/updating/canceling handle drags.
 - Update `applyDragDeltas` (or a sibling helper) so `handleDiffs` get merged before virtual frames are built; ensure coupling writes to both adjacent handles.
+- Fix the world/param conversion bug for `end.in` handles (ensure `compute-transition-params`/`clampMonotonicCubicSegment` measure the inbound CP off B, not A) and add regression tests so default cubic-bezier data no longer triggers false anti-knot clamps.
+- Rework `clampMonotonicCubicSegment` to enforce only the anchor-cross constraint (`A.out.x ≥ A.x`, `B.in.x ≤ B.x`) before detecting `cp1.x > cp2.x`; remove the broader `[A.x, B.x]` clamp so intentional overshoot survives.
 - Implement UI constraints via `clampHandleAgainstOwnKeypointX`, add reset hotkey, and enforce “single handle drag at a time.”
 - Tests/validations:
   - Unit tests for `solveNormalizedTransitionFromWorldCP`, coupling, handle diffs, and commit path.

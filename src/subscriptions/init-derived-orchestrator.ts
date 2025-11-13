@@ -146,20 +146,22 @@ export function initDerivedOrchestrator(
 ): () => void {
   let latestSnapshot: DerivedSnapshot | undefined;
 
+  const currentState = get();
+
   const initialInputs: DerivedInputs = {
-    tracks: get().tracks,
-    animatables: get().animatables,
-    namespaces: get().namespaces,
-    animations: get().animations,
-    instancedTrackSources: get().instancedTrackSources,
-    dragState: get().dragState,
-    selectionState: get().selectionState,
-    editorViews: get().editorViews,
-    sourceRowIds: get().sourceRowIds,
+    tracks: currentState.tracks,
+    animatables: currentState.animatables,
+    namespaces: currentState.namespaces,
+    animations: currentState.animations,
+    instancedTrackSources: currentState.instancedTrackSources,
+    dragState: currentState.dragState,
+    selectionState: currentState.selectionState,
+    editorViews: currentState.editorViews,
+    sourceRowIds: currentState.sourceRowIds,
   };
 
   const maybeApplyDerived = (inputs: DerivedInputs) => {
-    const versionHint = (latestSnapshot?.version ?? get().derivedSnapshot?.version ?? 0) + 1;
+    const versionHint = (latestSnapshot?.version ?? currentState.derivedSnapshot?.version ?? 0) + 1;
     const result = computeDerivedState(inputs, versionHint, usePlayerStore.getState());
 
     latestSnapshot = result.snapshot;

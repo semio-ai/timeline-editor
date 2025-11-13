@@ -278,6 +278,7 @@ export const DataRenderer = memo(function DataRenderer({
                 color={resolvedSegmentColor}
                 layer={transitionLayer}
                 isHighlighted={isRowHovered}
+                theme={theme}
               />
             )}
           </Fragment>
