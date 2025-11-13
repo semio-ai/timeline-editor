@@ -1,4 +1,4 @@
-import { Fragment, memo, useMemo, useCallback, useRef, useState } from "react";
+import { Fragment, memo, useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
 import { MotionValue } from "motion";
@@ -19,6 +19,8 @@ import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 import { TransitionSegment } from "./transition-segment";
 import { BezierHandles } from "./bezier-handles";
+
+const HANDLE_REVEAL_DELAY_MS = 120;
 
 const DataPointsRenderer = memo(function DataPointsRenderer({
   sourceRow,
@@ -187,6 +189,28 @@ export const DataRenderer = memo(function DataRenderer({
     );
   }, [selectionState, sourceRow]);
 
+  const [handlesDelayReady, setHandlesDelayReady] = useState(trackRender === TrackRender.Spline);
+  const previousTrackRender = useRef(trackRender);
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    if (trackRender === TrackRender.Spline) {
+      if (previousTrackRender.current === TrackRender.Spline) {
+        setHandlesDelayReady(true);
+      } else {
+        setHandlesDelayReady(false);
+        timeout = setTimeout(() => setHandlesDelayReady(true), HANDLE_REVEAL_DELAY_MS);
+      }
+    } else {
+      setHandlesDelayReady(false);
+    }
+    previousTrackRender.current = trackRender;
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [trackRender]);
+
   const canRenderHandles = trackRender === TrackRender.Spline && !keyForced;
 
   const axisRange = useMemo(() => {
@@ -252,7 +276,8 @@ export const DataRenderer = memo(function DataRenderer({
       {/* Render transition segments */}
       {computedData.interpolations.map((segment, index) => {
         const renderMode = keyForced ? TrackRender.Key : trackRender;
-        const handlesVisible = canRenderHandles && !segment.buffer && rowHasSelection;
+        const handlesVisible =
+          canRenderHandles && !segment.buffer && rowHasSelection && handlesDelayReady;
 
         return (
           <Fragment key={`${segment.start.id}-${segment.end.id}-${index.toString()}`}>

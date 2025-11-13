@@ -271,6 +271,8 @@ This behavior ensures you can shape a transition by selecting either endpoint.
   - Draw a single connector from the keypoint hexagon to the effective CP (or raw when no clamp) with medium opacity so it blends into the spline.
   - When `effective ≠ raw`, render the segment between `effective` and `raw` with a lighter/transparent stroke to show the trimmed portion while keeping the raw circle highlighted.
   - No extra circle is needed for the effective point; all emphasis comes from the translucent connector gap.
+- View transitions:
+  - When switching a row into Spline mode, wait briefly (≈200 ms, matching the curve animation) before revealing handles. They animate from the data marker toward their control point while fading in, so the curve settles before targets appear.
 - Colors & emphasis:
   - Use the base track color for connector + circle; dark mode background overlay uses theme background (near black) to hollow default handles.
   - On hover or when the parent row is emphasized, raise connector opacity and brighten the circle slightly.

@@ -1,6 +1,6 @@
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { Line } from "@react-three/drei";
-import { useMotionValueEvent } from "motion/react";
+import { useMotionValueEvent, useSpring } from "motion/react";
 import { Theme } from "@semio/ui";
 import {
   InstancePair,
@@ -46,6 +46,16 @@ export const BezierHandles = memo(function BezierHandles({
   const invariantScale = useInvariantScale();
   const [scaleValue, setScaleValue] = useState(() => invariantScale.get());
   useMotionValueEvent(invariantScale, "change", setScaleValue);
+  const appearanceSpring = useSpring(0, { stiffness: 700, damping: 40 });
+  const [appearanceProgress, setAppearanceProgress] = useState(0);
+  useEffect(() => {
+    appearanceSpring.set(1);
+    return () => {
+      appearanceSpring.set(0);
+    };
+  }, [appearanceSpring]);
+  useMotionValueEvent(appearanceSpring, "change", setAppearanceProgress);
+  const appearance = Math.max(0, Math.min(1, appearanceProgress));
 
   const geometry = segment.geometry;
   if (!geometry || segment.buffer) {
@@ -119,13 +129,19 @@ export const BezierHandles = memo(function BezierHandles({
 
   if (handles.length === 0) return null;
 
-  const connectorOpacity = isHighlighted ? 0.95 : 0.65;
-  const gapOpacity = isHighlighted ? 0.6 : 0.35;
+  const connectorOpacityBase = isHighlighted ? 0.95 : 0.65;
+  const connectorOpacity = connectorOpacityBase * appearance;
+  const gapOpacityBase = isHighlighted ? 0.6 : 0.35;
+  const gapOpacity = gapOpacityBase * Math.max(0, Math.min(1, (appearance - 0.2) / 0.8));
 
   return (
     <group>
       {handles.map((handle) => {
-        const connectorTarget = handle.effective ?? handle.raw;
+        const animatedRaw = animateHandlePoint(handle.anchor, handle.raw, appearance);
+        const animatedEffective = handle.effective
+          ? animateHandlePoint(handle.anchor, handle.effective, appearance)
+          : undefined;
+        const connectorTarget = animatedEffective ?? animatedRaw;
         return (
           <group key={handle.id}>
             <Line
@@ -135,9 +151,9 @@ export const BezierHandles = memo(function BezierHandles({
               transparent
               opacity={connectorOpacity}
             />
-            {handle.hasEffectiveGap && handle.effective && (
+            {handle.hasEffectiveGap && animatedEffective && (
               <Line
-                points={[handle.effective.line, handle.raw.line]}
+                points={[animatedEffective.line, animatedRaw.line]}
                 color={color}
                 lineWidth={1.5}
                 transparent
@@ -145,12 +161,13 @@ export const BezierHandles = memo(function BezierHandles({
               />
             )}
             <HandleDot
-              position={handle.raw.marker}
+              position={animatedRaw.marker}
               color={color}
               radiusPx={RAW_RADIUS_PX}
               scale={scaleValue}
               showFallbackOverlay={handle.isFallback}
               backgroundColor={backgroundColor}
+              appearance={appearance}
             />
           </group>
         );
@@ -200,6 +217,7 @@ interface HandleDotProps {
   scale: number;
   showFallbackOverlay?: boolean;
   backgroundColor: string;
+  appearance: number;
 }
 
 function HandleDot({
@@ -209,26 +227,32 @@ function HandleDot({
   scale,
   showFallbackOverlay = false,
   backgroundColor,
+  appearance,
 }: HandleDotProps) {
-  const radiusX = Math.max(scale * radiusPx, 0.002);
-  const radiusY = Math.max(radiusPx, 0.002);
+  const clamped = Math.max(0, Math.min(1, appearance));
+  const baseRadiusX = Math.max(scale * radiusPx, 0.002);
+  const baseRadiusY = Math.max(radiusPx, 0.002);
+  const radiusX = baseRadiusX * clamped;
+  const radiusY = baseRadiusY * clamped;
+  const overlayRadiusX = radiusX * 0.65;
+  const overlayRadiusY = radiusY * 0.65;
   return (
     <group position={position}>
       <mesh scale={[radiusX, radiusY, 1]}>
         <circleGeometry args={[1, 24]} />
-        <meshBasicMaterial toneMapped={false} color={color} />
+        <meshBasicMaterial toneMapped={false} color={color} transparent opacity={clamped} />
       </mesh>
       {showFallbackOverlay && (
         <mesh
           position={[0, 0, ROW_DEPTH_EPSILON * 0.5]}
-          scale={[radiusX * 0.65, radiusY * 0.65, 1]}
+          scale={[overlayRadiusX, overlayRadiusY, 1]}
         >
           <circleGeometry args={[1, 24]} />
           <meshBasicMaterial
             toneMapped={false}
             color={backgroundColor}
             transparent
-            opacity={0.65}
+            opacity={0.65 * clamped}
           />
         </mesh>
       )}
@@ -239,4 +263,27 @@ function HandleDot({
 function hasWorldPointGap(raw?: WorldCP, effective?: WorldCP, epsilon = 1e-5): boolean {
   if (!raw || !effective) return false;
   return Math.abs(raw.x - effective.x) > epsilon || Math.abs(raw.y - effective.y) > epsilon;
+}
+
+function animateHandlePoint(
+  anchor: [number, number, number],
+  point: HandlePoint,
+  t: number,
+): HandlePoint {
+  return {
+    line: lerpPoint(anchor, point.line, t),
+    marker: lerpPoint(anchor, point.marker, t),
+  };
+}
+
+function lerpPoint(
+  anchor: [number, number, number],
+  target: [number, number, number],
+  t: number,
+): [number, number, number] {
+  return [
+    anchor[0] + (target[0] - anchor[0]) * t,
+    anchor[1] + (target[1] - anchor[1]) * t,
+    anchor[2] + (target[2] - anchor[2]) * t,
+  ];
 }
