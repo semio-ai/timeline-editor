@@ -6,7 +6,6 @@ import { Theme } from "@semio/ui";
 import { MotionCubicBezierLine, MotionCubicBezierFill } from "../utilities";
 import { TrackRender, SourceRow, LayerBand, VerticalAxisRange, InstancePair } from "../../types";
 import { computeOklabMix } from "../../functions";
-import { computeTransitionParams } from "../../functions/compute-transition-params";
 import { useTransitionCurve, useAnimationStore } from "../../hooks";
 import { DEFAULT_COLOR, ROW_DEPTH_EPSILON } from "../../constants";
 import { computeRenderScale } from "./utils/render-scale";
@@ -71,20 +70,9 @@ export const TransitionSegment = memo(function TransitionSegment({
     return 2; // For Preview, Transition and Spline
   }, [trackRender]);
 
-  const transitionParams = useMemo(() => {
-    if (
-      trackRender === TrackRender.Preview ||
-      trackRender === TrackRender.Transition ||
-      trackRender === TrackRender.Spline
-    ) {
-      const geometryParams = segment.geometry?.effective?.renderParams?.[trackRender];
-      if (geometryParams) {
-        return geometryParams;
-      }
-    }
-    // Fallback for Key mode (not precomputed) or legacy segments without geometry.
-    return computeTransitionParams(sourceRow, start, end, isEmpty, trackRender, verticalBounds);
-  }, [segment.geometry, sourceRow, start, end, isEmpty, trackRender, verticalBounds]);
+  const fallbackKeyParams = segment.geometry?.effective?.renderParams?.[TrackRender.Key];
+  const transitionParams =
+    segment.geometry?.effective?.renderParams?.[trackRender] ?? fallbackKeyParams;
 
   const { renderScaleY } = useMemo(
     () =>
@@ -104,7 +92,10 @@ export const TransitionSegment = memo(function TransitionSegment({
   }, [isEmpty, color, theme]);
 
   // Get normalized transition curve motion values
-  const transitionCurve = useTransitionCurve(transitionParams, renderScaleY);
+  const transitionCurve = useTransitionCurve(
+    transitionParams ?? segment.geometry!.effective!.renderParams![TrackRender.Key]!,
+    renderScaleY,
+  );
 
   // Create spring values for the y-values
   const startY = useSpring(transitionCurve.startY, { stiffness: 300, damping: 30 });

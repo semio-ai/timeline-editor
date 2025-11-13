@@ -24,6 +24,15 @@ export function buildSegmentRenderParams(
     : undefined;
 
   return {
+    [TrackRender.Key]: computeTransitionParams(
+      input.sourceRow,
+      input.start,
+      input.end,
+      input.isEmpty,
+      TrackRender.Key,
+      bounds,
+      options,
+    ),
     [TrackRender.Transition]: computeTransitionParams(
       input.sourceRow,
       input.start,
