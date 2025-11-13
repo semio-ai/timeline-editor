@@ -51,6 +51,22 @@ export function computeTransitionParams(
   // The end transition in is the end of the transition segment.
 
   if (trackRender === TrackRender.Transition) {
+    if (isEmpty) {
+      const startHasData = (start.points?.length ?? 0) > 0;
+      const endHasData = (end.points?.length ?? 0) > 0;
+      let yFlat = 0.5;
+      if (startHasData && !endHasData) {
+        yFlat = 1;
+      } else if (!startHasData && endHasData) {
+        yFlat = 0;
+      }
+      return {
+        start: { x: start.stamp, y: yFlat },
+        end: { x: end.stamp, y: yFlat },
+        cp1: { x: start.stamp, y: yFlat },
+        cp2: { x: end.stamp, y: yFlat },
+      };
+    }
     const cp1Raw =
       options?.transitions?.startOut ?? start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
     const cp2Raw = options?.transitions?.endIn ?? end.transitions?.in ?? DEFAULT_TRANSITION_IN;
