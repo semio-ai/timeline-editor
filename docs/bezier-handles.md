@@ -515,6 +515,15 @@ By emitting explicit diffs we gain determinism (preview == commit), simplify tes
 
 > **Rendering note:** When a marker crosses a neighbor the handles briefly disappear before reappearing. This looks like a visual delay (either in the renderer or in the diff application order) and should be investigated during the anchor-relative handle refactor. Keep an eye out for any obvious causes while reworking the snapshot/segment logic.
 
+### Transition model considerations
+
+During the anchor-relative migration we will also reevaluate `Keypoint.transitions`. The goal is to allow every handle to be described either by:
+
+1. **Anchor-relative world deltas** (`Δstamp`, `Δvalue`)—used whenever a handle has been explicitly edited. These keep handles fixed relative to their marker.
+2. **An easing enum** for common cubic-bezier variants (`ease-in/out/linear` across `sine`, `cubic`, `quint`, `circ`, `quad`, `quart`, `expo`, `back`, etc.). Each enum value represents one side of the segment (e.g., `ease-out-cubic` = `{x: 0.35, y: 1}`), so transitions can remain lightweight until a user drags a handle.
+
+On load we default the existing data to the appropriate `ease-*` enum. Once the user drags a handle we “bake” the result into the anchor-relative world delta so it stays fixed thereafter. This lets us keep the simple easing vocabulary while still supporting fully explicit handles, and the enum can be serialized alongside the world delta so downstream consumers know whether a handle is editable or derived.
+
 -2) Anti-knot “effective length” when markers approach each other
 - When A and B move close enough that the raw handles would produce a backtrack (non-monotonic X) or a knot, shorten only the effective handle lengths used by rendering/interpolation until the curve is valid. Do not write these shortened handles back to canonical transitions.
 - Policy:
