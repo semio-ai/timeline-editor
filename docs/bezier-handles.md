@@ -431,8 +431,85 @@ Context and goals
       - y′ = 1 - (B′.value - cpWorld.y) / (B′.value - A.value)
   - Only apply this re-solve to handles that exist (i.e., when a keypoint hasn’t specified a transition, do not fabricate or update one).
   - Apply this in both preview (during drag) and commit paths so the visual invariance matches the final state.
-  - Note: When the dragged keypoint sits between two segments, apply the rule to both adjacent handles (its out for left segment; its in for right segment) independently.
-  - Intentional default behavior: handles that still rely on the implicit ease-in-out defaults will move when the marker moves; invariance only applies after the user creates explicit transitions (typically on first handle edit).
+- Note: When the dragged keypoint sits between two segments, apply the rule to both adjacent handles (its out for left segment; its in for right segment) independently.
+- Intentional default behavior: handles that still rely on the implicit ease-in-out defaults will move when the marker moves; invariance only applies after the user creates explicit transitions (typically on first handle edit).
+
+### Handle preservation pipeline (crossing-aware)
+
+- Drag start now captures each affected handle in world space and stores it per keypoint *and* attribute path (`keypointId::attribute`). The stored payload carries the absolute control point delta (`cpWorld - anchor`) so every subsequent resolver works in world coordinates rather than relying on normalized spans.
+- During preview we always pass the canonical, pre-drag track snapshot (`originalTrackPoints`) to `applyDragDeltas`. That snapshot gives the resolver a stable reference for each keypoint’s “before drag” stamp/value, which prevents cumulative re-normalization when the same function executes multiple times in a single frame.
+- `applyMarkerHandleOffsets` no longer trusts the neighbor id captured at drag start. Instead it asks “who is currently the closest keypoint to the left/right of the dragged marker” after applying the latest preview deltas. If the original neighbor is now on the wrong side (because the marker crossed it), the resolver automatically swaps to the newly adjacent keypoint and keeps the handle world position intact.
+- Commit replays the exact same logic: before mutating the track we deep-clone its pre-drag keypoints, then we call `applyDragDeltas` with both the live draft and the immutable clone. After the drag commits we sort the track if any horizontal delta occurred, so future drags see the updated ordering without reusing stale offsets.
+- This pipeline ensures that:
+  - Handles attached to the dragged marker stay visually locked even after the marker crosses other keypoints in the same row.
+  - Neighboring handles do not “steal” deltas from one another when the segment ordering changes; each handle always re-solves against the closest neighbor in its current direction.
+  - A second drag (after release) recomputes its offsets from the committed transitions, so invariance holds across multi-step edits.
+
+The accompanying regression tests simulate dragging a keypoint past its neighbor and assert that both the middle-in and middle-out handles remain stationary relative to the marker throughout preview and commit.
+
+#### Structural risks still on the radar
+
+- **Segment-level bookkeeping** — handle invariants depend on *pairs* of keypoints, yet we still store offsets on a single keypoint. When segment membership changes (crossing, insertion, deletion) we need to recompute both sides in lockstep. Tracking handles under a `{segmentId, direction}` key would make this explicit and simplify reparenting logic.
+- **Single-source snapshots** — different pieces of the pipeline (gesture preview, derived snapshot, commit) can observe different Immer drafts today. Persisting a frozen “pre-drag snapshot” per track/attribute and threading it through every resolver guarantees we always normalize against the same data.
+- **Derived-store caching** — we recompute world-space control points from normalized transitions every render, which is both slow and prone to subtle math differences. Derived rows should cache `{rawCP, effectiveCP}` so UI/tests can assert invariants without re-running the math.
+- **Broader coverage** — existing regression tests focus on single-point drags and one crossing scenario. We still need multi-selection + vector-component coverage, plus negative-direction crossings (dragging backwards). Those cases should assert world-space deltas from the cached CP data mentioned above.
+
+### Proposed pipeline overhaul: anchor-relative world handles
+
+| Layer | Current state | Proposed change | Notes |
+| --- | --- | --- | --- |
+| Storage (`Keypoint.transitions`) | Normalized `{x,y}` stored per keypoint; span-dependent | Keep normalized values for interchange, but add `transitionsWorld = { in/out: { ΔstampNorm, Δvalue } }` relative to the marker. Later, switch `Δstamp` to milliseconds without changing the pipeline. | Eliminates re-normalization when spans change; transitions stay “fixed” in marker space. |
+| Drag snapshot | Each caller passes whatever draft array they have | Capture a frozen snapshot per track/attribute at `startDrag` (sorted keypoints + `transitionsWorld` + resolved world CPs) and persist it on `dragState`. | Ensures preview/commit share the same baseline; snapshot is easily serializable for a future wasm module. |
+| Preview math (`applyDragDeltas`) | Re-derives neighbors from mutable arrays, converts world→parametric repeatedly | Use the frozen snapshot for neighbor lookup; world handles remain constant and we convert to normalized `{x,y}` only when we need to update canonical storage. | World deltas remain invariant even after crossings. |
+| Derived snapshot | Recomputes world CPs on the fly | Cache `{rawWorldCP, effectiveWorldCP}` per segment inside derived rows. | Rendering, QA tooling, and wasm consumers read one authoritative geometry cache. |
+| Commit | Replays preview logic against the current track array | Same as preview: convert `transitionsWorld` → normalized once per segment, update keypoints, then sort if stamps changed. | Guarantees preview == commit, independent of track mutation order. |
+
+#### Implementation phases
+
+1. **Add `transitionsWorld`.** Extend the `Keypoint` type + migrations to include anchor-relative deltas. When missing, derive them from the current normalized `{x,y}`. Drag start snapshots should capture these world deltas rather than normalized ones.
+2. **Frozen drag snapshot & neighbor lookup.** Define a `DragSnapshot` (per track/attribute) and thread it through preview + commit. Refactor `applyMarkerHandleOffsets` to rely exclusively on this snapshot, swapping to the nearest neighbor when the original ID crosses the marker.
+3. **Derived geometry cache.** Update `computeRowData` to cache raw/effective world CPs per segment. Renderer/tests should assert against this cache, which can also serve as the hand-off format for a wasm module.
+4. **Future-facing adjustments.** When the animation timeline switches from normalized stamps to milliseconds, only the `Δstamp` unit changes. Handle dragging (when implemented) will simply mutate `transitionsWorld` directly, keeping the same data flow.
+
+> **Implementation note:** Migrating to `transitionsWorld` means every fixture that seeds track data—including `packages/animation/src/test-fixtures/animation-store-factory.ts`—must be updated to populate the new world-space deltas (and, when absent, derive normalized `{x,y}` from them). Treat that file as part of the migration checklist so tests exercise the same structures used in production.
+
+### Patch-first drag diffs
+
+The current flow mutates Immer drafts directly and only emits `KeypointCommitDelta` (stamp/value) during commit. That representation cannot express handle-only updates, reorderings, or track-level ops, which forces us to re-run neighbor heuristics in multiple layers. As part of the refactor we should introduce an explicit diff structure that can be produced once (from the frozen snapshot) and applied both to previews and to the canonical store.
+
+**Diff shape (per track):**
+
+```ts
+type TrackDiff =
+  | { type: "updateKeypoint";
+      trackId: string;
+      keypointId: string;
+      changes: {
+        stamp?: number;
+        value?: RawValue | ((curr: RawValue) => RawValue);
+        transitionsWorld?: { in?: Delta; out?: Delta };
+        custom?: Record<string, unknown>; // e.g., cached world CPs, flags
+      };
+    }
+  | { type: "reorderKeypoints"; trackId: string; order: string[] }
+  | { type: "insertKeypoint"; trackId: string; keypoint: Keypoint<RawValue> }
+  | { type: "removeKeypoint"; trackId: string; keypointId: string };
+```
+
+**How it flows:**
+
+1. Preview functions build diffs by comparing the frozen snapshot against the pointer delta. “Move px2 to the right” becomes `{ type: "updateKeypoint", changes: { stamp: … } }`; “keep handle fixed” becomes `{ changes: { transitionsWorld: { out: … } } }`; crossing triggers `{ type: "reorderKeypoints", order: [...] }`.
+2. To render a preview we apply the diffs to the snapshot (or a clone) and feed the result into the derived snapshot cache. No direct mutation of `track.points` is needed; tests can inspect the diff output directly.
+3. Commit reuses the same diffs (maybe after consolidating) and applies them to the canonical tracks. Because diffs mention `transitionsWorld` explicitly, crossings/handle drags never rely on implicit neighbor detection.
+4. Any future wasm module can accept `(snapshot, pointerDelta)` and return a list of `TrackDiff`s; the JS side then applies them the same way.
+
+**Ordering with other work:**
+
+- Introduce `transitionsWorld` first so diffs can reference world deltas directly.
+- In the same refactor, replace the ad-hoc preview mutations with the diff pipeline (it naturally consumes the frozen snapshot). Doing these two steps together avoids touching the drag plumbing twice.
+- Add the derived geometry cache after diffs are in place; the cache can be populated either from the transformed snapshot or by replaying the diffs into a new structure.
+
+By emitting explicit diffs we gain determinism (preview == commit), simplify testing/QA, and create a clean interface for future wasm acceleration.
 
 -2) Anti-knot “effective length” when markers approach each other
 - When A and B move close enough that the raw handles would produce a backtrack (non-monotonic X) or a knot, shorten only the effective handle lengths used by rendering/interpolation until the curve is valid. Do not write these shortened handles back to canonical transitions.

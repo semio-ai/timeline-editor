@@ -273,35 +273,79 @@ describe("startDrag marker handle offsets", () => {
       }),
     );
 
-    const before = captureHandleWorld(track.points, {
-      leftId: "px1",
-      middleId: "px2",
-      rightId: "px3",
-      attributePath: ["x"],
-    });
-    const after = captureHandleWorld(previewPoints, {
-      leftId: "px1",
-      middleId: "px2",
-      rightId: "px3",
-      attributePath: ["x"],
-    });
+    const beforeHandles = captureAnchorHandles(track.points, "px2", ["x"]);
+    const afterHandles = captureAnchorHandles(previewPoints, "px2", ["x"]);
 
-    const delta = state.dragState?.stampDelta?.raw ?? 0;
-    expect(after.leftOut).toMatchObject(before.leftOut);
-    expect(after.rightIn).toMatchObject(before.rightIn);
-    expectDeltaStable(before.middleIn, after.middleIn, delta);
-    expectDeltaStable(before.middleOut, after.middleOut, delta);
+    const previewAnchor = previewPoints.find((point) => point.id === "px2");
+    const anchorDelta =
+      (previewAnchor?.stamp ?? 0) - track.points.find((p) => p.id === "px2")!.stamp;
+    expectDeltaStable(beforeHandles.in!, afterHandles.in!, anchorDelta);
+    expectDeltaStable(beforeHandles.out!, afterHandles.out!, anchorDelta);
 
     store.getState().commitDrag();
     const committedTrack = store.getState().tracks[TRACK_IDS.POSITION];
-    const afterCommit = captureHandleWorld(committedTrack.points, {
-      leftId: "px1",
-      middleId: "px2",
-      rightId: "px3",
-      attributePath: ["x"],
+    const committedHandles = captureAnchorHandles(committedTrack.points, "px2", ["x"]);
+    const committedAnchor = committedTrack.points.find((point) => point.id === "px2");
+    const commitDelta =
+      (committedAnchor?.stamp ?? 0) - track.points.find((p) => p.id === "px2")!.stamp;
+    expectDeltaStable(beforeHandles.in!, committedHandles.in!, commitDelta);
+    expectDeltaStable(beforeHandles.out!, committedHandles.out!, commitDelta);
+  });
+
+  it("keeps handles attached while crossing a neighbor in a single drag", () => {
+    const store = createTestAnimationStore({ includeNamespaceB: false });
+    store.getState().initAnimationSubscriptions();
+
+    const rowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.POSITION}.x`;
+    const markerId = "px2";
+    const trackId = TRACK_IDS.POSITION;
+
+    store.setState({
+      selectionState: {
+        instanceId: INSTANCE_IDS.ALPHA_SHARED,
+        reference: { rowId, markerId },
+        keypoints: new Map([[trackId, new Set([markerId])]]),
+      },
     });
-    expect(afterCommit.leftOut).toMatchObject(before.leftOut);
-    expect(afterCommit.rightIn).toMatchObject(before.rightIn);
+
+    const track = store.getState().tracks[trackId];
+    const beforeHandles = captureAnchorHandles(track.points, "px2", ["x"]);
+
+    store.getState().startDrag({
+      axis: "horizontal",
+      markerId,
+      rowId,
+      origin: { x: 0, y: 0 },
+    });
+
+    const dragState = store.getState().dragState!;
+    const origin = dragState.stampOrigin ?? 0;
+    // Push the marker past px3 (0.7) in a single drag.
+    store.getState().updateDrag({
+      pointer: { x: 0, y: 0 },
+      normalizedStamp: { current: origin + 0.45 },
+      modifiers: dragState.modifiers,
+    });
+
+    const previewState = store.getState();
+    const previewTrack = previewState.tracks[trackId];
+    const previewPoints = previewTrack.points.map((point) =>
+      applyDragDeltas(point, {
+        dragState: previewState.dragState,
+        selection: previewState.selectionState,
+        trackId,
+        attributePath: ["x"],
+        trackPoints: previewTrack.points,
+        originalTrackPoints: previewTrack.points,
+      }),
+    );
+
+    const afterHandles = captureAnchorHandles(previewPoints, "px2", ["x"]);
+
+    const previewAnchor = previewPoints.find((point) => point.id === "px2");
+    const anchorDelta = (previewAnchor?.stamp ?? 0) - track.points.find((p) => p.id === "px2")!.stamp;
+    expectDeltaStable(beforeHandles.in!, afterHandles.in!, anchorDelta);
+    expectDeltaStable(beforeHandles.out!, afterHandles.out!, anchorDelta);
   });
 });
 
@@ -320,6 +364,25 @@ const captureHandleWorld = (
     middleIn: computeInHandle(middle, left, params.attributePath)!,
     middleOut: computeOutHandle(middle, right, params.attributePath)!,
     rightIn: computeInHandle(right, middle, params.attributePath)!,
+  };
+};
+
+const captureAnchorHandles = (
+  points: Keypoint<RawValue>[],
+  anchorId: string,
+  attributePath?: string[],
+) => {
+  const sorted = [...points].sort((a, b) => a.stamp - b.stamp);
+  const anchorIndex = sorted.findIndex((point) => point.id === anchorId);
+  if (anchorIndex === -1) {
+    throw new Error(`captureAnchorHandles: missing ${anchorId}`);
+  }
+  const anchor = sorted[anchorIndex];
+  const left = sorted[anchorIndex - 1];
+  const right = sorted[anchorIndex + 1];
+  return {
+    in: left ? computeInHandle(anchor, left, attributePath) : undefined,
+    out: right ? computeOutHandle(anchor, right, attributePath) : undefined,
   };
 };
 

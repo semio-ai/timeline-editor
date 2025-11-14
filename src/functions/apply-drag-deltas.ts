@@ -216,26 +216,48 @@ function applyMarkerHandleOffsets(
     return point;
   }
 
-  const resolveNeighbor = (neighborId?: string): Keypoint<RawValue> | undefined => {
+  const resolveNeighbor = (
+    neighborId: string | undefined,
+    direction: "out" | "in",
+  ): Keypoint<RawValue> | undefined => {
+    const preferred = findNeighborByDirection(direction);
     if (!neighborId) {
-      return undefined;
+      return preferred;
     }
 
-    const base = trackPoints.find((p) => p.id === neighborId);
-    if (!base) {
-      return undefined;
+    const candidate = trackPoints.find((p) => p.id === neighborId);
+    if (!candidate) {
+      return preferred;
     }
 
+    const previewCandidate = getPreviewKeypoint(candidate);
+    const invalidCandidate =
+      (direction === "out" && previewCandidate.stamp <= point.stamp) ||
+      (direction === "in" && previewCandidate.stamp >= point.stamp);
+    if (invalidCandidate) {
+      return preferred;
+    }
+
+    if (!preferred || preferred.id === previewCandidate.id) {
+      return previewCandidate;
+    }
+
+    const candidateDistance = Math.abs(previewCandidate.stamp - point.stamp);
+    const preferredDistance = Math.abs(preferred.stamp - point.stamp);
+    return preferredDistance < candidateDistance ? preferred : previewCandidate;
+  };
+
+  const getPreviewKeypoint = (candidate: Keypoint<RawValue>): Keypoint<RawValue> => {
     if (!dragState || !selection || dragState.instanceId !== selection.instanceId) {
-      return base;
+      return candidate;
     }
 
     const trackSelection = selection.keypoints.get(trackId);
-    if (!trackSelection?.has(neighborId)) {
-      return base;
+    if (!trackSelection?.has(candidate.id)) {
+      return candidate;
     }
 
-    const original = originalTrackPoints?.find((p) => p.id === neighborId) ?? base;
+    const original = originalTrackPoints?.find((p) => p.id === candidate.id) ?? candidate;
 
     const nextStamp = computePreviewStamp(original.stamp, dragState);
     const nextValue = computePreviewValue(
@@ -245,15 +267,35 @@ function applyMarkerHandleOffsets(
       bounds,
     );
 
-    if (nextStamp === base.stamp && nextValue === base.value) {
-      return base;
+    if (nextStamp === candidate.stamp && nextValue === candidate.value) {
+      return candidate;
     }
 
     return {
-      ...base,
+      ...candidate,
       stamp: nextStamp,
       value: nextValue,
     };
+  };
+
+  const findNeighborByDirection = (direction: "out" | "in"): Keypoint<RawValue> | undefined => {
+    let best: Keypoint<RawValue> | undefined;
+    for (const candidate of trackPoints) {
+      if (candidate.id === point.id) continue;
+      const preview = getPreviewKeypoint(candidate);
+      if (direction === "out") {
+        if (preview.stamp <= point.stamp) continue;
+        if (!best || preview.stamp < best.stamp) {
+          best = preview;
+        }
+      } else {
+        if (preview.stamp >= point.stamp) continue;
+        if (!best || preview.stamp > best.stamp) {
+          best = preview;
+        }
+      }
+    }
+    return best;
   };
 
   const anchorValue = getNumericValue(point.value, attributePath);
@@ -267,7 +309,7 @@ function applyMarkerHandleOffsets(
   let changed = false;
 
   if (handleOffsets.out) {
-    const neighbor = resolveNeighbor(handleOffsets.out.neighborKeypointId);
+    const neighbor = resolveNeighbor(handleOffsets.out.neighborKeypointId, "out");
     const neighborValue = neighbor ? getNumericValue(neighbor.value, attributePath) : undefined;
     if (neighbor && typeof neighborValue === "number") {
       const cpWorld: WorldCP = {
@@ -287,7 +329,7 @@ function applyMarkerHandleOffsets(
   }
 
   if (handleOffsets.in) {
-    const neighbor = resolveNeighbor(handleOffsets.in.neighborKeypointId);
+    const neighbor = resolveNeighbor(handleOffsets.in.neighborKeypointId, "in");
     const neighborValue = neighbor ? getNumericValue(neighbor.value, attributePath) : undefined;
     if (neighbor && typeof neighborValue === "number") {
       const cpWorld: WorldCP = {
