@@ -161,6 +161,7 @@ export function computeRowData(
         bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
         attributePath: source.attribute ? [source.attribute] : undefined,
         trackPoints: relevantTracks[trackId]?.points,
+        originalTrackPoints: relevantTracks[trackId]?.points,
       }),
   });
 
@@ -195,6 +196,7 @@ export function computeRowData(
             bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
             attributePath: attributePathsByTrack.get(trackId),
             trackPoints: track.points,
+            originalTrackPoints: track.points,
           }),
         );
 

@@ -1,8 +1,15 @@
 import type { RawValue } from "@semio/utils";
 import type { AnimationData } from "../../store-types";
-import type { DragMarkerHandleOffsets, Track } from "../../types";
 import { applyDragDeltas } from "../../functions/apply-drag-deltas";
-import { parseHandleOffsetKey } from "../../utils/handle-offset-key";
+import { buildHandleOffsetKey, parseHandleOffsetKey } from "../../utils/handle-offset-key";
+
+const cloneRawValueDeep = (value: RawValue): RawValue => {
+  try {
+    return JSON.parse(JSON.stringify(value)) as RawValue;
+  } catch {
+    return value;
+  }
+};
 
 interface MarkerContext {
   attributePath?: string[];
@@ -29,20 +36,6 @@ const buildMarkerContextLookup = (state: AnimationData): Map<string, MarkerConte
     }
   }
   return lookup;
-};
-
-const collectHandleKeypointsForTrack = (
-  track: Track<RawValue>,
-  offsets?: Record<string, DragMarkerHandleOffsets>,
-): Set<string> | undefined => {
-  if (!offsets) {
-    return undefined;
-  }
-
-  const ids = Object.keys(offsets)
-    .map((key) => parseHandleOffsetKey(key).keypointId)
-    .filter((id) => track.points.some((point) => point.id === id));
-  return ids.length > 0 ? new Set(ids) : undefined;
 };
 
 /**
@@ -93,21 +86,63 @@ export function commitDrag(state: AnimationData): void {
   }
 
   const markerContexts = hasVerticalDelta ? buildMarkerContextLookup(state) : undefined;
+  const handleEntries = Object.entries(dragState.markerHandleOffsets ?? {}).map(
+    ([key, offsets]) => ({
+      key,
+      offsets,
+      ...parseHandleOffsetKey(key),
+    }),
+  );
+
   for (const [trackId, keypointIds] of selection.keypoints.entries()) {
     const track = state.tracks[trackId];
     if (!track) continue;
+    const originalTrackPoints = track.points.map((point) => ({
+      ...point,
+      value: cloneRawValueDeep(point.value),
+    }));
 
-    const combinedKeypointIds = new Set(keypointIds);
-    const handleKeypoints = collectHandleKeypointsForTrack(track, dragState.markerHandleOffsets);
-    handleKeypoints?.forEach((id) => combinedKeypointIds.add(id));
+    const workEntries = new Map<
+      string,
+      {
+        keypointId: string;
+        attributePath?: string[];
+        bounds?: { min: number; max: number };
+      }
+    >();
 
-    if (combinedKeypointIds.size === 0) {
+    const addWorkEntry = (
+      keypointId: string,
+      attributePath?: string[],
+      bounds?: { min: number; max: number },
+    ) => {
+      const workKey = buildHandleOffsetKey(keypointId, attributePath);
+      if (!workEntries.has(workKey)) {
+        workEntries.set(workKey, { keypointId, attributePath, bounds });
+      }
+    };
+
+    keypointIds.forEach((keypointId) => {
+      const contextKey = `${trackId}:${keypointId}`;
+      const context = markerContexts?.get(contextKey);
+      addWorkEntry(keypointId, context?.attributePath ?? dragState.anchor.attributePath, context?.bounds);
+    });
+
+    handleEntries.forEach(({ keypointId, attributePath }) => {
+      if (!track.points.some((point) => point.id === keypointId)) {
+        return;
+      }
+      addWorkEntry(keypointId, attributePath ?? dragState.anchor.attributePath);
+    });
+
+    if (workEntries.size === 0) {
       continue;
     }
 
     let trackMutated = false;
 
-    for (const keypointId of combinedKeypointIds) {
+    for (const workEntry of workEntries.values()) {
+      const { keypointId, attributePath: workAttributePath, bounds: workBounds } = workEntry;
       const pointIndex = track.points.findIndex((point) => point.id === keypointId);
       if (pointIndex === -1) {
         continue;
@@ -117,26 +152,20 @@ export function commitDrag(state: AnimationData): void {
       let pointChanged = false;
       let nextPoint = point;
 
-      if (markerContexts) {
-        const contextKey = `${trackId}:${keypointId}`;
-        const context = markerContexts.get(contextKey);
-        nextPoint = applyDragDeltas(point, {
-          dragState,
-          selection,
-          trackId,
-          bounds: context?.bounds,
-          attributePath: context?.attributePath ?? dragState.anchor.attributePath,
-          trackPoints: track.points,
-        });
-      } else {
-        nextPoint = applyDragDeltas(point, {
-          dragState,
-          selection,
-          trackId,
-          attributePath: dragState.anchor.attributePath,
-          trackPoints: track.points,
-        });
-      }
+      const contextKey = `${trackId}:${keypointId}`;
+      const context = markerContexts?.get(contextKey);
+      const attributePath = workAttributePath ?? context?.attributePath ?? dragState.anchor.attributePath;
+      const bounds = hasVerticalDelta ? workBounds ?? context?.bounds : undefined;
+
+      nextPoint = applyDragDeltas(point, {
+        dragState,
+        selection,
+        trackId,
+        bounds,
+        attributePath,
+        trackPoints: track.points,
+        originalTrackPoints,
+      });
 
       if (nextPoint !== point) {
         track.points[pointIndex] = nextPoint;

@@ -93,6 +93,7 @@ describe("applyDragDeltas", () => {
       selection,
       trackId: track.id,
       trackPoints: track.points,
+      originalTrackPoints: track.points,
     });
 
     expect(updatedNeighbor).not.toBe(leftPoint);
@@ -105,6 +106,7 @@ describe("applyDragDeltas", () => {
       selection,
       trackId: track.id,
       trackPoints: track.points,
+      originalTrackPoints: track.points,
     });
 
     expect(updatedAnchor.stamp).toBeCloseTo(nextStamp, 6);
@@ -171,6 +173,7 @@ describe("applyDragDeltas", () => {
         selection,
         trackId: track.id,
         trackPoints: track.points,
+        originalTrackPoints: track.points,
       }),
     );
 
@@ -266,6 +269,7 @@ describe("startDrag marker handle offsets", () => {
         trackId: track.id,
         attributePath: ["x"],
         trackPoints: track.points,
+        originalTrackPoints: track.points,
       }),
     );
 
@@ -287,6 +291,17 @@ describe("startDrag marker handle offsets", () => {
     expect(after.rightIn).toMatchObject(before.rightIn);
     expectDeltaStable(before.middleIn, after.middleIn, delta);
     expectDeltaStable(before.middleOut, after.middleOut, delta);
+
+    store.getState().commitDrag();
+    const committedTrack = store.getState().tracks[TRACK_IDS.POSITION];
+    const afterCommit = captureHandleWorld(committedTrack.points, {
+      leftId: "px1",
+      middleId: "px2",
+      rightId: "px3",
+      attributePath: ["x"],
+    });
+    expect(afterCommit.leftOut).toMatchObject(before.leftOut);
+    expect(afterCommit.rightIn).toMatchObject(before.rightIn);
   });
 });
 

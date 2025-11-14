@@ -17,6 +17,7 @@ interface ApplyDragContext {
   bounds?: { min: number; max: number };
   attributePath?: string[];
   trackPoints?: Keypoint<RawValue>[];
+  originalTrackPoints?: Keypoint<RawValue>[];
 }
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
@@ -100,7 +101,15 @@ const clampValue = (
 
 export function applyDragDeltas(
   keypoint: Keypoint<RawValue>,
-  { dragState, selection, trackId, bounds, attributePath, trackPoints }: ApplyDragContext,
+  {
+    dragState,
+    selection,
+    trackId,
+    bounds,
+    attributePath,
+    trackPoints,
+    originalTrackPoints,
+  }: ApplyDragContext,
 ): Keypoint<RawValue> {
   if (!dragState || dragState.instanceId !== selection.instanceId) {
     return keypoint;
@@ -170,6 +179,7 @@ export function applyDragDeltas(
     handleOffsets,
     attributePath: attributePath ?? dragState.anchor.attributePath,
     trackPoints,
+    originalTrackPoints,
     dragState,
     selection,
     trackId,
@@ -185,13 +195,23 @@ function applyMarkerHandleOffsets(
     handleOffsets?: DragMarkerHandleOffsets;
     attributePath?: string[];
     trackPoints?: Keypoint<RawValue>[];
+    originalTrackPoints?: Keypoint<RawValue>[];
     dragState?: DragState;
     selection?: SelectionState;
     trackId: string;
     bounds?: { min: number; max: number };
   },
 ): Keypoint<RawValue> {
-  const { handleOffsets, attributePath, trackPoints, dragState, selection, trackId, bounds } = params;
+  const {
+    handleOffsets,
+    attributePath,
+    trackPoints,
+    originalTrackPoints,
+    dragState,
+    selection,
+    trackId,
+    bounds,
+  } = params;
   if (!handleOffsets || !trackPoints) {
     return point;
   }
@@ -215,9 +235,11 @@ function applyMarkerHandleOffsets(
       return base;
     }
 
-    const nextStamp = computePreviewStamp(base.stamp, dragState);
+    const original = originalTrackPoints?.find((p) => p.id === neighborId) ?? base;
+
+    const nextStamp = computePreviewStamp(original.stamp, dragState);
     const nextValue = computePreviewValue(
-      base.value,
+      original.value,
       attributePath ?? dragState.anchor.attributePath,
       dragState,
       bounds,
