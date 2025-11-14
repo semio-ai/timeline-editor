@@ -1,4 +1,5 @@
 import type { RawValue, RawVector2 } from "@semio/utils";
+import isEqual from "lodash/isEqual";
 import type {
   Keypoint,
   DragState,
@@ -6,6 +7,9 @@ import type {
   SelectionState,
   ValueScale,
   WorldCP,
+  Track,
+  TrackDiff,
+  TrackDiffChanges,
 } from "../types";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildHandleOffsetKey } from "../utils/handle-offset-key";
@@ -21,6 +25,30 @@ interface ApplyDragContext {
 }
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
+
+const cloneRawValue = (value: RawValue): RawValue => {
+  try {
+    return JSON.parse(JSON.stringify(value)) as RawValue;
+  } catch {
+    return value;
+  }
+};
+
+const cloneKeypoint = (point: Keypoint<RawValue>): Keypoint<RawValue> => ({
+  ...point,
+  value: cloneRawValue(point.value),
+  transitions: point.transitions
+    ? {
+        in: point.transitions.in ? { ...point.transitions.in } : undefined,
+        out: point.transitions.out ? { ...point.transitions.out } : undefined,
+      }
+    : undefined,
+});
+
+const arraysEqual = (left: string[], right: string[]): boolean => {
+  if (left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
+};
 
 const getNumericValue = (value: RawValue, path?: string[]): number | undefined => {
   if (!path || path.length === 0) {
@@ -430,4 +458,186 @@ function solveNormalizedFromWorld(params: {
   const normalizedY =
     delta === 0 ? params.fallback.y : (params.cpWorld.y - params.startValue) / delta;
   return { x: normalizedX, y: normalizedY };
+}
+
+interface BuildTrackDiffsParams {
+  trackId: string;
+  trackPoints: Keypoint<RawValue>[];
+  snapshotPoints?: Keypoint<RawValue>[];
+  dragState?: DragState;
+  selection: SelectionState;
+  bounds?: { min: number; max: number };
+  attributePath?: string[];
+}
+
+const buildUpdateDiff = (
+  trackId: string,
+  original: Keypoint<RawValue>,
+  preview: Keypoint<RawValue>,
+): TrackDiff | undefined => {
+  const changes: TrackDiffChanges = {};
+  if (!Object.is(original.stamp, preview.stamp)) {
+    changes.stamp = preview.stamp;
+  }
+  if (!isEqual(original.value, preview.value)) {
+    changes.value = cloneRawValue(preview.value);
+  }
+  if (!isEqual(original.transitions, preview.transitions)) {
+    changes.transitions = preview.transitions
+      ? {
+          in: preview.transitions.in ? { ...preview.transitions.in } : undefined,
+          out: preview.transitions.out ? { ...preview.transitions.out } : undefined,
+        }
+      : undefined;
+  }
+  if (Object.keys(changes).length === 0) {
+    return undefined;
+  }
+  return {
+    type: "updateKeypoint",
+    trackId,
+    keypointId: original.id,
+    changes,
+  };
+};
+
+export function computeTrackDiffsForDrag(params: BuildTrackDiffsParams): TrackDiff[] {
+  const { dragState, selection, trackId } = params;
+  if (!dragState || dragState.instanceId !== selection.instanceId) {
+    return [];
+  }
+
+  const sourcePoints = params.snapshotPoints ?? params.trackPoints;
+  if (!sourcePoints || sourcePoints.length === 0) {
+    return [];
+  }
+
+  const previewPoints = sourcePoints.map((point) =>
+    applyDragDeltas(point, {
+      dragState,
+      selection,
+      trackId,
+      bounds: params.bounds,
+      attributePath: params.attributePath,
+      trackPoints: sourcePoints,
+      originalTrackPoints: sourcePoints,
+    }),
+  );
+
+  const diffs: TrackDiff[] = [];
+  previewPoints.forEach((preview, index) => {
+    const original = sourcePoints[index];
+    if (!original) return;
+    const diff = buildUpdateDiff(trackId, original, preview);
+    if (diff) {
+      diffs.push(diff);
+    }
+  });
+
+  const axis = dragState.axis;
+  if (axis === "horizontal" || axis === "both") {
+    const sortedPreviewIds = [...previewPoints]
+      .sort((a, b) => a.stamp - b.stamp)
+      .map((point) => point.id);
+    const referenceOrder = params.trackPoints.map((point) => point.id);
+    if (!arraysEqual(sortedPreviewIds, referenceOrder)) {
+      diffs.push({ type: "reorderKeypoints", trackId, order: sortedPreviewIds });
+    }
+  }
+
+  return diffs;
+}
+
+export function applyTrackDiffsToPoints(
+  points: Keypoint<RawValue>[],
+  diffs: TrackDiff[],
+): Keypoint<RawValue>[] {
+  if (diffs.length === 0) {
+    return points;
+  }
+
+  const map = new Map(points.map((point) => [point.id, cloneKeypoint(point)]));
+
+  diffs.forEach((diff) => {
+    if (diff.type !== "updateKeypoint") {
+      return;
+    }
+    const target = map.get(diff.keypointId);
+    if (!target) {
+      return;
+    }
+    if (diff.changes.stamp !== undefined) {
+      target.stamp = diff.changes.stamp;
+    }
+    if (diff.changes.value !== undefined) {
+      target.value = cloneRawValue(diff.changes.value);
+    }
+    if (diff.changes.transitions !== undefined) {
+      target.transitions = diff.changes.transitions
+        ? {
+            in: diff.changes.transitions.in ? { ...diff.changes.transitions.in } : undefined,
+            out: diff.changes.transitions.out ? { ...diff.changes.transitions.out } : undefined,
+          }
+        : undefined;
+    }
+  });
+
+  let orderedPoints = Array.from(map.values());
+  diffs.forEach((diff) => {
+    if (diff.type === "reorderKeypoints") {
+      const reorderMap = new Map(orderedPoints.map((point) => [point.id, point]));
+      const reordered = diff.order
+        .map((id: string) => reorderMap.get(id))
+        .filter((point): point is Keypoint<RawValue> => Boolean(point));
+      const remaining = orderedPoints.filter((point) => !diff.order.includes(point.id));
+      orderedPoints = [...reordered, ...remaining];
+    }
+  });
+
+  return orderedPoints;
+}
+
+export function applyTrackDiffsToTrack(track: Track<RawValue>, diffs: TrackDiff[]): void {
+  if (diffs.length === 0) {
+    return;
+  }
+
+  const map = new Map(track.points.map((point) => [point.id, point]));
+
+  diffs.forEach((diff) => {
+    if (diff.type !== "updateKeypoint") {
+      return;
+    }
+    const target = map.get(diff.keypointId);
+    if (!target) {
+      return;
+    }
+    if (diff.changes.stamp !== undefined) {
+      target.stamp = diff.changes.stamp;
+    }
+    if (diff.changes.value !== undefined) {
+      target.value = cloneRawValue(diff.changes.value);
+    }
+    if (diff.changes.transitions !== undefined) {
+      target.transitions = diff.changes.transitions
+        ? {
+            in: diff.changes.transitions.in ? { ...diff.changes.transitions.in } : undefined,
+            out: diff.changes.transitions.out ? { ...diff.changes.transitions.out } : undefined,
+          }
+        : undefined;
+    }
+  });
+
+  const reorderDiff = diffs.find((diff): diff is Extract<TrackDiff, { type: "reorderKeypoints" }> => diff.type === "reorderKeypoints");
+  if (reorderDiff) {
+    const reorderMap = new Map(track.points.map((point) => [point.id, point]));
+    const reordered = reorderDiff.order
+      .map((id: string) => reorderMap.get(id))
+      .filter((point): point is Keypoint<RawValue> => Boolean(point));
+    const remaining = track.points.filter((point) => !reorderDiff.order.includes(point.id));
+    track.points.splice(0, track.points.length, ...reordered);
+    if (remaining.length > 0) {
+      track.points.push(...remaining);
+    }
+  }
 }

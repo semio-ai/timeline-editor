@@ -1,4 +1,6 @@
 import type { RawValue, RawVector2 } from "@semio/utils";
+import type { Keypoint } from "../data/keypoint";
+import type { Track } from "../data/track";
 import type { WorldCP } from "./segment-geometry";
 
 export type DragAxis = "horizontal" | "vertical" | "both";
@@ -47,6 +49,7 @@ export interface DragState {
     meta: boolean;
   };
   markerHandleOffsets?: Record<string, DragMarkerHandleOffsets>;
+  trackSnapshots?: Record<string, TrackSnapshot>;
 }
 
 export interface DragStartInput {
@@ -80,6 +83,30 @@ export interface KeypointCommitDelta {
     next: (current: RawValue) => RawValue;
   };
 }
+
+export interface TrackSnapshot {
+  trackId: string;
+  points: Keypoint<RawValue>[];
+}
+
+export interface TrackDiffChanges {
+  stamp?: number;
+  value?: RawValue;
+  transitions?: Track<RawValue>["points"][number]["transitions"];
+}
+
+export type TrackDiff =
+  | {
+      type: "updateKeypoint";
+      trackId: string;
+      keypointId: string;
+      changes: TrackDiffChanges;
+    }
+  | {
+      type: "reorderKeypoints";
+      trackId: string;
+      order: string[];
+    };
 
 export interface DragMarkerHandleOffsets {
   out?: DragHandleOffset;

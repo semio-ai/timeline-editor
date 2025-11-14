@@ -10,6 +10,9 @@ export type {
   DragUpdateInput,
   ValueScale,
   KeypointCommitDelta,
+  TrackSnapshot,
+  TrackDiff,
+  TrackDiffChanges,
 } from "./drag-state";
 export type { InstancePair } from "./instance-pair";
 export type { InstancedFrameInfo } from "./instanced-frame-info";

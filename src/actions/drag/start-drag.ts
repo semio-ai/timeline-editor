@@ -34,6 +34,14 @@ const extractNumericComponent = (value: RawValue, path?: string[]): number | und
   return typeof current === "number" ? current : undefined;
 };
 
+const cloneRawValue = (value: RawValue): RawValue => {
+  try {
+    return JSON.parse(JSON.stringify(value)) as RawValue;
+  } catch {
+    return value;
+  }
+};
+
 const resolveInstanceTransform = (state: AnimationData, instanceId: string): DragStampTransform => {
   for (const namespace of Object.values(state.namespaces)) {
     const instance = namespace.animationInstances[instanceId];
@@ -181,6 +189,30 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
 
   if (Object.keys(handleOffsetMap).length > 0) {
     dragState.markerHandleOffsets = handleOffsetMap;
+  }
+
+  const snapshotTrackIds = new Set<string>();
+  selection.keypoints.forEach((_ids, trackKey) => snapshotTrackIds.add(trackKey));
+  const trackSnapshots: Record<string, { trackId: string; points: Keypoint<RawValue>[] }> = {};
+  snapshotTrackIds.forEach((trackId) => {
+    const trackToClone = state.tracks[trackId];
+    if (!trackToClone) return;
+    trackSnapshots[trackId] = {
+      trackId,
+      points: trackToClone.points.map((point) => ({
+        ...point,
+        value: cloneRawValue(point.value),
+        transitions: point.transitions
+          ? {
+              in: point.transitions.in ? { ...point.transitions.in } : undefined,
+              out: point.transitions.out ? { ...point.transitions.out } : undefined,
+            }
+          : undefined,
+      })),
+    };
+  });
+  if (Object.keys(trackSnapshots).length > 0) {
+    dragState.trackSnapshots = trackSnapshots;
   }
 
   state.dragState = dragState;

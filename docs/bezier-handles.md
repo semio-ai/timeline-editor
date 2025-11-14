@@ -511,6 +511,10 @@ type TrackDiff =
 
 By emitting explicit diffs we gain determinism (preview == commit), simplify testing/QA, and create a clean interface for future wasm acceleration.
 
+> **Current status (March 2025):** The diff-based plumbing described above has landed, so preview/commit now consume the same serialized changes. However, handles are still stored as normalized `{x,y}` on each keypoint, which means crossing segments still cause handle lengths to be recomputed relative to whichever neighbor happens to be next in order. The residual “handles scale after crossing” bug is therefore expected until we finish the anchor-relative world-handle migration (Implementation Phase 1). Once `transitionsWorld` is authoritative and diffs operate on world deltas, crossings will stop affecting perceived handle length.
+
+> **Rendering note:** When a marker crosses a neighbor the handles briefly disappear before reappearing. This looks like a visual delay (either in the renderer or in the diff application order) and should be investigated during the anchor-relative handle refactor. Keep an eye out for any obvious causes while reworking the snapshot/segment logic.
+
 -2) Anti-knot “effective length” when markers approach each other
 - When A and B move close enough that the raw handles would produce a backtrack (non-monotonic X) or a knot, shorten only the effective handle lengths used by rendering/interpolation until the curve is valid. Do not write these shortened handles back to canonical transitions.
 - Policy:

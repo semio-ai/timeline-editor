@@ -13,10 +13,11 @@ import {
   InstancePair,
   EndpointTransitions,
   TrackRender,
+  Keypoint,
 } from "../types";
 import { TYPE_FIELDS, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
-import { applyDragDeltas } from "./apply-drag-deltas";
+import { applyTrackDiffsToPoints, computeTrackDiffsForDrag } from "./apply-drag-deltas";
 import { computeViolationSet } from "./compute-violation-set";
 import { computeTransitionSegments } from "./compute-transition-segments";
 import { computeFilledInterpGaps } from "./compute-filled-interp-gaps";
@@ -151,18 +152,40 @@ export function computeRowData(
     constraintBoundsByTrack.set(trackId, bounds);
   });
 
-  const virtualFrames = computeFrames(relevantTracks, sourceRow, {
-    draggingKeypointIds: keypointSelection,
-    transformKeypoint: (keypoint, { trackId, source }) =>
-      applyDragDeltas(keypoint, {
+  const previewTrackPoints = new Map<string, Keypoint<RawValue>[]>();
+  const previewPointLookup = new Map<string, Map<string, Keypoint<RawValue>>>();
+
+  if (dragState && selectionState.instanceId === dragState.instanceId) {
+    trackIds.forEach((trackId) => {
+      const track = relevantTracks[trackId];
+      if (!track) return;
+      const snapshotPoints = dragState.trackSnapshots?.[trackId]?.points;
+      const diffs = computeTrackDiffsForDrag({
+        trackId,
+        trackPoints: track.points,
+        snapshotPoints,
         dragState,
         selection: selectionState,
-        trackId,
         bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
-        attributePath: source.attribute ? [source.attribute] : undefined,
-        trackPoints: relevantTracks[trackId]?.points,
-        originalTrackPoints: relevantTracks[trackId]?.points,
-      }),
+        attributePath: attributePathsByTrack.get(trackId),
+      });
+      if (diffs.length === 0) {
+        return;
+      }
+      const basePoints = snapshotPoints ?? track.points;
+      const previewPoints = applyTrackDiffsToPoints(basePoints, diffs);
+      previewTrackPoints.set(trackId, previewPoints);
+      previewPointLookup.set(trackId, new Map(previewPoints.map((point) => [point.id, point])));
+    });
+  }
+
+  const virtualFrames = computeFrames(relevantTracks, sourceRow, {
+    draggingKeypointIds: keypointSelection,
+    transformKeypoint: (keypoint, { trackId }) => {
+      const lookup = previewPointLookup.get(trackId);
+      if (!lookup) return keypoint;
+      return lookup.get(keypoint.id) ?? keypoint;
+    },
   });
 
   const primarySource = sourceRow.data[0];
@@ -188,20 +211,8 @@ export function computeRowData(
           return;
         }
 
-        const previewPoints = track.points.map((point) =>
-          applyDragDeltas(point, {
-            dragState,
-            selection: selectionState,
-            trackId,
-            bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
-            attributePath: attributePathsByTrack.get(trackId),
-            trackPoints: track.points,
-            originalTrackPoints: track.points,
-          }),
-        );
-
-        const changed = previewPoints.some((point, index) => point !== track.points[index]);
-        if (!changed) {
+        const previewPoints = previewTrackPoints.get(trackId);
+        if (!previewPoints) {
           effectiveViolations[trackId] = filteredViolations[trackId] ?? [];
           return;
         }
