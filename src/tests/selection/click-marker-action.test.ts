@@ -204,13 +204,13 @@ describe("Click Marker Action with Complete Store", () => {
 
   describe("Track type coverage", () => {
     it("selects all vector components in a group track marker", () => {
-      const markerId = "px1";
+      const markerId = "px1.x";
       const marker = findMarker(
         store,
         markerId,
         (rowId) =>
           rowId.includes(`${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}`) &&
-          rowId.includes(TRACK_IDS.POSITION),
+          rowId.includes(`${TRACK_IDS.POSITION}.x`),
       );
 
       store.getState().clickMarker(marker.points, marker.rowId, markerId);
@@ -222,13 +222,13 @@ describe("Click Marker Action with Complete Store", () => {
     });
 
     it("handles euler rotation tracks", () => {
-      const markerId = "rx0";
+      const markerId = "rx0.r";
       const marker = findMarker(
         store,
         markerId,
         (rowId) =>
           rowId.includes(`${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_EXCLUSIVE}`) &&
-          rowId.includes(TRACK_IDS.ROTATION),
+          rowId.includes(`${TRACK_IDS.ROTATION}.r`),
       );
 
       store.getState().clickMarker(marker.points, marker.rowId, markerId);

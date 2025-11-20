@@ -1,7 +1,6 @@
-import type { RawValue } from "@semio/utils";
 import { computeLocalStamp } from "../functions/compute-instance-time";
 import type { AnimationData } from "../store-types";
-import type { Keypoint, Track } from "../types";
+import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "../types/data/simple-track";
 import { buildTrackKey } from "../utils/track-key";
 import { insertKeypointWithDeCasteljau } from "../functions/insert-keypoint-with-decasteljau";
 
@@ -20,7 +19,7 @@ export function insertKeypointAtWorldStamp(
   trackId: string,
   worldStamp: number,
   instanceId: string,
-): Keypoint<RawValue> | undefined {
+): SimpleKeypoint | undefined {
   const track = state.tracks?.[trackId];
   if (!track) {
     return undefined;
@@ -36,7 +35,7 @@ export function insertKeypointAtWorldStamp(
     settings: { offset, timescale, active: true },
   });
   if (split) {
-    return split.inserted;
+    return split.inserted as SimpleKeypoint;
   }
   // Convert to local (instance) time for storage in the keypoint.
   const localStamp = computeLocalStamp(worldStamp, timescale, offset);
@@ -55,7 +54,7 @@ export function insertKeypointAtWorldStamp(
     return undefined;
   }
 
-  const newPoint: Keypoint<RawValue> = {
+  const newPoint: SimpleKeypoint = {
     id: crypto.randomUUID(),
     stamp: clamp01(localStamp),
     value,
@@ -109,24 +108,26 @@ function resolveInstanceAndNamespace(
  */
 function resolveInterpolatedOrDefaultValue(
   state: AnimationData,
-  track: Track<RawValue>,
+  track: SimpleTrack,
   trackId: string,
   namespaceId: string | undefined,
   instanceId: string,
   localStamp: number,
-): RawValue | undefined {
+): SimpleRawValue | undefined {
   // Prefer derivedSnapshot interpolator for this specific instance/track.
   if (namespaceId && state.derivedSnapshot?.tracks) {
     const trackKey = buildTrackKey(namespaceId, instanceId, trackId);
     const interp = state.derivedSnapshot.tracks[trackKey]?.canonical?.interpolator;
     if (interp) {
-      const maybe = interp(localStamp);
+      const maybe = interp(localStamp) as SimpleRawValue | undefined;
       if (maybe !== undefined) return maybe;
     }
   }
 
   // Fallback to animatable default if present.
-  const defaultValue = state.animatables?.[track.animatableId]?.default as RawValue | undefined;
+  const defaultValue = state.animatables?.[track.animatableId]?.default as
+    | SimpleRawValue
+    | undefined;
   return defaultValue;
 }
 
@@ -137,7 +138,7 @@ function clamp01(v: number): number {
   return v;
 }
 
-function findInsertIndex(points: Keypoint<RawValue>[], stamp: number): number {
+function findInsertIndex(points: SimpleKeypoint[], stamp: number): number {
   if (!points.length) return 0;
   // Find first point with greater stamp. Insert before that.
   for (let i = 0; i < points.length; i += 1) {

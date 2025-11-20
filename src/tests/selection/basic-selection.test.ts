@@ -74,15 +74,16 @@ describe("Basic Selection Operations", () => {
     });
 
     it("selects all constituent keypoints when clicking a grouped marker", () => {
+      const markerId = "px0.x";
       const marker = findMarker(
         store,
-        "px0",
+        markerId,
         (rowId) =>
           rowId.includes(`${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}`) &&
-          rowId.includes(TRACK_IDS.POSITION),
+          rowId.includes(`${TRACK_IDS.POSITION}.x`),
       );
 
-      store.getState().clickMarker(marker.points, marker.rowId, "px0");
+      store.getState().clickMarker(marker.points, marker.rowId, markerId);
       const { selectionState } = store.getState();
 
       expect(selectionSignatures(selectionState)).toEqual(

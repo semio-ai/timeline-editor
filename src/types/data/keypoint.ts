@@ -1,5 +1,42 @@
 import { RawValue, RawVector2 } from "@semio/utils";
 
+export interface TransitionWorldHandle {
+  deltaStamp: number;
+  deltaValue: number;
+}
+
+export type TransitionEaseKind =
+  | "ease-in-sine"
+  | "ease-out-sine"
+  | "ease-in-out-sine"
+  | "ease-in-cubic"
+  | "ease-out-cubic"
+  | "ease-in-out-cubic"
+  | "ease-in-quint"
+  | "ease-out-quint"
+  | "ease-in-out-quint"
+  | "ease-in-circ"
+  | "ease-out-circ"
+  | "ease-in-out-circ"
+  | "ease-in-quad"
+  | "ease-out-quad"
+  | "ease-in-out-quad"
+  | "ease-in-quart"
+  | "ease-out-quart"
+  | "ease-in-out-quart"
+  | "ease-in-expo"
+  | "ease-out-expo"
+  | "ease-in-out-expo"
+  | "ease-in-back"
+  | "ease-out-back"
+  | "ease-in-out-back"
+  | "linear";
+
+export interface TransitionSpec {
+  handle?: TransitionWorldHandle;
+  ease?: TransitionEaseKind;
+}
+
 /**
  * A single point in time on a track, with a specific value, at a specific time stamp.
  * @property id - a unique identifier for the keypoint.
@@ -34,6 +71,11 @@ import { RawValue, RawVector2 } from "@semio/utils";
  *
  * If not specified, the transitions default to cubic-bezier(0.65, 0, 0.35, 1) (ease-in-out-cubic)
  */
+export interface TransitionVariants {
+  in?: TransitionSpec;
+  out?: TransitionSpec;
+}
+
 export interface Keypoint<DataType extends RawValue> {
   id: string;
   stamp: number;
@@ -42,4 +84,5 @@ export interface Keypoint<DataType extends RawValue> {
     in?: RawVector2;
     out?: RawVector2;
   };
+  transitionsWorld?: TransitionVariants;
 }

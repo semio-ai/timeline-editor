@@ -1,6 +1,7 @@
 import { RawValue, AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import type { Track, Animation, Namespace } from "../types";
+import type { SimpleTrack } from "../types/data/simple-track";
 import { createAnimationStore, type AnimationStore } from "../store";
 import { createEmptySelectionState } from "../functions/selection-state-manager";
 
@@ -29,16 +30,25 @@ export const INSTANCE_IDS = {
 export const TRACK_IDS = {
   // Shared animation tracks (vector3 position)
   POSITION: "position",
+  POSITION_X: "position.x",
+  POSITION_Y: "position.y",
+  POSITION_Z: "position.z",
   SCALE: "scale",
   OPACITY: "opacity",
 
   // Namespace A tracks (euler rotation)
   ROTATION: "rotation",
+  ROTATION_R: "rotation.r",
+  ROTATION_P: "rotation.p",
+  ROTATION_Y: "rotation.y",
   WIDTH: "width",
   HEIGHT: "height",
 
   // Namespace B tracks (vector3 translation)
   TRANSLATION: "translation",
+  TRANSLATION_X: "translation.x",
+  TRANSLATION_Y: "translation.y",
+  TRANSLATION_Z: "translation.z",
   INTENSITY: "intensity",
   BLUR: "blur",
 } as const;
@@ -221,7 +231,7 @@ function createAnimatables(): Record<string, AnimatableValue> {
  * Create tracks with keypoints
  */
 function createTracks(): Record<string, Track<RawValue>> {
-  return {
+  const tracks: Record<string, Track<RawValue>> = {
     // Shared animation tracks - Position (vector3)
     [TRACK_IDS.POSITION]: {
       id: TRACK_IDS.POSITION,
@@ -440,6 +450,8 @@ function createTracks(): Record<string, Track<RawValue>> {
       settings: { color: "#FDCB6E" },
     },
   };
+
+  return tracks;
 }
 
 /**
@@ -628,7 +640,7 @@ export function createTestAnimationStore(options?: {
     // Core data
     animatables,
     animations,
-    tracks,
+    tracks: tracks as unknown as Record<string, SimpleTrack>,
     namespaces,
 
     selectionState: createEmptySelectionState(activeInstance),
@@ -653,9 +665,11 @@ export function createTestAnimationStore(options?: {
  * Create a minimal AnimationStore for simple tests
  */
 export function createMinimalAnimationStore(): AnimationStore {
+  const animatables = createAnimatables();
+  const tracks = createTracks();
   const store = createAnimationStore({
     animatables: {
-      [ANIMATABLE_IDS.SCALE]: createAnimatables()[ANIMATABLE_IDS.SCALE],
+      [ANIMATABLE_IDS.SCALE]: animatables[ANIMATABLE_IDS.SCALE],
     },
     animations: {
       minimal: {
@@ -667,8 +681,8 @@ export function createMinimalAnimationStore(): AnimationStore {
       },
     },
     tracks: {
-      [TRACK_IDS.SCALE]: createTracks()[TRACK_IDS.SCALE],
-    },
+      [TRACK_IDS.SCALE]: tracks[TRACK_IDS.SCALE],
+    } as unknown as Record<string, SimpleTrack>,
     namespaces: {
       default: {
         id: "default",

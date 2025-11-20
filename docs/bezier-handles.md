@@ -473,6 +473,33 @@ The accompanying regression tests simulate dragging a keypoint past its neighbor
 
 > **Implementation note:** Migrating to `transitionsWorld` means every fixture that seeds track data—including `packages/animation/src/test-fixtures/animation-store-factory.ts`—must be updated to populate the new world-space deltas (and, when absent, derive normalized `{x,y}` from them). Treat that file as part of the migration checklist so tests exercise the same structures used in production.
 
+### Detour: phasing out complex track values
+
+Our `RawValue`/`AnimatableValue` model still allows tracks whose `value` is an object (`{x,y,z}`, `{r,p,y}`, etc.) plus an optional `attribute` flag that selects a single component for spline editing. The long-term plan (documented elsewhere) is to replace this with explicit track groups composed of simple numeric tracks. Until we finish that migration, the anchor-relative handle work cannot reliably store world deltas, because a single keypoint may represent multiple attributes with different scales. For example, `position.x` and `position.y` share the same `Keypoint` object today; anchoring a world delta to that object would immediately become incorrect when editing a different attribute.
+
+#### Interim plan
+
+1. **Audit `RawValue` usage** — Inventory every track produced by `animation-store-factory.ts` and the runtime store to determine where composite values remain. Cross-reference the `attribute` flag (used in `SourceRowData`) to understand which UI rows still rely on the legacy representation.
+2. **Introduce simple-track groups** — For each composite animatable (vector3, euler, color, etc.), define explicit tracks for each component (e.g., `position.x`, `position.y`, `position.z`) and ensure the editor reads/writes those tracks directly. This matches the `TrackGroup` design already described in the docs.
+3. **Loader + factory updates** — Update the store bootstrapping code and `animation-store-factory.ts` to emit only simple numeric values per track. For backward compatibility, add a loader that expands legacy tracks (with attribute flags) into grouped numeric tracks during import.
+4. **Deprecate `attribute` usage** — Once the groups exist, stop threading `attributePath` through drag/preview logic. Each keypoint now represents a single numeric value, so world deltas can be stored without ambiguity.
+5. **Deterministic IDs for flattened tracks** — When splitting composite tracks into per-component versions, derive their ids predictably (e.g., `position.x` becomes `${trackId}.x` and keypoint ids follow `${pointId}.x`). This minimizes downstream churn and keeps selection/clipboard logic intact.
+
+> **Current audit (March 2025):** Composite values remain in the store factory (`animation-store-factory.ts`), `SourceRowData.attribute`, `DragState.attributePath`, `compute-row-data` bounds, `compute-frames`, `animatable-editor`, and handle helpers. The next coding step is to flatten those tracks (with deterministic ids) before we land the anchor-relative handle work.
+
+> **Progress (Mar 2025 update):** Track data is now scalar-only (`flattenCompositeTracks` + `normalizeTrackData`), but the TrackList still falls back to `useNames(trackIds)` for group labels. Because scalar children within a group share the same `name`, the UI usually returns the animatable label, yet it still renders “Multiple” the moment the grouped ids diverge. We want to store a single display name per grouped row (derived from the animatable) at import time and keep it immutable afterward—computation during every expand/collapse is what caused the earlier slowdown.
+
+**Next validations once label plumbing lands:**  
+1. Load the Animation Sheet (or Storybook) and confirm vector animatables render group rows named after the animatable (e.g., “Position”), plus exactly three component rows.  
+2. Toggle groups repeatedly to verify collapse/expand remains responsive (labels set once; `update-instanced-track-sources` no longer rebuilds heavy structures).  
+3. Import the legacy fixtures (`createTestAnimationStore`) and ensure they hydrate with the same labels, confirming the canonical animation/animatable data carry the display names.
+
+Only after this detour (simple tracks everywhere) does it make sense to finish the anchor-relative handle implementation. Without it, we risk encoding world deltas against an arbitrary attribute, which would reintroduce the very resizing bugs we are trying to eliminate.
+
+> **TODO note:** Instanced track sources still assume numeric track types during grouping. When string/boolean tracks are added, update the grouping + UI adapters to carry through the correct type.
+
+> **Note on metadata updates (Mar 2025):** Track metadata changes (e.g., group labels) now bump a `tracksRevision` counter so subscriptions recompute instanced sources without mutating snapshots directly. If you see UI state “bounce” after editing labels, ensure the update path increments the revision instead of mutating tracks in place. This will remain important when the snapshot pipeline moves to WASM.
+
 ### Patch-first drag diffs
 
 The current flow mutates Immer drafts directly and only emits `KeypointCommitDelta` (stamp/value) during commit. That representation cannot express handle-only updates, reorderings, or track-level ops, which forces us to re-run neighbor heuristics in multiple layers. As part of the refactor we should introduce an explicit diff structure that can be produced once (from the frozen snapshot) and applied both to previews and to the canonical store.

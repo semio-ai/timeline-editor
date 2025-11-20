@@ -197,14 +197,15 @@ describe("startDrag marker handle offsets", () => {
     const store = createTestAnimationStore({ includeNamespaceB: false });
     store.getState().initAnimationSubscriptions();
 
-    const rowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.POSITION}.x`;
-    const markerId = "px1";
+    const trackId = `${TRACK_IDS.POSITION}.x`;
+    const rowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${trackId}`;
+    const markerId = "px1.x";
 
     store.setState({
       selectionState: {
         instanceId: INSTANCE_IDS.ALPHA_SHARED,
         reference: { rowId, markerId },
-        keypoints: new Map([[TRACK_IDS.POSITION, new Set([markerId])]]),
+        keypoints: new Map([[trackId, new Set([markerId])]]),
       },
     });
 
@@ -216,12 +217,12 @@ describe("startDrag marker handle offsets", () => {
     });
 
     const dragState = store.getState().dragState;
-    const anchorKey = buildHandleOffsetKey(markerId, ["x"]);
+    const anchorKey = buildHandleOffsetKey(markerId);
     expect(dragState?.markerHandleOffsets?.[anchorKey]?.in).toBeDefined();
     expect(dragState?.markerHandleOffsets?.[anchorKey]?.out).toBeDefined();
 
-    const prevKey = buildHandleOffsetKey("px0", ["x"]);
-    const nextKey = buildHandleOffsetKey("px2", ["x"]);
+    const prevKey = buildHandleOffsetKey("px0.x");
+    const nextKey = buildHandleOffsetKey("px2.x");
     expect(dragState?.markerHandleOffsets?.[prevKey]?.out).toBeDefined();
     expect(dragState?.markerHandleOffsets?.[nextKey]?.in).toBeDefined();
   });
@@ -230,14 +231,15 @@ describe("startDrag marker handle offsets", () => {
     const store = createTestAnimationStore({ includeNamespaceB: false });
     store.getState().initAnimationSubscriptions();
 
-    const rowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.POSITION}.x`;
-    const markerId = "px2";
+    const trackId = `${TRACK_IDS.POSITION}.x`;
+    const rowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${trackId}`;
+    const markerId = "px2.x";
 
     store.setState({
       selectionState: {
         instanceId: INSTANCE_IDS.ALPHA_SHARED,
         reference: { rowId, markerId },
-        keypoints: new Map([[TRACK_IDS.POSITION, new Set([markerId])]]),
+        keypoints: new Map([[trackId, new Set([markerId])]]),
       },
     });
 
@@ -257,8 +259,8 @@ describe("startDrag marker handle offsets", () => {
     });
 
     const state = store.getState();
-    const track = state.tracks[TRACK_IDS.POSITION];
-    const rightKey = buildHandleOffsetKey("px3", ["x"]);
+    const track = state.tracks[trackId];
+    const rightKey = buildHandleOffsetKey("px3.x");
     const rightOffsets = state.dragState?.markerHandleOffsets?.[rightKey];
     expect(rightOffsets?.in).toBeDefined();
 
@@ -267,27 +269,27 @@ describe("startDrag marker handle offsets", () => {
         dragState: state.dragState,
         selection: state.selectionState,
         trackId: track.id,
-        attributePath: ["x"],
+        attributePath: undefined,
         trackPoints: track.points,
         originalTrackPoints: track.points,
       }),
     );
 
-    const beforeHandles = captureAnchorHandles(track.points, "px2", ["x"]);
-    const afterHandles = captureAnchorHandles(previewPoints, "px2", ["x"]);
+    const beforeHandles = captureAnchorHandles(track.points, "px2.x");
+    const afterHandles = captureAnchorHandles(previewPoints, "px2.x");
 
-    const previewAnchor = previewPoints.find((point) => point.id === "px2");
+    const previewAnchor = previewPoints.find((point) => point.id === "px2.x");
     const anchorDelta =
-      (previewAnchor?.stamp ?? 0) - track.points.find((p) => p.id === "px2")!.stamp;
+      (previewAnchor?.stamp ?? 0) - track.points.find((p) => p.id === "px2.x")!.stamp;
     expectDeltaStable(beforeHandles.in!, afterHandles.in!, anchorDelta);
     expectDeltaStable(beforeHandles.out!, afterHandles.out!, anchorDelta);
 
     store.getState().commitDrag();
-    const committedTrack = store.getState().tracks[TRACK_IDS.POSITION];
-    const committedHandles = captureAnchorHandles(committedTrack.points, "px2", ["x"]);
-    const committedAnchor = committedTrack.points.find((point) => point.id === "px2");
+    const committedTrack = store.getState().tracks[trackId];
+    const committedHandles = captureAnchorHandles(committedTrack.points, "px2.x");
+    const committedAnchor = committedTrack.points.find((point) => point.id === "px2.x");
     const commitDelta =
-      (committedAnchor?.stamp ?? 0) - track.points.find((p) => p.id === "px2")!.stamp;
+      (committedAnchor?.stamp ?? 0) - track.points.find((p) => p.id === "px2.x")!.stamp;
     expectDeltaStable(beforeHandles.in!, committedHandles.in!, commitDelta);
     expectDeltaStable(beforeHandles.out!, committedHandles.out!, commitDelta);
   });
@@ -296,9 +298,9 @@ describe("startDrag marker handle offsets", () => {
     const store = createTestAnimationStore({ includeNamespaceB: false });
     store.getState().initAnimationSubscriptions();
 
-    const rowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.POSITION}.x`;
-    const markerId = "px2";
-    const trackId = TRACK_IDS.POSITION;
+    const trackId = `${TRACK_IDS.POSITION}.x`;
+    const rowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${trackId}`;
+    const markerId = "px2.x";
 
     store.setState({
       selectionState: {
@@ -309,7 +311,7 @@ describe("startDrag marker handle offsets", () => {
     });
 
     const track = store.getState().tracks[trackId];
-    const beforeHandles = captureAnchorHandles(track.points, "px2", ["x"]);
+    const beforeHandles = captureAnchorHandles(track.points, "px2.x");
 
     store.getState().startDrag({
       axis: "horizontal",
@@ -334,16 +336,17 @@ describe("startDrag marker handle offsets", () => {
         dragState: previewState.dragState,
         selection: previewState.selectionState,
         trackId,
-        attributePath: ["x"],
+        attributePath: undefined,
         trackPoints: previewTrack.points,
         originalTrackPoints: previewTrack.points,
       }),
     );
 
-    const afterHandles = captureAnchorHandles(previewPoints, "px2", ["x"]);
+    const afterHandles = captureAnchorHandles(previewPoints, "px2.x");
 
-    const previewAnchor = previewPoints.find((point) => point.id === "px2");
-    const anchorDelta = (previewAnchor?.stamp ?? 0) - track.points.find((p) => p.id === "px2")!.stamp;
+    const previewAnchor = previewPoints.find((point) => point.id === "px2.x");
+    const anchorDelta =
+      (previewAnchor?.stamp ?? 0) - track.points.find((p) => p.id === "px2.x")!.stamp;
     expectDeltaStable(beforeHandles.in!, afterHandles.in!, anchorDelta);
     expectDeltaStable(beforeHandles.out!, afterHandles.out!, anchorDelta);
   });

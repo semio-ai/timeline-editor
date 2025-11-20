@@ -5,6 +5,7 @@ import { ScrollArea } from "@semio/ui";
 import { AnimatePresence, MotionValue, motion } from "motion/react";
 import { useAnimationStore } from "../hooks";
 import { AnimationData } from "../store-types";
+import type { SourceRow } from "../types";
 import { ControlWidget } from "./control-widget";
 
 export interface TrackListProps {
@@ -41,7 +42,11 @@ export function TrackList({
   const flatRowIds = sourceRowIdLookup.flat;
 
   const sourceRows = useAnimationStore(
-    useShallow((state: AnimationData) => flatRowIds.map((id) => state.instancedTrackSources[id])),
+    useShallow((state: AnimationData) =>
+      flatRowIds
+        .map((id) => state.instancedTrackSources[id])
+        .filter((row): row is SourceRow => Boolean(row)),
+    ),
   );
 
   return (

@@ -89,10 +89,10 @@ describe("Modifier Key Selection", () => {
           markerId: "s1",
         },
         {
-          markerId: "px2",
+          markerId: "px2.x",
           predicate: (rowId: string) =>
             rowId.includes(`${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}`) &&
-            rowId.includes(TRACK_IDS.POSITION),
+            rowId.includes(`${TRACK_IDS.POSITION}.x`),
         },
       ];
 

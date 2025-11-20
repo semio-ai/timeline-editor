@@ -10,6 +10,10 @@ import { Keypoint } from "./keypoint";
 export interface Track<DataType extends RawValue> {
   id: string;
   name: string;
+  /**
+   * Optional label to use when grouping derived component tracks under a parent.
+   */
+  groupName?: string;
   points: Keypoint<DataType>[];
   animatableId: string;
   settings?: {
@@ -21,6 +25,7 @@ export interface Track<DataType extends RawValue> {
 export interface StoredTrack<DataType extends RawValue> {
   id: string;
   name: string;
+  groupName?: string;
   points: Keypoint<DataType>[];
   animatableId: string;
   settings?: {

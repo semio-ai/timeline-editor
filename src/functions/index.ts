@@ -27,3 +27,6 @@ export * from "./get-icon-code";
 export * from "./build-derived-snapshot";
 export * from "./clamp-monotonic-cubic-segment";
 export * from "./build-segment-render-params";
+export * from "./flatten-tracks";
+export * from "./normalize-track-data";
+export * from "./group-derived-tracks";

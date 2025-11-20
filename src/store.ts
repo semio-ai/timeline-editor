@@ -5,7 +5,6 @@ import { produce, enableMapSet } from "immer";
 import { mapValues } from "lodash";
 import { create } from "zustand";
 import {
-  Keypoint,
   Track,
   StoredAnimation,
   SemanticTime,
@@ -18,6 +17,7 @@ import {
   DragStartInput,
   VerticalAxis,
 } from "./types";
+import type { SimpleTrack, SimpleKeypoint } from "./types/data/simple-track";
 import {
   AnimationData,
   AnimationActions,
@@ -47,6 +47,7 @@ import {
   computePreviousTime,
   computeUpdatedSources,
 } from "./functions";
+import { normalizeTrackData } from "./functions/normalize-track-data";
 import {
   updatePlayerLoop,
   updateOverallDuration,
@@ -152,7 +153,18 @@ export const AnimationSlice = (
     setAnimatables: (animatables: Record<string, AnimatableValue>) => {
       set(
         produce((state: AnimationData): void => {
-          state.animatables = animatables;
+          const normalized = normalizeTrackData({
+            animatables,
+            tracks: state.tracks as Record<string, Track<RawValue>>,
+            animations: state.animations,
+          });
+          state.animatables = normalized.animatables ?? animatables;
+          if (normalized.tracks) {
+            state.tracks = normalized.tracks as Record<string, SimpleTrack>;
+          }
+          if (normalized.animations) {
+            state.animations = normalized.animations;
+          }
         }),
       );
     },
@@ -163,11 +175,7 @@ export const AnimationSlice = (
         }),
       );
     },
-    updateKeypoint: (
-      trackId: string,
-      keypoint: Partial<Keypoint<RawValue>>,
-      canMerge?: boolean,
-    ) => {
+    updateKeypoint: (trackId: string, keypoint: Partial<SimpleKeypoint>, canMerge?: boolean) => {
       set(
         produce((state: AnimationData): void => {
           updateKeypoint(state, trackId, keypoint, canMerge);
@@ -175,7 +183,7 @@ export const AnimationSlice = (
       );
     },
     updateKeypoints: (
-      keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[],
+      keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[],
       canMerge?: boolean,
     ) => {
       set(
@@ -241,14 +249,14 @@ export const AnimationSlice = (
         }),
       );
     },
-    createKeypoint: (trackId: string, point: Partial<Keypoint<RawValue>>) => {
+    createKeypoint: (trackId: string, point: Partial<SimpleKeypoint>) => {
       set(
         produce((state: AnimationData): void => {
           createKeypoint(state, trackId, point);
         }),
       );
     },
-    createKeypoints: (keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[]) => {
+    createKeypoints: (keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[]) => {
       set(
         produce((state: AnimationData): void => {
           keypoints.forEach(({ trackId, keypoint }) => {
@@ -257,10 +265,28 @@ export const AnimationSlice = (
         }),
       );
     },
-    updateTrack: (track: Partial<Track<RawValue>>) => {
+    updateTrack: (track: Partial<SimpleTrack>) => {
       set(
         produce((state: AnimationData) => {
           updateTrack(state, track);
+          if (track.id) {
+            state.tracksRevision = (state.tracksRevision ?? 0) + 1;
+          }
+        }),
+      );
+    },
+    updateTrackGroupName: (trackIds: string[], name: string) => {
+      set(
+        produce((state: AnimationData) => {
+          const nextTracks = { ...state.tracks };
+          trackIds.forEach((id) => {
+            const existing = nextTracks[id];
+            if (existing) {
+              nextTracks[id] = { ...existing, groupName: name };
+            }
+          });
+          state.tracks = nextTracks;
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
     },
@@ -280,22 +306,32 @@ export const AnimationSlice = (
         }),
       );
     },
-    createTrack: (track: Partial<Track<RawValue>>, animatableId: string, animationId: string) => {
+    createTrack: (track: Partial<SimpleTrack>, animatableId: string, animationId: string) => {
       set(
         produce((state: AnimationData): void => {
           createTrack(state, animatableId, animationId, track);
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
     },
     setTracks: (tracks: Record<string, Track<RawValue>>) => {
       set(
         produce((state: AnimationData): void => {
-          // Clear existing tracks
-          state.tracks = {};
-          // Add all tracks with their points
-          Object.entries(tracks).forEach(([trackId, track]) => {
-            state.tracks[trackId] = track;
+          const normalized = normalizeTrackData({
+            tracks,
+            animatables: state.animatables,
+            animations: state.animations,
           });
+          if (normalized.animatables) {
+            state.animatables = normalized.animatables;
+          }
+          if (normalized.animations) {
+            state.animations = normalized.animations;
+          }
+          if (normalized.tracks) {
+            state.tracks = normalized.tracks as Record<string, SimpleTrack>;
+            state.tracksRevision = (state.tracksRevision ?? 0) + 1;
+          }
         }),
       );
     },
@@ -303,6 +339,7 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData) => {
           removeTrack(state, animationId, trackId);
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
     },
@@ -570,10 +607,23 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
 useDefaultAnimationStore.getState().initAnimationSubscriptions();
 
 export function createAnimationStore(initial?: Partial<AnimationData>): AnimationStore {
+  const normalized = normalizeTrackData({
+    tracks: initial?.tracks as Record<string, Track<RawValue>> | undefined,
+    animations: initial?.animations,
+    animatables: initial?.animatables,
+  });
+
+  const initialState: Partial<AnimationData> = {
+    ...initial,
+    ...(normalized.animatables ? { animatables: normalized.animatables } : {}),
+    ...(normalized.tracks ? { tracks: normalized.tracks as Record<string, SimpleTrack> } : {}),
+    ...(normalized.animations ? { animations: normalized.animations } : {}),
+  };
+
   const store = create<AnimationData & AnimationActions>()(
     subscribeWithSelector((set, get, api) => ({
       ...AnimationSlice(set, get, api),
-      ...initial,
+      ...initialState,
     })),
   );
   store.getState().initAnimationSubscriptions();

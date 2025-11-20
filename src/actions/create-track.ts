@@ -1,6 +1,6 @@
-import { RawValue } from "@semio/utils";
 import type { AnimationData } from "../store-types";
-import { Track } from "../types";
+import type { SimpleTrack } from "../types/data/simple-track";
+import { COMPLEX_TYPES } from "../constants";
 
 /**
  * Creates a new track and adds it to the specified animation.
@@ -15,11 +15,16 @@ export function createTrack(
   state: AnimationData,
   animatableId: string,
   animationId: string,
-  track: Partial<Track<RawValue>>,
-): Track<RawValue> {
+  track: Partial<SimpleTrack>,
+): SimpleTrack {
   const animatable = state.animatables[animatableId];
+  if (animatable && COMPLEX_TYPES.has(animatable.type)) {
+    throw new Error(
+      `createTrack only supports scalar animatables. Received composite type "${animatable.type}".`,
+    );
+  }
   const id = crypto.randomUUID();
-  const newTrack: Track<RawValue> = {
+  const newTrack: SimpleTrack = {
     id,
     name: animatable.name ?? "New Track",
     points: [],

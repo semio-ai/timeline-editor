@@ -31,9 +31,7 @@ function collectVisibleIds(sources: Source[], acc: VisibleSourceRowIds): void {
       const sourceTrack = source as SourceTrack;
       if (sourceTrack.hidden) return;
 
-      const trackId = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}${
-        sourceTrack.attribute ? `.${sourceTrack.attribute}` : ""
-      }`;
+      const trackId = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}`;
 
       acc.flat.push(trackId);
       acc.spline.push(trackId);

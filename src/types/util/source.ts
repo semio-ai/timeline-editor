@@ -79,6 +79,7 @@ export type Source = SourceGroup | SourceTrack;
 export interface SourceRow {
   id: string;
   expanded?: boolean;
+  name?: string;
   data: SourceRowData[];
 }
 

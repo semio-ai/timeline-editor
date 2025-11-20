@@ -21,7 +21,12 @@ export function NameContextProvider({ children }: { children: ReactNode }) {
 
   const nameMap = useMemo(() => {
     const trackNames = Object.entries(tracks).reduce((acc, [id, track]) => {
-      acc[id] = track.name || animatables[track.animatableId]?.name || "Unknown";
+      acc[id] =
+        track.name ||
+        animatables[track.animatableId]?.name ||
+        track.animatableId ||
+        id ||
+        "Unknown";
       return acc;
     }, DEFAULT_NAME_MAP);
     const animatableNames = Object.entries(animatables).reduce((acc, [id, animatable]) => {

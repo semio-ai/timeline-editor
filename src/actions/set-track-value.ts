@@ -1,5 +1,6 @@
-import { RawValue, usePlayerStore } from "@semio/utils";
+import { usePlayerStore } from "@semio/utils";
 import { type AnimationData } from "../store-types";
+import type { SimpleRawValue } from "../types/data/simple-track";
 import { updateKeypoint } from "./update-keypoint";
 
 /**
@@ -12,7 +13,7 @@ import { updateKeypoint } from "./update-keypoint";
  * @param namespace - The namespace for the control (currently unused).
  * @param value - The new value to set for the control.
  */
-export function setTrackValue(state: AnimationData, trackId: string, value: RawValue) {
+export function setTrackValue(state: AnimationData, trackId: string, value: SimpleRawValue) {
   const timestamp = usePlayerStore.getState().player.stamp;
 
   if (state.tracks[trackId]) {

@@ -15,6 +15,7 @@ import { computeTreeOptionsFromSources } from "../functions/compute-tree-options
 import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
 import { InstancedFrameInfo } from "../types";
 import { AnimationActions, AnimationData } from "../store-types";
+import type { SimpleRawValue } from "../types/data/simple-track";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
 
@@ -151,7 +152,9 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
             const updates = datumAnimatablePairs
               .map(({ datum }) => {
                 const trackKey = `${datum.namespaceId}/${datum.instanceId}/${datum.trackId}`;
-                const value = snapshot?.tracks[trackKey as any]?.canonical.interpolator(stamp);
+                const value = snapshot?.tracks[trackKey as any]?.canonical.interpolator(stamp) as
+                  | SimpleRawValue
+                  | undefined;
                 return {
                   trackId: datum.trackId,
                   keypoint: {
