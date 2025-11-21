@@ -500,6 +500,10 @@ Only after this detour (simple tracks everywhere) does it make sense to finish t
 
 > **Note on metadata updates (Mar 2025):** Track metadata changes (e.g., group labels) now bump a `tracksRevision` counter so subscriptions recompute instanced sources without mutating snapshots directly. If you see UI state “bounce” after editing labels, ensure the update path increments the revision instead of mutating tracks in place. This will remain important when the snapshot pipeline moves to WASM.
 
+> **TS build gotcha (Mar 2025):** World-handle cloning must guard optional handles. `TransitionWorldHandle` requires numeric `deltaStamp`/`deltaValue`; when spreading partial `transitionsWorld`, use a clone helper that only copies handles when both numbers are present to avoid DTS failures.
+
+> **Handle preservation note (Mar 2025):** During drag we now capture world-space handle deltas for every keypoint on the track (not just the anchor and its immediate neighbors) so reordering cannot retarget downstream handles and cause “resizing.” If a handle still moves in world space after a marker crosses another, check that `markerHandleOffsets` contains entries for those downstream points.
+
 ### Patch-first drag diffs
 
 The current flow mutates Immer drafts directly and only emits `KeypointCommitDelta` (stamp/value) during commit. That representation cannot express handle-only updates, reorderings, or track-level ops, which forces us to re-run neighbor heuristics in multiple layers. As part of the refactor we should introduce an explicit diff structure that can be produced once (from the frozen snapshot) and applied both to previews and to the canonical store.
@@ -538,18 +542,40 @@ type TrackDiff =
 
 By emitting explicit diffs we gain determinism (preview == commit), simplify testing/QA, and create a clean interface for future wasm acceleration.
 
-> **Current status (March 2025):** The diff-based plumbing described above has landed, so preview/commit now consume the same serialized changes. However, handles are still stored as normalized `{x,y}` on each keypoint, which means crossing segments still cause handle lengths to be recomputed relative to whichever neighbor happens to be next in order. The residual “handles scale after crossing” bug is therefore expected until we finish the anchor-relative world-handle migration (Implementation Phase 1). Once `transitionsWorld` is authoritative and diffs operate on world deltas, crossings will stop affecting perceived handle length.
+> **Current status (March 2025):** The diff-based plumbing described above has landed, so preview/commit now consume the same serialized changes. However, handles are still stored as normalized `{x,y}` on each keypoint, which means crossing segments still cause handle lengths to be recomputed relative to whichever neighbor happens to be next in order. The residual “handles scale after crossing” bug is therefore expected until we finish the anchor-relative world-handle migration (Implementation Phase 1). Once world-space deltas are authoritative (no normalized storage), crossings will stop affecting perceived handle length.
 
 > **Rendering note:** When a marker crosses a neighbor the handles briefly disappear before reappearing. This looks like a visual delay (either in the renderer or in the diff application order) and should be investigated during the anchor-relative handle refactor. Keep an eye out for any obvious causes while reworking the snapshot/segment logic.
+
+### Anchor-relative world migration plan (no normalized storage)
+
+We redefine the meaning of `transitions` (still a `RawVector2`): `x` is Δstamp relative to the keypoint’s stamp (timeline 0–1), and `y` is Δvalue relative to the keypoint’s value. No separate `transitionsWorld` exists; the normalized neighbor-span meaning is snapshot-only and derived on demand.
+
+1. **Canonical form:** Persist only anchor-relative world deltas in `transitions`. Drop the neighbor-span semantics from canonical data.
+2. **Writers (drag/commit):** Read/write those world deltas directly; preserve them across reorder. Do not store normalized `{x,y}`.
+3. **Snapshot/interpolator:** Derive normalized `{x,y}` from the world deltas and current neighbor stamps/values solely for computation/rendering; never write that back.
+4. **Preview math:** `apply-drag-deltas`, `compute-row-data`, segment solvers operate on world deltas; derive normalized locally and discard.
+5. **Tests/fixtures:** Keep vector2 shape but seed world deltas; add coverage (e.g., opacity `o1→o2`) proving downstream handles stay fixed after crossing.
+6. **Types/cleanup:** Update docs/comments to reflect the new semantics; remove any remaining code that assumes neighbor-span-normalized storage.
+
+Simplifications:
+- Crossing/reorder stops retargeting handles because the deltas are anchored to the marker, not the neighbor span.
+- Less cloning/dual-field juggling (`transitionsWorld` not needed).
+- Interpolator math can convert once per segment from world→normalized using the current span.
+
+New cases to handle:
+- Anti-knot/effective handle logic still needs to clamp in world space before deriving normalized values.
+- Any UI/editor that displayed normalized `x/y` must switch to showing world deltas or a derived view without persisting it.
+- **Consistency note:** Enum-based transitions (easing presets) are typically defined in parametric space; they need a one-time translation into world deltas per segment to flow through the same pipeline as explicit handles. Fully migrating all codepaths (renderers, interpolators, diff builders) to the world form keeps behavior consistent; any parametric/ease lookup should be converted to world deltas at use time, not persisted as normalized.
+- **Keypoint shape update:** `Keypoint.transitions` now allows either a `RawVector2` (interpreted as world deltas: `x = Δstamp` in timeline units relative to the marker, `y = Δvalue` relative to the marker) or a `StandardTransitionType` enum. There is no `transitionsWorld` field. When enums are present, convert them to world deltas at use time before feeding the shared pipeline.
 
 ### Transition model considerations
 
 During the anchor-relative migration we will also reevaluate `Keypoint.transitions`. The goal is to allow every handle to be described either by:
 
-1. **Anchor-relative world deltas** (`Δstamp`, `Δvalue`)—used whenever a handle has been explicitly edited. These keep handles fixed relative to their marker.
+1. **Anchor-relative world deltas** (`Δstamp`, `Δvalue` stored in `transitions` as `x/y`, relative to the marker stamp/value)—used whenever a handle has been explicitly edited. These keep handles fixed relative to their marker, regardless of neighbor span.
 2. **An easing enum** for common cubic-bezier variants (`ease-in/out/linear` across `sine`, `cubic`, `quint`, `circ`, `quad`, `quart`, `expo`, `back`, etc.). Each enum value represents one side of the segment (e.g., `ease-out-cubic` = `{x: 0.35, y: 1}`), so transitions can remain lightweight until a user drags a handle.
 
-On load we default the existing data to the appropriate `ease-*` enum. Once the user drags a handle we “bake” the result into the anchor-relative world delta so it stays fixed thereafter. This lets us keep the simple easing vocabulary while still supporting fully explicit handles, and the enum can be serialized alongside the world delta so downstream consumers know whether a handle is editable or derived.
+On load we default the existing data to the appropriate `ease-*` enum. Once the user drags a handle we “bake” the result into the anchor-relative world delta so it stays fixed thereafter. This lets us keep the simple easing vocabulary while still supporting fully explicit handles, and the enum can be serialized alongside the world delta so downstream consumers know whether a handle is editable or derived. Any normalized view for rendering/interpolation is derived from these world deltas per span and discarded afterward.
 
 -2) Anti-knot “effective length” when markers approach each other
 - When A and B move close enough that the raw handles would produce a backtrack (non-monotonic X) or a knot, shorten only the effective handle lengths used by rendering/interpolation until the curve is valid. Do not write these shortened handles back to canonical transitions.

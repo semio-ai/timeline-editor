@@ -10,6 +10,8 @@ import type {
   Track,
   TrackDiff,
   TrackDiffChanges,
+  TransitionVariants,
+  TransitionSpec,
 } from "../types";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildHandleOffsetKey } from "../utils/handle-offset-key";
@@ -43,6 +45,7 @@ const cloneKeypoint = (point: Keypoint<RawValue>): Keypoint<RawValue> => ({
         out: point.transitions.out ? { ...point.transitions.out } : undefined,
       }
     : undefined,
+  transitionsWorld: cloneTransitionsWorld(point.transitionsWorld),
 });
 
 const arraysEqual = (left: string[], right: string[]): boolean => {
@@ -107,6 +110,28 @@ const applyPrecision = (value: number, valueScale?: ValueScale): number => {
   return Math.round(value * factor) / factor;
 };
 
+const cloneTransitionSpec = (spec?: TransitionSpec): TransitionSpec | undefined => {
+  if (!spec) return undefined;
+  const next: TransitionSpec = {};
+  if (spec.ease) next.ease = spec.ease;
+  if (spec.handle) {
+    next.handle = {
+      deltaStamp: spec.handle.deltaStamp,
+      deltaValue: spec.handle.deltaValue,
+    };
+  }
+  return next;
+};
+
+const cloneTransitionsWorld = (tw?: TransitionVariants): TransitionVariants | undefined => {
+  if (!tw) return undefined;
+  const { in: inSpec, out: outSpec } = tw;
+  return {
+    in: cloneTransitionSpec(inSpec),
+    out: cloneTransitionSpec(outSpec),
+  };
+};
+
 const clampValue = (
   value: number,
   bounds: { min: number; max: number } | undefined,
@@ -158,7 +183,11 @@ export function applyDragDeltas(
   let nextStamp = keypoint.stamp;
   let nextValue = keypoint.value;
 
-  if (isSelected && (dragState.axis === "horizontal" || dragState.axis === "both") && dragState.stampDelta) {
+  if (
+    isSelected &&
+    (dragState.axis === "horizontal" || dragState.axis === "both") &&
+    dragState.stampDelta
+  ) {
     const stampDelta = dragState.stampDelta.snapped ?? dragState.stampDelta.raw;
     if (typeof stampDelta === "number" && Number.isFinite(stampDelta)) {
       nextStamp = clamp01(keypoint.stamp + stampDelta);
@@ -334,6 +363,8 @@ function applyMarkerHandleOffsets(
   const nextTransitions: Keypoint<RawValue>["transitions"] = {
     ...(point.transitions ?? {}),
   };
+  const nextTransitionsWorld: Keypoint<RawValue>["transitionsWorld"] =
+    cloneTransitionsWorld(point.transitionsWorld) ?? {};
   let changed = false;
 
   if (handleOffsets.out) {
@@ -352,6 +383,13 @@ function applyMarkerHandleOffsets(
         endValue: neighborValue,
         fallback: handleOffsets.out.fallback ?? DEFAULT_TRANSITION_OUT,
       });
+      nextTransitionsWorld.out = {
+        ...(nextTransitionsWorld.out ?? {}),
+        handle: {
+          deltaStamp: handleOffsets.out.delta.x,
+          deltaValue: handleOffsets.out.delta.y,
+        },
+      };
       changed = true;
     }
   }
@@ -372,6 +410,13 @@ function applyMarkerHandleOffsets(
         endValue: anchorValue,
         fallback: handleOffsets.in.fallback ?? DEFAULT_TRANSITION_IN,
       });
+      nextTransitionsWorld.in = {
+        ...(nextTransitionsWorld.in ?? {}),
+        handle: {
+          deltaStamp: handleOffsets.in.delta.x,
+          deltaValue: handleOffsets.in.delta.y,
+        },
+      };
       changed = true;
     }
   }
@@ -383,6 +428,7 @@ function applyMarkerHandleOffsets(
   return {
     ...point,
     transitions: nextTransitions,
+    transitionsWorld: nextTransitionsWorld,
   };
 }
 
@@ -490,6 +536,9 @@ const buildUpdateDiff = (
         }
       : undefined;
   }
+  if (!isEqual(original.transitionsWorld, preview.transitionsWorld)) {
+    changes.transitionsWorld = cloneTransitionsWorld(preview.transitionsWorld);
+  }
   if (Object.keys(changes).length === 0) {
     return undefined;
   }
@@ -580,6 +629,9 @@ export function applyTrackDiffsToPoints(
           }
         : undefined;
     }
+    if (diff.changes.transitionsWorld !== undefined) {
+      target.transitionsWorld = cloneTransitionsWorld(diff.changes.transitionsWorld);
+    }
   });
 
   let orderedPoints = Array.from(map.values());
@@ -626,9 +678,15 @@ export function applyTrackDiffsToTrack(track: Track<RawValue>, diffs: TrackDiff[
           }
         : undefined;
     }
+    if (diff.changes.transitionsWorld !== undefined) {
+      target.transitionsWorld = cloneTransitionsWorld(diff.changes.transitionsWorld);
+    }
   });
 
-  const reorderDiff = diffs.find((diff): diff is Extract<TrackDiff, { type: "reorderKeypoints" }> => diff.type === "reorderKeypoints");
+  const reorderDiff = diffs.find(
+    (diff): diff is Extract<TrackDiff, { type: "reorderKeypoints" }> =>
+      diff.type === "reorderKeypoints",
+  );
   if (reorderDiff) {
     const reorderMap = new Map(track.points.map((point) => [point.id, point]));
     const reordered = reorderDiff.order

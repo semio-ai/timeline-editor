@@ -5,6 +5,8 @@ import type {
   DragStartInput,
   DragState,
   DragMarkerHandleOffsets,
+  TransitionSpec,
+  TransitionVariants,
   InstancedFrameInfo,
   Keypoint,
   SelectionState,
@@ -40,6 +42,28 @@ const cloneRawValue = (value: RawValue): RawValue => {
   } catch {
     return value;
   }
+};
+
+const cloneTransitionSpec = (spec?: TransitionSpec): TransitionSpec | undefined => {
+  if (!spec) return undefined;
+  const next: TransitionSpec = {};
+  if (spec.ease) next.ease = spec.ease;
+  if (spec.handle) {
+    const { deltaStamp, deltaValue } = spec.handle;
+    if (typeof deltaStamp === "number" && typeof deltaValue === "number") {
+      next.handle = { deltaStamp, deltaValue };
+    }
+  }
+  return next;
+};
+
+const cloneTransitionsWorld = (tw?: TransitionVariants): TransitionVariants | undefined => {
+  if (!tw) return undefined;
+  const { in: inSpec, out: outSpec } = tw;
+  return {
+    in: cloneTransitionSpec(inSpec),
+    out: cloneTransitionSpec(outSpec),
+  };
 };
 
 const resolveInstanceTransform = (state: AnimationData, instanceId: string): DragStampTransform => {
@@ -191,6 +215,25 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
     dragState.markerHandleOffsets = handleOffsetMap;
   }
 
+  // Capture world-space handle deltas for all keypoints on the track so we can
+  // preserve control point positions even when reordering changes adjacency.
+  track.points.forEach((point) => {
+    const offsets = computeMarkerHandleOffsets({
+      track,
+      keypoint: point,
+      attributePath: anchorAttributePath,
+    });
+    if (!offsets) return;
+    const key = buildHandleOffsetKey(point.id, anchorAttributePath);
+    dragState.markerHandleOffsets = {
+      ...(dragState.markerHandleOffsets ?? {}),
+      [key]: {
+        ...(dragState.markerHandleOffsets?.[key] ?? {}),
+        ...offsets,
+      },
+    };
+  });
+
   const snapshotTrackIds = new Set<string>();
   selection.keypoints.forEach((_ids, trackKey) => snapshotTrackIds.add(trackKey));
   const trackSnapshots: Record<string, { trackId: string; points: Keypoint<RawValue>[] }> = {};
@@ -208,6 +251,7 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
               out: point.transitions.out ? { ...point.transitions.out } : undefined,
             }
           : undefined,
+        transitionsWorld: cloneTransitionsWorld(point.transitionsWorld),
       })),
     };
   });
@@ -243,21 +287,38 @@ function computeMarkerHandleOffsets({
 
   const nextPoint = track.points[pointIndex + 1];
   const outTransition = keypoint.transitions?.out;
-  if (nextPoint && outTransition) {
+  const outHandle = keypoint.transitionsWorld?.out?.handle;
+  if (nextPoint && (outTransition || outHandle)) {
     const neighborValue = extractNumericComponent(nextPoint.value, attributePath);
     if (typeof neighborValue === "number") {
-      const cpWorld = computeWorldCP({
-        startStamp: keypoint.stamp,
-        endStamp: nextPoint.stamp,
-        startValue: anchorValue,
-        endValue: neighborValue,
-        transition: outTransition,
-      });
+      const cpWorld =
+        outHandle &&
+        typeof outHandle.deltaStamp === "number" &&
+        typeof outHandle.deltaValue === "number"
+          ? {
+              x: keypoint.stamp + outHandle.deltaStamp,
+              y: anchorValue + outHandle.deltaValue,
+            }
+          : computeWorldCP({
+              startStamp: keypoint.stamp,
+              endStamp: nextPoint.stamp,
+              startValue: anchorValue,
+              endValue: neighborValue,
+              transition: outTransition ?? { x: 0.5, y: 0.5 },
+            });
+      const deltaX =
+        outHandle && typeof outHandle.deltaStamp === "number"
+          ? outHandle.deltaStamp
+          : cpWorld.x - keypoint.stamp;
+      const deltaY =
+        outHandle && typeof outHandle.deltaValue === "number"
+          ? outHandle.deltaValue
+          : cpWorld.y - anchorValue;
       offsets.out = {
         neighborKeypointId: nextPoint.id,
         delta: {
-          x: cpWorld.x - keypoint.stamp,
-          y: cpWorld.y - anchorValue,
+          x: deltaX,
+          y: deltaY,
         },
         fallback: outTransition,
       };
@@ -266,21 +327,38 @@ function computeMarkerHandleOffsets({
 
   const prevPoint = track.points[pointIndex - 1];
   const inTransition = keypoint.transitions?.in;
-  if (prevPoint && inTransition) {
+  const inHandle = keypoint.transitionsWorld?.in?.handle;
+  if (prevPoint && (inTransition || inHandle)) {
     const neighborValue = extractNumericComponent(prevPoint.value, attributePath);
     if (typeof neighborValue === "number") {
-      const cpWorld = computeWorldCP({
-        startStamp: prevPoint.stamp,
-        endStamp: keypoint.stamp,
-        startValue: neighborValue,
-        endValue: anchorValue,
-        transition: inTransition,
-      });
+      const cpWorld =
+        inHandle &&
+        typeof inHandle.deltaStamp === "number" &&
+        typeof inHandle.deltaValue === "number"
+          ? {
+              x: keypoint.stamp + inHandle.deltaStamp,
+              y: anchorValue + inHandle.deltaValue,
+            }
+          : computeWorldCP({
+              startStamp: prevPoint.stamp,
+              endStamp: keypoint.stamp,
+              startValue: neighborValue,
+              endValue: anchorValue,
+              transition: inTransition ?? { x: 0.5, y: 0.5 },
+            });
+      const deltaX =
+        inHandle && typeof inHandle.deltaStamp === "number"
+          ? inHandle.deltaStamp
+          : cpWorld.x - keypoint.stamp;
+      const deltaY =
+        inHandle && typeof inHandle.deltaValue === "number"
+          ? inHandle.deltaValue
+          : cpWorld.y - anchorValue;
       offsets.in = {
         neighborKeypointId: prevPoint.id,
         delta: {
-          x: cpWorld.x - keypoint.stamp,
-          y: cpWorld.y - anchorValue,
+          x: deltaX,
+          y: deltaY,
         },
         fallback: inTransition,
       };
@@ -299,12 +377,13 @@ function computeWorldCP(params: {
   endStamp: number;
   startValue: number;
   endValue: number;
-  transition: RawVector2;
+  transition?: RawVector2;
 }): { x: number; y: number } {
   const span = params.endStamp - params.startStamp;
   const delta = params.endValue - params.startValue;
+  const transition = params.transition ?? { x: 0.5, y: 0.5 };
   return {
-    x: params.startStamp + span * params.transition.x,
-    y: params.startValue + delta * params.transition.y,
+    x: params.startStamp + span * transition.x,
+    y: params.startValue + delta * transition.y,
   };
 }

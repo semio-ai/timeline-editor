@@ -5,36 +5,16 @@ export interface TransitionWorldHandle {
   deltaValue: number;
 }
 
-export type TransitionEaseKind =
-  | "ease-in-sine"
-  | "ease-out-sine"
-  | "ease-in-out-sine"
-  | "ease-in-cubic"
-  | "ease-out-cubic"
-  | "ease-in-out-cubic"
-  | "ease-in-quint"
-  | "ease-out-quint"
-  | "ease-in-out-quint"
-  | "ease-in-circ"
-  | "ease-out-circ"
-  | "ease-in-out-circ"
-  | "ease-in-quad"
-  | "ease-out-quad"
-  | "ease-in-out-quad"
-  | "ease-in-quart"
-  | "ease-out-quart"
-  | "ease-in-out-quart"
-  | "ease-in-expo"
-  | "ease-out-expo"
-  | "ease-in-out-expo"
-  | "ease-in-back"
-  | "ease-out-back"
-  | "ease-in-out-back"
-  | "linear";
-
-export interface TransitionSpec {
-  handle?: TransitionWorldHandle;
-  ease?: TransitionEaseKind;
+export enum StandardTransitionType {
+  Sine = "sine",
+  Cubic = "cubic",
+  Quint = "quint",
+  Circ = "circ",
+  Quad = "quad",
+  Quart = "quart",
+  Expo = "expo",
+  Back = "back",
+  Linear = "linear",
 }
 
 /**
@@ -71,18 +51,43 @@ export interface TransitionSpec {
  *
  * If not specified, the transitions default to cubic-bezier(0.65, 0, 0.35, 1) (ease-in-out-cubic)
  */
-export interface TransitionVariants {
-  in?: TransitionSpec;
-  out?: TransitionSpec;
-}
 
 export interface Keypoint<DataType extends RawValue> {
   id: string;
   stamp: number;
   value: DataType;
   transitions?: {
-    in?: RawVector2;
-    out?: RawVector2;
+    in?: RawVector2 | StandardTransitionType;
+    out?: RawVector2 | StandardTransitionType;
   };
-  transitionsWorld?: TransitionVariants;
 }
+
+// These positions are based on common easing functions using cubic-bezier curves
+// As is standard, x values are in the range 0-1, representing time progression between pairs of keypoints,
+// unlike the in/out transition control points in the Keypoint interface, which [will] represent relative position in x/y space relative to the keypoint stamp/value.
+export const StandardEaseInParameters: Record<StandardTransitionType, RawVector2> = {
+  [StandardTransitionType.Sine]: { x: 0.63, y: 1 },
+  [StandardTransitionType.Cubic]: { x: 0.35, y: 1 },
+  [StandardTransitionType.Quint]: { x: 0.17, y: 1 },
+  [StandardTransitionType.Circ]: { x: 0.15, y: 1 },
+  [StandardTransitionType.Quad]: { x: 0.55, y: 1 },
+  [StandardTransitionType.Quart]: { x: 0.24, y: 1 },
+  [StandardTransitionType.Expo]: { x: 0.13, y: 1 },
+  [StandardTransitionType.Back]: { x: 0.32, y: 1.6 },
+  [StandardTransitionType.Linear]: { x: 0.75, y: 0.75 },
+};
+
+// These positions are based on common easing functions using cubic-bezier curves
+// As is standard, x values are in the range 0-1, representing time progression between pairs of keypoints,
+// unlike the in/out transition control points in the Keypoint interface, which [will] represent relative position in x/y space relative to the keypoint stamp/value.
+export const StandardEaseOutParameters: Record<StandardTransitionType, RawVector2> = {
+  [StandardTransitionType.Sine]: { x: 0.37, y: 0 },
+  [StandardTransitionType.Cubic]: { x: 0.65, y: 0 },
+  [StandardTransitionType.Quint]: { x: 0.83, y: 0 },
+  [StandardTransitionType.Circ]: { x: 0.85, y: 0 },
+  [StandardTransitionType.Quad]: { x: 0.45, y: 0 },
+  [StandardTransitionType.Quart]: { x: 0.76, y: 0 },
+  [StandardTransitionType.Expo]: { x: 0.87, y: 0 },
+  [StandardTransitionType.Back]: { x: 0.68, y: -0.6 },
+  [StandardTransitionType.Linear]: { x: 0.25, y: 0.25 },
+};

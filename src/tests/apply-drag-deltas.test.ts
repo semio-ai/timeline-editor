@@ -292,6 +292,10 @@ describe("startDrag marker handle offsets", () => {
       (committedAnchor?.stamp ?? 0) - track.points.find((p) => p.id === "px2.x")!.stamp;
     expectDeltaStable(beforeHandles.in!, committedHandles.in!, commitDelta);
     expectDeltaStable(beforeHandles.out!, committedHandles.out!, commitDelta);
+
+    const withTransitionsWorld = committedTrack.points.find((p) => p.id === "px2.x");
+    expect(withTransitionsWorld?.transitionsWorld?.in?.handle).toBeDefined();
+    expect(withTransitionsWorld?.transitionsWorld?.out?.handle).toBeDefined();
   });
 
   it("keeps handles attached while crossing a neighbor in a single drag", () => {
