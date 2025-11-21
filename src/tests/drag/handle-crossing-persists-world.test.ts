@@ -24,12 +24,6 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
     const anchor = track.points.find((p) => p.id === markerId);
     if (!anchor) throw new Error("anchor not found");
 
-    // Seed world handles to simulate prior edits.
-    anchor.transitionsWorld = {
-      out: { handle: { deltaStamp: 0.1, deltaValue: 2 } },
-      in: { handle: { deltaStamp: -0.05, deltaValue: -1 } },
-    };
-
     // Minimal derived snapshot to satisfy startDrag lookup.
     const derived: DerivedSnapshot = {
       tracks: {},

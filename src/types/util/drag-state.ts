@@ -93,7 +93,6 @@ export interface TrackDiffChanges {
   stamp?: number;
   value?: RawValue;
   transitions?: Track<RawValue>["points"][number]["transitions"];
-  transitionsWorld?: Track<RawValue>["points"][number]["transitionsWorld"];
 }
 
 export type TrackDiff =

@@ -49,7 +49,7 @@ export enum StandardTransitionType {
  * D to E: cubic-bezier(0.5, 0, 0.2, 1)
  * E to F: cubic-bezier(0.8, 0, 0.3, 1)
  *
- * If not specified, the transitions default to cubic-bezier(0.65, 0, 0.35, 1) (ease-in-out-cubic)
+ * If not specified, the transitions effectively default to StandardTransitionType.Cubic
  */
 
 export interface Keypoint<DataType extends RawValue> {
@@ -65,6 +65,7 @@ export interface Keypoint<DataType extends RawValue> {
 // These positions are based on common easing functions using cubic-bezier curves
 // As is standard, x values are in the range 0-1, representing time progression between pairs of keypoints,
 // unlike the in/out transition control points in the Keypoint interface, which [will] represent relative position in x/y space relative to the keypoint stamp/value.
+// Reference: https://easings.net/
 export const StandardEaseInParameters: Record<StandardTransitionType, RawVector2> = {
   [StandardTransitionType.Sine]: { x: 0.63, y: 1 },
   [StandardTransitionType.Cubic]: { x: 0.35, y: 1 },
@@ -74,12 +75,13 @@ export const StandardEaseInParameters: Record<StandardTransitionType, RawVector2
   [StandardTransitionType.Quart]: { x: 0.24, y: 1 },
   [StandardTransitionType.Expo]: { x: 0.13, y: 1 },
   [StandardTransitionType.Back]: { x: 0.32, y: 1.6 },
-  [StandardTransitionType.Linear]: { x: 0.75, y: 0.75 },
+  [StandardTransitionType.Linear]: { x: 0.66, y: 0.66 },
 };
 
 // These positions are based on common easing functions using cubic-bezier curves
 // As is standard, x values are in the range 0-1, representing time progression between pairs of keypoints,
 // unlike the in/out transition control points in the Keypoint interface, which [will] represent relative position in x/y space relative to the keypoint stamp/value.
+// Reference: https://easings.net/
 export const StandardEaseOutParameters: Record<StandardTransitionType, RawVector2> = {
   [StandardTransitionType.Sine]: { x: 0.37, y: 0 },
   [StandardTransitionType.Cubic]: { x: 0.65, y: 0 },
@@ -89,5 +91,5 @@ export const StandardEaseOutParameters: Record<StandardTransitionType, RawVector
   [StandardTransitionType.Quart]: { x: 0.76, y: 0 },
   [StandardTransitionType.Expo]: { x: 0.87, y: 0 },
   [StandardTransitionType.Back]: { x: 0.68, y: -0.6 },
-  [StandardTransitionType.Linear]: { x: 0.25, y: 0.25 },
+  [StandardTransitionType.Linear]: { x: 0.66, y: 0.66 },
 };
