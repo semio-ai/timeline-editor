@@ -3,7 +3,7 @@ import {
   applyTrackDiffsToTrack,
   computeTrackDiffsForDrag,
 } from "../../functions/apply-drag-deltas";
-import { cloneTransitions } from "../../utils/clone-transitions";
+import { cloneTransitionValue, cloneTransitions } from "../../utils/clone-transitions";
 
 interface MarkerContext {
   attributePath?: string[];
@@ -51,7 +51,8 @@ export function commitDrag(state: AnimationData): void {
   }
 
   const anchorTrackSelection = selection.keypoints.get(dragState.anchor.trackId);
-  if (!anchorTrackSelection?.has(dragState.anchor.keypointId)) {
+  const isHandleDrag = Boolean(dragState.activeHandleId);
+  if (!anchorTrackSelection?.has(dragState.anchor.keypointId) && !isHandleDrag) {
     state.dragState = undefined;
     return;
   }
@@ -75,6 +76,25 @@ export function commitDrag(state: AnimationData): void {
   const hasHorizontalDelta = typeof stampDelta === "number";
 
   if (!hasHorizontalDelta && !hasVerticalDelta) {
+    const handleDiffs = dragState.handleDiffs;
+    if (handleDiffs && Object.keys(handleDiffs).length > 0) {
+      Object.entries(handleDiffs).forEach(([keypointId, diff]) => {
+        if (!diff.in && !diff.out) return;
+        const track = Object.values(state.tracks).find((t) =>
+          t.points.some((p) => p.id === keypointId),
+        );
+        if (!track) return;
+        const point = track.points.find((p) => p.id === keypointId);
+        if (!point) return;
+        point.transitions = point.transitions ? { ...point.transitions } : {};
+        if (diff.out) {
+          point.transitions.out = cloneTransitionValue(diff.out);
+        }
+        if (diff.in) {
+          point.transitions.in = cloneTransitionValue(diff.in);
+        }
+      });
+    }
     state.dragState = undefined;
     return;
   }
@@ -118,6 +138,26 @@ export function commitDrag(state: AnimationData): void {
     }
 
     applyTrackDiffsToTrack(track, diffs);
+  }
+
+  const handleDiffs = dragState.handleDiffs;
+  if (handleDiffs && Object.keys(handleDiffs).length > 0) {
+    Object.entries(handleDiffs).forEach(([keypointId, diff]) => {
+      if (!diff.in && !diff.out) return;
+      const track = Object.values(state.tracks).find((t) =>
+        t.points.some((p) => p.id === keypointId),
+      );
+      if (!track) return;
+      const point = track.points.find((p) => p.id === keypointId);
+      if (!point) return;
+      point.transitions = point.transitions ? { ...point.transitions } : {};
+      if (diff.out) {
+        point.transitions.out = cloneTransitionValue(diff.out);
+      }
+      if (diff.in) {
+        point.transitions.in = cloneTransitionValue(diff.in);
+      }
+    });
   }
 
   state.dragState = undefined;

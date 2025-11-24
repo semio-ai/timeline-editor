@@ -1,4 +1,4 @@
-import { AnimatableValue, RawValue } from "@semio/utils";
+import { AnimatableValue, RawValue, RawVector2 } from "@semio/utils";
 import { pick, uniq } from "lodash";
 import {
   ComputedRowData,
@@ -14,6 +14,7 @@ import {
   EndpointTransitions,
   TrackRender,
   Keypoint,
+  StandardTransitionType,
 } from "../types";
 import { TYPE_FIELDS, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
@@ -45,6 +46,19 @@ export function computeRowData(
   const trackIds = uniq(sourceRow.data.map((t) => t.trackId));
   const instanceIds = new Set(sourceRow.data.map((t) => t.instanceId));
   const namespaceIds = new Set(sourceRow.data.map((t) => t.namespaceId));
+  const trackContextByTrackId = new Map<
+    string,
+    { animationId: string; namespaceId: string; instanceId: string }
+  >();
+  sourceRow.data.forEach((datum) => {
+    if (!trackContextByTrackId.has(datum.trackId)) {
+      trackContextByTrackId.set(datum.trackId, {
+        animationId: datum.animationId,
+        namespaceId: datum.namespaceId,
+        instanceId: datum.instanceId,
+      });
+    }
+  });
   const attributePathsByTrack = sourceRow.data.reduce<Map<string, string[] | undefined>>(
     (acc, entry) => {
       if (!acc.has(entry.trackId)) {
@@ -152,6 +166,11 @@ export function computeRowData(
     constraintBoundsByTrack.set(trackId, bounds);
   });
 
+  const handleDiffs =
+    dragState && selectionState.instanceId === dragState.instanceId
+      ? dragState.handleDiffs
+      : undefined;
+
   const previewTrackPoints = new Map<string, Keypoint<RawValue>[]>();
   const previewPointLookup = new Map<string, Map<string, Keypoint<RawValue>>>();
 
@@ -169,13 +188,36 @@ export function computeRowData(
         bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
         attributePath: attributePathsByTrack.get(trackId),
       });
-      if (diffs.length === 0) {
-        return;
-      }
       const basePoints = snapshotPoints ?? track.points;
-      const previewPoints = applyTrackDiffsToPoints(basePoints, diffs);
-      previewTrackPoints.set(trackId, previewPoints);
-      previewPointLookup.set(trackId, new Map(previewPoints.map((point) => [point.id, point])));
+      let previewPoints =
+        diffs.length > 0 ? applyTrackDiffsToPoints(basePoints, diffs) : basePoints;
+
+      // Overlay handle diffs so preview consumers (violations, interpolator) see updated transitions
+      if (handleDiffs) {
+        const patched = previewPoints.map((point) => {
+          const diff = handleDiffs[point.id];
+          if (!diff?.in && !diff?.out) {
+            return point;
+          }
+          const nextTransitions = { ...(point.transitions ?? {}) };
+          if (diff.out) {
+            nextTransitions.out = diff.out;
+          }
+          if (diff.in) {
+            nextTransitions.in = diff.in;
+          }
+          return {
+            ...point,
+            transitions: nextTransitions,
+          };
+        });
+        previewPoints = patched;
+      }
+
+      if (previewPoints !== basePoints || handleDiffs) {
+        previewTrackPoints.set(trackId, previewPoints);
+        previewPointLookup.set(trackId, new Map(previewPoints.map((point) => [point.id, point])));
+      }
     });
   }
 
@@ -188,62 +230,106 @@ export function computeRowData(
     },
   });
 
-  const primarySource = sourceRow.data[0];
-  const shouldPreviewViolations =
-    Boolean(dragState) &&
-    selectionState.instanceId === dragState?.instanceId &&
-    primarySource?.instanceId === dragState?.instanceId &&
-    Boolean(context?.animations) &&
-    Boolean(context?.namespaces);
+  const explicitInterpolationSegments = computeTransitionSegments(virtualFrames, trackIds);
+  const interpolations = computeFilledInterpGaps(explicitInterpolationSegments);
+
+  const segmentsWithGeometry = interpolations.map((segment) =>
+    attachSegmentGeometry(segment, sourceRow, boundsForRow, handleDiffs),
+  );
+
+  const hasMatchingInstance =
+    dragState &&
+    selectionState.instanceId === dragState.instanceId &&
+    sourceRow.data.some((entry) => entry.instanceId === dragState.instanceId);
+
+  const shouldPreviewViolations = Boolean(
+    hasMatchingInstance && context?.animations && context?.namespaces,
+  );
 
   const effectiveViolations: Record<string, Violation[]> = { ...filteredViolations };
 
-  if (shouldPreviewViolations && primarySource) {
-    const animation = context?.animations[primarySource.animationId];
-    const namespace = context?.namespaces[primarySource.namespaceId];
-    const instance = namespace?.animationInstances?.[primarySource.instanceId];
+  if (shouldPreviewViolations && context?.animations && context?.namespaces) {
+    // Map effective transitions from derived geometry so violations follow the clamped curve.
+    const effectiveTransitionByPoint = new Map<
+      string,
+      { in?: RawVector2 | StandardTransitionType; out?: RawVector2 | StandardTransitionType }
+    >();
+    segmentsWithGeometry.forEach((segment) => {
+      const startTransitions = segment.geometry?.effective?.transitions;
+      const endTransitions = segment.geometry?.effective?.transitions;
+      if (startTransitions?.startOut) {
+        const existing = effectiveTransitionByPoint.get(segment.start.id) ?? {};
+        effectiveTransitionByPoint.set(segment.start.id, {
+          ...existing,
+          out: startTransitions.startOut,
+        });
+      }
+      if (endTransitions?.endIn) {
+        const existing = effectiveTransitionByPoint.get(segment.end.id) ?? {};
+        effectiveTransitionByPoint.set(segment.end.id, {
+          ...existing,
+          in: endTransitions.endIn,
+        });
+      }
+    });
 
-    if (animation && instance) {
-      trackIds.forEach((trackId) => {
-        const track = relevantTracks[trackId];
-        const animatable = track ? animatables[track.animatableId] : undefined;
-        if (!track || !animatable) {
-          return;
+    trackIds.forEach((trackId) => {
+      const track = relevantTracks[trackId];
+      const contextEntry = trackContextByTrackId.get(trackId);
+      if (!track || !contextEntry) {
+        return;
+      }
+      // Only preview for the active drag instance
+      if (contextEntry.instanceId !== dragState?.instanceId) {
+        return;
+      }
+      const animation = context.animations[contextEntry.animationId];
+      const namespace = context.namespaces[contextEntry.namespaceId];
+      const instance = namespace?.animationInstances?.[contextEntry.instanceId];
+      const animatable = animatables[track.animatableId];
+      if (!animation || !instance || !animatable) {
+        return;
+      }
+
+      const previewPoints = previewTrackPoints.get(trackId) ?? track.points;
+      const pointsWithEffectiveTransitions = previewPoints.map((point) => {
+        const overrides = effectiveTransitionByPoint.get(point.id);
+        if (!overrides?.in && !overrides?.out) {
+          return point;
         }
-
-        const previewPoints = previewTrackPoints.get(trackId);
-        if (!previewPoints) {
-          effectiveViolations[trackId] = filteredViolations[trackId] ?? [];
-          return;
+        const nextTransitions = { ...(point.transitions ?? {}) };
+        if (overrides.out) {
+          nextTransitions.out = overrides.out;
         }
-
-        const previewTrack: Track<RawValue> = {
-          ...track,
-          points: [...previewPoints].sort((a, b) => a.stamp - b.stamp),
+        if (overrides.in) {
+          nextTransitions.in = overrides.in;
+        }
+        return {
+          ...point,
+          transitions: nextTransitions,
         };
-
-        const interpolator = computeTrackInterpolator(previewTrack, instance);
-        const previewViolations = computeTrackViolations(
-          interpolator,
-          animation.duration,
-          trackId,
-          primarySource.namespaceId,
-          primarySource.instanceId,
-          animatable,
-        );
-        effectiveViolations[trackId] = previewViolations;
       });
-    }
+
+      const previewTrack: Track<RawValue> = {
+        ...track,
+        points: [...pointsWithEffectiveTransitions].sort((a, b) => a.stamp - b.stamp),
+      };
+
+      const interpolator = computeTrackInterpolator(previewTrack, instance);
+      const previewViolations = computeTrackViolations(
+        interpolator,
+        animation.duration,
+        trackId,
+        contextEntry.namespaceId,
+        contextEntry.instanceId,
+        animatable,
+      );
+      effectiveViolations[trackId] = previewViolations;
+    });
   }
 
   const violationSet = computeViolationSet(
     shouldPreviewViolations ? effectiveViolations : filteredViolations,
-  );
-
-  const explicitInterpolationSegments = computeTransitionSegments(virtualFrames, trackIds);
-  const interpolations = computeFilledInterpGaps(explicitInterpolationSegments);
-  const segmentsWithGeometry = interpolations.map((segment) =>
-    attachSegmentGeometry(segment, sourceRow, boundsForRow),
   );
 
   const rowComputedData: ComputedRowData = {
@@ -260,10 +346,15 @@ function attachSegmentGeometry(
   segment: InstancePair,
   sourceRow: SourceRow,
   verticalBounds: { min: number; max: number },
+  handleDiffs?: Record<string, { in?: RawVector2; out?: RawVector2 }>,
 ): InstancePair {
   const rawTransitions: EndpointTransitions = {
-    startOut: segment.start.transitions?.out ?? DEFAULT_TRANSITION_OUT,
-    endIn: segment.end.transitions?.in ?? DEFAULT_TRANSITION_IN,
+    startOut:
+      handleDiffs?.[segment.start.id]?.out ??
+      segment.start.transitions?.out ??
+      DEFAULT_TRANSITION_OUT,
+    endIn:
+      handleDiffs?.[segment.end.id]?.in ?? segment.end.transitions?.in ?? DEFAULT_TRANSITION_IN,
   };
 
   const rawRenderParams = buildSegmentRenderParams({

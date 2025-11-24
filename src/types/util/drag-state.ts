@@ -26,6 +26,8 @@ export interface DragAnchorRef {
   trackId: string;
   rowId: string;
   markerId: string;
+  kind?: "marker" | "handle-in" | "handle-out";
+  neighborKeypointId?: string;
   attributePath?: string[];
   valueScale?: ValueScale;
 }
@@ -50,6 +52,21 @@ export interface DragState {
   };
   markerHandleOffsets?: Record<string, DragMarkerHandleOffsets>;
   trackSnapshots?: Record<string, TrackSnapshot>;
+  activeHandleId?: string;
+  handleDiffs?: Record<string, { in?: RawVector2; out?: RawVector2 }>;
+  handleAnchor?: {
+    side: "in" | "out";
+    trackId: string;
+    keypointId: string;
+    neighborKeypointId: string;
+    startStamp: number;
+    endStamp: number;
+    startValue: number;
+    endValue: number;
+    controlPoint: WorldCP;
+    attributePath?: string[];
+    valueScale?: ValueScale;
+  };
 }
 
 export interface DragStartInput {
@@ -70,6 +87,28 @@ export interface DragUpdateInput {
     current: number;
     snapped?: number;
   };
+  normalizedValueDelta?: number;
+  modifiers: DragState["modifiers"];
+}
+
+export interface HandleDragStartInput {
+  origin: PointerPosition;
+  side: "in" | "out";
+  rowId: string;
+  trackId: string;
+  keypointId: string;
+  neighborKeypointId: string;
+  attributePath?: string[];
+  valueScale?: ValueScale;
+  controlPoint: WorldCP;
+  startStamp: number;
+  endStamp: number;
+  startValue: number;
+  endValue: number;
+}
+
+export interface HandleDragUpdateInput {
+  pointer: PointerPosition;
   normalizedValueDelta?: number;
   modifiers: DragState["modifiers"];
 }

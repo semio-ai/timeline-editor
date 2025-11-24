@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { Line, useCursor } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { useMotionValueEvent } from "motion/react";
@@ -10,8 +10,12 @@ import {
   TrackRender,
   VerticalAxisRange,
   WorldCP,
+  HandleDragStartInput,
+  HandleDragUpdateInput,
+  ValueScale,
 } from "../../types";
-import { useInvariantScale } from "../../hooks";
+import { useDragGestures } from "../../hooks/use-drag-gestures";
+import { useAnimationStore, useInvariantScale } from "../../hooks";
 import { ROW_DEPTH_EPSILON } from "../../constants";
 import { computeRenderScale } from "./utils/render-scale";
 import { getLayerZ } from "./utils/layers";
@@ -21,6 +25,26 @@ interface HandlePoint {
   marker: [number, number, number];
 }
 
+interface HandleInteractionProps {
+  side: "in" | "out";
+  rowId: string;
+  trackId: string;
+  keypointId: string;
+  neighborKeypointId: string;
+  controlPoint: WorldCP;
+  startStamp: number;
+  endStamp: number;
+  startValue: number;
+  endValue: number;
+  attributePath?: string[];
+  valueScale?: ValueScale;
+  pixelRangeY: number;
+  startHandleDrag: (input: HandleDragStartInput) => void;
+  updateHandleDrag: (input: HandleDragUpdateInput) => void;
+  commitDrag: () => void;
+  cancelDrag: () => void;
+}
+
 interface BezierHandlesProps {
   segment: InstancePair;
   height: number;
@@ -28,6 +52,9 @@ interface BezierHandlesProps {
   verticalAxisRange?: VerticalAxisRange;
   color: string;
   layer: LayerBand;
+  rowId: string;
+  trackId?: string;
+  attributePath?: string[];
   isHighlighted?: boolean;
   appearance?: number;
   theme?: Theme.Light | Theme.Dark;
@@ -42,6 +69,9 @@ export const BezierHandles = memo(function BezierHandles({
   verticalAxisRange,
   color,
   layer,
+  rowId,
+  trackId,
+  attributePath,
   isHighlighted = false,
   appearance = 1,
   theme = Theme.Light,
@@ -49,6 +79,50 @@ export const BezierHandles = memo(function BezierHandles({
   const invariantScale = useInvariantScale();
   const [scaleValue, setScaleValue] = useState(() => invariantScale.get());
   useMotionValueEvent(invariantScale, "change", setScaleValue);
+  const startHandleDragAction = useAnimationStore((state) => state.startHandleDrag);
+  const updateHandleDragAction = useAnimationStore((state) => state.updateHandleDrag);
+  const commitDragAction = useAnimationStore((state) => state.commitDrag);
+  const cancelDragAction = useAnimationStore((state) => state.cancelDrag);
+
+  const resolvedTrackId = useMemo(
+    () =>
+      trackId ?? segment.start.points[0]?.trackId ?? segment.end.points[0]?.trackId ?? undefined,
+    [segment.end.points, segment.start.points, trackId],
+  );
+
+  const resolvedAttributePath = useMemo(() => {
+    if (attributePath) return attributePath;
+    const startAttr =
+      resolvedTrackId && segment.start.points.find((p) => p.trackId === resolvedTrackId)?.attribute;
+    const endAttr =
+      resolvedTrackId && segment.end.points.find((p) => p.trackId === resolvedTrackId)?.attribute;
+    const fallback =
+      segment.start.points[0]?.attribute ?? segment.end.points[0]?.attribute ?? undefined;
+    const finalAttr = startAttr ?? endAttr ?? fallback;
+    return finalAttr ? [finalAttr] : undefined;
+  }, [attributePath, resolvedTrackId, segment.end.points, segment.start.points]);
+
+  const startValue = useMemo(
+    () => getFrameNumericValue(segment.start, resolvedTrackId),
+    [resolvedTrackId, segment.start],
+  );
+  const endValue = useMemo(
+    () => getFrameNumericValue(segment.end, resolvedTrackId),
+    [resolvedTrackId, segment.end],
+  );
+
+  const resolvedValueScale = useMemo<ValueScale>(
+    () => ({
+      domain: [verticalBounds.min, verticalBounds.max],
+      clamp: true,
+    }),
+    [verticalBounds.max, verticalBounds.min],
+  );
+  const pixelRangeY = useMemo(() => {
+    const visualScale = verticalAxisRange?.visualScale ?? 1;
+    const span = Math.max(height * visualScale, 1);
+    return span;
+  }, [height, verticalAxisRange?.visualScale]);
 
   const geometry = segment.geometry;
   if (!geometry || segment.buffer) {
@@ -97,6 +171,10 @@ export const BezierHandles = memo(function BezierHandles({
   const handles = [
     {
       id: `${segment.start.id}-out`,
+      side: "out" as const,
+      rawWorld: cp1Raw,
+      anchorId: segment.start.id,
+      neighborId: segment.end.id,
       anchor: startAnchor.line,
       raw: mapHandlePoint(cp1Raw, renderScaleY, connectorDepth, rawHandleDepth),
       effective: mapHandlePoint(cp1Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
@@ -105,14 +183,22 @@ export const BezierHandles = memo(function BezierHandles({
     },
     {
       id: `${segment.end.id}-in`,
+      side: "in" as const,
+      rawWorld: cp2Raw,
+      anchorId: segment.end.id,
+      neighborId: segment.start.id,
       anchor: endAnchor.line,
       raw: mapHandlePoint(cp2Raw, renderScaleY, connectorDepth, rawHandleDepth),
       effective: mapHandlePoint(cp2Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
       hasEffectiveGap: hasWorldPointGap(cp2Raw, cp2Effective),
       isFallback: !endHasExplicitIn,
     },
-  ].filter((handle) => handle.raw) as {
+  ].filter((handle) => handle.raw && handle.rawWorld) as {
     id: string;
+    side: "out" | "in";
+    rawWorld: WorldCP;
+    anchorId: string;
+    neighborId: string;
     anchor: [number, number, number];
     raw: HandlePoint;
     effective?: HandlePoint;
@@ -135,6 +221,31 @@ export const BezierHandles = memo(function BezierHandles({
           ? animateHandlePoint(handle.anchor, handle.effective, appearance)
           : undefined;
         const connectorTarget = animatedEffective ?? animatedRaw;
+        const interaction =
+          resolvedTrackId &&
+          typeof startValue === "number" &&
+          typeof endValue === "number" &&
+          handle.rawWorld
+            ? {
+                side: handle.side,
+                rowId,
+                trackId: resolvedTrackId,
+                keypointId: handle.anchorId,
+                neighborKeypointId: handle.neighborId,
+                controlPoint: handle.rawWorld,
+                startStamp: segment.start.stamp,
+                endStamp: segment.end.stamp,
+                startValue,
+                endValue,
+                attributePath: resolvedAttributePath,
+                valueScale: resolvedValueScale,
+                pixelRangeY,
+                startHandleDrag: startHandleDragAction,
+                updateHandleDrag: updateHandleDragAction,
+                commitDrag: commitDragAction,
+                cancelDrag: cancelDragAction,
+              }
+            : undefined;
         return (
           <group key={handle.id}>
             <Line
@@ -161,6 +272,7 @@ export const BezierHandles = memo(function BezierHandles({
               showFallbackOverlay={handle.isFallback}
               backgroundColor={backgroundColor}
               appearance={appearance}
+              interaction={interaction}
             />
           </group>
         );
@@ -203,6 +315,17 @@ function extractFrameValue(frame: InstancedFrameInfo): number | undefined {
   return typeof firstPoint?.value === "number" ? (firstPoint.value as number) : undefined;
 }
 
+function getFrameNumericValue(frame: InstancedFrameInfo, trackId?: string): number | undefined {
+  if (trackId) {
+    const match = frame.points.find((point) => point.trackId === trackId);
+    if (match && typeof match.value === "number") {
+      return match.value as number;
+    }
+  }
+  const fallback = frame.points.find((point) => typeof point.value === "number");
+  return typeof fallback?.value === "number" ? (fallback.value as number) : undefined;
+}
+
 interface HandleDotProps {
   position: [number, number, number];
   color: string;
@@ -211,6 +334,7 @@ interface HandleDotProps {
   showFallbackOverlay?: boolean;
   backgroundColor: string;
   appearance: number;
+  interaction?: HandleInteractionProps;
 }
 
 function HandleDot({
@@ -221,10 +345,62 @@ function HandleDot({
   showFallbackOverlay = false,
   backgroundColor,
   appearance,
+  interaction,
 }: HandleDotProps) {
   const gl = useThree((state) => state.gl);
   const [hovered, setHovered] = useState(false);
-  useCursor(hovered, "pointer", "auto", gl.domElement);
+  const [dragging, setDragging] = useState(false);
+  const dragDidMoveRef = useRef(false);
+  useCursor(Boolean(interaction) && (hovered || dragging), "pointer", "auto", gl.domElement);
+
+  const handleDragHandlers = useDragGestures({
+    disabled: !interaction,
+    dragOptions: {
+      preventScroll: true,
+      filterTaps: true,
+      pointer: { touch: false },
+    },
+    pixelRangeY: interaction?.pixelRangeY ?? 1,
+    onDragStart: (positionX) => {
+      if (!interaction) return;
+      dragDidMoveRef.current = false;
+      setDragging(true);
+      interaction.startHandleDrag({
+        origin: { x: positionX, y: interaction.controlPoint.y },
+        side: interaction.side,
+        rowId: interaction.rowId,
+        trackId: interaction.trackId,
+        keypointId: interaction.keypointId,
+        neighborKeypointId: interaction.neighborKeypointId,
+        attributePath: interaction.attributePath,
+        valueScale: interaction.valueScale,
+        controlPoint: interaction.controlPoint,
+        startStamp: interaction.startStamp,
+        endStamp: interaction.endStamp,
+        startValue: interaction.startValue,
+        endValue: interaction.endValue,
+      });
+    },
+    onDrag2D: ({ x, normalizedValueDelta, alt, shift, meta }) => {
+      if (!interaction) return;
+      dragDidMoveRef.current = true;
+      interaction.updateHandleDrag({
+        pointer: { x, y: 0 },
+        normalizedValueDelta,
+        modifiers: { alt, shift, meta },
+      });
+    },
+    onDragEnd: () => {
+      if (!interaction) return;
+      if (dragDidMoveRef.current) {
+        interaction.commitDrag();
+      } else {
+        interaction.cancelDrag();
+      }
+      dragDidMoveRef.current = false;
+      setDragging(false);
+    },
+  });
 
   const clamped = Math.max(0, Math.min(1, appearance));
   const hoverScale = hovered ? 1.1 : 1;
@@ -244,10 +420,28 @@ function HandleDot({
       onPointerMove={(e) => {
         e.stopPropagation();
         if (!hovered) setHovered(true);
+        handleDragHandlers.onPointerMove?.(e);
       }}
       onPointerOut={(e) => {
         e.stopPropagation();
         setHovered(false);
+      }}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        handleDragHandlers.onPointerDown?.(e);
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        handleDragHandlers.onPointerUp?.(e);
+      }}
+      onPointerCancel={(e) => {
+        e.stopPropagation();
+        handleDragHandlers.onPointerCancel?.(e);
+        if (interaction) {
+          interaction.cancelDrag();
+        }
+        dragDidMoveRef.current = false;
+        setDragging(false);
       }}
     >
       <mesh scale={[radiusX, radiusY, 1]}>

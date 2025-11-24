@@ -16,6 +16,8 @@ import {
   DragUpdateInput,
   DragStartInput,
   VerticalAxis,
+  HandleDragStartInput,
+  HandleDragUpdateInput,
 } from "./types";
 import type { SimpleTrack, SimpleKeypoint } from "./types/data/simple-track";
 import {
@@ -40,7 +42,14 @@ import {
   insertKeypointAtWorldStamp as insertKeyAtWorldStampAction,
 } from "./actions";
 import { clickMarkerAction, clearSelectionAction } from "./actions/click-marker";
-import { startDrag, updateDrag, commitDrag, cancelDrag } from "./actions/drag";
+import {
+  startDrag,
+  updateDrag,
+  commitDrag,
+  cancelDrag,
+  startHandleDrag,
+  updateHandleDrag,
+} from "./actions/drag";
 import {
   computeStoredAnimation,
   computeNextTime,
@@ -574,10 +583,24 @@ export const AnimationSlice = (
         }),
       );
     },
+    startHandleDrag: (input: HandleDragStartInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          startHandleDrag(state, input);
+        }),
+      );
+    },
     updateDrag: (input: DragUpdateInput) => {
       set(
         produce((state: AnimationData): void => {
           updateDrag(state, input);
+        }),
+      );
+    },
+    updateHandleDrag: (input: HandleDragUpdateInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateHandleDrag(state, input);
         }),
       );
     },

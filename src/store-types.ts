@@ -9,6 +9,8 @@ import type {
   DragState,
   DragStartInput,
   DragUpdateInput,
+  HandleDragStartInput,
+  HandleDragUpdateInput,
   SourceRow,
   SourceRowData,
   View,
@@ -402,9 +404,19 @@ export interface AnimationActions {
   startDrag: (input: DragStartInput) => void;
 
   /**
+   * Start a drag operation for a handle (in/out).
+   */
+  startHandleDrag: (input: HandleDragStartInput) => void;
+
+  /**
    * Update the active drag with pointer deltas.
    */
   updateDrag: (input: DragUpdateInput) => void;
+
+  /**
+   * Update the active handle drag with pointer deltas.
+   */
+  updateHandleDrag: (input: HandleDragUpdateInput) => void;
 
   /**
    * Commit the current drag operation, applying all changes.

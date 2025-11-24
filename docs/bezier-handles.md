@@ -11,6 +11,7 @@
 - Enrich `InstancePair` (segment-level) as the single source of truth
   - Add a `geometry?: SegmentGeometry` payload that packages raw/effective transitions, control points, render params per view, and clamp flags under predictable keys.
   - Efficiency: compute once per segment in the derived pass (O(segments)); memory overhead is minimal (a handful of 2D points + metadata).
+  - Geometry here is the derived `SegmentGeometry` blob produced in `compute-row-data.ts#attachSegmentGeometry`, not any Three.js mesh data; it is the container that downstream renderers read.
 
 - Handle gating and defaults
   - Handles render only for segments whose parent row is in `TrackRender.Spline` **and** where at least one endpoint marker on that segment is selected (across all simultaneously selected rows).
@@ -30,8 +31,8 @@
   - Dragging one side updates the complementary side (spanning the two adjacent segments). Solve normalized transitions for both sides from world CPs and stage in preview.
 
 - Preview diffs in drag state
-  - Handle drags write normalized transition overrides into a diff map stored on `dragState`; entries are keyed by keypoint ID with `{ in?, out? }` patches so coupling can update both sides atomically.
-  - The derived builder consumes these diffs (alongside stamp/value deltas) to produce up-to-date raw/effective geometry for both adjacent segments before rendering.
+  - Handle drags write anchor-relative **world-space** deltas (`RawVector2`) into a diff map stored on `dragState`; entries are keyed by keypoint ID with `{ in?, out? }` patches so coupling can update both sides atomically.
+  - The derived builder consumes these diffs (alongside stamp/value deltas) to produce up-to-date raw/effective geometry for both adjacent segments before rendering. `compute-row-data.ts` calls `attachSegmentGeometry`, which overlays `dragState.handleDiffs` onto the canonical transitions before deriving control points and render params.
 
 - UI-only constraints during handle drags
   - Only enforce that a handle cannot cross its own keypoint X:
@@ -701,7 +702,28 @@ Types and derived data proposals
 - Drag start/preview paths capture world-handle offsets for all points and keep canonical transitions untouched when markers move; defaults convert enums to world deltas at use time.
 - Tests updated toward anchor-relative semantics; remaining work is to finish handle drag diffs/coupling UI flow and rerun/expand TS + unit coverage.
 
+**Handle-drag implementation path (next steps)**
+- Components (view-only): `src/components/canvas-sheet/bezier-handles.tsx`
+  - Add pointer/drag scaffolding mirroring `data-point.tsx`: pointer over/move/out, pointer down/cancel, `useCursor` on `gl.domElement`, and stopPropagation so markers/segments retain their hover/drag behavior.
+  - Provide only visual feedback (hover scale/color, cursor, optional ghost connector while dragging); do not compute handle positions here—geometry comes from the derived snapshot.
+- Store/actions: `src/actions/drag/start-drag.ts`, `src/actions/drag/commit-drag.ts`, `src/functions/apply-drag-deltas.ts` (or sibling helper), and `src/store.ts` types
+  - Extend `DragAnchorRef` with `kind: "handle-in" | "handle-out"`, `neighborKeypointId`, and carry `attributePath`, `valueScale`, and `instanceId`.
+  - On handle pointer down, call a new `startHandleDrag` action that seeds `dragState.handleDiffs` (keyed by keypointId with `{ in?, out? }`, storing anchor-relative world deltas) and `activeHandleId`.
+  - `updateDrag` computes preview world CP deltas from the pointer, converts to anchor-relative deltas via a helper (e.g., `solveTransitionFromWorldCP`), and writes those to `handleDiffs` (respect coupling rules; enum/default remain enum until commit).
+  - `commitDrag` promotes the affected handle(s) to explicit transitions in canonical data and clears `handleDiffs`; `cancelDrag` drops the preview.
+- Derived/snapshot path: `src/functions/compute-row-data.ts`, `attachSegmentGeometry`
+  - Merge `handleDiffs` (normalized) into canonical transitions before building `geometry.raw`, then run `clampMonotonicCubicSegment` to update `geometry.effective` so preview/commit visuals stay in sync.
+  - No rendering code changes beyond consuming the existing `geometry`; all math stays in the derived pipeline.
+- Tests/QA: add unit coverage for `solveNormalizedTransitionFromWorldCP`, handle coupling, default → explicit promotion on commit, and preview ≈ commit parity; add a Storybook/QA note for hovering/dragging handles.
+
 ### Phase 4 — QA, Telemetry, and Docs [ Incomplete ]
 - Expand automated coverage for anti-knot clamping, preview vs commit equivalence, and default-to-explicit promotion.
 - Run manual QA checklist (visibility gating, geometry parity, drag behavior, multi-selection) on representative animations.
 - Update README/agent docs with any new shortcuts (reset hotkey) or flows discovered during implementation, and ensure telemetry/logging captures handle drag actions if required.
+
+## Handle drag progress (current)
+
+- `dragState.handleDiffs` stores anchor-relative world deltas (`RawVector2`) keyed by keypoint with `{ in?, out? }`. `start-handle-drag.ts` seeds the anchor/context, `update-handle-drag.ts` solves deltas from world CPs, and `commit-drag.ts` writes them back to keypoints.
+- `compute-row-data.ts#attachSegmentGeometry` overlays any `handleDiffs` onto canonical transitions before deriving raw/effective control points and render params, so previews reflect handle drags without duplicating curve math in components.
+- `bezier-handles.tsx` remains a thin view: it scales the derived geometry, dispatches handle drag actions with row/track/neighbor/value-scale context, and leaves position solving to the store/snapshot pipeline.
+- Upcoming: couple in/out diffs during drag, route gesture-derived modifiers, and extend the preview diff plumbing so handle drags and marker drags compose without redundant clamp passes.
