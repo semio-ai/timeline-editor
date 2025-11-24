@@ -29,7 +29,11 @@ describe("clampMonotonicCubicSegment", () => {
 
     expect(result.flags.cp1Clamped).toBe(true);
     expect(result.cp1Effective?.x).toBeGreaterThanOrEqual(0);
-    expect(result.transitionsEffective.startOut?.x).toBeGreaterThanOrEqual(0);
+    const startOut = result.transitionsEffective.startOut;
+    if (!startOut || typeof startOut === "string") {
+      throw new Error("Expected a clamped vector handle");
+    }
+    expect(startOut.x).toBeGreaterThanOrEqual(0);
   });
 
   it("allows crossing handles when curve remains monotonic", () => {

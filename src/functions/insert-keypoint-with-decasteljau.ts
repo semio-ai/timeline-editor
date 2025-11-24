@@ -33,13 +33,20 @@ import {
   RawVector2,
   RawVector3,
 } from "@semio/utils";
-import type { Keypoint, Track, AnimationInstance } from "../types";
+import {
+  type Keypoint,
+  type Track,
+  type AnimationInstance,
+  StandardTransitionType,
+} from "../types";
 import { computeLocalStamp } from "./compute-instance-time";
+import { resolveTransitionDelta } from "./get-world-control-points";
+import { rawValueAdd, rawValueDiff } from "./raw-value-math";
 
 type KP = Keypoint<RawValue>;
 
-const DEFAULT_OUT = { x: 0.65, y: 0 }; // ease-in-out (out)
-const DEFAULT_IN = { x: 0.35, y: 1 }; // ease-in-out (in)
+const DEFAULT_OUT: StandardTransitionType = StandardTransitionType.Cubic;
+const DEFAULT_IN: StandardTransitionType = StandardTransitionType.Cubic;
 
 /**
  * Insert a keypoint by splitting the segment that contains the given local (instance) stamp.
@@ -93,18 +100,21 @@ export function insertKeypointWithDeCasteljauLocal(
   const aOut = A.transitions?.out ?? DEFAULT_OUT;
   const bIn = B.transitions?.in ?? DEFAULT_IN;
 
+  const aOutDelta = resolveTransitionDelta("out", A.stamp, B.stamp, A.value, B.value, aOut);
+  const bInDelta = resolveTransitionDelta("in", A.stamp, B.stamp, A.value, B.value, bIn);
+
   // Absolute control times
   const p0t = startTime;
-  const p1t = startTime + timeRange * clamp01(aOut.x);
-  const p2t = startTime + timeRange * clamp01(bIn.x);
+  const p1t = startTime + aOutDelta.x;
+  const p2t = endTime + bInDelta.x;
   const p3t = endTime;
   // Relative parameter for split — solve cubic for time to match compute-track-interpolator semantics
   const u = solveForParameterTime(p0t, p1t, p2t, p3t, localStamp);
 
   // Absolute control values (same blend semantics used by compute-track-interpolator)
   const p0v = A.value;
-  const p1v = mixValue(A.value, B.value, clamp01(aOut.y));
-  const p2v = mixValue(A.value, B.value, clamp01(bIn.y));
+  const p1v = rawValueAdd(A.value, aOutDelta.y as RawValue);
+  const p2v = rawValueAdd(B.value, bInDelta.y as RawValue);
   const p3v = B.value;
 
   // De Casteljau for time (scalar)
@@ -125,20 +135,25 @@ export function insertKeypointWithDeCasteljauLocal(
   const sv = mixValue(r0v, r1v, u);
 
   // Normalize control times and values back into transitions for left [A, K] and right [K, B]
-  const leftRange = Math.max(1e-12, st - p0t);
-  const rightRange = Math.max(1e-12, p3t - st);
+  // Left segment [A, K] deltas
+  const aOutDeltaNext = {
+    x: q0t - p0t,
+    y: toDelta(p0v, q0v),
+  };
+  const kInDelta = {
+    x: r0t - st,
+    y: toDelta(sv, r0v),
+  };
 
-  // Left segment [A, K]
-  const aOutX = clamp01((q0t - p0t) / leftRange);
-  const kInX = clamp01((r0t - p0t) / leftRange);
-  const aOutY = clamp01(inferWeightFromValue(p0v, sv, q0v));
-  const kInY = clamp01(inferWeightFromValue(p0v, sv, r0v));
-
-  // Right segment [K, B]
-  const kOutX = clamp01((r1t - st) / rightRange);
-  const bInX = clamp01((q2t - st) / rightRange);
-  const kOutY = clamp01(inferWeightFromValue(sv, p3v, r1v));
-  const bInY = clamp01(inferWeightFromValue(sv, p3v, q2v));
+  // Right segment [K, B] deltas
+  const kOutDelta = {
+    x: r1t - st,
+    y: toDelta(sv, r1v),
+  };
+  const bInDeltaNext = {
+    x: q2t - p3t,
+    y: toDelta(p3v, q2v),
+  };
 
   // Construct K
   const K: KP = {
@@ -146,8 +161,8 @@ export function insertKeypointWithDeCasteljauLocal(
     stamp: clamp01(stExact),
     value: sv,
     transitions: {
-      in: { x: kInX, y: kInY },
-      out: { x: kOutX, y: kOutY },
+      in: kInDelta,
+      out: kOutDelta,
     },
   };
 
@@ -156,14 +171,14 @@ export function insertKeypointWithDeCasteljauLocal(
     ...A,
     transitions: {
       ...(A.transitions ?? {}),
-      out: { x: aOutX, y: aOutY },
+      out: aOutDeltaNext,
     },
   };
   const nextB: KP = {
     ...B,
     transitions: {
       ...(B.transitions ?? {}),
-      in: { x: bInX, y: bInY },
+      in: bInDeltaNext,
     },
   };
 
@@ -203,6 +218,11 @@ function clamp01(v: number): number {
   if (v < 0) return 0;
   if (v > 1) return 1;
   return v;
+}
+
+function toDelta(anchor: RawValue, target: RawValue): number {
+  const delta = rawValueDiff(anchor, target, true);
+  return typeof delta === "number" ? delta : 0;
 }
 
 function lerp(a: number, b: number, t: number): number {
@@ -347,122 +367,4 @@ function mixValue(a: RawValue, b: RawValue, t: number): RawValue {
 
   // Unknown type fallback: nearest endpoint
   return t <= 0 ? a : b;
-}
-
-/**
- * Infer the normalized y-weight for a control value given the segment endpoints.
- * For scalar types: y = (cp - start) / (end - start)
- * For composite types: compute per-component and choose the dominant axis (largest |end-start|).
- * Falls back to 0.5 when segment has zero extent.
- */
-function inferWeightFromValue(start: RawValue, end: RawValue, control: RawValue): number {
-  // numeric
-  if (typeof start === "number" && typeof end === "number" && typeof control === "number") {
-    const denom = end - start;
-    if (!Number.isFinite(denom) || Math.abs(denom) < 1e-12) return 0.5;
-    return (control - start) / denom;
-  }
-
-  // vector3
-  if (instanceOfRawVector3(start) && instanceOfRawVector3(end) && instanceOfRawVector3(control)) {
-    const s = start as RawVector3;
-    const e = end as RawVector3;
-    const c = control as RawVector3;
-    const dx = e.x - s.x;
-    const dy = e.y - s.y;
-    const dz = e.z - s.z;
-    const adx = Math.abs(dx);
-    const ady = Math.abs(dy);
-    const adz = Math.abs(dz);
-    let axis: "x" | "y" | "z";
-    if (adx >= ady && adx >= adz) {
-      axis = "x";
-    } else if (ady >= adx && ady >= adz) {
-      axis = "y";
-    } else {
-      axis = "z";
-    }
-    const denom = e[axis] - s[axis];
-    if (!Number.isFinite(denom) || Math.abs(denom) < 1e-12) return 0.5;
-    return (c[axis] - s[axis]) / denom;
-  }
-
-  // euler
-  if (instanceOfRawEuler(start) && instanceOfRawEuler(end) && instanceOfRawEuler(control)) {
-    const s = start as RawEuler;
-    const e = end as RawEuler;
-    const c = control as RawEuler;
-    const dr = Math.abs(e.r - s.r);
-    const dp = Math.abs(e.p - s.p);
-    const dy = Math.abs(e.y - s.y);
-    let axis: "r" | "p" | "y";
-    if (dr >= dp && dr >= dy) {
-      axis = "r";
-    } else if (dp >= dr && dp >= dy) {
-      axis = "p";
-    } else {
-      axis = "y";
-    }
-    const denom = e[axis] - s[axis];
-    if (!Number.isFinite(denom) || Math.abs(denom) < 1e-12) return 0.5;
-    return (c[axis] - s[axis]) / denom;
-  }
-
-  // vector2
-  if (instanceOfRawVector2(start) && instanceOfRawVector2(end) && instanceOfRawVector2(control)) {
-    const s = start as RawVector2;
-    const e = end as RawVector2;
-    const c = control as RawVector2;
-    const dx = Math.abs(e.x - s.x);
-    const dy = Math.abs(e.y - s.y);
-    const axis = dx >= dy ? ("x" as const) : ("y" as const);
-    const denom = e[axis] - s[axis];
-    if (!Number.isFinite(denom) || Math.abs(denom) < 1e-12) return 0.5;
-    return (c[axis] - s[axis]) / denom;
-  }
-
-  // rgb
-  if (instanceOfRawRGB(start) && instanceOfRawRGB(end) && instanceOfRawRGB(control)) {
-    const s = start as RawRGB;
-    const e = end as RawRGB;
-    const c = control as RawRGB;
-    const dr = Math.abs(e.r - s.r);
-    const dg = Math.abs(e.g - s.g);
-    const db = Math.abs(e.b - s.b);
-    let axis: "r" | "g" | "b";
-    if (dr >= dg && dr >= db) {
-      axis = "r";
-    } else if (dg >= dr && dg >= db) {
-      axis = "g";
-    } else {
-      axis = "b";
-    }
-    const denom = e[axis] - s[axis];
-    if (!Number.isFinite(denom) || Math.abs(denom) < 1e-12) return 0.5;
-    return (c[axis] - s[axis]) / denom;
-  }
-
-  // hsl
-  if (instanceOfRawHSL(start) && instanceOfRawHSL(end) && instanceOfRawHSL(control)) {
-    const s = start as RawHSL;
-    const e = end as RawHSL;
-    const c = control as RawHSL;
-    const dh = Math.abs(e.h - s.h);
-    const ds = Math.abs(e.s - s.s);
-    const dl = Math.abs(e.l - s.l);
-    let axis: "h" | "s" | "l";
-    if (dh >= ds && dh >= dl) {
-      axis = "h";
-    } else if (ds >= dh && ds >= dl) {
-      axis = "s";
-    } else {
-      axis = "l";
-    }
-    const denom = e[axis] - s[axis];
-    if (!Number.isFinite(denom) || Math.abs(denom) < 1e-12) return 0.5;
-    return (c[axis] - s[axis]) / denom;
-  }
-
-  // step-like or unknown: neutral midpoint
-  return 0.5;
 }

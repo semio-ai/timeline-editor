@@ -7,11 +7,10 @@ import {
   instanceOfRawRGB,
   instanceOfRawHSL,
 } from "@semio/utils";
-import type { AnimationInstance, Track } from "../types";
+import type { AnimationInstance, Track, StandardTransitionType } from "../types";
 import { computeWorldStamp } from "./compute-instance-time";
+import { getWorldControlPoints } from "./get-world-control-points";
 
-const DEFAULT_TRANSITION_OUT = { x: 0.65, y: 0 };
-const DEFAULT_TRANSITION_IN = { x: 0.35, y: 1 };
 const PARAMETER_SOLVE_MAX_ITERATIONS = 12;
 const PARAMETER_SOLVE_EPSILON = 1e-4;
 
@@ -19,8 +18,8 @@ interface TrackPoint {
   time: number;
   value: RawValue;
   transitions?: {
-    in?: { x: number; y: number };
-    out?: { x: number; y: number };
+    in?: RawVector2 | StandardTransitionType;
+    out?: RawVector2 | StandardTransitionType;
   };
 }
 
@@ -75,23 +74,23 @@ export function computeTrackInterpolator(
     if (start.time === end.time) {
       continue;
     }
-    const cp1Raw = start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
-    const cp2Raw = end.transitions?.in ?? DEFAULT_TRANSITION_IN;
-
-    const cp1Time = start.time + (end.time - start.time) * clampControlX(cp1Raw.x);
-    const cp2Time = start.time + (end.time - start.time) * clampControlX(cp2Raw.x);
-
-    const cp1Value = computeControlValue(start.value, end.value, cp1Raw.y);
-    const cp2Value = computeControlValue(start.value, end.value, cp2Raw.y);
+    const { start: cp1World, end: cp2World } = getWorldControlPoints(
+      start.time,
+      end.time,
+      start.value,
+      end.value,
+      start.transitions,
+      end.transitions,
+    );
 
     segments.push({
       startTime: start.time,
       endTime: end.time,
-      cp1Time,
-      cp2Time,
+      cp1Time: cp1World.x,
+      cp2Time: cp2World.x,
       startValue: start.value,
-      cp1Value,
-      cp2Value,
+      cp1Value: cp1World.y,
+      cp2Value: cp2World.y,
       endValue: end.value,
     });
   }
@@ -125,68 +124,6 @@ export function computeTrackInterpolator(
     const last = segments[segments.length - 1];
     return last.endValue;
   };
-}
-
-function clampControlX(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  if (value < 0) return 0;
-  if (value > 1) return 1;
-  return value;
-}
-
-function computeControlValue(start: RawValue, end: RawValue, weight: number): RawValue {
-  if (typeof start === "number" && typeof end === "number") {
-    return start + (end - start) * weight;
-  }
-
-  if (instanceOfRawVector3(start) && instanceOfRawVector3(end)) {
-    return {
-      x: start.x + (end.x - start.x) * weight,
-      y: start.y + (end.y - start.y) * weight,
-      z: start.z + (end.z - start.z) * weight,
-    } as RawVector3;
-  }
-
-  if (instanceOfRawEuler(start) && instanceOfRawEuler(end)) {
-    return {
-      r: start.r + (end.r - start.r) * weight,
-      p: start.p + (end.p - start.p) * weight,
-      y: start.y + (end.y - start.y) * weight,
-    } as RawEuler;
-  }
-
-  if (instanceOfRawVector2(start) && instanceOfRawVector2(end)) {
-    return {
-      x: start.x + (end.x - start.x) * weight,
-      y: start.y + (end.y - start.y) * weight,
-    } as RawVector2;
-  }
-
-  if (instanceOfRawRGB(start) && instanceOfRawRGB(end)) {
-    return {
-      r: start.r + (end.r - start.r) * weight,
-      g: start.g + (end.g - start.g) * weight,
-      b: start.b + (end.b - start.b) * weight,
-    } as RawRGB;
-  }
-
-  if (instanceOfRawHSL(start) && instanceOfRawHSL(end)) {
-    return {
-      h: start.h + (end.h - start.h) * weight,
-      s: start.s + (end.s - start.s) * weight,
-      l: start.l + (end.l - start.l) * weight,
-    } as RawHSL;
-  }
-
-  if (typeof start === "string" && typeof end === "string") {
-    return weight < 1 ? start : end;
-  }
-
-  if (typeof start === "boolean" && typeof end === "boolean") {
-    return weight < 1 ? start : end;
-  }
-
-  return weight <= 0 ? start : end;
 }
 
 function evaluateSegmentValue(segment: BezierSegment, parameter: number): RawValue {

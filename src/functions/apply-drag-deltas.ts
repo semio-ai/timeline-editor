@@ -1,4 +1,4 @@
-import type { RawValue, RawVector2 } from "@semio/utils";
+import type { RawValue } from "@semio/utils";
 import isEqual from "lodash/isEqual";
 import type {
   Keypoint,
@@ -6,14 +6,11 @@ import type {
   DragMarkerHandleOffsets,
   SelectionState,
   ValueScale,
-  WorldCP,
   Track,
   TrackDiff,
   TrackDiffChanges,
-  TransitionVariants,
-  TransitionSpec,
 } from "../types";
-import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
+import { cloneTransitionValue } from "../utils/clone-transitions";
 import { buildHandleOffsetKey } from "../utils/handle-offset-key";
 
 interface ApplyDragContext {
@@ -22,8 +19,6 @@ interface ApplyDragContext {
   trackId: string;
   bounds?: { min: number; max: number };
   attributePath?: string[];
-  trackPoints?: Keypoint<RawValue>[];
-  originalTrackPoints?: Keypoint<RawValue>[];
 }
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
@@ -41,11 +36,10 @@ const cloneKeypoint = (point: Keypoint<RawValue>): Keypoint<RawValue> => ({
   value: cloneRawValue(point.value),
   transitions: point.transitions
     ? {
-        in: point.transitions.in ? { ...point.transitions.in } : undefined,
-        out: point.transitions.out ? { ...point.transitions.out } : undefined,
+        in: cloneTransitionValue(point.transitions.in),
+        out: cloneTransitionValue(point.transitions.out),
       }
     : undefined,
-  transitionsWorld: cloneTransitionsWorld(point.transitionsWorld),
 });
 
 const arraysEqual = (left: string[], right: string[]): boolean => {
@@ -110,28 +104,6 @@ const applyPrecision = (value: number, valueScale?: ValueScale): number => {
   return Math.round(value * factor) / factor;
 };
 
-const cloneTransitionSpec = (spec?: TransitionSpec): TransitionSpec | undefined => {
-  if (!spec) return undefined;
-  const next: TransitionSpec = {};
-  if (spec.ease) next.ease = spec.ease;
-  if (spec.handle) {
-    next.handle = {
-      deltaStamp: spec.handle.deltaStamp,
-      deltaValue: spec.handle.deltaValue,
-    };
-  }
-  return next;
-};
-
-const cloneTransitionsWorld = (tw?: TransitionVariants): TransitionVariants | undefined => {
-  if (!tw) return undefined;
-  const { in: inSpec, out: outSpec } = tw;
-  return {
-    in: cloneTransitionSpec(inSpec),
-    out: cloneTransitionSpec(outSpec),
-  };
-};
-
 const clampValue = (
   value: number,
   bounds: { min: number; max: number } | undefined,
@@ -154,15 +126,7 @@ const clampValue = (
 
 export function applyDragDeltas(
   keypoint: Keypoint<RawValue>,
-  {
-    dragState,
-    selection,
-    trackId,
-    bounds,
-    attributePath,
-    trackPoints,
-    originalTrackPoints,
-  }: ApplyDragContext,
+  { dragState, selection, trackId, bounds, attributePath }: ApplyDragContext,
 ): Keypoint<RawValue> {
   if (!dragState || dragState.instanceId !== selection.instanceId) {
     return keypoint;
@@ -234,13 +198,6 @@ export function applyDragDeltas(
 
   nextPoint = applyMarkerHandleOffsets(nextPoint, {
     handleOffsets,
-    attributePath: attributePath ?? dragState.anchor.attributePath,
-    trackPoints,
-    originalTrackPoints,
-    dragState,
-    selection,
-    trackId,
-    bounds,
   });
 
   return nextPoint;
@@ -250,175 +207,34 @@ function applyMarkerHandleOffsets(
   point: Keypoint<RawValue>,
   params: {
     handleOffsets?: DragMarkerHandleOffsets;
-    attributePath?: string[];
-    trackPoints?: Keypoint<RawValue>[];
-    originalTrackPoints?: Keypoint<RawValue>[];
-    dragState?: DragState;
-    selection?: SelectionState;
-    trackId: string;
-    bounds?: { min: number; max: number };
   },
 ): Keypoint<RawValue> {
-  const {
-    handleOffsets,
-    attributePath,
-    trackPoints,
-    originalTrackPoints,
-    dragState,
-    selection,
-    trackId,
-    bounds,
-  } = params;
-  if (!handleOffsets || !trackPoints) {
-    return point;
-  }
-
-  const resolveNeighbor = (
-    neighborId: string | undefined,
-    direction: "out" | "in",
-  ): Keypoint<RawValue> | undefined => {
-    const preferred = findNeighborByDirection(direction);
-    if (!neighborId) {
-      return preferred;
-    }
-
-    const candidate = trackPoints.find((p) => p.id === neighborId);
-    if (!candidate) {
-      return preferred;
-    }
-
-    const previewCandidate = getPreviewKeypoint(candidate);
-    const invalidCandidate =
-      (direction === "out" && previewCandidate.stamp <= point.stamp) ||
-      (direction === "in" && previewCandidate.stamp >= point.stamp);
-    if (invalidCandidate) {
-      return preferred;
-    }
-
-    if (!preferred || preferred.id === previewCandidate.id) {
-      return previewCandidate;
-    }
-
-    const candidateDistance = Math.abs(previewCandidate.stamp - point.stamp);
-    const preferredDistance = Math.abs(preferred.stamp - point.stamp);
-    return preferredDistance < candidateDistance ? preferred : previewCandidate;
-  };
-
-  const getPreviewKeypoint = (candidate: Keypoint<RawValue>): Keypoint<RawValue> => {
-    if (!dragState || !selection || dragState.instanceId !== selection.instanceId) {
-      return candidate;
-    }
-
-    const trackSelection = selection.keypoints.get(trackId);
-    if (!trackSelection?.has(candidate.id)) {
-      return candidate;
-    }
-
-    const original = originalTrackPoints?.find((p) => p.id === candidate.id) ?? candidate;
-
-    const nextStamp = computePreviewStamp(original.stamp, dragState);
-    const nextValue = computePreviewValue(
-      original.value,
-      attributePath ?? dragState.anchor.attributePath,
-      dragState,
-      bounds,
-    );
-
-    if (nextStamp === candidate.stamp && nextValue === candidate.value) {
-      return candidate;
-    }
-
-    return {
-      ...candidate,
-      stamp: nextStamp,
-      value: nextValue,
-    };
-  };
-
-  const findNeighborByDirection = (direction: "out" | "in"): Keypoint<RawValue> | undefined => {
-    let best: Keypoint<RawValue> | undefined;
-    for (const candidate of trackPoints) {
-      if (candidate.id === point.id) continue;
-      const preview = getPreviewKeypoint(candidate);
-      if (direction === "out") {
-        if (preview.stamp <= point.stamp) continue;
-        if (!best || preview.stamp < best.stamp) {
-          best = preview;
-        }
-      } else {
-        if (preview.stamp >= point.stamp) continue;
-        if (!best || preview.stamp > best.stamp) {
-          best = preview;
-        }
-      }
-    }
-    return best;
-  };
-
-  const anchorValue = getNumericValue(point.value, attributePath);
-  if (typeof anchorValue !== "number") {
+  const { handleOffsets } = params;
+  if (!handleOffsets) {
     return point;
   }
 
   const nextTransitions: Keypoint<RawValue>["transitions"] = {
     ...(point.transitions ?? {}),
   };
-  const nextTransitionsWorld: Keypoint<RawValue>["transitionsWorld"] =
-    cloneTransitionsWorld(point.transitionsWorld) ?? {};
+  const currentOut = point.transitions?.out;
+  const currentIn = point.transitions?.in;
   let changed = false;
 
-  if (handleOffsets.out) {
-    const neighbor = resolveNeighbor(handleOffsets.out.neighborKeypointId, "out");
-    const neighborValue = neighbor ? getNumericValue(neighbor.value, attributePath) : undefined;
-    if (neighbor && typeof neighborValue === "number") {
-      const cpWorld: WorldCP = {
-        x: point.stamp + handleOffsets.out.delta.x,
-        y: anchorValue + handleOffsets.out.delta.y,
-      };
-      nextTransitions.out = solveNormalizedFromWorld({
-        cpWorld,
-        startStamp: point.stamp,
-        endStamp: neighbor.stamp,
-        startValue: anchorValue,
-        endValue: neighborValue,
-        fallback: handleOffsets.out.fallback ?? DEFAULT_TRANSITION_OUT,
-      });
-      nextTransitionsWorld.out = {
-        ...(nextTransitionsWorld.out ?? {}),
-        handle: {
-          deltaStamp: handleOffsets.out.delta.x,
-          deltaValue: handleOffsets.out.delta.y,
-        },
-      };
-      changed = true;
-    }
+  if (handleOffsets.out && typeof currentOut === "object") {
+    nextTransitions.out = {
+      x: handleOffsets.out.delta.x,
+      y: handleOffsets.out.delta.y,
+    };
+    changed = true;
   }
 
-  if (handleOffsets.in) {
-    const neighbor = resolveNeighbor(handleOffsets.in.neighborKeypointId, "in");
-    const neighborValue = neighbor ? getNumericValue(neighbor.value, attributePath) : undefined;
-    if (neighbor && typeof neighborValue === "number") {
-      const cpWorld: WorldCP = {
-        x: point.stamp + handleOffsets.in.delta.x,
-        y: anchorValue + handleOffsets.in.delta.y,
-      };
-      nextTransitions.in = solveNormalizedFromWorld({
-        cpWorld,
-        startStamp: neighbor.stamp,
-        endStamp: point.stamp,
-        startValue: neighborValue,
-        endValue: anchorValue,
-        fallback: handleOffsets.in.fallback ?? DEFAULT_TRANSITION_IN,
-      });
-      nextTransitionsWorld.in = {
-        ...(nextTransitionsWorld.in ?? {}),
-        handle: {
-          deltaStamp: handleOffsets.in.delta.x,
-          deltaValue: handleOffsets.in.delta.y,
-        },
-      };
-      changed = true;
-    }
+  if (handleOffsets.in && typeof currentIn === "object") {
+    nextTransitions.in = {
+      x: handleOffsets.in.delta.x,
+      y: handleOffsets.in.delta.y,
+    };
+    changed = true;
   }
 
   if (!changed) {
@@ -428,82 +244,7 @@ function applyMarkerHandleOffsets(
   return {
     ...point,
     transitions: nextTransitions,
-    transitionsWorld: nextTransitionsWorld,
   };
-}
-
-function computePreviewStamp(stamp: number, dragState?: DragState): number {
-  const stampDelta = dragState?.stampDelta;
-  const axis = dragState?.axis;
-  if (!stampDelta || (axis !== "horizontal" && axis !== "both")) {
-    return stamp;
-  }
-
-  const delta = stampDelta.snapped ?? stampDelta.raw;
-  if (typeof delta !== "number" || !Number.isFinite(delta)) {
-    return stamp;
-  }
-
-  return clamp01(stamp + delta);
-}
-
-function computePreviewValue(
-  value: RawValue,
-  attributePath: string[] | undefined,
-  dragState?: DragState,
-  bounds?: { min: number; max: number },
-): RawValue {
-  if (
-    !dragState ||
-    typeof dragState.normalizedValueDelta !== "number" ||
-    (dragState.axis !== "vertical" && dragState.axis !== "both")
-  ) {
-    return value;
-  }
-
-  const path = attributePath ?? dragState.anchor.attributePath;
-  const current = getNumericValue(value, path);
-  if (typeof current !== "number") {
-    return value;
-  }
-
-  const domainRange = dragState.anchor.valueScale?.domain
-    ? dragState.anchor.valueScale.domain[1] - dragState.anchor.valueScale.domain[0]
-    : undefined;
-  let verticalRange: number | undefined;
-  if (typeof domainRange === "number") {
-    verticalRange = domainRange;
-  } else if (bounds) {
-    verticalRange = bounds.max - bounds.min;
-  }
-
-  const appliedRange =
-    typeof verticalRange === "number" && Number.isFinite(verticalRange) && verticalRange !== 0
-      ? verticalRange
-      : 1;
-
-  let candidate = current + dragState.normalizedValueDelta * appliedRange;
-  candidate = clampValue(candidate, bounds, dragState.anchor.valueScale);
-  candidate = applyPrecision(candidate, dragState.anchor.valueScale);
-
-  return setNumericValue(value, candidate, path);
-}
-
-function solveNormalizedFromWorld(params: {
-  cpWorld: WorldCP;
-  startStamp: number;
-  endStamp: number;
-  startValue: number;
-  endValue: number;
-  fallback: RawVector2;
-}): RawVector2 {
-  const span = params.endStamp - params.startStamp;
-  const delta = params.endValue - params.startValue;
-  const normalizedX =
-    span === 0 ? params.fallback.x : (params.cpWorld.x - params.startStamp) / span;
-  const normalizedY =
-    delta === 0 ? params.fallback.y : (params.cpWorld.y - params.startValue) / delta;
-  return { x: normalizedX, y: normalizedY };
 }
 
 interface BuildTrackDiffsParams {
@@ -531,13 +272,10 @@ const buildUpdateDiff = (
   if (!isEqual(original.transitions, preview.transitions)) {
     changes.transitions = preview.transitions
       ? {
-          in: preview.transitions.in ? { ...preview.transitions.in } : undefined,
-          out: preview.transitions.out ? { ...preview.transitions.out } : undefined,
+          in: cloneTransitionValue(preview.transitions.in),
+          out: cloneTransitionValue(preview.transitions.out),
         }
       : undefined;
-  }
-  if (!isEqual(original.transitionsWorld, preview.transitionsWorld)) {
-    changes.transitionsWorld = cloneTransitionsWorld(preview.transitionsWorld);
   }
   if (Object.keys(changes).length === 0) {
     return undefined;
@@ -568,8 +306,6 @@ export function computeTrackDiffsForDrag(params: BuildTrackDiffsParams): TrackDi
       trackId,
       bounds: params.bounds,
       attributePath: params.attributePath,
-      trackPoints: sourcePoints,
-      originalTrackPoints: sourcePoints,
     }),
   );
 
@@ -588,8 +324,8 @@ export function computeTrackDiffsForDrag(params: BuildTrackDiffsParams): TrackDi
     const sortedPreviewIds = [...previewPoints]
       .sort((a, b) => a.stamp - b.stamp)
       .map((point) => point.id);
-    const referenceOrder = params.trackPoints.map((point) => point.id);
-    if (!arraysEqual(sortedPreviewIds, referenceOrder)) {
+    const referenceOrder = params.trackPoints?.map((point) => point.id);
+    if (referenceOrder && !arraysEqual(sortedPreviewIds, referenceOrder)) {
       diffs.push({ type: "reorderKeypoints", trackId, order: sortedPreviewIds });
     }
   }
@@ -624,13 +360,10 @@ export function applyTrackDiffsToPoints(
     if (diff.changes.transitions !== undefined) {
       target.transitions = diff.changes.transitions
         ? {
-            in: diff.changes.transitions.in ? { ...diff.changes.transitions.in } : undefined,
-            out: diff.changes.transitions.out ? { ...diff.changes.transitions.out } : undefined,
+            in: cloneTransitionValue(diff.changes.transitions.in),
+            out: cloneTransitionValue(diff.changes.transitions.out),
           }
         : undefined;
-    }
-    if (diff.changes.transitionsWorld !== undefined) {
-      target.transitionsWorld = cloneTransitionsWorld(diff.changes.transitionsWorld);
     }
   });
 
@@ -673,13 +406,10 @@ export function applyTrackDiffsToTrack(track: Track<RawValue>, diffs: TrackDiff[
     if (diff.changes.transitions !== undefined) {
       target.transitions = diff.changes.transitions
         ? {
-            in: diff.changes.transitions.in ? { ...diff.changes.transitions.in } : undefined,
-            out: diff.changes.transitions.out ? { ...diff.changes.transitions.out } : undefined,
+            in: cloneTransitionValue(diff.changes.transitions.in),
+            out: cloneTransitionValue(diff.changes.transitions.out),
           }
         : undefined;
-    }
-    if (diff.changes.transitionsWorld !== undefined) {
-      target.transitionsWorld = cloneTransitionsWorld(diff.changes.transitionsWorld);
     }
   });
 

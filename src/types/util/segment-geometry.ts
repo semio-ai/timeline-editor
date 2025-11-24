@@ -1,5 +1,6 @@
 import type { RawVector2 } from "@semio/utils";
 import type { TransitionParams } from "../../functions/compute-transition-params";
+import type { StandardTransitionType } from "../data/keypoint";
 import type { TrackRender } from "./track-render";
 
 export interface WorldCP {
@@ -8,8 +9,8 @@ export interface WorldCP {
 }
 
 export interface EndpointTransitions {
-  startOut?: RawVector2;
-  endIn?: RawVector2;
+  startOut?: RawVector2 | StandardTransitionType;
+  endIn?: RawVector2 | StandardTransitionType;
 }
 
 export interface ClampFlags {

@@ -1,6 +1,7 @@
 import { RawColor, RawEuler, RawVector3, RawVector2 } from "@semio/utils";
 import { type InstancedFrameInfo, SourceRow, TrackRender, EndpointTransitions } from "../types";
 import { COMPLEX_TYPES, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
+import { getWorldControlPoints } from "./get-world-control-points";
 
 type ComplexRawValue = RawVector3 | RawVector2 | RawEuler | RawColor;
 type ComplexField = keyof ComplexRawValue;
@@ -50,7 +51,38 @@ export function computeTransitionParams(
   // Note, the start transition out is the beginning of the transition segment.
   // The end transition in is the end of the transition segment.
 
-  if (trackRender === TrackRender.Transition) {
+  const transitions: EndpointTransitions = {
+    startOut: options?.transitions?.startOut ?? start.transitions?.out ?? DEFAULT_TRANSITION_OUT,
+    endIn: options?.transitions?.endIn ?? end.transitions?.in ?? DEFAULT_TRANSITION_IN,
+  };
+
+  if (trackRender === TrackRender.Transition || trackRender === TrackRender.Key) {
+    let startValue: number | undefined;
+    let endValue: number | undefined;
+
+    // Safely extract start value
+    if (start.points && start.points.length > 0) {
+      if (source.data[0].type === "number") {
+        startValue = start.points[0].value as number;
+      } else if (COMPLEX_TYPES.has(source.data[0].type) && source.data[0].attribute) {
+        startValue =
+          (start.points[0].value as ComplexRawValue | undefined)?.[
+            source.data[0].attribute as ComplexField
+          ] ?? undefined;
+      }
+    }
+
+    if (trackRender === TrackRender.Key) {
+      // We handle this case by just returning the parameters for the TrackRender.Key visual.
+      return {
+        start: { x: start.stamp, y: 0.5 },
+        end: { x: end.stamp, y: 0.5 },
+        cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: 0.5 },
+        cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: 0.5 },
+      };
+    }
+
+    // Transition view (normalized y)
     if (isEmpty) {
       const startHasData = (start.points?.length ?? 0) > 0;
       const endHasData = (end.points?.length ?? 0) > 0;
@@ -67,18 +99,38 @@ export function computeTransitionParams(
         cp2: { x: end.stamp, y: yFlat },
       };
     }
-    const cp1Raw =
-      options?.transitions?.startOut ?? start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
-    const cp2Raw = options?.transitions?.endIn ?? end.transitions?.in ?? DEFAULT_TRANSITION_IN;
-    const cp1 = { x: start.stamp + (end.stamp - start.stamp) * cp1Raw.x, y: cp1Raw.y };
-    const cp2 = { x: start.stamp + (end.stamp - start.stamp) * cp2Raw.x, y: cp2Raw.y };
+
+    if (startValue === undefined || endValue === undefined) {
+      return {
+        start: { x: start.stamp, y: 0.5 },
+        end: { x: end.stamp, y: 0.5 },
+        cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: 0.5 },
+        cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: 0.5 },
+      };
+    }
+
+    const { start: cp1World, end: cp2World } = getWorldControlPoints(
+      start.stamp,
+      end.stamp,
+      startValue,
+      endValue,
+      { out: transitions.startOut },
+      { in: transitions.endIn },
+    );
+
+    const delta = endValue - startValue;
+
+    const cp1NormalizedY = delta === 0 ? 0 : (cp1World.y - startValue) / delta;
+    const cp2NormalizedY = delta === 0 ? 1 : (cp2World.y - startValue) / delta;
+
     return {
       start: { x: start.stamp, y: 0 },
       end: { x: end.stamp, y: 1 },
-      cp1,
-      cp2,
+      cp1: { x: cp1World.x, y: cp1NormalizedY },
+      cp2: { x: cp2World.x, y: cp2NormalizedY },
     };
   }
+
   if (
     source.data.length === 1 &&
     (trackRender === TrackRender.Preview || trackRender === TrackRender.Spline)
@@ -120,7 +172,6 @@ export function computeTransitionParams(
       }
     }
     if (startValue === undefined || endValue === undefined) {
-      // We handle this case by just returning the parameters for the TrackRender.Key visual.
       return {
         start: { x: start.stamp, y: 0.5 },
         end: { x: end.stamp, y: 0.5 },
@@ -129,26 +180,23 @@ export function computeTransitionParams(
       };
     }
 
-    const cp1Raw =
-      options?.transitions?.startOut ?? start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
-    const cp2Raw = options?.transitions?.endIn ?? end.transitions?.in ?? DEFAULT_TRANSITION_IN;
+    const { start: cp1World, end: cp2World } = getWorldControlPoints(
+      start.stamp,
+      end.stamp,
+      startValue,
+      endValue,
+      { out: transitions.startOut },
+      { in: transitions.endIn },
+    );
 
-    const delta = endValue - startValue || 0;
-    const cp1 = {
-      x: start.stamp + (end.stamp - start.stamp) * cp1Raw.x,
-      y: startValue + delta * cp1Raw.y,
-    };
-    const cp2 = {
-      x: start.stamp + (end.stamp - start.stamp) * cp2Raw.x,
-      y: startValue + delta * cp2Raw.y,
-    };
     return {
       start: { x: start.stamp, y: startValue },
       end: { x: end.stamp, y: endValue },
-      cp1,
-      cp2,
+      cp1: { x: cp1World.x, y: cp1World.y as number },
+      cp2: { x: cp2World.x, y: cp2World.y as number },
     };
   }
+
   // Default: We handle this case by just returning the parameters for the TrackRender.Key visual.
   return {
     start: { x: start.stamp, y: 0.5 },

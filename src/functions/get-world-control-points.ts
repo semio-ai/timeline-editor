@@ -39,52 +39,32 @@ export function getWorldControlPoints<T extends RawValue>(
   startTransitions: Keypoint<T>["transitions"],
   endTransitions: Keypoint<T>["transitions"],
 ): { start: ComplexPosition<T>; end: ComplexPosition<T> } {
-  const defaultStartTransitionOut =
-    startTransitions?.out && typeof startTransitions?.out !== "object"
-      ? startTransitions.out
-      : StandardTransitionType.Cubic;
-  const defaultEndTransitionIn =
-    endTransitions?.in && typeof endTransitions?.in !== "object"
-      ? endTransitions.in
-      : StandardTransitionType.Cubic;
+  const startDelta = resolveTransitionDelta(
+    "out",
+    startStamp,
+    endStamp,
+    startValue,
+    endValue,
+    startTransitions?.out,
+  );
+  const endDelta = resolveTransitionDelta(
+    "in",
+    startStamp,
+    endStamp,
+    startValue,
+    endValue,
+    endTransitions?.in,
+  );
 
-  const isExplicitOut = startTransitions?.out && typeof startTransitions?.out === "object";
-  const isExplicitIn = endTransitions?.in && typeof endTransitions?.in === "object";
+  const startCP = {
+    x: startStamp + startDelta.x,
+    y: rawValueAdd(startValue, startDelta.y) as T,
+  };
 
-  let startCP: { x: number; y: T };
-  let endCP: { x: number; y: T };
-
-  if (isExplicitOut) {
-    startCP = {
-      x: startStamp + (startTransitions!.out as RawVector2)!.x,
-      y: rawValueAdd(startValue, (startTransitions!.out as RawVector2)!.y) as T,
-    };
-  } else {
-    startCP = getWorldFromParametric(
-      "start",
-      defaultStartTransitionOut,
-      startStamp,
-      endStamp,
-      startValue,
-      endValue,
-    );
-  }
-
-  if (isExplicitIn) {
-    endCP = {
-      x: endStamp + (endTransitions!.in as RawVector2)!.x,
-      y: rawValueAdd(startValue, (endTransitions!.in as RawVector2)!.y) as T,
-    };
-  } else {
-    endCP = getWorldFromParametric(
-      "end",
-      defaultEndTransitionIn,
-      startStamp,
-      endStamp,
-      startValue,
-      endValue,
-    );
-  }
+  const endCP = {
+    x: endStamp + endDelta.x,
+    y: rawValueAdd(endValue, endDelta.y) as T,
+  };
 
   return {
     start: startCP,
@@ -92,23 +72,41 @@ export function getWorldControlPoints<T extends RawValue>(
   };
 }
 
-function getWorldFromParametric<T extends RawValue>(
-  side: "start" | "end",
-  easing: StandardTransitionType,
+/**
+ * Converts a transition (explicit world delta or easing enum) into an anchor-relative world delta.
+ * For outbound handles the anchor is the start keypoint; for inbound handles the anchor is the end keypoint.
+ */
+export function resolveTransitionDelta<T extends RawValue>(
+  side: "out" | "in",
   startStamp: number,
   endStamp: number,
   startValue: T,
   endValue: T,
-): ComplexPosition<T> {
+  transition?: RawVector2 | StandardTransitionType,
+): RawVector2 {
+  const easing =
+    transition && typeof transition !== "object" ? transition : StandardTransitionType.Cubic;
+
+  if (transition && typeof transition === "object") {
+    return transition;
+  }
+
   const easingParams =
-    side === "start" ? StandardEaseOutParameters[easing] : StandardEaseInParameters[easing];
+    side === "out" ? StandardEaseOutParameters[easing] : StandardEaseInParameters[easing];
   const xParam = easingParams.x;
   const yParam = easingParams.y;
 
-  const x = xParam * (endStamp - startStamp) + startStamp;
+  const span = endStamp - startStamp;
   const valueDiff = rawValueDiff(endValue, startValue);
-  const yValueDiff = rawValueMultiplyScalar(valueDiff, yParam);
-  const y = rawValueAdd(startValue, yValueDiff);
 
-  return { x, y: y as T };
+  const xWorld = xParam * span + startStamp;
+  const yWorld = rawValueAdd(startValue, rawValueMultiplyScalar(valueDiff, yParam)) as T;
+
+  const anchorX = side === "out" ? startStamp : endStamp;
+  const anchorY = side === "out" ? startValue : endValue;
+
+  return {
+    x: xWorld - anchorX,
+    y: (yWorld as unknown as number) - (anchorY as unknown as number),
+  };
 }

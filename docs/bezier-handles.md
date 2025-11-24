@@ -696,6 +696,11 @@ Types and derived data proposals
   - Unit tests for `solveNormalizedTransitionFromWorldCP`, coupling, handle diffs, and commit path.
   - Manual QA covering overshoot, multi-selection, preview parity, and cancellation edge cases.
 
+**Progress (current):**
+- Core math, clamps, and interpolator now consume anchor-relative world deltas (`get-world-control-points`, `compute-transition-params`, `compute-track-interpolator`, `clamp-monotonic-cubic-segment`).
+- Drag start/preview paths capture world-handle offsets for all points and keep canonical transitions untouched when markers move; defaults convert enums to world deltas at use time.
+- Tests updated toward anchor-relative semantics; remaining work is to finish handle drag diffs/coupling UI flow and rerun/expand TS + unit coverage.
+
 ### Phase 4 — QA, Telemetry, and Docs [ Incomplete ]
 - Expand automated coverage for anti-knot clamping, preview vs commit equivalence, and default-to-explicit promotion.
 - Run manual QA checklist (visibility gating, geometry parity, drag behavior, multi-selection) on representative animations.

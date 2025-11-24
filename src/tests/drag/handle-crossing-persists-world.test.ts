@@ -6,9 +6,10 @@ import {
   NAMESPACE_IDS,
   INSTANCE_IDS,
 } from "../../test-fixtures/animation-store-factory";
-import type { DerivedSnapshot, Track } from "../../types";
+import type { DerivedSnapshot, Track, TrackKey } from "../../types";
+import { resolveTransitionDelta } from "../../functions/get-world-control-points";
 
-const buildRowId = (trackId: string) =>
+const buildRowId = (trackId: string): TrackKey =>
   `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${trackId}`;
 
 describe("drag handles when crossing a neighbor (world-space)", () => {
@@ -29,8 +30,12 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
       tracks: {},
       rows: {
         [rowId]: {
+          id: rowId,
+          trackKeys: [rowId],
           computed: {
             verticalBounds: { min: -100, max: 100 },
+            interpolations: [],
+            violationSet: { id: rowId, violations: {}, segments: [] },
             virtualFrames: [
               {
                 id: markerId,
@@ -77,21 +82,29 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
       modifiers: dragState.modifiers,
     });
 
+    const before = captureHandleDeltas(track, {
+      outId: markerId,
+      outNeighborId: "px3.x",
+      inId: markerId,
+      inNeighborId: "px1.x",
+    });
+
     store.getState().commitDrag();
     const committedAnchor = store.getState().tracks[trackId].points.find((p) => p.id === markerId);
 
-    expect(committedAnchor?.transitionsWorld?.out?.handle?.deltaStamp).toBe(
-      anchor.transitionsWorld!.out!.handle!.deltaStamp,
-    );
-    expect(committedAnchor?.transitionsWorld?.out?.handle?.deltaValue).toBe(
-      anchor.transitionsWorld!.out!.handle!.deltaValue,
-    );
-    expect(committedAnchor?.transitionsWorld?.in?.handle?.deltaStamp).toBe(
-      anchor.transitionsWorld!.in!.handle!.deltaStamp,
-    );
-    expect(committedAnchor?.transitionsWorld?.in?.handle?.deltaValue).toBe(
-      anchor.transitionsWorld!.in!.handle!.deltaValue,
-    );
+    const afterTrack = store.getState().tracks[trackId] as Track<RawValue>;
+    const after = captureHandleDeltas(afterTrack, {
+      outId: markerId,
+      outNeighborId: "px3.x",
+      inId: markerId,
+      inNeighborId: "px1.x",
+    });
+
+    expect(committedAnchor?.stamp).toBeCloseTo(origin + 0.5, 6);
+    expect(after.out?.deltaStamp ?? 0).toBeCloseTo(before.out?.deltaStamp ?? 0, 6);
+    expect(after.out?.deltaValue ?? 0).toBeCloseTo(before.out?.deltaValue ?? 0, 6);
+    expect(after.in?.deltaStamp ?? 0).toBeCloseTo(before.in?.deltaStamp ?? 0, 6);
+    expect(after.in?.deltaValue ?? 0).toBeCloseTo(before.in?.deltaValue ?? 0, 6);
   });
 
   it("keeps downstream opacity handles stable when a leading marker overtakes its neighbor", () => {
@@ -103,7 +116,12 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
     const rowId = buildRowId(trackId);
 
     const track = store.getState().tracks[trackId] as Track<RawValue>;
-    const before = captureHandleDeltas(track, { outId: "o2", inId: "o3" });
+    const before = captureHandleDeltas(track, {
+      outId: "o2",
+      outNeighborId: "o3",
+      inId: "o3",
+      inNeighborId: "o2",
+    });
 
     const anchor = track.points.find((p) => p.id === anchorId);
     if (!anchor) throw new Error("anchor not found");
@@ -112,8 +130,12 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
       tracks: {},
       rows: {
         [rowId]: {
+          id: rowId,
+          trackKeys: [rowId],
           computed: {
             verticalBounds: { min: -100, max: 100 },
+            interpolations: [],
+            violationSet: { id: rowId, violations: {}, segments: [] },
             virtualFrames: [
               {
                 id: anchor.id,
@@ -160,17 +182,17 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
     store.getState().commitDrag();
 
     const afterTrack = store.getState().tracks[trackId] as Track<RawValue>;
-    const after = captureHandleDeltas(afterTrack, { outId: "o2", inId: "o3" });
+    const after = captureHandleDeltas(afterTrack, {
+      outId: "o2",
+      outNeighborId: "o3",
+      inId: "o3",
+      inNeighborId: "o2",
+    });
 
-    const expectedO2Stamp = before.o2Out?.deltaStamp ?? 0;
-    const expectedO2Value = before.o2Out?.deltaValue ?? 0;
-    const expectedO3Stamp = before.o3In?.deltaStamp ?? 0;
-    const expectedO3Value = before.o3In?.deltaValue ?? 0;
-
-    expect(after.o2Out?.deltaStamp ?? 0).toBeCloseTo(expectedO2Stamp, 6);
-    expect(after.o2Out?.deltaValue ?? 0).toBeCloseTo(expectedO2Value, 6);
-    expect(after.o3In?.deltaStamp ?? 0).toBeCloseTo(expectedO3Stamp, 6);
-    expect(after.o3In?.deltaValue ?? 0).toBeCloseTo(expectedO3Value, 6);
+    expect(after.out?.deltaStamp ?? 0).toBeCloseTo(before.out?.deltaStamp ?? 0, 6);
+    expect(after.out?.deltaValue ?? 0).toBeCloseTo(before.out?.deltaValue ?? 0, 6);
+    expect(after.in?.deltaStamp ?? 0).toBeCloseTo(before.in?.deltaStamp ?? 0, 6);
+    expect(after.in?.deltaValue ?? 0).toBeCloseTo(before.in?.deltaValue ?? 0, 6);
   });
 });
 
@@ -184,40 +206,33 @@ const computeHandleDelta = (
   const neighbor = track.points.find((p) => p.id === neighborId);
   if (!point || !neighbor) return undefined;
 
-  const handle =
-    direction === "out" ? point.transitionsWorld?.out?.handle : point.transitionsWorld?.in?.handle;
-
   const pointValue = typeof point.value === "number" ? point.value : undefined;
   const neighborValue = typeof neighbor.value === "number" ? neighbor.value : undefined;
   if (pointValue === undefined || neighborValue === undefined) return undefined;
 
-  if (handle && typeof handle.deltaStamp === "number" && typeof handle.deltaValue === "number") {
-    return { deltaStamp: handle.deltaStamp, deltaValue: handle.deltaValue };
-  }
+  const resolved = resolveTransitionDelta(
+    direction === "out" ? "out" : "in",
+    direction === "out" ? point.stamp : neighbor.stamp,
+    direction === "out" ? neighbor.stamp : point.stamp,
+    direction === "out" ? pointValue : neighborValue,
+    direction === "out" ? neighborValue : pointValue,
+    direction === "out" ? point.transitions?.out : point.transitions?.in,
+  );
 
-  if (direction === "out" && point.transitions?.out) {
-    const span = neighbor.stamp - point.stamp;
-    const deltaValue = neighborValue - pointValue;
-    return {
-      deltaStamp: span * point.transitions.out.x,
-      deltaValue: deltaValue * point.transitions.out.y,
-    };
-  }
-  if (direction === "in" && point.transitions?.in) {
-    const span = point.stamp - neighbor.stamp;
-    const deltaValue = pointValue - neighborValue;
-    const cpStamp = neighbor.stamp + span * point.transitions.in.x;
-    const cpValue = neighborValue + deltaValue * point.transitions.in.y;
-    return {
-      deltaStamp: cpStamp - point.stamp,
-      deltaValue: cpValue - pointValue,
-    };
-  }
-  return undefined;
+  return { deltaStamp: resolved.x, deltaValue: resolved.y };
 };
 
-const captureHandleDeltas = (track: Track<RawValue>, ids: { outId: string; inId: string }) => {
-  const o2Out = computeHandleDelta(track, ids.outId, "o3", "out");
-  const o3In = computeHandleDelta(track, ids.inId, "o2", "in");
-  return { o2Out, o3In };
+const captureHandleDeltas = (
+  track: Track<RawValue>,
+  ids: { outId?: string; outNeighborId?: string; inId?: string; inNeighborId?: string },
+) => {
+  const out =
+    ids.outId && ids.outNeighborId
+      ? computeHandleDelta(track, ids.outId, ids.outNeighborId, "out")
+      : undefined;
+  const inHandle =
+    ids.inId && ids.inNeighborId
+      ? computeHandleDelta(track, ids.inId, ids.inNeighborId, "in")
+      : undefined;
+  return { out, in: inHandle };
 };

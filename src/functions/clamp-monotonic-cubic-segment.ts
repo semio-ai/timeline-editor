@@ -1,5 +1,6 @@
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import type { ClampFlags, EndpointTransitions, WorldCP } from "../types";
+import { resolveTransitionDelta } from "./get-world-control-points";
 
 const EPSILON_DEFAULT = 1e-6;
 
@@ -25,10 +26,26 @@ export function clampMonotonicCubicSegment(input: ClampInput): ClampOutput {
   const endIn = input.rawTransitions.endIn ?? DEFAULT_TRANSITION_IN;
 
   const span = input.end.stamp - input.start.stamp;
-  const delta = input.end.value - input.start.value;
 
-  const cp1Raw = toWorldCP(input.start, span, delta, startOut);
-  const cp2Raw = toWorldCP(input.start, span, delta, endIn);
+  const startOutDelta = resolveTransitionDelta(
+    "out",
+    input.start.stamp,
+    input.end.stamp,
+    input.start.value,
+    input.end.value,
+    startOut,
+  );
+  const endInDelta = resolveTransitionDelta(
+    "in",
+    input.start.stamp,
+    input.end.stamp,
+    input.start.value,
+    input.end.value,
+    endIn,
+  );
+
+  const cp1Raw = toWorldCP(input.start, startOutDelta);
+  const cp2Raw = toWorldCP(input.end, endInDelta);
 
   let cp1Effective = cp1Raw ? { ...cp1Raw } : undefined;
   let cp2Effective = cp2Raw ? { ...cp2Raw } : undefined;
@@ -89,12 +106,8 @@ export function clampMonotonicCubicSegment(input: ClampInput): ClampOutput {
   }
 
   const transitionsEffective: EndpointTransitions = {
-    startOut: cp1Effective
-      ? toNormalizedTransition(input.start, span, delta, cp1Effective, startOut)
-      : startOut,
-    endIn: cp2Effective
-      ? toNormalizedTransition(input.start, span, delta, cp2Effective, endIn)
-      : endIn,
+    startOut: cp1Effective ? toAnchorRelativeDelta(input.start, cp1Effective) : startOutDelta,
+    endIn: cp2Effective ? toAnchorRelativeDelta(input.end, cp2Effective) : endInDelta,
   };
 
   return {
@@ -108,14 +121,12 @@ export function clampMonotonicCubicSegment(input: ClampInput): ClampOutput {
 }
 
 function toWorldCP(
-  start: { stamp: number; value: number },
-  span: number,
-  delta: number,
-  transition: { x: number; y: number },
+  anchor: { stamp: number; value: number },
+  delta: { x: number; y: number },
 ): WorldCP {
   return {
-    x: start.stamp + span * transition.x,
-    y: start.value + delta * transition.y,
+    x: anchor.stamp + delta.x,
+    y: anchor.value + delta.y,
   };
 }
 
@@ -142,16 +153,8 @@ function scaleToX(anchor: WorldCP, cp: WorldCP, targetX: number): WorldCP {
   };
 }
 
-function toNormalizedTransition(
-  start: { stamp: number; value: number },
-  span: number,
-  delta: number,
-  cp: WorldCP,
-  fallback: { x: number; y: number },
-) {
-  const normalizedX = span === 0 ? fallback.x : (cp.x - start.stamp) / span;
-  const normalizedY = delta === 0 ? fallback.y : (cp.y - start.value) / delta;
-  return { x: normalizedX, y: normalizedY };
+function toAnchorRelativeDelta(anchor: { stamp: number; value: number }, cp: WorldCP) {
+  return { x: cp.x - anchor.stamp, y: cp.y - anchor.value };
 }
 
 function pointsEqual(a: WorldCP, b: WorldCP): boolean {

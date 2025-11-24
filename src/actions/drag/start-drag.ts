@@ -5,15 +5,16 @@ import type {
   DragStartInput,
   DragState,
   DragMarkerHandleOffsets,
-  TransitionSpec,
-  TransitionVariants,
   InstancedFrameInfo,
   Keypoint,
   SelectionState,
   Track,
   ValueScale,
 } from "../../types";
+import { cloneTransitions } from "../../utils/clone-transitions";
 import { buildHandleOffsetKey } from "../../utils/handle-offset-key";
+import { getWorldControlPoints } from "../../functions/get-world-control-points";
+import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../../constants";
 
 const DEFAULT_TRANSFORM: DragStampTransform = {
   offset: 0,
@@ -42,28 +43,6 @@ const cloneRawValue = (value: RawValue): RawValue => {
   } catch {
     return value;
   }
-};
-
-const cloneTransitionSpec = (spec?: TransitionSpec): TransitionSpec | undefined => {
-  if (!spec) return undefined;
-  const next: TransitionSpec = {};
-  if (spec.ease) next.ease = spec.ease;
-  if (spec.handle) {
-    const { deltaStamp, deltaValue } = spec.handle;
-    if (typeof deltaStamp === "number" && typeof deltaValue === "number") {
-      next.handle = { deltaStamp, deltaValue };
-    }
-  }
-  return next;
-};
-
-const cloneTransitionsWorld = (tw?: TransitionVariants): TransitionVariants | undefined => {
-  if (!tw) return undefined;
-  const { in: inSpec, out: outSpec } = tw;
-  return {
-    in: cloneTransitionSpec(inSpec),
-    out: cloneTransitionSpec(outSpec),
-  };
 };
 
 const resolveInstanceTransform = (state: AnimationData, instanceId: string): DragStampTransform => {
@@ -245,13 +224,7 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
       points: trackToClone.points.map((point) => ({
         ...point,
         value: cloneRawValue(point.value),
-        transitions: point.transitions
-          ? {
-              in: point.transitions.in ? { ...point.transitions.in } : undefined,
-              out: point.transitions.out ? { ...point.transitions.out } : undefined,
-            }
-          : undefined,
-        transitionsWorld: cloneTransitionsWorld(point.transitionsWorld),
+        transitions: cloneTransitions(point.transitions),
       })),
     };
   });
@@ -286,81 +259,59 @@ function computeMarkerHandleOffsets({
   const offsets: DragMarkerHandleOffsets = {};
 
   const nextPoint = track.points[pointIndex + 1];
-  const outTransition = keypoint.transitions?.out;
-  const outHandle = keypoint.transitionsWorld?.out?.handle;
-  if (nextPoint && (outTransition || outHandle)) {
+  const outTransition = keypoint.transitions?.out ?? DEFAULT_TRANSITION_OUT;
+  if (nextPoint) {
     const neighborValue = extractNumericComponent(nextPoint.value, attributePath);
     if (typeof neighborValue === "number") {
-      const cpWorld =
-        outHandle &&
-        typeof outHandle.deltaStamp === "number" &&
-        typeof outHandle.deltaValue === "number"
-          ? {
-              x: keypoint.stamp + outHandle.deltaStamp,
-              y: anchorValue + outHandle.deltaValue,
-            }
-          : computeWorldCP({
-              startStamp: keypoint.stamp,
-              endStamp: nextPoint.stamp,
-              startValue: anchorValue,
-              endValue: neighborValue,
-              transition: outTransition ?? { x: 0.5, y: 0.5 },
-            });
-      const deltaX =
-        outHandle && typeof outHandle.deltaStamp === "number"
-          ? outHandle.deltaStamp
-          : cpWorld.x - keypoint.stamp;
-      const deltaY =
-        outHandle && typeof outHandle.deltaValue === "number"
-          ? outHandle.deltaValue
-          : cpWorld.y - anchorValue;
+      const { start: cpWorld } = getWorldControlPoints(
+        keypoint.stamp,
+        nextPoint.stamp,
+        anchorValue,
+        neighborValue,
+        { out: outTransition },
+        { in: nextPoint.transitions?.in },
+      );
+      const deltaX = cpWorld.x - keypoint.stamp;
+      const deltaY = (cpWorld.y as number) - anchorValue;
       offsets.out = {
         neighborKeypointId: nextPoint.id,
         delta: {
           x: deltaX,
           y: deltaY,
         },
-        fallback: outTransition,
+        fallback:
+          typeof outTransition === "object"
+            ? (outTransition as RawVector2)
+            : { x: deltaX, y: deltaY },
       };
     }
   }
 
   const prevPoint = track.points[pointIndex - 1];
-  const inTransition = keypoint.transitions?.in;
-  const inHandle = keypoint.transitionsWorld?.in?.handle;
-  if (prevPoint && (inTransition || inHandle)) {
+  const inTransition = keypoint.transitions?.in ?? DEFAULT_TRANSITION_IN;
+  if (prevPoint) {
     const neighborValue = extractNumericComponent(prevPoint.value, attributePath);
     if (typeof neighborValue === "number") {
-      const cpWorld =
-        inHandle &&
-        typeof inHandle.deltaStamp === "number" &&
-        typeof inHandle.deltaValue === "number"
-          ? {
-              x: keypoint.stamp + inHandle.deltaStamp,
-              y: anchorValue + inHandle.deltaValue,
-            }
-          : computeWorldCP({
-              startStamp: prevPoint.stamp,
-              endStamp: keypoint.stamp,
-              startValue: neighborValue,
-              endValue: anchorValue,
-              transition: inTransition ?? { x: 0.5, y: 0.5 },
-            });
-      const deltaX =
-        inHandle && typeof inHandle.deltaStamp === "number"
-          ? inHandle.deltaStamp
-          : cpWorld.x - keypoint.stamp;
-      const deltaY =
-        inHandle && typeof inHandle.deltaValue === "number"
-          ? inHandle.deltaValue
-          : cpWorld.y - anchorValue;
+      const { end: cpWorld } = getWorldControlPoints(
+        prevPoint.stamp,
+        keypoint.stamp,
+        neighborValue,
+        anchorValue,
+        { out: prevPoint.transitions?.out },
+        { in: inTransition },
+      );
+      const deltaX = cpWorld.x - keypoint.stamp;
+      const deltaY = (cpWorld.y as number) - anchorValue;
       offsets.in = {
         neighborKeypointId: prevPoint.id,
         delta: {
           x: deltaX,
           y: deltaY,
         },
-        fallback: inTransition,
+        fallback:
+          typeof inTransition === "object"
+            ? (inTransition as RawVector2)
+            : { x: deltaX, y: deltaY },
       };
     }
   }
@@ -370,20 +321,4 @@ function computeMarkerHandleOffsets({
   }
 
   return offsets;
-}
-
-function computeWorldCP(params: {
-  startStamp: number;
-  endStamp: number;
-  startValue: number;
-  endValue: number;
-  transition?: RawVector2;
-}): { x: number; y: number } {
-  const span = params.endStamp - params.startStamp;
-  const delta = params.endValue - params.startValue;
-  const transition = params.transition ?? { x: 0.5, y: 0.5 };
-  return {
-    x: params.startStamp + span * transition.x,
-    y: params.startValue + delta * transition.y,
-  };
 }

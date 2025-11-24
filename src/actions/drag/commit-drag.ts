@@ -1,6 +1,9 @@
 import type { AnimationData } from "../../store-types";
-import { applyTrackDiffsToTrack, computeTrackDiffsForDrag } from "../../functions/apply-drag-deltas";
-
+import {
+  applyTrackDiffsToTrack,
+  computeTrackDiffsForDrag,
+} from "../../functions/apply-drag-deltas";
+import { cloneTransitions } from "../../utils/clone-transitions";
 
 interface MarkerContext {
   attributePath?: string[];
@@ -92,16 +95,13 @@ export function commitDrag(state: AnimationData): void {
   for (const [trackId] of selection.keypoints.entries()) {
     const track = state.tracks[trackId];
     if (!track) continue;
-    const snapshotPoints = dragState.trackSnapshots?.[trackId]?.points ?? track.points.map((point) => ({
-      ...point,
-      value: structuredClone(point.value),
-      transitions: point.transitions
-        ? {
-            in: point.transitions.in ? { ...point.transitions.in } : undefined,
-            out: point.transitions.out ? { ...point.transitions.out } : undefined,
-          }
-        : undefined,
-    }));
+    const snapshotPoints =
+      dragState.trackSnapshots?.[trackId]?.points ??
+      track.points.map((point) => ({
+        ...point,
+        value: structuredClone(point.value),
+        transitions: cloneTransitions(point.transitions),
+      }));
 
     const diffs = computeTrackDiffsForDrag({
       trackId,
