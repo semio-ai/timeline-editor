@@ -2,6 +2,7 @@ import { Fragment, memo, useMemo, useCallback, useRef, useState, useEffect } fro
 import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
 import { MotionValue } from "motion";
+import { useMotionValueEvent, useSpring } from "motion/react";
 import { Instances } from "@react-three/drei";
 import { uniq } from "lodash";
 import { useAnimationStore, useColors } from "../../hooks";
@@ -189,19 +190,22 @@ export const DataRenderer = memo(function DataRenderer({
     );
   }, [selectionState, sourceRow]);
 
-  const [handlesDelayReady, setHandlesDelayReady] = useState(trackRender === TrackRender.Spline);
+  const [handlesDelayReady, setHandlesDelayReady] = useState(false);
+  const handlesAppearanceMV = useSpring(0, { stiffness: 700, damping: 40 });
+  const [handlesAppearance, setHandlesAppearance] = useState(0);
   const previousTrackRender = useRef(trackRender);
+  useMotionValueEvent(handlesAppearanceMV, "change", setHandlesAppearance);
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     if (trackRender === TrackRender.Spline) {
-      if (previousTrackRender.current === TrackRender.Spline) {
+      const delay = previousTrackRender.current === TrackRender.Spline ? 0 : HANDLE_REVEAL_DELAY_MS;
+      setHandlesDelayReady(false);
+      timeout = setTimeout(() => {
         setHandlesDelayReady(true);
-      } else {
-        setHandlesDelayReady(false);
-        timeout = setTimeout(() => setHandlesDelayReady(true), HANDLE_REVEAL_DELAY_MS);
-      }
+      }, delay);
     } else {
       setHandlesDelayReady(false);
+      handlesAppearanceMV.set(0);
     }
     previousTrackRender.current = trackRender;
     return () => {
@@ -209,9 +213,15 @@ export const DataRenderer = memo(function DataRenderer({
         clearTimeout(timeout);
       }
     };
-  }, [trackRender]);
+  }, [handlesAppearanceMV, trackRender]);
 
   const canRenderHandles = trackRender === TrackRender.Spline && !keyForced;
+  const rowHandlesEligible = canRenderHandles && rowHasSelection;
+
+  useEffect(() => {
+    const target = rowHandlesEligible && handlesDelayReady ? 1 : 0;
+    handlesAppearanceMV.set(target);
+  }, [handlesAppearanceMV, handlesDelayReady, rowHandlesEligible]);
 
   const axisRange = useMemo(() => {
     if (!computedData) {
@@ -276,8 +286,8 @@ export const DataRenderer = memo(function DataRenderer({
       {/* Render transition segments */}
       {computedData.interpolations.map((segment, index) => {
         const renderMode = keyForced ? TrackRender.Key : trackRender;
-        const handlesVisible =
-          canRenderHandles && !segment.buffer && rowHasSelection && handlesDelayReady;
+        const handlesVisible = rowHandlesEligible && !segment.buffer;
+        const handleAppearance = handlesDelayReady ? handlesAppearance : 0;
 
         return (
           <Fragment key={`${segment.start.id}-${segment.end.id}-${index.toString()}`}>
@@ -303,6 +313,7 @@ export const DataRenderer = memo(function DataRenderer({
                 color={resolvedSegmentColor}
                 layer={transitionLayer}
                 isHighlighted={isRowHovered}
+                appearance={handleAppearance}
                 theme={theme}
               />
             )}

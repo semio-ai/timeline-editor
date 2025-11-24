@@ -1,6 +1,6 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useState } from "react";
 import { Line } from "@react-three/drei";
-import { useMotionValueEvent, useSpring } from "motion/react";
+import { useMotionValueEvent } from "motion/react";
 import { Theme } from "@semio/ui";
 import {
   InstancePair,
@@ -28,6 +28,7 @@ interface BezierHandlesProps {
   color: string;
   layer: LayerBand;
   isHighlighted?: boolean;
+  appearance?: number;
   theme?: Theme.Light | Theme.Dark;
 }
 
@@ -41,21 +42,12 @@ export const BezierHandles = memo(function BezierHandles({
   color,
   layer,
   isHighlighted = false,
+  appearance = 1,
   theme = Theme.Light,
 }: BezierHandlesProps) {
   const invariantScale = useInvariantScale();
   const [scaleValue, setScaleValue] = useState(() => invariantScale.get());
   useMotionValueEvent(invariantScale, "change", setScaleValue);
-  const appearanceSpring = useSpring(0, { stiffness: 700, damping: 40 });
-  const [appearanceProgress, setAppearanceProgress] = useState(0);
-  useEffect(() => {
-    appearanceSpring.set(1);
-    return () => {
-      appearanceSpring.set(0);
-    };
-  }, [appearanceSpring]);
-  useMotionValueEvent(appearanceSpring, "change", setAppearanceProgress);
-  const appearance = Math.max(0, Math.min(1, appearanceProgress));
 
   const geometry = segment.geometry;
   if (!geometry || segment.buffer) {
