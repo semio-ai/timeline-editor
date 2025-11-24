@@ -97,7 +97,7 @@ export function resolveTransitionDelta<T extends RawValue>(
   const yParam = easingParams.y;
 
   const span = endStamp - startStamp;
-  const valueDiff = rawValueDiff(endValue, startValue);
+  const valueDiff = rawValueDiff(endValue, startValue, true);
 
   const xWorld = xParam * span + startStamp;
   const yWorld = rawValueAdd(startValue, rawValueMultiplyScalar(valueDiff, yParam)) as T;
