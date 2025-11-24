@@ -1,12 +1,11 @@
 import { Transition } from "motion";
-import type { RawVector2 } from "@semio/utils";
-import { LayerBand } from "./types";
+import { LayerBand, StandardTransitionType } from "./types";
 
 export const TIMELINE_PADDING = 10;
 export const DEFAULT_ANIMATION_ID = "default-animation";
 export const DEFAULT_TRACK_HEIGHT = 36;
-export const DEFAULT_TRANSITION_OUT: RawVector2 = { x: 0.65, y: 0 };
-export const DEFAULT_TRANSITION_IN: RawVector2 = { x: 0.35, y: 1 };
+export const DEFAULT_TRANSITION_OUT: StandardTransitionType = StandardTransitionType.Cubic;
+export const DEFAULT_TRANSITION_IN: StandardTransitionType = StandardTransitionType.Cubic;
 
 export const CARET_HALF_WIDTH = 6;
 export const VERTICAL_POINTER_PATH = `M${(-1 * CARET_HALF_WIDTH).toString()},18L${(-1 * CARET_HALF_WIDTH).toString()},2C${(-1 * CARET_HALF_WIDTH).toString()},0.896 ${(-1 * CARET_HALF_WIDTH + 0.896).toString()},0 ${(-1 * CARET_HALF_WIDTH + 2).toString()},0L${(CARET_HALF_WIDTH - 2).toString()},0C${(CARET_HALF_WIDTH - 0.896).toString()},0 ${CARET_HALF_WIDTH.toString()},0.896 ${CARET_HALF_WIDTH.toString()},2L${CARET_HALF_WIDTH.toString()},18C${CARET_HALF_WIDTH.toString()},18.953 0,23 0,23C0,23 ${(-1 * CARET_HALF_WIDTH).toString()},18.953 ${(-1 * CARET_HALF_WIDTH).toString()},18Z`;

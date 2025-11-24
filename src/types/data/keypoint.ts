@@ -91,5 +91,5 @@ export const StandardEaseOutParameters: Record<StandardTransitionType, RawVector
   [StandardTransitionType.Quart]: { x: 0.76, y: 0 },
   [StandardTransitionType.Expo]: { x: 0.87, y: 0 },
   [StandardTransitionType.Back]: { x: 0.68, y: -0.6 },
-  [StandardTransitionType.Linear]: { x: 0.66, y: 0.66 },
+  [StandardTransitionType.Linear]: { x: 0.33, y: 0.33 },
 };

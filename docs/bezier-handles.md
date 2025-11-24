@@ -568,6 +568,11 @@ New cases to handle:
 - **Consistency note:** Enum-based transitions (easing presets) are typically defined in parametric space; they need a one-time translation into world deltas per segment to flow through the same pipeline as explicit handles. Fully migrating all codepaths (renderers, interpolators, diff builders) to the world form keeps behavior consistent; any parametric/ease lookup should be converted to world deltas at use time, not persisted as normalized.
 - **Keypoint shape update:** `Keypoint.transitions` now allows either a `RawVector2` (interpreted as world deltas: `x = Δstamp` in timeline units relative to the marker, `y = Δvalue` relative to the marker) or a `StandardTransitionType` enum. There is no `transitionsWorld` field. When enums are present, convert them to world deltas at use time before feeding the shared pipeline.
 
+**Implementation corrections (Mar 2025):**
+- Explicit `transitions.{in|out}` are interpreted as anchor-relative world deltas; do **not** renormalize them by the neighbor span. Converting them back to parametric space is a derived concern (see `get-world-control-points.ts` for the correct mapping).
+- The inbound handle is anchored to the end keypoint in both axes: `end.in.y` offsets the end value, not the start value.
+- Marker drags only update the marker’s stamp/value; canonical `transitions` stay untouched (including enum presets), so dragging a marker no longer “rescales” handles. The snapshot path derives normalized values from the frozen world deltas when needed for rendering/interpolation.
+
 ### Transition model considerations
 
 During the anchor-relative migration we will also reevaluate `Keypoint.transitions`. The goal is to allow every handle to be described either by:
