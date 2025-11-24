@@ -1,5 +1,6 @@
 import { memo, useState } from "react";
-import { Line } from "@react-three/drei";
+import { Line, useCursor } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import { useMotionValueEvent } from "motion/react";
 import { Theme } from "@semio/ui";
 import {
@@ -221,15 +222,34 @@ function HandleDot({
   backgroundColor,
   appearance,
 }: HandleDotProps) {
+  const gl = useThree((state) => state.gl);
+  const [hovered, setHovered] = useState(false);
+  useCursor(hovered, "pointer", "auto", gl.domElement);
+
   const clamped = Math.max(0, Math.min(1, appearance));
-  const baseRadiusX = Math.max(scale * radiusPx, 0.002);
-  const baseRadiusY = Math.max(radiusPx, 0.002);
+  const hoverScale = hovered ? 1.1 : 1;
+  const baseRadiusX = Math.max(scale * radiusPx * hoverScale, 0.002);
+  const baseRadiusY = Math.max(radiusPx * hoverScale, 0.002);
   const radiusX = baseRadiusX * clamped;
   const radiusY = baseRadiusY * clamped;
   const overlayRadiusX = radiusX * 0.65;
   const overlayRadiusY = radiusY * 0.65;
   return (
-    <group position={position}>
+    <group
+      position={position}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerMove={(e) => {
+        e.stopPropagation();
+        if (!hovered) setHovered(true);
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        setHovered(false);
+      }}
+    >
       <mesh scale={[radiusX, radiusY, 1]}>
         <circleGeometry args={[1, 24]} />
         <meshBasicMaterial toneMapped={false} color={color} transparent opacity={clamped} />
