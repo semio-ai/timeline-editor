@@ -1,7 +1,8 @@
-import { memo, useMemo, useRef, useState } from "react";
+import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Line, useCursor } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { useMotionValueEvent } from "motion/react";
+import { Mesh } from "three";
+import { useMotionValueEvent, useSpring } from "motion/react";
 import { Theme } from "@semio/ui";
 import {
   InstancePair,
@@ -76,9 +77,6 @@ export const BezierHandles = memo(function BezierHandles({
   appearance = 1,
   theme = Theme.Light,
 }: BezierHandlesProps) {
-  const invariantScale = useInvariantScale();
-  const [scaleValue, setScaleValue] = useState(() => invariantScale.get());
-  useMotionValueEvent(invariantScale, "change", setScaleValue);
   const startHandleDragAction = useAnimationStore((state) => state.startHandleDrag);
   const updateHandleDragAction = useAnimationStore((state) => state.updateHandleDrag);
   const commitDragAction = useAnimationStore((state) => state.commitDrag);
@@ -268,7 +266,6 @@ export const BezierHandles = memo(function BezierHandles({
               position={animatedRaw.marker}
               color={color}
               radiusPx={RAW_RADIUS_PX}
-              scale={scaleValue}
               showFallbackOverlay={handle.isFallback}
               backgroundColor={backgroundColor}
               appearance={appearance}
@@ -330,7 +327,6 @@ interface HandleDotProps {
   position: [number, number, number];
   color: string;
   radiusPx: number;
-  scale: number;
   showFallbackOverlay?: boolean;
   backgroundColor: string;
   appearance: number;
@@ -341,16 +337,20 @@ function HandleDot({
   position,
   color,
   radiusPx,
-  scale,
   showFallbackOverlay = false,
   backgroundColor,
   appearance,
   interaction,
 }: HandleDotProps) {
   const gl = useThree((state) => state.gl);
+  const circleRef = useRef<Mesh>(null);
+  const overlayRef = useRef<Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
   const dragDidMoveRef = useRef(false);
+  const dragSpring = useSpring(0, { stiffness: 280, damping: 24, mass: 1 });
+  const [dragWeight, setDragWeight] = useState(0);
+  useMotionValueEvent(dragSpring, "change", setDragWeight);
   useCursor(Boolean(interaction) && (hovered || dragging), "pointer", "auto", gl.domElement);
 
   const handleDragHandlers = useDragGestures({
@@ -365,6 +365,8 @@ function HandleDot({
       if (!interaction) return;
       dragDidMoveRef.current = false;
       setDragging(true);
+      setDragWeight(1);
+      dragSpring.set(1);
       interaction.startHandleDrag({
         origin: { x: positionX, y: interaction.controlPoint.y },
         side: interaction.side,
@@ -399,17 +401,52 @@ function HandleDot({
       }
       dragDidMoveRef.current = false;
       setDragging(false);
+      setDragWeight(0);
+      dragSpring.set(0);
     },
   });
 
-  const clamped = Math.max(0, Math.min(1, appearance));
+  const invariantScale = useInvariantScale();
+  const dragScale = 1 + dragWeight * 0.3;
   const hoverScale = hovered ? 1.1 : 1;
-  const baseRadiusX = Math.max(scale * radiusPx * hoverScale, 0.002);
-  const baseRadiusY = Math.max(radiusPx * hoverScale, 0.002);
-  const radiusX = baseRadiusX * clamped;
-  const radiusY = baseRadiusY * clamped;
-  const overlayRadiusX = radiusX * 0.65;
-  const overlayRadiusY = radiusY * 0.65;
+
+  useMotionValueEvent(invariantScale, "change", (iscale) => {
+    // calculate the new mesh scales and apply it to the meshes
+    const newScaleX = Math.max(iscale * radiusPx * hoverScale * dragScale);
+    const newScaleY = Math.max(radiusPx * hoverScale * dragScale);
+
+    if (circleRef.current) {
+      circleRef.current.scale.set(newScaleX, newScaleY, 1);
+    }
+    if (overlayRef.current) {
+      overlayRef.current.scale.set(newScaleX * 0.65, newScaleY * 0.65, 1);
+    }
+  });
+
+  useLayoutEffect(() => {
+    const iscale = invariantScale.get();
+    const newScaleX = Math.max(iscale * radiusPx * hoverScale * dragScale);
+    const newScaleY = Math.max(radiusPx * hoverScale * dragScale);
+
+    if (circleRef.current) {
+      circleRef.current.scale.set(newScaleX, newScaleY, 1);
+    }
+    if (overlayRef.current) {
+      overlayRef.current.scale.set(newScaleX * 0.65, newScaleY * 0.65, 1);
+    }
+  }, [invariantScale, radiusPx, hoverScale, dragScale]);
+
+  const clamped = Math.max(0, Math.min(1, appearance));
+
+  const baseRadiusX = useMemo<number>(
+    () => Math.max(invariantScale.get() * radiusPx * hoverScale * dragScale, 0.002),
+    [invariantScale, radiusPx, hoverScale, dragScale],
+  );
+  const baseRadiusY = useMemo<number>(
+    () => Math.max(radiusPx * hoverScale * dragScale, 0.002),
+    [radiusPx, hoverScale, dragScale],
+  );
+
   return (
     <group
       position={position}
@@ -428,10 +465,14 @@ function HandleDot({
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
+        setDragging(true);
+        dragSpring.set(1);
         handleDragHandlers.onPointerDown?.(e);
       }}
       onPointerUp={(e) => {
         e.stopPropagation();
+        setDragging(false);
+        dragSpring.set(0);
         handleDragHandlers.onPointerUp?.(e);
       }}
       onPointerCancel={(e) => {
@@ -442,16 +483,19 @@ function HandleDot({
         }
         dragDidMoveRef.current = false;
         setDragging(false);
+        dragSpring.set(0);
       }}
+      onClick={(e) => e.stopPropagation()}
     >
-      <mesh scale={[radiusX, radiusY, 1]}>
+      <mesh ref={circleRef as any} scale={[baseRadiusX, baseRadiusY, 1]}>
         <circleGeometry args={[1, 24]} />
         <meshBasicMaterial toneMapped={false} color={color} transparent opacity={clamped} />
       </mesh>
       {showFallbackOverlay && (
         <mesh
+          ref={overlayRef as any}
           position={[0, 0, ROW_DEPTH_EPSILON * 0.5]}
-          scale={[overlayRadiusX, overlayRadiusY, 1]}
+          scale={[baseRadiusX * 0.65, baseRadiusY * 0.65, 1]}
         >
           <circleGeometry args={[1, 24]} />
           <meshBasicMaterial
