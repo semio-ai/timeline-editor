@@ -19,19 +19,20 @@
   - Only the “inside” portion of a keypoint (toward the neighboring sample inside the editable range) shows a handle; the extrapolated flat span outside the row never renders a handle.
   - Multiple selected rows can display multiple handle sets at once, but the drag system still allows manipulating one handle at a time.
 - Raw vs effective representations
-  - Raw handles always reflect the canonical normalized transitions (defaults or explicitly stored values) converted to world space; they track whatever data is persisted, including overshoot.
+  - Raw handles always reflect the canonical transition deltas (defaults or explicitly stored `TransitionInfo` values) converted to world space; they track whatever anchor-relative data is persisted, including overshoot.
   - Effective handles are derived during snapshot build via anti-knot clamping and feed interpolators, violations, and final curve rendering; when they differ from raw, we render the effective indicators as smaller markers along the connector so editors can see the runtime constraint.
 
 - Default coupling (cross-segment coordination)
-  - Interior keypoint K couples `K.in` and `K.out` by default (no modifiers): colinear (180° apart) and equal magnitude (locked angle and length).
+  - When `TransitionInfo.pairing` resolves to `Paired` (either explicitly or inferred via angle check) the interior keypoint K keeps `K.in` and `K.out` colinear (180° apart). The dragged handle’s length changes freely while the paired handle preserves its own length but reorients to stay on the shared line.
+  - If the pairing state is `Free`, the handles move independently—no angle constraint is applied until the user snaps them back into the paired tolerance.
   - Modifiers:
     - Alt: free (breaks coupling; dragged side moves independently).
     - Shift: locked angle only (colinear), lengths mirrored by default.
     - Shift+Alt: locked angle (colinear) with independent lengths.
-  - Dragging one side updates the complementary side (spanning the two adjacent segments). Solve normalized transitions for both sides from world CPs and stage in preview.
+  - Dragging one side updates the complementary side (spanning the two adjacent segments). Resolve anchor-relative deltas for both sides from world CPs and stage in preview.
 
 - Preview diffs in drag state
-  - Handle drags write anchor-relative **world-space** deltas (`RawVector2`) into a diff map stored on `dragState`; entries are keyed by keypoint ID with `{ in?, out? }` patches so coupling can update both sides atomically.
+  - Handle drags write anchor-relative deltas (the same shape stored in `TransitionInfo`) into a diff map stored on `dragState`; entries are keyed by keypoint ID with `{ in?, out?, pairing? }` patches so coupling can update both sides atomically.
   - The derived builder consumes these diffs (alongside stamp/value deltas) to produce up-to-date raw/effective geometry for both adjacent segments before rendering. `compute-row-data.ts` calls `attachSegmentGeometry`, which overlays `dragState.handleDiffs` onto the canonical transitions before deriving control points and render params.
 
 - UI-only constraints during handle drags
@@ -73,8 +74,8 @@ export interface WorldCP {
 
 // Normalized transition around endpoints (canonical)
 export interface EndpointTransitions {
-  startOut?: RawVector2; // A.transitions.out
-  endIn?: RawVector2;    // B.transitions.in
+  startOut?: RawVector2; // Δ relative to A (A.transitions.out)
+  endIn?: RawVector2;    // Δ relative to B (B.transitions.in)
 }
 
 // Flags indicating clamping effects
@@ -88,11 +89,11 @@ export interface ClampFlags {
 export interface ClampInput {
   start: { stamp: number; value: number };  // A (local instance time, real value)
   end: { stamp: number; value: number };    // B
-  rawTransitions: EndpointTransitions;      // canonical normalized transitions
+  rawTransitions: EndpointTransitions;      // canonical anchor-relative deltas
   epsilon?: number;                         // small safety margin for monotonic X (default ~1e-6)
 }
 
-// Output contains raw and effective CPs in world space and effective normalized transitions
+// Output contains raw and effective CPs in world space plus effective transition deltas
 export interface ClampOutput {
   // World-space CPs computed from raw (canonical) transitions
   cp1Raw?: WorldCP; // from startOut
@@ -102,7 +103,7 @@ export interface ClampOutput {
   cp1Effective?: WorldCP;
   cp2Effective?: WorldCP;
 
-  // Effective normalized transitions that would reproduce the effective CPs
+  // Effective transition deltas that would reproduce the effective CPs
   transitionsEffective: EndpointTransitions;
 
   // Summary flags
@@ -111,14 +112,14 @@ export interface ClampOutput {
 
 /**
  * Compute effective (anti-knot) control points for a monotonic X cubic segment.
- * - Raw CPs are derived from canonical normalized transitions.
+ * - Raw CPs are derived from canonical anchor-relative deltas.
  * - Effective CPs are scaled toward their anchors to satisfy P0.x ≤ P1.x ≤ P2.x ≤ P3.x.
- * - Returns both raw/effective CPs and effective normalized transitions.
+ * - Returns both raw/effective CPs and effective transition deltas.
  */
 export function clampMonotonicCubicSegment(input: ClampInput): ClampOutput;
 
 /**
- * Solve a normalized transition from a world-space CP so a handle appears visually
+ * Solve a transition delta from a world-space CP so a handle appears visually
  * fixed relative to its endpoint after the endpoint moves (marker-drag invariance).
  *
  * anchor:
@@ -134,7 +135,7 @@ export function solveNormalizedTransitionFromWorldCP(params: {
   cpWorld: WorldCP;
   start: { stamp: number; value: number }; // current A (or A′ if moved)
   end: { stamp: number; value: number };   // current B (or B′ if moved)
-  previous?: RawVector2;                   // previous normalized fallback for degenerate spans
+  previous?: RawVector2;                   // previous fallback delta for degenerate spans
 }): RawVector2;
 
 /**
@@ -210,7 +211,7 @@ Implementation notes
 - Marker drag invariance uses `solveNormalizedTransitionFromWorldCP` during preview and commit when a keypoint moves; only apply to endpoints that already have transitions defined.
 - Handle drags use `clampHandleAgainstOwnKeypointX` at the UI-level to enforce the only movement constraint; overshoot in x/y is allowed and any knots are reflected in the effective CPs.
 
-This document proposes the rendering and interaction model for Bezier “handles” in the Spline view. Handles appear on a transition segment when at least one of the two endpoint markers (data-points) on that curve is selected. Users can drag handles to modify the segment’s shape by updating the normalized transition parameters around each endpoint keypoint.
+This document proposes the rendering and interaction model for Bezier “handles” in the Spline view. Handles appear on a transition segment when at least one of the two endpoint markers (data-points) on that curve is selected. Users can drag handles to modify the segment’s shape by updating the anchor-relative transition deltas around each endpoint keypoint.
 
 The plan aligns with the drag and preview flow described in `docs/drag-interactions.md`, reuses the transition semantics in `types/data/keypoint.ts`, and matches the geometry produced by `functions/compute-transition-params.ts`.
 
@@ -220,7 +221,7 @@ The plan aligns with the drag and preview flow described in `docs/drag-interacti
 
 - Show control handles for a transition segment when at least one endpoint marker on that segment is selected.
 - Render handle positions in “real” coordinate space so they visually align with the Spline curve (not normalized [0,1]).
-- Support dragging a handle to update the corresponding keypoint’s normalized transition values:
+- Support dragging a handle to update the corresponding keypoint’s transition deltas:
   - Start point’s “out” handle: `start.transitions.out: { x, y }`
   - End point’s “in” handle: `end.transitions.in: { x, y }`
 - Preview edits through the existing derived/preview pipeline; commit writes to canonical keypoint data.
@@ -234,15 +235,17 @@ The plan aligns with the drag and preview flow described in `docs/drag-interacti
   - Segment span in time: `spanX = B.stamp - A.stamp`
   - Start and end real values in the selected attribute: `A.value`, `B.value` (scalar)
   - Value delta: `deltaY = B.value - A.value`
-- Normalized transitions around keypoints:
-  - A.out: `{ x, y }` where:
-    - Control time: `cp1.x = A.stamp + spanX * x`
-    - Control value: `cp1.y = A.value + deltaY * y`
-  - B.in: `{ x, y }` where:
-    - Control time: `cp2.x = A.stamp + spanX * x`
-    - Control value: `cp2.y = A.value + deltaY * y`
-- Defaults are cubic-ease-in-out when transitions are undefined:
-  - `out: { x: 0.65, y: 0 }`, `in: { x: 0.35, y: 1 }`
+- Transition deltas around keypoints:
+  - `TransitionInfo.out` stores `{ x, y }` offsets relative to the start keypoint. World control points are computed as `cp1.x = A.stamp + x`, `cp1.y = A.value + y`.
+  - `TransitionInfo.in` stores `{ x, y }` offsets relative to the end keypoint. World control points are computed as `cp2.x = B.stamp + x`, `cp2.y = B.value + y`.
+  - These offsets live entirely in animation/value space (no instance scaling applied). “World” conversions (pixel mapping, instance transforms) happen downstream.
+- Defaults fall back to `StandardTransitionType.Cubic` when transitions are undefined. Conceptually this matches the normalized cubic-bezier parameters `{out: (0.65, 0), in: (0.35, 1)}`, but the actual stored deltas are derived per segment span/value when the enum is resolved.
+- We treat those enum defaults as “paired” on first touch—drag start converts them to explicit vectors and seeds `TransitionInfo.pairing = Paired` unless Alt immediately breaks the link.
+- Canonical transitions use `TransitionInfo` from `types/data/keypoint.ts`:
+  - `TransitionInfo` packs `{ in?: RawVector2 | StandardTransitionType; out?: RawVector2 | StandardTransitionType; pairing?: TransitionPairing }`.
+  - `pairing` encodes whether the opposing handles on a keypoint should stay “flat”/colinear (`TransitionPairing.Paired`) or be treated independently (`TransitionPairing.Free`).
+  - Explicit `RawVector2` entries always represent anchor-relative deltas as described above; enum entries are lazily converted to those deltas via `resolveTransitionDelta`/`getWorldControlPoints`.
+  - Once a drag mutates either handle or toggles the pairing flag we store both sides as explicit vectors so future edits share a single representation, and also update the pairing setting as needed.
 - Spline rendering uses “real” values: y is the raw scalar value and is later mapped to pixels via the Spline view’s vertical axis transform.
 
 These are the exact rules implemented by `compute-transition-params.ts`. Handles will compute their world positions using the same rules so they always align to the visible curve.
@@ -318,24 +321,41 @@ The handle renderer must use the same “domain → pixel” transform as `Trans
   - Emphasize the handle and (optionally) the connecting line.
 - Drag:
   - Only one handle drag is active at a time; starting a new handle drag cancels or commits the previous gesture first.
-  - Begin: capture which handle (A.out or B.in) is being dragged and snapshot the segment endpoints needed to compute normalized coordinates.
+  - Begin: capture which handle (A.out or B.in) is being dragged and snapshot the segment endpoints needed to compute anchor-relative deltas (their stamps, values, and any enum presets that must be converted up front).
   - Move:
-    - Compute normalized `x` from pointer stamp relative to [A.stamp, B.stamp]:
-      - `x = (localStamp - A.stamp) / (B.stamp - A.stamp)` (allow <0 or >1 for overshoot).
-    - Compute normalized `y` from pointer value relative to [A.value, B.value]:
-      - If `deltaY !== 0`, `y = (worldValue - A.value) / deltaY` (allow <0 or >1).
-      - If `deltaY === 0`, keep existing `y` (no-op) or follow the degenerate span policy (defaults).
-    - Before staging the preview value, apply `clampHandleAgainstOwnKeypointX` so the world CP cannot cross its anchor keypoint’s X; otherwise leave the normalized numbers unconstrained.
-    - Update the corresponding transition in preview (A.out for CP1, B.in for CP2) via the handle-delta diff map.
+    - Convert the pointer to animation-space stamp/value using the same transforms as `TransitionSegment` (`instanceTransform` for x, inverse vertical scale for y).
+    - Assemble a candidate control point in animation/value space: `{ x: pointerStamp, y: pointerValue }`.
+    - Clamp with `clampHandleAgainstOwnKeypointX` so the world CP cannot cross its anchor keypoint’s X; otherwise leave the numbers unconstrained (overshoot is allowed).
+    - Derive anchor-relative deltas by subtracting the keypoint anchor (`deltaX = cpWorld.x - anchorStamp`, `deltaY = cpWorld.y - anchorValue`). These deltas become the new `TransitionInfo.{in|out}` vectors.
+    - Update the relevant `TransitionInfo` in preview via the handle-delta diff map:
+      - When the keypoint’s current or inferred pairing is `Paired`, write both sides in a single step so the handles stay colinear (flat) through the anchor, keeping the in–point–out trio on a straight line. Lengths remain independent by default.
+      - When the pairing is `Free` (or temporarily forced free via Alt), isolate the dragged handle only.
+      - If either side relied on a `StandardTransitionType`, convert it to an explicit `RawVector2` before writing so both handles share the same representation as soon as coupling occurs.
   - End:
-    - Commit the new normalized `{ x, y }` into the keypoint’s `transitions` object, creating it if needed.
+    - Commit the new anchor-relative `{ x, y }` offsets into the keypoint’s `TransitionInfo`, creating it if needed and preserving any pairing flag staged during the drag.
     - Reset: provide a hotkey (TBD) to reset the selected segment’s handles to defaults `{ out: {x: 0.65, y: 0}, in: {x: 0.35, y: 1} }`.
 - Modifiers and constraints:
   - Only the “no cross anchor X” constraint applies; `x`/`y` are otherwise free-form and may overshoot neighbors.
-  - Alt: independent rotation and scale of the dragged handle relative to its complement (the opposite handle on the same keypoint).
+  - Alt: when the current or inferred pairing is flat, Alt temporarily decouples the handles (treat as `TransitionPairing.Free`) so the dragged side can move independently; committing while Alt is held writes the updated vectors plus `pairing: Free`. Alt also suppresses the snap-to-flat logic described below so users can explore “almost flat” poses without immediately reparing.
   - Shift: constrain the dragged handle to remain colinear with its complement (same angle/tangent). Lengths mirror by default in this mode.
   - Shift+Alt: keep the handles colinear (same angle) while allowing independent scaling (handle lengths may differ).
   - Handle drags do not use horizontal frame snapping; Alt no longer means “bypass snap” for handles. Marker drags retain their existing Alt/Shift semantics per `drag-interactions.md`.
+
+### Pairing behavior
+
+- Pair intent lives on each keypoint’s `TransitionInfo.pairing`. We resolve it at drag start using three sources, in priority order:
+  1. An explicit `pairing` value already stored on the keypoint.
+  2. If missing, a runtime angle comparison of the existing handles (raw vectors or enum presets converted to vectors). If both handles exist and are colinear within a narrow tolerance (≈2–3°), we treat them as `Paired`.
+  3. If only one handle exists, we leave the pairing unresolved and fall back to the persisted value (if any). As soon as both handles are defined (including defaults converted from enums) we rerun the angle test and persist the outcome.
+- The angle comparison treats enums and explicit vectors uniformly: mixing `StandardTransitionType` presets (e.g., sine vs cubic) or combining an enum with a `RawVector2` can still count as paired if the resolved world handles lie on the same line through the keypoint.
+- Explicit pairing values remain authoritative even if the handles diverge during pointer previews; we only re-run the angle-based inference when the stored flag is `undefined`.
+- The first time we infer pairing from angles we immediately persist it by staging a `TransitionInfo.pairing` diff. This keeps future drags deterministic and lets QA reason about the stored state.
+- When a handle is dragged while `pairing === Paired` (explicit or inferred):
+  - Both handles stay on the same line through the anchor so the control polygon is visually flat. We do not force equal lengths—the dragged side grows/shrinks independently, but the complement mirrors direction.
+  - If either side still referenced a `StandardTransitionType`, we bake both to explicit `RawVector2` entries (world deltas) before applying the coupled delta so future edits never have to juggle enum lookups.
+- When `pairing === Free`, only the dragged handle updates. However, dragging it into the small “flat tolerance” cone (same threshold used for detection) automatically snaps the keypoint back to `Paired` as long as Alt is not held. Holding Alt during the move bypasses this snap even if the handle is perfectly aligned. That snap writes both explicit vectors plus `pairing: Paired` on commit.
+- Holding Alt while paired temporarily suppresses coupling and the snap detector. If the user releases Alt before committing, the preview reverts to the stored paired pose; if they commit while Alt is still active, the keypoint records `pairing: Free` alongside the explicit handle vectors.
+- Snapping is asymmetric by design: paired handles stay paired until Alt deliberately breaks them, while free handles only transition back to paired when the drag lands inside the tolerance without Alt.
 
 ---
 
@@ -346,22 +366,26 @@ We reuse the drag/preview architecture in `docs/drag-interactions.md`, but speci
 - Anchor reference:
   - Extend the drag anchor union to support handles:
     - `anchor.kind: "marker" | "handle-in" | "handle-out"`
-    - `anchor.keypointId`, `anchor.trackId`, `anchor.rowId`, plus for handles, the remote endpoint keypoint id to compute normalization against (A for out uses next B, B for in uses previous A).
+    - `anchor.keypointId`, `anchor.trackId`, `anchor.rowId`, plus for handles, the remote endpoint keypoint id to pull neighbor context (A for out uses next B, B for in uses previous A) when resolving enums or anti-knot constraints.
 - Transform inputs:
   - `instanceTransform` is still required to convert between global stamp and local instance time.
   - Vertical mapping uses the same view axis transform (`verticalBounds` or `verticalAxisRange`) as Spline.
 - Preview diffs (generalized approach):
-  - Extend `dragState` with a diff map that can express handle overrides alongside the existing stamp/value deltas. Proposed shape:
-    - `handleDiffs?: Record<keypointId, { in?: RawVector2; out?: RawVector2 }>`
-    - Coupling logic writes to both the dragged handle and its complement before the diff is consumed.
+  - Extend `dragState` with a diff map that can express handle overrides alongside the existing stamp/value deltas. Shape:
+    - `handleDiffs?: Record<keypointId, TransitionInfo>`
+    - Coupling logic writes to both the dragged handle and its complement (plus `pairing`) before the diff is consumed.
   - `applyDragDeltas` (or a sibling helper) merges `handleDiffs` into the virtual frames before `computeRowData` emits `InstancedFrameInfo`, so any downstream consumer automatically sees the preview geometry.
   - This diff structure keeps the door open for future preview surfaces (e.g., curve warping) by treating drag previews as typed patches rather than bespoke booleans.
+- Pairing resolution pipeline:
+  - Drag start snapshots normalize the working `TransitionInfo` by converting any `StandardTransitionType` presets on the affected keypoint to explicit `RawVector2` values (one conversion per handle). This ensures the preview diff always manipulates vectors.
+  - After normalization we evaluate the pairing state using the rules in [Pairing behavior](#pairing-behavior) and immediately stash the resolved value inside the diff entry so preview/commit share the same semantics.
+  - The snap-to-flat detector (free → paired) and Alt override (paired → free) both operate by mutating the same diff entry’s `pairing` field, so derived snapshots and commits see identical intent.
 - Derived snapshot consumption:
   - `buildDerivedSnapshot` applies the diffs first, then runs the canonical-to-world conversion and anti-knot clamp so both raw and effective CPs are coherent during drag.
   - Because the diff map lives in the store, any selection change or cancellation immediately clears it and forces the derived snapshot back to canonical data.
 - Commit:
-  - On `commitDrag`, call `updateKeypoint` (or a new helper) to write the patched `transitions.{in|out}` back to the canonical keypoint.
-  - Ensure the keypoint has a `transitions` object after commit.
+  - On `commitDrag`, call `updateKeypoint` (or a new helper) to write the patched `TransitionInfo` (vectors plus `pairing`) back to the canonical keypoint.
+  - Ensure the keypoint has a `transitions` object after commit; when `pairing` was inferred or snapped we persist it immediately so follow-up drags see the explicit flag.
   - Clear the handle-preview map in drag state.
 
 ---
@@ -369,18 +393,17 @@ We reuse the drag/preview architecture in `docs/drag-interactions.md`, but speci
 ## Data Required at Drag Time
 
 - For CP1 (A.out):
-  - A: `stampA`, `valueA`
-  - B: `stampB`, `valueB`
-  - Conversions:
-    - `x = (localPointerStamp - stampA) / (stampB - stampA)` (allow overshoot; enforce only the “no cross anchor X” constraint in world space).
-    - `y = deltaY !== 0 ? (worldPointerValue - valueA) / (valueB - valueA) : keep existing y`
+  - Anchor: `stampA`, `valueA`
+  - Neighbor (for preview visuals, anti-knot, and modifier context): `stampB`, `valueB`
+  - Pointer conversions:
+    - `pointerStamp = instanceTransform.globalToLocal(pointerX)` (allow overshoot; only clamp against the anchor stamp).
+    - `pointerValue = inverseLinearScale(pointerY, [pixelMin, pixelMax], [domainMin, domainMax])`
+  - Anchor-relative delta: `{ x: pointerStampClamped - stampA, y: pointerValue - valueA }`
 - For CP2 (B.in):
-  - Same formulas, but normalization still uses A’s origin; see `compute-transition-params.ts` (both cp1 and cp2 times share A.stamp/A.value as the origin even when `x`/`y` fall outside [0,1]).
-- Pointer-to-world conversions:
-  - X: normalized global stamp → local instance time using `instanceTransform`.
-  - Y: invert the Spline view’s value scale:
-    - `worldValue = inverseLinearScale(pointerY, [pixelMin, pixelMax], [domainMin, domainMax])`
-  - The renderer already has the Spline axis range and domain; reuse them to avoid drift.
+  - Anchor: `stampB`, `valueB`
+  - Neighbor: `stampA`, `valueA`
+  - Pointer conversions identical to CP1; clamp so `pointerStamp ≤ stampB` before subtracting `stampB`. Delta is `{ x: pointerStampClamped - stampB, y: pointerValue - valueB }`.
+- These deltas are the values written to `TransitionInfo.{out|in}`. The renderer already has the Spline axis range and domain; reuse them so handle previews share the same scaling as curves.
 
 ---
 
@@ -389,7 +412,7 @@ We reuse the drag/preview architecture in `docs/drag-interactions.md`, but speci
 - Zero span in time (`A.stamp === B.stamp`): do not allow x changes; keep x at current value.
 - Zero delta in value (`A.value === B.value`): y changes have no visual effect; keep y stable or clamp to {0,1}.
 - Missing transitions:
-  - On first drag, create `transitions` with the existing (or default) `{in|out}` and apply edits.
+  - On first drag, create a `TransitionInfo` that contains explicit `{in|out}` vectors derived from the fallback `StandardTransitionType.Cubic` (or any existing enums) and immediately resolve `pairing`. Cubic defaults therefore start life as `Paired` even before the user moves a handle.
 - Non-numeric or multi-source rows:
   - Handles are only shown for single-source numeric rows in Spline view (consistent with current Spline assumptions). If/when multi-attribute support expands, we will document attribute selection rules.
 
@@ -404,7 +427,7 @@ We reuse the drag/preview architecture in `docs/drag-interactions.md`, but speci
   - `anchor: { kind: "handle-in", keypointId: B.id, trackId, rowId, instanceId }`
   - Also store `neighborKeypointId: A.id`.
 
-At update time, compute normalized x/y with A and B pulled from the derived snapshot (to reflect live preview and selection).
+At update time, compute anchor-relative deltas (subtract the relevant keypoint stamp/value) with A and B pulled from the derived snapshot (to reflect live preview and selection).
 
 ---
 
@@ -412,24 +435,18 @@ At update time, compute normalized x/y with A and B pulled from the derived snap
 
 Context and goals
 - We must prevent knots/backtracks in transition curves. In practice, that means the cubic’s X dimension must remain monotonic across each segment A → B. A practical sufficient condition is to enforce P0.x ≤ P1.x ≤ P2.x ≤ P3.x where P0 = A, P3 = B, and P1/P2 are the control points.
-- The Spline view shows handles in world space, but transitions are stored in normalized parametric space. Some operations therefore require translating between the two spaces and optionally applying an “effective” clamp that preserves validity without mutating the canonical transitions.
+- The Spline view shows handles in world space, while transitions persist anchor-relative deltas (animation/value space offsets). Some operations therefore require translating between the two spaces and optionally applying an “effective” clamp that preserves validity without mutating the canonical transitions.
 
 1) Marker drag should preserve the apparent handle relative to the marker
-- When dragging a keypoint (marker), the handle(s) “attached” to that marker should appear visually stationary relative to the marker, even though transitions are normalized to neighbors. To achieve this:
-  - Before drag update, compute the world-space CP(s) for that marker using the current normalized transitions and A/B values/stamps:
-    - For A.out:
-      - cpWorld.x = A.stamp + spanX * (A.transitions?.out?.x ?? 0.65)
-      - cpWorld.y = A.value + deltaY * (A.transitions?.out?.y ?? 0)
-    - For B.in (same origin as A.out—normalized transitions are measured from the start of the segment):
-      - cpWorld.x = A.stamp + spanX * (B.transitions?.in?.x ?? 0.35)
-      - cpWorld.y = A.value + deltaY * (B.transitions?.in?.y ?? 1)
-  - After the marker’s new position/value A′ (or B′) is determined by the drag delta, re-solve normalized transitions from the stored cpWorld to keep the visual relationship intact:
+- When dragging a keypoint (marker), the handle(s) “attached” to that marker should appear visually stationary relative to the marker, even though transitions are stored as deltas relative to anchors. To achieve this:
+  - Before drag update, compute the world-space CP(s) for that marker using the current transition deltas (or easing enums resolved via `resolveTransitionDelta`) and A/B values/stamps.
+  - After the marker’s new position/value A′ (or B′) is determined by the drag delta, re-solve anchor-relative deltas from the stored cpWorld to keep the visual relationship intact:
     - For A.out after A moves (B constant):
-      - x′ = (cpWorld.x - A′.stamp) / (B.stamp - A′.stamp)
-      - y′ = deltaY′ !== 0 ? (cpWorld.y - A′.value) / (B.value - A′.value) : keep previous y (or 0 by policy)
+      - `deltaX′ = cpWorld.x - A′.stamp`
+      - `deltaY′ = cpWorld.y - A′.value`
     - For B.in after B moves (A constant):
-      - x′ = 1 - (B′.stamp - cpWorld.x) / (B′.stamp - A.stamp)
-      - y′ = 1 - (B′.value - cpWorld.y) / (B′.value - A.value)
+      - `deltaX′ = cpWorld.x - B′.stamp`
+      - `deltaY′ = cpWorld.y - B′.value`
   - Only apply this re-solve to handles that exist (i.e., when a keypoint hasn’t specified a transition, do not fabricate or update one).
   - Apply this in both preview (during drag) and commit paths so the visual invariance matches the final state.
 - Note: When the dragged keypoint sits between two segments, apply the rule to both adjacent handles (its out for left segment; its in for right segment) independently.
@@ -452,10 +469,12 @@ The accompanying regression tests simulate dragging a keypoint past its neighbor
 
 - **Segment-level bookkeeping** — handle invariants depend on *pairs* of keypoints, yet we still store offsets on a single keypoint. When segment membership changes (crossing, insertion, deletion) we need to recompute both sides in lockstep. Tracking handles under a `{segmentId, direction}` key would make this explicit and simplify reparenting logic.
 - **Single-source snapshots** — different pieces of the pipeline (gesture preview, derived snapshot, commit) can observe different Immer drafts today. Persisting a frozen “pre-drag snapshot” per track/attribute and threading it through every resolver guarantees we always normalize against the same data.
-- **Derived-store caching** — we recompute world-space control points from normalized transitions every render, which is both slow and prone to subtle math differences. Derived rows should cache `{rawCP, effectiveCP}` so UI/tests can assert invariants without re-running the math.
+- **Derived-store caching** — we recompute world-space control points from stored deltas every render, which is both slow and prone to subtle math differences. Derived rows should cache `{rawCP, effectiveCP}` so UI/tests can assert invariants without re-running the math.
 - **Broader coverage** — existing regression tests focus on single-point drags and one crossing scenario. We still need multi-selection + vector-component coverage, plus negative-direction crossings (dragging backwards). Those cases should assert world-space deltas from the cached CP data mentioned above.
 
 ### Proposed pipeline overhaul: anchor-relative world handles
+
+> **Historical note:** The remainder of this section preserves the earlier migration plan when transitions were still normalized-relative to segment spans. The canonical implementation now stores anchor-relative deltas per `TransitionInfo`; keep the table below for context when auditing older code paths.
 
 | Layer | Current state | Proposed change | Notes |
 | --- | --- | --- | --- |
@@ -543,11 +562,13 @@ type TrackDiff =
 
 By emitting explicit diffs we gain determinism (preview == commit), simplify testing/QA, and create a clean interface for future wasm acceleration.
 
-> **Current status (March 2025):** The diff-based plumbing described above has landed, so preview/commit now consume the same serialized changes. However, handles are still stored as normalized `{x,y}` on each keypoint, which means crossing segments still cause handle lengths to be recomputed relative to whichever neighbor happens to be next in order. The residual “handles scale after crossing” bug is therefore expected until we finish the anchor-relative world-handle migration (Implementation Phase 1). Once world-space deltas are authoritative (no normalized storage), crossings will stop affecting perceived handle length.
+> **Current status (March 2025):** The diff-based plumbing described above has landed, so preview/commit now consume the same serialized changes. `TransitionInfo` already stores anchor-relative deltas, which prevents cross-segment resizing; the remaining coupling work focuses on enforcing the new `pairing` semantics.
 
 > **Rendering note:** When a marker crosses a neighbor the handles briefly disappear before reappearing. This looks like a visual delay (either in the renderer or in the diff application order) and should be investigated during the anchor-relative handle refactor. Keep an eye out for any obvious causes while reworking the snapshot/segment logic.
 
 ### Anchor-relative world migration plan (no normalized storage)
+
+> **Status:** The anchor-relative form described here is now the default behavior (see `get-world-control-points.ts`). Keep the bullets below as legacy documentation for how we reached the current state; new work should treat anchor-relative deltas as canonical.
 
 We redefine the meaning of `transitions` (still a `RawVector2`): `x` is Δstamp relative to the keypoint’s stamp (timeline 0–1), and `y` is Δvalue relative to the keypoint’s value. No separate `transitionsWorld` exists; the normalized neighbor-span meaning is snapshot-only and derived on demand.
 
@@ -610,7 +631,7 @@ On load we default the existing data to the appropriate `ease-*` enum. Once the 
   - Do not enforce monotonic X during direct handle drag:
     - The handle may overshoot beyond the adjacent marker (e.g., x can move outside the 0–1 span such as 1.4). Any resulting backtracking/knot will be visualized and evaluated via the effective clamp in the snapshot; the raw handle remains interactive.
   - Y is not constrained; it can go below 0 or above 1 (overshooting the neighboring value). Any invalidities are handled by the effective clamp during derivation.
-  - Store the constrained normalized `{x, y}` in preview; commit writes the constrained values to canonical transitions.
+  - Store the constrained anchor-relative `{x, y}` deltas in preview; commit writes the constrained values to canonical transitions.
 
 4) Modifiers recap for handle drags (with constraints)
 - Alt: independent rotation and scale of the dragged handle relative to its complement (the opposite handle on the same keypoint). Only the keypoint-X crossing constraint applies; overshoot in x (past the neighbor, beyond 0–1) and y is allowed. Any backtrack is handled via the effective clamp.
@@ -712,7 +733,7 @@ Types and derived data proposals
   - `updateDrag` computes preview world CP deltas from the pointer, converts to anchor-relative deltas via a helper (e.g., `solveTransitionFromWorldCP`), and writes those to `handleDiffs` (respect coupling rules; enum/default remain enum until commit).
   - `commitDrag` promotes the affected handle(s) to explicit transitions in canonical data and clears `handleDiffs`; `cancelDrag` drops the preview.
 - Derived/snapshot path: `src/functions/compute-row-data.ts`, `attachSegmentGeometry`
-  - Merge `handleDiffs` (normalized) into canonical transitions before building `geometry.raw`, then run `clampMonotonicCubicSegment` to update `geometry.effective` so preview/commit visuals stay in sync.
+  - Merge `handleDiffs` (anchor-relative deltas + pairing) into canonical transitions before building `geometry.raw`, then run `clampMonotonicCubicSegment` to update `geometry.effective` so preview/commit visuals stay in sync.
   - No rendering code changes beyond consuming the existing `geometry`; all math stays in the derived pipeline.
 - Tests/QA: add unit coverage for `solveNormalizedTransitionFromWorldCP`, handle coupling, default → explicit promotion on commit, and preview ≈ commit parity; add a Storybook/QA note for hovering/dragging handles.
 

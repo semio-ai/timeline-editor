@@ -17,6 +17,17 @@ export enum StandardTransitionType {
   Linear = "linear",
 }
 
+export enum TransitionPairing {
+  Paired = "paired",
+  Free = "free",
+}
+
+export interface TransitionInfo {
+  in?: RawVector2 | StandardTransitionType;
+  out?: RawVector2 | StandardTransitionType;
+  pairing?: TransitionPairing;
+}
+
 /**
  * A single point in time on a track, with a specific value, at a specific time stamp.
  * @property id - a unique identifier for the keypoint.
@@ -56,10 +67,7 @@ export interface Keypoint<DataType extends RawValue> {
   id: string;
   stamp: number;
   value: DataType;
-  transitions?: {
-    in?: RawVector2 | StandardTransitionType;
-    out?: RawVector2 | StandardTransitionType;
-  };
+  transitions?: TransitionInfo;
 }
 
 // These positions are based on common easing functions using cubic-bezier curves
