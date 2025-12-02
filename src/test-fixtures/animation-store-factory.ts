@@ -1,6 +1,6 @@
 import { RawValue, AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
-import type { Track, Animation, Namespace } from "../types";
+import { type Track, type Animation, type Namespace, TransitionPairing } from "../types";
 import type { SimpleTrack } from "../types/data/simple-track";
 import { createAnimationStore, type AnimationStore } from "../store";
 import { createEmptySelectionState } from "../functions/selection-state-manager";
@@ -305,7 +305,11 @@ function createTracks(): Record<string, Track<RawValue>> {
           id: "o1",
           stamp: 0.15,
           value: 1,
-          transitions: { in: { x: -0.12, y: 0 }, out: { x: 0.0975, y: 0.1 } },
+          transitions: {
+            in: { x: -0.12, y: 0 },
+            out: { x: 0.12, y: 0 },
+            pairing: TransitionPairing.Paired,
+          },
         },
         { id: "o2", stamp: 0.6, value: 1, transitions: { out: { x: 0.225, y: 0 } } },
         {

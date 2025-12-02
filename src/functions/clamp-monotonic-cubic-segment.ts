@@ -83,9 +83,9 @@ export function clampMonotonicCubicSegment(input: ClampInput): ClampOutput {
       startAnchor,
       endAnchor,
       span,
-      epsilon,
       cp1: cp1Effective,
       cp2: cp2Effective,
+      epsilon,
     });
 
     if (monotonicResult?.cp1 && cp1Effective) {
@@ -174,7 +174,7 @@ function enforceMonotonicX(params: {
       cp2?: WorldCP;
     }
   | undefined {
-  const { startAnchor, endAnchor, cp1, cp2, span } = params;
+  const { startAnchor, endAnchor, cp1, cp2, span, epsilon } = params;
   if (!cp1 || !cp2 || span === 0) {
     return undefined;
   }
@@ -182,11 +182,11 @@ function enforceMonotonicX(params: {
   const cp1Normalized = (cp1.x - startAnchor.x) / span;
   const cp2Normalized = (cp2.x - startAnchor.x) / span;
 
-  if (isMonotonicNormalized(cp1Normalized, cp2Normalized)) {
+  if (isMonotonicNormalized(cp1Normalized, cp2Normalized, epsilon)) {
     return undefined;
   }
 
-  const clampedNormalized = clampNormalizedForMonotonic(cp1Normalized, cp2Normalized);
+  const clampedNormalized = clampNormalizedForMonotonic(cp1Normalized, cp2Normalized, epsilon);
   if (!clampedNormalized) {
     return undefined;
   }
@@ -201,14 +201,19 @@ function enforceMonotonicX(params: {
   };
 }
 
-function isMonotonicNormalized(cp1Normalized: number, cp2Normalized: number): boolean {
+function isMonotonicNormalized(
+  cp1Normalized: number,
+  cp2Normalized: number,
+  epsilon: number = EPSILON_DEFAULT,
+): boolean {
   const derivativeMin = cubicDerivativeMinimum(cp1Normalized, cp2Normalized);
-  return derivativeMin > EPSILON_DEFAULT;
+  return derivativeMin >= -epsilon;
 }
 
 function clampNormalizedForMonotonic(
   cp1Normalized: number,
   cp2Normalized: number,
+  epsilon: number,
 ): { cp1Normalized: number; cp2Normalized: number } | undefined {
   const anchorOut = 0;
   const anchorIn = 1;
@@ -226,7 +231,7 @@ function clampNormalizedForMonotonic(
   for (let i = 0; i < 30; i++) {
     const mid = (low + high) / 2;
     const candidate = allows(mid);
-    if (isMonotonicNormalized(candidate.x1, candidate.x2)) {
+    if (isMonotonicNormalized(candidate.x1, candidate.x2, epsilon)) {
       best = { cp1Normalized: candidate.x1, cp2Normalized: candidate.x2 };
       low = mid;
     } else {

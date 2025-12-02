@@ -221,7 +221,22 @@ export function computeRowData(
     });
   }
 
-  const virtualFrames = computeFrames(relevantTracks, sourceRow, {
+  // Build adjusted tracks for preview:
+  // - Apply preview points (drag deltas / handle diffs)
+  const adjustedTracks: Record<string, Track<RawValue>> = {};
+
+  trackIds.forEach((trackId) => {
+    const baseTrack = relevantTracks[trackId];
+    if (!baseTrack) return;
+    const previewPoints = previewTrackPoints.get(trackId) ?? baseTrack.points;
+
+    adjustedTracks[trackId] = {
+      ...baseTrack,
+      points: previewPoints.slice(),
+    } as Track<RawValue>;
+  });
+
+  const virtualFrames = computeFrames(adjustedTracks, sourceRow, {
     draggingKeypointIds: keypointSelection,
     transformKeypoint: (keypoint, { trackId }) => {
       const lookup = previewPointLookup.get(trackId);

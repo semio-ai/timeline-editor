@@ -37,12 +37,7 @@ export function updateHandleDrag(state: AnimationData, input: HandleDragUpdateIn
     endX: anchor.endStamp,
   });
 
-  const domain = anchor.valueScale?.domain;
-  let nextY = clamped.y;
-  if (domain) {
-    nextY = Math.min(domain[1], Math.max(domain[0], nextY));
-  }
-  nextY = applyPrecision(nextY, anchor.valueScale?.precision);
+  const nextY = applyPrecision(clamped.y, anchor.valueScale?.precision);
 
   const transition = solveTransitionFromWorldCP({
     anchor: anchor.side === "out" ? "startOut" : "endIn",

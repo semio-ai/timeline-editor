@@ -8,7 +8,7 @@ describe("clampMonotonicCubicSegment", () => {
       end: { stamp: 1, value: 1 },
       rawTransitions: {
         startOut: { x: 0.25, y: 0 },
-        endIn: { x: 0.75, y: 1 },
+        endIn: { x: -0.25, y: 1 },
       },
     });
 
@@ -42,7 +42,7 @@ describe("clampMonotonicCubicSegment", () => {
       end: { stamp: 1, value: 1 },
       rawTransitions: {
         startOut: { x: 0.9, y: 0.4 },
-        endIn: { x: 0.1, y: 0.6 },
+        endIn: { x: -0.9, y: 0.6 },
       },
     });
 
@@ -51,17 +51,32 @@ describe("clampMonotonicCubicSegment", () => {
     expect(result.cp2Effective).toEqual(result.cp2Raw);
   });
 
-  it("converts inbound handles relative to the start anchor", () => {
+  it("preserves handle deltas when a control point sits on its anchor x", () => {
+    const result = clampMonotonicCubicSegment({
+      start: { stamp: 0, value: 1 },
+      end: { stamp: 1, value: 1 },
+      rawTransitions: {
+        startOut: { x: 0, y: -0.2 },
+        endIn: { x: -0.2, y: 0 },
+      },
+    });
+
+    expect(result.cp1Raw).toEqual({ x: 0, y: 0.8 });
+    expect(result.cp1Effective).toEqual(result.cp1Raw);
+    expect(result.flags.cp1Clamped).toBeFalsy();
+  });
+
+  it("keeps inbound handles relative to the end anchor", () => {
     const result = clampMonotonicCubicSegment({
       start: { stamp: 1, value: 2 },
       end: { stamp: 3, value: 6 },
       rawTransitions: {
         startOut: { x: 0.25, y: 0.1 },
-        endIn: { x: 0.2, y: 0.6 },
+        endIn: { x: -0.2, y: 0.6 },
       },
     });
 
-    expect(result.cp2Raw?.x).toBeCloseTo(1 + (3 - 1) * 0.2, 5);
-    expect(result.cp2Raw?.y).toBeCloseTo(2 + (6 - 2) * 0.6, 5);
+    expect(result.cp2Raw?.x).toBeCloseTo(3 - 0.2, 5);
+    expect(result.cp2Raw?.y).toBeCloseTo(6.6, 5);
   });
 });

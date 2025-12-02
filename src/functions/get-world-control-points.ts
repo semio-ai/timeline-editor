@@ -84,18 +84,11 @@ export function resolveTransitionDelta<T extends RawValue>(
   endValue: T,
   transition?: RawVector2 | StandardTransitionType,
 ): RawVector2 {
-  const valueDiffNumeric =
-    typeof startValue === "number" && typeof endValue === "number"
-      ? (endValue as number) - (startValue as number)
-      : undefined;
-
   const easing =
     transition && typeof transition !== "object" ? transition : StandardTransitionType.Cubic;
 
   if (transition && typeof transition === "object") {
-    const deltaY =
-      valueDiffNumeric !== undefined && Math.abs(valueDiffNumeric) < 1e-9 ? 0 : transition.y;
-    return { x: transition.x, y: deltaY };
+    return { x: transition.x, y: transition.y };
   }
 
   const easingParams =

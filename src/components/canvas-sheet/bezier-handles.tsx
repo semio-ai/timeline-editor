@@ -109,18 +109,19 @@ export const BezierHandles = memo(function BezierHandles({
     [resolvedTrackId, segment.end],
   );
 
-  const resolvedValueScale = useMemo<ValueScale>(
-    () => ({
-      domain: [verticalBounds.min, verticalBounds.max],
-      clamp: true,
-    }),
-    [verticalBounds.max, verticalBounds.min],
-  );
   const pixelRangeY = useMemo(() => {
     const visualScale = verticalAxisRange?.visualScale ?? 1;
     const span = Math.max(height * visualScale, 1);
     return span;
   }, [height, verticalAxisRange?.visualScale]);
+
+  const resolvedValueScale = useMemo<ValueScale>(
+    () => ({
+      domain: [verticalBounds.min, verticalBounds.max],
+      clamp: false,
+    }),
+    [verticalBounds.max, verticalBounds.min],
+  );
 
   const geometry = segment.geometry;
   if (!geometry || segment.buffer) {
@@ -236,7 +237,7 @@ export const BezierHandles = memo(function BezierHandles({
                 startValue,
                 endValue,
                 attributePath: resolvedAttributePath,
-                valueScale: resolvedValueScale,
+                valueScale: resolvedValueScale, // clamp disabled; provides range for deltas
                 pixelRangeY,
                 startHandleDrag: startHandleDragAction,
                 updateHandleDrag: updateHandleDragAction,
