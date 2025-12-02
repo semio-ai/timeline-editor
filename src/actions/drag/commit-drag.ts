@@ -62,6 +62,7 @@ const collapseCoincidentKeypoints = (
   if (removedIds.length === 0) return;
 
   track.points.splice(0, track.points.length, ...filtered);
+  track.points.sort((a, b) => a.stamp - b.stamp);
 
   const selectionSet = selection.keypoints.get(trackId);
   if (selectionSet) {

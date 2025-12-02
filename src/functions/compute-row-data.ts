@@ -173,6 +173,9 @@ export function computeRowData(
 
   const previewTrackPoints = new Map<string, Keypoint<RawValue>[]>();
   const previewPointLookup = new Map<string, Map<string, Keypoint<RawValue>>>();
+  const anchorTrackId = dragState?.anchor?.trackId;
+  const anchorKeypointId = dragState?.anchor?.keypointId;
+  const EPSILON = 1e-6;
 
   if (dragState && selectionState.instanceId === dragState.instanceId) {
     trackIds.forEach((trackId) => {
@@ -223,7 +226,9 @@ export function computeRowData(
 
   // Build adjusted tracks for preview:
   // - Apply preview points (drag deltas / handle diffs)
+  // - Build projected tracks for geometry/violations (hide coincident non-dragged points in the dragged track)
   const adjustedTracks: Record<string, Track<RawValue>> = {};
+  const projectedTracks: Record<string, Track<RawValue>> = {};
 
   trackIds.forEach((trackId) => {
     const baseTrack = relevantTracks[trackId];
@@ -234,8 +239,29 @@ export function computeRowData(
       ...baseTrack,
       points: previewPoints.slice(),
     } as Track<RawValue>;
+
+    let projectedPoints = previewPoints;
+    if (
+      anchorTrackId &&
+      anchorKeypointId &&
+      trackId === anchorTrackId &&
+      selectionState.instanceId === dragState?.instanceId
+    ) {
+      const anchorPoint = previewPoints.find((p) => p.id === anchorKeypointId);
+      if (anchorPoint) {
+        projectedPoints = previewPoints.filter(
+          (p) => p.id === anchorKeypointId || Math.abs(p.stamp - anchorPoint.stamp) >= EPSILON,
+        );
+      }
+    }
+
+    projectedTracks[trackId] = {
+      ...baseTrack,
+      points: projectedPoints.slice(),
+    } as Track<RawValue>;
   });
 
+  // Raw virtual frames (for markers/selection)
   const virtualFrames = computeFrames(adjustedTracks, sourceRow, {
     draggingKeypointIds: keypointSelection,
     transformKeypoint: (keypoint, { trackId }) => {
@@ -245,7 +271,17 @@ export function computeRowData(
     },
   });
 
-  const explicitInterpolationSegments = computeTransitionSegments(virtualFrames, trackIds);
+  // Projected frames for geometry/interpolations/violations
+  const projectedFrames = computeFrames(projectedTracks, sourceRow, {
+    draggingKeypointIds: keypointSelection,
+    transformKeypoint: (keypoint, { trackId }) => {
+      const lookup = previewPointLookup.get(trackId);
+      if (!lookup) return keypoint;
+      return lookup.get(keypoint.id) ?? keypoint;
+    },
+  });
+
+  const explicitInterpolationSegments = computeTransitionSegments(projectedFrames, trackIds);
   const interpolations = computeFilledInterpGaps(explicitInterpolationSegments);
 
   const segmentsWithGeometry = interpolations.map((segment) =>
@@ -306,7 +342,8 @@ export function computeRowData(
         return;
       }
 
-      const previewPoints = previewTrackPoints.get(trackId) ?? track.points;
+      const previewPoints =
+        projectedTracks[trackId]?.points ?? previewTrackPoints.get(trackId) ?? track.points;
       const pointsWithEffectiveTransitions = previewPoints.map((point) => {
         const overrides = effectiveTransitionByPoint.get(point.id);
         if (!overrides?.in && !overrides?.out) {
@@ -349,7 +386,7 @@ export function computeRowData(
 
   const rowComputedData: ComputedRowData = {
     violationSet,
-    virtualFrames,
+    virtualFrames: projectedFrames,
     interpolations: segmentsWithGeometry,
     verticalBounds: boundsForRow,
   };
