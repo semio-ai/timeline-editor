@@ -51,3 +51,12 @@ This document lists type surfaces that would need updates to adopt the explicit 
 
 - **Preview:** Apply `TrackDiffOp[]` non-destructively to build adjusted points; for overwrite projection, hide non-dragged coincident points in the dragged track in a projected view (render-time) without mutating ids or data. Handles/pairing changes use the same diff ops; no canonical mutation.
 - **Commit:** Apply the same `TrackDiffOp[]` to canonical tracks. Perform overwrite/erase as explicit `DeleteKeypointDiff` (keep dragged id, remove others) and resort. Clean selection of removed ids. Pairing/handle changes are persisted via the same diffs.
+
+## Integration outline for the new drag diff ops (proposal)
+
+- **Diff computation (replacement for `computeTrackDiffsForDrag`):** use `computeDragDiffOps` to emit `TrackDiffOp[]` + `selectionCleanup`. It computes update/reorder from the captured snapshot, and emits `DeleteKeypointDiff` when the dragged stamp collides (anchor id wins). It also returns `projectedPoints` for preview reuse.
+- **Preview plumbing:** in derived builders (`build-derived-snapshot`/`compute-row-data`), replace the per-row recompute with the proposal helper: project preview tracks via `computeDragDiffOps(...).projectedPoints` and cache per-track (future `ProjectedTrackView`). This removes mid-drag store mutations and avoids re-init thrash.
+- **Commit:** swap the current commit loop + `collapseCoincidentKeypoints` for applying the same `TrackDiffOp[]` to the canonical track (`applyTrackDiffOpsToTrack`) and then apply the optional `selectionCleanup` to drop deleted ids from selection. No extra overwrite logic needed.
+- **Handle/pairing path:** emit handle/pairing deltas as `HandleDiff`/`UpdateKeypointDiff.transitions` and merge into the same op set before preview/commit, instead of patching `dragState.handleDiffs`.
+- **Drag state:** when storing `pendingDiffs`, retain the baseline snapshot used for `computeDragDiffOps` so replay is deterministic if the store changes mid-drag.
+- **Legacy parity note:** tests (`tests/drag/drag-diff-ops.test.ts`) document that the current pipeline does not delete on collision; the new ops do, providing the desired overwrite behavior without UI thrash.

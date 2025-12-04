@@ -133,12 +133,14 @@ export function applyDragDeltas(
   }
 
   const trackSelection = selection.keypoints.get(trackId);
+  const isAnchor =
+    dragState.anchor?.trackId === trackId && dragState.anchor?.keypointId === keypoint.id;
   const handleKey = buildHandleOffsetKey(
     keypoint.id,
     attributePath ?? dragState.anchor.attributePath,
   );
   const handleOffsets = dragState.markerHandleOffsets?.[handleKey];
-  const isSelected = Boolean(trackSelection?.has(keypoint.id));
+  const isSelected = isAnchor || Boolean(trackSelection?.has(keypoint.id));
 
   if (!isSelected && !handleOffsets) {
     return keypoint;

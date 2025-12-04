@@ -18,7 +18,7 @@ import {
 } from "../types";
 import { TYPE_FIELDS, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
-import { applyTrackDiffsToPoints, computeTrackDiffsForDrag } from "./apply-drag-deltas";
+import { computeDragDiffOps } from "./drag-diff-ops";
 import { computeViolationSet } from "./compute-violation-set";
 import { computeTransitionSegments } from "./compute-transition-segments";
 import { computeFilledInterpGaps } from "./compute-filled-interp-gaps";
@@ -171,8 +171,8 @@ export function computeRowData(
       ? dragState.handleDiffs
       : undefined;
 
-  const previewTrackPoints = new Map<string, Keypoint<RawValue>[]>();
-  const previewPointLookup = new Map<string, Map<string, Keypoint<RawValue>>>();
+  const markerTrackPoints = new Map<string, Keypoint<RawValue>[]>();
+  const markerPointLookup = new Map<string, Map<string, Keypoint<RawValue>>>();
   const anchorTrackId = dragState?.anchor?.trackId;
   const anchorKeypointId = dragState?.anchor?.keypointId;
   const EPSILON = 1e-6;
@@ -182,7 +182,7 @@ export function computeRowData(
       const track = relevantTracks[trackId];
       if (!track) return;
       const snapshotPoints = dragState.trackSnapshots?.[trackId]?.points;
-      const diffs = computeTrackDiffsForDrag({
+      const { projectedPoints, framePoints } = computeDragDiffOps({
         trackId,
         trackPoints: track.points,
         snapshotPoints,
@@ -191,9 +191,8 @@ export function computeRowData(
         bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
         attributePath: attributePathsByTrack.get(trackId),
       });
-      const basePoints = snapshotPoints ?? track.points;
-      let previewPoints =
-        diffs.length > 0 ? applyTrackDiffsToPoints(basePoints, diffs) : basePoints;
+      let previewPoints = projectedPoints;
+      const markerPoints = framePoints;
 
       // Overlay handle diffs so preview consumers (violations, interpolator) see updated transitions
       if (handleDiffs) {
@@ -217,10 +216,8 @@ export function computeRowData(
         previewPoints = patched;
       }
 
-      if (previewPoints !== basePoints || handleDiffs) {
-        previewTrackPoints.set(trackId, previewPoints);
-        previewPointLookup.set(trackId, new Map(previewPoints.map((point) => [point.id, point])));
-      }
+      markerTrackPoints.set(trackId, markerPoints);
+      markerPointLookup.set(trackId, new Map(markerPoints.map((point) => [point.id, point])));
     });
   }
 
@@ -233,7 +230,7 @@ export function computeRowData(
   trackIds.forEach((trackId) => {
     const baseTrack = relevantTracks[trackId];
     if (!baseTrack) return;
-    const previewPoints = previewTrackPoints.get(trackId) ?? baseTrack.points;
+    const previewPoints = markerTrackPoints.get(trackId) ?? baseTrack.points;
 
     adjustedTracks[trackId] = {
       ...baseTrack,
@@ -262,23 +259,25 @@ export function computeRowData(
   });
 
   // Raw virtual frames (for markers/selection)
-  const virtualFrames = computeFrames(adjustedTracks, sourceRow, {
-    draggingKeypointIds: keypointSelection,
-    transformKeypoint: (keypoint, { trackId }) => {
-      const lookup = previewPointLookup.get(trackId);
-      if (!lookup) return keypoint;
-      return lookup.get(keypoint.id) ?? keypoint;
-    },
-  });
+  // const virtualFrames = computeFrames(adjustedTracks, sourceRow, {
+  //   draggingKeypointIds: keypointSelection,
+  //   transformKeypoint: (keypoint, { trackId }) => {
+  //     const lookup = markerPointLookup.get(trackId);
+  //     if (!lookup) return keypoint;
+  //     return lookup.get(keypoint.id) ?? keypoint;
+  //   },
+  // });
 
   // Projected frames for geometry/interpolations/violations
   const projectedFrames = computeFrames(projectedTracks, sourceRow, {
     draggingKeypointIds: keypointSelection,
     transformKeypoint: (keypoint, { trackId }) => {
-      const lookup = previewPointLookup.get(trackId);
+      const lookup = markerPointLookup.get(trackId);
       if (!lookup) return keypoint;
       return lookup.get(keypoint.id) ?? keypoint;
     },
+    ignoreDraggingState: true,
+    anchorFrameKey: dragState?.anchor?.keypointId,
   });
 
   const explicitInterpolationSegments = computeTransitionSegments(projectedFrames, trackIds);
@@ -343,7 +342,7 @@ export function computeRowData(
       }
 
       const previewPoints =
-        projectedTracks[trackId]?.points ?? previewTrackPoints.get(trackId) ?? track.points;
+        projectedTracks[trackId]?.points ?? markerTrackPoints.get(trackId) ?? track.points;
       const pointsWithEffectiveTransitions = previewPoints.map((point) => {
         const overrides = effectiveTransitionByPoint.get(point.id);
         if (!overrides?.in && !overrides?.out) {

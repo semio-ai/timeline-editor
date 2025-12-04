@@ -47,8 +47,8 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
 
   const instanceCount = visibleHexFrameCount * 2;
 
-  // Unique key to force re-creation when sourceRow or instanceCount changes
-  const instancesKey = `${sourceRow.id}:${instanceCount.toString()}`;
+  // Keep key stable during drag to avoid remounting instances mid-gesture
+  const instancesKey = sourceRow.id;
 
   // If the track render is spline, but the row is a group, ignore it
   if (trackRender === TrackRender.Spline && sourceRow.data.length > 1) {

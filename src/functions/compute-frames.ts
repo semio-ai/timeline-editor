@@ -7,6 +7,16 @@ interface ComputeFramesOptions {
     keypoint: Keypoint<RawValue>,
     context: { trackId: string; source: SourceRow["data"][number] },
   ) => Keypoint<RawValue>;
+  /**
+   * When true, frames at the same stamp are merged regardless of dragging state.
+   * Useful for marker projections where drag vs non-drag points should coexist.
+   */
+  ignoreDraggingState?: boolean;
+  /**
+   * If provided, any frame containing this keypoint id will use it as the frame id
+   * to keep React keys stable during drag.
+   */
+  anchorFrameKey?: string;
 }
 
 /**
@@ -37,9 +47,13 @@ export function computeFrames(
 
       const isDragging = draggingKeypointIds?.has(point.id) ?? false;
 
-      // Find existing frame with matching timestamp and compatible dragging state
+      // Find existing frame with matching timestamp (and, optionally, matching dragging state)
       const matchingFrameIndex = instancedFrameInfo.findIndex((frame) => {
         if (frame.stamp !== previewPoint.stamp) return false;
+
+        if (options.ignoreDraggingState) {
+          return true;
+        }
 
         // Check if all points in this frame have the same dragging state as the current point
         const framePointsDragging = frame.points.every(
@@ -58,18 +72,29 @@ export function computeFrames(
 
       if (matchingFrameIndex >= 0) {
         // Add point to existing frame
-        instancedFrameInfo[matchingFrameIndex].points.push({
-          ...sourceRowData,
-          id: previewPoint.id,
-          type: valueType,
-          value,
-        });
+        const exists = instancedFrameInfo[matchingFrameIndex].points.some(
+          (p) => p.id === previewPoint.id && p.trackId === sourceRowData.trackId,
+        );
+        if (!exists) {
+          instancedFrameInfo[matchingFrameIndex].points.push({
+            ...sourceRowData,
+            id: previewPoint.id,
+            type: valueType,
+            value,
+          });
+        }
         // Update frame ID based on all points in this frame
         const pointIds = instancedFrameInfo[matchingFrameIndex].points
           .map((p) => p.id)
           .sort()
           .join("-");
         instancedFrameInfo[matchingFrameIndex].id = pointIds;
+        if (
+          options.anchorFrameKey &&
+          instancedFrameInfo[matchingFrameIndex].points.some((p) => p.id === options.anchorFrameKey)
+        ) {
+          instancedFrameInfo[matchingFrameIndex].id = options.anchorFrameKey;
+        }
 
         // If this is the first point being added and it has transitions, use them
         // For multiple points, we clear transitions to avoid conflicts
@@ -84,12 +109,16 @@ export function computeFrames(
         }
       } else {
         // Create new frame
-        instancedFrameInfo.push({
+        const frame: InstancedFrameInfo = {
           id: previewPoint.id,
           stamp: previewPoint.stamp,
           points: [{ ...sourceRowData, id: previewPoint.id, value, type: valueType, trackId }],
           transitions: previewPoint.transitions,
-        });
+        };
+        if (options.anchorFrameKey && previewPoint.id === options.anchorFrameKey) {
+          frame.id = options.anchorFrameKey;
+        }
+        instancedFrameInfo.push(frame);
       }
     });
   });

@@ -17,7 +17,7 @@ import { computeTrackInterpolator } from "./compute-track-interpolator";
 import { computeDerivativeInterpolator } from "./compute-derivative-interpolator";
 import { computeTrackViolations } from "./compute-track-violations";
 import { computeRowData } from "./compute-row-data";
-import { applyTrackDiffsToPoints, computeTrackDiffsForDrag } from "./apply-drag-deltas";
+import { computeDragDiffOps } from "./drag-diff-ops";
 import { clampMonotonicCubicSegment } from "./clamp-monotonic-cubic-segment";
 
 export interface BuildDerivedSnapshotInputs {
@@ -48,7 +48,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
     }
 
     const snapshotPoints = dragState.trackSnapshots?.[trackId]?.points;
-    const diffs = computeTrackDiffsForDrag({
+    const { framePoints } = computeDragDiffOps({
       trackId,
       trackPoints: track.points,
       snapshotPoints,
@@ -56,8 +56,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
       selection: selectionState,
       // No bounds or attribute path available at this level; rely on dragState valueScale when present.
     });
-    const basePoints = snapshotPoints ?? track.points;
-    let previewPoints = diffs.length > 0 ? applyTrackDiffsToPoints(basePoints, diffs) : basePoints;
+    let previewPoints = framePoints;
 
     const handleDiffs =
       dragState && inputs.selectionState.instanceId === dragState.instanceId

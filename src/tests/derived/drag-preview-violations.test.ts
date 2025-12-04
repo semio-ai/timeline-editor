@@ -1,10 +1,6 @@
 import { describe, expect, test } from "vitest";
-import {
-  applyTrackDiffsToPoints,
-  buildDerivedSnapshot,
-  computeTrackDiffsForDrag,
-  computeTrackViolations,
-} from "../../functions";
+import { buildDerivedSnapshot, computeTrackViolations } from "../../functions";
+import { computeDragDiffOps, applyTrackDiffOpsToPoints } from "../../functions/drag-diff-ops";
 import { buildTrackKey } from "../../utils/track-key";
 import { createMinimalAnimationStore, createTestAnimationStore } from "../../test-fixtures";
 import { createEmptySelectionState } from "../../functions/selection-state-manager";
@@ -68,13 +64,13 @@ describe("drag preview funnel", () => {
     });
 
     // Apply the same drag diffs to produce a post-commit track state
-    const diffs = computeTrackDiffsForDrag({
+    const { diffs } = computeDragDiffOps({
       trackId,
       trackPoints: track.points,
       dragState,
       selection: selectionState,
     });
-    const committedPoints = applyTrackDiffsToPoints(track.points, diffs);
+    const committedPoints = applyTrackDiffOpsToPoints(track.points, diffs);
     const committedTracks = {
       ...state.tracks,
       [trackId]: { ...track, points: committedPoints },

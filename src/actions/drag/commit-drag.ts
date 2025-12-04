@@ -1,11 +1,7 @@
-import { RawValue } from "@semio/utils";
 import type { AnimationData } from "../../store-types";
-import {
-  applyTrackDiffsToTrack,
-  computeTrackDiffsForDrag,
-} from "../../functions/apply-drag-deltas";
+import { computeDragDiffOps, applyTrackDiffOpsToTrack } from "../../functions/drag-diff-ops";
 import { cloneTransitionValue, cloneTransitions } from "../../utils/clone-transitions";
-import type { SelectionState, Track } from "../../types";
+import type { SelectionCleanup } from "../../functions/drag-diff-ops";
 
 interface MarkerContext {
   attributePath?: string[];
@@ -32,45 +28,6 @@ const buildMarkerContextLookup = (state: AnimationData): Map<string, MarkerConte
     }
   }
   return lookup;
-};
-
-/**
- * If two keypoints land on the same stamp in the same track, keep the dragged/anchor id and
- * drop the others. This mirrors the "overwrite" expectation when a marker is dragged onto another.
- */
-const collapseCoincidentKeypoints = (
-  track: Track<RawValue>,
-  trackId: string,
-  keepId: string,
-  selection: SelectionState,
-): void => {
-  const keeper = track.points.find((p) => p.id === keepId);
-  if (!keeper) return;
-
-  const EPSILON = 1e-6;
-
-  const removedIds: string[] = [];
-  const filtered = track.points.filter((point) => {
-    if (point.id === keepId) return true;
-    if (Math.abs(point.stamp - keeper.stamp) < EPSILON) {
-      removedIds.push(point.id);
-      return false;
-    }
-    return true;
-  });
-
-  if (removedIds.length === 0) return;
-
-  track.points.splice(0, track.points.length, ...filtered);
-  track.points.sort((a, b) => a.stamp - b.stamp);
-
-  const selectionSet = selection.keypoints.get(trackId);
-  if (selectionSet) {
-    removedIds.forEach((id) => selectionSet.delete(id));
-    if (selectionSet.size === 0) {
-      selection.keypoints.delete(trackId);
-    }
-  }
 };
 
 /**
@@ -153,6 +110,8 @@ export function commitDrag(state: AnimationData): void {
     }
   });
 
+  const selectionCleanups: SelectionCleanup[] = [];
+
   for (const [trackId] of selection.keypoints.entries()) {
     const track = state.tracks[trackId];
     if (!track) continue;
@@ -164,7 +123,7 @@ export function commitDrag(state: AnimationData): void {
         transitions: cloneTransitions(point.transitions),
       }));
 
-    const diffs = computeTrackDiffsForDrag({
+    const { diffs, selectionCleanup } = computeDragDiffOps({
       trackId,
       trackPoints: track.points,
       snapshotPoints,
@@ -174,11 +133,12 @@ export function commitDrag(state: AnimationData): void {
       attributePath: attributePathByTrack.get(trackId) ?? dragState.anchor.attributePath,
     });
 
-    if (diffs.length === 0) {
-      continue;
+    if (diffs.length > 0) {
+      applyTrackDiffOpsToTrack(track, diffs);
     }
-
-    applyTrackDiffsToTrack(track, diffs);
+    if (selectionCleanup) {
+      selectionCleanups.push(selectionCleanup);
+    }
   }
 
   const handleDiffs = dragState.handleDiffs;
@@ -201,19 +161,17 @@ export function commitDrag(state: AnimationData): void {
     });
   }
 
-  // If the dragged marker lands on the same stamp as another marker in the same track,
-  // drop the existing marker and keep the dragged one.
-  if (dragState.anchor?.trackId && dragState.anchor?.keypointId) {
-    const track = state.tracks[dragState.anchor.trackId];
-    if (track) {
-      collapseCoincidentKeypoints(
-        track as Track<RawValue>,
-        dragState.anchor.trackId,
-        dragState.anchor.keypointId,
-        selection,
-      );
+  // Apply selection cleanup for any deleted keypoints.
+  selectionCleanups.forEach(({ trackId, removedIds }) => {
+    const selectionSet = selection.keypoints.get(trackId);
+    if (!selectionSet) {
+      return;
     }
-  }
+    removedIds.forEach((id) => selectionSet.delete(id));
+    if (selectionSet.size === 0) {
+      selection.keypoints.delete(trackId);
+    }
+  });
 
   state.dragState = undefined;
 }
