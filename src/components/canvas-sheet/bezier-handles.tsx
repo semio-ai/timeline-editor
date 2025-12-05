@@ -1,14 +1,17 @@
 import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Line, useCursor } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { Mesh } from "three";
+import { Camera, Group, Mesh, Vector3 } from "three";
 import { useMotionValueEvent, useSpring } from "motion/react";
 import { Theme } from "@semio/ui";
+import type { RawVector2 } from "@semio/utils";
 import {
   InstancePair,
   InstancedFrameInfo,
   LayerBand,
+  StandardTransitionType,
   TrackRender,
+  TransitionPairing,
   VerticalAxisRange,
   WorldCP,
   HandleDragStartInput,
@@ -62,6 +65,10 @@ interface BezierHandlesProps {
 }
 
 const RAW_RADIUS_PX = 4;
+const PAIRING_FLAT_TOLERANCE_RAD = (3 * Math.PI) / 180;
+
+const tmpAnchor = new Vector3();
+const tmpMarker = new Vector3();
 
 export const BezierHandles = memo(function BezierHandles({
   segment,
@@ -81,6 +88,7 @@ export const BezierHandles = memo(function BezierHandles({
   const updateHandleDragAction = useAnimationStore((state) => state.updateHandleDrag);
   const commitDragAction = useAnimationStore((state) => state.commitDrag);
   const cancelDragAction = useAnimationStore((state) => state.cancelDrag);
+  const { camera, size } = useThree();
 
   const resolvedTrackId = useMemo(
     () =>
@@ -167,6 +175,9 @@ export const BezierHandles = memo(function BezierHandles({
   );
   if (!startAnchor || !endAnchor) return null;
 
+  const startPairing = resolveHandlePairing(segment.start.transitions);
+  const endPairing = resolveHandlePairing(segment.end.transitions);
+
   const handles = [
     {
       id: `${segment.start.id}-out`,
@@ -179,6 +190,7 @@ export const BezierHandles = memo(function BezierHandles({
       effective: mapHandlePoint(cp1Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
       hasEffectiveGap: hasWorldPointGap(cp1Raw, cp1Effective),
       isFallback: !startHasExplicitOut,
+      pairing: startPairing,
     },
     {
       id: `${segment.end.id}-in`,
@@ -191,6 +203,7 @@ export const BezierHandles = memo(function BezierHandles({
       effective: mapHandlePoint(cp2Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
       hasEffectiveGap: hasWorldPointGap(cp2Raw, cp2Effective),
       isFallback: !endHasExplicitIn,
+      pairing: endPairing,
     },
   ].filter((handle) => handle.raw && handle.rawWorld) as {
     id: string;
@@ -203,6 +216,7 @@ export const BezierHandles = memo(function BezierHandles({
     effective?: HandlePoint;
     hasEffectiveGap: boolean;
     isFallback: boolean;
+    pairing?: TransitionPairing;
   }[];
 
   if (handles.length === 0) return null;
@@ -220,6 +234,10 @@ export const BezierHandles = memo(function BezierHandles({
           ? animateHandlePoint(handle.anchor, handle.effective, appearance)
           : undefined;
         const connectorTarget = animatedEffective ?? animatedRaw;
+        const orientation =
+          handle.pairing === TransitionPairing.Paired
+            ? 0
+            : resolveHandleOrientation(handle.anchor, animatedRaw.marker, camera as Camera, size);
         const interaction =
           resolvedTrackId &&
           typeof startValue === "number" &&
@@ -268,6 +286,8 @@ export const BezierHandles = memo(function BezierHandles({
               color={color}
               radiusPx={RAW_RADIUS_PX}
               showFallbackOverlay={handle.isFallback}
+              pairing={handle.pairing}
+              orientation={orientation}
               backgroundColor={backgroundColor}
               appearance={appearance}
               interaction={interaction}
@@ -324,11 +344,73 @@ function getFrameNumericValue(frame: InstancedFrameInfo, trackId?: string): numb
   return typeof fallback?.value === "number" ? (fallback.value as number) : undefined;
 }
 
+function resolveHandlePairing(
+  transitions?: InstancedFrameInfo["transitions"],
+): TransitionPairing | undefined {
+  if (!transitions) return undefined;
+  if (transitions.pairing) return transitions.pairing;
+  return inferPairingFromHandles(transitions.in, transitions.out);
+}
+
+function inferPairingFromHandles(
+  inHandle?: RawVector2 | StandardTransitionType,
+  outHandle?: RawVector2 | StandardTransitionType,
+): TransitionPairing | undefined {
+  const inVector = extractVector(inHandle);
+  const outVector = extractVector(outHandle);
+  if (!inVector || !outVector) {
+    return undefined;
+  }
+
+  const inMagnitude = Math.hypot(inVector.x, inVector.y);
+  const outMagnitude = Math.hypot(outVector.x, outVector.y);
+  if (inMagnitude === 0 || outMagnitude === 0) {
+    return undefined;
+  }
+
+  const dot = clampToUnitInterval(
+    (inVector.x * outVector.x + inVector.y * outVector.y) / (inMagnitude * outMagnitude),
+  );
+  const angle = Math.acos(dot);
+  if (Math.abs(Math.PI - angle) <= PAIRING_FLAT_TOLERANCE_RAD) {
+    return TransitionPairing.Paired;
+  }
+  return TransitionPairing.Free;
+}
+
+function extractVector(handle?: RawVector2 | StandardTransitionType): RawVector2 | undefined {
+  if (handle && typeof handle === "object") {
+    return handle;
+  }
+  return undefined;
+}
+
+function clampToUnitInterval(value: number): number {
+  return Math.max(-1, Math.min(1, value));
+}
+
+function resolveHandleOrientation(
+  anchor: [number, number, number],
+  marker: [number, number, number],
+  camera: Camera,
+  viewport: { width: number; height: number },
+): number {
+  tmpAnchor.set(anchor[0], anchor[1], anchor[2]).project(camera);
+  tmpMarker.set(marker[0], marker[1], marker[2]).project(camera);
+
+  // NDC -> pixels
+  const dx = (tmpMarker.x - tmpAnchor.x) * (viewport.width / 2);
+  const dy = (tmpMarker.y - tmpAnchor.y) * (viewport.height / 2);
+  return Math.atan2(dy, dx);
+}
+
 interface HandleDotProps {
   position: [number, number, number];
   color: string;
   radiusPx: number;
   showFallbackOverlay?: boolean;
+  pairing?: TransitionPairing;
+  orientation?: number;
   backgroundColor: string;
   appearance: number;
   interaction?: HandleInteractionProps;
@@ -339,12 +421,15 @@ function HandleDot({
   color,
   radiusPx,
   showFallbackOverlay = false,
+  pairing,
+  orientation = 0,
   backgroundColor,
   appearance,
   interaction,
 }: HandleDotProps) {
   const gl = useThree((state) => state.gl);
-  const circleRef = useRef<Mesh>(null);
+  const scaleRef = useRef<Group>(null);
+  const markerRef = useRef<Mesh>(null);
   const overlayRef = useRef<Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -410,43 +495,48 @@ function HandleDot({
   const invariantScale = useInvariantScale();
   const dragScale = 1 + dragWeight * 0.3;
   const hoverScale = hovered ? 1.1 : 1;
+  const isPaired = pairing === TransitionPairing.Paired;
+  const geometrySegments = isPaired ? 24 : 4;
+  const typeScaling = isPaired ? 1 : 1.2;
 
   useMotionValueEvent(invariantScale, "change", (iscale) => {
     // calculate the new mesh scales and apply it to the meshes
     const newScaleX = Math.max(iscale * radiusPx * hoverScale * dragScale);
     const newScaleY = Math.max(radiusPx * hoverScale * dragScale);
 
-    if (circleRef.current) {
-      circleRef.current.scale.set(newScaleX, newScaleY, 1);
+    if (scaleRef.current) {
+      scaleRef.current.scale.set(newScaleX, newScaleY, 1);
     }
-    if (overlayRef.current) {
-      overlayRef.current.scale.set(newScaleX * 0.65, newScaleY * 0.65, 1);
-    }
+    // if (overlayRef.current) {
+    //   overlayRef.current.scale.set(newScaleX * 0.65, newScaleY * 0.65, 1);
+    // }
   });
 
   useLayoutEffect(() => {
     const iscale = invariantScale.get();
-    const newScaleX = Math.max(iscale * radiusPx * hoverScale * dragScale);
-    const newScaleY = Math.max(radiusPx * hoverScale * dragScale);
+    const newScaleX = Math.max(iscale * radiusPx * hoverScale * dragScale * typeScaling);
+    const newScaleY = Math.max(radiusPx * hoverScale * dragScale * typeScaling);
 
-    if (circleRef.current) {
-      circleRef.current.scale.set(newScaleX, newScaleY, 1);
+    if (scaleRef.current) {
+      scaleRef.current.scale.set(newScaleX, newScaleY, 1);
     }
-    if (overlayRef.current) {
-      overlayRef.current.scale.set(newScaleX * 0.65, newScaleY * 0.65, 1);
-    }
-  }, [invariantScale, radiusPx, hoverScale, dragScale]);
+    // if (overlayRef.current) {
+    //   overlayRef.current.scale.set(newScaleX * 0.65, newScaleY * 0.65, 1);
+    // }
+  }, [invariantScale, radiusPx, hoverScale, dragScale, typeScaling]);
 
   const clamped = Math.max(0, Math.min(1, appearance));
 
   const baseRadiusX = useMemo<number>(
-    () => Math.max(invariantScale.get() * radiusPx * hoverScale * dragScale, 0.002),
-    [invariantScale, radiusPx, hoverScale, dragScale],
+    () => Math.max(invariantScale.get() * radiusPx * hoverScale * dragScale * typeScaling, 0.002),
+    [invariantScale, radiusPx, hoverScale, dragScale, typeScaling],
   );
   const baseRadiusY = useMemo<number>(
-    () => Math.max(radiusPx * hoverScale * dragScale, 0.002),
-    [radiusPx, hoverScale, dragScale],
+    () => Math.max(radiusPx * hoverScale * dragScale * typeScaling, 0.002),
+    [radiusPx, hoverScale, dragScale, typeScaling],
   );
+
+  const rotation: [number, number, number] = [0, 0, isPaired ? 0 : orientation];
 
   return (
     <group
@@ -488,25 +578,28 @@ function HandleDot({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <mesh ref={circleRef as any} scale={[baseRadiusX, baseRadiusY, 1]}>
-        <circleGeometry args={[1, 24]} />
-        <meshBasicMaterial toneMapped={false} color={color} transparent opacity={clamped} />
-      </mesh>
-      {showFallbackOverlay && (
-        <mesh
-          ref={overlayRef as any}
-          position={[0, 0, ROW_DEPTH_EPSILON * 0.5]}
-          scale={[baseRadiusX * 0.65, baseRadiusY * 0.65, 1]}
-        >
-          <circleGeometry args={[1, 24]} />
-          <meshBasicMaterial
-            toneMapped={false}
-            color={backgroundColor}
-            transparent
-            opacity={0.65 * clamped}
-          />
+      <group ref={scaleRef as any} scale={[baseRadiusX, baseRadiusY, 1]}>
+        <mesh ref={markerRef as any} rotation={rotation}>
+          <circleGeometry args={[1, geometrySegments]} />
+          <meshBasicMaterial toneMapped={false} color={color} transparent opacity={clamped} />
         </mesh>
-      )}
+        {showFallbackOverlay && (
+          <mesh
+            ref={overlayRef as any}
+            position={[0, 0, ROW_DEPTH_EPSILON * 0.5]}
+            rotation={rotation}
+            scale={[0.65, 0.65, 1]}
+          >
+            <circleGeometry args={[1, geometrySegments]} />
+            <meshBasicMaterial
+              toneMapped={false}
+              color={backgroundColor}
+              transparent
+              opacity={0.65 * clamped}
+            />
+          </mesh>
+        )}
+      </group>
     </group>
   );
 }

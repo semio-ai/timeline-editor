@@ -23,7 +23,10 @@ export const TimelineRenderer = memo(function TimelineRenderer({
 
   return (
     <>
-      <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]}>
+      <mesh
+        position={[0.5, 0, Z.ForegroundBackgroundBoundary]}
+        onClick={(e: ThreeEvent<MouseEvent>) => e.stopPropagation()}
+      >
         <planeGeometry args={[1.1, 36]} />
         <meshBasicMaterial
           color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
@@ -31,10 +34,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
           opacity={0.4}
         />
       </mesh>
-      <mesh
-        position={[0.5, 0, Z.SelectedUnselectedBoundary]}
-        onClick={(e: ThreeEvent<MouseEvent>) => e.stopPropagation()}
-      >
+      <mesh position={[0.5, 0, Z.SelectedUnselectedBoundary]}>
         <planeGeometry args={[1.1, 36]} />
         <meshBasicMaterial
           color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
