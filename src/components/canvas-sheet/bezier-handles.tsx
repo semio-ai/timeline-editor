@@ -416,7 +416,7 @@ interface HandleDotProps {
   interaction?: HandleInteractionProps;
 }
 
-function HandleDot({
+const HandleDot = memo(function HandleDot({
   position,
   color,
   radiusPx,
@@ -602,7 +602,7 @@ function HandleDot({
       </group>
     </group>
   );
-}
+});
 
 function hasWorldPointGap(raw?: WorldCP, effective?: WorldCP, epsilon = 1e-5): boolean {
   if (!raw || !effective) return false;
