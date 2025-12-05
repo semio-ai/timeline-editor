@@ -132,9 +132,6 @@ export const BezierHandles = memo(function BezierHandles({
   );
 
   const geometry = segment.geometry;
-  if (!geometry || segment.buffer) {
-    return null;
-  }
 
   const backgroundColor = theme === Theme.Dark ? "#050505" : "#F7F7F7";
   const startHasExplicitOut = Boolean(segment.start.transitions?.out);
@@ -152,79 +149,167 @@ export const BezierHandles = memo(function BezierHandles({
   const rawHandleDepth = zBase - ROW_DEPTH_EPSILON * 0.1;
   const effectiveHandleDepth = zBase - ROW_DEPTH_EPSILON * 0.08;
 
-  const rawRenderParams = geometry.raw?.renderParams?.[TrackRender.Spline];
-  const effectiveRenderParams =
-    geometry.effective?.renderParams?.[TrackRender.Spline] ?? rawRenderParams;
+  const memoizedHandles = useMemo(() => {
+    if (!geometry || segment.buffer) {
+      return { handles: [], connectorOpacity: 0, gapOpacity: 0 };
+    }
+    const rawRenderParams = geometry.raw?.renderParams?.[TrackRender.Spline];
+    const effectiveRenderParams =
+      geometry.effective?.renderParams?.[TrackRender.Spline] ?? rawRenderParams;
 
-  const cp1Raw = geometry.raw?.controlPoints?.cp1;
-  const cp1Effective = geometry.effective?.controlPoints?.cp1;
-  const cp2Raw = geometry.raw?.controlPoints?.cp2;
-  const cp2Effective = geometry.effective?.controlPoints?.cp2;
+    const cp1Raw = geometry.raw?.controlPoints?.cp1;
+    const cp1Effective = geometry.effective?.controlPoints?.cp1;
+    const cp2Raw = geometry.raw?.controlPoints?.cp2;
+    const cp2Effective = geometry.effective?.controlPoints?.cp2;
 
-  const startAnchor = resolveAnchorPoint(
-    segment.start,
-    effectiveRenderParams?.start,
-    renderScaleY,
+    const startAnchor = resolveAnchorPoint(
+      segment.start,
+      effectiveRenderParams?.start,
+      renderScaleY,
+      connectorDepth,
+    );
+    const endAnchor = resolveAnchorPoint(
+      segment.end,
+      effectiveRenderParams?.end,
+      renderScaleY,
+      connectorDepth,
+    );
+    if (!startAnchor || !endAnchor) {
+      return { handles: [], connectorOpacity: 0, gapOpacity: 0 };
+    }
+
+    const startPairing = resolveHandlePairing(segment.start.transitions);
+    const endPairing = resolveHandlePairing(segment.end.transitions);
+
+    const built = [
+      {
+        id: `${segment.start.id}-out`,
+        side: "out" as const,
+        rawWorld: cp1Raw,
+        anchorId: segment.start.id,
+        neighborId: segment.end.id,
+        anchor: startAnchor.line,
+        raw: mapHandlePoint(cp1Raw, renderScaleY, connectorDepth, rawHandleDepth),
+        effective: mapHandlePoint(cp1Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
+        hasEffectiveGap: hasWorldPointGap(cp1Raw, cp1Effective),
+        isFallback: !startHasExplicitOut,
+        pairing: startPairing,
+        interaction:
+          resolvedTrackId &&
+          typeof startValue === "number" &&
+          typeof endValue === "number" &&
+          cp1Raw
+            ? {
+                side: "out",
+                rowId,
+                trackId: resolvedTrackId,
+                keypointId: segment.start.id,
+                neighborKeypointId: segment.end.id,
+                controlPoint: cp1Raw,
+                startStamp: segment.start.stamp,
+                endStamp: segment.end.stamp,
+                startValue,
+                endValue,
+                attributePath: resolvedAttributePath,
+                valueScale: resolvedValueScale,
+                pixelRangeY,
+                startHandleDrag: startHandleDragAction,
+                updateHandleDrag: updateHandleDragAction,
+                commitDrag: commitDragAction,
+                cancelDrag: cancelDragAction,
+              }
+            : undefined,
+      },
+      {
+        id: `${segment.end.id}-in`,
+        side: "in" as const,
+        rawWorld: cp2Raw,
+        anchorId: segment.end.id,
+        neighborId: segment.start.id,
+        anchor: endAnchor.line,
+        raw: mapHandlePoint(cp2Raw, renderScaleY, connectorDepth, rawHandleDepth),
+        effective: mapHandlePoint(cp2Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
+        hasEffectiveGap: hasWorldPointGap(cp2Raw, cp2Effective),
+        isFallback: !endHasExplicitIn,
+        pairing: endPairing,
+        interaction:
+          resolvedTrackId &&
+          typeof startValue === "number" &&
+          typeof endValue === "number" &&
+          cp2Raw
+            ? {
+                side: "in",
+                rowId,
+                trackId: resolvedTrackId,
+                keypointId: segment.end.id,
+                neighborKeypointId: segment.start.id,
+                controlPoint: cp2Raw,
+                startStamp: segment.start.stamp,
+                endStamp: segment.end.stamp,
+                startValue,
+                endValue,
+                attributePath: resolvedAttributePath,
+                valueScale: resolvedValueScale,
+                pixelRangeY,
+                startHandleDrag: startHandleDragAction,
+                updateHandleDrag: updateHandleDragAction,
+                commitDrag: commitDragAction,
+                cancelDrag: cancelDragAction,
+              }
+            : undefined,
+      },
+    ].filter((handle) => handle.raw && handle.rawWorld) as {
+      id: string;
+      side: "out" | "in";
+      rawWorld: WorldCP;
+      anchorId: string;
+      neighborId: string;
+      anchor: [number, number, number];
+      raw: HandlePoint;
+      effective?: HandlePoint;
+      hasEffectiveGap: boolean;
+      isFallback: boolean;
+      pairing?: TransitionPairing;
+      interaction?: HandleInteractionProps;
+    }[];
+
+    const connectorOpacityBase = isHighlighted ? 0.95 : 0.65;
+    const connectorOpacity = connectorOpacityBase * appearance;
+    const gapOpacityBase = isHighlighted ? 0.6 : 0.35;
+    const gapOpacity = gapOpacityBase * Math.max(0, Math.min(1, (appearance - 0.2) / 0.8));
+
+    return { handles: built, connectorOpacity, gapOpacity };
+  }, [
+    rowId,
+    appearance,
     connectorDepth,
-  );
-  const endAnchor = resolveAnchorPoint(
+    effectiveHandleDepth,
+    endHasExplicitIn,
+    geometry,
+    isHighlighted,
+    segment.buffer,
+    renderScaleY,
     segment.end,
-    effectiveRenderParams?.end,
-    renderScaleY,
-    connectorDepth,
-  );
-  if (!startAnchor || !endAnchor) return null;
+    segment.start,
+    startHasExplicitOut,
+    rawHandleDepth,
+    resolvedAttributePath,
+    resolvedTrackId,
+    resolvedValueScale,
+    pixelRangeY,
+    startHandleDragAction,
+    updateHandleDragAction,
+    commitDragAction,
+    cancelDragAction,
+    startValue,
+    endValue,
+  ]);
 
-  const startPairing = resolveHandlePairing(segment.start.transitions);
-  const endPairing = resolveHandlePairing(segment.end.transitions);
+  const handles = memoizedHandles.handles;
+  const connectorOpacity = memoizedHandles.connectorOpacity;
+  const gapOpacity = memoizedHandles.gapOpacity;
 
-  const handles = [
-    {
-      id: `${segment.start.id}-out`,
-      side: "out" as const,
-      rawWorld: cp1Raw,
-      anchorId: segment.start.id,
-      neighborId: segment.end.id,
-      anchor: startAnchor.line,
-      raw: mapHandlePoint(cp1Raw, renderScaleY, connectorDepth, rawHandleDepth),
-      effective: mapHandlePoint(cp1Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
-      hasEffectiveGap: hasWorldPointGap(cp1Raw, cp1Effective),
-      isFallback: !startHasExplicitOut,
-      pairing: startPairing,
-    },
-    {
-      id: `${segment.end.id}-in`,
-      side: "in" as const,
-      rawWorld: cp2Raw,
-      anchorId: segment.end.id,
-      neighborId: segment.start.id,
-      anchor: endAnchor.line,
-      raw: mapHandlePoint(cp2Raw, renderScaleY, connectorDepth, rawHandleDepth),
-      effective: mapHandlePoint(cp2Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
-      hasEffectiveGap: hasWorldPointGap(cp2Raw, cp2Effective),
-      isFallback: !endHasExplicitIn,
-      pairing: endPairing,
-    },
-  ].filter((handle) => handle.raw && handle.rawWorld) as {
-    id: string;
-    side: "out" | "in";
-    rawWorld: WorldCP;
-    anchorId: string;
-    neighborId: string;
-    anchor: [number, number, number];
-    raw: HandlePoint;
-    effective?: HandlePoint;
-    hasEffectiveGap: boolean;
-    isFallback: boolean;
-    pairing?: TransitionPairing;
-  }[];
-
-  if (handles.length === 0) return null;
-
-  const connectorOpacityBase = isHighlighted ? 0.95 : 0.65;
-  const connectorOpacity = connectorOpacityBase * appearance;
-  const gapOpacityBase = isHighlighted ? 0.6 : 0.35;
-  const gapOpacity = gapOpacityBase * Math.max(0, Math.min(1, (appearance - 0.2) / 0.8));
+  if (!geometry || segment.buffer || handles.length === 0) return null;
 
   return (
     <group>
@@ -264,35 +349,20 @@ export const BezierHandles = memo(function BezierHandles({
               }
             : undefined;
         return (
-          <group key={handle.id}>
-            <Line
-              points={[handle.anchor, connectorTarget.line]}
-              color={color}
-              lineWidth={1.5}
-              transparent
-              opacity={connectorOpacity}
-            />
-            {handle.hasEffectiveGap && animatedEffective && (
-              <Line
-                points={[animatedEffective.line, animatedRaw.line]}
-                color={color}
-                lineWidth={1.5}
-                transparent
-                opacity={gapOpacity}
-              />
-            )}
-            <HandleDot
-              position={animatedRaw.marker}
-              color={color}
-              radiusPx={RAW_RADIUS_PX}
-              showFallbackOverlay={handle.isFallback}
-              pairing={handle.pairing}
-              orientation={orientation}
-              backgroundColor={backgroundColor}
-              appearance={appearance}
-              interaction={interaction}
-            />
-          </group>
+          <HandleGroup
+            key={handle.id}
+            handle={handle}
+            animatedRaw={animatedRaw}
+            animatedEffective={animatedEffective}
+            connectorTarget={connectorTarget}
+            orientation={orientation}
+            connectorOpacity={connectorOpacity}
+            gapOpacity={gapOpacity}
+            color={color}
+            backgroundColor={backgroundColor}
+            appearance={appearance}
+            interaction={interaction}
+          />
         );
       })}
     </group>
@@ -404,6 +474,70 @@ function resolveHandleOrientation(
   return Math.atan2(dy, dx);
 }
 
+const HandleGroup = memo(function HandleGroup({
+  handle,
+  animatedRaw,
+  animatedEffective,
+  connectorTarget,
+  orientation,
+  connectorOpacity,
+  gapOpacity,
+  color,
+  backgroundColor,
+  appearance,
+  interaction,
+}: {
+  handle: {
+    id: string;
+    anchor: [number, number, number];
+    hasEffectiveGap: boolean;
+    pairing?: TransitionPairing;
+    isFallback: boolean;
+  };
+  animatedRaw: HandlePoint;
+  animatedEffective?: HandlePoint;
+  connectorTarget: HandlePoint;
+  orientation: number;
+  connectorOpacity: number;
+  gapOpacity: number;
+  color: string;
+  backgroundColor: string;
+  appearance: number;
+  interaction?: HandleInteractionProps;
+}) {
+  return (
+    <group key={handle.id}>
+      <Line
+        points={[handle.anchor, connectorTarget.line]}
+        color={color}
+        lineWidth={1.5}
+        transparent
+        opacity={connectorOpacity}
+      />
+      {handle.hasEffectiveGap && animatedEffective && (
+        <Line
+          points={[animatedEffective.line, animatedRaw.line]}
+          color={color}
+          lineWidth={1.5}
+          transparent
+          opacity={gapOpacity}
+        />
+      )}
+      <HandleDot
+        position={animatedRaw.marker}
+        color={color}
+        radiusPx={RAW_RADIUS_PX}
+        showFallbackOverlay={handle.isFallback}
+        pairing={handle.pairing}
+        orientation={orientation}
+        backgroundColor={backgroundColor}
+        appearance={appearance}
+        interaction={interaction}
+      />
+    </group>
+  );
+});
+
 interface HandleDotProps {
   position: [number, number, number];
   color: string;
@@ -501,8 +635,8 @@ const HandleDot = memo(function HandleDot({
 
   useMotionValueEvent(invariantScale, "change", (iscale) => {
     // calculate the new mesh scales and apply it to the meshes
-    const newScaleX = Math.max(iscale * radiusPx * hoverScale * dragScale);
-    const newScaleY = Math.max(radiusPx * hoverScale * dragScale);
+    const newScaleX = Math.max(iscale * radiusPx * hoverScale * dragScale * typeScaling);
+    const newScaleY = Math.max(radiusPx * hoverScale * dragScale * typeScaling);
 
     if (scaleRef.current) {
       scaleRef.current.scale.set(newScaleX, newScaleY, 1);
