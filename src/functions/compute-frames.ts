@@ -41,6 +41,7 @@ export function computeFrames(
 
   sourceRow.data.forEach((sourceRowData) => {
     const trackId = sourceRowData.trackId;
+    const emittedTrackId = (sourceRowData as any).trackIdBase ?? trackId;
     const trackData = tracks[trackId];
     trackData.points.forEach((point) => {
       const previewPoint = transformKeypoint?.(point, { trackId, source: sourceRowData }) ?? point;
@@ -81,6 +82,7 @@ export function computeFrames(
             id: previewPoint.id,
             type: valueType,
             value,
+            trackId: emittedTrackId,
           });
         }
         // Update frame ID based on all points in this frame
@@ -112,7 +114,15 @@ export function computeFrames(
         const frame: InstancedFrameInfo = {
           id: previewPoint.id,
           stamp: previewPoint.stamp,
-          points: [{ ...sourceRowData, id: previewPoint.id, value, type: valueType, trackId }],
+          points: [
+            {
+              ...sourceRowData,
+              id: previewPoint.id,
+              value,
+              type: valueType,
+              trackId: emittedTrackId,
+            },
+          ],
           transitions: previewPoint.transitions,
         };
         if (options.anchorFrameKey && previewPoint.id === options.anchorFrameKey) {

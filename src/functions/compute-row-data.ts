@@ -15,6 +15,7 @@ import {
   TrackRender,
   Keypoint,
   StandardTransitionType,
+  SourceRowData,
 } from "../types";
 import { TYPE_FIELDS, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
@@ -172,7 +173,8 @@ export function computeRowData(
       : undefined;
 
   const markerTrackPoints = new Map<string, Keypoint<RawValue>[]>();
-  const markerPointLookup = new Map<string, Map<string, Keypoint<RawValue>>>();
+  const projectedPointLookup = new Map<string, Map<string, Keypoint<RawValue>>>();
+  const frameTrackKeyToBase = new Map<string, string>();
   const anchorTrackId = dragState?.anchor?.trackId;
   const anchorKeypointId = dragState?.anchor?.keypointId;
   const EPSILON = 1e-6;
@@ -217,7 +219,7 @@ export function computeRowData(
       }
 
       markerTrackPoints.set(trackId, markerPoints);
-      markerPointLookup.set(trackId, new Map(markerPoints.map((point) => [point.id, point])));
+      projectedPointLookup.set(trackId, new Map(projectedPoints.map((point) => [point.id, point])));
     });
   }
 
@@ -258,21 +260,49 @@ export function computeRowData(
     } as Track<RawValue>;
   });
 
-  // Raw virtual frames (for markers/selection)
-  // const virtualFrames = computeFrames(adjustedTracks, sourceRow, {
-  //   draggingKeypointIds: keypointSelection,
-  //   transformKeypoint: (keypoint, { trackId }) => {
-  //     const lookup = markerPointLookup.get(trackId);
-  //     if (!lookup) return keypoint;
-  //     return lookup.get(keypoint.id) ?? keypoint;
-  //   },
-  // });
-
   // Projected frames for geometry/interpolations/violations
   const projectedFrames = computeFrames(projectedTracks, sourceRow, {
     draggingKeypointIds: keypointSelection,
     transformKeypoint: (keypoint, { trackId }) => {
-      const lookup = markerPointLookup.get(trackId);
+      const lookup = projectedPointLookup.get(trackId);
+      if (!lookup) return keypoint;
+      return lookup.get(keypoint.id) ?? keypoint;
+    },
+    ignoreDraggingState: true,
+    anchorFrameKey: dragState?.anchor?.keypointId,
+  });
+
+  // Marker frames: duplicate per sourceRow entry to keep aggregate/global markers distinct
+  // Marker frames: duplicate per sourceRow entry to keep aggregate/global markers distinct,
+  // while preserving the base trackId for selection/drag logic.
+  const markerTracks: Record<string, Track<RawValue>> = {};
+  const markerSourceRow: SourceRow = { ...sourceRow, data: [] };
+  sourceRow.data.forEach((datum) => {
+    const baseTrack = relevantTracks[datum.trackId];
+    if (!baseTrack) return;
+    const markerTrackId = `${datum.namespaceId ?? "ns"}/${datum.instanceId ?? "inst"}/${datum.trackId}`;
+    const previewPoints =
+      projectedTracks[datum.trackId]?.points ??
+      markerTrackPoints.get(datum.trackId) ??
+      baseTrack.points;
+    markerTracks[markerTrackId] = {
+      ...baseTrack,
+      id: markerTrackId,
+      points: previewPoints.slice(),
+    } as Track<RawValue>;
+    frameTrackKeyToBase.set(markerTrackId, datum.trackId);
+    markerSourceRow.data.push({
+      ...datum,
+      trackId: markerTrackId,
+      trackIdBase: datum.trackId,
+    } as SourceRowData);
+  });
+
+  const markerFrames = computeFrames(markerTracks, markerSourceRow, {
+    draggingKeypointIds: keypointSelection,
+    transformKeypoint: (keypoint, { trackId }) => {
+      const baseTrackId = frameTrackKeyToBase.get(trackId) ?? trackId;
+      const lookup = projectedPointLookup.get(baseTrackId);
       if (!lookup) return keypoint;
       return lookup.get(keypoint.id) ?? keypoint;
     },
@@ -385,7 +415,7 @@ export function computeRowData(
 
   const rowComputedData: ComputedRowData = {
     violationSet,
-    virtualFrames: projectedFrames,
+    virtualFrames: markerFrames,
     interpolations: segmentsWithGeometry,
     verticalBounds: boundsForRow,
   };

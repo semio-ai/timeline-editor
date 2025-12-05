@@ -88,7 +88,10 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
     return;
   }
 
-  const marker = rowData.virtualFrames.find((frame) => frame.id === input.markerId);
+  const selectedIds = flattenSelection(selection);
+  const marker = rowData.virtualFrames.find((frame) =>
+    frame.points.some((point) => selectedIds.has(point.id)),
+  );
   if (!marker) {
     return;
   }
