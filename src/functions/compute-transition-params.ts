@@ -1,7 +1,7 @@
 import { RawColor, RawEuler, RawVector3, RawVector2 } from "@semio/utils";
 import { type InstancedFrameInfo, SourceRow, TrackRender, EndpointTransitions } from "../types";
 import { COMPLEX_TYPES, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
-import { getWorldControlPoints } from "./get-world-control-points";
+import { getWorldControlPoints, resolveTransitionDelta } from "./get-world-control-points";
 
 type ComplexRawValue = RawVector3 | RawVector2 | RawEuler | RawColor;
 type ComplexField = keyof ComplexRawValue;
@@ -37,6 +37,24 @@ export interface ComputeTransitionParamsOptions {
   transitions?: EndpointTransitions;
 }
 
+const extractFrameValue = (frame: InstancedFrameInfo, source: SourceRow): number | undefined => {
+  const first = frame.points?.[0];
+  if (first) {
+    if (typeof first.value === "number") {
+      return first.value as number;
+    }
+    if (source.data[0]?.attribute && first.value && typeof first.value === "object") {
+      const attr = source.data[0].attribute as keyof typeof first.value;
+      const candidate = (first.value as any)?.[attr];
+      if (typeof candidate === "number") {
+        return candidate;
+      }
+    }
+  }
+
+  return undefined;
+};
+
 export function computeTransitionParams(
   source: SourceRow,
   start: InstancedFrameInfo,
@@ -57,11 +75,11 @@ export function computeTransitionParams(
   };
 
   if (trackRender === TrackRender.Transition || trackRender === TrackRender.Key) {
-    let startValue: number | undefined;
-    let endValue: number | undefined;
+    let startValue: number | undefined = extractFrameValue(start, source);
+    const endValue: number | undefined = extractFrameValue(end, source);
 
     // Safely extract start value
-    if (start.points && start.points.length > 0) {
+    if (start.points && start.points.length > 0 && startValue === undefined) {
       if (source.data[0].type === "number") {
         startValue = start.points[0].value as number;
       } else if (COMPLEX_TYPES.has(source.data[0].type) && source.data[0].attribute) {
@@ -87,16 +105,14 @@ export function computeTransitionParams(
       const startHasData = (start.points?.length ?? 0) > 0;
       const endHasData = (end.points?.length ?? 0) > 0;
       let yFlat = 0.5;
-      if (startHasData && !endHasData) {
-        yFlat = 1;
-      } else if (!startHasData && endHasData) {
-        yFlat = 0;
+      if (!startHasData || !endHasData) {
+        yFlat = 0.5;
       }
       return {
         start: { x: start.stamp, y: yFlat },
         end: { x: end.stamp, y: yFlat },
-        cp1: { x: start.stamp, y: yFlat },
-        cp2: { x: end.stamp, y: yFlat },
+        cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: yFlat },
+        cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: yFlat },
       };
     }
 
@@ -109,25 +125,32 @@ export function computeTransitionParams(
       };
     }
 
-    const { start: cp1World, end: cp2World } = getWorldControlPoints(
-      start.stamp,
-      end.stamp,
-      startValue,
-      endValue,
-      { out: transitions.startOut },
-      { in: transitions.endIn },
-    );
-
     const delta = endValue - startValue;
 
-    const cp1NormalizedY = delta === 0 ? 0 : (cp1World.y - startValue) / delta;
-    const cp2NormalizedY = delta === 0 ? 1 : (cp2World.y - startValue) / delta;
+    const toWorldDelta = (
+      side: "out" | "in",
+      handle: EndpointTransitions[keyof EndpointTransitions] | undefined,
+    ): { x: number; y: number } => {
+      if (handle && typeof handle === "object") {
+        return { x: handle.x, y: handle.y };
+      }
+      return resolveTransitionDelta(side, start.stamp, end.stamp, startValue, endValue, handle);
+    };
+
+    const outDelta = toWorldDelta("out", transitions.startOut);
+    const inDelta = toWorldDelta("in", transitions.endIn);
 
     return {
       start: { x: start.stamp, y: 0 },
       end: { x: end.stamp, y: 1 },
-      cp1: { x: cp1World.x, y: cp1NormalizedY },
-      cp2: { x: cp2World.x, y: cp2NormalizedY },
+      cp1: {
+        x: start.stamp + outDelta.x,
+        y: delta === 0 ? 0 : outDelta.y / delta,
+      },
+      cp2: {
+        x: end.stamp + inDelta.x,
+        y: delta === 0 ? 1 : 1 + inDelta.y / delta,
+      },
     };
   }
 
@@ -135,11 +158,11 @@ export function computeTransitionParams(
     source.data.length === 1 &&
     (trackRender === TrackRender.Preview || trackRender === TrackRender.Spline)
   ) {
-    let startValue: number | undefined;
-    let endValue: number | undefined;
+    let startValue: number | undefined = extractFrameValue(start, source);
+    let endValue: number | undefined = extractFrameValue(end, source);
 
     // Safely extract start value
-    if (start.points && start.points.length > 0) {
+    if (start.points && start.points.length > 0 && startValue === undefined) {
       if (source.data[0].type === "number") {
         startValue = start.points[0].value as number;
       } else if (COMPLEX_TYPES.has(source.data[0].type) && source.data[0].attribute) {

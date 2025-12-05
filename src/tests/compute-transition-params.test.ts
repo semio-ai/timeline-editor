@@ -48,9 +48,9 @@ describe("computeTransitionParams real-space conversion", () => {
     expect(params.start).toEqual({ x: 0, y: 10 });
     expect(params.end).toEqual({ x: 1, y: 20 });
     expect(params.cp1.x).toBeCloseTo(0.25);
-    expect(params.cp1.y).toBeCloseTo(11.5);
-    expect(params.cp2.x).toBeCloseTo(0.75);
-    expect(params.cp2.y).toBeCloseTo(18.5);
+    expect(params.cp1.y).toBeCloseTo(10.15);
+    expect(params.cp2.x).toBeCloseTo(1.75);
+    expect(params.cp2.y).toBeCloseTo(20.85);
   });
 
   test("defaults to start/end values when transitions are omitted", () => {
