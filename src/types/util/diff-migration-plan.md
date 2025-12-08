@@ -1,41 +1,52 @@
-# Diff Schema Adoption Plan (types only, no code changes yet)
+# Diff Schema Adoption Plan
 
-This document lists type surfaces that would need updates to adopt the explicit diff schema (with pairing support) defined in `types/util/diff.ts`. No code changes are applied here—this is an outline for future work.
+This doc tracks adoption of the explicit diff schema (`types/util/diff.ts`) and the preview/commit pipeline. It notes what is done vs. pending, and proposes next steps to address recompute and preview/commit mismatch issues.
+
+## Status
+- [x] Types: `diff.ts` defines Update/Delete/Insert/Reorder/Handle diffs with pairing; docstrings added.
+- [ ] DragState: Still uses ad-hoc `handleDiffs`/marker deltas; no `pendingDiffs` field yet. Pairing stored ad-hoc.
+- [ ] Derived snapshot: Preview still patches points per row; no caching of diff ops or per-TrackKey overlays.
+- [ ] Preview violations/geometry: Instance mixing persists in global rows; preview uses a single preview track per base `trackId`.
+- [ ] Commit: Applies ad-hoc diffs; not replaying a unified op set.
+- [ ] Tests: Existing preview tests not sensitive to multi-instance/global rows.
 
 ## Key type surfaces to update
 
 1) **DragState / drag snapshots**
-   - `DragState` today carries `handleDiffs` and per-track `trackSnapshots`. Introduce a typed field for `pendingDiffs: DiffOp[]` (from `types/util/diff.ts`) and thread it through preview/commit. Optionally deprecate ad-hoc `handleDiffs` in favor of `HandleDiff` ops.
-   - Ensure `DragState.anchor` includes `pairing` context if we start capturing it during drag.
+   - CURRENT: `handleDiffs` map, marker deltas. No `pendingDiffs`.
+   - PLAN: Introduce `pendingDiffs: DiffOp[]` and phase out ad-hoc maps. Capture pairing context explicitly.
 
 2) **DerivedSnapshot / row computed data**
-   - If we project a preview state from diffs, add optional fields to derived rows to cache the diff set or projected track map keyed by `trackId` (using `TrackDiffOp[]`/`DiffOp[]` types). This keeps preview/commit in sync and avoids ad hoc filters.
+   - CURRENT: Per-row recompute overlays points/transitions; no diff caching; uses base `trackId`.
+   - PLAN: Cache projected tracks per TrackKey (namespace/instance/track) from `DiffOp[]`; rows reference overlays instead of recomputing ad hoc.
 
 3) **TrackDiff computation / application types**
-   - `computeTrackDiffsForDrag` / `applyTrackDiffsToPoints` / `applyTrackDiffsToTrack` should return/accept `TrackDiffOp[]` instead of the current implicit shape; add `deleteKeypoint` and `insertKeypoint` branches. Fold pairing into `transitions` where relevant.
+   - CURRENT: `computeDragDiffOps` returns implicit shapes; commit applies ad-hoc loops.
+   - PLAN: Emit/accept `TrackDiffOp[]`, including delete/insert/reorder; fold pairing into transitions.
 
 4) **Handle diffs**
-   - Replace free-form `handleDiffs` maps with `HandleDiff` ops. Drag code paths (start/update) should emit `HandleDiff` when pairing/out/in changes are requested.
+   - CURRENT: free-form `handleDiffs`.
+   - PLAN: Emit `HandleDiff` ops during handle drags; merge with other ops for preview/commit.
 
 5) **Selection / gesture stability**
-   - Ensure selection types acknowledge that a `deleteKeypoint` may occur at commit; add a helper type for selection cleanup expectations (e.g., `SelectionCleanup { trackId: string; removedIds: string[] }`) if needed.
+   - PLAN unchanged; ensure selection cleanup aligns with delete ops.
 
 6) **Renderer data plumbing**
-   - Any renderer types that currently read ad hoc projected points should accept a well-typed “projected view” built from `TrackDiffOp[]` so marker/geometry consumers stay consistent.
+   - PLAN unchanged; consume projected overlays instead of ad hoc patched points.
 
 7) **Testing utilities**
-   - Fixture builders and test store helpers should accept `DiffOp[]` (or `TrackDiffOp[]`) to build preview/commit scenarios in a consistent, typed way.
+   - PLAN unchanged; add multi-instance/global row regression.
 
 ## Types to add/adjust
 
-- Extend `DragState` with an optional `pendingDiffs: DiffOp[]`.
-- Consider a `ProjectedTrackView` type: `{ trackId: string; points: Keypoint<RawValue>[]; appliedDiffs: TrackDiffOp[] }` for preview cache.
+- Extend `DragState` with an optional `pendingDiffs: DiffOp[]` (not done).
+- Consider a `ProjectedTrackView` type: `{ trackKey: string; points: Keypoint<RawValue>[]; appliedDiffs: TrackDiffOp[] }` for preview cache.
 - Add explicit `DeleteKeypointDiff` / `InsertKeypointDiff` handling to track diff application types.
 - Update any transition-related types to include `pairing?: TransitionPairing` (already reflected in the diff schema).
 
 ## Migration notes
 
-- Start by typing the diff pipeline end-to-end (compute → apply) without altering behavior. Only after the types are in place should implementation adopt `DiffOp` usage.
+- Start by typing the diff pipeline end-to-end (compute → apply) without altering behavior, then adopt `DiffOp` usage.
 - Maintain id stability: diffs must update/delete by id; avoid structural replacements.
 - Preview remains non-destructive; commit applies the same `TrackDiffOp[]` plus any selection cleanup tied to `DeleteKeypointDiff`.
 
@@ -60,3 +71,23 @@ This document lists type surfaces that would need updates to adopt the explicit 
 - **Handle/pairing path:** emit handle/pairing deltas as `HandleDiff`/`UpdateKeypointDiff.transitions` and merge into the same op set before preview/commit, instead of patching `dragState.handleDiffs`.
 - **Drag state:** when storing `pendingDiffs`, retain the baseline snapshot used for `computeDragDiffOps` so replay is deterministic if the store changes mid-drag.
 - **Legacy parity note:** tests (`tests/drag/drag-diff-ops.test.ts`) document that the current pipeline does not delete on collision; the new ops do, providing the desired overwrite behavior without UI thrash.
+
+## Additional steps to address preview/commit mismatches and recompute
+
+- Instance-aware overlays: Build projected tracks per TrackKey (namespace/instance/track) and compute violations/interpolators per entry; aggregate for rows. Avoid collapsing by base `trackId`.
+- Centralize inference: Apply default transitions/pairing in the overlay builder (once), not in multiple consumers.
+- Incremental derived rebuild: Cache canonical derived; recompute only affected TrackKeys when `pendingDiffs` change.
+- Tests: Add regression that drags a shared track on the global row and asserts preview violations match post-commit recomputation using the same ops.
+
+## Notes / findings for handoff
+
+- Preview vs commit mismatch (global row):
+  - Current preview violation computation still collapses per base `trackId` and reuses one preview track for all row entries. In global rows (shared track across instances), the dragged instance’s deltas are either ignored or applied to other instances, so preview diverges from post-commit.
+  - Robust fix: Build per-entry overlays keyed by TrackKey (namespace/instance/track); compute violations/interpolators per entry using that entry’s context; aggregate keyed by TrackKey. Do not reuse a single preview track per `trackId`.
+  - Tests to add: A full-store regression on the global row dragging a shared track marker; assert preview violations == recomputed violations from the projected track for that instance, and preview == post-commit.
+- Implementation notes:
+  - Emit `DiffOp[]` during drag (marker + handle), including pairing in transitions/HandleDiff.
+  - Overlay builder should apply default transitions/pairing once; preview consumers should not re-infer.
+  - Incremental derived rebuild: recompute overlays/violations/interpolators only for touched TrackKeys; reuse canonical derived elsewhere.
+  - Selection cleanup must account for delete ops.
+  - Cleanup: `diff.ts` docstrings are in place; drag state still lacks `pendingDiffs`; preview/commit still use ad-hoc diffs.

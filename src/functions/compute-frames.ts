@@ -1,5 +1,6 @@
 import type { RawValue } from "@semio/utils";
 import type { Track, InstancedFrameInfo, SourceRow, Keypoint } from "../types";
+import { StandardTransitionType } from "../types";
 
 interface ComputeFramesOptions {
   draggingKeypointIds?: Set<string>;
@@ -97,17 +98,16 @@ export function computeFrames(
         ) {
           instancedFrameInfo[matchingFrameIndex].id = options.anchorFrameKey;
         }
-
-        // If this is the first point being added and it has transitions, use them
-        // For multiple points, we clear transitions to avoid conflicts
-        if (
-          instancedFrameInfo[matchingFrameIndex].points.length === 1 &&
-          previewPoint.transitions
-        ) {
-          instancedFrameInfo[matchingFrameIndex].transitions = previewPoint.transitions;
-        } else if (instancedFrameInfo[matchingFrameIndex].points.length > 1) {
-          // Clear transitions when multiple points exist at same timestamp
-          instancedFrameInfo[matchingFrameIndex].transitions = undefined;
+        // Preserve transitions from the first point when available; ensure defaults are set.
+        if (!instancedFrameInfo[matchingFrameIndex].transitions) {
+          instancedFrameInfo[matchingFrameIndex].transitions = withDefaultTransitions(
+            previewPoint.transitions,
+          );
+        } else {
+          instancedFrameInfo[matchingFrameIndex].transitions = withDefaultTransitions({
+            ...previewPoint.transitions,
+            ...instancedFrameInfo[matchingFrameIndex].transitions,
+          });
         }
       } else {
         // Create new frame
@@ -123,7 +123,7 @@ export function computeFrames(
               trackId: emittedTrackId,
             },
           ],
-          transitions: previewPoint.transitions,
+          transitions: withDefaultTransitions(previewPoint.transitions),
         };
         if (options.anchorFrameKey && previewPoint.id === options.anchorFrameKey) {
           frame.id = options.anchorFrameKey;
@@ -134,4 +134,14 @@ export function computeFrames(
   });
 
   return instancedFrameInfo.toSorted((a, b) => a.stamp - b.stamp);
+}
+
+function withDefaultTransitions(
+  transitions?: InstancedFrameInfo["transitions"],
+): InstancedFrameInfo["transitions"] {
+  return {
+    in: transitions?.in ?? StandardTransitionType.Cubic,
+    out: transitions?.out ?? StandardTransitionType.Cubic,
+    pairing: transitions?.pairing,
+  };
 }

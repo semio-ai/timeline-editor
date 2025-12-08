@@ -235,7 +235,7 @@ function createTracks(): Record<string, Track<RawValue>> {
     // Shared animation tracks - Position (vector3)
     [TRACK_IDS.POSITION]: {
       id: TRACK_IDS.POSITION,
-      name: "Position X",
+      name: "Position",
       animatableId: ANIMATABLE_IDS.POSITION,
       points: [
         {
@@ -257,7 +257,6 @@ function createTracks(): Record<string, Track<RawValue>> {
           id: "px2",
           stamp: 0.4,
           value: { x: 5, y: 10, z: 0 },
-          transitions: { in: { x: -0.21, y: 1 }, out: { x: 0.18, y: -4 } },
         },
         {
           id: "px3",
@@ -269,7 +268,6 @@ function createTracks(): Record<string, Track<RawValue>> {
           id: "px4",
           stamp: 1,
           value: { x: 0, y: 0, z: 14 },
-          transitions: { in: { x: -0.195, y: -0.25 } },
         },
       ],
       settings: { color: "#00FFFF" },

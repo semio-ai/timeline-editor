@@ -16,6 +16,8 @@ import {
   Keypoint,
   StandardTransitionType,
   SourceRowData,
+  TransitionPairing,
+  InstancedFrameInfo,
 } from "../types";
 import { TYPE_FIELDS, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
@@ -29,6 +31,9 @@ import { computeTrackInterpolator } from "./compute-track-interpolator";
 import { computeTrackViolations } from "./compute-track-violations";
 import { clampMonotonicCubicSegment } from "./clamp-monotonic-cubic-segment";
 import { buildSegmentRenderParams } from "./build-segment-render-params";
+import { resolveTransitionDelta } from "./get-world-control-points";
+
+const PAIRING_FLAT_TOLERANCE_RAD = (3 * Math.PI) / 180;
 
 interface RowComputationContext {
   animations: Record<string, Animation>;
@@ -52,7 +57,9 @@ export function computeRowData(
     { animationId: string; namespaceId: string; instanceId: string }
   >();
   sourceRow.data.forEach((datum) => {
-    if (!trackContextByTrackId.has(datum.trackId)) {
+    const existing = trackContextByTrackId.get(datum.trackId);
+    const isActiveInstance = datum.instanceId === dragState?.instanceId;
+    if (!existing || isActiveInstance) {
       trackContextByTrackId.set(datum.trackId, {
         animationId: datum.animationId,
         namespaceId: datum.namespaceId,
@@ -310,7 +317,14 @@ export function computeRowData(
     anchorFrameKey: dragState?.anchor?.keypointId,
   });
 
-  const explicitInterpolationSegments = computeTransitionSegments(projectedFrames, trackIds);
+  const pairingByPointId = resolvePairingByPoint(projectedTracks);
+  const projectedFramesWithPairing = applyPairingToFrames(projectedFrames, pairingByPointId);
+  const markerFramesWithPairing = applyPairingToFrames(markerFrames, pairingByPointId);
+
+  const explicitInterpolationSegments = computeTransitionSegments(
+    projectedFramesWithPairing,
+    trackIds,
+  );
   const interpolations = computeFilledInterpGaps(explicitInterpolationSegments);
 
   const segmentsWithGeometry = interpolations.map((segment) =>
@@ -355,21 +369,7 @@ export function computeRowData(
 
     trackIds.forEach((trackId) => {
       const track = relevantTracks[trackId];
-      const contextEntry = trackContextByTrackId.get(trackId);
-      if (!track || !contextEntry) {
-        return;
-      }
-      // Only preview for the active drag instance
-      if (contextEntry.instanceId !== dragState?.instanceId) {
-        return;
-      }
-      const animation = context.animations[contextEntry.animationId];
-      const namespace = context.namespaces[contextEntry.namespaceId];
-      const instance = namespace?.animationInstances?.[contextEntry.instanceId];
-      const animatable = animatables[track.animatableId];
-      if (!animation || !instance || !animatable) {
-        return;
-      }
+      if (!track) return;
 
       const previewPoints =
         projectedTracks[trackId]?.points ?? markerTrackPoints.get(trackId) ?? track.points;
@@ -396,16 +396,27 @@ export function computeRowData(
         points: [...pointsWithEffectiveTransitions].sort((a, b) => a.stamp - b.stamp),
       };
 
-      const interpolator = computeTrackInterpolator(previewTrack, instance);
-      const previewViolations = computeTrackViolations(
-        interpolator,
-        animation.duration,
-        trackId,
-        contextEntry.namespaceId,
-        contextEntry.instanceId,
-        animatable,
-      );
-      effectiveViolations[trackId] = previewViolations;
+      const trackEntries = sourceRow.data.filter((entry) => entry.trackId === trackId);
+      trackEntries.forEach((entry) => {
+        const animation = context.animations[entry.animationId];
+        const namespace = context.namespaces[entry.namespaceId];
+        const instance = namespace?.animationInstances?.[entry.instanceId];
+        const animatable = animatables[track.animatableId];
+        if (!animation || !instance || !animatable) {
+          return;
+        }
+        const interpolator = computeTrackInterpolator(previewTrack, instance);
+        const previewViolations = computeTrackViolations(
+          interpolator,
+          animation.duration,
+          trackId,
+          entry.namespaceId,
+          entry.instanceId,
+          animatable,
+        );
+        const existing = effectiveViolations[trackId] ?? [];
+        effectiveViolations[trackId] = [...existing, ...previewViolations];
+      });
     });
   }
 
@@ -415,12 +426,92 @@ export function computeRowData(
 
   const rowComputedData: ComputedRowData = {
     violationSet,
-    virtualFrames: markerFrames,
+    virtualFrames: markerFramesWithPairing,
     interpolations: segmentsWithGeometry,
     verticalBounds: boundsForRow,
   };
 
   return rowComputedData;
+}
+
+function resolvePairingByPoint(
+  tracks: Record<string, Track<RawValue>>,
+): Map<string, TransitionPairing | undefined> {
+  const pairingByPoint = new Map<string, TransitionPairing | undefined>();
+
+  Object.values(tracks).forEach((track) => {
+    const sorted = [...track.points].sort((a, b) => a.stamp - b.stamp);
+    sorted.forEach((point, idx) => {
+      if (pairingByPoint.has(point.id)) return;
+      const explicit = point.transitions?.pairing;
+      if (explicit) {
+        pairingByPoint.set(point.id, explicit);
+        return;
+      }
+      const prev = idx > 0 ? sorted[idx - 1] : undefined;
+      const next = idx < sorted.length - 1 ? sorted[idx + 1] : undefined;
+      if (!prev || !next) {
+        pairingByPoint.set(point.id, undefined);
+        return;
+      }
+      if (typeof prev.value !== "number" || typeof next.value !== "number") {
+        pairingByPoint.set(point.id, undefined);
+        return;
+      }
+      const inTransition = point.transitions?.in ?? StandardTransitionType.Cubic;
+      const outTransition = point.transitions?.out ?? StandardTransitionType.Cubic;
+
+      const inDelta = resolveTransitionDelta(
+        "in",
+        prev.stamp,
+        point.stamp,
+        prev.value as number,
+        point.value as number,
+        inTransition,
+      );
+      const outDelta = resolveTransitionDelta(
+        "out",
+        point.stamp,
+        next.stamp,
+        point.value as number,
+        next.value as number,
+        outTransition,
+      );
+      if (!inDelta || !outDelta) {
+        pairingByPoint.set(point.id, undefined);
+        return;
+      }
+      const inLen = Math.hypot(inDelta.x, inDelta.y);
+      const outLen = Math.hypot(outDelta.x, outDelta.y);
+      if (inLen === 0 || outLen === 0) {
+        pairingByPoint.set(point.id, undefined);
+        return;
+      }
+      const dot = (inDelta.x * outDelta.x + inDelta.y * outDelta.y) / (inLen * outLen);
+      const clampedDot = Math.max(-1, Math.min(1, dot));
+      const angle = Math.acos(clampedDot);
+      const inferred =
+        Math.abs(Math.PI - angle) <= PAIRING_FLAT_TOLERANCE_RAD
+          ? TransitionPairing.Paired
+          : TransitionPairing.Free;
+      pairingByPoint.set(point.id, inferred);
+    });
+  });
+
+  return pairingByPoint;
+}
+
+function applyPairingToFrames(
+  frames: InstancedFrameInfo[],
+  pairingByPointId: Map<string, TransitionPairing | undefined>,
+): InstancedFrameInfo[] {
+  return frames.map((frame) => {
+    if (!frame.transitions) return frame;
+    const pointId = frame.points.length === 1 ? frame.points[0]?.id : undefined;
+    const pairing = pointId ? pairingByPointId.get(pointId) : undefined;
+    if (!pairing || frame.transitions.pairing === pairing) return frame;
+    return { ...frame, transitions: { ...frame.transitions, pairing } };
+  });
 }
 
 function attachSegmentGeometry(

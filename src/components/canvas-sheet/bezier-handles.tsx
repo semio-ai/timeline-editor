@@ -603,12 +603,14 @@ const HandleDot = memo(function HandleDot({
         endValue: interaction.endValue,
       });
     },
-    onDrag2D: ({ x, normalizedValueDelta, alt, shift, meta }) => {
+    onDrag2D: ({ x, normalizedValueDelta, movementX, movementY, alt, shift, meta }) => {
       if (!interaction) return;
       dragDidMoveRef.current = true;
       interaction.updateHandleDrag({
         pointer: { x, y: 0 },
         normalizedValueDelta,
+        movementX,
+        movementY,
         modifiers: { alt, shift, meta },
       });
     },
