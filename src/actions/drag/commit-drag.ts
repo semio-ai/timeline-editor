@@ -1,7 +1,7 @@
 import type { AnimationData } from "../../store-types";
 import { computeDragDiffOps, applyTrackDiffOpsToTrack } from "../../functions/drag-diff-ops";
 import { cloneTransitionValue, cloneTransitions } from "../../utils/clone-transitions";
-import type { SelectionCleanup } from "../../functions/drag-diff-ops";
+import type { SelectionCleanup, TrackDiffOp } from "../../types/util/diff";
 
 interface MarkerContext {
   attributePath?: string[];
@@ -37,7 +37,7 @@ const buildMarkerContextLookup = (state: AnimationData): Map<string, MarkerConte
  * @param state - The animation state to modify
  */
 export function commitDrag(state: AnimationData): void {
-  const dragState = state.dragState;
+  const dragState = state.derivedSnapshot?.dragContext ?? state.dragState;
   if (!dragState) {
     return;
   }
@@ -72,8 +72,12 @@ export function commitDrag(state: AnimationData): void {
 
   const hasVerticalDelta = normalizedValueDelta !== undefined;
   const hasHorizontalDelta = typeof stampDelta === "number";
+  const pendingTrackDiffs = (dragState.pendingDiffs ?? []).filter(
+    (diff): diff is TrackDiffOp => diff.type !== "handle",
+  );
+  const hasPendingOps = pendingTrackDiffs.length > 0;
 
-  if (!hasHorizontalDelta && !hasVerticalDelta) {
+  if (!hasHorizontalDelta && !hasVerticalDelta && !hasPendingOps) {
     const handleDiffs = dragState.handleDiffs;
     if (handleDiffs && Object.keys(handleDiffs).length > 0) {
       Object.entries(handleDiffs).forEach(([keypointId, diff]) => {
@@ -97,47 +101,66 @@ export function commitDrag(state: AnimationData): void {
     return;
   }
 
-  const markerContexts = hasVerticalDelta ? buildMarkerContextLookup(state) : undefined;
-  const attributePathByTrack = new Map<string, string[] | undefined>();
-  const boundsByTrack = new Map<string, { min: number; max: number } | undefined>();
-  markerContexts?.forEach((context, key) => {
-    const [trackId] = key.split(":");
-    if (!attributePathByTrack.has(trackId) && context?.attributePath) {
-      attributePathByTrack.set(trackId, context.attributePath);
-    }
-    if (!boundsByTrack.has(trackId) && context?.bounds) {
-      boundsByTrack.set(trackId, context.bounds);
-    }
-  });
-
   const selectionCleanups: SelectionCleanup[] = [];
 
-  for (const [trackId] of selection.keypoints.entries()) {
-    const track = state.tracks[trackId];
-    if (!track) continue;
-    const snapshotPoints =
-      dragState.trackSnapshots?.[trackId]?.points ??
-      track.points.map((point) => ({
-        ...point,
-        value: structuredClone(point.value),
-        transitions: cloneTransitions(point.transitions),
-      }));
-
-    const { diffs, selectionCleanup } = computeDragDiffOps({
-      trackId,
-      trackPoints: track.points,
-      snapshotPoints,
-      dragState,
-      selection,
-      bounds: hasVerticalDelta ? boundsByTrack.get(trackId) : undefined,
-      attributePath: attributePathByTrack.get(trackId) ?? dragState.anchor.attributePath,
+  if (hasPendingOps) {
+    const diffsByTrack = new Map<string, TrackDiffOp[]>();
+    pendingTrackDiffs.forEach((diff) => {
+      const list = diffsByTrack.get(diff.trackId) ?? [];
+      list.push(diff);
+      diffsByTrack.set(diff.trackId, list);
     });
 
-    if (diffs.length > 0) {
+    diffsByTrack.forEach((diffs, trackId) => {
+      const track = state.tracks[trackId];
+      if (!track) return;
       applyTrackDiffOpsToTrack(track, diffs);
+    });
+
+    if (dragState.pendingSelectionCleanups?.length) {
+      selectionCleanups.push(...dragState.pendingSelectionCleanups);
     }
-    if (selectionCleanup) {
-      selectionCleanups.push(selectionCleanup);
+  } else {
+    const markerContexts = hasVerticalDelta ? buildMarkerContextLookup(state) : undefined;
+    const attributePathByTrack = new Map<string, string[] | undefined>();
+    const boundsByTrack = new Map<string, { min: number; max: number } | undefined>();
+    markerContexts?.forEach((context, key) => {
+      const [trackId] = key.split(":");
+      if (!attributePathByTrack.has(trackId) && context?.attributePath) {
+        attributePathByTrack.set(trackId, context.attributePath);
+      }
+      if (!boundsByTrack.has(trackId) && context?.bounds) {
+        boundsByTrack.set(trackId, context.bounds);
+      }
+    });
+
+    for (const [trackId] of selection.keypoints.entries()) {
+      const track = state.tracks[trackId];
+      if (!track) continue;
+      const snapshotPoints =
+        dragState.trackSnapshots?.[trackId]?.points ??
+        track.points.map((point) => ({
+          ...point,
+          value: structuredClone(point.value),
+          transitions: cloneTransitions(point.transitions),
+        }));
+
+      const { diffs, selectionCleanup } = computeDragDiffOps({
+        trackId,
+        trackPoints: track.points,
+        snapshotPoints,
+        dragState,
+        selection,
+        bounds: hasVerticalDelta ? boundsByTrack.get(trackId) : undefined,
+        attributePath: attributePathByTrack.get(trackId) ?? dragState.anchor.attributePath,
+      });
+
+      if (diffs.length > 0) {
+        applyTrackDiffOpsToTrack(track, diffs);
+      }
+      if (selectionCleanup) {
+        selectionCleanups.push(selectionCleanup);
+      }
     }
   }
 

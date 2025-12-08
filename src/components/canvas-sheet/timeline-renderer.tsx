@@ -26,6 +26,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
       <mesh
         position={[0.5, 0, Z.ForegroundBackgroundBoundary]}
         onClick={(e: ThreeEvent<MouseEvent>) => e.stopPropagation()}
+        onPointerUp={(e: ThreeEvent<MouseEvent>) => e.stopPropagation()}
       >
         <planeGeometry args={[1.1, 36]} />
         <meshBasicMaterial

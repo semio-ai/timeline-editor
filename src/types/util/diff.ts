@@ -11,7 +11,7 @@
  * is still in progress; this file documents the intended shape.
  */
 import type { RawValue } from "@semio/utils";
-import type { TransitionPairing } from "../data/keypoint";
+import type { Keypoint, TransitionPairing } from "../data/keypoint";
 import type { EndpointTransitions } from "./segment-geometry";
 
 /**
@@ -119,3 +119,25 @@ export type TrackDiffOp =
   | ReorderKeypointsDiff;
 
 export type DiffOp = TrackDiffOp | HandleDiff;
+
+/** Selection cleanup to apply after delete operations. */
+export interface SelectionCleanup {
+  trackId: string;
+  removedIds: string[];
+}
+
+/** Projected view of a track during drag preview. */
+export interface ProjectedTrackView {
+  /** Scoped track identifier including namespace/instance/track. */
+  trackKey: `${string}/${string}/${string}`;
+  /** Base track id for applying ops. */
+  trackId: string;
+  /** Projected points used for geometry/violations. */
+  points: Keypoint<RawValue>[];
+  /** Projected points used for marker frames (coincident filtered). */
+  framePoints: Keypoint<RawValue>[];
+  /** Ops applied to produce the projection. */
+  appliedDiffs: TrackDiffOp[];
+  /** Selection cleanup emitted alongside the ops. */
+  selectionCleanup?: SelectionCleanup;
+}

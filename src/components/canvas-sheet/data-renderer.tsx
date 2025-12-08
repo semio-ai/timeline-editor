@@ -250,7 +250,10 @@ export const DataRenderer = memo(function DataRenderer({
   return (
     <group
       position={[0, yOffset, baseZ]}
-      onClick={() => console.log("clicked", sourceRow, computedData)} // Reserved no-op; marker/segment clicks stopPropagation and handle selection
+      onClick={() => console.log("clicked row", JSON.stringify(computedData?.virtualFrames))} // Reserved no-op; marker/segment clicks stopPropagation and handle selection
+      onDoubleClick={() => {
+        console.log("clicked row", JSON.stringify(computedData?.virtualFrames));
+      }}
     >
       {shouldRenderTrackSwitchOverlay && trackRender !== TrackRender.Spline && (
         <mesh

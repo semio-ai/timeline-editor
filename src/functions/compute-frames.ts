@@ -72,10 +72,16 @@ export function computeFrames(
           ? (previewPoint.value as any)[sourceRowData.attribute]
           : previewPoint.value;
 
+      const targetTrackId = emittedTrackId;
+
       if (matchingFrameIndex >= 0) {
         // Add point to existing frame
         const exists = instancedFrameInfo[matchingFrameIndex].points.some(
-          (p) => p.id === previewPoint.id && p.trackId === sourceRowData.trackId,
+          (p) =>
+            p.id === previewPoint.id &&
+            p.trackId === targetTrackId &&
+            p.namespaceId === sourceRowData.namespaceId &&
+            p.instanceId === sourceRowData.instanceId,
         );
         if (!exists) {
           instancedFrameInfo[matchingFrameIndex].points.push({
@@ -83,12 +89,12 @@ export function computeFrames(
             id: previewPoint.id,
             type: valueType,
             value,
-            trackId: emittedTrackId,
+            trackId: targetTrackId,
           });
         }
         // Update frame ID based on all points in this frame
         const pointIds = instancedFrameInfo[matchingFrameIndex].points
-          .map((p) => p.id)
+          .map((p) => `${p.id}-${p.trackId}-${p.namespaceId ?? "ns"}-${p.instanceId ?? "inst"}`)
           .sort()
           .join("-");
         instancedFrameInfo[matchingFrameIndex].id = pointIds;
@@ -96,7 +102,9 @@ export function computeFrames(
           options.anchorFrameKey &&
           instancedFrameInfo[matchingFrameIndex].points.some((p) => p.id === options.anchorFrameKey)
         ) {
-          instancedFrameInfo[matchingFrameIndex].id = options.anchorFrameKey;
+          instancedFrameInfo[matchingFrameIndex].id = `${options.anchorFrameKey}-${targetTrackId}-${
+            sourceRowData.namespaceId ?? "ns"
+          }-${sourceRowData.instanceId ?? "inst"}`;
         }
         // Preserve transitions from the first point when available; ensure defaults are set.
         if (!instancedFrameInfo[matchingFrameIndex].transitions) {
@@ -111,8 +119,11 @@ export function computeFrames(
         }
       } else {
         // Create new frame
+        const baseFrameId = `${previewPoint.id}-${targetTrackId}-${sourceRowData.namespaceId ?? "ns"}-${
+          sourceRowData.instanceId ?? "inst"
+        }`;
         const frame: InstancedFrameInfo = {
-          id: previewPoint.id,
+          id: baseFrameId,
           stamp: previewPoint.stamp,
           points: [
             {
@@ -120,20 +131,41 @@ export function computeFrames(
               id: previewPoint.id,
               value,
               type: valueType,
-              trackId: emittedTrackId,
+              trackId: targetTrackId,
             },
           ],
           transitions: withDefaultTransitions(previewPoint.transitions),
         };
         if (options.anchorFrameKey && previewPoint.id === options.anchorFrameKey) {
-          frame.id = options.anchorFrameKey;
+          frame.id = `${options.anchorFrameKey}-${targetTrackId}-${
+            sourceRowData.namespaceId ?? "ns"
+          }-${sourceRowData.instanceId ?? "inst"}`;
         }
         instancedFrameInfo.push(frame);
       }
     });
   });
 
-  return instancedFrameInfo.toSorted((a, b) => a.stamp - b.stamp);
+  const sortedFrames = instancedFrameInfo.toSorted((a, b) => a.stamp - b.stamp);
+
+  if (sourceRow.id === "global") {
+    console.debug(
+      "[frames-built]",
+      "row",
+      sourceRow.id,
+      sortedFrames.map((frame) => ({
+        id: frame.id,
+        stamp: frame.stamp,
+        points: frame.points.map((p) => ({
+          id: p.id,
+          trackId: p.trackId,
+          trackIdBase: (p as any).trackIdBase,
+        })),
+      })),
+    );
+  }
+
+  return sortedFrames;
 }
 
 function withDefaultTransitions(

@@ -4,21 +4,21 @@ This doc tracks adoption of the explicit diff schema (`types/util/diff.ts`) and 
 
 ## Status
 - [x] Types: `diff.ts` defines Update/Delete/Insert/Reorder/Handle diffs with pairing; docstrings added.
-- [ ] DragState: Still uses ad-hoc `handleDiffs`/marker deltas; no `pendingDiffs` field yet. Pairing stored ad-hoc.
-- [ ] Derived snapshot: Preview still patches points per row; no caching of diff ops or per-TrackKey overlays.
-- [ ] Preview violations/geometry: Instance mixing persists in global rows; preview uses a single preview track per base `trackId`.
-- [ ] Commit: Applies ad-hoc diffs; not replaying a unified op set.
+- [x] DragState: Carries `pendingDiffs`, `pendingSelectionCleanups`, and cached `ProjectedTrackView[]` alongside handle deltas/snapshots.
+- [x] Derived snapshot: Preview cache built per TrackKey via `computeRowData`; `buildDerivedSnapshot` reuses cached projections for preview tracks.
+- [x] Preview violations/geometry: Per-entry overlays keyed by TrackKey; global rows no longer reuse a single preview track per base `trackId`.
+- [x] Commit: Replays cached track diff ops from `dragContext` when available; selection cleanup plumbed from drag preview cache.
 - [ ] Tests: Existing preview tests not sensitive to multi-instance/global rows.
 
 ## Key type surfaces to update
 
 1) **DragState / drag snapshots**
-   - CURRENT: `handleDiffs` map, marker deltas. No `pendingDiffs`.
-   - PLAN: Introduce `pendingDiffs: DiffOp[]` and phase out ad-hoc maps. Capture pairing context explicitly.
+   - CURRENT: `pendingDiffs`, `pendingSelectionCleanups`, and cached `ProjectedTrackView[]` are stored on drag context; handle diffs still ad hoc.
+   - PLAN: Emit handle/pairing deltas as ops and fold into `pendingDiffs`.
 
 2) **DerivedSnapshot / row computed data**
-   - CURRENT: Per-row recompute overlays points/transitions; no diff caching; uses base `trackId`.
-   - PLAN: Cache projected tracks per TrackKey (namespace/instance/track) from `DiffOp[]`; rows reference overlays instead of recomputing ad hoc.
+   - CURRENT: Rows populate a TrackKey-indexed preview cache (diffs + projected points) reused by derived tracks; still recomputed per row.
+   - PLAN: Reuse cached ops across rows (incremental rebuild) and reduce recomputation churn.
 
 3) **TrackDiff computation / application types**
    - CURRENT: `computeDragDiffOps` returns implicit shapes; commit applies ad-hoc loops.
@@ -39,8 +39,8 @@ This doc tracks adoption of the explicit diff schema (`types/util/diff.ts`) and 
 
 ## Types to add/adjust
 
-- Extend `DragState` with an optional `pendingDiffs: DiffOp[]` (not done).
-- Consider a `ProjectedTrackView` type: `{ trackKey: string; points: Keypoint<RawValue>[]; appliedDiffs: TrackDiffOp[] }` for preview cache.
+- Extend `DragState` with an optional `pendingDiffs: DiffOp[]` (done; also stores selection cleanup and projected views).
+- Consider a `ProjectedTrackView` type: `{ trackKey: string; points: Keypoint<RawValue>[]; appliedDiffs: TrackDiffOp[] }` for preview cache. (done)
 - Add explicit `DeleteKeypointDiff` / `InsertKeypointDiff` handling to track diff application types.
 - Update any transition-related types to include `pairing?: TransitionPairing` (already reflected in the diff schema).
 
@@ -82,12 +82,10 @@ This doc tracks adoption of the explicit diff schema (`types/util/diff.ts`) and 
 ## Notes / findings for handoff
 
 - Preview vs commit mismatch (global row):
-  - Current preview violation computation still collapses per base `trackId` and reuses one preview track for all row entries. In global rows (shared track across instances), the dragged instance’s deltas are either ignored or applied to other instances, so preview diverges from post-commit.
-  - Robust fix: Build per-entry overlays keyed by TrackKey (namespace/instance/track); compute violations/interpolators per entry using that entry’s context; aggregate keyed by TrackKey. Do not reuse a single preview track per `trackId`.
+  - Per-entry overlays now keyed by TrackKey and reused by derived tracks; preview cache also feeds commit via `pendingDiffs`/selection cleanup.
   - Tests to add: A full-store regression on the global row dragging a shared track marker; assert preview violations == recomputed violations from the projected track for that instance, and preview == post-commit.
 - Implementation notes:
   - Emit `DiffOp[]` during drag (marker + handle), including pairing in transitions/HandleDiff.
   - Overlay builder should apply default transitions/pairing once; preview consumers should not re-infer.
   - Incremental derived rebuild: recompute overlays/violations/interpolators only for touched TrackKeys; reuse canonical derived elsewhere.
-  - Selection cleanup must account for delete ops.
-  - Cleanup: `diff.ts` docstrings are in place; drag state still lacks `pendingDiffs`; preview/commit still use ad-hoc diffs.
+  - Selection cleanup now plumbed through drag preview cache; handle diffs still ad hoc.

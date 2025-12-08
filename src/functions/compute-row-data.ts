@@ -21,6 +21,7 @@ import {
 } from "../types";
 import { TYPE_FIELDS, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
+import type { ProjectedTrackView, SelectionCleanup, TrackDiffOp } from "../types/util/diff";
 import { computeDragDiffOps } from "./drag-diff-ops";
 import { computeViolationSet } from "./compute-violation-set";
 import { computeTransitionSegments } from "./compute-transition-segments";
@@ -40,6 +41,12 @@ interface RowComputationContext {
   namespaces: Record<string, Namespace>;
 }
 
+export interface DragPreviewCache {
+  trackViews: Map<TrackKey, ProjectedTrackView>;
+  pendingDiffsByTrackId: Map<string, TrackDiffOp[]>;
+  selectionCleanups: SelectionCleanup[];
+}
+
 export function computeRowData(
   sourceRow: SourceRow,
   tracks: Record<string, Track<RawValue>>,
@@ -48,6 +55,7 @@ export function computeRowData(
   dragState: DragState | undefined,
   selectionState: SelectionState,
   context?: RowComputationContext,
+  previewCache?: DragPreviewCache,
 ): ComputedRowData {
   const trackIds = uniq(sourceRow.data.map((t) => t.trackId));
   const instanceIds = new Set(sourceRow.data.map((t) => t.instanceId));
@@ -179,19 +187,28 @@ export function computeRowData(
       ? dragState.handleDiffs
       : undefined;
 
-  const markerTrackPoints = new Map<string, Keypoint<RawValue>[]>();
+  const previewByTrackId = new Map<
+    string,
+    {
+      projectedPoints: Keypoint<RawValue>[];
+      framePoints: Keypoint<RawValue>[];
+      diffs: TrackDiffOp[];
+      selectionCleanup?: SelectionCleanup;
+    }
+  >();
   const projectedPointLookup = new Map<string, Map<string, Keypoint<RawValue>>>();
-  const frameTrackKeyToBase = new Map<string, string>();
   const anchorTrackId = dragState?.anchor?.trackId;
   const anchorKeypointId = dragState?.anchor?.keypointId;
   const EPSILON = 1e-6;
 
-  if (dragState && selectionState.instanceId === dragState.instanceId) {
+  const shouldPreview = dragState && selectionState.instanceId === dragState.instanceId;
+
+  if (shouldPreview) {
     trackIds.forEach((trackId) => {
       const track = relevantTracks[trackId];
       if (!track) return;
       const snapshotPoints = dragState.trackSnapshots?.[trackId]?.points;
-      const { projectedPoints, framePoints } = computeDragDiffOps({
+      const { projectedPoints, framePoints, diffs, selectionCleanup } = computeDragDiffOps({
         trackId,
         trackPoints: track.points,
         snapshotPoints,
@@ -200,12 +217,12 @@ export function computeRowData(
         bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
         attributePath: attributePathsByTrack.get(trackId),
       });
-      let previewPoints = projectedPoints;
-      const markerPoints = framePoints;
 
       // Overlay handle diffs so preview consumers (violations, interpolator) see updated transitions
+      let previewPoints = projectedPoints;
+      let markerPoints = framePoints;
       if (handleDiffs) {
-        const patched = previewPoints.map((point) => {
+        const patchTransitions = (point: Keypoint<RawValue>): Keypoint<RawValue> => {
           const diff = handleDiffs[point.id];
           if (!diff?.in && !diff?.out) {
             return point;
@@ -221,57 +238,125 @@ export function computeRowData(
             ...point,
             transitions: nextTransitions,
           };
-        });
-        previewPoints = patched;
+        };
+        previewPoints = previewPoints.map(patchTransitions);
+        markerPoints = markerPoints.map(patchTransitions);
       }
 
-      markerTrackPoints.set(trackId, markerPoints);
-      projectedPointLookup.set(trackId, new Map(projectedPoints.map((point) => [point.id, point])));
+      previewByTrackId.set(trackId, {
+        projectedPoints: previewPoints,
+        framePoints: markerPoints,
+        diffs,
+        selectionCleanup,
+      });
     });
   }
 
-  // Build adjusted tracks for preview:
-  // - Apply preview points (drag deltas / handle diffs)
-  // - Build projected tracks for geometry/violations (hide coincident non-dragged points in the dragged track)
-  const adjustedTracks: Record<string, Track<RawValue>> = {};
   const projectedTracks: Record<string, Track<RawValue>> = {};
+  const markerTracks: Record<string, Track<RawValue>> = {};
+  const projectedSourceRow: SourceRow = { ...sourceRow, data: [] };
+  const markerSourceRow: SourceRow = { ...sourceRow, data: [] };
 
-  trackIds.forEach((trackId) => {
-    const baseTrack = relevantTracks[trackId];
+  sourceRow.data.forEach((datum) => {
+    const baseTrack = relevantTracks[datum.trackId];
     if (!baseTrack) return;
-    const previewPoints = markerTrackPoints.get(trackId) ?? baseTrack.points;
+    const trackKey = buildTrackKey(datum.namespaceId, datum.instanceId, datum.trackId);
 
-    adjustedTracks[trackId] = {
-      ...baseTrack,
-      points: previewPoints.slice(),
-    } as Track<RawValue>;
+    const preview = previewByTrackId.get(datum.trackId);
+    const usePreview = Boolean(
+      preview && shouldPreview && datum.instanceId === dragState?.instanceId,
+    );
 
-    let projectedPoints = previewPoints;
+    if (sourceRow.id === "global") {
+      console.debug(
+        "[drag-preview-check]",
+        "row",
+        sourceRow.id,
+        "entryTrackId",
+        datum.trackId,
+        "trackKey",
+        trackKey,
+        "hasPreview",
+        previewByTrackId.has(datum.trackId),
+        "usePreview",
+        usePreview,
+        "snapshotHas",
+        Boolean(dragState?.trackSnapshots?.[datum.trackId]),
+        "instanceMatch",
+        datum.instanceId === dragState?.instanceId,
+      );
+    }
+
+    let projectedPoints = usePreview ? (preview?.projectedPoints ?? []) : baseTrack.points;
+    const framePoints = usePreview ? (preview?.framePoints ?? []) : baseTrack.points;
+
     if (
+      usePreview &&
       anchorTrackId &&
       anchorKeypointId &&
-      trackId === anchorTrackId &&
+      datum.trackId === anchorTrackId &&
       selectionState.instanceId === dragState?.instanceId
     ) {
-      const anchorPoint = previewPoints.find((p) => p.id === anchorKeypointId);
+      const anchorPoint = projectedPoints.find((p) => p.id === anchorKeypointId);
       if (anchorPoint) {
-        projectedPoints = previewPoints.filter(
+        projectedPoints = projectedPoints.filter(
           (p) => p.id === anchorKeypointId || Math.abs(p.stamp - anchorPoint.stamp) >= EPSILON,
         );
       }
     }
 
-    projectedTracks[trackId] = {
+    projectedPointLookup.set(trackKey, new Map(projectedPoints.map((point) => [point.id, point])));
+
+    projectedTracks[trackKey] = {
       ...baseTrack,
+      id: trackKey,
       points: projectedPoints.slice(),
     } as Track<RawValue>;
+    projectedSourceRow.data.push({
+      ...(datum as SourceRowData),
+      trackId: trackKey,
+      trackIdBase: datum.trackId,
+    } as SourceRowData);
+
+    markerTracks[trackKey] = {
+      ...baseTrack,
+      id: trackKey,
+      points: framePoints.slice(),
+    } as Track<RawValue>;
+    markerSourceRow.data.push({
+      ...(datum as SourceRowData),
+      trackId: trackKey,
+      trackIdBase: datum.trackId,
+    } as SourceRowData);
+
+    if (usePreview && preview && previewCache) {
+      previewCache.trackViews.set(trackKey, {
+        trackKey,
+        trackId: datum.trackId,
+        points: projectedPoints,
+        framePoints,
+        appliedDiffs: preview.diffs,
+        selectionCleanup: preview.selectionCleanup,
+      });
+      if (!previewCache.pendingDiffsByTrackId.has(datum.trackId)) {
+        previewCache.pendingDiffsByTrackId.set(datum.trackId, preview.diffs);
+      }
+      if (
+        preview.selectionCleanup &&
+        !previewCache.selectionCleanups.some((cleanup) => cleanup.trackId === datum.trackId)
+      ) {
+        previewCache.selectionCleanups.push(preview.selectionCleanup);
+      }
+    }
   });
 
   // Projected frames for geometry/interpolations/violations
-  const projectedFrames = computeFrames(projectedTracks, sourceRow, {
+  const projectedFrames = computeFrames(projectedTracks, projectedSourceRow, {
     draggingKeypointIds: keypointSelection,
-    transformKeypoint: (keypoint, { trackId }) => {
-      const lookup = projectedPointLookup.get(trackId);
+    transformKeypoint: (keypoint, { source }) => {
+      const baseTrackId: string = (source as any).trackIdBase ?? source.trackId;
+      const lookupKey = buildTrackKey(source.namespaceId, source.instanceId, baseTrackId);
+      const lookup = projectedPointLookup.get(lookupKey);
       if (!lookup) return keypoint;
       return lookup.get(keypoint.id) ?? keypoint;
     },
@@ -280,36 +365,12 @@ export function computeRowData(
   });
 
   // Marker frames: duplicate per sourceRow entry to keep aggregate/global markers distinct
-  // Marker frames: duplicate per sourceRow entry to keep aggregate/global markers distinct,
-  // while preserving the base trackId for selection/drag logic.
-  const markerTracks: Record<string, Track<RawValue>> = {};
-  const markerSourceRow: SourceRow = { ...sourceRow, data: [] };
-  sourceRow.data.forEach((datum) => {
-    const baseTrack = relevantTracks[datum.trackId];
-    if (!baseTrack) return;
-    const markerTrackId = `${datum.namespaceId ?? "ns"}/${datum.instanceId ?? "inst"}/${datum.trackId}`;
-    const previewPoints =
-      projectedTracks[datum.trackId]?.points ??
-      markerTrackPoints.get(datum.trackId) ??
-      baseTrack.points;
-    markerTracks[markerTrackId] = {
-      ...baseTrack,
-      id: markerTrackId,
-      points: previewPoints.slice(),
-    } as Track<RawValue>;
-    frameTrackKeyToBase.set(markerTrackId, datum.trackId);
-    markerSourceRow.data.push({
-      ...datum,
-      trackId: markerTrackId,
-      trackIdBase: datum.trackId,
-    } as SourceRowData);
-  });
-
   const markerFrames = computeFrames(markerTracks, markerSourceRow, {
     draggingKeypointIds: keypointSelection,
-    transformKeypoint: (keypoint, { trackId }) => {
-      const baseTrackId = frameTrackKeyToBase.get(trackId) ?? trackId;
-      const lookup = projectedPointLookup.get(baseTrackId);
+    transformKeypoint: (keypoint, { source }) => {
+      const baseTrackId: string = (source as any).trackIdBase ?? source.trackId;
+      const lookupKey = buildTrackKey(source.namespaceId, source.instanceId, baseTrackId);
+      const lookup = projectedPointLookup.get(lookupKey);
       if (!lookup) return keypoint;
       return lookup.get(keypoint.id) ?? keypoint;
     },
@@ -367,12 +428,17 @@ export function computeRowData(
       }
     });
 
-    trackIds.forEach((trackId) => {
-      const track = relevantTracks[trackId];
+    sourceRow.data.forEach((entry) => {
+      const track = relevantTracks[entry.trackId];
       if (!track) return;
+      const preview = previewByTrackId.get(entry.trackId);
+      const usePreview = Boolean(
+        preview &&
+          selectionState.instanceId === dragState?.instanceId &&
+          entry.instanceId === dragState?.instanceId,
+      );
 
-      const previewPoints =
-        projectedTracks[trackId]?.points ?? markerTrackPoints.get(trackId) ?? track.points;
+      const previewPoints = usePreview && preview ? preview.projectedPoints : track.points;
       const pointsWithEffectiveTransitions = previewPoints.map((point) => {
         const overrides = effectiveTransitionByPoint.get(point.id);
         if (!overrides?.in && !overrides?.out) {
@@ -396,27 +462,31 @@ export function computeRowData(
         points: [...pointsWithEffectiveTransitions].sort((a, b) => a.stamp - b.stamp),
       };
 
-      const trackEntries = sourceRow.data.filter((entry) => entry.trackId === trackId);
-      trackEntries.forEach((entry) => {
-        const animation = context.animations[entry.animationId];
-        const namespace = context.namespaces[entry.namespaceId];
-        const instance = namespace?.animationInstances?.[entry.instanceId];
-        const animatable = animatables[track.animatableId];
-        if (!animation || !instance || !animatable) {
-          return;
-        }
-        const interpolator = computeTrackInterpolator(previewTrack, instance);
-        const previewViolations = computeTrackViolations(
-          interpolator,
-          animation.duration,
-          trackId,
-          entry.namespaceId,
-          entry.instanceId,
-          animatable,
-        );
-        const existing = effectiveViolations[trackId] ?? [];
-        effectiveViolations[trackId] = [...existing, ...previewViolations];
-      });
+      const animation = context.animations[entry.animationId];
+      const namespace = context.namespaces[entry.namespaceId];
+      const instance = namespace?.animationInstances?.[entry.instanceId];
+      const animatable = animatables[track.animatableId];
+      if (!animation || !instance || !animatable) {
+        return;
+      }
+      const interpolator = computeTrackInterpolator(previewTrack, instance);
+      const previewViolations = computeTrackViolations(
+        interpolator,
+        animation.duration,
+        track.id,
+        entry.namespaceId,
+        entry.instanceId,
+        animatable,
+      );
+      const existing = effectiveViolations[entry.trackId] ?? [];
+      const withoutDraggedInstance = usePreview
+        ? existing.filter(
+            (violation) =>
+              violation.instanceId !== entry.instanceId ||
+              violation.namespace !== entry.namespaceId,
+          )
+        : existing;
+      effectiveViolations[entry.trackId] = [...withoutDraggedInstance, ...previewViolations];
     });
   }
 

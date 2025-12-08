@@ -1,7 +1,7 @@
 import type { RawValue } from "@semio/utils";
 import isEqual from "lodash/isEqual";
 import type { Keypoint, Track, DragState, SelectionState } from "../types";
-import type { TrackDiffOp } from "../types/util/diff";
+import type { SelectionCleanup, TrackDiffOp } from "../types/util/diff";
 import { cloneTransitionValue } from "../utils/clone-transitions";
 import { applyDragDeltas } from "./apply-drag-deltas";
 
@@ -31,11 +31,6 @@ const arraysEqual = (left: string[], right: string[]): boolean => {
   if (left.length !== right.length) return false;
   return left.every((value, index) => value === right[index]);
 };
-
-export interface SelectionCleanup {
-  trackId: string;
-  removedIds: string[];
-}
 
 export interface ComputeDragDiffOpsParams {
   trackId: string;

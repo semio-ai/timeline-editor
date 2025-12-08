@@ -13,11 +13,11 @@ import {
   EndpointTransitions,
 } from "../types";
 import { buildTrackKey } from "../utils/track-key";
+import type { ProjectedTrackView, SelectionCleanup, TrackDiffOp } from "../types/util/diff";
 import { computeTrackInterpolator } from "./compute-track-interpolator";
 import { computeDerivativeInterpolator } from "./compute-derivative-interpolator";
 import { computeTrackViolations } from "./compute-track-violations";
 import { computeRowData } from "./compute-row-data";
-import { computeDragDiffOps } from "./drag-diff-ops";
 import { clampMonotonicCubicSegment } from "./clamp-monotonic-cubic-segment";
 
 export interface BuildDerivedSnapshotInputs {
@@ -36,46 +36,23 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
 
   const derivedTracks: Record<TrackKey, DerivedTrackSnapshot> = {};
   const canonicalViolationsByTrackKey: Record<TrackKey, Violation[]> = {};
-
-  const buildPreviewPoints = (
-    trackId: string,
-    track: Track<RawValue>,
-  ): Track<RawValue>["points"] => {
-    const dragState = inputs.dragState;
-    const selectionState = inputs.selectionState;
-    if (!dragState || selectionState.instanceId !== dragState.instanceId) {
-      return track.points;
+  const trackContextByKey = new Map<
+    TrackKey,
+    {
+      track: Track<RawValue>;
+      animation: Animation;
+      namespaceId: string;
+      instance: Namespace["animationInstances"][string];
+      animatable: AnimatableValue;
     }
-
-    const snapshotPoints = dragState.trackSnapshots?.[trackId]?.points;
-    const { framePoints } = computeDragDiffOps({
-      trackId,
-      trackPoints: track.points,
-      snapshotPoints,
-      dragState,
-      selection: selectionState,
-      // No bounds or attribute path available at this level; rely on dragState valueScale when present.
-    });
-    let previewPoints = framePoints;
-
-    const handleDiffs =
-      dragState && inputs.selectionState.instanceId === dragState.instanceId
-        ? dragState.handleDiffs
-        : undefined;
-
-    if (handleDiffs) {
-      previewPoints = previewPoints.map((point) => {
-        const diff = handleDiffs[point.id];
-        if (!diff?.in && !diff?.out) return point;
-        const nextTransitions = { ...(point.transitions ?? {}) };
-        if (diff.out) nextTransitions.out = diff.out;
-        if (diff.in) nextTransitions.in = diff.in;
-        return { ...point, transitions: nextTransitions };
-      });
-    }
-
-    return previewPoints;
-  };
+  >();
+  const dragPreviewCache = inputs.dragState
+    ? {
+        trackViews: new Map<TrackKey, ProjectedTrackView>(),
+        pendingDiffsByTrackId: new Map<string, TrackDiffOp[]>(),
+        selectionCleanups: [] as SelectionCleanup[],
+      }
+    : undefined;
 
   const applyEffectiveTransitions = (
     points: Track<RawValue>["points"],
@@ -141,8 +118,6 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         if (!animatable) return;
 
         const trackKey = buildTrackKey(namespace.id, instance.id, trackId);
-        const previewPoints = buildPreviewPoints(trackId, track);
-        const previewEffectivePoints = applyEffectiveTransitions(previewPoints);
         const canonicalEffectivePoints = applyEffectiveTransitions(track.points);
 
         const canonicalTrack: Track<RawValue> = { ...track, points: canonicalEffectivePoints };
@@ -173,25 +148,14 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
           },
         };
 
-        const hasPreviewChanges = previewPoints !== track.points;
-        if (hasPreviewChanges) {
-          const previewTrack: Track<RawValue> = { ...track, points: previewEffectivePoints };
-          const previewInterpolator = computeTrackInterpolator(previewTrack, instance);
-          const previewViolations = computeTrackViolations(
-            previewInterpolator,
-            animation.duration,
-            trackId,
-            namespace.id,
-            instance.id,
-            animatable,
-          );
-          derivedTracks[trackKey].preview = {
-            interpolator: previewInterpolator,
-            violations: previewViolations,
-          };
-        }
-
         canonicalViolationsByTrackKey[trackKey] = canonicalViolations;
+        trackContextByKey.set(trackKey, {
+          track,
+          animation,
+          namespaceId: namespace.id,
+          instance,
+          animatable,
+        });
       });
     });
   });
@@ -209,6 +173,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         animations: inputs.animations,
         namespaces: inputs.namespaces,
       },
+      dragPreviewCache,
     );
 
     const trackKeys = sourceRow.data.map((data) =>
@@ -222,9 +187,57 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
     };
   });
 
+  if (dragPreviewCache) {
+    dragPreviewCache.trackViews.forEach((view, trackKey) => {
+      const target = derivedTracks[trackKey];
+      const context = trackContextByKey.get(trackKey);
+      if (!target || !context) {
+        return;
+      }
+      const previewEffectivePoints = applyEffectiveTransitions(view.points);
+      const previewTrack: Track<RawValue> = { ...context.track, points: previewEffectivePoints };
+      const previewInterpolator = computeTrackInterpolator(previewTrack, context.instance);
+      const previewViolations = computeTrackViolations(
+        previewInterpolator,
+        context.animation.duration,
+        view.trackId,
+        context.namespaceId,
+        context.instance.id,
+        context.animatable,
+      );
+      target.preview = {
+        interpolator: previewInterpolator,
+        violations: previewViolations,
+      };
+    });
+  }
+
+  const pendingDiffs =
+    dragPreviewCache && dragPreviewCache.pendingDiffsByTrackId.size > 0
+      ? Array.from(dragPreviewCache.pendingDiffsByTrackId.values()).flat()
+      : inputs.dragState?.pendingDiffs;
+  const pendingSelectionCleanups =
+    dragPreviewCache && dragPreviewCache.selectionCleanups.length > 0
+      ? dragPreviewCache.selectionCleanups
+      : inputs.dragState?.pendingSelectionCleanups;
+  const projectedTracks =
+    dragPreviewCache && dragPreviewCache.trackViews.size > 0
+      ? Array.from(dragPreviewCache.trackViews.values())
+      : inputs.dragState?.projectedTracks;
+
+  const dragContext =
+    inputs.dragState && (pendingDiffs || projectedTracks || pendingSelectionCleanups)
+      ? {
+          ...inputs.dragState,
+          pendingDiffs,
+          pendingSelectionCleanups,
+          projectedTracks,
+        }
+      : inputs.dragState;
+
   return {
     version: inputs.version,
-    dragContext: inputs.dragState,
+    dragContext,
     tracks: derivedTracks,
     rows: derivedRows,
   };

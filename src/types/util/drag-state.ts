@@ -12,6 +12,7 @@
 import type { RawValue, RawVector2 } from "@semio/utils";
 import type { Keypoint, TransitionPairing } from "../data/keypoint";
 import type { Track } from "../data/track";
+import type { DiffOp, ProjectedTrackView, SelectionCleanup } from "./diff";
 import type { WorldCP } from "./segment-geometry";
 
 /** Axis constraint for drags. */
@@ -109,6 +110,14 @@ export interface DragState {
    * the live tracks.
    */
   trackSnapshots?: Record<string, TrackSnapshot>;
+  /**
+   * Pending diff ops computed during preview; replay these for commit to avoid recompute skew.
+   */
+  pendingDiffs?: DiffOp[];
+  /** Selection cleanup emitted alongside pending diffs. */
+  pendingSelectionCleanups?: SelectionCleanup[];
+  /** Cached projected track views keyed by TrackKey. */
+  projectedTracks?: ProjectedTrackView[];
   /** Active handle id when a handle drag is in progress. */
   activeHandleId?: string;
   /**
