@@ -106,6 +106,26 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
     return;
   }
 
+  // Align selection map with the aggregate marker contents so all inner points move together.
+  // This mirrors manual multi-select behaviour for grouped/global markers.
+  if (selection.instanceId) {
+    const nextKeypoints = new Map(selection.keypoints);
+    marker.points
+      .filter((p) => p.instanceId === selection.instanceId)
+      .forEach((p) => {
+        const existing = nextKeypoints.get(p.trackId) ?? new Set<string>();
+        if (!existing.has(p.id)) {
+          const nextSet = new Set(existing);
+          nextSet.add(p.id);
+          nextKeypoints.set(p.trackId, nextSet);
+        }
+      });
+    state.selectionState = {
+      ...state.selectionState,
+      keypoints: nextKeypoints,
+    };
+  }
+
   const pointIndex = track.points.findIndex((point) => point.id === anchorPoint.id);
   if (pointIndex === -1) {
     return;
@@ -133,6 +153,8 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
     anchor: {
       keypointId: anchorPoint.id,
       trackId: anchorPoint.trackId,
+      namespaceId: anchorPoint.namespaceId,
+      instanceId: anchorPoint.instanceId,
       rowId: input.rowId,
       markerId: marker.id,
       attributePath: anchorAttributePath,
@@ -147,6 +169,8 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
       meta: false,
     },
   };
+  // Use the current marker id as the stable frame id for the anchor row during this drag.
+  dragState.anchorFrameId = marker.id;
 
   const handleOffsetMap: Record<string, DragMarkerHandleOffsets> = {};
 

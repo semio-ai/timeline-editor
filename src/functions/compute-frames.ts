@@ -18,6 +18,13 @@ interface ComputeFramesOptions {
    * to keep React keys stable during drag.
    */
   anchorFrameKey?: string;
+  /**
+   * Explicit frame id to use for the anchor frame (stable across canonical/preview).
+   * Only applied when anchorFrameKey matches and namespace/instance also match.
+   */
+  anchorFrameId?: string;
+  anchorNamespaceId?: string;
+  anchorInstanceId?: string;
 }
 
 /**
@@ -72,7 +79,7 @@ export function computeFrames(
           ? (previewPoint.value as any)[sourceRowData.attribute]
           : previewPoint.value;
 
-      const targetTrackId = emittedTrackId;
+      const targetTrackId: string = emittedTrackId;
 
       if (matchingFrameIndex >= 0) {
         // Add point to existing frame
@@ -98,14 +105,6 @@ export function computeFrames(
           .sort()
           .join("-");
         instancedFrameInfo[matchingFrameIndex].id = pointIds;
-        if (
-          options.anchorFrameKey &&
-          instancedFrameInfo[matchingFrameIndex].points.some((p) => p.id === options.anchorFrameKey)
-        ) {
-          instancedFrameInfo[matchingFrameIndex].id = `${options.anchorFrameKey}-${targetTrackId}-${
-            sourceRowData.namespaceId ?? "ns"
-          }-${sourceRowData.instanceId ?? "inst"}`;
-        }
         // Preserve transitions from the first point when available; ensure defaults are set.
         if (!instancedFrameInfo[matchingFrameIndex].transitions) {
           instancedFrameInfo[matchingFrameIndex].transitions = withDefaultTransitions(
@@ -136,11 +135,6 @@ export function computeFrames(
           ],
           transitions: withDefaultTransitions(previewPoint.transitions),
         };
-        if (options.anchorFrameKey && previewPoint.id === options.anchorFrameKey) {
-          frame.id = `${options.anchorFrameKey}-${targetTrackId}-${
-            sourceRowData.namespaceId ?? "ns"
-          }-${sourceRowData.instanceId ?? "inst"}`;
-        }
         instancedFrameInfo.push(frame);
       }
     });
@@ -148,21 +142,19 @@ export function computeFrames(
 
   const sortedFrames = instancedFrameInfo.toSorted((a, b) => a.stamp - b.stamp);
 
-  if (sourceRow.id === "global") {
-    console.debug(
-      "[frames-built]",
-      "row",
-      sourceRow.id,
-      sortedFrames.map((frame) => ({
-        id: frame.id,
-        stamp: frame.stamp,
-        points: frame.points.map((p) => ({
-          id: p.id,
-          trackId: p.trackId,
-          trackIdBase: (p as any).trackIdBase,
-        })),
-      })),
-    );
+  // Apply stable anchor frame id when provided and matching namespace/instance.
+  if (options.anchorFrameKey && options.anchorFrameId) {
+    sortedFrames.forEach((frame) => {
+      const hasAnchor = frame.points.some(
+        (p) =>
+          p.id === options.anchorFrameKey &&
+          (!options.anchorNamespaceId || p.namespaceId === options.anchorNamespaceId) &&
+          (!options.anchorInstanceId || p.instanceId === options.anchorInstanceId),
+      );
+      if (hasAnchor) {
+        frame.id = options.anchorFrameId!;
+      }
+    });
   }
 
   return sortedFrames;

@@ -47,6 +47,10 @@ export interface DragAnchorRef {
   keypointId: string;
   /** Track containing the keypoint. */
   trackId: string;
+  /** Namespace containing the keypoint (used for stable frame ids). */
+  namespaceId?: string;
+  /** Instance containing the keypoint (used for stable frame ids). */
+  instanceId?: string;
   /** Row containing the keypoint (for UI scoping). */
   rowId: string;
   /** Marker id used for selection/lookup (often same as keypoint). */
@@ -75,6 +79,8 @@ export interface DragState {
   instanceTransform: DragStampTransform;
   /** Anchor metadata for the drag. */
   anchor: DragAnchorRef;
+  /** Stable frame id for the anchor during drag to avoid React remounts. */
+  anchorFrameId?: string;
   /** Pointer position at drag start (normalized timeline x). */
   pointerOrigin: PointerPosition;
   /**

@@ -428,13 +428,10 @@ export const DataPoint = memo(function DataPoint({
       dragStartPointerRef.current = null;
       dragAnchorStampRef.current = null;
 
-      // DEBUG:
-      console.log(points, data?.transitions);
-
       // Allow pointer down even when no foreground points are present; drag start is handled in onDragStart
       dragHandlers.onPointerDown?.(event);
     },
-    [dragHandlers, data, points],
+    [dragHandlers],
   );
 
   const handlePointerMove = useCallback(

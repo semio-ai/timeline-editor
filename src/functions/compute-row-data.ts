@@ -267,26 +267,6 @@ export function computeRowData(
       preview && shouldPreview && datum.instanceId === dragState?.instanceId,
     );
 
-    if (sourceRow.id === "global") {
-      console.debug(
-        "[drag-preview-check]",
-        "row",
-        sourceRow.id,
-        "entryTrackId",
-        datum.trackId,
-        "trackKey",
-        trackKey,
-        "hasPreview",
-        previewByTrackId.has(datum.trackId),
-        "usePreview",
-        usePreview,
-        "snapshotHas",
-        Boolean(dragState?.trackSnapshots?.[datum.trackId]),
-        "instanceMatch",
-        datum.instanceId === dragState?.instanceId,
-      );
-    }
-
     let projectedPoints = usePreview ? (preview?.projectedPoints ?? []) : baseTrack.points;
     const framePoints = usePreview ? (preview?.framePoints ?? []) : baseTrack.points;
 
@@ -362,6 +342,9 @@ export function computeRowData(
     },
     ignoreDraggingState: true,
     anchorFrameKey: dragState?.anchor?.keypointId,
+    anchorFrameId: sourceRow.id === dragState?.anchor?.rowId ? dragState?.anchorFrameId : undefined,
+    anchorNamespaceId: dragState?.anchor?.namespaceId,
+    anchorInstanceId: dragState?.anchor?.instanceId,
   });
 
   // Marker frames: duplicate per sourceRow entry to keep aggregate/global markers distinct
@@ -376,6 +359,9 @@ export function computeRowData(
     },
     ignoreDraggingState: true,
     anchorFrameKey: dragState?.anchor?.keypointId,
+    anchorFrameId: sourceRow.id === dragState?.anchor?.rowId ? dragState?.anchorFrameId : undefined,
+    anchorNamespaceId: dragState?.anchor?.namespaceId,
+    anchorInstanceId: dragState?.anchor?.instanceId,
   });
 
   const pairingByPointId = resolvePairingByPoint(projectedTracks);
