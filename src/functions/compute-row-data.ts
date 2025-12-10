@@ -234,6 +234,9 @@ export function computeRowData(
           if (diff.in) {
             nextTransitions.in = diff.in;
           }
+          if (diff.pairing !== undefined) {
+            nextTransitions.pairing = diff.pairing;
+          }
           return {
             ...point,
             transitions: nextTransitions,
@@ -574,7 +577,7 @@ function attachSegmentGeometry(
   segment: InstancePair,
   sourceRow: SourceRow,
   verticalBounds: { min: number; max: number },
-  handleDiffs?: Record<string, { in?: RawVector2; out?: RawVector2 }>,
+  handleDiffs?: Record<string, { in?: RawVector2; out?: RawVector2; pairing?: TransitionPairing }>,
 ): InstancePair {
   const rawTransitions: EndpointTransitions = {
     startOut:

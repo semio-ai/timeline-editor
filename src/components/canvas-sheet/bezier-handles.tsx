@@ -40,6 +40,7 @@ interface HandleInteractionProps {
   endStamp: number;
   startValue: number;
   endValue: number;
+  basePairing?: TransitionPairing;
   attributePath?: string[];
   valueScale?: ValueScale;
   pixelRangeY: number;
@@ -180,14 +181,15 @@ export const BezierHandles = memo(function BezierHandles({
 
     const startPairing = resolveHandlePairing(segment.start.transitions);
     const endPairing = resolveHandlePairing(segment.end.transitions);
-
+    const startPoint = getFramePoint(segment.start, resolvedTrackId);
+    const endPoint = getFramePoint(segment.end, resolvedTrackId);
     const built = [
       {
         id: `${segment.start.id}-out`,
         side: "out" as const,
         rawWorld: cp1Raw,
-        anchorId: segment.start.id,
-        neighborId: segment.end.id,
+        anchorId: startPoint?.id ?? segment.start.id,
+        neighborId: endPoint?.id ?? segment.end.id,
         anchor: startAnchor.line,
         raw: mapHandlePoint(cp1Raw, renderScaleY, connectorDepth, rawHandleDepth),
         effective: mapHandlePoint(cp1Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
@@ -203,13 +205,14 @@ export const BezierHandles = memo(function BezierHandles({
                 side: "out",
                 rowId,
                 trackId: resolvedTrackId,
-                keypointId: segment.start.id,
-                neighborKeypointId: segment.end.id,
+                keypointId: startPoint?.id ?? segment.start.id,
+                neighborKeypointId: endPoint?.id ?? segment.end.id,
                 controlPoint: cp1Raw,
                 startStamp: segment.start.stamp,
                 endStamp: segment.end.stamp,
                 startValue,
                 endValue,
+                basePairing: startPairing,
                 attributePath: resolvedAttributePath,
                 valueScale: resolvedValueScale,
                 pixelRangeY,
@@ -224,8 +227,8 @@ export const BezierHandles = memo(function BezierHandles({
         id: `${segment.end.id}-in`,
         side: "in" as const,
         rawWorld: cp2Raw,
-        anchorId: segment.end.id,
-        neighborId: segment.start.id,
+        anchorId: endPoint?.id ?? segment.end.id,
+        neighborId: startPoint?.id ?? segment.start.id,
         anchor: endAnchor.line,
         raw: mapHandlePoint(cp2Raw, renderScaleY, connectorDepth, rawHandleDepth),
         effective: mapHandlePoint(cp2Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
@@ -241,13 +244,14 @@ export const BezierHandles = memo(function BezierHandles({
                 side: "in",
                 rowId,
                 trackId: resolvedTrackId,
-                keypointId: segment.end.id,
-                neighborKeypointId: segment.start.id,
+                keypointId: endPoint?.id ?? segment.end.id,
+                neighborKeypointId: startPoint?.id ?? segment.start.id,
                 controlPoint: cp2Raw,
                 startStamp: segment.start.stamp,
                 endStamp: segment.end.stamp,
                 startValue,
                 endValue,
+                basePairing: endPairing,
                 attributePath: resolvedAttributePath,
                 valueScale: resolvedValueScale,
                 pixelRangeY,
@@ -339,6 +343,7 @@ export const BezierHandles = memo(function BezierHandles({
                 endStamp: segment.end.stamp,
                 startValue,
                 endValue,
+                basePairing: handle.pairing,
                 attributePath: resolvedAttributePath,
                 valueScale: resolvedValueScale, // clamp disabled; provides range for deltas
                 pixelRangeY,
@@ -412,6 +417,16 @@ function getFrameNumericValue(frame: InstancedFrameInfo, trackId?: string): numb
   }
   const fallback = frame.points.find((point) => typeof point.value === "number");
   return typeof fallback?.value === "number" ? (fallback.value as number) : undefined;
+}
+
+function getFramePoint(frame: InstancedFrameInfo, trackId?: string) {
+  if (trackId) {
+    const match = frame.points.find((point) => point.trackId === trackId);
+    if (match) {
+      return match;
+    }
+  }
+  return frame.points[0];
 }
 
 function resolveHandlePairing(
@@ -601,16 +616,15 @@ const HandleDot = memo(function HandleDot({
         endStamp: interaction.endStamp,
         startValue: interaction.startValue,
         endValue: interaction.endValue,
+        pairing: interaction.basePairing,
       });
     },
-    onDrag2D: ({ x, normalizedValueDelta, movementX, movementY, alt, shift, meta }) => {
+    onDrag2D: ({ x, normalizedValueDelta, alt, shift, meta }) => {
       if (!interaction) return;
       dragDidMoveRef.current = true;
       interaction.updateHandleDrag({
-        pointer: { x, y: 0 },
+        pointer: { x: typeof x === "number" ? x : interaction.controlPoint.x, y: 0 },
         normalizedValueDelta,
-        movementX,
-        movementY,
         modifiers: { alt, shift, meta },
       });
     },

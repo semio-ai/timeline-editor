@@ -95,6 +95,9 @@ export function commitDrag(state: AnimationData): void {
         if (diff.in) {
           point.transitions.in = cloneTransitionValue(diff.in);
         }
+        if (diff.pairing !== undefined) {
+          point.transitions.pairing = diff.pairing;
+        }
       });
     }
     state.dragState = undefined;
@@ -180,6 +183,9 @@ export function commitDrag(state: AnimationData): void {
       }
       if (diff.in) {
         point.transitions.in = cloneTransitionValue(diff.in);
+      }
+      if (diff.pairing !== undefined) {
+        point.transitions.pairing = diff.pairing;
       }
     });
   }

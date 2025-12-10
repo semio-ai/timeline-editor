@@ -67,12 +67,12 @@ Status: handles currently drag independently; pairing is ignored and vertical mo
 - Add/adjust tests above; validate visuals in the spline view.
 
 ## Execution checklist
-- [ ] Types: keep `HandleDiff` as `{ in?, out?, pairing? }` (data-space); update handle drag inputs/state to accept UI-provided data-space deltas and intent flags (Alt, within snap tolerance) without threading viewScale into drag state.
-- [ ] Start handle drag: resolve canonical in/out vectors and pairing for context, stash neighbor ids/stamp/value; no view-scale storage required.
-- [ ] Update handle drag: remove Y clamp; apply X guard; accept precomputed deltas/flags from UI; write a single `HandleDiff` with both sides + pairing into `pendingDiffs`/`handleDiffs` based on conditions.
+- [x] Types: keep `HandleDiff` as `{ in?, out?, pairing? }` (data-space); update handle drag inputs/state to accept UI-provided data-space deltas and intent flags (Alt, within snap tolerance) without threading viewScale into drag state.
+- [x] Start handle drag: resolve canonical in/out vectors and pairing for context, stash neighbor ids/stamp/value; no view-scale storage required.
+- [x] Update handle drag: remove Y clamp; apply X guard; accept precomputed deltas/flags from UI; write a single `HandleDiff` with both sides + pairing into `pendingDiffs`/`handleDiffs` based on conditions.
 - [ ] Preview plumbing: fold `HandleDiff` (including pairing) into `computeRowData`/derived geometry; stop ad-hoc transition patching once ops path is live.
-- [ ] Commit: replay `HandleDiff` pairing/in/out into canonical transitions; ensure pairing persists.
-- [ ] UI wiring: component computes mirrored deltas and snap-to-flat tolerance in data space using render scales, then sends ready `{ in?, out?, pairing?, flags }` to the action; gesture hook stays pixel-only.
+- [x] Commit: replay `HandleDiff` pairing/in/out into canonical transitions; ensure pairing persists.
+- [x] UI wiring: component computes mirrored deltas and snap-to-flat tolerance in data space using render scales, then sends ready `{ in?, out?, pairing?, flags }` to the action; gesture hook stays pixel-only.
 - [ ] Tests: paired view-length preservation with non-uniform scales; free-handle vertical freedom; crossing regression unchanged.
 
 ## Execution plan: migrate handle drags to ops in `pendingDiffs`

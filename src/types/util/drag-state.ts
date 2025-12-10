@@ -147,12 +147,6 @@ export interface DragState {
     controlPoint: WorldCP;
     attributePath?: string[];
     valueScale?: ValueScale;
-    /**
-     * UI-provided render scales and pairing context captured at drag start. Used only for preview
-     * calculations; canonical transitions remain unchanged until commit.
-     */
-    viewScaleX?: number;
-    viewScaleY?: number;
     basePairing?: TransitionPairing;
     canonicalLengths?: { in?: number; out?: number };
     prevNeighbor?: { stamp: number; value: number } | null;
@@ -216,6 +210,10 @@ export interface HandleDragStartInput {
   endStamp: number;
   startValue: number;
   endValue: number;
+  /** Optional resolved pairing at drag start. */
+  pairing?: TransitionPairing;
+  /** Optional canonical view-space lengths for in/out. */
+  canonicalLengths?: { in?: number; out?: number };
 }
 
 /** Payload for updating a handle drag. */
@@ -227,6 +225,13 @@ export interface HandleDragUpdateInput {
   /** Raw pointer movements in pixels (for view-space pairing). */
   movementX?: number;
   movementY?: number;
+  /** Optional precomputed handle deltas from the UI (data space). */
+  handleDeltas?: {
+    in?: RawVector2;
+    out?: RawVector2;
+    pairing?: TransitionPairing;
+    withinSnapTolerance?: boolean;
+  };
   /** Current modifier keys. */
   modifiers: DragState["modifiers"];
 }

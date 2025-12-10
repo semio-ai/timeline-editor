@@ -72,6 +72,8 @@ export function startHandleDrag(state: AnimationData, input: HandleDragStartInpu
       controlPoint: input.controlPoint,
       attributePath: input.attributePath,
       valueScale: input.valueScale,
+      basePairing: input.pairing,
+      canonicalLengths: input.canonicalLengths,
     },
   };
 
