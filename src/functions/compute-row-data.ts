@@ -16,6 +16,7 @@ import {
   Keypoint,
   StandardTransitionType,
   SourceRowData,
+  TransitionHandleKind,
   TransitionPairing,
   InstancedFrameInfo,
 } from "../types";
@@ -573,19 +574,24 @@ function applyPairingToFrames(
   });
 }
 
+function resolveHandleKind(transition?: RawVector2 | StandardTransitionType): TransitionHandleKind {
+  if (transition && typeof transition === "object") {
+    return TransitionHandleKind.Explicit;
+  }
+  return TransitionHandleKind.Easing;
+}
+
 function attachSegmentGeometry(
   segment: InstancePair,
   sourceRow: SourceRow,
   verticalBounds: { min: number; max: number },
   handleDiffs?: Record<string, { in?: RawVector2; out?: RawVector2; pairing?: TransitionPairing }>,
 ): InstancePair {
+  const startOutTransition = handleDiffs?.[segment.start.id]?.out ?? segment.start.transitions?.out;
+  const endInTransition = handleDiffs?.[segment.end.id]?.in ?? segment.end.transitions?.in;
   const rawTransitions: EndpointTransitions = {
-    startOut:
-      handleDiffs?.[segment.start.id]?.out ??
-      segment.start.transitions?.out ??
-      DEFAULT_TRANSITION_OUT,
-    endIn:
-      handleDiffs?.[segment.end.id]?.in ?? segment.end.transitions?.in ?? DEFAULT_TRANSITION_IN,
+    startOut: startOutTransition ?? DEFAULT_TRANSITION_OUT,
+    endIn: endInTransition ?? DEFAULT_TRANSITION_IN,
   };
 
   const rawRenderParams = buildSegmentRenderParams({
@@ -623,6 +629,20 @@ function attachSegmentGeometry(
         cp1: clampResult.cp1Raw,
         cp2: clampResult.cp2Raw,
       },
+      handles: {
+        startOut: clampResult.cp1Raw
+          ? {
+              world: clampResult.cp1Raw,
+              kind: resolveHandleKind(startOutTransition),
+            }
+          : undefined,
+        endIn: clampResult.cp2Raw
+          ? {
+              world: clampResult.cp2Raw,
+              kind: resolveHandleKind(endInTransition),
+            }
+          : undefined,
+      },
       renderParams: rawRenderParams,
     },
     effective: {
@@ -630,6 +650,20 @@ function attachSegmentGeometry(
       controlPoints: {
         cp1: clampResult.cp1Effective,
         cp2: clampResult.cp2Effective,
+      },
+      handles: {
+        startOut: clampResult.cp1Effective
+          ? {
+              world: clampResult.cp1Effective,
+              kind: resolveHandleKind(startOutTransition),
+            }
+          : undefined,
+        endIn: clampResult.cp2Effective
+          ? {
+              world: clampResult.cp2Effective,
+              kind: resolveHandleKind(endInTransition),
+            }
+          : undefined,
       },
       renderParams: effectiveRenderParams,
     },

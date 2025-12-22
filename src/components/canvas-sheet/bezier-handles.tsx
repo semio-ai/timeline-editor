@@ -11,6 +11,7 @@ import {
   LayerBand,
   StandardTransitionType,
   TrackRender,
+  TransitionHandleKind,
   TransitionPairing,
   VerticalAxisRange,
   WorldCP,
@@ -135,8 +136,6 @@ export const BezierHandles = memo(function BezierHandles({
   const geometry = segment.geometry;
 
   const backgroundColor = theme === Theme.Dark ? "#050505" : "#F7F7F7";
-  const startHasExplicitOut = Boolean(segment.start.transitions?.out);
-  const endHasExplicitIn = Boolean(segment.end.transitions?.in);
 
   const { renderScaleY } = computeRenderScale({
     trackRender: TrackRender.Spline,
@@ -158,10 +157,16 @@ export const BezierHandles = memo(function BezierHandles({
     const effectiveRenderParams =
       geometry.effective?.renderParams?.[TrackRender.Spline] ?? rawRenderParams;
 
-    const cp1Raw = geometry.raw?.controlPoints?.cp1;
-    const cp1Effective = geometry.effective?.controlPoints?.cp1;
-    const cp2Raw = geometry.raw?.controlPoints?.cp2;
-    const cp2Effective = geometry.effective?.controlPoints?.cp2;
+    const startOutHandle = geometry.raw?.handles?.startOut;
+    const endInHandle = geometry.raw?.handles?.endIn;
+    const cp1Raw = startOutHandle?.world ?? geometry.raw?.controlPoints?.cp1;
+    const cp1Effective =
+      geometry.effective?.handles?.startOut?.world ?? geometry.effective?.controlPoints?.cp1;
+    const cp2Raw = endInHandle?.world ?? geometry.raw?.controlPoints?.cp2;
+    const cp2Effective =
+      geometry.effective?.handles?.endIn?.world ?? geometry.effective?.controlPoints?.cp2;
+    const startOutKind = startOutHandle?.kind;
+    const endInKind = endInHandle?.kind;
 
     const startAnchor = resolveAnchorPoint(
       segment.start,
@@ -194,7 +199,7 @@ export const BezierHandles = memo(function BezierHandles({
         raw: mapHandlePoint(cp1Raw, renderScaleY, connectorDepth, rawHandleDepth),
         effective: mapHandlePoint(cp1Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
         hasEffectiveGap: hasWorldPointGap(cp1Raw, cp1Effective),
-        isFallback: !startHasExplicitOut,
+        isFallback: startOutKind !== TransitionHandleKind.Explicit,
         pairing: startPairing,
         interaction:
           resolvedTrackId &&
@@ -233,7 +238,7 @@ export const BezierHandles = memo(function BezierHandles({
         raw: mapHandlePoint(cp2Raw, renderScaleY, connectorDepth, rawHandleDepth),
         effective: mapHandlePoint(cp2Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
         hasEffectiveGap: hasWorldPointGap(cp2Raw, cp2Effective),
-        isFallback: !endHasExplicitIn,
+        isFallback: endInKind !== TransitionHandleKind.Explicit,
         pairing: endPairing,
         interaction:
           resolvedTrackId &&
@@ -288,14 +293,12 @@ export const BezierHandles = memo(function BezierHandles({
     appearance,
     connectorDepth,
     effectiveHandleDepth,
-    endHasExplicitIn,
     geometry,
     isHighlighted,
     segment.buffer,
     renderScaleY,
     segment.end,
     segment.start,
-    startHasExplicitOut,
     rawHandleDepth,
     resolvedAttributePath,
     resolvedTrackId,

@@ -8,6 +8,16 @@ export interface WorldCP {
   y: number;
 }
 
+export enum TransitionHandleKind {
+  Explicit = "explicit",
+  Easing = "easing",
+}
+
+export interface ResolvedHandle {
+  world: WorldCP;
+  kind: TransitionHandleKind;
+}
+
 export interface EndpointTransitions {
   startOut?: RawVector2 | StandardTransitionType;
   endIn?: RawVector2 | StandardTransitionType;
@@ -26,6 +36,10 @@ export interface SegmentGeometryState {
   controlPoints?: {
     cp1?: WorldCP;
     cp2?: WorldCP;
+  };
+  handles?: {
+    startOut?: ResolvedHandle;
+    endIn?: ResolvedHandle;
   };
   renderParams?: SegmentRenderParams;
 }

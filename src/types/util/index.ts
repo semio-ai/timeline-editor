@@ -25,7 +25,9 @@ export type {
   EndpointTransitions,
   ClampFlags,
   SegmentRenderParams,
+  ResolvedHandle,
 } from "./segment-geometry";
+export { TransitionHandleKind } from "./segment-geometry";
 export { SemanticTime } from "./semantic-time";
 export type { Preview } from "./preview";
 export { TrackRender } from "./track-render";
