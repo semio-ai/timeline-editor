@@ -678,6 +678,7 @@ const HandleDot = memo(function HandleDot({
     anchorStamp: number;
     anchorValue: number;
   } | null>(null);
+  const dragPairingRef = useRef<TransitionPairing | undefined | null>(null);
   const pairingBaselineRef = useRef<{
     pairedDelta?: RawVector2;
     pairedLengthView?: number;
@@ -716,6 +717,7 @@ const HandleDot = memo(function HandleDot({
             pairedLengthView: getViewLength(interaction.pairedDelta, viewScaleX, viewScaleY),
           }
         : null;
+      dragPairingRef.current = interaction.basePairing;
       const dragBase = {
         controlPoint: {
           x: interaction.controlPoint.x,
@@ -802,14 +804,14 @@ const HandleDot = memo(function HandleDot({
           ? withinFlatTolerance(draggedView, pairedBaselineView)
           : false;
 
-      let pairingIntent = interaction.basePairing;
+      const basePairing = dragPairingRef.current ?? interaction.basePairing;
+      let pairingIntent = basePairing;
       if (shift) {
         pairingIntent = TransitionPairing.Paired;
-      } else if (interaction.basePairing === TransitionPairing.Paired && alt) {
+      } else if (basePairing === TransitionPairing.Paired && alt) {
         pairingIntent = TransitionPairing.Free;
       } else if (
-        (interaction.basePairing === TransitionPairing.Free ||
-          interaction.basePairing === undefined) &&
+        (basePairing === TransitionPairing.Free || basePairing === undefined) &&
         withinSnapTolerance &&
         !alt
       ) {
@@ -864,6 +866,7 @@ const HandleDot = memo(function HandleDot({
       });
       dragDidMoveRef.current = false;
       dragBaseRef.current = null;
+      dragPairingRef.current = null;
       pairingBaselineRef.current = null;
       setDragging(false);
       setDragWeight(0);
@@ -953,6 +956,7 @@ const HandleDot = memo(function HandleDot({
         }
         dragDidMoveRef.current = false;
         dragBaseRef.current = null;
+        dragPairingRef.current = null;
         pairingBaselineRef.current = null;
         setDragging(false);
         dragSpring.set(0);

@@ -59,19 +59,14 @@ export function updateHandleDrag(state: AnimationData, input: HandleDragUpdateIn
 
     const basePairing = anchor.basePairing;
     let pairingIntent = input.handleDeltas.pairing ?? basePairing;
-    if (
+    const altBreak = input.modifiers.alt && !input.modifiers.shift;
+    if (altBreak) {
+      pairingIntent = TransitionPairing.Free;
+    } else if (
       input.handleDeltas.withinSnapTolerance &&
-      !input.modifiers.alt &&
       (pairingIntent === TransitionPairing.Free || pairingIntent === undefined)
     ) {
       pairingIntent = TransitionPairing.Paired;
-    }
-    if (
-      input.modifiers.alt &&
-      pairingIntent === TransitionPairing.Paired &&
-      !input.modifiers.shift
-    ) {
-      pairingIntent = TransitionPairing.Free;
     }
 
     const draggedSide = anchor.side;
@@ -88,10 +83,18 @@ export function updateHandleDrag(state: AnimationData, input: HandleDragUpdateIn
       if (pairedDelta) {
         applyDelta(pairedSide, pairedDelta);
       }
-    }
-
-    if (pairingIntent !== undefined) {
-      updated.pairing = pairingIntent;
+      updated.pairing = TransitionPairing.Paired;
+    } else {
+      if (pairedSide === "in") {
+        delete updated.in;
+      } else {
+        delete updated.out;
+      }
+      if (pairingIntent === TransitionPairing.Free) {
+        updated.pairing = TransitionPairing.Free;
+      } else {
+        delete updated.pairing;
+      }
     }
 
     nextDiffs[anchor.keypointId] = updated;
@@ -146,10 +149,8 @@ export function updateHandleDrag(state: AnimationData, input: HandleDragUpdateIn
   };
 
   const basePairing = anchor.basePairing;
-  const effectivePairing =
-    input.modifiers.alt && basePairing === TransitionPairing.Paired
-      ? TransitionPairing.Free
-      : basePairing;
+  const altBreak = input.modifiers.alt && !input.modifiers.shift;
+  const effectivePairing = altBreak ? TransitionPairing.Free : basePairing;
 
   const hasPairedSide = anchor.side === "out" ? anchor.hasIn !== false : anchor.hasOut !== false;
 
@@ -179,8 +180,18 @@ export function updateHandleDrag(state: AnimationData, input: HandleDragUpdateIn
       updated.in = pairedTransition;
     }
     updated.pairing = TransitionPairing.Paired;
-  } else if (effectivePairing === TransitionPairing.Free) {
-    updated.pairing = TransitionPairing.Free;
+  } else {
+    const pairedSide = anchor.side === "out" ? "in" : "out";
+    if (pairedSide === "out") {
+      delete updated.out;
+    } else {
+      delete updated.in;
+    }
+    if (effectivePairing === TransitionPairing.Free) {
+      updated.pairing = TransitionPairing.Free;
+    } else {
+      delete updated.pairing;
+    }
   }
 
   nextDiffs[anchor.keypointId] = updated;
