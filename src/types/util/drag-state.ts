@@ -149,6 +149,8 @@ export interface DragState {
     valueScale?: ValueScale;
     basePairing?: TransitionPairing;
     canonicalLengths?: { in?: number; out?: number };
+    hasIn?: boolean;
+    hasOut?: boolean;
     prevNeighbor?: { stamp: number; value: number } | null;
     nextNeighbor?: { stamp: number; value: number } | null;
   };

@@ -1,5 +1,8 @@
+import type { RawVector2 } from "@semio/utils";
 import type { AnimationData } from "../../store-types";
 import type { HandleDragStartInput, DragStampTransform, DragState } from "../../types";
+import { StandardTransitionType, TransitionPairing } from "../../types";
+import { resolveTransitionDelta } from "../../functions/get-world-control-points";
 
 const DEFAULT_TRANSFORM: DragStampTransform = {
   offset: 0,
@@ -20,6 +23,72 @@ const resolveInstanceTransform = (state: AnimationData, instanceId: string): Dra
   return DEFAULT_TRANSFORM;
 };
 
+const PAIRING_FLAT_TOLERANCE_RAD = (3 * Math.PI) / 180;
+
+const clampToUnitInterval = (value: number): number => Math.max(-1, Math.min(1, value));
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+const inferPairingFromTransitions = (params: {
+  anchor: {
+    stamp: number;
+    value: number;
+    transitions?: {
+      in?: RawVector2 | StandardTransitionType;
+      out?: RawVector2 | StandardTransitionType;
+    };
+  };
+  prev?: { stamp: number; value: number };
+  next?: { stamp: number; value: number };
+  hasIn: boolean;
+  hasOut: boolean;
+}): TransitionPairing | undefined => {
+  const { anchor, prev, next, hasIn, hasOut } = params;
+  if (!hasIn || !hasOut || !prev || !next) {
+    return undefined;
+  }
+
+  if (!isFiniteNumber(prev.value) || !isFiniteNumber(anchor.value) || !isFiniteNumber(next.value)) {
+    return undefined;
+  }
+
+  const inTransition = anchor.transitions?.in ?? StandardTransitionType.Cubic;
+  const outTransition = anchor.transitions?.out ?? StandardTransitionType.Cubic;
+
+  const inDelta = resolveTransitionDelta(
+    "in",
+    prev.stamp,
+    anchor.stamp,
+    prev.value,
+    anchor.value,
+    inTransition,
+  );
+  const outDelta = resolveTransitionDelta(
+    "out",
+    anchor.stamp,
+    next.stamp,
+    anchor.value,
+    next.value,
+    outTransition,
+  );
+
+  const inLen = Math.hypot(inDelta.x, inDelta.y);
+  const outLen = Math.hypot(outDelta.x, outDelta.y);
+  if (inLen === 0 || outLen === 0) {
+    return undefined;
+  }
+
+  const dot = clampToUnitInterval(
+    (inDelta.x * outDelta.x + inDelta.y * outDelta.y) / (inLen * outLen),
+  );
+  const angle = Math.acos(dot);
+  if (Math.abs(Math.PI - angle) <= PAIRING_FLAT_TOLERANCE_RAD) {
+    return TransitionPairing.Paired;
+  }
+  return TransitionPairing.Free;
+};
+
 export function startHandleDrag(state: AnimationData, input: HandleDragStartInput): void {
   const selection = state.selectionState;
   if (!selection?.instanceId) {
@@ -36,6 +105,44 @@ export function startHandleDrag(state: AnimationData, input: HandleDragStartInpu
   if (!anchorPoint || !neighborPoint) {
     return;
   }
+
+  const sortedPoints = [...track.points].sort((a, b) => a.stamp - b.stamp);
+  const anchorIndex = sortedPoints.findIndex((p) => p.id === input.keypointId);
+  const prevPoint = anchorIndex > 0 ? sortedPoints[anchorIndex - 1] : undefined;
+  const nextPoint =
+    anchorIndex >= 0 && anchorIndex < sortedPoints.length - 1
+      ? sortedPoints[anchorIndex + 1]
+      : undefined;
+
+  const hasIn = Boolean(prevPoint);
+  const hasOut = Boolean(nextPoint);
+  const anchorNumericValue = isFiniteNumber(anchorPoint.value) ? anchorPoint.value : undefined;
+  const inferredPairing =
+    anchorPoint.transitions?.pairing ??
+    (anchorNumericValue !== undefined
+      ? inferPairingFromTransitions({
+          anchor: {
+            stamp: anchorPoint.stamp,
+            value: anchorNumericValue,
+            transitions: anchorPoint.transitions,
+          },
+          prev:
+            prevPoint && isFiniteNumber(prevPoint.value)
+              ? { stamp: prevPoint.stamp, value: prevPoint.value }
+              : undefined,
+          next:
+            nextPoint && isFiniteNumber(nextPoint.value)
+              ? { stamp: nextPoint.stamp, value: nextPoint.value }
+              : undefined,
+          hasIn,
+          hasOut,
+        })
+      : undefined);
+  const shouldUseInputPairing = hasIn && hasOut;
+  const basePairing =
+    anchorPoint.transitions?.pairing ??
+    inferredPairing ??
+    (shouldUseInputPairing ? input.pairing : undefined);
 
   const dragState: DragState = {
     axis: "both",
@@ -72,8 +179,18 @@ export function startHandleDrag(state: AnimationData, input: HandleDragStartInpu
       controlPoint: input.controlPoint,
       attributePath: input.attributePath,
       valueScale: input.valueScale,
-      basePairing: input.pairing,
+      basePairing,
       canonicalLengths: input.canonicalLengths,
+      hasIn,
+      hasOut,
+      prevNeighbor:
+        prevPoint && isFiniteNumber(prevPoint.value)
+          ? { stamp: prevPoint.stamp, value: prevPoint.value }
+          : null,
+      nextNeighbor:
+        nextPoint && isFiniteNumber(nextPoint.value)
+          ? { stamp: nextPoint.stamp, value: nextPoint.value }
+          : null,
     },
   };
 

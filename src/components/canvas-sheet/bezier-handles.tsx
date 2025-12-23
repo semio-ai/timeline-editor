@@ -1,7 +1,7 @@
 import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Line, useCursor } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { Camera, Group, Mesh, Vector3 } from "three";
+import { Camera, Group, Mesh, OrthographicCamera, Vector3 } from "three";
 import { useMotionValueEvent, useSpring } from "motion/react";
 import { Theme } from "@semio/ui";
 import type { RawVector2 } from "@semio/utils";
@@ -19,6 +19,7 @@ import {
   HandleDragUpdateInput,
   ValueScale,
 } from "../../types";
+import { clampHandleAgainstOwnKeypointX } from "../../functions/solve-handle-transition";
 import { useDragGestures } from "../../hooks/use-drag-gestures";
 import { useAnimationStore, useInvariantScale } from "../../hooks";
 import { ROW_DEPTH_EPSILON } from "../../constants";
@@ -37,6 +38,9 @@ interface HandleInteractionProps {
   keypointId: string;
   neighborKeypointId: string;
   controlPoint: WorldCP;
+  pairedDelta?: RawVector2;
+  viewScaleX?: number;
+  viewScaleY?: number;
   startStamp: number;
   endStamp: number;
   startValue: number;
@@ -64,6 +68,7 @@ interface BezierHandlesProps {
   isHighlighted?: boolean;
   appearance?: number;
   theme?: Theme.Light | Theme.Dark;
+  handleLookup?: Map<string, { in?: RawVector2; out?: RawVector2 }>;
 }
 
 const RAW_RADIUS_PX = 4;
@@ -71,6 +76,49 @@ const PAIRING_FLAT_TOLERANCE_RAD = (3 * Math.PI) / 180;
 
 const tmpAnchor = new Vector3();
 const tmpMarker = new Vector3();
+
+const computeVerticalRange = (valueScale?: ValueScale): number => {
+  if (!valueScale) return 1;
+  const range = valueScale.domain[1] - valueScale.domain[0];
+  return Number.isFinite(range) && range !== 0 ? range : 1;
+};
+
+const applyPrecision = (value: number, precision?: number): number => {
+  if (precision === undefined) return value;
+  const factor = 10 ** precision;
+  return Math.round(value * factor) / factor;
+};
+
+const toViewVector = (delta: RawVector2, scaleX: number, scaleY: number): RawVector2 => ({
+  x: delta.x * scaleX,
+  y: delta.y * scaleY,
+});
+
+const getViewLength = (delta: RawVector2, scaleX: number, scaleY: number): number => {
+  const view = toViewVector(delta, scaleX, scaleY);
+  return Math.hypot(view.x, view.y);
+};
+
+const withinFlatTolerance = (a: RawVector2, b: RawVector2): boolean => {
+  const aLen = Math.hypot(a.x, a.y);
+  const bLen = Math.hypot(b.x, b.y);
+  if (aLen === 0 || bLen === 0) {
+    return false;
+  }
+  const dot = (a.x * b.x + a.y * b.y) / (aLen * bLen);
+  const clamped = Math.max(-1, Math.min(1, dot));
+  const angle = Math.acos(clamped);
+  return Math.abs(Math.PI - angle) <= PAIRING_FLAT_TOLERANCE_RAD;
+};
+
+const debugHandles = (label: string, payload: Record<string, unknown>): void => {
+  if (
+    typeof globalThis !== "undefined" &&
+    (globalThis as { __DEBUG_BEZIER_HANDLES__?: boolean }).__DEBUG_BEZIER_HANDLES__
+  ) {
+    console.log(`[bezier-handles] ${label}`, payload);
+  }
+};
 
 export const BezierHandles = memo(function BezierHandles({
   segment,
@@ -85,6 +133,7 @@ export const BezierHandles = memo(function BezierHandles({
   isHighlighted = false,
   appearance = 1,
   theme = Theme.Light,
+  handleLookup,
 }: BezierHandlesProps) {
   const startHandleDragAction = useAnimationStore((state) => state.startHandleDrag);
   const updateHandleDragAction = useAnimationStore((state) => state.updateHandleDrag);
@@ -137,12 +186,27 @@ export const BezierHandles = memo(function BezierHandles({
 
   const backgroundColor = theme === Theme.Dark ? "#050505" : "#F7F7F7";
 
-  const { renderScaleY } = computeRenderScale({
+  const { renderScaleY, splineRange } = computeRenderScale({
     trackRender: TrackRender.Spline,
     height,
     verticalBounds,
     verticalAxisRange,
   });
+  const viewScaleX = (() => {
+    const ortho = camera as OrthographicCamera;
+    const span = ortho.right - ortho.left;
+    if (!Number.isFinite(span) || span === 0 || size.width === 0) {
+      return 1;
+    }
+    return size.width / span;
+  })();
+  const viewScaleY = useMemo(() => {
+    const domainSpan = verticalBounds.max - verticalBounds.min;
+    if (!Number.isFinite(domainSpan) || domainSpan === 0) {
+      return 1;
+    }
+    return splineRange.span / domainSpan;
+  }, [splineRange.span, verticalBounds.max, verticalBounds.min]);
 
   const zBase = getLayerZ(layer);
   const connectorDepth = zBase - ROW_DEPTH_EPSILON * 0.05;
@@ -188,13 +252,18 @@ export const BezierHandles = memo(function BezierHandles({
     const endPairing = resolveHandlePairing(segment.end.transitions);
     const startPoint = getFramePoint(segment.start, resolvedTrackId);
     const endPoint = getFramePoint(segment.end, resolvedTrackId);
+    const startAnchorId = startPoint?.id ?? segment.start.id;
+    const endAnchorId = endPoint?.id ?? segment.end.id;
+    const startPairedDelta = handleLookup?.get(startAnchorId)?.in;
+    const endPairedDelta = handleLookup?.get(endAnchorId)?.out;
     const built = [
       {
         id: `${segment.start.id}-out`,
         side: "out" as const,
         rawWorld: cp1Raw,
-        anchorId: startPoint?.id ?? segment.start.id,
-        neighborId: endPoint?.id ?? segment.end.id,
+        anchorId: startAnchorId,
+        neighborId: endAnchorId,
+        pairedDelta: startPairedDelta,
         anchor: startAnchor.line,
         raw: mapHandlePoint(cp1Raw, renderScaleY, connectorDepth, rawHandleDepth),
         effective: mapHandlePoint(cp1Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
@@ -210,9 +279,12 @@ export const BezierHandles = memo(function BezierHandles({
                 side: "out",
                 rowId,
                 trackId: resolvedTrackId,
-                keypointId: startPoint?.id ?? segment.start.id,
-                neighborKeypointId: endPoint?.id ?? segment.end.id,
+                keypointId: startAnchorId,
+                neighborKeypointId: endAnchorId,
                 controlPoint: cp1Raw,
+                pairedDelta: startPairedDelta,
+                viewScaleX,
+                viewScaleY,
                 startStamp: segment.start.stamp,
                 endStamp: segment.end.stamp,
                 startValue,
@@ -232,8 +304,9 @@ export const BezierHandles = memo(function BezierHandles({
         id: `${segment.end.id}-in`,
         side: "in" as const,
         rawWorld: cp2Raw,
-        anchorId: endPoint?.id ?? segment.end.id,
-        neighborId: startPoint?.id ?? segment.start.id,
+        anchorId: endAnchorId,
+        neighborId: startAnchorId,
+        pairedDelta: endPairedDelta,
         anchor: endAnchor.line,
         raw: mapHandlePoint(cp2Raw, renderScaleY, connectorDepth, rawHandleDepth),
         effective: mapHandlePoint(cp2Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
@@ -249,9 +322,12 @@ export const BezierHandles = memo(function BezierHandles({
                 side: "in",
                 rowId,
                 trackId: resolvedTrackId,
-                keypointId: endPoint?.id ?? segment.end.id,
-                neighborKeypointId: startPoint?.id ?? segment.start.id,
+                keypointId: endAnchorId,
+                neighborKeypointId: startAnchorId,
                 controlPoint: cp2Raw,
+                pairedDelta: endPairedDelta,
+                viewScaleX,
+                viewScaleY,
                 startStamp: segment.start.stamp,
                 endStamp: segment.end.stamp,
                 startValue,
@@ -273,6 +349,7 @@ export const BezierHandles = memo(function BezierHandles({
       rawWorld: WorldCP;
       anchorId: string;
       neighborId: string;
+      pairedDelta?: RawVector2;
       anchor: [number, number, number];
       raw: HandlePoint;
       effective?: HandlePoint;
@@ -310,6 +387,9 @@ export const BezierHandles = memo(function BezierHandles({
     cancelDragAction,
     startValue,
     endValue,
+    handleLookup,
+    viewScaleX,
+    viewScaleY,
   ]);
 
   const handles = memoizedHandles.handles;
@@ -342,6 +422,9 @@ export const BezierHandles = memo(function BezierHandles({
                 keypointId: handle.anchorId,
                 neighborKeypointId: handle.neighborId,
                 controlPoint: handle.rawWorld,
+                pairedDelta: handle.pairedDelta,
+                viewScaleX,
+                viewScaleY,
                 startStamp: segment.start.stamp,
                 endStamp: segment.end.stamp,
                 startValue,
@@ -579,13 +662,26 @@ const HandleDot = memo(function HandleDot({
   appearance,
   interaction,
 }: HandleDotProps) {
-  const gl = useThree((state) => state.gl);
+  const { gl, camera, size } = useThree((state) => ({
+    gl: state.gl,
+    camera: state.camera,
+    size: state.size,
+  }));
   const scaleRef = useRef<Group>(null);
   const markerRef = useRef<Mesh>(null);
   const overlayRef = useRef<Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
   const dragDidMoveRef = useRef(false);
+  const dragBaseRef = useRef<{
+    controlPoint: WorldCP;
+    anchorStamp: number;
+    anchorValue: number;
+  } | null>(null);
+  const pairingBaselineRef = useRef<{
+    pairedDelta?: RawVector2;
+    pairedLengthView?: number;
+  } | null>(null);
   const dragSpring = useSpring(0, { stiffness: 280, damping: 24, mass: 1 });
   const [dragWeight, setDragWeight] = useState(0);
   useMotionValueEvent(dragSpring, "change", setDragWeight);
@@ -605,6 +701,40 @@ const HandleDot = memo(function HandleDot({
       setDragging(true);
       setDragWeight(1);
       dragSpring.set(1);
+      const viewScaleX = (() => {
+        const ortho = camera as OrthographicCamera;
+        const span = ortho.right - ortho.left;
+        if (!Number.isFinite(span) || span === 0 || size.width === 0) {
+          return interaction.viewScaleX ?? 1;
+        }
+        return size.width / span;
+      })();
+      const viewScaleY = interaction.viewScaleY ?? 1;
+      pairingBaselineRef.current = interaction.pairedDelta
+        ? {
+            pairedDelta: interaction.pairedDelta,
+            pairedLengthView: getViewLength(interaction.pairedDelta, viewScaleX, viewScaleY),
+          }
+        : null;
+      const dragBase = {
+        controlPoint: {
+          x: interaction.controlPoint.x,
+          y: interaction.controlPoint.y,
+        },
+        anchorStamp: interaction.side === "out" ? interaction.startStamp : interaction.endStamp,
+        anchorValue: interaction.side === "out" ? interaction.startValue : interaction.endValue,
+      };
+      dragBaseRef.current = dragBase;
+      debugHandles("drag-start", {
+        side: interaction.side,
+        viewScaleX,
+        viewScaleY,
+        controlPoint: interaction.controlPoint,
+        anchorStamp: dragBase.anchorStamp,
+        anchorValue: dragBase.anchorValue,
+        pairedDelta: interaction.pairedDelta,
+        pairedLengthView: pairingBaselineRef.current?.pairedLengthView,
+      });
       interaction.startHandleDrag({
         origin: { x: positionX, y: interaction.controlPoint.y },
         side: interaction.side,
@@ -625,9 +755,99 @@ const HandleDot = memo(function HandleDot({
     onDrag2D: ({ x, normalizedValueDelta, alt, shift, meta }) => {
       if (!interaction) return;
       dragDidMoveRef.current = true;
+      const pointerX = typeof x === "number" ? x : interaction.controlPoint.x;
+      const range = computeVerticalRange(interaction.valueScale);
+      const deltaY = (normalizedValueDelta ?? 0) * range;
+      const dragBase = dragBaseRef.current;
+      const baseControlPoint = dragBase?.controlPoint ?? interaction.controlPoint;
+      const anchorStamp =
+        dragBase?.anchorStamp ??
+        (interaction.side === "out" ? interaction.startStamp : interaction.endStamp);
+      const anchorValue =
+        dragBase?.anchorValue ??
+        (interaction.side === "out" ? interaction.startValue : interaction.endValue);
+      const nextCpWorld = {
+        x: pointerX,
+        y: baseControlPoint.y + deltaY,
+      };
+      const clamped = clampHandleAgainstOwnKeypointX({
+        anchor: interaction.side === "out" ? "startOut" : "endIn",
+        cpWorld: nextCpWorld,
+        startX: interaction.startStamp,
+        endX: interaction.endStamp,
+      });
+      const nextY = applyPrecision(clamped.y, interaction.valueScale?.precision);
+      const draggedDelta = {
+        x: clamped.x - anchorStamp,
+        y: nextY - anchorValue,
+      };
+
+      const viewScaleX = (() => {
+        const ortho = camera as OrthographicCamera;
+        const span = ortho.right - ortho.left;
+        if (!Number.isFinite(span) || span === 0 || size.width === 0) {
+          return interaction.viewScaleX ?? 1;
+        }
+        return size.width / span;
+      })();
+      const viewScaleY = interaction.viewScaleY ?? 1;
+      const draggedView = toViewVector(draggedDelta, viewScaleX, viewScaleY);
+      const draggedViewLen = Math.hypot(draggedView.x, draggedView.y);
+      const baseline = pairingBaselineRef.current;
+      const pairedBaselineView = baseline?.pairedDelta
+        ? toViewVector(baseline.pairedDelta, viewScaleX, viewScaleY)
+        : undefined;
+      const withinSnapTolerance =
+        pairedBaselineView !== undefined
+          ? withinFlatTolerance(draggedView, pairedBaselineView)
+          : false;
+
+      let pairingIntent = interaction.basePairing;
+      if (shift) {
+        pairingIntent = TransitionPairing.Paired;
+      } else if (interaction.basePairing === TransitionPairing.Paired && alt) {
+        pairingIntent = TransitionPairing.Free;
+      } else if (
+        (interaction.basePairing === TransitionPairing.Free ||
+          interaction.basePairing === undefined) &&
+        withinSnapTolerance &&
+        !alt
+      ) {
+        pairingIntent = TransitionPairing.Paired;
+      }
+
+      const pairedSide = interaction.side === "out" ? "in" : "out";
+      let pairedDelta: RawVector2 | undefined;
+      if (
+        pairingIntent === TransitionPairing.Paired &&
+        baseline?.pairedLengthView !== undefined &&
+        draggedViewLen > 0
+      ) {
+        const unitX = draggedView.x / draggedViewLen;
+        const unitY = draggedView.y / draggedViewLen;
+        const useDraggedLength = shift && !alt;
+        const targetLength = useDraggedLength ? draggedViewLen : baseline.pairedLengthView;
+        const pairedView = {
+          x: -unitX * targetLength,
+          y: -unitY * targetLength,
+        };
+        pairedDelta = {
+          x: pairedView.x / viewScaleX,
+          y: pairedView.y / viewScaleY,
+        };
+      }
+
+      const handleDeltas = {
+        ...(interaction.side === "out" ? { out: draggedDelta } : { in: draggedDelta }),
+        ...(pairedDelta ? { [pairedSide]: pairedDelta } : {}),
+        pairing: pairingIntent,
+        withinSnapTolerance,
+      };
+
       interaction.updateHandleDrag({
-        pointer: { x: typeof x === "number" ? x : interaction.controlPoint.x, y: 0 },
+        pointer: { x: pointerX, y: 0 },
         normalizedValueDelta,
+        handleDeltas,
         modifiers: { alt, shift, meta },
       });
     },
@@ -638,7 +858,13 @@ const HandleDot = memo(function HandleDot({
       } else {
         interaction.cancelDrag();
       }
+      debugHandles("drag-end", {
+        side: interaction.side,
+        moved: dragDidMoveRef.current,
+      });
       dragDidMoveRef.current = false;
+      dragBaseRef.current = null;
+      pairingBaselineRef.current = null;
       setDragging(false);
       setDragWeight(0);
       dragSpring.set(0);
@@ -726,6 +952,8 @@ const HandleDot = memo(function HandleDot({
           interaction.cancelDrag();
         }
         dragDidMoveRef.current = false;
+        dragBaseRef.current = null;
+        pairingBaselineRef.current = null;
         setDragging(false);
         dragSpring.set(0);
       }}

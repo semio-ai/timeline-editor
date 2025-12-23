@@ -5,6 +5,7 @@ import { MotionValue } from "motion";
 import { useMotionValueEvent, useSpring } from "motion/react";
 import { Instances } from "@react-three/drei";
 import { uniq } from "lodash";
+import type { RawVector2 } from "@semio/utils";
 import { useAnimationStore, useColors } from "../../hooks";
 import {
   InstancedFrameInfo,
@@ -128,6 +129,55 @@ export const DataRenderer = memo(function DataRenderer({
     () => (sourceRow ? uniq(sourceRow.data.map((s) => s.trackId)) : []),
     [sourceRow],
   );
+  const resolvedTrackId = sourceRow?.data[0]?.trackId;
+  const handleLookup = useMemo(() => {
+    const lookup = new Map<string, { in?: RawVector2; out?: RawVector2 }>();
+    if (!computedData?.interpolations || !resolvedTrackId) {
+      return lookup;
+    }
+
+    const getFramePointId = (frame: InstancedFrameInfo): string | undefined => {
+      const match = frame.points.find((point) => point.trackId === resolvedTrackId);
+      return match?.id ?? frame.points[0]?.id;
+    };
+
+    computedData.interpolations.forEach((segment) => {
+      if (segment.buffer) {
+        return;
+      }
+      const geometry = segment.geometry;
+      const rawParams =
+        geometry?.raw?.renderParams?.[TrackRender.Spline] ??
+        geometry?.raw?.renderParams?.[TrackRender.Preview];
+      if (!geometry || !rawParams) {
+        return;
+      }
+      const startId = getFramePointId(segment.start);
+      const endId = getFramePointId(segment.end);
+      const cp1 = geometry.raw?.controlPoints?.cp1;
+      const cp2 = geometry.raw?.controlPoints?.cp2;
+
+      if (startId && cp1) {
+        const entry = lookup.get(startId) ?? {};
+        entry.out = {
+          x: cp1.x - rawParams.start.x,
+          y: cp1.y - rawParams.start.y,
+        };
+        lookup.set(startId, entry);
+      }
+
+      if (endId && cp2) {
+        const entry = lookup.get(endId) ?? {};
+        entry.in = {
+          x: cp2.x - rawParams.end.x,
+          y: cp2.y - rawParams.end.y,
+        };
+        lookup.set(endId, entry);
+      }
+    });
+
+    return lookup;
+  }, [computedData?.interpolations, resolvedTrackId]);
   const transitionLayer: LayerBand = useMemo(() => {
     const frames = computedData?.virtualFrames ?? [];
     const allLayers = uniq(frames.flatMap((vf) => vf.points).map((p) => p.layerBand));
@@ -323,6 +373,7 @@ export const DataRenderer = memo(function DataRenderer({
                 isHighlighted={isRowHovered}
                 appearance={handleAppearance}
                 theme={theme}
+                handleLookup={handleLookup}
               />
             )}
           </Fragment>
