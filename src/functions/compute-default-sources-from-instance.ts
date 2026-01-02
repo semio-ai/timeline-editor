@@ -50,7 +50,7 @@ export function computeDefaultSourcesFromInstance(
             trackId: track.id,
             animatableId: track.animatableId,
             type: (animatable?.type as "string" | "number" | "boolean") ?? "number",
-            iconCode: animatable ? getIconCode(animatable) : undefined,
+            iconCode: animatable ? getIconCode(animatable.type, animatable.pub?.units) : undefined,
             muted: track.settings?.muted || false,
             hidden: false,
           };
@@ -92,21 +92,26 @@ export function computeDefaultSourcesFromInstance(
     const groupType = parentType && GROUP_TYPES.has(parentType) ? parentType : "group";
 
     if (shouldGroup) {
-      const childrenSources: SourceTrack[] = group.children.map((child) => ({
-        id: `${namespaceId}/${animationInstance.id}/${child.trackId}`,
-        animationId: animation.id,
-        namespaceId,
-        instanceId: animationInstance.id,
-        trackId: child.trackId,
-        animatableId: child.track.animatableId,
-        type: "number",
-        attribute: undefined,
-        iconCode: group.parentAnimatable
-          ? getIconCode(group.parentAnimatable, child.axis)
-          : undefined,
-        muted: child.track.settings?.muted || false,
-        hidden: false,
-      }));
+      const childrenSources: SourceTrack[] = group.children.map((child) => {
+        const childAnimatable =
+          child.derivedAnimatable ??
+          animatables[child.track.animatableId] ??
+          group.parentAnimatable;
+        return {
+          id: `${namespaceId}/${animationInstance.id}/${child.trackId}`,
+          animationId: animation.id,
+          namespaceId,
+          instanceId: animationInstance.id,
+          trackId: child.trackId,
+          animatableId: child.track.animatableId,
+          type: "number",
+          iconCode: childAnimatable
+            ? getIconCode(childAnimatable.type, childAnimatable.pub?.units)
+            : undefined,
+          muted: child.track.settings?.muted || false,
+          hidden: false,
+        };
+      });
 
       sources.push({
         id: `${namespaceId}/${animationInstance.id}/${group.baseTrackId}`,
@@ -116,7 +121,9 @@ export function computeDefaultSourcesFromInstance(
         name: groupName ?? group.parentAnimatable?.name ?? group.baseTrackId,
         groupId: group.baseTrackId,
         type: groupType as "vector2" | "vector3" | "euler" | "rgb" | "hsl" | "group",
-        iconCode: group.parentAnimatable ? getIconCode(group.parentAnimatable) : undefined,
+        iconCode: group.parentAnimatable
+          ? getIconCode(group.parentAnimatable.type, group.parentAnimatable.pub?.units)
+          : undefined,
         children: childrenSources,
         expanded: true,
       });
@@ -132,7 +139,7 @@ export function computeDefaultSourcesFromInstance(
         trackId: child.trackId,
         animatableId: child.track.animatableId,
         type: (animatable?.type as "string" | "number" | "boolean") ?? "number",
-        iconCode: animatable ? getIconCode(animatable) : undefined,
+        iconCode: animatable ? getIconCode(animatable.type, animatable.pub?.units) : undefined,
         muted: child.track.settings?.muted || false,
         hidden: false,
       });

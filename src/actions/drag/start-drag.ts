@@ -12,7 +12,6 @@ import type {
   ValueScale,
 } from "../../types";
 import { cloneTransitions } from "../../utils/clone-transitions";
-import { buildHandleOffsetKey } from "../../utils/handle-offset-key";
 import { getWorldControlPoints } from "../../functions/get-world-control-points";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../../constants";
 
@@ -21,21 +20,8 @@ const DEFAULT_TRANSFORM: DragStampTransform = {
   timescale: 1,
 };
 
-const extractNumericComponent = (value: RawValue, path?: string[]): number | undefined => {
-  if (!path || path.length === 0) {
-    return typeof value === "number" ? value : undefined;
-  }
-
-  let current: unknown = value;
-  for (const key of path) {
-    if (typeof current !== "object" || current === null) {
-      return undefined;
-    }
-    current = (current as Record<string, unknown>)[key];
-  }
-
-  return typeof current === "number" ? current : undefined;
-};
+const extractNumericValue = (value: RawValue): number | undefined =>
+  typeof value === "number" ? value : undefined;
 
 const cloneRawValue = (value: RawValue): RawValue => {
   try {
@@ -134,8 +120,7 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
 
   const transform = resolveInstanceTransform(state, selection.instanceId) ?? DEFAULT_TRANSFORM;
 
-  const anchorAttributePath = anchorPoint.attribute ? [anchorPoint.attribute] : undefined;
-  const anchorValueOrigin = extractNumericComponent(keypoint.value, anchorAttributePath);
+  const anchorValueOrigin = extractNumericValue(keypoint.value);
 
   const valueScale: ValueScale | undefined =
     (input as any)?.valueScale ??
@@ -157,7 +142,6 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
       instanceId: anchorPoint.instanceId,
       rowId: input.rowId,
       markerId: marker.id,
-      attributePath: anchorAttributePath,
       valueScale,
     },
     pointerOrigin: input.origin,
@@ -174,28 +158,18 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
 
   const handleOffsetMap: Record<string, DragMarkerHandleOffsets> = {};
 
-  const markerHandleOffsets = computeMarkerHandleOffsets({
-    track,
-    keypoint,
-    attributePath: anchorAttributePath,
-  });
+  const markerHandleOffsets = computeMarkerHandleOffsets({ track, keypoint });
 
   if (markerHandleOffsets) {
-    const handleKey = buildHandleOffsetKey(keypoint.id, anchorAttributePath);
-    handleOffsetMap[handleKey] = markerHandleOffsets;
+    handleOffsetMap[keypoint.id] = markerHandleOffsets;
   }
 
   const prevPoint = track.points[pointIndex - 1];
   if (prevPoint) {
-    const prevOffsets = computeMarkerHandleOffsets({
-      track,
-      keypoint: prevPoint,
-      attributePath: anchorAttributePath,
-    });
+    const prevOffsets = computeMarkerHandleOffsets({ track, keypoint: prevPoint });
     if (prevOffsets?.out && prevOffsets.out.neighborKeypointId === keypoint.id) {
-      const prevKey = buildHandleOffsetKey(prevPoint.id, anchorAttributePath);
-      handleOffsetMap[prevKey] = {
-        ...(handleOffsetMap[prevKey] ?? {}),
+      handleOffsetMap[prevPoint.id] = {
+        ...(handleOffsetMap[prevPoint.id] ?? {}),
         out: prevOffsets.out,
       };
     }
@@ -203,15 +177,10 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
 
   const nextPoint = track.points[pointIndex + 1];
   if (nextPoint) {
-    const nextOffsets = computeMarkerHandleOffsets({
-      track,
-      keypoint: nextPoint,
-      attributePath: anchorAttributePath,
-    });
+    const nextOffsets = computeMarkerHandleOffsets({ track, keypoint: nextPoint });
     if (nextOffsets?.in && nextOffsets.in.neighborKeypointId === keypoint.id) {
-      const nextKey = buildHandleOffsetKey(nextPoint.id, anchorAttributePath);
-      handleOffsetMap[nextKey] = {
-        ...(handleOffsetMap[nextKey] ?? {}),
+      handleOffsetMap[nextPoint.id] = {
+        ...(handleOffsetMap[nextPoint.id] ?? {}),
         in: nextOffsets.in,
       };
     }
@@ -224,17 +193,12 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
   // Capture world-space handle deltas for all keypoints on the track so we can
   // preserve control point positions even when reordering changes adjacency.
   track.points.forEach((point) => {
-    const offsets = computeMarkerHandleOffsets({
-      track,
-      keypoint: point,
-      attributePath: anchorAttributePath,
-    });
+    const offsets = computeMarkerHandleOffsets({ track, keypoint: point });
     if (!offsets) return;
-    const key = buildHandleOffsetKey(point.id, anchorAttributePath);
     dragState.markerHandleOffsets = {
       ...(dragState.markerHandleOffsets ?? {}),
-      [key]: {
-        ...(dragState.markerHandleOffsets?.[key] ?? {}),
+      [point.id]: {
+        ...(dragState.markerHandleOffsets?.[point.id] ?? {}),
         ...offsets,
       },
     };
@@ -265,15 +229,13 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
 interface MarkerHandleParams {
   track: Track<RawValue>;
   keypoint: Keypoint<RawValue>;
-  attributePath?: string[];
 }
 
 function computeMarkerHandleOffsets({
   track,
   keypoint,
-  attributePath,
 }: MarkerHandleParams): DragMarkerHandleOffsets | undefined {
-  const anchorValue = extractNumericComponent(keypoint.value, attributePath);
+  const anchorValue = extractNumericValue(keypoint.value);
   if (typeof anchorValue !== "number") {
     return undefined;
   }
@@ -288,7 +250,7 @@ function computeMarkerHandleOffsets({
   const nextPoint = track.points[pointIndex + 1];
   const outTransition = keypoint.transitions?.out ?? DEFAULT_TRANSITION_OUT;
   if (nextPoint) {
-    const neighborValue = extractNumericComponent(nextPoint.value, attributePath);
+    const neighborValue = extractNumericValue(nextPoint.value);
     if (typeof neighborValue === "number") {
       const { start: cpWorld } = getWorldControlPoints(
         keypoint.stamp,
@@ -317,7 +279,7 @@ function computeMarkerHandleOffsets({
   const prevPoint = track.points[pointIndex - 1];
   const inTransition = keypoint.transitions?.in ?? DEFAULT_TRANSITION_IN;
   if (prevPoint) {
-    const neighborValue = extractNumericComponent(prevPoint.value, attributePath);
+    const neighborValue = extractNumericValue(prevPoint.value);
     if (typeof neighborValue === "number") {
       const { end: cpWorld } = getWorldControlPoints(
         prevPoint.stamp,

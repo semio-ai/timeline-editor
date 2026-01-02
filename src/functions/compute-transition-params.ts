@@ -1,10 +1,6 @@
-import { RawColor, RawEuler, RawVector3, RawVector2 } from "@semio/utils";
 import { type InstancedFrameInfo, SourceRow, TrackRender, EndpointTransitions } from "../types";
-import { COMPLEX_TYPES, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
+import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { getWorldControlPoints, resolveTransitionDelta } from "./get-world-control-points";
-
-type ComplexRawValue = RawVector3 | RawVector2 | RawEuler | RawColor;
-type ComplexField = keyof ComplexRawValue;
 
 /**
  * A Transition description that gives all 4 coordinates indicating the qualities of the transition
@@ -37,18 +33,11 @@ export interface ComputeTransitionParamsOptions {
   transitions?: EndpointTransitions;
 }
 
-const extractFrameValue = (frame: InstancedFrameInfo, source: SourceRow): number | undefined => {
+const extractFrameValue = (frame: InstancedFrameInfo): number | undefined => {
   const first = frame.points?.[0];
   if (first) {
     if (typeof first.value === "number") {
       return first.value as number;
-    }
-    if (source.data[0]?.attribute && first.value && typeof first.value === "object") {
-      const attr = source.data[0].attribute as keyof typeof first.value;
-      const candidate = (first.value as any)?.[attr];
-      if (typeof candidate === "number") {
-        return candidate;
-      }
     }
   }
 
@@ -75,18 +64,13 @@ export function computeTransitionParams(
   };
 
   if (trackRender === TrackRender.Transition || trackRender === TrackRender.Key) {
-    let startValue: number | undefined = extractFrameValue(start, source);
-    const endValue: number | undefined = extractFrameValue(end, source);
+    let startValue: number | undefined = extractFrameValue(start);
+    const endValue: number | undefined = extractFrameValue(end);
 
     // Safely extract start value
     if (start.points && start.points.length > 0 && startValue === undefined) {
       if (source.data[0].type === "number") {
         startValue = start.points[0].value as number;
-      } else if (COMPLEX_TYPES.has(source.data[0].type) && source.data[0].attribute) {
-        startValue =
-          (start.points[0].value as ComplexRawValue | undefined)?.[
-            source.data[0].attribute as ComplexField
-          ] ?? undefined;
       }
     }
 
@@ -158,18 +142,13 @@ export function computeTransitionParams(
     source.data.length === 1 &&
     (trackRender === TrackRender.Preview || trackRender === TrackRender.Spline)
   ) {
-    let startValue: number | undefined = extractFrameValue(start, source);
-    let endValue: number | undefined = extractFrameValue(end, source);
+    let startValue: number | undefined = extractFrameValue(start);
+    let endValue: number | undefined = extractFrameValue(end);
 
     // Safely extract start value
     if (start.points && start.points.length > 0 && startValue === undefined) {
       if (source.data[0].type === "number") {
         startValue = start.points[0].value as number;
-      } else if (COMPLEX_TYPES.has(source.data[0].type) && source.data[0].attribute) {
-        startValue =
-          (start.points[0].value as ComplexRawValue | undefined)?.[
-            source.data[0].attribute as ComplexField
-          ] ?? undefined;
       }
     }
 
@@ -177,11 +156,6 @@ export function computeTransitionParams(
     if (end.points && end.points.length > 0) {
       if (source.data[0].type === "number") {
         endValue = end.points[0].value as number;
-      } else if (COMPLEX_TYPES.has(source.data[0].type) && source.data[0].attribute) {
-        endValue =
-          (end.points[0].value as ComplexRawValue | undefined)?.[
-            source.data[0].attribute as ComplexField
-          ] ?? undefined;
       }
     }
 

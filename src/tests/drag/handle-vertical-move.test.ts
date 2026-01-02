@@ -31,7 +31,6 @@ describe("handle drag vertical freedom", () => {
       trackId,
       keypointId: anchorId,
       neighborKeypointId: neighborId,
-      attributePath: undefined,
       valueScale: undefined, // no domain clamp
       controlPoint,
       startStamp: anchor.stamp,

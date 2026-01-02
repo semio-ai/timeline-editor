@@ -39,7 +39,6 @@ export interface ComputeDragDiffOpsParams {
   dragState: DragState;
   selection: SelectionState;
   bounds?: { min: number; max: number };
-  attributePath?: string[];
   preferAnchorId?: string;
 }
 
@@ -73,7 +72,6 @@ export function computeDragDiffOps(params: ComputeDragDiffOpsParams): ComputeDra
       selection,
       trackId,
       bounds: params.bounds,
-      attributePath: params.attributePath,
     }),
   );
 

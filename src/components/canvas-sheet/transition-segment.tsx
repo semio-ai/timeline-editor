@@ -107,10 +107,30 @@ export const TransitionSegment = memo(function TransitionSegment({
   const selectionState = useAnimationStore((state) => state.selectionState);
   const dragState = useAnimationStore((state) => state.dragState);
   const includesDraggedTrack = useMemo(() => {
-    if (!dragState || !selectionState?.keypoints) return false;
-    const trackset = new Set<string>(sourceRow.data.map((t) => t.trackId));
-    return Array.from(selectionState.keypoints.keys()).some((id) => trackset.has(id));
-  }, [sourceRow.data, dragState, selectionState]);
+    if (!selectionState?.keypoints && !dragState) return false;
+    const selectedTrackIds = new Set<string>();
+    const register = (key?: string) => {
+      if (!key) return;
+      selectedTrackIds.add(key);
+      const tail = key.split("/").pop();
+      if (tail) {
+        selectedTrackIds.add(tail);
+        const base = tail.split(".")[0];
+        if (base) {
+          selectedTrackIds.add(base);
+        }
+      }
+    };
+    selectionState?.keypoints?.forEach((keypointIds, trackKey) => {
+      if (keypointIds && keypointIds.size > 0) {
+        register(trackKey);
+      }
+    });
+    register(dragState?.anchor?.trackId);
+    register(dragState?.handleAnchor?.trackId);
+
+    return sourceRow.data.some((entry) => selectedTrackIds.has(entry.trackId));
+  }, [sourceRow.data, dragState, selectionState?.keypoints]);
 
   const mvStartY = includesDraggedTrack ? transitionCurve.startY : startY;
   const mvEndY = includesDraggedTrack ? transitionCurve.endY : endY;
@@ -219,7 +239,6 @@ export const TransitionSegment = memo(function TransitionSegment({
             return;
           }
           if (!isInteractive) return;
-          console.log();
           event?.stopPropagation?.();
           clickLine(
             sourceRow.id,

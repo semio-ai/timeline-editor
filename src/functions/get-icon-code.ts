@@ -1,27 +1,20 @@
-import { AnimatableValue } from "@semio/utils";
-import { COMPLEX_TYPES } from "../constants";
+import type { AnimatableValue } from "@semio/utils";
 
-export function getIconCode(animatable: AnimatableValue, attribute?: string): string {
-  if (animatable.type === "number") {
-    if (animatable.pub?.units) {
-      return animatable.pub.units;
-    } else {
-      return "none";
-    }
-  } else if (animatable.type === "string") {
+export function getIconCode(animatableType: AnimatableValue["type"], units?: string): string {
+  if (animatableType === "number") {
+    return units ?? "none";
+  } else if (animatableType === "string") {
     return "text";
-  } else if (animatable.type === "boolean") {
+  } else if (animatableType === "boolean") {
     return "binary";
-  } else if (COMPLEX_TYPES.has(animatable.type) && attribute) {
-    switch (animatable.type) {
-      case "vector2":
-      case "vector3":
-        return "m";
-      case "euler":
-        return "rad";
-      default:
-        return "none";
-    }
+  } else if (
+    animatableType === "vector2" ||
+    animatableType === "vector3" ||
+    animatableType === "euler" ||
+    animatableType === "rgb" ||
+    animatableType === "hsl"
+  ) {
+    return animatableType;
   } else {
     return "none";
   }

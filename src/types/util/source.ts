@@ -49,7 +49,6 @@ export interface SourceGroup extends SourceBase {
  * @property {AnimatableValue["type"]} type - The data type of values stored in this track (e.g., number, vector3, color)
  * @property {boolean} hidden - Whether this track is hidden from view in the UI
  * @property {boolean} muted - Whether this track is muted (excluded from playback)
- * @property {string} [attribute] - Optional attribute specifier for tracks that represent components of composite values (e.g., "x", "y", "z" for vector components). Will be replaced by composable primitive values in future versions
  */
 export interface SourceTrack extends SourceBase {
   id: string;
@@ -59,7 +58,6 @@ export interface SourceTrack extends SourceBase {
   hidden: boolean;
   muted: boolean;
   iconCode?: string;
-  attribute?: string;
 }
 
 /**
@@ -95,7 +93,6 @@ export interface SourceRow {
  * @property {string} trackId - Unique identifier for this specific track
  * @property {string} animatableId - Identifier for the animatable object this track is associated with
  * @property {string} [iconCode] - Optional icon code representing the type of animatable value
- * @property {string} [attribute] - Optional attribute specifier for tracks that represent components of composite values (e.g., "x", "y", "z" for vector components). Will be replaced by composable primitive values in future versions.
  */
 export interface SourceRowData {
   // Foreground (whether the row is in the foreground or not)
@@ -115,5 +112,4 @@ export interface SourceRowData {
   trackId: string;
   animatableId: string;
   iconCode?: string;
-  attribute?: string;
 }

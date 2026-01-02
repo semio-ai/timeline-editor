@@ -11,14 +11,12 @@ import type {
   TrackDiffChanges,
 } from "../types";
 import { cloneTransitionValue } from "../utils/clone-transitions";
-import { buildHandleOffsetKey } from "../utils/handle-offset-key";
 
 interface ApplyDragContext {
   dragState?: DragState;
   selection: SelectionState;
   trackId: string;
   bounds?: { min: number; max: number };
-  attributePath?: string[];
 }
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
@@ -45,55 +43,6 @@ const cloneKeypoint = (point: Keypoint<RawValue>): Keypoint<RawValue> => ({
 const arraysEqual = (left: string[], right: string[]): boolean => {
   if (left.length !== right.length) return false;
   return left.every((value, index) => value === right[index]);
-};
-
-const getNumericValue = (value: RawValue, path?: string[]): number | undefined => {
-  if (!path || path.length === 0) {
-    return typeof value === "number" ? value : undefined;
-  }
-
-  let current: unknown = value;
-  for (const key of path) {
-    if (typeof current !== "object" || current === null) {
-      return undefined;
-    }
-    current = (current as Record<string, unknown>)[key];
-  }
-
-  return typeof current === "number" ? current : undefined;
-};
-
-const setNumericValue = (value: RawValue, nextValue: number, path?: string[]): RawValue => {
-  if (!path || path.length === 0) {
-    return nextValue as RawValue;
-  }
-
-  if (typeof value !== "object" || value === null) {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    const index = Number(path[0]);
-    if (Number.isNaN(index) || index < 0 || index >= value.length) {
-      return value;
-    }
-
-    const cloned = value.slice();
-    cloned[index] = setNumericValue(cloned[index] as RawValue, nextValue, path.slice(1));
-    return cloned as unknown as RawValue;
-  }
-
-  const clone = { ...(value as unknown as Record<string, unknown>) };
-  const [head, ...tail] = path;
-
-  if (tail.length === 0) {
-    clone[head] = nextValue;
-  } else {
-    const nextContainer = clone[head] ?? (Number.isNaN(Number(tail[0])) ? {} : ([] as unknown[]));
-    clone[head] = setNumericValue(nextContainer as RawValue, nextValue, tail);
-  }
-
-  return clone as unknown as RawValue;
 };
 
 const applyPrecision = (value: number, valueScale?: ValueScale): number => {
@@ -126,7 +75,7 @@ const clampValue = (
 
 export function applyDragDeltas(
   keypoint: Keypoint<RawValue>,
-  { dragState, selection, trackId, bounds, attributePath }: ApplyDragContext,
+  { dragState, selection, trackId, bounds }: ApplyDragContext,
 ): Keypoint<RawValue> {
   if (!dragState || dragState.instanceId !== selection.instanceId) {
     return keypoint;
@@ -135,11 +84,7 @@ export function applyDragDeltas(
   const trackSelection = selection.keypoints.get(trackId);
   const isAnchor =
     dragState.anchor?.trackId === trackId && dragState.anchor?.keypointId === keypoint.id;
-  const handleKey = buildHandleOffsetKey(
-    keypoint.id,
-    attributePath ?? dragState.anchor.attributePath,
-  );
-  const handleOffsets = dragState.markerHandleOffsets?.[handleKey];
+  const handleOffsets = dragState.markerHandleOffsets?.[keypoint.id];
   const isSelected = isAnchor || Boolean(trackSelection?.has(keypoint.id));
 
   if (!isSelected && !handleOffsets) {
@@ -165,9 +110,7 @@ export function applyDragDeltas(
     (dragState.axis === "vertical" || dragState.axis === "both") &&
     typeof dragState.normalizedValueDelta === "number"
   ) {
-    const path = attributePath ?? dragState.anchor.attributePath;
-    const current = getNumericValue(nextValue, path);
-    if (typeof current === "number") {
+    if (typeof nextValue === "number") {
       const domainRange =
         dragState.anchor.valueScale?.domain !== undefined
           ? dragState.anchor.valueScale.domain[1] - dragState.anchor.valueScale.domain[0]
@@ -182,10 +125,10 @@ export function applyDragDeltas(
         typeof verticalRange === "number" && Number.isFinite(verticalRange) && verticalRange !== 0
           ? verticalRange
           : 1;
-      let candidate = current + dragState.normalizedValueDelta * appliedRange;
+      let candidate = nextValue + dragState.normalizedValueDelta * appliedRange;
       candidate = clampValue(candidate, bounds, dragState.anchor.valueScale);
       candidate = applyPrecision(candidate, dragState.anchor.valueScale);
-      nextValue = setNumericValue(nextValue, candidate, path);
+      nextValue = candidate;
     }
   }
 
@@ -256,7 +199,6 @@ interface BuildTrackDiffsParams {
   dragState?: DragState;
   selection: SelectionState;
   bounds?: { min: number; max: number };
-  attributePath?: string[];
 }
 
 const buildUpdateDiff = (
@@ -307,7 +249,6 @@ export function computeTrackDiffsForDrag(params: BuildTrackDiffsParams): TrackDi
       selection,
       trackId,
       bounds: params.bounds,
-      attributePath: params.attributePath,
     }),
   );
 

@@ -8,6 +8,7 @@ import type {
 } from "../store-types";
 import { LayerBand, SourceRow } from "../types";
 import { groupDerivedTracks } from "../functions/group-derived-tracks";
+import { getIconCode } from "../functions/get-icon-code";
 
 export function updateInstancedTrackSources(
   api: AnimationApi,
@@ -92,6 +93,8 @@ export function updateInstancedTrackSources(
                     ? LayerBand.ForegroundSelected
                     : LayerBand.ForegroundUnselected;
                 }
+                const childAnimatable =
+                  child.derivedAnimatable ?? animatables[child.track.animatableId];
                 return {
                   childId,
                   data: {
@@ -105,7 +108,9 @@ export function updateInstancedTrackSources(
                     type: "number" as const,
                     trackId: child.trackId,
                     animatableId: child.track.animatableId,
-                    attribute: undefined,
+                    iconCode: childAnimatable
+                      ? getIconCode(childAnimatable.type, childAnimatable.pub?.units)
+                      : undefined,
                   },
                 };
               });

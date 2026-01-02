@@ -20,7 +20,7 @@ import {
   TransitionPairing,
   InstancedFrameInfo,
 } from "../types";
-import { TYPE_FIELDS, DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
+import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
 import type { ProjectedTrackView, SelectionCleanup, TrackDiffOp } from "../types/util/diff";
 import { computeDragDiffOps } from "./drag-diff-ops";
@@ -76,15 +76,6 @@ export function computeRowData(
       });
     }
   });
-  const attributePathsByTrack = sourceRow.data.reduce<Map<string, string[] | undefined>>(
-    (acc, entry) => {
-      if (!acc.has(entry.trackId)) {
-        acc.set(entry.trackId, entry.attribute ? [entry.attribute] : undefined);
-      }
-      return acc;
-    },
-    new Map(),
-  );
 
   const trackKeysByTrackId = new Map<string, TrackKey[]>();
   sourceRow.data.forEach((datum) => {
@@ -142,32 +133,17 @@ export function computeRowData(
 
   const resolveConstraintBounds = (
     animatable: AnimatableValue | undefined,
-    attributePath?: string[],
   ): { min: number; max: number } | undefined => {
     if (!animatable) return undefined;
     const constraints = (animatable as any)?.constraints;
 
-    if (animatable.type === "number") {
-      const min = typeof constraints?.min === "number" ? constraints.min : undefined;
-      const max = typeof constraints?.max === "number" ? constraints.max : undefined;
-      return min !== undefined && max !== undefined ? { min, max } : undefined;
-    }
-
-    if (!attributePath || attributePath.length === 0) {
+    if (animatable.type !== "number") {
       return undefined;
     }
 
-    const attribute = attributePath[attributePath.length - 1];
-    const index = TYPE_FIELDS[animatable.type]?.indexOf(attribute) ?? -1;
-    if (index === -1) {
-      return undefined;
-    }
-
-    const constraintMin = constraints?.min?.[index];
-    const constraintMax = constraints?.max?.[index];
-    return typeof constraintMin === "number" && typeof constraintMax === "number"
-      ? { min: constraintMin, max: constraintMax }
-      : undefined;
+    const min = typeof constraints?.min === "number" ? constraints.min : undefined;
+    const max = typeof constraints?.max === "number" ? constraints.max : undefined;
+    return min !== undefined && max !== undefined ? { min, max } : undefined;
   };
 
   trackIds.forEach((trackId) => {
@@ -178,8 +154,7 @@ export function computeRowData(
     }
 
     const animatable = animatables[track.animatableId];
-    const attributePath = attributePathsByTrack.get(trackId);
-    const bounds = resolveConstraintBounds(animatable, attributePath);
+    const bounds = resolveConstraintBounds(animatable);
     constraintBoundsByTrack.set(trackId, bounds);
   });
 
@@ -216,7 +191,6 @@ export function computeRowData(
         dragState,
         selection: selectionState,
         bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
-        attributePath: attributePathsByTrack.get(trackId),
       });
 
       // Overlay handle diffs so preview consumers (violations, interpolator) see updated transitions

@@ -4,7 +4,6 @@ import {
   RawValue,
   toDegrees,
   toRadians,
-  AnimatableVector3,
   AnimatableNumber,
   usePlayerStore,
   PlayerData,
@@ -13,15 +12,7 @@ import { useShallow } from "zustand/react/shallow";
 import { InstancedFrameInfo, SourceRowData } from "../types";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
-import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
-
-const indexLookups: Record<string, Record<string, number>> = {
-  vector3: { x: 0, y: 1, z: 2 },
-  vector2: { x: 0, y: 1 },
-  euler: { r: 0, p: 1, y: 2 },
-  rgb: { r: 0, g: 1, b: 2 },
-  hsl: { h: 0, s: 1, l: 2 },
-};
+import { DEFAULT_COLOR } from "../constants";
 
 export interface AnimatableEditorProps {
   rowId: string;
@@ -100,20 +91,16 @@ function InnerAnimatableEditor({
     if (typeof storedValue === "number") return storedValue;
     if (typeof storedValue === "string") return storedValue;
     if (typeof storedValue === "boolean") return storedValue;
-    if (typeof storedValue === "object" && data.attribute) {
-      return (storedValue as unknown as Record<string, number>)[data.attribute];
-    } else return undefined;
-  }, [storedValue, data.attribute]);
+    return undefined;
+  }, [storedValue]);
 
   const defaultValue = useMemo(() => {
     if (animatableValue === undefined) return 0;
     if (typeof animatableValue.default === "number") return animatableValue.default;
     if (typeof animatableValue.default === "string") return animatableValue.default;
     if (typeof animatableValue.default === "boolean") return animatableValue.default;
-    if (typeof animatableValue.default === "object" && data.attribute) {
-      return (animatableValue.default as unknown as Record<string, number>)[data.attribute] ?? 0;
-    } else return 0;
-  }, [animatableValue, data.attribute]);
+    return undefined;
+  }, [animatableValue]);
 
   const rawValue = value !== undefined ? value : defaultValue;
 
@@ -121,16 +108,7 @@ function InnerAnimatableEditor({
   const renderInverse = data.iconCode === "rad" ? toRadians : (v: number) => v;
 
   const limits = useMemo(() => {
-    if (data.attribute && GROUP_TYPES.has(animatableValue.type)) {
-      const index =
-        indexLookups[animatableValue.type as "vector3" | "vector2" | "euler" | "rgb" | "hsl"][
-          data.attribute
-        ];
-      return {
-        min: (animatableValue as AnimatableVector3).constraints?.min?.[index] ?? undefined,
-        max: (animatableValue as AnimatableVector3).constraints?.max?.[index] ?? undefined,
-      };
-    } else if (animatableValue.type === "number") {
+    if (animatableValue.type === "number") {
       return {
         min: (animatableValue as AnimatableNumber).constraints?.min ?? undefined,
         max: (animatableValue as AnimatableNumber).constraints?.max ?? undefined,
@@ -138,37 +116,24 @@ function InnerAnimatableEditor({
     } else {
       return { min: undefined, max: undefined };
     }
-  }, [data.attribute, animatableValue]);
+  }, [animatableValue]);
 
   const updateTrack = useAnimationStore(useShallow((state: AnimationActions) => state.updateTrack));
 
   const onChange = useCallback(
     (newValue: RawValue | ((change: RawValue) => RawValue)) => {
-      if (data.attribute) {
-        handleValueChange((previous: RawValue) => {
-          if (typeof previous === "object") {
-            return { ...previous, [data.attribute!]: newValue } as RawValue;
-          } else {
-            // This should not happen, so just return the previous value (no-op)
-            return previous;
-          }
-        });
-      } else {
-        handleValueChange(newValue);
-      }
+      handleValueChange(newValue);
     },
-    [handleValueChange, data.attribute],
+    [handleValueChange],
   );
 
   const label = useMemo(() => {
-    if (data.attribute) {
-      return data.attribute;
-    } else if (track?.name) {
+    if (track?.name) {
       return track.name;
     } else {
       return animatableValue?.name ?? "";
     }
-  }, [data.attribute, track?.name, animatableValue?.name]);
+  }, [track?.name, animatableValue?.name]);
 
   if (rawValue === undefined) return;
 

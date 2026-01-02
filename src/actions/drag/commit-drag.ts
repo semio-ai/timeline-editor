@@ -3,31 +3,21 @@ import { computeDragDiffOps, applyTrackDiffOpsToTrack } from "../../functions/dr
 import { cloneTransitionValue, cloneTransitions } from "../../utils/clone-transitions";
 import type { SelectionCleanup, TrackDiffOp } from "../../types/util/diff";
 
-interface MarkerContext {
-  attributePath?: string[];
-  bounds?: { min: number; max: number };
-}
-
-const buildMarkerContextLookup = (state: AnimationData): Map<string, MarkerContext> => {
-  const lookup = new Map<string, MarkerContext>();
-  const rowIds = Object.keys(state.derivedSnapshot?.rows ?? {});
-  for (const rowId of rowIds) {
-    const computed = state.derivedSnapshot?.rows?.[rowId]?.computed;
-    if (!computed) continue;
-    const bounds = computed.verticalBounds;
-
-    for (const frame of computed.virtualFrames) {
-      for (const point of frame.points) {
-        const key = `${point.trackId}:${point.id}`;
-        if (lookup.has(key)) continue;
-        lookup.set(key, {
-          attributePath: point.attribute ? [point.attribute] : undefined,
-          bounds,
-        });
-      }
-    }
-  }
-  return lookup;
+const buildBoundsByTrack = (state: AnimationData): Map<string, { min: number; max: number }> => {
+  const boundsByTrack = new Map<string, { min: number; max: number }>();
+  const rows = Object.values(state.derivedSnapshot?.rows ?? {});
+  rows.forEach((row) => {
+    const computed = row.computed;
+    if (!computed?.verticalBounds) return;
+    computed.virtualFrames.forEach((frame) => {
+      frame.points.forEach((point) => {
+        if (!boundsByTrack.has(point.trackId)) {
+          boundsByTrack.set(point.trackId, computed.verticalBounds);
+        }
+      });
+    });
+  });
+  return boundsByTrack;
 };
 
 /**
@@ -124,18 +114,7 @@ export function commitDrag(state: AnimationData): void {
       selectionCleanups.push(...dragState.pendingSelectionCleanups);
     }
   } else {
-    const markerContexts = hasVerticalDelta ? buildMarkerContextLookup(state) : undefined;
-    const attributePathByTrack = new Map<string, string[] | undefined>();
-    const boundsByTrack = new Map<string, { min: number; max: number } | undefined>();
-    markerContexts?.forEach((context, key) => {
-      const [trackId] = key.split(":");
-      if (!attributePathByTrack.has(trackId) && context?.attributePath) {
-        attributePathByTrack.set(trackId, context.attributePath);
-      }
-      if (!boundsByTrack.has(trackId) && context?.bounds) {
-        boundsByTrack.set(trackId, context.bounds);
-      }
-    });
+    const boundsByTrack = hasVerticalDelta ? buildBoundsByTrack(state) : undefined;
 
     for (const [trackId] of selection.keypoints.entries()) {
       const track = state.tracks[trackId];
@@ -154,8 +133,7 @@ export function commitDrag(state: AnimationData): void {
         snapshotPoints,
         dragState,
         selection,
-        bounds: hasVerticalDelta ? boundsByTrack.get(trackId) : undefined,
-        attributePath: attributePathByTrack.get(trackId) ?? dragState.anchor.attributePath,
+        bounds: hasVerticalDelta ? boundsByTrack?.get(trackId) : undefined,
       });
 
       if (diffs.length > 0) {

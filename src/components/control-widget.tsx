@@ -134,7 +134,7 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
   const groupName = sourceRow.name ?? resolvedName;
   const name = isGroup ? groupName : resolvedName;
 
-  const iconCode = isGroup ? "group" : sourceRow.data[0].iconCode || "Group";
+  const iconCode = isGroup ? "group" : (sourceRow.data[0].iconCode ?? "none");
 
   return (
     <div className="relative w-full">

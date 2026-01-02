@@ -365,9 +365,6 @@ export const DataRenderer = memo(function DataRenderer({
                 verticalAxisRange={axisRange}
                 rowId={sourceRow.id}
                 trackId={sourceRow.data[0]?.trackId}
-                attributePath={
-                  sourceRow.data[0]?.attribute ? [sourceRow.data[0].attribute] : undefined
-                }
                 color={resolvedSegmentColor}
                 layer={transitionLayer}
                 isHighlighted={isRowHovered}

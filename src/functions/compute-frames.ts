@@ -72,12 +72,8 @@ export function computeFrames(
         return framePointsDragging === isDragging;
       });
 
-      // If the sourceRowData specifies an attribute, extract the specific value, and set the type of point to number.
-      const valueType = sourceRowData.attribute !== undefined ? "number" : sourceRowData.type;
-      const value =
-        sourceRowData.attribute && typeof previewPoint.value === "object"
-          ? (previewPoint.value as any)[sourceRowData.attribute]
-          : previewPoint.value;
+      // Use the keypoint value directly; derive the point type from the runtime value.
+      const value = previewPoint.value;
 
       const targetTrackId: string = emittedTrackId;
 
@@ -94,7 +90,7 @@ export function computeFrames(
           instancedFrameInfo[matchingFrameIndex].points.push({
             ...sourceRowData,
             id: previewPoint.id,
-            type: valueType,
+            type: typeof value as "number" | "string" | "boolean",
             value,
             trackId: targetTrackId,
           });
@@ -129,7 +125,7 @@ export function computeFrames(
               ...sourceRowData,
               id: previewPoint.id,
               value,
-              type: valueType,
+              type: typeof value as "number" | "string" | "boolean",
               trackId: targetTrackId,
             },
           ],

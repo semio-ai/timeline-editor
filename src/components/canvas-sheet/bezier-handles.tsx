@@ -46,7 +46,6 @@ interface HandleInteractionProps {
   startValue: number;
   endValue: number;
   basePairing?: TransitionPairing;
-  attributePath?: string[];
   valueScale?: ValueScale;
   pixelRangeY: number;
   startHandleDrag: (input: HandleDragStartInput) => void;
@@ -64,7 +63,6 @@ interface BezierHandlesProps {
   layer: LayerBand;
   rowId: string;
   trackId?: string;
-  attributePath?: string[];
   isHighlighted?: boolean;
   appearance?: number;
   theme?: Theme.Light | Theme.Dark;
@@ -129,7 +127,6 @@ export const BezierHandles = memo(function BezierHandles({
   layer,
   rowId,
   trackId,
-  attributePath,
   isHighlighted = false,
   appearance = 1,
   theme = Theme.Light,
@@ -146,18 +143,6 @@ export const BezierHandles = memo(function BezierHandles({
       trackId ?? segment.start.points[0]?.trackId ?? segment.end.points[0]?.trackId ?? undefined,
     [segment.end.points, segment.start.points, trackId],
   );
-
-  const resolvedAttributePath = useMemo(() => {
-    if (attributePath) return attributePath;
-    const startAttr =
-      resolvedTrackId && segment.start.points.find((p) => p.trackId === resolvedTrackId)?.attribute;
-    const endAttr =
-      resolvedTrackId && segment.end.points.find((p) => p.trackId === resolvedTrackId)?.attribute;
-    const fallback =
-      segment.start.points[0]?.attribute ?? segment.end.points[0]?.attribute ?? undefined;
-    const finalAttr = startAttr ?? endAttr ?? fallback;
-    return finalAttr ? [finalAttr] : undefined;
-  }, [attributePath, resolvedTrackId, segment.end.points, segment.start.points]);
 
   const startValue = useMemo(
     () => getFrameNumericValue(segment.start, resolvedTrackId),
@@ -290,7 +275,6 @@ export const BezierHandles = memo(function BezierHandles({
                 startValue,
                 endValue,
                 basePairing: startPairing,
-                attributePath: resolvedAttributePath,
                 valueScale: resolvedValueScale,
                 pixelRangeY,
                 startHandleDrag: startHandleDragAction,
@@ -333,7 +317,6 @@ export const BezierHandles = memo(function BezierHandles({
                 startValue,
                 endValue,
                 basePairing: endPairing,
-                attributePath: resolvedAttributePath,
                 valueScale: resolvedValueScale,
                 pixelRangeY,
                 startHandleDrag: startHandleDragAction,
@@ -377,7 +360,6 @@ export const BezierHandles = memo(function BezierHandles({
     segment.end,
     segment.start,
     rawHandleDepth,
-    resolvedAttributePath,
     resolvedTrackId,
     resolvedValueScale,
     pixelRangeY,
@@ -430,7 +412,6 @@ export const BezierHandles = memo(function BezierHandles({
                 startValue,
                 endValue,
                 basePairing: handle.pairing,
-                attributePath: resolvedAttributePath,
                 valueScale: resolvedValueScale, // clamp disabled; provides range for deltas
                 pixelRangeY,
                 startHandleDrag: startHandleDragAction,
@@ -744,7 +725,6 @@ const HandleDot = memo(function HandleDot({
         trackId: interaction.trackId,
         keypointId: interaction.keypointId,
         neighborKeypointId: interaction.neighborKeypointId,
-        attributePath: interaction.attributePath,
         valueScale: interaction.valueScale,
         controlPoint: interaction.controlPoint,
         startStamp: interaction.startStamp,

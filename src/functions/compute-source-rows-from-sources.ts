@@ -29,7 +29,7 @@ export function computeSourceRowsFromSources(
         selectedTrackIds,
       );
       if (childRows.length === 0) return;
-      // Compute the unique set of trackIds/attributes in the children;
+      // Compute the unique set of trackIds in the children.
       const data = uniq(childRows.flatMap((child) => child.data));
       // Add a row for the group itself
       rows.push({
@@ -74,7 +74,6 @@ export function computeSourceRowsFromSources(
             instanceId: sourceTrack.instanceId,
             trackId: sourceTrack.trackId,
             animatableId: sourceTrack.animatableId,
-            attribute: sourceTrack.attribute,
           },
         ],
       });

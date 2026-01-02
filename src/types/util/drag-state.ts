@@ -59,8 +59,6 @@ export interface DragAnchorRef {
   kind?: "marker" | "handle-in" | "handle-out";
   /** Neighbor keypoint id used for handle context. */
   neighborKeypointId?: string;
-  /** Attribute path for complex values. */
-  attributePath?: string[];
   /** Optional vertical/value scale for the drag. */
   valueScale?: ValueScale;
 }
@@ -145,7 +143,6 @@ export interface DragState {
     endValue: number;
     /** Control point world position at drag start. */
     controlPoint: WorldCP;
-    attributePath?: string[];
     valueScale?: ValueScale;
     basePairing?: TransitionPairing;
     canonicalLengths?: { in?: number; out?: number };
@@ -201,8 +198,6 @@ export interface HandleDragStartInput {
   trackId: string;
   keypointId: string;
   neighborKeypointId: string;
-  /** Attribute path for complex values. */
-  attributePath?: string[];
   /** Optional value scale supplied by UI. */
   valueScale?: ValueScale;
   /** Control point world position at drag start. */

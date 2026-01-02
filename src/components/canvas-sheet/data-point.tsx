@@ -184,14 +184,35 @@ export const DataPoint = memo(function DataPoint({
   });
   const dragState = useAnimationStore(useShallow((state) => state.dragState));
   const includesDraggedTrack = useMemo(() => {
-    if (!dragState || !selectionState?.keypoints) return false;
-    const set = new Set<string>();
-    (points ?? []).forEach((p) => set.add(p.trackId));
-    for (const id of set) {
-      if (selectionState.keypoints.has(id)) return true;
+    if (!selectionState?.keypoints && !dragState) return false;
+    const selectedTrackIds = new Set<string>();
+    const register = (key?: string) => {
+      if (!key) return;
+      selectedTrackIds.add(key);
+      const tail = key.split("/").pop();
+      if (tail) {
+        selectedTrackIds.add(tail);
+        const base = tail.split(".")[0];
+        if (base) {
+          selectedTrackIds.add(base);
+        }
+      }
+    };
+    selectionState?.keypoints?.forEach((keypointIds, trackKey) => {
+      if (keypointIds && keypointIds.size > 0) {
+        register(trackKey);
+      }
+    });
+    register(dragState?.anchor?.trackId);
+    register(dragState?.handleAnchor?.trackId);
+
+    const frameTrackIds = new Set<string>();
+    (points ?? []).forEach((p) => frameTrackIds.add(p.trackId));
+    for (const id of frameTrackIds) {
+      if (selectedTrackIds.has(id)) return true;
     }
     return false;
-  }, [dragState, selectionState, points]);
+  }, [dragState, selectionState?.keypoints, points]);
   const isDragActive = isSpline && includesDraggedTrack;
   const numericCurrent = useMemo(() => {
     if (sourceCount !== 1) return 0;
