@@ -10,6 +10,8 @@ import {
 import type { AnimationInstance, Track, StandardTransitionType } from "../types";
 import { computeWorldStamp } from "./compute-instance-time";
 import { getWorldControlPoints } from "./get-world-control-points";
+import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
+import { coerceNumericValue } from "./segment-value-utils";
 
 const PARAMETER_SOLVE_MAX_ITERATIONS = 12;
 const PARAMETER_SOLVE_EPSILON = 1e-4;
@@ -74,6 +76,36 @@ export function computeTrackInterpolator(
     if (start.time === end.time) {
       continue;
     }
+    const startNumeric = coerceNumericValue(start.value);
+    const endNumeric = coerceNumericValue(end.value);
+    const hasNumeric = startNumeric !== undefined && endNumeric !== undefined;
+
+    if (hasNumeric) {
+      const controlPoints = resolveSegmentControlPoints({
+        start: { stamp: start.time, value: startNumeric },
+        end: { stamp: end.time, value: endNumeric },
+        transitions: {
+          startOut: start.transitions?.out,
+          endIn: end.transitions?.in,
+        },
+      });
+      const cp1 = controlPoints.cp1Effective ?? controlPoints.cp1Raw;
+      const cp2 = controlPoints.cp2Effective ?? controlPoints.cp2Raw;
+      if (cp1 && cp2) {
+        segments.push({
+          startTime: start.time,
+          endTime: end.time,
+          cp1Time: cp1.x,
+          cp2Time: cp2.x,
+          startValue: start.value,
+          cp1Value: cp1.y,
+          cp2Value: cp2.y,
+          endValue: end.value,
+        });
+        continue;
+      }
+    }
+
     const { start: cp1World, end: cp2World } = getWorldControlPoints(
       start.time,
       end.time,

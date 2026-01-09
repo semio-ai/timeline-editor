@@ -1,12 +1,10 @@
 import { describe, expect, it, afterEach, beforeEach } from "vitest";
 import { createTestAnimationStore, TRACK_IDS } from "../test-fixtures/animation-store-factory";
 import { TrackRender } from "../types";
-import { buildDerivedSnapshot } from "../functions";
+import { buildDerivedSnapshot, materializeSegmentSample } from "../functions";
 import { flushMicrotasks } from "./utils/flush-microtasks";
 
 describe("transition view params from store data", () => {
-  const widthStartId = "w0";
-  const widthEndId = "w1";
   let store: ReturnType<typeof createTestAnimationStore>;
   let cleanup: (() => void) | undefined;
 
@@ -21,7 +19,7 @@ describe("transition view params from store data", () => {
     cleanup = undefined;
   });
 
-  it("emits curved transition params (normalized) for width segment w0→w1", () => {
+  it("emits normalized transition samples for the opacity segment o1→o2", () => {
     const state = store.getState();
     const derived = buildDerivedSnapshot({
       tracks: state.tracks,
@@ -33,33 +31,50 @@ describe("transition view params from store data", () => {
       selectionState: state.selectionState,
     });
 
-    const widthRowEntry = Object.values(derived.rows).find((row) =>
-      row.trackKeys?.some((key) => key.endsWith(`/${TRACK_IDS.WIDTH}`)),
+    const opacityRowEntry = Object.values(derived.rows).find((row) =>
+      row.trackKeys?.some((key) => key.endsWith(`/${TRACK_IDS.OPACITY}`)),
     );
-    if (!widthRowEntry) {
+    if (!opacityRowEntry) {
       throw new Error(`Row not found; rows: ${Object.keys(derived.rows).join(",")}`);
     }
-    const row = widthRowEntry.computed;
+    const row = opacityRowEntry.computed;
 
-    const segment = row?.interpolations.find(
-      (seg) => seg.start.id === widthStartId && seg.end.id === widthEndId,
+    const segment = row?.render?.segments?.find(
+      (seg) =>
+        seg.trackId === TRACK_IDS.OPACITY &&
+        seg.startKeypointId === "o1" &&
+        seg.endKeypointId === "o2",
     );
     expect(segment).toBeTruthy();
-    if (!segment?.start.points?.length || !segment?.end.points?.length) {
-      throw new Error(
-        `Segment lacks points: start=${JSON.stringify(segment?.start)}, end=${JSON.stringify(segment?.end)}`,
-      );
+    const sample = segment?.samples?.[TrackRender.Transition];
+    if (!segment || !sample) {
+      throw new Error("Expected a transition sample for the opacity segment");
+    }
+    const resolved = materializeSegmentSample(sample, derived.renderSampleCache);
+    if (!resolved) {
+      throw new Error("Expected a resolved sample for the opacity segment");
     }
 
-    const params = segment?.geometry?.effective?.renderParams?.[TrackRender.Transition];
-    expect(params).toBeTruthy();
+    const points = resolved.points;
+    const stride = resolved.stride;
+    const count = Math.floor(points.length / stride);
+    if (count < 2) {
+      throw new Error("Opacity segment sample is missing points");
+    }
 
-    // In transition view, x is stamp space, y normalized 0→1.
-    expect(params?.start).toEqual({ x: 0, y: 0 });
-    expect(params?.end).toEqual({ x: 0.3, y: 1 });
-    expect(params?.cp1.x ?? 0).toBeCloseTo(0.135, 3);
-    expect(params?.cp2.x ?? 0).toBeCloseTo(0.105, 3);
-    expect(params?.cp1.y ?? 0).toBeCloseTo(0.15, 2);
-    expect(params?.cp2.y ?? 0).toBeCloseTo(0.85, 2);
+    const firstY = points[1];
+    const lastY = points[(count - 1) * stride + 1];
+    let minY = Number.POSITIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < count; i += 1) {
+      const y = points[i * stride + 1];
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
+
+    // Transition samples are normalized 0→1 even when the value delta is zero.
+    expect(firstY).toBeCloseTo(0, 6);
+    expect(lastY).toBeCloseTo(1, 6);
+    expect(maxY - minY).toBeGreaterThan(0.5);
   });
 });

@@ -78,7 +78,7 @@ describe("global row opacity drag projection", () => {
     expect(duringRow).toBeDefined();
     const framesWithO1 =
       duringRow?.virtualFrames.filter((frame) =>
-        frame.points.some((point) => point.id === opacityPoint.id && point.trackId === trackKey),
+        frame.points.some((point) => point.id === opacityPoint.id && point.trackId === baseTrackId),
       ) ?? [];
     expect(framesWithO1.length).toBe(1);
     expect(framesWithO1[0].stamp).toBeCloseTo(expectedStamp!, 5);

@@ -6,10 +6,9 @@ import { useMotionValueEvent, useSpring } from "motion/react";
 import { Theme } from "@semio/ui";
 import type { RawVector2 } from "@semio/utils";
 import {
-  InstancePair,
-  InstancedFrameInfo,
   LayerBand,
-  StandardTransitionType,
+  RenderHandle,
+  RenderMarker,
   TrackRender,
   TransitionHandleKind,
   TransitionPairing,
@@ -31,6 +30,22 @@ interface HandlePoint {
   marker: [number, number, number];
 }
 
+interface RenderHandleView {
+  id: string;
+  side: "out" | "in";
+  rawWorld: WorldCP;
+  anchorId: string;
+  neighborId: string;
+  pairedDelta?: RawVector2;
+  anchor: [number, number, number];
+  raw: HandlePoint;
+  effective?: HandlePoint;
+  hasEffectiveGap: boolean;
+  isFallback: boolean;
+  pairing?: TransitionPairing;
+  interaction?: HandleInteractionProps;
+}
+
 interface HandleInteractionProps {
   side: "in" | "out";
   rowId: string;
@@ -39,6 +54,7 @@ interface HandleInteractionProps {
   neighborKeypointId: string;
   controlPoint: WorldCP;
   pairedDelta?: RawVector2;
+  xInverse?: (stamp: number) => number;
   viewScaleX?: number;
   viewScaleY?: number;
   startStamp: number;
@@ -55,18 +71,20 @@ interface HandleInteractionProps {
 }
 
 interface BezierHandlesProps {
-  segment: InstancePair;
+  handles: RenderHandle[];
+  markers: RenderMarker[];
   height: number;
   verticalBounds: { min: number; max: number };
   verticalAxisRange?: VerticalAxisRange;
   color: string;
   layer: LayerBand;
   rowId: string;
-  trackId?: string;
   isHighlighted?: boolean;
   appearance?: number;
   theme?: Theme.Light | Theme.Dark;
-  handleLookup?: Map<string, { in?: RawVector2; out?: RawVector2 }>;
+  xTransform?: (stamp: number) => number;
+  xInverse?: (stamp: number) => number;
+  xScale?: number;
 }
 
 const RAW_RADIUS_PX = 4;
@@ -119,18 +137,20 @@ const debugHandles = (label: string, payload: Record<string, unknown>): void => 
 };
 
 export const BezierHandles = memo(function BezierHandles({
-  segment,
+  handles,
+  markers,
   height,
   verticalBounds,
   verticalAxisRange,
   color,
   layer,
   rowId,
-  trackId,
   isHighlighted = false,
   appearance = 1,
   theme = Theme.Light,
-  handleLookup,
+  xTransform,
+  xInverse,
+  xScale,
 }: BezierHandlesProps) {
   const startHandleDragAction = useAnimationStore((state) => state.startHandleDrag);
   const updateHandleDragAction = useAnimationStore((state) => state.updateHandleDrag);
@@ -138,20 +158,34 @@ export const BezierHandles = memo(function BezierHandles({
   const cancelDragAction = useAnimationStore((state) => state.cancelDrag);
   const { camera, size } = useThree();
 
-  const resolvedTrackId = useMemo(
-    () =>
-      trackId ?? segment.start.points[0]?.trackId ?? segment.end.points[0]?.trackId ?? undefined,
-    [segment.end.points, segment.start.points, trackId],
-  );
+  const markerLookup = useMemo(() => {
+    const lookup = new Map<string, RenderMarker>();
+    markers.forEach((marker) => {
+      lookup.set(buildMarkerKey(marker.trackKey, marker.id), marker);
+    });
+    return lookup;
+  }, [markers]);
 
-  const startValue = useMemo(
-    () => getFrameNumericValue(segment.start, resolvedTrackId),
-    [resolvedTrackId, segment.start],
-  );
-  const endValue = useMemo(
-    () => getFrameNumericValue(segment.end, resolvedTrackId),
-    [resolvedTrackId, segment.end],
-  );
+  const handleLookup = useMemo(() => {
+    const lookup = new Map<string, { in?: RawVector2; out?: RawVector2 }>();
+    handles.forEach((handle) => {
+      const marker = markerLookup.get(buildMarkerKey(handle.trackKey, handle.keypointId));
+      if (!marker) return;
+      const delta: RawVector2 = {
+        x: handle.world.x - marker.stamp,
+        y: handle.world.y - marker.value,
+      };
+      const key = buildMarkerKey(handle.trackKey, handle.keypointId);
+      const entry = lookup.get(key) ?? {};
+      if (handle.side === "in") {
+        entry.in = delta;
+      } else {
+        entry.out = delta;
+      }
+      lookup.set(key, entry);
+    });
+    return lookup;
+  }, [handles, markerLookup]);
 
   const pixelRangeY = useMemo(() => {
     const visualScale = verticalAxisRange?.visualScale ?? 1;
@@ -167,8 +201,6 @@ export const BezierHandles = memo(function BezierHandles({
     [verticalBounds.max, verticalBounds.min],
   );
 
-  const geometry = segment.geometry;
-
   const backgroundColor = theme === Theme.Dark ? "#050505" : "#F7F7F7";
 
   const { renderScaleY, splineRange } = computeRenderScale({
@@ -177,6 +209,10 @@ export const BezierHandles = memo(function BezierHandles({
     verticalBounds,
     verticalAxisRange,
   });
+  const effectiveXScale = useMemo(
+    () => (Number.isFinite(xScale) && xScale !== 0 ? xScale : 1),
+    [xScale],
+  );
   const viewScaleX = (() => {
     const ortho = camera as OrthographicCamera;
     const span = ortho.right - ortho.left;
@@ -185,6 +221,7 @@ export const BezierHandles = memo(function BezierHandles({
     }
     return size.width / span;
   })();
+  const localViewScaleX = viewScaleX * (effectiveXScale ?? 1);
   const viewScaleY = useMemo(() => {
     const domainSpan = verticalBounds.max - verticalBounds.min;
     if (!Number.isFinite(domainSpan) || domainSpan === 0) {
@@ -198,83 +235,82 @@ export const BezierHandles = memo(function BezierHandles({
   const rawHandleDepth = zBase - ROW_DEPTH_EPSILON * 0.1;
   const effectiveHandleDepth = zBase - ROW_DEPTH_EPSILON * 0.08;
 
-  const memoizedHandles = useMemo(() => {
-    if (!geometry || segment.buffer) {
-      return { handles: [], connectorOpacity: 0, gapOpacity: 0 };
-    }
-    const rawRenderParams = geometry.raw?.renderParams?.[TrackRender.Spline];
-    const effectiveRenderParams =
-      geometry.effective?.renderParams?.[TrackRender.Spline] ?? rawRenderParams;
-
-    const startOutHandle = geometry.raw?.handles?.startOut;
-    const endInHandle = geometry.raw?.handles?.endIn;
-    const cp1Raw = startOutHandle?.world ?? geometry.raw?.controlPoints?.cp1;
-    const cp1Effective =
-      geometry.effective?.handles?.startOut?.world ?? geometry.effective?.controlPoints?.cp1;
-    const cp2Raw = endInHandle?.world ?? geometry.raw?.controlPoints?.cp2;
-    const cp2Effective =
-      geometry.effective?.handles?.endIn?.world ?? geometry.effective?.controlPoints?.cp2;
-    const startOutKind = startOutHandle?.kind;
-    const endInKind = endInHandle?.kind;
-
-    const startAnchor = resolveAnchorPoint(
-      segment.start,
-      effectiveRenderParams?.start,
-      renderScaleY,
-      connectorDepth,
-    );
-    const endAnchor = resolveAnchorPoint(
-      segment.end,
-      effectiveRenderParams?.end,
-      renderScaleY,
-      connectorDepth,
-    );
-    if (!startAnchor || !endAnchor) {
+  const memoizedHandles = useMemo<{
+    handles: RenderHandleView[];
+    connectorOpacity: number;
+    gapOpacity: number;
+  }>(() => {
+    if (handles.length === 0) {
       return { handles: [], connectorOpacity: 0, gapOpacity: 0 };
     }
 
-    const startPairing = resolveHandlePairing(segment.start.transitions);
-    const endPairing = resolveHandlePairing(segment.end.transitions);
-    const startPoint = getFramePoint(segment.start, resolvedTrackId);
-    const endPoint = getFramePoint(segment.end, resolvedTrackId);
-    const startAnchorId = startPoint?.id ?? segment.start.id;
-    const endAnchorId = endPoint?.id ?? segment.end.id;
-    const startPairedDelta = handleLookup?.get(startAnchorId)?.in;
-    const endPairedDelta = handleLookup?.get(endAnchorId)?.out;
-    const built = [
-      {
-        id: `${segment.start.id}-out`,
-        side: "out" as const,
-        rawWorld: cp1Raw,
-        anchorId: startAnchorId,
-        neighborId: endAnchorId,
-        pairedDelta: startPairedDelta,
-        anchor: startAnchor.line,
-        raw: mapHandlePoint(cp1Raw, renderScaleY, connectorDepth, rawHandleDepth),
-        effective: mapHandlePoint(cp1Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
-        hasEffectiveGap: hasWorldPointGap(cp1Raw, cp1Effective),
-        isFallback: startOutKind !== TransitionHandleKind.Explicit,
-        pairing: startPairing,
-        interaction:
-          resolvedTrackId &&
+    const built = handles
+      .map((handle): RenderHandleView | null => {
+        const anchorMarker = markerLookup.get(buildMarkerKey(handle.trackKey, handle.keypointId));
+        if (!anchorMarker) {
+          return null;
+        }
+        const neighborMarker = handle.neighborKeypointId
+          ? markerLookup.get(buildMarkerKey(handle.trackKey, handle.neighborKeypointId))
+          : undefined;
+
+        const anchor = resolveAnchorPoint(anchorMarker, renderScaleY, connectorDepth, xTransform);
+        if (!anchor) {
+          return null;
+        }
+
+        const raw = mapHandlePoint(
+          handle.world,
+          renderScaleY,
+          connectorDepth,
+          rawHandleDepth,
+          xTransform,
+        );
+        if (!raw) {
+          return null;
+        }
+        const effective = handle.effective
+          ? mapHandlePoint(
+              handle.effective,
+              renderScaleY,
+              connectorDepth,
+              effectiveHandleDepth,
+              xTransform,
+            )
+          : undefined;
+
+        const lookupKey = buildMarkerKey(handle.trackKey, handle.keypointId);
+        const lookupEntry = handleLookup.get(lookupKey);
+        const pairedDelta = handle.side === "out" ? lookupEntry?.in : lookupEntry?.out;
+
+        const startMarker = handle.side === "out" ? anchorMarker : neighborMarker;
+        const endMarker = handle.side === "out" ? neighborMarker : anchorMarker;
+        const startStamp = startMarker?.stamp;
+        const endStamp = endMarker?.stamp;
+        const startValue = startMarker?.value;
+        const endValue = endMarker?.value;
+
+        const interaction =
+          startStamp !== undefined &&
+          endStamp !== undefined &&
           typeof startValue === "number" &&
-          typeof endValue === "number" &&
-          cp1Raw
+          typeof endValue === "number"
             ? {
-                side: "out",
+                side: handle.side,
                 rowId,
-                trackId: resolvedTrackId,
-                keypointId: startAnchorId,
-                neighborKeypointId: endAnchorId,
-                controlPoint: cp1Raw,
-                pairedDelta: startPairedDelta,
-                viewScaleX,
+                trackId: handle.trackId,
+                keypointId: handle.keypointId,
+                neighborKeypointId: handle.neighborKeypointId ?? handle.keypointId,
+                controlPoint: handle.world,
+                pairedDelta,
+                xInverse,
+                viewScaleX: localViewScaleX,
                 viewScaleY,
-                startStamp: segment.start.stamp,
-                endStamp: segment.end.stamp,
+                startStamp,
+                endStamp,
                 startValue,
                 endValue,
-                basePairing: startPairing,
+                basePairing: handle.pairing,
                 valueScale: resolvedValueScale,
                 pixelRangeY,
                 startHandleDrag: startHandleDragAction,
@@ -282,65 +318,29 @@ export const BezierHandles = memo(function BezierHandles({
                 commitDrag: commitDragAction,
                 cancelDrag: cancelDragAction,
               }
-            : undefined,
-      },
-      {
-        id: `${segment.end.id}-in`,
-        side: "in" as const,
-        rawWorld: cp2Raw,
-        anchorId: endAnchorId,
-        neighborId: startAnchorId,
-        pairedDelta: endPairedDelta,
-        anchor: endAnchor.line,
-        raw: mapHandlePoint(cp2Raw, renderScaleY, connectorDepth, rawHandleDepth),
-        effective: mapHandlePoint(cp2Effective, renderScaleY, connectorDepth, effectiveHandleDepth),
-        hasEffectiveGap: hasWorldPointGap(cp2Raw, cp2Effective),
-        isFallback: endInKind !== TransitionHandleKind.Explicit,
-        pairing: endPairing,
-        interaction:
-          resolvedTrackId &&
-          typeof startValue === "number" &&
-          typeof endValue === "number" &&
-          cp2Raw
-            ? {
-                side: "in",
-                rowId,
-                trackId: resolvedTrackId,
-                keypointId: endAnchorId,
-                neighborKeypointId: startAnchorId,
-                controlPoint: cp2Raw,
-                pairedDelta: endPairedDelta,
-                viewScaleX,
-                viewScaleY,
-                startStamp: segment.start.stamp,
-                endStamp: segment.end.stamp,
-                startValue,
-                endValue,
-                basePairing: endPairing,
-                valueScale: resolvedValueScale,
-                pixelRangeY,
-                startHandleDrag: startHandleDragAction,
-                updateHandleDrag: updateHandleDragAction,
-                commitDrag: commitDragAction,
-                cancelDrag: cancelDragAction,
-              }
-            : undefined,
-      },
-    ].filter((handle) => handle.raw && handle.rawWorld) as {
-      id: string;
-      side: "out" | "in";
-      rawWorld: WorldCP;
-      anchorId: string;
-      neighborId: string;
-      pairedDelta?: RawVector2;
-      anchor: [number, number, number];
-      raw: HandlePoint;
-      effective?: HandlePoint;
-      hasEffectiveGap: boolean;
-      isFallback: boolean;
-      pairing?: TransitionPairing;
-      interaction?: HandleInteractionProps;
-    }[];
+            : undefined;
+
+        return {
+          id: handle.id,
+          side: handle.side,
+          rawWorld: handle.world,
+          anchorId: handle.keypointId,
+          neighborId: handle.neighborKeypointId ?? handle.keypointId,
+          pairedDelta,
+          anchor: anchor.line,
+          raw,
+          effective,
+          hasEffectiveGap: hasWorldPointGap(handle.world, handle.effective),
+          isFallback: handle.kind !== TransitionHandleKind.Explicit,
+          pairing: handle.pairing,
+          interaction,
+        };
+      })
+      .filter((handle): handle is RenderHandleView => Boolean(handle));
+
+    if (built.length === 0) {
+      return { handles: [], connectorOpacity: 0, gapOpacity: 0 };
+    }
 
     const connectorOpacityBase = isHighlighted ? 0.95 : 0.65;
     const connectorOpacity = connectorOpacityBase * appearance;
@@ -349,40 +349,37 @@ export const BezierHandles = memo(function BezierHandles({
 
     return { handles: built, connectorOpacity, gapOpacity };
   }, [
+    handles,
+    markerLookup,
+    handleLookup,
     rowId,
     appearance,
     connectorDepth,
     effectiveHandleDepth,
-    geometry,
     isHighlighted,
-    segment.buffer,
     renderScaleY,
-    segment.end,
-    segment.start,
     rawHandleDepth,
-    resolvedTrackId,
     resolvedValueScale,
     pixelRangeY,
     startHandleDragAction,
     updateHandleDragAction,
     commitDragAction,
     cancelDragAction,
-    startValue,
-    endValue,
-    handleLookup,
-    viewScaleX,
+    localViewScaleX,
     viewScaleY,
+    xTransform,
+    xInverse,
   ]);
 
-  const handles = memoizedHandles.handles;
+  const renderedHandles: RenderHandleView[] = memoizedHandles.handles;
   const connectorOpacity = memoizedHandles.connectorOpacity;
   const gapOpacity = memoizedHandles.gapOpacity;
 
-  if (!geometry || segment.buffer || handles.length === 0) return null;
+  if (renderedHandles.length === 0) return null;
 
   return (
     <group>
-      {handles.map((handle) => {
+      {renderedHandles.map((handle) => {
         const animatedRaw = animateHandlePoint(handle.anchor, handle.raw, appearance);
         const animatedEffective = handle.effective
           ? animateHandlePoint(handle.anchor, handle.effective, appearance)
@@ -392,34 +389,6 @@ export const BezierHandles = memo(function BezierHandles({
           handle.pairing === TransitionPairing.Paired
             ? 0
             : resolveHandleOrientation(handle.anchor, animatedRaw.marker, camera as Camera, size);
-        const interaction =
-          resolvedTrackId &&
-          typeof startValue === "number" &&
-          typeof endValue === "number" &&
-          handle.rawWorld
-            ? {
-                side: handle.side,
-                rowId,
-                trackId: resolvedTrackId,
-                keypointId: handle.anchorId,
-                neighborKeypointId: handle.neighborId,
-                controlPoint: handle.rawWorld,
-                pairedDelta: handle.pairedDelta,
-                viewScaleX,
-                viewScaleY,
-                startStamp: segment.start.stamp,
-                endStamp: segment.end.stamp,
-                startValue,
-                endValue,
-                basePairing: handle.pairing,
-                valueScale: resolvedValueScale, // clamp disabled; provides range for deltas
-                pixelRangeY,
-                startHandleDrag: startHandleDragAction,
-                updateHandleDrag: updateHandleDragAction,
-                commitDrag: commitDragAction,
-                cancelDrag: cancelDragAction,
-              }
-            : undefined;
         return (
           <HandleGroup
             key={handle.id}
@@ -433,7 +402,7 @@ export const BezierHandles = memo(function BezierHandles({
             color={color}
             backgroundColor={backgroundColor}
             appearance={appearance}
-            interaction={interaction}
+            interaction={handle.interaction}
           />
         );
       })}
@@ -446,99 +415,31 @@ function mapHandlePoint(
   scaleY: (value: number) => number,
   lineDepth: number,
   markerDepth: number,
+  xTransform?: (stamp: number) => number,
 ): HandlePoint | undefined {
   if (!cp) return undefined;
+  const x = typeof xTransform === "function" ? xTransform(cp.x) : cp.x;
   const scaledY = scaleY(cp.y);
   return {
-    line: [cp.x, scaledY, lineDepth],
-    marker: [cp.x, scaledY, markerDepth],
+    line: [x, scaledY, lineDepth],
+    marker: [x, scaledY, markerDepth],
   };
 }
 
+function buildMarkerKey(trackKey: string, markerId: string): string {
+  return `${trackKey}#${markerId}`;
+}
+
 function resolveAnchorPoint(
-  frame: InstancedFrameInfo,
-  params: { x: number; y: number } | undefined,
+  marker: RenderMarker,
   scaleY: (value: number) => number,
   depth: number,
-): HandlePoint | undefined {
-  const fallbackValue = extractFrameValue(frame);
-  if (fallbackValue === undefined && !params) return undefined;
-  const x = params?.x ?? frame.stamp;
-  const yValue = params?.y ?? fallbackValue ?? 0;
-  const y = scaleY(yValue);
+  xTransform?: (stamp: number) => number,
+): HandlePoint {
+  const y = scaleY(marker.value);
+  const x = typeof xTransform === "function" ? xTransform(marker.stamp) : marker.stamp;
   const point: [number, number, number] = [x, y, depth];
   return { line: point, marker: point };
-}
-
-function extractFrameValue(frame: InstancedFrameInfo): number | undefined {
-  const firstPoint = frame.points[0];
-  return typeof firstPoint?.value === "number" ? (firstPoint.value as number) : undefined;
-}
-
-function getFrameNumericValue(frame: InstancedFrameInfo, trackId?: string): number | undefined {
-  if (trackId) {
-    const match = frame.points.find((point) => point.trackId === trackId);
-    if (match && typeof match.value === "number") {
-      return match.value as number;
-    }
-  }
-  const fallback = frame.points.find((point) => typeof point.value === "number");
-  return typeof fallback?.value === "number" ? (fallback.value as number) : undefined;
-}
-
-function getFramePoint(frame: InstancedFrameInfo, trackId?: string) {
-  if (trackId) {
-    const match = frame.points.find((point) => point.trackId === trackId);
-    if (match) {
-      return match;
-    }
-  }
-  return frame.points[0];
-}
-
-function resolveHandlePairing(
-  transitions?: InstancedFrameInfo["transitions"],
-): TransitionPairing | undefined {
-  if (!transitions) return undefined;
-  if (transitions.pairing) return transitions.pairing;
-  return inferPairingFromHandles(transitions.in, transitions.out);
-}
-
-function inferPairingFromHandles(
-  inHandle?: RawVector2 | StandardTransitionType,
-  outHandle?: RawVector2 | StandardTransitionType,
-): TransitionPairing | undefined {
-  const inVector = extractVector(inHandle);
-  const outVector = extractVector(outHandle);
-  if (!inVector || !outVector) {
-    return undefined;
-  }
-
-  const inMagnitude = Math.hypot(inVector.x, inVector.y);
-  const outMagnitude = Math.hypot(outVector.x, outVector.y);
-  if (inMagnitude === 0 || outMagnitude === 0) {
-    return undefined;
-  }
-
-  const dot = clampToUnitInterval(
-    (inVector.x * outVector.x + inVector.y * outVector.y) / (inMagnitude * outMagnitude),
-  );
-  const angle = Math.acos(dot);
-  if (Math.abs(Math.PI - angle) <= PAIRING_FLAT_TOLERANCE_RAD) {
-    return TransitionPairing.Paired;
-  }
-  return TransitionPairing.Free;
-}
-
-function extractVector(handle?: RawVector2 | StandardTransitionType): RawVector2 | undefined {
-  if (handle && typeof handle === "object") {
-    return handle;
-  }
-  return undefined;
-}
-
-function clampToUnitInterval(value: number): number {
-  return Math.max(-1, Math.min(1, value));
 }
 
 function resolveHandleOrientation(
@@ -643,10 +544,8 @@ const HandleDot = memo(function HandleDot({
   appearance,
   interaction,
 }: HandleDotProps) {
-  const { gl, camera, size } = useThree((state) => ({
+  const { gl } = useThree((state) => ({
     gl: state.gl,
-    camera: state.camera,
-    size: state.size,
   }));
   const scaleRef = useRef<Group>(null);
   const markerRef = useRef<Mesh>(null);
@@ -683,15 +582,10 @@ const HandleDot = memo(function HandleDot({
       setDragging(true);
       setDragWeight(1);
       dragSpring.set(1);
-      const viewScaleX = (() => {
-        const ortho = camera as OrthographicCamera;
-        const span = ortho.right - ortho.left;
-        if (!Number.isFinite(span) || span === 0 || size.width === 0) {
-          return interaction.viewScaleX ?? 1;
-        }
-        return size.width / span;
-      })();
+      const viewScaleX = interaction.viewScaleX ?? 1;
       const viewScaleY = interaction.viewScaleY ?? 1;
+      const originX =
+        typeof interaction.xInverse === "function" ? interaction.xInverse(positionX) : positionX;
       pairingBaselineRef.current = interaction.pairedDelta
         ? {
             pairedDelta: interaction.pairedDelta,
@@ -719,7 +613,7 @@ const HandleDot = memo(function HandleDot({
         pairedLengthView: pairingBaselineRef.current?.pairedLengthView,
       });
       interaction.startHandleDrag({
-        origin: { x: positionX, y: interaction.controlPoint.y },
+        origin: { x: originX, y: interaction.controlPoint.y },
         side: interaction.side,
         rowId: interaction.rowId,
         trackId: interaction.trackId,
@@ -737,7 +631,11 @@ const HandleDot = memo(function HandleDot({
     onDrag2D: ({ x, normalizedValueDelta, alt, shift, meta }) => {
       if (!interaction) return;
       dragDidMoveRef.current = true;
-      const pointerX = typeof x === "number" ? x : interaction.controlPoint.x;
+      const pointerXWorld = typeof x === "number" ? x : interaction.controlPoint.x;
+      const pointerX =
+        typeof interaction.xInverse === "function"
+          ? interaction.xInverse(pointerXWorld)
+          : pointerXWorld;
       const range = computeVerticalRange(interaction.valueScale);
       const deltaY = (normalizedValueDelta ?? 0) * range;
       const dragBase = dragBaseRef.current;
@@ -764,14 +662,7 @@ const HandleDot = memo(function HandleDot({
         y: nextY - anchorValue,
       };
 
-      const viewScaleX = (() => {
-        const ortho = camera as OrthographicCamera;
-        const span = ortho.right - ortho.left;
-        if (!Number.isFinite(span) || span === 0 || size.width === 0) {
-          return interaction.viewScaleX ?? 1;
-        }
-        return size.width / span;
-      })();
+      const viewScaleX = interaction.viewScaleX ?? 1;
       const viewScaleY = interaction.viewScaleY ?? 1;
       const draggedView = toViewVector(draggedDelta, viewScaleX, viewScaleY);
       const draggedViewLen = Math.hypot(draggedView.x, draggedView.y);

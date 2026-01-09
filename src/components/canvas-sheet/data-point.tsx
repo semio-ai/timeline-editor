@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, memo, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, memo, useState, useCallback } from "react";
 import { useShallow } from "zustand/shallow";
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { Instance, Line, PositionMesh, useCursor } from "@react-three/drei";
@@ -6,7 +6,8 @@ import * as THREE from "three";
 import { RawValue, usePlayerStore, closestFrame } from "@semio/utils";
 import { Theme } from "@semio/ui";
 import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
-import { SourceRowData, TrackRender, LayerBand, VerticalAxisRange } from "../../types";
+import type { MotionValue } from "motion";
+import { RenderMarker, TrackRender, LayerBand, VerticalAxisRange } from "../../types";
 import {
   useAnimationStore,
   useColors,
@@ -30,6 +31,8 @@ export interface DataPointProps {
   trackRender?: TrackRender;
   verticalBounds?: { min: number; max: number };
   verticalAxisRange?: VerticalAxisRange;
+  renderMorphProgress?: MotionValue<number>;
+  xTransform?: (stamp: number) => number;
 }
 
 export const DataPoint = memo(function DataPoint({
@@ -40,18 +43,62 @@ export const DataPoint = memo(function DataPoint({
   height = 36,
   verticalBounds = { min: -18, max: 18 },
   verticalAxisRange,
+  renderMorphProgress,
+  xTransform,
 }: DataPointProps) {
   // Get fresh data from store
   const data = useAnimationStore(
     useShallow((state) => {
       const computed = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
-      return computed?.virtualFrames.find((f) => f.id === markerId);
+      return {
+        selectionFrame: computed?.selection?.find((f) => f.id === markerId),
+        markers: computed?.render?.markers ?? [],
+      };
     }),
   );
-  const { stamp, points } = data ?? {
-    stamp: 0,
-    points: [] as (SourceRowData & { id: string; value: RawValue })[],
-  };
+  const selectionPoints = useMemo(
+    () => (data?.selectionFrame?.points ?? []).filter((point) => point.selectable ?? true),
+    [data?.selectionFrame],
+  );
+  const markerLookup = useMemo(() => {
+    const lookup = new Map<string, RenderMarker>();
+    data?.markers?.forEach((marker) => {
+      lookup.set(`${marker.trackKey}#${marker.id}`, marker);
+    });
+    return lookup;
+  }, [data?.markers]);
+
+  const points = useMemo(() => {
+    if (!data?.selectionFrame) return [];
+    return data.selectionFrame.points
+      .map((point) => {
+        const marker = markerLookup.get(`${point.trackKey}#${point.markerId}`);
+        if (!marker) return null;
+        const valueType =
+          marker.valueType ?? (typeof marker.value as "number" | "string" | "boolean");
+        return {
+          id: marker.id,
+          trackId: marker.trackId,
+          namespaceId: marker.namespaceId,
+          instanceId: marker.instanceId,
+          animationId: marker.animationId,
+          animatableId: marker.animatableId,
+          iconCode: marker.iconCode,
+          editable: marker.editable,
+          selectable: marker.selectable,
+          layerBand: marker.layerBand ?? LayerBand.Background,
+          type: valueType,
+          value: marker.value as RawValue,
+        };
+      })
+      .filter((point): point is NonNullable<typeof point> => Boolean(point));
+  }, [data?.selectionFrame, markerLookup]);
+
+  const stamp = data?.selectionFrame?.stamp ?? 0;
+  const renderStamp = useMemo(
+    () => (typeof xTransform === "function" ? xTransform(stamp) : stamp),
+    [stamp, xTransform],
+  );
 
   const sourceCount = points.length;
   const instanceRefFg = useRef<PositionMesh>(null);
@@ -168,7 +215,7 @@ export const DataPoint = memo(function DataPoint({
 
   const rawInitial: number = useMemo(() => {
     if (sourceCount !== 1) return 0;
-    if (points[0].type !== "number") return 0;
+    if (!points[0] || (points[0].type !== "number" && points[0].type !== "boolean")) return 0;
     if (points.length !== 1) return 0;
     const point = points[0];
     if (typeof point.value !== "number") return 0;
@@ -178,59 +225,34 @@ export const DataPoint = memo(function DataPoint({
 
   const initialValue = linearScale(rawInitial);
 
-  const yPosition = useSpring(trackRender === TrackRender.Spline ? initialValue : 0, {
-    stiffness: 300,
-    damping: 30,
-  });
-  const dragState = useAnimationStore(useShallow((state) => state.dragState));
-  const includesDraggedTrack = useMemo(() => {
-    if (!selectionState?.keypoints && !dragState) return false;
-    const selectedTrackIds = new Set<string>();
-    const register = (key?: string) => {
-      if (!key) return;
-      selectedTrackIds.add(key);
-      const tail = key.split("/").pop();
-      if (tail) {
-        selectedTrackIds.add(tail);
-        const base = tail.split(".")[0];
-        if (base) {
-          selectedTrackIds.add(base);
-        }
-      }
-    };
-    selectionState?.keypoints?.forEach((keypointIds, trackKey) => {
-      if (keypointIds && keypointIds.size > 0) {
-        register(trackKey);
-      }
-    });
-    register(dragState?.anchor?.trackId);
-    register(dragState?.handleAnchor?.trackId);
-
-    const frameTrackIds = new Set<string>();
-    (points ?? []).forEach((p) => frameTrackIds.add(p.trackId));
-    for (const id of frameTrackIds) {
-      if (selectedTrackIds.has(id)) return true;
-    }
-    return false;
-  }, [dragState, selectionState?.keypoints, points]);
-  const isDragActive = isSpline && includesDraggedTrack;
-  const numericCurrent = useMemo(() => {
-    if (sourceCount !== 1) return 0;
-    if (points[0].type !== "number") return 0;
-    const point = points[0];
-    return typeof point.value === "number" ? point.value : 0;
-  }, [sourceCount, points]);
-  const immediateY = linearScale(numericCurrent);
+  const yPosition = useMotionValue(trackRender === TrackRender.Spline ? initialValue : 0);
+  const fallbackMorphProgress = useMotionValue(1);
+  const morphProgress = renderMorphProgress ?? fallbackMorphProgress;
+  const prevRenderRef = useRef(trackRender);
+  const fromRef = useRef(yPosition.get());
+  const toRef = useRef(yPosition.get());
 
   const gl = useThree((s) => s.gl);
-  // When the _value_ or track render changes, update the spring
-  useEffect(() => {
-    if (trackRender === TrackRender.Spline) {
-      yPosition.set(initialValue);
+  // Only animate marker position when switching render modes; data changes update immediately.
+  useLayoutEffect(() => {
+    const target = trackRender === TrackRender.Spline ? initialValue : 0;
+    const renderChanged = prevRenderRef.current !== trackRender;
+    if (renderChanged) {
+      fromRef.current = yPosition.get();
+      toRef.current = target;
     } else {
-      yPosition.set(0);
+      fromRef.current = target;
+      toRef.current = target;
+      yPosition.set(target);
     }
-  }, [initialValue, yPosition, trackRender]);
+    prevRenderRef.current = trackRender;
+  }, [initialValue, trackRender, yPosition]);
+
+  useMotionValueEvent(morphProgress, "change", (progress) => {
+    const from = fromRef.current;
+    const to = toRef.current;
+    yPosition.set(from + (to - from) * progress);
+  });
 
   // Determine rendering behavior for TrackRender.Key based on point selectability
   const hasSelectedForegroundPoints = selectedPoints.length > 0;
@@ -328,9 +350,7 @@ export const DataPoint = memo(function DataPoint({
   });
 
   // Set the y position of the instances based on the yPosition spring
-  // During drag, bypass spring updates so visuals respond immediately
   useMotionValueEvent(yPosition, "change", (y) => {
-    if (isDragActive) return;
     if (instanceRefFg.current && instanceRefBg.current) {
       instanceRefFg.current.position.y = y;
       instanceRefBg.current.position.y = y;
@@ -356,7 +376,7 @@ export const DataPoint = memo(function DataPoint({
   const computeDragStamp = useCallback(
     (pointerX: number, modifierAlt: boolean) => {
       const timelinePointer = Math.min(1, Math.max(0, pointerX));
-      const anchorTimeline = dragAnchorStampRef.current ?? stamp;
+      const anchorTimeline = dragAnchorStampRef.current ?? renderStamp;
       const startPointer = dragStartPointerRef.current ?? timelinePointer;
       const raw = Math.min(1, Math.max(0, anchorTimeline + (timelinePointer - startPointer)));
       if (modifierAlt || !frameCount || frameCount <= 0) {
@@ -365,7 +385,7 @@ export const DataPoint = memo(function DataPoint({
       const snapped = Math.min(1, Math.max(0, closestFrame(raw, frameCount)));
       return { raw, snapped };
     },
-    [frameCount, stamp],
+    [frameCount, renderStamp],
   );
 
   const dragHandlers = useDragGestures({
@@ -394,9 +414,9 @@ export const DataPoint = memo(function DataPoint({
       dragDidMoveRef.current = false;
       const clampedStart = Math.min(1, Math.max(0, _position));
       dragStartPointerRef.current = clampedStart;
-      dragAnchorStampRef.current = stamp;
-      if (!isSelected) {
-        clickMarker(points, sourceRowId, markerId, false, false);
+      dragAnchorStampRef.current = renderStamp;
+      if (!isSelected && selectionPoints.length > 0) {
+        clickMarker(selectionPoints, sourceRowId, markerId, false, false);
       }
 
       startDragAction({
@@ -505,11 +525,17 @@ export const DataPoint = memo(function DataPoint({
       event.stopPropagation();
       if (playing) return;
 
-      if (points.length === 0) return;
+      if (points.length === 0 || selectionPoints.length === 0) return;
 
-      clickMarker(points, sourceRowId, markerId, event.shiftKey, event.metaKey || event.ctrlKey);
+      clickMarker(
+        selectionPoints,
+        sourceRowId,
+        markerId,
+        event.shiftKey,
+        event.metaKey || event.ctrlKey,
+      );
     },
-    [playing, points, clickMarker, sourceRowId, markerId],
+    [playing, selectionPoints, clickMarker, sourceRowId, markerId, points.length],
   );
 
   const resolvedBand = useMemo(() => {
@@ -526,7 +552,7 @@ export const DataPoint = memo(function DataPoint({
   }, [combinedForegroundPoints, backgroundPoints, hasBackgroundPoints]);
 
   // Early return if data not found
-  if (!data) return null;
+  if (!data?.selectionFrame) return null;
 
   const foregroundBand =
     resolvedBand === LayerBand.Background ? LayerBand.ForegroundUnselected : resolvedBand;
@@ -539,7 +565,7 @@ export const DataPoint = memo(function DataPoint({
     : foregroundZ + ROW_DEPTH_EPSILON * 0.4;
   let resolvedYPosition = 0;
   if (trackRender === TrackRender.Spline) {
-    resolvedYPosition = isDragActive ? immediateY : yPosition.get();
+    resolvedYPosition = yPosition.get();
   }
 
   return (
@@ -557,7 +583,7 @@ export const DataPoint = memo(function DataPoint({
         <>
           <Instance
             ref={instanceRefFg}
-            position={[stamp, resolvedYPosition, fillDepth]}
+            position={[renderStamp, resolvedYPosition, fillDepth]}
             rotation={[Math.PI / 2, 0, 0]}
             scale={[scaleX.get(), 1, 1]}
             // eslint-dissable-next-line
@@ -566,7 +592,7 @@ export const DataPoint = memo(function DataPoint({
           {/* Render a darker hexagon in the background */}
           <Instance
             ref={instanceRefBg}
-            position={[stamp, resolvedYPosition, backplateDepth]}
+            position={[renderStamp, resolvedYPosition, backplateDepth]}
             rotation={[Math.PI / 2, 0, 0]}
             scale={[scaleX.get() * bgScale.get(), 1, bgScale.get()]}
             // eslint-dissable-next-line
@@ -578,8 +604,8 @@ export const DataPoint = memo(function DataPoint({
       <Line
         ref={lineRef as any}
         points={[
-          [stamp, height / -2 + 1, lineDepth],
-          [stamp, height / 2 - 1, lineDepth],
+          [renderStamp, height / -2 + 1, lineDepth],
+          [renderStamp, height / 2 - 1, lineDepth],
         ]}
         color={lineColor}
         lineWidth={2.5}

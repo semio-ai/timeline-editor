@@ -34,7 +34,6 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
           trackKeys: [rowId],
           computed: {
             verticalBounds: { min: -100, max: 100 },
-            interpolations: [],
             violationSet: { id: rowId, violations: {}, segments: [] },
             virtualFrames: [
               {
@@ -134,7 +133,6 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
           trackKeys: [rowId],
           computed: {
             verticalBounds: { min: -100, max: 100 },
-            interpolations: [],
             violationSet: { id: rowId, violations: {}, segments: [] },
             virtualFrames: [
               {

@@ -27,18 +27,42 @@ function rowForegroundSignatures(
   if (!row) return [];
 
   const signatures = new Set<string>();
-  for (const frame of row.virtualFrames ?? []) {
-    for (const point of frame.points ?? []) {
-      if (point.instanceId !== instanceId) continue;
-      const isSelectable = point.selectable ?? true;
-      if (!isSelectable) continue;
-      if (
-        point.layerBand !== LayerBand.ForegroundSelected &&
-        point.layerBand !== LayerBand.ForegroundUnselected
-      ) {
-        continue;
+  const markers = row.render?.markers ?? [];
+  if (row.selection) {
+    if (!markers.length) return [];
+    const markerLookup = new Map(
+      markers.map((marker) => [`${marker.trackKey}#${marker.id}`, marker]),
+    );
+    for (const frame of row.selection) {
+      for (const point of frame.points ?? []) {
+        if (point.instanceId !== instanceId) continue;
+        const isSelectable = point.selectable ?? true;
+        if (!isSelectable) continue;
+        const marker = markerLookup.get(`${point.trackKey}#${point.markerId}`);
+        if (!marker) continue;
+        if (
+          marker.layerBand !== LayerBand.ForegroundSelected &&
+          marker.layerBand !== LayerBand.ForegroundUnselected
+        ) {
+          continue;
+        }
+        signatures.add(`${point.trackId}:${point.markerId}`);
       }
-      signatures.add(`${point.trackId}:${point.id}`);
+    }
+  } else {
+    for (const frame of row.virtualFrames ?? []) {
+      for (const point of frame.points ?? []) {
+        if (point.instanceId !== instanceId) continue;
+        const isSelectable = point.selectable ?? true;
+        if (!isSelectable) continue;
+        if (
+          point.layerBand !== LayerBand.ForegroundSelected &&
+          point.layerBand !== LayerBand.ForegroundUnselected
+        ) {
+          continue;
+        }
+        signatures.add(`${point.trackId}:${point.id}`);
+      }
     }
   }
 
@@ -82,14 +106,21 @@ function findRowWithForeground(
     if (conflicts) continue;
 
     const row = snapshotRow?.computed;
-    const hasForeground = (row?.virtualFrames ?? []).some((frame) =>
-      (frame.points ?? []).some(
-        (p) =>
+    const markers = row?.render?.markers ?? [];
+    const markerLookup = new Map(
+      markers.map((marker) => [`${marker.trackKey}#${marker.id}`, marker]),
+    );
+    const hasForeground = (row?.selection ?? []).some((frame) =>
+      (frame.points ?? []).some((p) => {
+        const marker = markerLookup.get(`${p.trackKey}#${p.markerId}`);
+        return (
           (p.selectable ?? true) &&
           Boolean(p.instanceId) &&
-          (p.layerBand === LayerBand.ForegroundSelected ||
-            p.layerBand === LayerBand.ForegroundUnselected),
-      ),
+          marker &&
+          (marker.layerBand === LayerBand.ForegroundSelected ||
+            marker.layerBand === LayerBand.ForegroundUnselected)
+        );
+      }),
     );
     if (hasForeground) return rowId;
   }
@@ -102,7 +133,7 @@ function findRowWithForeground(
  */
 function deriveSegmentId(store: AnimationStore, rowId: string): string {
   const row = store.getState().derivedSnapshot?.rows?.[rowId]?.computed;
-  const frames = row?.virtualFrames ?? [];
+  const frames = row?.selection ?? [];
   if (frames.length >= 2) {
     return `${frames[0].id}:${frames[1].id}`;
   }
@@ -117,7 +148,7 @@ function deriveSegmentId(store: AnimationStore, rowId: string): string {
  */
 function getAnyMarkerIdInRow(store: AnimationStore, rowId: string): string {
   const row = store.getState().derivedSnapshot?.rows?.[rowId]?.computed;
-  const frames = row?.virtualFrames ?? [];
+  const frames = row?.selection ?? [];
   if (frames.length === 0) throw new Error(`No markers found in row "${rowId}"`);
   return frames[0].id;
 }

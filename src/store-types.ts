@@ -12,7 +12,7 @@ import type {
   HandleDragStartInput,
   HandleDragUpdateInput,
   SourceRow,
-  SourceRowData,
+  MarkerPoint,
   View,
   VisibleSourceRowIds,
   Namespace,
@@ -123,14 +123,14 @@ export interface AnimationData {
 export interface AnimationActions {
   /**
    * Click a marker - Points-based with automatic instance handling.
-   * @param clickedPoints - The actual points data that were clicked (pre-filtered for selectable).
+   * @param clickedPoints - Selection points for the marker (pre-filtered for selectable).
    * @param rowId - The source row containing the marker.
    * @param markerId - The marker identifier within the row.
    * @param shift - Whether the shift key is pressed.
    * @param mod - Whether a modifier key (ctrl/cmd) is pressed.
    */
   clickMarker: (
-    clickedPoints: (SourceRowData & { id: string })[],
+    clickedPoints: MarkerPoint[],
     rowId: string,
     markerId: string,
     shift?: boolean,

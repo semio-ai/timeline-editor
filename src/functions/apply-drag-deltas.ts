@@ -162,11 +162,9 @@ function applyMarkerHandleOffsets(
   const nextTransitions: Keypoint<RawValue>["transitions"] = {
     ...(point.transitions ?? {}),
   };
-  const currentOut = point.transitions?.out;
-  const currentIn = point.transitions?.in;
   let changed = false;
 
-  if (handleOffsets.out && typeof currentOut === "object") {
+  if (handleOffsets.out) {
     nextTransitions.out = {
       x: handleOffsets.out.delta.x,
       y: handleOffsets.out.delta.y,
@@ -174,7 +172,7 @@ function applyMarkerHandleOffsets(
     changed = true;
   }
 
-  if (handleOffsets.in && typeof currentIn === "object") {
+  if (handleOffsets.in) {
     nextTransitions.in = {
       x: handleOffsets.in.delta.x,
       y: handleOffsets.in.delta.y,

@@ -51,9 +51,9 @@ function computeValueAndVelocityMaps(
   const multiplier = (_currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
 
   Object.entries(snapshot.tracks).forEach(([trackKey, track]) => {
-    const { namespaceId } = parseTrackKey(trackKey);
+    const namespaceId = track.metadata?.namespaceId ?? parseTrackKey(trackKey).namespaceId;
     const animatableId = track.metadata?.animatableId;
-    if (!animatableId) {
+    if (!namespaceId || !animatableId) {
       return;
     }
 
@@ -103,9 +103,9 @@ function computeDerivedState(
   const trackInterpolators: TrackInterpolators = {};
 
   Object.entries(snapshot.tracks).forEach(([trackKey, track]) => {
-    const { namespaceId } = parseTrackKey(trackKey);
+    const namespaceId = track.metadata?.namespaceId ?? parseTrackKey(trackKey).namespaceId;
     const animatableId = track.metadata?.animatableId;
-    if (!animatableId) return;
+    if (!namespaceId || !animatableId) return;
 
     const lookup = getLookup(namespaceId, animatableId);
     trackInterpolators[lookup] = {

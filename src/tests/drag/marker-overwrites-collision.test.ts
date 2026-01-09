@@ -33,7 +33,6 @@ describe("marker drag overwrites coincident marker", () => {
           trackKeys: [rowId],
           computed: {
             verticalBounds: { min: -1, max: 2 },
-            interpolations: [],
             violationSet: { id: rowId, violations: {}, segments: [] },
             virtualFrames: [
               {

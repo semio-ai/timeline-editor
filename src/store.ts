@@ -10,7 +10,6 @@ import {
   SemanticTime,
   Preview,
   SourceRow,
-  SourceRowData,
   TrackRender,
   Namespace,
   DragUpdateInput,
@@ -18,6 +17,7 @@ import {
   VerticalAxis,
   HandleDragStartInput,
   HandleDragUpdateInput,
+  MarkerPoint,
 } from "./types";
 import type { SimpleTrack, SimpleKeypoint } from "./types/data/simple-track";
 import {
@@ -486,14 +486,14 @@ export const AnimationSlice = (
      * 4. Shift-click in any other row behaves like a plain click (replaces selection and moves the reference).
      * 5. If Ctrl/Cmd-click removes the reference marker, the reference is cleared until another marker is explicitly clicked.
      *
-     * @param clickedPoints - The actual points that were clicked (pre-filtered for selectable).
+     * @param clickedPoints - Selection points for the marker (pre-filtered for selectable).
      * @param rowId - The source row containing the marker.
      * @param markerId - The marker identifier within the row.
      * @param shift - Whether shift key is held.
      * @param mod - Whether mod key (Cmd on Mac, Ctrl on PC) is held.
      */
     clickMarker: (
-      clickedPoints: (SourceRowData & { id: string })[],
+      clickedPoints: MarkerPoint[],
       rowId: string,
       markerId: string,
       shift?: boolean,

@@ -161,7 +161,8 @@ function InnerAnimatableEditor({
           const startWithFrame = (frame: InstancedFrameInfo) => {
             if (!frame) return;
             // Ensure selection includes the anchor keypoint for drag previews
-            clickMarker(frame.points, rowId, frame.id);
+            const selectionFrame = computedRowData?.selection?.find((f) => f.id === frame.id);
+            clickMarker(selectionFrame?.points ?? [], rowId, frame.id);
             startDrag({
               axis: "vertical",
               origin: { x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY },

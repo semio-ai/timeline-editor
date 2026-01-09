@@ -29,6 +29,54 @@ This document captures the current organization, data structures, and runtime fl
 - [x] Adopt normalized derivedSnapshot across components; gate selectors on derivedSnapshot.version
 - [x] Wire drag preview to derived snapshot; ensure commit paths update canonical and orchestrated derived state
 
+## Design Notes
+
+- [Line Rendering Design: Unified Polyline Sampling](./line-rendering-design.md)
+- [Drag Preview Flow](./drag-preview-flow.md)
+- [Drag Preview Flow (Proposal)](./drag-preview-flow.proposal.md)
+- [Multi-instance Drag Preview Report](./drag-preview-multi-instance-report.md)
+- [Derived Render Types (Proposal)](./derived-render-types.md)
+
+## Work Tracking
+
+### Selection + Render-Type Migration
+- Done:
+  - Added render/selection type scaffolding (RenderMarker, SelectionFrame, ValueBounds, RenderSampleCache, DragOverlay).
+  - Computed `selection` + `render.markers` in `compute-row-data` (boolean → 0/1, string skipped).
+  - Migrated selection helpers/actions (`click-marker`, `click-line`, `selection-state-manager`) to use `SelectionFrame`.
+  - Updated selection test helpers and selection tests to read `selection` frames.
+  - Added derived `dragOverlay.draggedTrackIds` and applied preview/violations per track across instances.
+  - Replaced string parsing in preview gating with `dragOverlay.draggedTrackIds` for per-track previews across instances.
+  - Prefer derived metadata when building value/velocity lookups (avoid track-key parsing).
+  - Render markers now drive marker rendering (DataPoint/DataRenderer) instead of `virtualFrames`.
+  - Added derived snapshot test coverage for multi-instance preview overlays.
+  - Transition segments now render from `render.segments` (interpolations still used for handle geometry).
+  - Boolean transition params coerce to 0/1; string-valued markers/segments are skipped in render outputs.
+  - Handle rendering now consumes `render.handles` built from segment geometry (UI no longer depends on `computed.interpolations`).
+  - Transition segment fill mesh now uses `primitive` geometry attachment to avoid BufferGeometry typing conflicts.
+  - Selection test helpers now resolve frame ids from keypoint ids; selection suites updated to expect frame ids in references.
+  - Drag handle preview now applies explicit handle offsets for all handles; clamp-derived transitions map to keypoint ids.
+  - Handle diff resolution now keys off frame points (not frame ids) so preview violations match post-commit behavior.
+  - Render segments now store per-render samples (Transition/Key/Spline) with Preview sharing the Spline sample.
+  - Removed `computed.interpolations`; tests and renderers now rely on `render.segments`.
+  - Transition view test now targets the opacity `o1→o2` segment for normalized sampling.
+  - Preview/spline samples fall back to linear control points when raw/effective handles are missing, keeping pre/post segments continuous.
+  - Preview violation recomputation now relies on interpolator clamping (no per-segment transition overrides), matching committed violations in aggregate rows.
+  - Transition segments now morph between render types using cached sample points; data changes no longer animate the segment geometry.
+  - Data-point marker positions now animate only on render-mode switches; value updates apply immediately.
+  - Render-mode morph progress is shared per row so markers and segments stay in sync.
+  - Transition segment morph startup now re-seeds geometry in a layout effect to avoid inverse flashes on render-mode switches.
+  - RenderSampleCache now caches track-level samples; shared SegmentSamples reference ranges with identity transforms.
+  - Global row intentionally renders a single consolidated line per track; cache keys use `trackId:flat` to avoid collisions with per-instance rows.
+  - Render paths now apply instance X transforms (timescale/offset) for single-instance rows; handle drags invert X to keep edits in local time.
+- Next:
+  - Add spline-only Y view transforms (scale/offset) for lines, markers, handles, and violations.
+  - Extend affine transforms to cache-friendly reuse (shared samples + per-instance transforms).
+  - Consolidate sampling helpers so render sampling and interpolator math share effective transition control points.
+  - Define fixed sampling density constants per render mode and document the policy in `line-rendering-design.md`.
+  - Reduce drag-preview test duplication and shift remaining marker lookups to `selection` frames.
+  - Audit remaining `MotionCubicBezier*` usage and retire legacy paths once parity is verified.
+
 ## Core Data Model
 
 The zustand store (`AnimationData` in `store-types.ts`) is the single source of truth for canonical data. A normalized derived snapshot is produced by the orchestrator for rendering. Key fields:
@@ -232,6 +280,7 @@ Use these hooks rather than inlining gesture logic inside components; they encap
 ## Working Notes
 
 - Keep documentation in sync with major architectural changes (selection refactors, gesture migrations, virtualization updates). Add deep dives under `docs/` for large efforts and link them from PRs.
+- Drag preview computation outline: `docs/drag-preview-flow.md`.
 - Record TODOs with `TODO(semio-agent):` and reference the relevant doc when partial work remains.
 - When altering exported types or store shape, update this README (data model section) and note the changes in `packages/animation/AGENTS.md`.
 - The derived-state orchestrator and normalized derived snapshot are implemented; the deep-dive doc at `docs/store-derived-state-consistency.md` is now superseded by this README and can be removed.

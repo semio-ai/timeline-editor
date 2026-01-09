@@ -1,10 +1,11 @@
 import { AnimationData } from "../store-types";
 import {
   ComputedRowData,
-  InstancedFrameInfo,
-  MarkerPoint,
   KeypointAddress,
   LayerBand,
+  RenderMarker,
+  SelectionFrame,
+  SelectionPointRef,
 } from "../types";
 import {
   createEmptySelectionState,
@@ -93,6 +94,14 @@ export function clickLineAction(
   }
 }
 
+interface LegacyMarkerPoint {
+  id: string;
+  trackId: string;
+  instanceId?: string;
+  selectable?: boolean;
+  layerBand?: LayerBand;
+}
+
 /**
  * Try to determine the instanceId to use for a row-wide action.
  * - If an instance is already selected, keep it.
@@ -103,11 +112,32 @@ function resolveInstanceIdForRow(
   row: ComputedRowData | undefined,
 ): string | null {
   if (currentInstanceId) return currentInstanceId;
+  const frames = row?.selection;
+  if (frames) {
+    const markers = row?.render?.markers ?? [];
+    if (markers.length === 0) return null;
+    const markerLookup = buildMarkerLookup(markers);
+    const ids = new Set<string>();
+    for (const frame of frames) {
+      for (const point of frame.points as SelectionPointRef[]) {
+        if (!point?.instanceId) continue;
+        if (!(point.selectable ?? true)) continue;
+        const marker = markerLookup.get(buildMarkerKey(point.trackKey, point.markerId));
+        if (!marker || !isForegroundMarker(marker)) continue;
+        ids.add(point.instanceId);
+        if (ids.size > 1) break;
+      }
+      if (ids.size > 1) break;
+    }
+
+    return ids.size === 1 ? (ids.values().next().value ?? null) : null;
+  }
+
   if (!row?.virtualFrames?.length) return null;
 
   const ids = new Set<string>();
   for (const frame of row.virtualFrames) {
-    for (const point of frame.points as MarkerPoint[]) {
+    for (const point of frame.points as LegacyMarkerPoint[]) {
       if (!point?.instanceId) continue;
       const isSelectable = point.selectable ?? true;
       if (!isSelectable) continue;
@@ -117,10 +147,7 @@ function resolveInstanceIdForRow(
     if (ids.size > 1) break;
   }
 
-  if (ids.size === 1) {
-    return ids.values().next().value ?? null;
-  }
-  return null;
+  return ids.size === 1 ? (ids.values().next().value ?? null) : null;
 }
 
 /**
@@ -131,6 +158,32 @@ function collectRowForegroundKeypoints(
   row: ComputedRowData | undefined,
   instanceId: string,
 ): KeypointAddress[] {
+  const selectionFrames = row?.selection;
+  if (selectionFrames) {
+    const markers = row?.render?.markers ?? [];
+    if (markers.length === 0) return [];
+    const markerLookup = buildMarkerLookup(markers);
+    const result: KeypointAddress[] = [];
+    const seen = new Set<string>();
+
+    for (const frame of selectionFrames as SelectionFrame[]) {
+      for (const point of frame.points as SelectionPointRef[]) {
+        if (point.instanceId !== instanceId) continue;
+        const isSelectable = point.selectable ?? true;
+        if (!isSelectable) continue;
+        const marker = markerLookup.get(buildMarkerKey(point.trackKey, point.markerId));
+        if (!marker || !isForegroundMarker(marker)) continue;
+
+        const signature = buildMarkerKey(point.trackKey, point.markerId);
+        if (seen.has(signature)) continue;
+        seen.add(signature);
+        result.push({ trackId: point.trackId, keypointId: point.markerId });
+      }
+    }
+
+    return result;
+  }
+
   if (!row?.virtualFrames?.length) return [];
 
   const foregroundLayers = new Set<LayerBand>([
@@ -141,12 +194,13 @@ function collectRowForegroundKeypoints(
   const result: KeypointAddress[] = [];
   const seen = new Set<string>();
 
-  for (const frame of row.virtualFrames as InstancedFrameInfo[]) {
-    for (const point of frame.points as MarkerPoint[]) {
+  for (const frame of row.virtualFrames as { points?: LegacyMarkerPoint[] }[]) {
+    for (const point of frame.points ?? []) {
       if (point.instanceId !== instanceId) continue;
       const isSelectable = point.selectable ?? true;
       if (!isSelectable) continue;
-      if (!foregroundLayers.has(point.layerBand as LayerBand)) continue;
+      const layerBand = point.layerBand;
+      if (!layerBand || !foregroundLayers.has(layerBand)) continue;
 
       const signature = `${point.trackId}#${point.id}`;
       if (seen.has(signature)) continue;
@@ -156,6 +210,25 @@ function collectRowForegroundKeypoints(
   }
 
   return result;
+}
+
+function buildMarkerKey(trackKey: string, markerId: string): string {
+  return `${trackKey}#${markerId}`;
+}
+
+function buildMarkerLookup(markers: RenderMarker[]): Map<string, RenderMarker> {
+  const lookup = new Map<string, RenderMarker>();
+  for (const marker of markers) {
+    lookup.set(buildMarkerKey(marker.trackKey, marker.id), marker);
+  }
+  return lookup;
+}
+
+function isForegroundMarker(marker: RenderMarker): boolean {
+  return (
+    marker.layerBand === LayerBand.ForegroundSelected ||
+    marker.layerBand === LayerBand.ForegroundUnselected
+  );
 }
 
 export default clickLineAction;

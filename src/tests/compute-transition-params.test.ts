@@ -49,8 +49,8 @@ describe("computeTransitionParams real-space conversion", () => {
     expect(params.end).toEqual({ x: 1, y: 20 });
     expect(params.cp1.x).toBeCloseTo(0.25);
     expect(params.cp1.y).toBeCloseTo(10.15);
-    expect(params.cp2.x).toBeCloseTo(1.75);
-    expect(params.cp2.y).toBeCloseTo(20.85);
+    expect(params.cp2.x).toBeCloseTo(1);
+    expect(params.cp2.y).toBeCloseTo(20);
   });
 
   test("defaults to start/end values when transitions are omitted", () => {
@@ -96,10 +96,10 @@ describe("computeTransitionParams real-space conversion", () => {
       max: 20,
     });
 
-    expect(params.start.y).toBe(0);
-    expect(params.end.y).toBe(0);
-    expect(params.cp1.y).toBe(0);
-    expect(params.cp2.y).toBe(0);
+    expect(params.start.y).toBe(0.5);
+    expect(params.end.y).toBe(0.5);
+    expect(params.cp1.y).toBe(0.5);
+    expect(params.cp2.y).toBe(0.5);
   });
 
   test("transition view renders flat segments for empty trailing gap", () => {
@@ -119,7 +119,7 @@ describe("computeTransitionParams real-space conversion", () => {
       max: 20,
     });
 
-    expect(params.start.y).toBe(1);
-    expect(params.end.y).toBe(1);
+    expect(params.start.y).toBe(0.5);
+    expect(params.end.y).toBe(0.5);
   });
 });

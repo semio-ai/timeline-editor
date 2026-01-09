@@ -1,6 +1,6 @@
 import { type InstancedFrameInfo, SourceRow, TrackRender, EndpointTransitions } from "../types";
-import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
-import { getWorldControlPoints, resolveTransitionDelta } from "./get-world-control-points";
+import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
+import { extractFrameNumericValue } from "./segment-value-utils";
 
 /**
  * A Transition description that gives all 4 coordinates indicating the qualities of the transition
@@ -33,16 +33,135 @@ export interface ComputeTransitionParamsOptions {
   transitions?: EndpointTransitions;
 }
 
-const extractFrameValue = (frame: InstancedFrameInfo): number | undefined => {
-  const first = frame.points?.[0];
-  if (first) {
-    if (typeof first.value === "number") {
-      return first.value as number;
+const buildFlatParams = (startStamp: number, endStamp: number): TransitionParams => ({
+  start: { x: startStamp, y: 0.5 },
+  end: { x: endStamp, y: 0.5 },
+  cp1: { x: startStamp + (endStamp - startStamp) * 0.33, y: 0.5 },
+  cp2: { x: startStamp + (endStamp - startStamp) * 0.67, y: 0.5 },
+});
+
+export function buildRenderParamsFromControlPoints(input: {
+  startStamp: number;
+  endStamp: number;
+  startValue?: number;
+  endValue?: number;
+  cp1?: { x: number; y: number };
+  cp2?: { x: number; y: number };
+  isEmpty: boolean;
+  allowValueCurve: boolean;
+}): Partial<Record<TrackRender, TransitionParams>> {
+  const { startStamp, endStamp, isEmpty, allowValueCurve } = input;
+  const keyParams = buildFlatParams(startStamp, endStamp);
+
+  const transitionParams = (() => {
+    if (isEmpty) return keyParams;
+    if (input.startValue === undefined || input.endValue === undefined) {
+      return keyParams;
     }
+    const delta = input.endValue - input.startValue;
+    if (!input.cp1 || !input.cp2) {
+      return keyParams;
+    }
+    return {
+      start: { x: startStamp, y: 0 },
+      end: { x: endStamp, y: 1 },
+      cp1: {
+        x: input.cp1.x,
+        y: delta === 0 ? 0 : (input.cp1.y - input.startValue) / delta,
+      },
+      cp2: {
+        x: input.cp2.x,
+        y: delta === 0 ? 1 : (input.cp2.y - input.startValue) / delta,
+      },
+    };
+  })();
+
+  const previewParams = (() => {
+    if (!allowValueCurve) return keyParams;
+    let startValue = input.startValue;
+    let endValue = input.endValue;
+    if (isEmpty) {
+      if (startValue === undefined && endValue !== undefined) {
+        startValue = endValue;
+      } else if (endValue === undefined && startValue !== undefined) {
+        endValue = startValue;
+      }
+    }
+    if (startValue === undefined || endValue === undefined) {
+      return keyParams;
+    }
+    const defaultCp1 = {
+      x: startStamp + (endStamp - startStamp) * 0.33,
+      y: startValue + (endValue - startValue) * 0.33,
+    };
+    const defaultCp2 = {
+      x: startStamp + (endStamp - startStamp) * 0.67,
+      y: startValue + (endValue - startValue) * 0.67,
+    };
+    const cp1 = input.cp1 ?? defaultCp1;
+    const cp2 = input.cp2 ?? defaultCp2;
+    return {
+      start: { x: startStamp, y: startValue },
+      end: { x: endStamp, y: endValue },
+      cp1: { x: cp1.x, y: cp1.y },
+      cp2: { x: cp2.x, y: cp2.y },
+    };
+  })();
+
+  return {
+    [TrackRender.Key]: keyParams,
+    [TrackRender.Transition]: transitionParams,
+    [TrackRender.Preview]: previewParams,
+    [TrackRender.Spline]: previewParams,
+  };
+}
+
+export function computeSegmentRenderParams(
+  source: SourceRow,
+  start: InstancedFrameInfo,
+  end: InstancedFrameInfo,
+  isEmpty: boolean,
+  options?: ComputeTransitionParamsOptions,
+): Partial<Record<TrackRender, TransitionParams>> {
+  const startValue = extractFrameNumericValue(start);
+  const endValue = extractFrameNumericValue(end);
+  const allowValueCurve = source.data.length === 1;
+  const transitions: EndpointTransitions | undefined =
+    options?.transitions || start.transitions || end.transitions
+      ? {
+          startOut: options?.transitions?.startOut ?? start.transitions?.out,
+          endIn: options?.transitions?.endIn ?? end.transitions?.in,
+        }
+      : undefined;
+
+  if (startValue === undefined || endValue === undefined) {
+    return buildRenderParamsFromControlPoints({
+      startStamp: start.stamp,
+      endStamp: end.stamp,
+      startValue,
+      endValue,
+      isEmpty,
+      allowValueCurve,
+    });
   }
 
-  return undefined;
-};
+  const controlPoints = resolveSegmentControlPoints({
+    start: { stamp: start.stamp, value: startValue },
+    end: { stamp: end.stamp, value: endValue },
+    transitions,
+  });
+
+  return buildRenderParamsFromControlPoints({
+    startStamp: start.stamp,
+    endStamp: end.stamp,
+    startValue,
+    endValue,
+    cp1: controlPoints.cp1Effective,
+    cp2: controlPoints.cp2Effective,
+    isEmpty,
+    allowValueCurve,
+  });
+}
 
 export function computeTransitionParams(
   source: SourceRow,
@@ -53,152 +172,6 @@ export function computeTransitionParams(
   _bounds: { min: number; max: number } = { min: 0, max: 1 },
   options?: ComputeTransitionParamsOptions,
 ): TransitionParams {
-  // Use cubic-ease-in-out as default transtion params
-
-  // Note, the start transition out is the beginning of the transition segment.
-  // The end transition in is the end of the transition segment.
-
-  const transitions: EndpointTransitions = {
-    startOut: options?.transitions?.startOut ?? start.transitions?.out ?? DEFAULT_TRANSITION_OUT,
-    endIn: options?.transitions?.endIn ?? end.transitions?.in ?? DEFAULT_TRANSITION_IN,
-  };
-
-  if (trackRender === TrackRender.Transition || trackRender === TrackRender.Key) {
-    let startValue: number | undefined = extractFrameValue(start);
-    const endValue: number | undefined = extractFrameValue(end);
-
-    // Safely extract start value
-    if (start.points && start.points.length > 0 && startValue === undefined) {
-      if (source.data[0].type === "number") {
-        startValue = start.points[0].value as number;
-      }
-    }
-
-    if (trackRender === TrackRender.Key) {
-      // We handle this case by just returning the parameters for the TrackRender.Key visual.
-      return {
-        start: { x: start.stamp, y: 0.5 },
-        end: { x: end.stamp, y: 0.5 },
-        cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: 0.5 },
-        cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: 0.5 },
-      };
-    }
-
-    // Transition view (normalized y)
-    if (isEmpty) {
-      const startHasData = (start.points?.length ?? 0) > 0;
-      const endHasData = (end.points?.length ?? 0) > 0;
-      let yFlat = 0.5;
-      if (!startHasData || !endHasData) {
-        yFlat = 0.5;
-      }
-      return {
-        start: { x: start.stamp, y: yFlat },
-        end: { x: end.stamp, y: yFlat },
-        cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: yFlat },
-        cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: yFlat },
-      };
-    }
-
-    if (startValue === undefined || endValue === undefined) {
-      return {
-        start: { x: start.stamp, y: 0.5 },
-        end: { x: end.stamp, y: 0.5 },
-        cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: 0.5 },
-        cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: 0.5 },
-      };
-    }
-
-    const delta = endValue - startValue;
-
-    const toWorldDelta = (
-      side: "out" | "in",
-      handle: EndpointTransitions[keyof EndpointTransitions] | undefined,
-    ): { x: number; y: number } => {
-      if (handle && typeof handle === "object") {
-        return { x: handle.x, y: handle.y };
-      }
-      return resolveTransitionDelta(side, start.stamp, end.stamp, startValue, endValue, handle);
-    };
-
-    const outDelta = toWorldDelta("out", transitions.startOut);
-    const inDelta = toWorldDelta("in", transitions.endIn);
-
-    return {
-      start: { x: start.stamp, y: 0 },
-      end: { x: end.stamp, y: 1 },
-      cp1: {
-        x: start.stamp + outDelta.x,
-        y: delta === 0 ? 0 : outDelta.y / delta,
-      },
-      cp2: {
-        x: end.stamp + inDelta.x,
-        y: delta === 0 ? 1 : 1 + inDelta.y / delta,
-      },
-    };
-  }
-
-  if (
-    source.data.length === 1 &&
-    (trackRender === TrackRender.Preview || trackRender === TrackRender.Spline)
-  ) {
-    let startValue: number | undefined = extractFrameValue(start);
-    let endValue: number | undefined = extractFrameValue(end);
-
-    // Safely extract start value
-    if (start.points && start.points.length > 0 && startValue === undefined) {
-      if (source.data[0].type === "number") {
-        startValue = start.points[0].value as number;
-      }
-    }
-
-    // Safely extract end value
-    if (end.points && end.points.length > 0) {
-      if (source.data[0].type === "number") {
-        endValue = end.points[0].value as number;
-      }
-    }
-
-    // Handle pseudo-region cases where one value might be undefined
-    // Create flat lines at the defined value's position
-    if (isEmpty) {
-      if (startValue === undefined && endValue !== undefined) {
-        startValue = endValue;
-      } else if (endValue === undefined && startValue !== undefined) {
-        endValue = startValue;
-      }
-    }
-    if (startValue === undefined || endValue === undefined) {
-      return {
-        start: { x: start.stamp, y: 0.5 },
-        end: { x: end.stamp, y: 0.5 },
-        cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: 0.5 },
-        cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: 0.5 },
-      };
-    }
-
-    const { start: cp1World, end: cp2World } = getWorldControlPoints(
-      start.stamp,
-      end.stamp,
-      startValue,
-      endValue,
-      { out: transitions.startOut },
-      { in: transitions.endIn },
-    );
-
-    return {
-      start: { x: start.stamp, y: startValue },
-      end: { x: end.stamp, y: endValue },
-      cp1: { x: cp1World.x, y: cp1World.y as number },
-      cp2: { x: cp2World.x, y: cp2World.y as number },
-    };
-  }
-
-  // Default: We handle this case by just returning the parameters for the TrackRender.Key visual.
-  return {
-    start: { x: start.stamp, y: 0.5 },
-    end: { x: end.stamp, y: 0.5 },
-    cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: 0.5 },
-    cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: 0.5 },
-  };
+  const params = computeSegmentRenderParams(source, start, end, isEmpty, options);
+  return params[trackRender] ?? buildFlatParams(start.stamp, end.stamp);
 }

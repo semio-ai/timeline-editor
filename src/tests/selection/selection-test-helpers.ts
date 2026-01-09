@@ -1,5 +1,5 @@
 import type { AnimationStore } from "../../store";
-import type { KeypointAddress, MarkerPoint, SelectionState, InstancedFrameInfo } from "../../types";
+import type { KeypointAddress, MarkerPoint, SelectionFrame, SelectionState } from "../../types";
 
 export interface ModifierOptions {
   shift?: boolean;
@@ -10,19 +10,22 @@ export function getMarkerFrame(
   store: AnimationStore,
   rowId: string,
   markerId: string,
-): InstancedFrameInfo {
+): SelectionFrame {
   const state = store.getState();
   const row = state.derivedSnapshot?.rows?.[rowId]?.computed;
   if (!row) {
     throw new Error(`Row "${rowId}" not found.`);
   }
 
-  const frame = row.virtualFrames?.find((candidate) => candidate.id === markerId);
-  if (!frame) {
-    throw new Error(`Marker "${markerId}" not found in row "${rowId}".`);
-  }
+  const byId = row.selection?.find((candidate) => candidate.id === markerId);
+  if (byId) return byId;
 
-  return frame;
+  const byPoint = row.selection?.find((candidate) =>
+    candidate.points?.some((point) => point.markerId === markerId),
+  );
+  if (byPoint) return byPoint;
+
+  throw new Error(`Marker "${markerId}" not found in row "${rowId}".`);
 }
 
 export function getMarkerPoints(
@@ -40,8 +43,9 @@ export function clickMarkerWith(
   markerId: string,
   options: ModifierOptions = {},
 ): MarkerPoint[] {
-  const points = getMarkerPoints(store, rowId, markerId);
-  store.getState().clickMarker(points, rowId, markerId, options.shift, options.mod);
+  const frame = getMarkerFrame(store, rowId, markerId);
+  const points = (frame.points ?? []).filter((point) => point.selectable ?? true);
+  store.getState().clickMarker(points, rowId, frame.id, options.shift, options.mod);
   return points;
 }
 
@@ -61,7 +65,7 @@ export function pointsToSignatures(points: MarkerPoint[], instanceId: string | n
   for (const point of points) {
     const isSelectable = point.selectable ?? true;
     if (point.instanceId === instanceId && isSelectable) {
-      signatures.add(`${point.trackId}:${point.id}`);
+      signatures.add(`${point.trackId}:${point.markerId}`);
     }
   }
   return Array.from(signatures).sort();
@@ -77,7 +81,7 @@ export function keypointsToSignatures(addresses: KeypointAddress[]): string[] {
 
 export interface FoundMarker {
   rowId: string;
-  frame: InstancedFrameInfo;
+  frame: SelectionFrame;
   points: MarkerPoint[];
 }
 
@@ -91,8 +95,14 @@ export function findMarker(
     const row = state.derivedSnapshot?.rows?.[rowId]?.computed;
     if (!row) continue;
     if (predicate && !predicate(rowId)) continue;
-    const frame = row.virtualFrames?.find((candidate) => candidate.id === markerId);
-    if (!frame) continue;
+    const frame =
+      row.selection?.find((candidate) => candidate.id === markerId) ??
+      row.selection?.find((candidate) =>
+        candidate.points?.some((point) => point.markerId === markerId),
+      );
+    if (!frame) {
+      continue;
+    }
     const points = (frame.points ?? []).filter((point) => point.selectable ?? true);
     return { rowId, frame, points };
   }
@@ -100,4 +110,12 @@ export function findMarker(
   throw new Error(
     `Marker "${markerId}" not found${predicate ? " in rows matching predicate" : ""}.`,
   );
+}
+
+export function resolveMarkerFrameId(
+  store: AnimationStore,
+  rowId: string,
+  markerId: string,
+): string {
+  return getMarkerFrame(store, rowId, markerId).id;
 }

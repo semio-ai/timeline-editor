@@ -43,7 +43,7 @@ describe("Global vs Track Selection", () => {
 
   it("selects the same keypoints when clicking the global marker or its originating track marker", () => {
     const trackPoints = getMarkerPoints(store, OPACITY_ROW_ID, "o1");
-    clickMarkerWith(store, GLOBAL_ROW_ID, "o1-o1");
+    clickMarkerWith(store, GLOBAL_ROW_ID, "o1");
 
     const { selectionState } = store.getState();
     const expected = pointsToSignatures(trackPoints, selectionState.instanceId);
@@ -52,17 +52,17 @@ describe("Global vs Track Selection", () => {
     expect(selectionSignatures(selectionState)).toEqual(expected);
     expect(isMarkerSelected(selectionState, trackPoints)).toBe(true);
 
-    const globalPoints = getMarkerPoints(store, GLOBAL_ROW_ID, "o1-o1");
+    const globalPoints = getMarkerPoints(store, GLOBAL_ROW_ID, "o1");
     expect(isMarkerSelected(selectionState, globalPoints)).toBe(true);
   });
 
   it("ignores non-selectable or cross-instance points when a global marker is clicked", () => {
-    clickMarkerWith(store, GLOBAL_ROW_ID, "o1-o1");
+    clickMarkerWith(store, GLOBAL_ROW_ID, "o1");
 
     const { selectionState } = store.getState();
     expect(selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_SHARED);
 
-    const globalFrame = getMarkerFrame(store, GLOBAL_ROW_ID, "o1-o1");
+    const globalFrame = getMarkerFrame(store, GLOBAL_ROW_ID, "o1");
     const betaPoints = (globalFrame.points ?? []).filter(
       (point) => point.instanceId === INSTANCE_IDS.BETA_SHARED,
     ) as MarkerPoint[];
@@ -78,18 +78,18 @@ describe("Global vs Track Selection", () => {
     clickMarkerWith(store, OPACITY_ROW_ID, "o1");
 
     const { selectionState } = store.getState();
-    const globalPoints = getMarkerPoints(store, GLOBAL_ROW_ID, "o1-o1");
+    const globalPoints = getMarkerPoints(store, GLOBAL_ROW_ID, "o1");
 
     expect(isMarkerSelected(selectionState, globalPoints)).toBe(true);
 
     const unrelatedGlobal = store
       .getState()
-      .derivedSnapshot?.rows?.[GLOBAL_ROW_ID]?.computed?.virtualFrames.find((frame) => {
+      .derivedSnapshot?.rows?.[GLOBAL_ROW_ID]?.computed?.selection?.find((frame) => {
         const includesAnchor = (frame.points ?? []).some((point) => {
           const matchesAnchor =
             point.trackId === TRACK_IDS.OPACITY &&
             point.instanceId === INSTANCE_IDS.ALPHA_SHARED &&
-            point.id === "o1";
+            point.markerId === "o1";
           const isSelectable = point.selectable ?? true;
           return matchesAnchor && isSelectable;
         });

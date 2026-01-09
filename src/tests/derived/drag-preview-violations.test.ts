@@ -272,12 +272,37 @@ describe("drag preview funnel", () => {
       version: 1,
     });
 
+    const committedTrack: Track<number> = {
+      ...track,
+      points: track.points.map((point) =>
+        point.id === anchorPoint.id
+          ? {
+              ...point,
+              transitions: {
+                ...(point.transitions ?? {}),
+                out: dragState.handleDiffs?.[anchorPoint.id]?.out,
+              },
+            }
+          : point,
+      ),
+    };
+    const committedSnapshot = buildDerivedSnapshot({
+      tracks: { ...state.tracks, [trackId]: committedTrack },
+      namespaces: state.namespaces,
+      animations: state.animations,
+      animatables: state.animatables,
+      instancedTrackSources: state.instancedTrackSources,
+      dragState: undefined,
+      selectionState,
+      version: 2,
+    });
+
     const trackKey: TrackKey = buildTrackKey("default", "main", trackId);
-    const canonicalViolations = snapshot.tracks[trackKey]?.canonical.violations ?? [];
+    const committedViolations = committedSnapshot.tracks[trackKey]?.canonical.violations ?? [];
     const rowViolationSet = snapshot.rows[rowId]?.computed.violationSet;
     if (!rowViolationSet) throw new Error("Row missing violation set");
 
-    const normalizedCanonical = canonicalViolations
+    const normalizedCommitted = committedViolations
       .filter((v) => v.trackId === trackId)
       .map((v) => ({ type: v.type, start: v.stampRange.start, end: v.stampRange.end }))
       .sort((a, b) => a.start - b.start || a.type.localeCompare(b.type));
@@ -287,7 +312,7 @@ describe("drag preview funnel", () => {
       .map((v) => ({ type: v.type, start: v.stampRange.start, end: v.stampRange.end }))
       .sort((a, b) => a.start - b.start || a.type.localeCompare(b.type));
 
-    expect(normalizedRow).toEqual(normalizedCanonical);
+    expect(normalizedRow).toEqual(normalizedCommitted);
 
     // Also validate consolidated/global row matches canonical during drag.
     const globalRow = snapshot.rows.global?.computed?.violationSet;
@@ -297,7 +322,7 @@ describe("drag preview funnel", () => {
         .map((v) => ({ type: v.type, start: v.stampRange.start, end: v.stampRange.end }))
         .sort((a, b) => a.start - b.start || a.type.localeCompare(b.type));
 
-      expect(normalizedGlobal).toEqual(normalizedCanonical);
+      expect(normalizedGlobal).toEqual(normalizedCommitted);
     }
   });
 
@@ -319,16 +344,16 @@ describe("drag preview funnel", () => {
     if (!rowEntry) throw new Error("Row containing track not found");
     const [rowId, row] = rowEntry;
 
-    const markerFrame = row.computed.virtualFrames.find((frame) =>
+    const markerFrame = row.computed.selection?.find((frame) =>
       frame.points.some((p) => p.trackId === trackId),
     );
     if (!markerFrame) throw new Error("Marker frame not found for track");
-    const markerPoint = markerFrame.points.find((p) => p.trackId === trackId);
+    const markerPoint = markerFrame?.points.find((p) => p.trackId === trackId);
     if (!markerPoint) throw new Error("Marker point not found");
 
     // Seed selection to match UI expectations
     const selectionState = createEmptySelectionState("main");
-    selectionState.keypoints.set(trackId, new Set([markerPoint.id]));
+    selectionState.keypoints.set(trackId, new Set([markerPoint.markerId]));
     store.setState((state) => ({ ...state, selectionState }));
     await flushMicrotasks();
 
@@ -429,7 +454,7 @@ describe("drag preview funnel", () => {
     if (!rowEntry) throw new Error("Row containing track not found");
     const [rowId, row] = rowEntry;
 
-    const markerFrame = row.computed.virtualFrames.find((frame) =>
+    const markerFrame = row.computed.selection?.find((frame) =>
       frame.points.some((p) => p.trackId === trackId),
     );
     if (!markerFrame) throw new Error("Marker frame not found");
@@ -438,7 +463,7 @@ describe("drag preview funnel", () => {
 
     // Seed selection to the active instance
     const selectionState = createEmptySelectionState(instanceId);
-    selectionState.keypoints.set(trackId, new Set([markerPoint.id]));
+    selectionState.keypoints.set(trackId, new Set([markerPoint.markerId]));
     store.setState((state) => ({ ...state, selectionState }));
     await flushMicrotasks();
 

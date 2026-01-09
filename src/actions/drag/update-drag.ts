@@ -1,9 +1,10 @@
 import type { AnimationData } from "../../store-types";
 import type { DragStampTransform, DragUpdateInput } from "../../types";
+import { computeLocalStamp } from "../../functions/compute-instance-time";
 
 const toInstanceStamp = (globalStamp: number, transform: DragStampTransform): number => {
   const timescale = transform.timescale === 0 ? 1 : transform.timescale;
-  return (globalStamp - transform.offset) / timescale;
+  return computeLocalStamp(globalStamp, timescale, transform.offset);
 };
 
 export function updateDrag(state: AnimationData, input: DragUpdateInput): void {

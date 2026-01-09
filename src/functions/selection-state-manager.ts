@@ -1,11 +1,12 @@
 import type {
   ComputedRowData,
-  InstancedFrameInfo,
   SelectionState,
   SelectionAnchor,
   MarkerPoint,
   KeypointAddress,
+  SelectionFrame,
 } from "../types";
+import { buildTrackKey } from "../utils/track-key";
 
 /**
  * Create an empty selection state. Optionally seed with a known instance id.
@@ -35,7 +36,7 @@ export function cloneKeypointMap(map: Map<string, Set<string>>): Map<string, Set
 export function extractKeypoints(points: MarkerPoint[], instanceId: string): KeypointAddress[] {
   return points
     .filter((point) => point.instanceId === instanceId)
-    .map((point) => ({ trackId: point.trackId, keypointId: point.id }));
+    .map((point) => ({ trackId: point.trackId, keypointId: point.markerId }));
 }
 
 export function addKeypoints(
@@ -137,11 +138,11 @@ export function collectRangeKeypoints(
   startMarkerId: string,
   endMarkerId: string,
 ): KeypointAddress[] {
-  if (!row?.virtualFrames?.length) return [];
-  const markers = row.virtualFrames;
+  const frames = resolveSelectionFrames(row);
+  if (!frames.length) return [];
 
-  const start = markers.find((frame) => frame.id === startMarkerId);
-  const end = markers.find((frame) => frame.id === endMarkerId);
+  const start = frames.find((frame) => frame.id === startMarkerId);
+  const end = frames.find((frame) => frame.id === endMarkerId);
   if (!start || !end) return [];
 
   const minStamp = Math.min(start.stamp, end.stamp);
@@ -149,7 +150,7 @@ export function collectRangeKeypoints(
 
   const selected: KeypointAddress[] = [];
 
-  for (const frame of markers) {
+  for (const frame of frames) {
     if (frame.stamp < minStamp || frame.stamp > maxStamp) continue;
     const addresses = extractKeypointsFromFrame(frame, instanceId);
     selected.push(...addresses);
@@ -159,12 +160,12 @@ export function collectRangeKeypoints(
 }
 
 export function extractKeypointsFromFrame(
-  frame: InstancedFrameInfo,
+  frame: SelectionFrame,
   instanceId: string,
 ): KeypointAddress[] {
   return frame.points
     .filter((point) => point.instanceId === instanceId && (point.selectable ?? true))
-    .map((point) => ({ trackId: point.trackId, keypointId: point.id }));
+    .map((point) => ({ trackId: point.trackId, keypointId: point.markerId }));
 }
 
 export function dedupeKeypoints(keypoints: KeypointAddress[]): KeypointAddress[] {
@@ -179,4 +180,24 @@ export function dedupeKeypoints(keypoints: KeypointAddress[]): KeypointAddress[]
   }
 
   return result;
+}
+
+function resolveSelectionFrames(row: ComputedRowData | undefined): SelectionFrame[] {
+  if (row?.selection) {
+    return row.selection;
+  }
+  if (!row?.virtualFrames?.length) return [];
+
+  return row.virtualFrames.map((frame) => ({
+    id: frame.id,
+    stamp: frame.stamp,
+    points: frame.points.map((point) => ({
+      markerId: point.id,
+      trackId: point.trackId,
+      trackKey: buildTrackKey(point.namespaceId, point.instanceId, point.trackId),
+      namespaceId: point.namespaceId,
+      instanceId: point.instanceId,
+      selectable: point.selectable,
+    })),
+  }));
 }

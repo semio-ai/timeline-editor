@@ -33,6 +33,9 @@ export function computeVerticalBounds(
         const constraintMax = animatable.constraints.max ?? Number.NEGATIVE_INFINITY;
         if (constraintMin < min) min = constraintMin;
         if (constraintMax > max) max = constraintMax;
+      } else if (animatable.type === "boolean") {
+        if (min > 0) min = 0;
+        if (max < 1) max = 1;
       }
     });
   });
@@ -46,6 +49,7 @@ export function computeVerticalBounds(
       if (!points || points.length === 0) return [0];
       return points.map((point) => {
         if (typeof point.value === "number") return point.value;
+        if (typeof point.value === "boolean") return point.value ? 1 : 0;
         return 0;
       });
     }),

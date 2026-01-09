@@ -19,6 +19,23 @@ export type {
 export type { InstancePair } from "./instance-pair";
 export type { InstancedFrameInfo } from "./instanced-frame-info";
 export type {
+  ValueType,
+  ValueBounds,
+  PolylineSample,
+  RenderSampleId,
+  RenderSampleCache,
+  AffineTransform2D,
+  SegmentSample,
+  SegmentSampleRange,
+  RenderSegment,
+  RenderMarker,
+  RenderHandle,
+  RowRenderData,
+  SelectionFrame,
+  SelectionPointRef,
+} from "./render-types";
+export type { DragOverlay, DragOverlayState } from "./drag-overlay";
+export type {
   SegmentGeometry,
   SegmentGeometryState,
   WorldCP,
@@ -45,6 +62,7 @@ export type {
   KeypointAddress,
 } from "./selection-state";
 export type {
+  TrackInstanceKey,
   TrackKey,
   DerivedTrackSnapshot,
   DerivedRowSnapshot,

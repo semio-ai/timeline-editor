@@ -1,4 +1,4 @@
-import type { SourceRowData } from "./source";
+import type { SelectionFrame, SelectionPointRef } from "./render-types";
 
 export interface SelectionAnchor {
   rowId: string;
@@ -34,4 +34,6 @@ export interface SelectionState {
 /**
  * Subset of marker point data used to build selection operations.
  */
-export type MarkerPoint = SourceRowData & { id: string };
+export type MarkerPoint = SelectionPointRef;
+
+export type { SelectionFrame, SelectionPointRef };

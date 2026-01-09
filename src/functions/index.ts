@@ -30,3 +30,4 @@ export * from "./build-segment-render-params";
 export * from "./flatten-tracks";
 export * from "./normalize-track-data";
 export * from "./group-derived-tracks";
+export * from "./materialize-segment-sample";

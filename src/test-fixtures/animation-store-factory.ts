@@ -526,8 +526,9 @@ function createNamespaces(): Record<string, Namespace> {
           animationId: ANIMATION_IDS.SHARED,
           settings: {
             active: true,
-            offset: 0,
-            timescale: 1,
+            // Non-identity transform to exercise instance time scaling/offset in tests.
+            offset: 0.25,
+            timescale: 2,
           },
         },
         [INSTANCE_IDS.BETA_EXCLUSIVE]: {

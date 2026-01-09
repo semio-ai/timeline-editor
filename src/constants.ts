@@ -20,6 +20,12 @@ export const TRANSITION_CONFIG: Transition = {
 
 export const DEFAULT_COLOR = "#808080";
 
+export const RENDER_MORPH_SPRING = {
+  type: "spring" as const,
+  stiffness: 240,
+  damping: 28,
+};
+
 export enum Z {
   Camera = 100,
   // Bounds cart is moved above the playhead cart and text when being dragged.

@@ -1,9 +1,9 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
 import { MotionValue } from "motion";
 import { uniq } from "lodash";
-import { useAnimationStore, useColors } from "../../hooks";
+import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import { Z } from "../../constants";
 import { AnimationData } from "../../store-types";
 import { FrustumBackground } from "./frustum-background";
@@ -33,6 +33,26 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
     useShallow((state: AnimationData) => state.derivedSnapshot?.rows?.[sourceRowId]?.computed),
   );
   const trackIds = uniq(sourceRow?.data.map((d) => d.trackId) || []);
+  const localGlobalTransformLookup = useLocalGlobalTransformLookup();
+  const rowInstanceId = useMemo(() => {
+    if (!sourceRow) return undefined;
+    const ids = uniq(
+      sourceRow.data
+        .map((entry) => entry.instanceId)
+        .filter((value): value is string => Boolean(value)),
+    );
+    return ids.length === 1 ? ids[0] : undefined;
+  }, [sourceRow]);
+  const xTransform = useMemo(() => {
+    const transform =
+      rowInstanceId && localGlobalTransformLookup.toWorld[rowInstanceId]
+        ? localGlobalTransformLookup.toWorld[rowInstanceId]
+        : undefined;
+    if (typeof transform === "function") {
+      return transform;
+    }
+    return (stamp: number) => stamp;
+  }, [localGlobalTransformLookup, rowInstanceId]);
 
   const color = useColors(trackIds);
 
@@ -47,6 +67,7 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
         height={height - 1}
         yOffset={scrollOffset}
         trackY
+        xTransform={xTransform}
       />
 
       {/* Render a background for the Active region, and the General Background */}
