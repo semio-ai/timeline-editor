@@ -78,6 +78,7 @@ Given that instance differences are only affine transforms (shift/scale), precom
 - **View Y transform (spline-only):** user-facing offsets/scales to avoid overlapping lines. These affect `scaleY`/`offsetY` and should only apply to spline rendering (line + markers + handles + violations). They must **not** alter canonical data or preview/transition normalization, and should be applied after sampling so cache keys remain stable.
 
 Implications:
+- Instance X transforms should be applied at sample materialization time via `SegmentSample.transform` (shared or direct samples), not in the renderer. Renderers should only apply view scaling (`renderScaleY`) and avoid reapplying `xTransform` so the transform boundary is explicit and cache-friendly.
 - Cache keys should include canonical sampling inputs and instance X transform inputs (if samples are canonical), but must exclude spline-only Y transforms.
 - Interaction code should invert the view Y transform when translating pointer movement into value changes so edits remain canonical.
 

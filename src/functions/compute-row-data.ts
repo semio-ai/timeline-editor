@@ -26,6 +26,7 @@ import {
   SegmentSample,
   RenderSampleCache,
   RenderSampleId,
+  AffineTransform2D,
 } from "../types";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
@@ -46,6 +47,12 @@ import { resolveDraggedTrackIds } from "./resolve-dragged-track-ids";
 import type { TransitionParams } from "./compute-transition-params";
 
 const SEGMENT_SAMPLE_RESOLUTION = 50;
+const IDENTITY_TRANSFORM: AffineTransform2D = {
+  scaleX: 1,
+  scaleY: 1,
+  offsetX: 0,
+  offsetY: 0,
+};
 
 const PAIRING_FLAT_TOLERANCE_RAD = (3 * Math.PI) / 180;
 
@@ -118,6 +125,7 @@ export function computeRowData(
     min: verticalBounds[0],
     max: verticalBounds[1],
   };
+  const rowTransform = resolveRowTransform(sourceRow, context);
 
   const shouldPreview = Boolean(dragState && selectionState.instanceId === dragState.instanceId);
   const draggedTrackIds = shouldPreview
@@ -412,7 +420,12 @@ export function computeRowData(
 
   const renderMarkers = buildRenderMarkers(markerFramesWithPairing, boundsForRow);
   const selectionFrames = buildSelectionFrames(markerFramesWithPairing, renderMarkers);
-  const renderSegments = buildRenderSegments(segmentsWithGeometry, sourceRow, renderSampleCache);
+  const renderSegments = buildRenderSegments(
+    segmentsWithGeometry,
+    sourceRow,
+    renderSampleCache,
+    rowTransform,
+  );
   const renderHandles = buildRenderHandles(segmentsWithGeometry, sourceRow);
 
   const rowComputedData: ComputedRowData = {
@@ -516,7 +529,8 @@ function buildSelectionFrames(
 function buildRenderSegments(
   segments: InstancePair[],
   sourceRow: SourceRow,
-  renderSampleCache?: RenderSampleCache,
+  renderSampleCache: RenderSampleCache | undefined,
+  rowTransform: AffineTransform2D,
 ): RenderSegment[] {
   const fallbackEntry = sourceRow.data[0];
   const segmentPointCount = Math.max(2, SEGMENT_SAMPLE_RESOLUTION + 1);
@@ -577,29 +591,42 @@ function buildRenderSegments(
         startStamp: segment.start.stamp,
         endStamp: segment.end.stamp,
         samples: {} as Partial<Record<TrackRender, SegmentSample>>,
+        transform: rowTransform,
       },
     ];
   });
 
   if (!renderSampleCache) {
     return segmentDetails.map((detail) => {
+      const transitionPoints = applySampleTransform(
+        sampleCubicBezier(detail.transitionParams, SEGMENT_SAMPLE_RESOLUTION),
+        detail.transform,
+      );
+      const keyPoints = applySampleTransform(
+        sampleCubicBezier(detail.keyParams, SEGMENT_SAMPLE_RESOLUTION),
+        detail.transform,
+      );
       const samples: Partial<Record<TrackRender, SegmentSample>> = {
         [TrackRender.Transition]: {
           kind: "direct",
-          points: sampleCubicBezier(detail.transitionParams, SEGMENT_SAMPLE_RESOLUTION),
+          points: transitionPoints,
           stride: 2,
         },
         [TrackRender.Key]: {
           kind: "direct",
-          points: sampleCubicBezier(detail.keyParams, SEGMENT_SAMPLE_RESOLUTION),
+          points: keyPoints,
           stride: 2,
         },
       };
 
       if (detail.splineParams) {
+        const splinePoints = applySampleTransform(
+          sampleCubicBezier(detail.splineParams, SEGMENT_SAMPLE_RESOLUTION),
+          detail.transform,
+        );
         const splineSample: SegmentSample = {
           kind: "direct",
-          points: sampleCubicBezier(detail.splineParams, SEGMENT_SAMPLE_RESOLUTION),
+          points: splinePoints,
           stride: 2,
         };
         samples[TrackRender.Spline] = splineSample;
@@ -620,13 +647,6 @@ function buildRenderSegments(
 
   const trackIndex = renderSampleCache.trackIndex ?? {};
   renderSampleCache.trackIndex = trackIndex;
-  const identityTransform = {
-    scaleX: 1,
-    scaleY: 1,
-    offsetX: 0,
-    offsetY: 0,
-  };
-
   const segmentsByTrack = new Map<string, typeof segmentDetails>();
   segmentDetails.forEach((detail) => {
     const list = segmentsByTrack.get(detail.trackId) ?? [];
@@ -681,7 +701,7 @@ function buildRenderSegments(
           kind: "shared",
           sampleId: cachedSample.id,
           range: { startIndex, endIndex },
-          transform: identityTransform,
+          transform: detail.transform,
         };
       });
     };
@@ -788,6 +808,60 @@ function sampleCubicBezier(params: TransitionParams, resolution: number): Float3
   }
 
   return points;
+}
+
+function isIdentityTransform(transform: AffineTransform2D): boolean {
+  return (
+    transform.scaleX === 1 &&
+    transform.scaleY === 1 &&
+    transform.offsetX === 0 &&
+    transform.offsetY === 0
+  );
+}
+
+function applySampleTransform(points: Float32Array, transform: AffineTransform2D): Float32Array {
+  if (isIdentityTransform(transform)) {
+    return points;
+  }
+  for (let i = 0; i < points.length; i += 2) {
+    const x = points[i];
+    const y = points[i + 1];
+    points[i] = x * transform.scaleX + transform.offsetX;
+    points[i + 1] = y * transform.scaleY + transform.offsetY;
+  }
+  return points;
+}
+
+function resolveRowTransform(
+  sourceRow: SourceRow,
+  context?: RowComputationContext,
+): AffineTransform2D {
+  const instanceIds = uniq(
+    sourceRow.data.map((entry) => entry.instanceId).filter((id): id is string => Boolean(id)),
+  );
+  if (instanceIds.length !== 1) {
+    return IDENTITY_TRANSFORM;
+  }
+  if (!context?.namespaces) {
+    return IDENTITY_TRANSFORM;
+  }
+
+  const instanceId = instanceIds[0];
+  for (const namespace of Object.values(context.namespaces)) {
+    const instance = namespace.animationInstances[instanceId];
+    if (!instance) continue;
+    const timescale = instance.settings.timescale ?? 1;
+    const offset = instance.settings.offset ?? 0;
+    const scaleX = Number.isFinite(timescale) && timescale !== 0 ? 1 / timescale : 1;
+    return {
+      scaleX,
+      scaleY: 1,
+      offsetX: offset,
+      offsetY: 0,
+    };
+  }
+
+  return IDENTITY_TRANSFORM;
 }
 
 function resolvePairingByPoint(

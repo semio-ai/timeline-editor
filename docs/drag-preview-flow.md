@@ -15,30 +15,28 @@ Sets up all store subscriptions, including the derived snapshot orchestrator, an
         1. Computes a `versionHint` from `latestSnapshot?.version` or `currentState.derivedSnapshot?.version`, then increments it.
         2. Computes derived outputs (inline `computeDerivedState`).
           1. `buildDerivedSnapshot`: builds canonical tracks, row data, and preview overlays.
-            1. Initializes caches (`derivedTracks`, `canonicalViolationsByTrackKey`, `trackContextByKey`).
-            2. If `dragState` exists, creates `dragPreviewCache` (`trackViews`, `pendingDiffsByTrackId`, `selectionCleanups`).
-            3. Defines `applyEffectiveTransitions(points)` to clamp transitions per segment and return points with effective `in/out` transitions.
-            4. Canonical track pass (namespaces -> instances -> tracks).
+            1. Initializes caches (`derivedTracks`, `canonicalViolationsByTrackKey`, `trackContextByKey`) plus a `renderSampleCache` for shared polyline samples.
+            2. If preview is active (`dragState` + matching `selectionState.instanceId`), resolves `draggedTrackIds` and creates `dragPreviewCache` (`trackViews`, `pendingDiffsByTrackId`, `selectionCleanups`, `draggedTrackIds`).
+            3. Canonical track pass (namespaces -> instances -> tracks).
               1. Resolves `animation`, `track`, and `animatable`; skips if any are missing.
               2. Builds `trackKey = buildTrackKey(namespaceId, instanceId, trackId)`.
-              3. Applies effective transitions to track points.
-              4. Builds `canonicalTrack` and calls `computeTrackInterpolator` (see section) to build the canonical interpolator.
-              5. Builds the derivative interpolator via `computeDerivativeInterpolator` using the animation duration.
-          6. Calls `computeTrackViolations` (see section) to produce canonical violations.
-            - Note: the interpolator is evaluated in world time (instance timescale/offset applied), so velocity/rate violations can legitimately differ per instance.
-              7. Stores canonical interpolator, derivative, violations, and metadata on `derivedTracks[trackKey]`.
-            5. Row pass (each `instancedTrackSources` row).
-              1. Calls `computeRowData` (see section) with canonical violations, animatables, drag/selection state, and the preview cache.
+              3. Calls `computeTrackInterpolator` (see section) to build the canonical interpolator.
+              4. Builds the derivative interpolator via `computeDerivativeInterpolator` using the animation duration.
+              5. Calls `computeTrackViolations` with a duration adjusted by the instance timescale.
+                - Note: the interpolator is evaluated in world time (instance timescale/offset applied), so velocity/rate violations can legitimately differ per instance.
+              6. Stores canonical interpolator, derivative, violations, and metadata on `derivedTracks[trackKey]`.
+            4. Row pass (each `instancedTrackSources` row).
+              1. Calls `computeRowData` (see section) with canonical violations, animatables, drag/selection state, the preview cache, and `renderSampleCache`.
               2. Builds `trackKeys` for the row entries and stores `{ id, trackKeys, computed }` in `derivedRows`.
-            6. Preview interpolator pass (only if `dragPreviewCache` exists).
-              1. For each preview `trackKey`, applies effective transitions to preview points.
-              2. Calls `computeTrackInterpolator` and `computeTrackViolations` for the preview track.
+            5. Preview interpolator pass (only if `dragPreviewCache` exists).
+              1. For each preview `trackKey`, uses the projected points to build a preview track.
+              2. Calls `computeTrackInterpolator` and `computeTrackViolations` with the timescale-adjusted duration.
               3. Stores `derivedTracks[trackKey].preview` for downstream preview interpolation/violations.
-            7. Builds the `dragContext` by merging preview cache outputs into `dragState`.
+            6. Builds the `dragContext` by merging preview cache outputs into `dragState`.
               1. `pendingDiffs` from `dragPreviewCache.pendingDiffsByTrackId` if present, else `dragState.pendingDiffs`.
               2. `pendingSelectionCleanups` from `dragPreviewCache.selectionCleanups` if present, else `dragState.pendingSelectionCleanups`.
               3. `projectedTracks` from `dragPreviewCache.trackViews` if present, else `dragState.projectedTracks`.
-            8. Returns `DerivedSnapshot` with `version`, `dragContext`, `tracks`, and `rows`.
+            7. Returns `DerivedSnapshot` with `version`, `dragContext`, `dragOverlay`, `tracks`, `rows`, and optional `renderSampleCache`.
           2. `projectRowVerticalAxes` projects per-view vertical ranges onto row data.
             1. Normalizes `sourceRowIds` into flat/spline row lists.
             2. Builds view contexts from `editorViews` (track render mode, vertical axis mode, row set, optional uniform range).
@@ -78,33 +76,33 @@ Builds live `values` and `velocities` maps from the derived snapshot and player 
 
 # `computeRowData`
 Computes per-row frames, segments, bounds, and preview overlays; called from `buildDerivedSnapshot` and tests.
-  1. Builds row-level sets (`trackIds`, `instanceIds`, `namespaceIds`) and a `trackContextByTrackId` map (prefers the active drag instance).
-  2. Builds `trackKeysByTrackId` for all row entries.
-  3. Filters canonical violations to the row's track ids and the row's instance/namespace scope.
-  4. Computes `verticalBounds` via `computeVerticalBounds`, preferring animatable constraints and falling back to point values.
-  5. Determines preview gating:
+  1. Builds row-level sets (`trackIds`, `instanceIds`, `namespaceIds`) and `trackKeysByTrackId` mapping.
+  2. Filters canonical violations to the row's track ids and the row's instance/namespace scope.
+  3. Computes `verticalBounds` via `computeVerticalBounds`, preferring animatable constraints and falling back to point values.
+  4. Determines preview gating:
     1. `shouldPreview` is true only when `dragState` exists and `selectionState.instanceId === dragState.instanceId`.
-    2. Builds `keypointSelection` and `handleDiffs` only when preview gating passes.
-  6. If preview is enabled, computes per-track drag projections:
-    1. For each `trackId`, calls `computeDragDiffOps` (see section) with the base or snapshot points and constraint bounds.
+    2. Resolves `draggedTrackIds` (from `dragPreviewCache` or `resolveDraggedTrackIds`) and `handleDiffs`.
+  5. If preview is enabled, computes per-track drag projections:
+    1. For each dragged track id, calls `computeDragDiffOps` (see section) with the base or snapshot points and constraint bounds.
     2. Overlays `handleDiffs` by replacing `transitions.in/out/pairing` on preview and marker points.
     3. Stores `{ projectedPoints, framePoints, diffs, selectionCleanup }` in `previewByTrackId`.
-  7. Builds projected and marker tracks (per row entry):
+  6. Builds projected and marker tracks (per row entry):
     1. Computes `trackKey = buildTrackKey(namespaceId, instanceId, trackId)`.
-    2. Chooses preview points only when `datum.instanceId === dragState.instanceId` and preview is enabled.
+    2. Chooses preview points only when the track is in `draggedTrackIds` (and the instance matches the drag context).
     3. Drops coincident points that collide with the anchor stamp to keep anchor ids stable.
     4. Writes `projectedTracks[trackKey]` and `markerTracks[trackKey]`, plus matching `projectedSourceRow`/`markerSourceRow` entries with `trackIdBase`.
     5. If `previewCache` exists, caches `trackViews`, `pendingDiffsByTrackId`, and `selectionCleanups` for use by `buildDerivedSnapshot`.
-  8. Builds frames and segments:
+  7. Builds frames and segments:
     1. Calls `computeFrames` (see section) for projected tracks and marker tracks, using `transformKeypoint` and anchor frame info.
     2. Resolves per-point transition pairing and applies it to frames.
     3. Calls `computeTransitionSegments` to build explicit segments, then `computeFilledInterpGaps` to fill implicit gaps.
     4. Calls `attachSegmentGeometry` to compute raw/effective render params and handle locations.
-  9. Computes preview violations when the row includes the dragged instance and context is available:
-    1. Builds effective transitions from segment geometry.
-    2. For each row entry, rebuilds preview points when applicable and recomputes violations.
-    3. Replaces violations only for the dragged instance; other instances keep canonical violations.
- 10. Builds `violationSet` and returns `ComputedRowData` (`virtualFrames`, `interpolations`, `verticalBounds`).
+  8. Computes preview violations when the row includes the dragged instance and context is available:
+    1. For each dragged track, rebuilds preview points when applicable and recomputes violations.
+    2. Uses the timescale-adjusted duration when computing preview violations.
+    3. Replaces violations only for the dragged tracks; other instances keep canonical violations.
+  9. Builds render outputs (`render.markers`, `render.segments`, `render.handles`) and `selection` frames.
+ 10. Builds `violationSet` and returns `ComputedRowData` (`virtualFrames`, `render`, `selection`, `verticalBounds`, `valueBounds`).
  11. Returns computed row data to the caller.
 
 # `computeDragDiffOps`

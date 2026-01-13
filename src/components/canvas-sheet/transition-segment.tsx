@@ -37,7 +37,6 @@ interface LineRef {
 
 const mapSampleToRowPoints = (
   sample: { points: Float32Array; stride: 2 | 3 },
-  xTransform: ((stamp: number) => number) | undefined,
   renderScaleY: (value: number) => number,
 ): Float32Array => {
   const raw = sample.points;
@@ -46,8 +45,7 @@ const mapSampleToRowPoints = (
   const mapped = new Float32Array(count * 2);
   for (let i = 0; i < count; i += 1) {
     const offset = i * stride;
-    const x = raw[offset];
-    mapped[i * 2] = typeof xTransform === "function" ? xTransform(x) : x;
+    mapped[i * 2] = raw[offset];
     mapped[i * 2 + 1] = renderScaleY(raw[offset + 1]);
   }
   return mapped;
@@ -67,7 +65,6 @@ export interface TransitionSegmentProps {
   isRowHovered?: boolean;
   renderMorphProgress?: MotionValue<number>;
   renderSampleCache?: RenderSampleCache;
-  xTransform?: (stamp: number) => number;
 }
 
 /**
@@ -88,7 +85,6 @@ export const TransitionSegment = memo(function TransitionSegment({
   verticalAxisRange,
   renderMorphProgress,
   renderSampleCache,
-  xTransform,
 }: TransitionSegmentProps) {
   const isEmpty = Boolean(segment.buffer);
 
@@ -112,8 +108,8 @@ export const TransitionSegment = memo(function TransitionSegment({
   const currentPoints2D = useMemo(() => {
     if (!materializedSample) return null;
     if (materializedSample.points.length === 0) return null;
-    return mapSampleToRowPoints(materializedSample, xTransform, renderScaleY);
-  }, [materializedSample, renderScaleY, xTransform]);
+    return mapSampleToRowPoints(materializedSample, renderScaleY);
+  }, [materializedSample, renderScaleY]);
 
   const lineWidth = useMemo(() => {
     if (trackRender === TrackRender.Key) return 2.5;

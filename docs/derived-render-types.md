@@ -115,7 +115,7 @@ Properties:
 - `points` - direct packed points (for `kind: "direct"`).
 - `sampleId` - reference into `RenderSampleCache` (for `kind: "shared"`).
 - `range` - point index range into the shared sample (`startIndex` inclusive, `endIndex` exclusive).
-- `transform` - affine transform for row/instance mapping.
+- `transform` - affine transform for row/instance mapping. Instance X transforms should be applied here (materialization), not in the renderer.
 
 ## `RenderSegment`
 ```ts

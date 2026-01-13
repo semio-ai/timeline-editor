@@ -397,7 +397,6 @@ export const DataRenderer = memo(function DataRenderer({
               layer={transitionLayer}
               renderSampleCache={renderSampleCache}
               renderMorphProgress={renderMorphProgress}
-              xTransform={xTransform}
             />
           </Fragment>
         );
