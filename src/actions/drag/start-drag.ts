@@ -5,6 +5,7 @@ import type {
   DragStartInput,
   DragState,
   DragMarkerHandleOffsets,
+  ComputedRowData,
   InstancedFrameInfo,
   Keypoint,
   SelectionState,
@@ -61,6 +62,23 @@ const findAnchorPoint = (
   return marker.points.find((point) => selectedIds.has(point.id));
 };
 
+// Prefer the dragged marker as the drag anchor; fall back to a selected marker if needed.
+const findMarkerFrame = (
+  rowData: ComputedRowData,
+  markerId: string,
+  selectedIds: Set<string>,
+): InstancedFrameInfo | undefined => {
+  const byId = rowData.virtualFrames.find((frame) => frame.id === markerId);
+  if (byId) return byId;
+  const byPoint = rowData.virtualFrames.find((frame) =>
+    frame.points.some((point) => point.id === markerId),
+  );
+  if (byPoint) return byPoint;
+  return rowData.virtualFrames.find((frame) =>
+    frame.points.some((point) => selectedIds.has(point.id)),
+  );
+};
+
 export function startDrag(state: AnimationData, input: DragStartInput): void {
   state.dragState = undefined;
 
@@ -75,9 +93,7 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
   }
 
   const selectedIds = flattenSelection(selection);
-  const marker = rowData.virtualFrames.find((frame) =>
-    frame.points.some((point) => selectedIds.has(point.id)),
-  );
+  const marker = findMarkerFrame(rowData, input.markerId, selectedIds);
   if (!marker) {
     return;
   }

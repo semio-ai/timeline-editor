@@ -4,14 +4,14 @@
 - Core helpers live in `packages/animation/src/functions/selection-state-manager.ts` and are used by `packages/animation/src/actions/click-marker.ts`. `isMarkerSelected` is only referenced by selection tests (`packages/animation/src/tests/selection/*`).
 - View logic is split across components/actions:
   - `packages/animation/src/components/canvas-sheet/data-point.tsx` derives `isSelected` by checking whether any foreground point is selected (based on `LayerBand` + `selectionState.keypoints`) and filters `selectionPoints` by `selectable` before calling `clickMarker`.
-  - `packages/animation/src/actions/click-line.ts` has its own `collectRowForegroundKeypoints` + instance resolution using `selectionFrames` + `render.markers` + `layerBand`, rather than sharing helpers with `selection-state-manager`.
+  - `packages/animation/src/actions/click-line.ts` now uses shared helpers for row-foreground keypoints and instance inference.
   - `packages/animation/src/components/canvas-sheet/data-renderer.tsx` uses a track-level selection check (`selectionState.keypoints`) to gate handle rendering, not marker-level selection.
   - `packages/animation/src/subscriptions/update-instanced-track-sources.ts` derives `LayerBand` by collapsing selection into a track-level lookup (string parsing of track keys), which is different from marker-level selection logic.
-  - `packages/animation/src/components/animatable-editor.tsx` calls `clickMarker` with `selectionFrame.points` directly (no `selectable` filter), which differs from `DataPoint`.
+  - `packages/animation/src/components/animatable-editor.tsx` no longer uses `clickMarker` (value drags run through `startValueDrag`).
 - Differences worth preserving if centralized:
-  - `selection-state-manager.extractKeypoints` does not filter `selectable`, while `DataPoint` and `click-line` do.
-  - `DataPoint` treats a marker as selected if any foreground point is selected; helper `isMarkerSelected` returns true only when all keypoints are selected.
-  - `click-line` filters by `LayerBand` foreground using render markers; `selection-state-manager` does not incorporate `layerBand`.
+  - `selection-state-manager.extractKeypoints` now filters by `selectable`, aligning with `DataPoint` and `click-line`.
+  - `DataPoint` treats a marker as selected if any foreground point is selected; helper `isMarkerSelected` returns true only when all keypoints are selected (still divergent).
+  - `selection-state-manager` now includes row-foreground helpers that account for `LayerBand` via render markers.
 
 ## Handle pairing
 - Functionality appears implemented in code:
@@ -35,7 +35,9 @@
 - Alignment status:
   - Value-driven drags now normalize through `startValueDrag`/`updateValueDrag` and share the same preview/commit pipeline as canvas drags.
   - Drag previews avoid `updateKeypoints` during a drag; direct edits still use `updateKeypoints`/`updateKeypoint`.
+  - `startDrag` now anchors to the dragged marker id (not the first selected marker), avoiding horizontal jumps when multi-selection drags begin.
   - Package-level tests (`npx turbo run test --filter=@semio/animation -- --watch=false`) pass without Firebase emulators.
+  - Multi-selection drag anchor offset issue addressed (anchored to dragged marker; regression test added).
 - Open issues:
   - Value-driven drags intentionally use literal row bounds (`verticalBounds`), not view padding/offset. Documented in `value-drag.ts`/`drag-state.ts`.
   - Added coverage for value-driven drag normalization vs spline view padding in `packages/animation/src/tests/drag/value-drag-bounds.test.ts`.
