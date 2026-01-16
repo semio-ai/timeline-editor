@@ -44,7 +44,7 @@ Sets up all store subscriptions, including the derived snapshot orchestrator, an
             2. Builds view contexts from `editorViews` (track render mode, vertical axis mode, row set, optional uniform range).
             3. For each row, computes a per-view `VerticalAxisRange` (uniform or row-local), with spline padding when applicable.
             4. Returns updated row data plus a `changed` flag.
-          3. Builds `trackInterpolators` and `canonicalViolations` from `snapshot.tracks`, keyed by `getLookup(namespaceId, animatableId)`.
+          3. Builds `trackInterpolators` and `canonicalViolations` from `snapshot.tracks`, keyed by `trackKey` (`${namespaceId}/${instanceId}/${trackId}`).
           4. Replaces each row's `computed` data with the view-adjusted version from `projectRowVerticalAxes`.
           5. Calls `computeValueAndVelocityMaps` to compute current values/velocities from the adjusted snapshot.
           6. Returns `{ snapshot, trackInterpolators, canonicalViolations, values, velocities }`.
@@ -69,7 +69,7 @@ Builds live `values` and `velocities` maps from the derived snapshot and player 
   3. Iterates `snapshot.tracks` and for each track:
     1. Uses `TrackDerivedState.metadata` when available to avoid parsing `TrackInstanceKey`.
     2. Falls back to parsing `trackKey` if metadata is missing.
-    3. Builds a lookup key using `getLookup(namespaceId, animatableId)`.
+    3. Uses `trackKey` directly as the lookup key.
     4. Evaluates the canonical interpolator at the current stamp and stores the result in `values`.
     5. Evaluates the canonical derivative:
       1. When running, scales by speed and direction.
@@ -89,9 +89,9 @@ Computes per-row render outputs with preview overlays. The output is `RowDerived
     1. For each `trackId` in `draggedTrackIds`, call `computeDragDiffOps` with the base or snapshot points and constraint bounds.
     2. Overlay `handleDiffs` by replacing `transitions.in/out/pairing` on preview points.
     3. Store `{ projectedPoints, framePoints, diffs, selectionCleanup }` in `previewByTrackId`.
-  6. Build marker outputs (row render space):
+  6. Build marker outputs (canonical space):
     1. For each row entry, select preview points when `trackId` is in `draggedTrackIds`.
-    2. Convert keypoint stamp/value to row-space `x/y` and emit `RenderMarker` entries.
+    2. Convert keypoint stamp/value to canonical `x/y` (stamp + normalized value) and emit `RenderMarker` entries.
   7. Build selection frames (selection/range logic):
     1. Group markers by stamp to build `SelectionFrame[]` entries.
     2. Reference markers by id and carry selection metadata only (no duplicated positions).

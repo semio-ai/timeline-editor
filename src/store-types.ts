@@ -9,6 +9,8 @@ import type {
   DragState,
   DragStartInput,
   DragUpdateInput,
+  ValueDragStartInput,
+  ValueDragUpdateInput,
   HandleDragStartInput,
   HandleDragUpdateInput,
   SourceRow,
@@ -27,11 +29,13 @@ import type { SimpleKeypoint, SimpleTrack } from "./types/data/simple-track";
 export interface AnimationData {
   derivedSnapshot?: DerivedSnapshot;
   /**
-   * Current values (output of interpolator).
+   * Current values (output of interpolator), keyed by `${namespaceId}/${instanceId}/${trackId}`.
+   * Use `buildTrackKey` to construct lookups.
    */
   values: Map<string, RawValue | undefined>;
   /**
-   * Current values (output of interpolator).
+   * Current values (output of interpolator), keyed by `${namespaceId}/${instanceId}/${trackId}`.
+   * Use `buildTrackKey` to construct lookups.
    */
   velocities: Map<string, RawValue | undefined>;
   /**
@@ -180,16 +184,11 @@ export interface AnimationActions {
    */
   updateVelocities: (velocities: Map<string, RawValue | undefined>) => void;
   /**
-   * Set an individual value
-   * @param id - The ID of the value to set.
-   * @param namespace - The namespace of the value to set.
+   * Set an individual value by track key.
+   * @param trackKey - The `${namespaceId}/${instanceId}/${trackId}` key to set.
    * @param value - The value to set.
    */
-  setValue: (
-    id: string,
-    namespace: string,
-    value: RawValue | ((current: RawValue) => RawValue),
-  ) => void;
+  setValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => void;
   /**
    * Creates a new view
    */
@@ -404,6 +403,11 @@ export interface AnimationActions {
   startDrag: (input: DragStartInput) => void;
 
   /**
+   * Start a value-driven drag (slider-driven vertical drag).
+   */
+  startValueDrag: (input: ValueDragStartInput) => void;
+
+  /**
    * Start a drag operation for a handle (in/out).
    */
   startHandleDrag: (input: HandleDragStartInput) => void;
@@ -412,6 +416,11 @@ export interface AnimationActions {
    * Update the active drag with pointer deltas.
    */
   updateDrag: (input: DragUpdateInput) => void;
+
+  /**
+   * Update the active value-driven drag with a new value.
+   */
+  updateValueDrag: (input: ValueDragUpdateInput) => void;
 
   /**
    * Update the active handle drag with pointer deltas.
@@ -424,9 +433,19 @@ export interface AnimationActions {
   commitDrag: () => void;
 
   /**
+   * Commit the current value-driven drag, applying all changes.
+   */
+  commitValueDrag: () => void;
+
+  /**
    * Cancel the current drag operation without applying changes.
    */
   cancelDrag: () => void;
+
+  /**
+   * Cancel the current value-driven drag without applying changes.
+   */
+  cancelValueDrag: () => void;
 }
 
 /**

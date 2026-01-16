@@ -1,4 +1,4 @@
-import { RawValue, getLookup, usePlayerStore, AnimatableValue } from "@semio/utils";
+import { RawValue, usePlayerStore, AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
@@ -14,6 +14,8 @@ import {
   Namespace,
   DragUpdateInput,
   DragStartInput,
+  ValueDragStartInput,
+  ValueDragUpdateInput,
   VerticalAxis,
   HandleDragStartInput,
   HandleDragUpdateInput,
@@ -44,9 +46,13 @@ import {
 import { clickMarkerAction, clearSelectionAction } from "./actions/click-marker";
 import {
   startDrag,
+  startValueDrag,
   updateDrag,
+  updateValueDrag,
   commitDrag,
+  commitValueDrag,
   cancelDrag,
+  cancelValueDrag,
   startHandleDrag,
   updateHandleDrag,
 } from "./actions/drag";
@@ -69,6 +75,7 @@ import {
 import { View } from "./types/util/view";
 import { createEmptySelectionState } from "./functions/selection-state-manager";
 import { clickLineAction } from "./actions/click-line";
+import { parseTrackKey } from "./utils/track-key";
 
 enableMapSet();
 
@@ -128,20 +135,18 @@ export const AnimationSlice = (
         }),
       );
     },
-    setValue: (
-      id: string,
-      namespace: string,
-      value: RawValue | ((current: RawValue) => RawValue),
-    ) => {
+    setValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => {
       set(
         produce((state) => {
-          const lookupId = getLookup(namespace, id);
+          const lookupId = trackKey;
           if (typeof value === "function") {
             const current: RawValue | undefined = state.values.get(lookupId);
             if (current === undefined) {
               // Get the default value from the animatable if it exists
-              const animatable = state.animatables[id];
-              state.values.set(lookupId, value(animatable.default as RawValue));
+              const { trackId } = parseTrackKey(lookupId);
+              const animatableId = state.tracks[trackId]?.animatableId;
+              const animatable = animatableId ? state.animatables[animatableId] : undefined;
+              state.values.set(lookupId, value(animatable?.default as RawValue));
             } else {
               state.values.set(lookupId, value(current));
             }
@@ -583,6 +588,13 @@ export const AnimationSlice = (
         }),
       );
     },
+    startValueDrag: (input: ValueDragStartInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          startValueDrag(state, input);
+        }),
+      );
+    },
     startHandleDrag: (input: HandleDragStartInput) => {
       set(
         produce((state: AnimationData): void => {
@@ -594,6 +606,13 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           updateDrag(state, input);
+        }),
+      );
+    },
+    updateValueDrag: (input: ValueDragUpdateInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateValueDrag(state, input);
         }),
       );
     },
@@ -611,10 +630,24 @@ export const AnimationSlice = (
         }),
       );
     },
+    commitValueDrag: () => {
+      set(
+        produce((state: AnimationData): void => {
+          commitValueDrag(state);
+        }),
+      );
+    },
     cancelDrag: () => {
       set(
         produce((state: AnimationData): void => {
           cancelDrag(state);
+        }),
+      );
+    },
+    cancelValueDrag: () => {
+      set(
+        produce((state: AnimationData): void => {
+          cancelValueDrag(state);
         }),
       );
     },

@@ -27,6 +27,9 @@ interface SourceBase {
  * @property {"group"} type - Discriminator indicating this is a group source
  * @property {boolean} expanded - Whether the group is expanded in the UI to show its children
  * @property {Source[]} children - Child sources contained within this group (can be nested groups or tracks)
+ * @property {"nested" | "interleave" | "overlay"} [layout] - Optional layout hint for future row flattening.
+ *   Currently ignored; when implemented, "interleave" will emit child rows in order and "overlay" will
+ *   merge sibling tracks into a single row for composite rendering.
  */
 export interface SourceGroup extends SourceBase {
   id: string;
@@ -36,6 +39,7 @@ export interface SourceGroup extends SourceBase {
   expanded: boolean;
   iconCode?: string;
   children: Source[];
+  layout?: "nested" | "interleave" | "overlay";
 }
 
 /**
@@ -49,6 +53,8 @@ export interface SourceGroup extends SourceBase {
  * @property {AnimatableValue["type"]} type - The data type of values stored in this track (e.g., number, vector3, color)
  * @property {boolean} hidden - Whether this track is hidden from view in the UI
  * @property {boolean} muted - Whether this track is muted (excluded from playback)
+ * @property {string} [channel] - Optional channel label (target/feedback/sim). Not yet used by row
+ *   flattening; intended to order or pair tracks when interleave/overlay layouts are introduced.
  */
 export interface SourceTrack extends SourceBase {
   id: string;
@@ -58,6 +64,7 @@ export interface SourceTrack extends SourceBase {
   hidden: boolean;
   muted: boolean;
   iconCode?: string;
+  channel?: string;
 }
 
 /**

@@ -18,13 +18,13 @@ Status: complete.
 Issue: `packages/animation/docs/derived-render-types.md` describes `RenderMarker.x/y` as row-space coordinates, but `packages/animation/src/functions/compute-row-data.ts` sets `x = stamp` and `y` to normalized `[-0.5, 0.5]`, and renderers ignore the fields.
 
 Recommended approach: keep derived data view-invariant for separation of concerns. Either remove `x/y` from `RenderMarker` or redefine them as canonical-space values (e.g., `x = stamp`, `y = normalizedValue`) and update the docs accordingly. If row-space coordinates are desired for performance, compute them in `projectRowVerticalAxes` (where view context exists) and update renderers to consume that single source of truth. This keeps view math centralized and avoids inconsistent per-component scaling.
-Status: pending.
+Status: complete.
 
 ## Interpolator input semantics
 Issue: `packages/animation/src/functions/compute-track-interpolator.ts` converts input time to world time, but the doc does not specify that the input is local.
 
 Recommended approach: rename the parameter or add a clear doc comment that the input is local stamp (0..1 in instance space). If external use cases need world time, add a small wrapper (e.g., `computeTrackInterpolatorWorld`) to keep responsibilities explicit and prevent accidental double transforms. Add or update a test that exercises non-identity timescale/offset to lock in the intended contract.
-Status: pending.
+Status: complete.
 
 ## Render update path
 Issue: `packages/animation/src/components/canvas-sheet/transition-segment.tsx` updates geometry both imperatively (`setPositions`) and declaratively (`points` prop), which obscures ownership and can do extra work.

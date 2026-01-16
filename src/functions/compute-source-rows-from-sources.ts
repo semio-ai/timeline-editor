@@ -22,6 +22,8 @@ export function computeSourceRowsFromSources(
   sources.forEach((source: Source) => {
     if (GROUP_TYPES.has(source.type)) {
       // Get the list of SourceRows for the children;
+      // Note: layout hints (interleave/overlay) are reserved for future row flattening.
+      // For now we always emit the group row followed by its child rows.
       const sourceGroup = source as SourceGroup;
       const childRows = computeSourceRowsFromSources(
         sourceGroup.children,

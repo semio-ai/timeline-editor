@@ -47,6 +47,8 @@ export interface DerivedTrackSnapshot {
     duration: number;
     /** Instance timescale for this track. */
     timescale: number;
+    /** Instance offset for this track. */
+    offset: number;
   };
 }
 

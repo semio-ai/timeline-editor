@@ -9,39 +9,32 @@ import {
   useColors,
   useLocalGlobalTransformLookup,
   useNameLookup,
-  useTrackAnimatableLookup,
 } from "../hooks";
 import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
 import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
 import { InstancedFrameInfo } from "../types";
 import { AnimationActions, AnimationData } from "../store-types";
 import type { SimpleRawValue } from "../types/data/simple-track";
+import { buildTrackKey } from "../utils/track-key";
+import { useValuesRef } from "../hooks/use-values-ref";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
 
 export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
-  const {
-    source,
-    computedRowData,
-    snapshot,
-    viewData,
-    namespaces,
-    animations,
-    sourcesByAnimationInstance,
-  } = useAnimationStore(
-    useShallow((state: AnimationData) => ({
-      source: state.instancedTrackSources.global,
-      computedRowData: state.derivedSnapshot?.rows?.global?.computed,
-      snapshot: state.derivedSnapshot,
-      viewData: state.editorViews[viewId],
-      namespaces: state.namespaces,
-      animations: state.animations,
-      sourcesByAnimationInstance: state.sourcesByAnimationInstance,
-    })),
-  );
+  const { source, computedRowData, viewData, namespaces, animations, sourcesByAnimationInstance } =
+    useAnimationStore(
+      useShallow((state: AnimationData) => ({
+        source: state.instancedTrackSources.global,
+        computedRowData: state.derivedSnapshot?.rows?.global?.computed,
+        viewData: state.editorViews[viewId],
+        namespaces: state.namespaces,
+        animations: state.animations,
+        sourcesByAnimationInstance: state.sourcesByAnimationInstance,
+      })),
+    );
 
-  const trackAnimatableLookup = useTrackAnimatableLookup();
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
+  const valuesRef = useValuesRef();
 
   const hasData = source && computedRowData && viewData;
 
@@ -145,21 +138,17 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
             }));
             removeKeypoints(removals);
           } else {
-            const datumAnimatablePairs = source.data.map((datum) => ({
-              datum,
-              animatableId: trackAnimatableLookup[datum.trackId].id,
-            }));
-            const updates = datumAnimatablePairs
-              .map(({ datum }) => {
-                const trackKey = `${datum.namespaceId}/${datum.instanceId}/${datum.trackId}`;
-                const value = snapshot?.tracks[trackKey as any]?.canonical.interpolator(stamp) as
-                  | SimpleRawValue
-                  | undefined;
+            const updates = source.data
+              .map((datum) => {
+                const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
+                const localStamp = typeof toLocal === "function" ? toLocal(stamp) : stamp;
+                const valueKey = buildTrackKey(datum.namespaceId, datum.instanceId, datum.trackId);
+                const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
                 return {
                   trackId: datum.trackId,
                   keypoint: {
                     value,
-                    stamp: localGlobalTransformLookup.toLocal[datum.namespaceId](stamp),
+                    stamp: localStamp,
                   },
                 };
               })

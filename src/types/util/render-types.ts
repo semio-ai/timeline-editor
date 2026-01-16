@@ -78,7 +78,9 @@ export interface RenderMarker {
   stamp: number;
   /** Numeric value used for rendering (boolean maps to 0/1; string values are skipped). */
   value: number;
+  /** Canonical x coordinate (stamp space, 0..1). */
   x: number;
+  /** Canonical y coordinate normalized to value bounds (-0.5..0.5). */
   y: number;
 }
 

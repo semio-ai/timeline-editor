@@ -110,6 +110,10 @@ export interface DragState {
    */
   markerHandleOffsets?: Record<string, DragMarkerHandleOffsets>;
   /**
+   * Keypoint created at drag start for value-driven drags; removed on cancel.
+   */
+  insertedKeypoint?: { trackId: string; keypointId: string };
+  /**
    * Canonical track snapshots at drag start. Preview overlays deltas onto these without mutating
    * the live tracks.
    */
@@ -183,6 +187,36 @@ export interface DragUpdateInput {
   /** Normalized vertical delta since drag start. */
   normalizedValueDelta?: number;
   /** Current modifier keys. */
+  modifiers: DragState["modifiers"];
+}
+
+/** Payload for starting a value-driven drag (slider-driven vertical drags). */
+export interface ValueDragStartInput {
+  /** Row context for the value drag. */
+  rowId: string;
+  /** Track containing the value being dragged. */
+  trackId: string;
+  /** Namespace/instance context for the track. */
+  namespaceId: string;
+  instanceId: string;
+  /** Player/world stamp used to resolve the local keypoint. */
+  worldStamp: number;
+  /** Pointer origin (for consistency with drag state). */
+  origin: PointerPosition;
+  /**
+   * Optional override for the drag value scale; when omitted, row vertical bounds are used.
+   * These are literal data bounds and do not include view padding/offset from spline rendering.
+   */
+  valueScale?: ValueScale;
+}
+
+/** Payload for updating a value-driven drag. */
+export interface ValueDragUpdateInput {
+  /** Current value in canonical units (not view-transformed). */
+  currentValue: number;
+  /** Pointer position (optional but kept for parity with drag state). */
+  pointer: PointerPosition;
+  /** Modifier keys at the time of update. */
   modifiers: DragState["modifiers"];
 }
 

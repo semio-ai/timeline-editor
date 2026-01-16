@@ -37,12 +37,13 @@ interface BezierSegment {
 }
 
 /**
- * Computes an interpolator function for a given track and instance information.
- * The returned function takes a time value and returns the interpolated value at that time.
+ * Computes an interpolator for a given track and instance.
+ * The returned function expects a local stamp (0..1 in instance space); convert
+ * from world/player time with `computeLocalStamp` before sampling.
  *
  * @param track - The track containing points with time stamps and values.
  * @param instanceInfo - Information about the instance to compute world stamps.
- * @returns A function that takes a time value (number) and returns the interpolated value (RawValue) at that time, or undefined if the track has no points.
+ * @returns A function that takes a local stamp and returns the interpolated value, or undefined if the track has no points.
  */
 export function computeTrackInterpolator(
   track: Track<RawValue>,

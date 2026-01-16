@@ -24,7 +24,6 @@ This document captures the current organization, data structures, and runtime fl
 ## Migration Plans
 
 - [ ] [Selection State Migration](./selection-migration.md)
-- [ ] [Canvas Sheet Layering & Contrast Migration](./canvas-sheet-layering-migration.md)
 - [ ] Centralize test microtask flushing by adding a shared helper (e.g., `flushMicrotasks`) and replacing `setTimeout`-based waits in tests
 - [x] Adopt normalized derivedSnapshot across components; gate selectors on derivedSnapshot.version
 - [x] Wire drag preview to derived snapshot; ensure commit paths update canonical and orchestrated derived state
@@ -81,8 +80,8 @@ This document captures the current organization, data structures, and runtime fl
 
 The zustand store (`AnimationData` in `store-types.ts`) is the single source of truth for canonical data. A normalized derived snapshot is produced by the orchestrator for rendering. Key fields:
 
-- `values` / `velocities`: `Map<string, RawValue>` keyed by namespace-qualified IDs describing the sampled value/velocity at the current stamp. Updates propagate to the player and consuming apps.
-- `trackInterpolators`: Cache of active interpolators (`TrackInterpolators`) used to sample values and detect violations.
+- `values` / `velocities`: `Map<string, RawValue>` keyed by `${namespaceId}/${instanceId}/${trackId}` describing the sampled value/velocity at the current stamp. Use `buildTrackKey` for lookups.
+- `trackInterpolators`: Cache of active interpolators (`TrackInterpolators`) keyed by track key, used to sample values and detect violations.
 - `namespaces`: Namespaced animation instances keyed by ID. Encodes instance/group relationships so overlapping tracks do not stomp each other.
 - `animations` / `tracks`: Canonical animation metadata (`StoredAnimation` + `Track<RawValue>`) loaded in the editor. Tracks reference keypoints and interpolator configuration.
 - `selectionState`: Path-based selection record managed via `functions/selection-state-manager.ts`. Replaces the earlier point-array selection.

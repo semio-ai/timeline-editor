@@ -172,7 +172,8 @@ Properties:
 - `editable`/`selectable`/`layerBand` - optional UI flags to avoid rejoining `SourceRowData` for selection and rendering.
 - `stamp` - normalized time (0..1).
 - `value` - raw numeric value (boolean maps to 0/1; string values are not rendered).
-- `x`/`y` - row-space coordinates after scaling.
+- `x` - canonical coordinate in stamp space (0..1).
+- `y` - canonical value coordinate normalized to row bounds (-0.5..0.5). View scaling happens later.
 Note: Grouping is derived from the row (multiple tracks or a group source), not from `valueType`.
 
 ## `RenderHandle`

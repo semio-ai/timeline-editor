@@ -22,9 +22,11 @@ import {
   useNames,
   useTrackAnimatableLookup,
 } from "../hooks";
+import { useValuesRef } from "../hooks/use-values-ref";
 import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
 import { AnimationActions, AnimationData } from "../store-types";
 import type { SimpleRawValue } from "../types/data/simple-track";
+import { buildTrackKey } from "../utils/track-key";
 import { TrackControl } from "./track-control";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
@@ -50,9 +52,8 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     useShallow((state: AnimationActions) => state.updateControlColor),
   );
 
-  // Resolve current interpolators from snapshot-maintained slice
-  const snapshot = useAnimationStore(useShallow((state: AnimationData) => state.derivedSnapshot));
   const animatables = useAnimationStore(useShallow((state) => state.animatables));
+  const valuesRef = useValuesRef();
 
   const trackAnimatableLookup = useTrackAnimatableLookup();
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
@@ -230,17 +231,27 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
                 }));
                 const updates = datumAnimatablePairs
                   .map(({ datum, animatableId }) => {
-                    const trackKey = `${datum.namespaceId}/${datum.instanceId}/${datum.trackId}`;
-                    const interp = snapshot?.tracks[trackKey as any]?.canonical.interpolator;
                     const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
                     const localStamp =
                       typeof toLocal === "function" ? toLocal(playerStamp) : playerStamp;
-                    const value: SimpleRawValue | undefined = interp
-                      ? (interp(localStamp) as SimpleRawValue | undefined)
-                      : undefined;
-                    const defaultValue = animatables[animatableId].default as SimpleRawValue;
+                    const valueKey = buildTrackKey(
+                      datum.namespaceId,
+                      datum.instanceId,
+                      datum.trackId,
+                    );
+                    const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
+                    const defaultValue = animatables[animatableId]?.default as
+                      | SimpleRawValue
+                      | undefined;
                     if (typeof change === "function") {
-                      const newValue = change(value ?? defaultValue) as SimpleRawValue;
+                      const resolvedValue = value ?? defaultValue;
+                      if (resolvedValue === undefined) {
+                        return null;
+                      }
+                      const newValue = change(resolvedValue) as SimpleRawValue;
+                      if (newValue === undefined) {
+                        return null;
+                      }
                       return {
                         trackId: datum.trackId,
                         keypoint: {
@@ -258,7 +269,17 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
                       };
                     }
                   })
-                  .filter((u) => u.keypoint.value !== undefined);
+                  .filter(
+                    (
+                      u,
+                    ): u is {
+                      trackId: string;
+                      keypoint: { value: SimpleRawValue; stamp: number };
+                    } => {
+                      if (!u) return false;
+                      return u.keypoint.value !== undefined;
+                    },
+                  );
                 updateKeypoints(updates, true);
               }}
             />

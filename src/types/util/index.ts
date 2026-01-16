@@ -8,6 +8,8 @@ export type {
   DragHandleOffset,
   DragStartInput,
   DragUpdateInput,
+  ValueDragStartInput,
+  ValueDragUpdateInput,
   HandleDragStartInput,
   HandleDragUpdateInput,
   ValueScale,

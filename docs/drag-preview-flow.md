@@ -42,7 +42,7 @@ Sets up all store subscriptions, including the derived snapshot orchestrator, an
             2. Builds view contexts from `editorViews` (track render mode, vertical axis mode, row set, optional uniform range).
             3. For each row, computes a per-view `VerticalAxisRange` (uniform or row-local), with spline padding when applicable.
             4. Returns updated row data plus a `changed` flag (used to decide whether to replace rows).
-          3. Builds `trackInterpolators` and `canonicalViolations` from `snapshot.tracks`, keyed by `getLookup(namespaceId, animatableId)`.
+          3. Builds `trackInterpolators` and `canonicalViolations` from `snapshot.tracks`, keyed by `trackKey` (`${namespaceId}/${instanceId}/${trackId}`).
           4. Replaces each row's `computed` data with the view-adjusted version from `projectRowVerticalAxes`.
           5. Calls `computeValueAndVelocityMaps` (see section) to compute current values/velocities from the adjusted snapshot.
           6. Returns `{ snapshot, trackInterpolators, canonicalViolations, values, velocities }`.
@@ -65,14 +65,27 @@ Builds live `values` and `velocities` maps from the derived snapshot and player 
   1. If `snapshot` is missing, returns empty maps.
   2. Reads player `stamp`, `running`, `speed`, and `_currentDirection` to compute a velocity multiplier.
   3. Iterates `snapshot.tracks` and for each track:
-    1. Parses `trackKey` to get `namespaceId` and reads `animatableId` from track metadata.
-    2. Builds a lookup key using `getLookup(namespaceId, animatableId)`.
-    3. Evaluates the canonical interpolator at the current stamp and stores the result in `values`.
+    1. Reads instance `timescale`/`offset` from track metadata.
+    2. Uses the `trackKey` (`${namespaceId}/${instanceId}/${trackId}`) directly as the lookup key.
+    3. Converts the player stamp from world → local with `computeLocalStamp` and evaluates the preview interpolator when the track is actively dragged (falls back to canonical otherwise).
     4. Evaluates the canonical derivative:
-      1. When running, scales by speed and direction.
+      1. Uses preview derivatives when dragging; otherwise uses the canonical derivative.
+      2. Applies the instance timescale (world velocity) and then scales by speed/direction when running.
       2. When stopped, replaces with `matchingIdentityRawValue` (zero velocity shape).
     5. Stores the velocity (or `undefined`) in `velocities`.
   4. Returns `{ values, velocities }`.
+
+# Drag entry points (marker vs value)
+Both canvas and slider drags flow through the same preview/commit pipeline; only the input normalization differs.
+  1. Marker drags (canvas):
+    1. `startDrag` seeds the drag state from the selected marker and captures `valueScale` from row bounds.
+    2. `useDragGestures` computes `normalizedValueDelta` from pixel movement and forwards it to `updateDrag`.
+    3. `commitDrag` applies the projected diffs; `cancelDrag` drops the preview.
+  2. Value-driven drags (slider):
+    1. `startValueDrag` finds (or inserts) the keypoint at the current world stamp, seeds selection, and captures `valueScale` (row bounds or caller override).
+    2. `updateValueDrag` computes `normalizedValueDelta = (currentValue - anchorValueOrigin) / valueRange` and forwards it to `updateDrag`.
+    3. `commitValueDrag` calls `commitDrag`; `cancelValueDrag` removes any inserted keypoint and clears selection.
+    4. Row bounds here refer to literal data bounds (`verticalBounds`), not view-specific padding/offset used by spline rendering.
 
 # `computeRowData`
 Computes per-row frames, segments, bounds, and preview overlays; called from `buildDerivedSnapshot` and tests.
@@ -121,13 +134,13 @@ Produces per-track drag diffs and projected points; used by `computeRowData` and
   8. Returns `{ diffs, projectedPoints, framePoints, selectionCleanup }`.
 
 # `computeTrackInterpolator`
-Builds a world-time interpolator for a track and its instance settings.
+Builds a local-stamp interpolator for a track and its instance settings.
   1. If the track has no points, returns a function that always yields `undefined`.
   2. If the track has one point, returns a function that always yields that value.
   3. Converts points to world times using instance `timescale` and `offset`, then sorts by time.
   4. Builds Bezier segments by computing world-space control points for each adjacent pair.
   5. Returns an interpolator that:
-    1. Converts input time to world time.
+    1. Converts input local time to world time.
     2. Selects the correct segment (or clamps to endpoints).
     3. Solves the Bezier parameter and evaluates the value by type (number, vector2/3, euler, color).
   6. Returns the interpolator function.

@@ -107,6 +107,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
             animatableId: track.animatableId,
             duration: animation.duration,
             timescale: instance.settings.timescale,
+            offset: instance.settings.offset,
           },
         };
 
