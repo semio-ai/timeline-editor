@@ -39,9 +39,14 @@ describe("handle drag vertical freedom", () => {
       endValue: neighbor.value as number,
     });
 
+    const nextOut = { x: initialOut.x, y: initialOut.y + 0.2 };
+
     store.getState().updateHandleDrag({
-      pointer: { x: controlPoint.x, y: controlPoint.y },
-      normalizedValueDelta: 0.2,
+      handleDeltas: {
+        out: nextOut,
+        pairing: TransitionPairing.Paired,
+        withinSnapTolerance: false,
+      },
       modifiers: { alt: false, shift: false, meta: false },
     });
 

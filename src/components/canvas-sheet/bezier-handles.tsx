@@ -19,6 +19,11 @@ import {
   ValueScale,
 } from "../../types";
 import { clampHandleAgainstOwnKeypointX } from "../../functions/solve-handle-transition";
+import {
+  computePairedHandleDelta,
+  getViewLength,
+  toViewVector,
+} from "../../functions/handle-pairing";
 import { useDragGestures } from "../../hooks/use-drag-gestures";
 import { useAnimationStore, useInvariantScale } from "../../hooks";
 import { ROW_DEPTH_EPSILON } from "../../constants";
@@ -103,16 +108,6 @@ const applyPrecision = (value: number, precision?: number): number => {
   if (precision === undefined) return value;
   const factor = 10 ** precision;
   return Math.round(value * factor) / factor;
-};
-
-const toViewVector = (delta: RawVector2, scaleX: number, scaleY: number): RawVector2 => ({
-  x: delta.x * scaleX,
-  y: delta.y * scaleY,
-});
-
-const getViewLength = (delta: RawVector2, scaleX: number, scaleY: number): number => {
-  const view = toViewVector(delta, scaleX, scaleY);
-  return Math.hypot(view.x, view.y);
 };
 
 const withinFlatTolerance = (a: RawVector2, b: RawVector2): boolean => {
@@ -693,21 +688,17 @@ const HandleDot = memo(function HandleDot({
       let pairedDelta: RawVector2 | undefined;
       if (
         pairingIntent === TransitionPairing.Paired &&
-        baseline?.pairedLengthView !== undefined &&
+        baseline?.pairedDelta &&
         draggedViewLen > 0
       ) {
-        const unitX = draggedView.x / draggedViewLen;
-        const unitY = draggedView.y / draggedViewLen;
         const useDraggedLength = shift && !alt;
-        const targetLength = useDraggedLength ? draggedViewLen : baseline.pairedLengthView;
-        const pairedView = {
-          x: -unitX * targetLength,
-          y: -unitY * targetLength,
-        };
-        pairedDelta = {
-          x: pairedView.x / viewScaleX,
-          y: pairedView.y / viewScaleY,
-        };
+        pairedDelta = computePairedHandleDelta({
+          draggedDelta,
+          baselineDelta: baseline.pairedDelta,
+          viewScaleX,
+          viewScaleY,
+          useDraggedLength,
+        });
       }
 
       const handleDeltas = {
@@ -718,8 +709,6 @@ const HandleDot = memo(function HandleDot({
       };
 
       interaction.updateHandleDrag({
-        pointer: { x: pointerX, y: 0 },
-        normalizedValueDelta,
         handleDeltas,
         modifiers: { alt, shift, meta },
       });

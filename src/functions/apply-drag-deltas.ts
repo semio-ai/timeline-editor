@@ -10,6 +10,7 @@ import type {
   TrackDiff,
   TrackDiffChanges,
 } from "../types";
+import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { cloneTransitionValue } from "../utils/clone-transitions";
 
 interface ApplyDragContext {
@@ -143,6 +144,7 @@ export function applyDragDeltas(
 
   nextPoint = applyMarkerHandleOffsets(nextPoint, {
     handleOffsets,
+    promoteMissing: isSelected,
   });
 
   return nextPoint;
@@ -152,9 +154,10 @@ function applyMarkerHandleOffsets(
   point: Keypoint<RawValue>,
   params: {
     handleOffsets?: DragMarkerHandleOffsets;
+    promoteMissing?: boolean;
   },
 ): Keypoint<RawValue> {
-  const { handleOffsets } = params;
+  const { handleOffsets, promoteMissing } = params;
   if (!handleOffsets) {
     return point;
   }
@@ -162,22 +165,35 @@ function applyMarkerHandleOffsets(
   const nextTransitions: Keypoint<RawValue>["transitions"] = {
     ...(point.transitions ?? {}),
   };
+  // Only rewrite explicit handle deltas; easing/missing transitions resolve to enums.
   let changed = false;
 
   if (handleOffsets.out) {
-    nextTransitions.out = {
-      x: handleOffsets.out.delta.x,
-      y: handleOffsets.out.delta.y,
-    };
-    changed = true;
+    const currentOut = point.transitions?.out;
+    if (currentOut && typeof currentOut === "object") {
+      nextTransitions.out = {
+        x: handleOffsets.out.delta.x,
+        y: handleOffsets.out.delta.y,
+      };
+      changed = true;
+    } else if (!currentOut && promoteMissing) {
+      nextTransitions.out = DEFAULT_TRANSITION_OUT;
+      changed = true;
+    }
   }
 
   if (handleOffsets.in) {
-    nextTransitions.in = {
-      x: handleOffsets.in.delta.x,
-      y: handleOffsets.in.delta.y,
-    };
-    changed = true;
+    const currentIn = point.transitions?.in;
+    if (currentIn && typeof currentIn === "object") {
+      nextTransitions.in = {
+        x: handleOffsets.in.delta.x,
+        y: handleOffsets.in.delta.y,
+      };
+      changed = true;
+    } else if (!currentIn && promoteMissing) {
+      nextTransitions.in = DEFAULT_TRANSITION_IN;
+      changed = true;
+    }
   }
 
   if (!changed) {

@@ -250,14 +250,14 @@ export interface HandleDragStartInput {
 /** Payload for updating a handle drag. */
 export interface HandleDragUpdateInput {
   /** Current pointer in normalized timeline/value space. */
-  pointer: PointerPosition;
+  pointer?: PointerPosition;
   /** Normalized vertical delta since drag start. */
   normalizedValueDelta?: number;
   /** Raw pointer movements in pixels (for view-space pairing). */
   movementX?: number;
   movementY?: number;
   /** Optional precomputed handle deltas from the UI (data space). */
-  handleDeltas?: {
+  handleDeltas: {
     in?: RawVector2;
     out?: RawVector2;
     pairing?: TransitionPairing;

@@ -17,8 +17,6 @@ export interface PolylineSample {
   id: RenderSampleId;
   points: Float32Array;
   stride: 2 | 3;
-  resolution: number;
-  bounds?: { minX: number; maxX: number; minY: number; maxY: number };
 }
 
 export interface RenderSampleCache {
@@ -55,7 +53,6 @@ export type SegmentSample =
 export interface RenderSegment {
   id: string;
   trackId: string;
-  trackKey: TrackKey;
   startKeypointId: string;
   endKeypointId: string;
   buffer?: boolean;
@@ -78,10 +75,6 @@ export interface RenderMarker {
   stamp: number;
   /** Numeric value used for rendering (boolean maps to 0/1; string values are skipped). */
   value: number;
-  /** Canonical x coordinate (stamp space, 0..1). */
-  x: number;
-  /** Canonical y coordinate normalized to value bounds (-0.5..0.5). */
-  y: number;
 }
 
 export interface RenderHandle {

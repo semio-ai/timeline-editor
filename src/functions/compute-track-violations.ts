@@ -23,7 +23,6 @@ import { ViolationType } from "../types";
 import type { Violation, TrackInterpolator } from "../types";
 import { rawValueNorm, rawValueDiff } from "./raw-value-math";
 
-export type InterpolatorCache = Map<string, Map<string, RawValue | undefined>>;
 type Vec3Constraints = (AnimatableVector3 | AnimatableEuler)["constraints"];
 type Vec2Constraints = AnimatableVector2["constraints"];
 type NumberConstraints = AnimatableNumber["constraints"];

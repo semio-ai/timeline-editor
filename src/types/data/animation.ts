@@ -36,11 +36,6 @@ export interface StoredAnimation {
   duration: number;
 }
 
-export interface AnimationDriver {
-  type: "animation";
-  animationInstances: Record<string, AnimationInstance>;
-}
-
 export interface AnimationInstance {
   id: string;
   animationId: string; // Matches id of an animation document

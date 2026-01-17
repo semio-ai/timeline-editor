@@ -7,13 +7,14 @@ import {
   INSTANCE_IDS,
 } from "../../test-fixtures/animation-store-factory";
 import type { DerivedSnapshot, Track, TrackKey } from "../../types";
+import { StandardTransitionType } from "../../types";
 import { resolveTransitionDelta } from "../../functions/get-world-control-points";
 
 const buildRowId = (trackId: string): TrackKey =>
   `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${trackId}`;
 
 describe("drag handles when crossing a neighbor (world-space)", () => {
-  it("preserves world handle deltas when dragging past a neighbor via store actions", () => {
+  it("keeps easing transitions when dragging past a neighbor via store actions", () => {
     const store = createTestAnimationStore({ includeNamespaceB: false });
     store.getState().initAnimationSubscriptions();
 
@@ -81,29 +82,12 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
       modifiers: dragState.modifiers,
     });
 
-    const before = captureHandleDeltas(track, {
-      outId: markerId,
-      outNeighborId: "px3.x",
-      inId: markerId,
-      inNeighborId: "px1.x",
-    });
-
     store.getState().commitDrag();
     const committedAnchor = store.getState().tracks[trackId].points.find((p) => p.id === markerId);
 
-    const afterTrack = store.getState().tracks[trackId] as Track<RawValue>;
-    const after = captureHandleDeltas(afterTrack, {
-      outId: markerId,
-      outNeighborId: "px3.x",
-      inId: markerId,
-      inNeighborId: "px1.x",
-    });
-
     expect(committedAnchor?.stamp).toBeCloseTo(origin + 0.5, 6);
-    expect(after.out?.deltaStamp ?? 0).toBeCloseTo(before.out?.deltaStamp ?? 0, 6);
-    expect(after.out?.deltaValue ?? 0).toBeCloseTo(before.out?.deltaValue ?? 0, 6);
-    expect(after.in?.deltaStamp ?? 0).toBeCloseTo(before.in?.deltaStamp ?? 0, 6);
-    expect(after.in?.deltaValue ?? 0).toBeCloseTo(before.in?.deltaValue ?? 0, 6);
+    expect(committedAnchor?.transitions?.out).toBe(StandardTransitionType.Cubic);
+    expect(committedAnchor?.transitions?.in).toBe(StandardTransitionType.Cubic);
   });
 
   it("keeps downstream opacity handles stable when a leading marker overtakes its neighbor", () => {
