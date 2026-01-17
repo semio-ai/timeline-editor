@@ -294,7 +294,7 @@ export const PlayheadCart = memo(function PlayheadCart({
   const handlePointerEnter = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
       if (!previewCurrent && !playing) {
-        addPreview({ semanticTime: SemanticTime.Current, stamp: 0, label: "Current" });
+        addPreview({ semanticTime: SemanticTime.Current, stamp: 0 });
         event.stopPropagation();
       }
     },

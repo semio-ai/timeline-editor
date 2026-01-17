@@ -19,11 +19,6 @@ describe("handle drag vertical freedom", () => {
     expect(initialOut).toBeDefined();
     if (!initialOut) return;
 
-    const controlPoint = {
-      x: anchor.stamp + initialOut.x,
-      y: (anchor.value as number) + initialOut.y,
-    };
-
     store.getState().startHandleDrag({
       side: "out",
       rowId: trackId,
@@ -31,7 +26,6 @@ describe("handle drag vertical freedom", () => {
       keypointId: anchorId,
       neighborKeypointId: neighborId,
       valueScale: undefined, // no domain clamp
-      controlPoint,
       startStamp: anchor.stamp,
       endStamp: neighbor.stamp,
       startValue: anchor.value as number,

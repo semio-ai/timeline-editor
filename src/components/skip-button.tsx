@@ -53,7 +53,7 @@ export function SkipButton({
       onClick={() => skip?.()}
       onMouseEnter={(e) => {
         onMouseEnter?.(e);
-        addPreview({ stamp: 0, semanticTime, label: "" });
+        addPreview({ stamp: 0, semanticTime });
       }}
       onMouseLeave={(e) => {
         onMouseLeave?.(e);

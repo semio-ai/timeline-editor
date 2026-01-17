@@ -181,7 +181,6 @@ export const BoundsCart = memo(function BoundsCart({
       addPreview({
         semanticTime: SemanticTime.BoundsStart,
         stamp: leftSpring.get(),
-        label: "Bounds Start",
       });
     },
     onDrag: (position, altKey) => {
@@ -209,7 +208,6 @@ export const BoundsCart = memo(function BoundsCart({
       addPreview({
         semanticTime: SemanticTime.BoundsEnd,
         stamp: rightSpring.get(),
-        label: "Bounds End",
       });
     },
     onDrag: (position, altKey) => {
@@ -233,7 +231,6 @@ export const BoundsCart = memo(function BoundsCart({
       addPreview({
         semanticTime: SemanticTime.BoundsStart,
         stamp: leftSpring.get(),
-        label: "Bounds Start",
       });
     }
   }, [playing, anyPreview, addPreview, leftSpring]);
@@ -253,7 +250,6 @@ export const BoundsCart = memo(function BoundsCart({
       addPreview({
         semanticTime: SemanticTime.BoundsEnd,
         stamp: rightSpring.get(),
-        label: "Bounds End",
       });
     }
   }, [playing, anyPreview, addPreview, rightSpring]);

@@ -17,14 +17,13 @@ export interface PolylineSample {
   id: RenderSampleId;
   points: Float32Array;
   stride: 2 | 3;
-  resolution?: number;
 }
 
 export interface RenderSampleCache {
   samples: Record<RenderSampleId, PolylineSample>;
   /**
-   * Lookup by sample key (e.g., `${trackId}:value` vs `${trackId}:flat`) to avoid
-   * cross-row reuse when render params differ.
+   * Lookup by sample key (e.g., `${rowId}:${trackId}:value`) to avoid cross-row reuse
+   * when render params differ across rows or views.
    */
   trackIndex?: Record<string, Partial<Record<TrackRender, RenderSampleId>>>;
 }
@@ -76,8 +75,6 @@ export interface RenderMarker {
   stamp: number;
   /** Numeric value used for rendering (boolean maps to 0/1; string values are skipped). */
   value: number;
-  x: number;
-  y: number;
 }
 
 export interface RenderHandle {

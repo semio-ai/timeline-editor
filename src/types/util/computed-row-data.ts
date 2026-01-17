@@ -6,7 +6,6 @@ import type { RowRenderData, SelectionFrame, ValueBounds } from "./render-types"
 export interface ComputedRowData {
   virtualFrames: InstancedFrameInfo[];
   verticalBounds: ValueBounds;
-  valueBounds?: ValueBounds;
   violationSet: ViolationSet;
   verticalAxisByView?: Record<string, VerticalAxisRange>;
   selection?: SelectionFrame[];

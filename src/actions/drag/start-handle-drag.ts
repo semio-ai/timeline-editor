@@ -166,25 +166,14 @@ export function startHandleDrag(state: AnimationData, input: HandleDragStartInpu
       side: input.side === "out" ? "out" : "in",
       trackId: input.trackId,
       keypointId: input.keypointId,
-      neighborKeypointId: input.neighborKeypointId,
       startStamp: input.startStamp,
       endStamp: input.endStamp,
       startValue: input.startValue,
       endValue: input.endValue,
-      controlPoint: input.controlPoint,
       valueScale: input.valueScale,
       basePairing,
-      canonicalLengths: input.canonicalLengths,
       hasIn,
       hasOut,
-      prevNeighbor:
-        prevPoint && isFiniteNumber(prevPoint.value)
-          ? { stamp: prevPoint.stamp, value: prevPoint.value }
-          : null,
-      nextNeighbor:
-        nextPoint && isFiniteNumber(nextPoint.value)
-          ? { stamp: nextPoint.stamp, value: nextPoint.value }
-          : null,
     },
   };
 

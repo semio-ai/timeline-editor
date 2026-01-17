@@ -189,18 +189,12 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
     dragPreviewCache && dragPreviewCache.selectionCleanups.length > 0
       ? dragPreviewCache.selectionCleanups
       : inputs.dragState?.pendingSelectionCleanups;
-  const projectedTracks =
-    dragPreviewCache && dragPreviewCache.trackViews.size > 0
-      ? Array.from(dragPreviewCache.trackViews.values())
-      : inputs.dragState?.projectedTracks;
-
   const dragContext =
-    inputs.dragState && (pendingDiffs || projectedTracks || pendingSelectionCleanups)
+    inputs.dragState && (pendingDiffs || pendingSelectionCleanups)
       ? {
           ...inputs.dragState,
           pendingDiffs,
           pendingSelectionCleanups,
-          projectedTracks,
         }
       : inputs.dragState;
 

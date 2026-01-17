@@ -136,8 +136,6 @@ export const DataPoint = memo(function DataPoint({
 
   // Track initial drag position to calculate proper delta
 
-  // Track if we just finished dragging to prevent immediate click
-  const justFinishedDragging = useRef<boolean>(false);
   const dragDidMoveRef = useRef<boolean>(false);
   const dragStartPointerRef = useRef<number | null>(null);
   const dragAnchorStampRef = useRef<number | null>(null);
@@ -448,10 +446,6 @@ export const DataPoint = memo(function DataPoint({
         return;
       }
 
-      justFinishedDragging.current = true;
-      setTimeout(() => {
-        justFinishedDragging.current = false;
-      }, 60);
       commitDrag();
       dragDidMoveRef.current = false;
       dragStartPointerRef.current = null;
@@ -461,7 +455,6 @@ export const DataPoint = memo(function DataPoint({
 
   const handlePointerDown = useCallback(
     (event: PointerGestureEvent) => {
-      justFinishedDragging.current = false;
       dragDidMoveRef.current = false;
       dragStartPointerRef.current = null;
       dragAnchorStampRef.current = null;
@@ -481,20 +474,28 @@ export const DataPoint = memo(function DataPoint({
 
   const handlePointerUp = useCallback(
     (event: PointerGestureEvent) => {
+      const didDrag = dragDidMoveRef.current;
       dragHandlers.onPointerUp?.(event);
+      // Handle selection here so drag gestures don't swallow clicks or fall through to row handlers.
+      event.stopPropagation();
+      if (didDrag) return;
+      if (playing) return;
+      if (points.length === 0 || selectionPoints.length === 0) return;
+
+      clickMarker(
+        selectionPoints,
+        sourceRowId,
+        markerId,
+        event.shiftKey,
+        event.metaKey || event.ctrlKey,
+      );
     },
-    [dragHandlers],
+    [clickMarker, dragHandlers, markerId, playing, points.length, selectionPoints, sourceRowId],
   );
 
   const handlePointerCancel = useCallback(
     (event: PointerGestureEvent) => {
       dragHandlers.onPointerCancel?.(event);
-      if (dragDidMoveRef.current) {
-        justFinishedDragging.current = true;
-        setTimeout(() => {
-          justFinishedDragging.current = false;
-        }, 60);
-      }
       dragDidMoveRef.current = false;
       cancelDrag();
       dragStartPointerRef.current = null;
@@ -517,23 +518,10 @@ export const DataPoint = memo(function DataPoint({
     setIsHovered(false);
   }, []);
 
-  const handleClick = useCallback(
-    (event: PointerGestureEvent) => {
-      event.stopPropagation();
-      if (playing) return;
-
-      if (points.length === 0 || selectionPoints.length === 0) return;
-
-      clickMarker(
-        selectionPoints,
-        sourceRowId,
-        markerId,
-        event.shiftKey,
-        event.metaKey || event.ctrlKey,
-      );
-    },
-    [playing, selectionPoints, clickMarker, sourceRowId, markerId, points.length],
-  );
+  const handleClick = useCallback((event: PointerGestureEvent) => {
+    // Stop click bubbling to line/row handlers; selection is handled on pointer up.
+    event.stopPropagation();
+  }, []);
 
   const resolvedBand = useMemo(() => {
     const allPoints = hasBackgroundPoints

@@ -548,17 +548,12 @@ export const AnimationSlice = (
           const currentIdx = state.previews.findIndex((p) => p.semanticTime === SemanticTime.Hover);
           if (currentIdx < 0) {
             return {
-              previews: [
-                ...state.previews,
-                { semanticTime: SemanticTime.Hover, stamp: value, label: "Hover" },
-              ],
+              previews: [...state.previews, { semanticTime: SemanticTime.Hover, stamp: value }],
             };
           } else {
             return {
               previews: state.previews.map((p, idx) =>
-                idx === currentIdx
-                  ? { semanticTime: SemanticTime.Hover, stamp: value, label: "Hover" }
-                  : p,
+                idx === currentIdx ? { semanticTime: SemanticTime.Hover, stamp: value } : p,
               ),
             };
           }

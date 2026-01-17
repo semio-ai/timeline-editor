@@ -75,9 +75,6 @@ Note: a property may be used structurally (object literal matching) without bein
 - interface `PositionAndVelocityTrajectoryPoint`: timeFromStart
 - interface `PositionVelocityAndAccelerationTrajectoryPoint`: positions, timeFromStart, velocities
 
-### `packages/animation/src/types/util/computed-row-data.ts`
-- interface `ComputedRowData`: valueBounds
-
 ### `packages/animation/src/types/util/derived-snapshot.ts`
 - interface `DerivedRowSnapshot`: id
  
@@ -90,22 +87,9 @@ Note: a property may be used structurally (object literal matching) without bein
 - interface `UpdateKeypointDiff`: trackId, type
 
 ### `packages/animation/src/types/util/drag-state.ts`
-- interface `DragAnchorRef`: kind, markerId, neighborKeypointId
-- interface `DragHandleOffset`: fallback
-- interface `DragStartInput`: valueScale
-- interface `DragState`: pointerOrigin
-- interface `DragUpdateInput`: pointer
-- interface `KeypointCommitDelta`: id, stamp, trackId, value
-- interface `PointerPosition`: x, y
-- interface `TrackSnapshot`: trackId
-
-### `packages/animation/src/types/util/preview.ts`
-- interface `Preview`: label
+- (no unused properties detected after cleanup)
 
 ### `packages/animation/src/types/util/render-types.ts`
-- interface `PolylineSample`: bounds, resolution
-- interface `RenderMarker`: x, y
-- interface `RenderSegment`: trackKey
 - interface `SelectionPointRef`: namespaceId
 
 ### `packages/animation/src/types/util/source.ts`
@@ -120,12 +104,12 @@ Note: a property may be used structurally (object literal matching) without bein
 
 ## Util Type Usage Review (manual)
 
-- **`ComputedRowData` (`packages/animation/src/types/util/computed-row-data.ts`)** `valueBounds` is set in `compute-row-data` but never read; all consumers use `verticalBounds` or `verticalAxisByView`. Suggest removing `valueBounds` or making it a real alternate bound (with a clear doc and consumer).
+- **`ComputedRowData` (`packages/animation/src/types/util/computed-row-data.ts`)** Removed `valueBounds` (was set in `compute-row-data` but never read); consumers already use `verticalBounds` or `verticalAxisByView`.
 - **`DerivedSnapshot` / `DerivedRowSnapshot` (`packages/animation/src/types/util/derived-snapshot.ts`)** `dragOverlay` was removed (no consumers); `DerivedRowSnapshot.id` is redundant with the `rows` map key. `DerivedTrackSnapshot.metadata` only uses `duration/timescale/offset` in `init-derived-orchestrator`; `trackId/namespaceId/instanceId/animatableId` are never read. Suggest trimming metadata.
 - **`Diff` types (`packages/animation/src/types/util/diff.ts`)** `InsertKeypointDiff` and `HandleDiff` are not produced/consumed; `ProjectedTrackView.appliedDiffs` is stored but never read. Note: keypoint insertion currently happens via direct mutations (immediate edits and drag-start insertion), so the lack of `InsertKeypointDiff` usage may indicate a design-vs-implementation mismatch rather than dead code. Suggest either removing these types until the diff pipeline emits them, or wiring handle/insert paths into the diff pipeline so the extra shapes are justified.
-- **`DragState` (`packages/animation/src/types/util/drag-state.ts`)** `pointerOrigin` is stored but unused; `DragUpdateInput.pointer` is unused; `DragAnchorRef.kind` is never read; `DragHandleOffset.fallback` is computed but unused; `TrackSnapshot.trackId` is redundant with the snapshot map key; `KeypointCommitDelta` is unused. Suggest removing or documenting future usage to keep the drag surface minimal.
-- **`Preview` (`packages/animation/src/types/util/preview.ts`)** `label` is never read; previews are driven by `semanticTime` + `stamp`. Suggest dropping `label` or making it optional and only setting when UI displays it.
-- **`Render` types (`packages/animation/src/types/util/render-types.ts`)** `PolylineSample.bounds` is unused; `RenderMarker.x/y` are unused (markers are positioned from `stamp/value` in the renderer); `RenderSegment.trackKey` is unused; `SelectionPointRef.namespaceId` is unused (trackKey already encodes namespace). Suggest removing these fields or adding explicit consumers if precomputed positions or namespaces are needed.
+- **`DragState` (`packages/animation/src/types/util/drag-state.ts`)** Removed unused fields (`projectedTracks`, handleAnchor `controlPoint`/`canonicalLengths`/`neighborKeypointId`/`prevNeighbor`/`nextNeighbor`). Remaining drag-state fields are referenced in actions or derived preview logic.
+- **`Preview` (`packages/animation/src/types/util/preview.ts`)** Removed `label` (unused); previews now only carry `semanticTime` + `stamp`, and UI callers no longer attach labels.
+- **`Render` types (`packages/animation/src/types/util/render-types.ts`)** Removed `RenderMarker.x/y`, `PolylineSample.resolution`, and `RenderSegment.trackKey` (unused). `SelectionPointRef.namespaceId` is unused but intentionally retained for direct access without parsing `trackKey`.
 - **`SegmentGeometry` (`packages/animation/src/types/util/segment-geometry.ts`)** handles and render params are used by `compute-row-data` and handle rendering. No unused fields today; keep as-is. If you want an updated unused-property list, re-run the scan (the previous list likely captured removed fields).
 - **`Source` types (`packages/animation/src/types/util/source.ts`)** `SourceGroup.layout` and `SourceTrack.channel/muted` are defined but not used. Layout/channel are documented as future; `muted` is set but never gates rendering or playback. Suggest removing unused fields or implementing mute/layout behavior.
 - **`View` (`packages/animation/src/types/util/view.ts`)** `id` is redundant with the `editorViews` map key and not read. Suggest removing `id` or explicitly using it when views are passed around.

@@ -426,7 +426,7 @@ export function computeRowData(
     shouldPreviewViolations ? effectiveViolations : filteredViolations,
   );
 
-  const renderMarkers = buildRenderMarkers(markerFramesWithPairing, boundsForRow);
+  const renderMarkers = buildRenderMarkers(markerFramesWithPairing);
   const selectionFrames = buildSelectionFrames(markerFramesWithPairing, renderMarkers);
   const renderSegments = buildRenderSegments(
     segmentsWithGeometry,
@@ -440,7 +440,6 @@ export function computeRowData(
     violationSet,
     virtualFrames: markerFramesWithPairing,
     verticalBounds: boundsForRow,
-    valueBounds: boundsForRow,
     selection: selectionFrames,
     render: {
       markers: renderMarkers,
@@ -452,13 +451,8 @@ export function computeRowData(
   return rowComputedData;
 }
 
-function buildRenderMarkers(
-  frames: InstancedFrameInfo[],
-  bounds: { min: number; max: number },
-): RenderMarker[] {
+function buildRenderMarkers(frames: InstancedFrameInfo[]): RenderMarker[] {
   const markers: RenderMarker[] = [];
-  const span = bounds.max - bounds.min;
-  const hasSpan = Number.isFinite(span) && span !== 0;
 
   for (const frame of frames) {
     for (const point of frame.points) {
@@ -472,9 +466,6 @@ function buildRenderMarkers(
         // Skip string-valued tracks in the canvas for now.
         continue;
       }
-
-      const normalized = hasSpan ? (numericValue - bounds.min) / span : 0.5;
-      const y = normalized - 0.5;
 
       markers.push({
         id: point.id,
@@ -491,8 +482,6 @@ function buildRenderMarkers(
         layerBand: point.layerBand,
         stamp: frame.stamp,
         value: numericValue,
-        x: frame.stamp,
-        y,
       });
     }
   }
@@ -581,7 +570,6 @@ function buildRenderSegments(
     if (entry?.type === "string") {
       return [];
     }
-    const trackKey = buildTrackKey(namespaceId, instanceId, trackId);
     const startKeypointId = startPoint?.id ?? segment.start.id;
     const endKeypointId = endPoint?.id ?? segment.end.id;
 
@@ -589,7 +577,6 @@ function buildRenderSegments(
       {
         id: `${segment.start.id}:${segment.end.id}`,
         trackId,
-        trackKey,
         startKeypointId,
         endKeypointId,
         buffer: segment.buffer,
@@ -644,7 +631,6 @@ function buildRenderSegments(
       return {
         id: detail.id,
         trackId: detail.trackId,
-        trackKey: detail.trackKey,
         startKeypointId: detail.startKeypointId,
         endKeypointId: detail.endKeypointId,
         buffer: detail.buffer,
@@ -670,7 +656,8 @@ function buildRenderSegments(
         a.startKeypointId.localeCompare(b.startKeypointId),
     );
 
-    const cacheKey = `${trackId}:${curveMode}`;
+    // Scope cached samples to the row so group rows with shared trackIds do not collide.
+    const cacheKey = `${sourceRow.id}:${trackId}:${curveMode}`;
     const trackEntry = trackIndex[cacheKey] ?? {};
     trackIndex[cacheKey] = trackEntry;
 
@@ -682,24 +669,21 @@ function buildRenderSegments(
     ) => {
       if (list.length === 0) return;
 
-      const sampleId =
-        trackEntry[render] ?? (`track:${trackId}:${curveMode}:${render}` as RenderSampleId);
+      const sampleId = trackEntry[render] ?? (`track:${cacheKey}:${render}` as RenderSampleId);
       const expectedLength = list.length * segmentPointLength;
       let cachedSample = renderSampleCache.samples[sampleId];
       if (!cachedSample || cachedSample.points.length !== expectedLength) {
-        const points = new Float32Array(expectedLength);
-        list.forEach((detail, index) => {
-          const segmentPoints = sampleCubicBezier(getParams(detail), SEGMENT_SAMPLE_RESOLUTION);
-          points.set(segmentPoints, index * segmentPointLength);
-        });
         cachedSample = {
           id: sampleId,
-          points,
+          points: new Float32Array(expectedLength),
           stride: 2,
-          resolution: SEGMENT_SAMPLE_RESOLUTION,
         };
         renderSampleCache.samples[sampleId] = cachedSample;
       }
+      list.forEach((detail, index) => {
+        const segmentPoints = sampleCubicBezier(getParams(detail), SEGMENT_SAMPLE_RESOLUTION);
+        cachedSample.points.set(segmentPoints, index * segmentPointLength);
+      });
 
       trackEntry[render] = cachedSample.id;
       list.forEach((detail, index) => {
@@ -729,7 +713,6 @@ function buildRenderSegments(
   return segmentDetails.map((detail) => ({
     id: detail.id,
     trackId: detail.trackId,
-    trackKey: detail.trackKey,
     startKeypointId: detail.startKeypointId,
     endKeypointId: detail.endKeypointId,
     buffer: detail.buffer,

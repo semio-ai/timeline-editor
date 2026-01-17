@@ -12,7 +12,7 @@
 import type { RawValue, RawVector2 } from "@semio/utils";
 import type { Keypoint, TransitionPairing } from "../data/keypoint";
 import type { Track } from "../data/track";
-import type { DiffOp, ProjectedTrackView, SelectionCleanup } from "./diff";
+import type { DiffOp, SelectionCleanup } from "./diff";
 import type { WorldCP } from "./segment-geometry";
 
 /** Axis constraint for drags. */
@@ -107,8 +107,6 @@ export interface DragState {
   pendingDiffs?: DiffOp[];
   /** Selection cleanup emitted alongside pending diffs. */
   pendingSelectionCleanups?: SelectionCleanup[];
-  /** Cached projected track views keyed by TrackKey. */
-  projectedTracks?: ProjectedTrackView[];
   /** Active handle id when a handle drag is in progress. */
   activeHandleId?: string;
   /**
@@ -122,21 +120,15 @@ export interface DragState {
     /** Track/keypoint context. */
     trackId: string;
     keypointId: string;
-    neighborKeypointId: string;
     /** Segment endpoints (anchor vs neighbor). */
     startStamp: number;
     endStamp: number;
     startValue: number;
     endValue: number;
-    /** Control point world position at drag start. */
-    controlPoint: WorldCP;
     valueScale?: ValueScale;
     basePairing?: TransitionPairing;
-    canonicalLengths?: { in?: number; out?: number };
     hasIn?: boolean;
     hasOut?: boolean;
-    prevNeighbor?: { stamp: number; value: number } | null;
-    nextNeighbor?: { stamp: number; value: number } | null;
   };
 }
 
@@ -207,8 +199,6 @@ export interface HandleDragStartInput {
   neighborKeypointId: string;
   /** Optional value scale supplied by UI. */
   valueScale?: ValueScale;
-  /** Control point world position at drag start. */
-  controlPoint: WorldCP;
   /** Segment endpoints (stamps/values) around the handle. */
   startStamp: number;
   endStamp: number;
@@ -216,8 +206,6 @@ export interface HandleDragStartInput {
   endValue: number;
   /** Optional resolved pairing at drag start. */
   pairing?: TransitionPairing;
-  /** Optional canonical view-space lengths for in/out. */
-  canonicalLengths?: { in?: number; out?: number };
 }
 
 /** Payload for updating a handle drag. */

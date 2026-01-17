@@ -612,7 +612,6 @@ const HandleDot = memo(function HandleDot({
         keypointId: interaction.keypointId,
         neighborKeypointId: interaction.neighborKeypointId,
         valueScale: interaction.valueScale,
-        controlPoint: interaction.controlPoint,
         startStamp: interaction.startStamp,
         endStamp: interaction.endStamp,
         startValue: interaction.startValue,
@@ -746,9 +745,6 @@ const HandleDot = memo(function HandleDot({
     if (scaleRef.current) {
       scaleRef.current.scale.set(newScaleX, newScaleY, 1);
     }
-    // if (overlayRef.current) {
-    //   overlayRef.current.scale.set(newScaleX * 0.65, newScaleY * 0.65, 1);
-    // }
   });
 
   useLayoutEffect(() => {
@@ -759,9 +755,6 @@ const HandleDot = memo(function HandleDot({
     if (scaleRef.current) {
       scaleRef.current.scale.set(newScaleX, newScaleY, 1);
     }
-    // if (overlayRef.current) {
-    //   overlayRef.current.scale.set(newScaleX * 0.65, newScaleY * 0.65, 1);
-    // }
   }, [invariantScale, radiusPx, hoverScale, dragScale, typeScaling]);
 
   const clamped = Math.max(0, Math.min(1, appearance));
