@@ -3,120 +3,114 @@ import type { LayerBand } from "./layer-band";
 
 /**
  * Base interface for all source types containing common identification properties.
- * Sources represent animation data organized hierarchically in the animation system.
- *
- * @property {string} animationId - Unique identifier of the animation this source belongs to
- * @property {string} namespaceId - Namespace identifier for organizing related animation sources
+ * Sources represent animation data organized hierarchically for rendering and controls.
  */
 interface SourceBase {
+  /** Animation id this source belongs to. */
   animationId: string;
+  /** Namespace id for grouping related sources. */
   namespaceId: string;
+  /** Instance id for the animation instance. */
   instanceId: string;
+  /** Whether this source is read-only in the UI. */
   readonly?: boolean;
 }
 
 /**
- * Represents a group of animation sources that can contain other groups or tracks.
- * Groups provide hierarchical organization for animation data and can be expanded/collapsed in the UI.
- *
- * @property {string} animationId - Unique identifier of the animation this source belongs to
- * @property {string} animationId - Unique identifier of the animation this source belongs to
- * @property {string} namespaceId - Namespace identifier for organizing related animation sources
- * @property {string} groupId - Unique identifier for this specific group
- * @property {string} name - Display name for the group
- * @property {"group"} type - Discriminator indicating this is a group source
- * @property {boolean} expanded - Whether the group is expanded in the UI to show its children
- * @property {Source[]} children - Child sources contained within this group (can be nested groups or tracks)
- * @property {"nested" | "interleave" | "overlay"} [layout] - Optional layout hint for future row flattening.
- *   Currently ignored; when implemented, "interleave" will emit child rows in order and "overlay" will
- *   merge sibling tracks into a single row for composite rendering.
+ * Group of sources that can contain nested groups or tracks.
  */
 export interface SourceGroup extends SourceBase {
+  /** Unique source id for this group. */
   id: string;
+  /** TrackGroup id referenced by this source. */
   groupId: string;
+  /** Display name for the group. */
   name: string;
+  /**
+   * Composite type for the group, or "group" when structural only.
+   * Composite types are used to group derived component tracks.
+   */
   type: "vector3" | "vector2" | "euler" | "rgb" | "hsl" | "group";
+  /** Whether the group is expanded in the UI. */
   expanded: boolean;
+  /** Optional icon code for UI rendering. */
   iconCode?: string;
+  /** Child sources contained in this group. */
   children: Source[];
+  /**
+   * Optional layout hint for row flattening.
+   * - "nested": show child rows independently.
+   * - "interleave": interleave children by stamp.
+   * - "overlay": merge sibling tracks into a composite row.
+   */
   layout?: "nested" | "interleave" | "overlay";
 }
 
 /**
- * Represents an individual animation track containing keyframe data.
- * Tracks are the leaf nodes in the source hierarchy that hold actual animation values.
- *
- * @property {string} id - Unique identifier for this source (combination of namespace, instance, and track IDs)
- * @property {string} animationId - Unique identifier of the animation this source belongs to
- * @property {string} namespaceId - Namespace identifier for organizing related animation sources
- * @property {string} trackId - Unique identifier for this specific track
- * @property {AnimatableValue["type"]} type - The data type of values stored in this track (e.g., number, vector3, color)
- * @property {boolean} hidden - Whether this track is hidden from view in the UI
- * @property {boolean} muted - Whether this track is muted (excluded from playback)
- * @property {string} [channel] - Optional channel label (target/feedback/sim). Not yet used by row
- *   flattening; intended to order or pair tracks when interleave/overlay layouts are introduced.
+ * Leaf source representing an individual animation track.
  */
 export interface SourceTrack extends SourceBase {
+  /** Unique source id for this track. */
   id: string;
+  /** Track id this source points to. */
   trackId: string;
+  /** Animatable id owning the track. */
   animatableId: string;
+  /** Scalar value type stored by the track. */
   type: "string" | "number" | "boolean";
+  /** Whether this track is hidden in the UI. */
   hidden: boolean;
+  /** Whether this track is muted from playback. */
   muted: boolean;
+  /** Optional icon code for UI rendering. */
   iconCode?: string;
+  /**
+   * Optional channel label (target/feedback/sim). Not yet used by row
+   * flattening; intended to order or pair tracks for future layouts.
+   */
   channel?: string;
 }
 
-/**
- * Union type representing any source in the animation hierarchy.
- * Use the `type` discriminator to determine whether a source is a group or track.
- */
+/** Union type representing any source in the animation hierarchy. */
 export type Source = SourceGroup | SourceTrack;
 
 /**
- * Flattened representation of source information for rendering purposes.
- * Each row represents a renderable line in the animation timeline UI,
- * potentially aggregating multiple tracks that should be displayed together.
- *
- * @property {string} id - Unique identifier for this source row.
- * @property {SourceRowData[]} data - Array of data entries for this row, each representing a track or component to render
+ * Flattened source row used for rendering and controls.
  */
 export interface SourceRow {
+  /** Unique id for this row. */
   id: string;
+  /** Whether the row is expanded (for group rows). */
   expanded?: boolean;
+  /** Optional display name for the row. */
   name?: string;
+  /** Row entries representing tracks or grouped components. */
   data: SourceRowData[];
 }
 
 /**
- * A full specification for a given source
- * @property {boolean} foreground - Whether the row is in the foreground or not
- * @property {boolean} editable - Whether the row is editable or not
- * @property {boolean} selectable - Whether the row is selectable or not
- * @property {string} animationId - Unique identifier of the animation this source belongs to
- * @property {string} namespaceId - Namespace identifier for organizing related animation sources
- * @property {string} instanceId - Identifier for the specific instance this source belongs to
- * @property {AnimatableValue["type"] | "group"} type - The data type of values stored in this track (e.g., number, vector3, color) or "group" for groups
- * @property {string} trackId - Unique identifier for this specific track
- * @property {string} animatableId - Identifier for the animatable object this track is associated with
- * @property {string} [iconCode] - Optional icon code representing the type of animatable value
+ * Row entry describing a single track or grouped component for rendering.
  */
 export interface SourceRowData {
-  // Foreground (whether the row is in the foreground or not)
-  // foreground: boolean;
-  // Editable (whether the row is editable or not)
+  /** Whether this entry is editable in the UI. */
   editable: boolean;
-  // Selectable (whether the row is selectable or not)
+  /** Whether this entry is selectable in the UI. */
   selectable: boolean;
-  // Layer band for z-index management within the row
+  /** Layer band used for z-ordering in the row. */
   layerBand: LayerBand;
 
-  // Source information
+  /** Animation id this entry belongs to. */
   animationId: string;
+  /** Namespace id for this entry. */
   namespaceId: string;
+  /** Instance id for this entry. */
   instanceId: string;
+  /** Value type for this entry (or "group" for grouped rows). */
   type: AnimatableValue["type"] | "group";
+  /** Track id for this entry. */
   trackId: string;
+  /** Animatable id for this entry. */
   animatableId: string;
+  /** Optional icon code for UI rendering. */
   iconCode?: string;
 }

@@ -1,10 +1,14 @@
 import { RawValue, RawVector2 } from "@semio/utils";
 
+/** World-space handle delta for a transition control point. */
 export interface TransitionWorldHandle {
+  /** Delta in normalized stamp space relative to the anchor keypoint. */
   deltaStamp: number;
+  /** Delta in value space relative to the anchor keypoint. */
   deltaValue: number;
 }
 
+/** Named easing families used for standard transitions. */
 export enum StandardTransitionType {
   Sine = "sine",
   Cubic = "cubic",
@@ -17,23 +21,28 @@ export enum StandardTransitionType {
   Linear = "linear",
 }
 
+/** Whether in/out handles should remain paired or can move independently. */
 export enum TransitionPairing {
   Paired = "paired",
   Free = "free",
 }
 
+/** Optional per-keypoint transition info. */
 export interface TransitionInfo {
+  /** Incoming transition (enum or explicit control-point delta). */
   in?: RawVector2 | StandardTransitionType;
+  /** Outgoing transition (enum or explicit control-point delta). */
   out?: RawVector2 | StandardTransitionType;
+  /** Pairing intent for in/out handles. */
   pairing?: TransitionPairing;
 }
 
 /**
  * A single point in time on a track, with a specific value, at a specific time stamp.
  * @property id - a unique identifier for the keypoint.
- * @property stamp - the time stamp that this keypoint occurs at (normalized to the duration of the animation, 0 start and 1 end).
- * @property value - the value of the keypoint (currently either string or number).
- * @property transitions - optional transitions for the keypoint, which function as the control points on a cubic bezier curve, normalized to 0-1.
+ * @property stamp - the time stamp that this keypoint occurs at (normalized to the animation duration, 0 start and 1 end).
+ * @property value - the keypoint value (matches the track's value type).
+ * @property transitions - optional handles (enum easing or explicit deltas in stamp/value space).
  * @description As a collection of points and interpolations, this departs partially from standard practice, which configures transitions as the segment after
  * the position of the keypoint, and before the next keypoint. Instead, transitions are configured around the specified keypoint,
  * such that the 'in' transition indicates the portion of the curve before the keypoint, and the 'out' transition indicates the portion of the curve

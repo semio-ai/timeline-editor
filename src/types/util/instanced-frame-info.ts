@@ -3,22 +3,25 @@ import type { StandardTransitionType, TransitionPairing } from "../data/keypoint
 import { SourceRowData } from "./source";
 
 /**
- * A frame of data that is associated with a set of possible tracks
- * @param id - A unique identifier for the frame
- * @param stamp - The timestamp of the frame
- * @param points - An array of points that are associated with the frame
- * @param transitions - An object that contains the transition information for the frame
- *
- * Note: The transitions in to this frame use the space in the previous gap, whereas the transitions out of this frame use the space in the next gap.
- * Thus, a transition in with ease-in-out-cubic would be {x: 35, y: 1}, and a transition out with ease-in-out-cubic would be {x: 65, y: 1}
+ * Instanced marker frame composed from one or more track keypoints that share a stamp.
  */
 export interface InstancedFrameInfo {
+  /** Stable frame id (used to key markers/segments). */
   id: string;
+  /** Normalized stamp for this frame. */
   stamp: number;
+  /** Points contributing to this frame, including track/instance metadata. */
   points: (SourceRowData & { id: string; value: RawValue })[];
+  /**
+   * Transition info for the frame. Incoming handles apply to the segment
+   * before this frame; outgoing handles apply to the segment after it.
+   */
   transitions?: {
+    /** Incoming transition handle. */
     in?: RawVector2 | StandardTransitionType;
+    /** Outgoing transition handle. */
     out?: RawVector2 | StandardTransitionType;
+    /** Pairing intent for in/out handles. */
     pairing?: TransitionPairing;
   };
 }

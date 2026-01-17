@@ -228,26 +228,38 @@ export interface HandleDragUpdateInput {
 
 /** Snapshot of canonical points taken at drag start for a track. */
 export interface TrackSnapshot {
+  /** Canonical keypoints at drag start. */
   points: Keypoint<RawValue>[];
 }
 
 /** Changes applied to a keypoint when computing diffs. */
 export interface TrackDiffChanges {
+  /** Optional new stamp. */
   stamp?: number;
+  /** Optional new value. */
   value?: RawValue;
+  /** Optional transition updates. */
   transitions?: Track<RawValue>["points"][number]["transitions"];
 }
 
+/** Minimal diff operations used during drag preview/commit. */
 export type TrackDiff =
   | {
+      /** Update a single keypoint. */
       type: "updateKeypoint";
+      /** Track containing the keypoint. */
       trackId: string;
+      /** Target keypoint id. */
       keypointId: string;
+      /** Partial changes to apply. */
       changes: TrackDiffChanges;
     }
   | {
+      /** Reorder keypoints within a track. */
       type: "reorderKeypoints";
+      /** Track whose ordering changes. */
       trackId: string;
+      /** Ordered list of keypoint ids. */
       order: string[];
     };
 
@@ -259,6 +271,8 @@ export interface DragMarkerHandleOffsets {
 
 /** Handle offset detail (world delta + neighbor info). */
 export interface DragHandleOffset {
+  /** World-space delta from the anchor keypoint to the handle. */
   delta: Pick<WorldCP, "x" | "y">;
+  /** Neighbor keypoint id the handle points toward. */
   neighborKeypointId: string;
 }

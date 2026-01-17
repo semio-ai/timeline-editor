@@ -7,5 +7,7 @@ import type { Keypoint } from "./keypoint";
  */
 export type SimpleRawValue = number | string | boolean;
 
+/** Keypoint constrained to scalar values after flattening. */
 export type SimpleKeypoint = Keypoint<SimpleRawValue>;
+/** Track constrained to scalar values after flattening. */
 export type SimpleTrack = Track<SimpleRawValue>;

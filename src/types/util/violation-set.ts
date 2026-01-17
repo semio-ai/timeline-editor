@@ -1,19 +1,21 @@
 import type { Violation } from "../data/violation";
 
-/**
- * A set of violations to render in a given track
- * @param id - The id of the track
- * @param violations - A map of violations indexed by violation id
- * @param segments - A list of segments in the track that contain violations
- */
+/** Aggregated violations for a track, grouped into renderable segments. */
 export interface ViolationSet {
+  /** Track id for this violation set. */
   id: string;
+  /** Violations keyed by id. */
   violations: Record<string, Violation>;
+  /** Renderable segments that reference violations. */
   segments: ViolationSegment[];
 }
 
+/** Range of stamps associated with one or more violation ids. */
 export interface ViolationSegment {
+  /** Unique segment id. */
   id: string;
+  /** Stamp range covered by this segment. */
   stampRange: { start: number; end: number };
+  /** Violation ids contained in this segment. */
   violations: string[];
 }

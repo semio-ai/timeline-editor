@@ -14,6 +14,7 @@ import type { RenderSampleCache } from "./render-types";
  * `dragContext` holds the active drag; rows/tracks may include `preview` variants when a preview
  * differs from canonical.
  */
+/** Track key format: `${namespaceId}/${instanceId}/${trackId}`. */
 export type TrackInstanceKey = `${string}/${string}/${string}`;
 export type TrackKey = TrackInstanceKey;
 
@@ -62,6 +63,7 @@ export interface DerivedRowSnapshot {
 
 /** Full derived snapshot for the store, optionally including a drag preview context. */
 export interface DerivedSnapshot {
+  /** Monotonic version used by selectors to detect updates. */
   version?: number;
   /** Active drag context (if any) used to build preview rows/tracks. */
   dragContext?: DragState;

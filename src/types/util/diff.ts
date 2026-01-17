@@ -14,11 +14,7 @@ import type { RawValue } from "@semio/utils";
 import type { Keypoint, TransitionPairing } from "../data/keypoint";
 import type { EndpointTransitions } from "./segment-geometry";
 
-/**
- * Update an existing keypoint’s fields. All properties are optional; omitted
- * fields are left unchanged.
- */
-/** Update an existing keypoint’s fields (preview and commit use the same shape). */
+/** Update an existing keypoint's fields (preview and commit use the same shape). */
 export interface UpdateKeypointDiff {
   type: "updateKeypoint";
   /** Track containing the keypoint. */
@@ -39,9 +35,6 @@ export interface UpdateKeypointDiff {
   };
 }
 
-/**
- * Remove a keypoint by id. Useful for overwrite/erase scenarios.
- */
 /** Remove a keypoint by id. */
 export interface DeleteKeypointDiff {
   type: "deleteKeypoint";
@@ -75,9 +68,6 @@ export interface InsertKeypointDiff {
   };
 }
 
-/**
- * Reorder keypoints within a track by specifying the desired id order.
- */
 /** Reorder keypoints within a track by specifying the desired id order. */
 export interface ReorderKeypointsDiff {
   type: "reorderKeypoints";
@@ -86,10 +76,6 @@ export interface ReorderKeypointsDiff {
   order: string[]; // ordered list of keypoint ids
 }
 
-/**
- * Handle-specific deltas (optional). Can be kept separate or folded into
- * UpdateKeypointDiff.transitions depending on how the pipeline evolves.
- */
 /**
  * Handle-specific deltas (optional). Can be kept separate or folded into
  * UpdateKeypointDiff.transitions depending on how the pipeline evolves.
@@ -122,7 +108,9 @@ export type DiffOp = TrackDiffOp | HandleDiff;
 
 /** Selection cleanup to apply after delete operations. */
 export interface SelectionCleanup {
+  /** Track containing the removed keypoints. */
   trackId: string;
+  /** Keypoint ids removed from selection. */
   removedIds: string[];
 }
 
