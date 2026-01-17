@@ -38,7 +38,6 @@ describe("multi-selection drag anchoring", () => {
     const frameId = resolveMarkerFrameId(store, rowId, "s2");
 
     store.getState().startDrag({
-      origin: { x: 0, y: 0 },
       axis: "horizontal",
       markerId: frameId,
       rowId,

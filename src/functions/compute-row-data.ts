@@ -183,6 +183,14 @@ export function computeRowData(
   const projectedPointLookup = new Map<string, Map<string, Keypoint<RawValue>>>();
   const anchorTrackId = dragState?.anchor?.trackId;
   const anchorKeypointId = dragState?.anchor?.keypointId;
+  const anchorInstanceId = dragState?.instanceId;
+  const anchorNamespaceId =
+    dragState?.anchor?.trackId && dragState?.instanceId
+      ? sourceRow.data.find(
+          (datum) =>
+            datum.trackId === dragState.anchor.trackId && datum.instanceId === dragState.instanceId,
+        )?.namespaceId
+      : undefined;
   const EPSILON = 1e-6;
 
   if (shouldPreview && dragState && draggedTrackIds && draggedTrackIds.size > 0) {
@@ -326,8 +334,8 @@ export function computeRowData(
     ignoreDraggingState: true,
     anchorFrameKey: dragState?.anchor?.keypointId,
     anchorFrameId: sourceRow.id === dragState?.anchor?.rowId ? dragState?.anchorFrameId : undefined,
-    anchorNamespaceId: dragState?.anchor?.namespaceId,
-    anchorInstanceId: dragState?.anchor?.instanceId,
+    anchorNamespaceId,
+    anchorInstanceId,
   });
 
   // Marker frames: duplicate per sourceRow entry to keep aggregate/global markers distinct
@@ -343,8 +351,8 @@ export function computeRowData(
     ignoreDraggingState: true,
     anchorFrameKey: dragState?.anchor?.keypointId,
     anchorFrameId: sourceRow.id === dragState?.anchor?.rowId ? dragState?.anchorFrameId : undefined,
-    anchorNamespaceId: dragState?.anchor?.namespaceId,
-    anchorInstanceId: dragState?.anchor?.instanceId,
+    anchorNamespaceId,
+    anchorInstanceId,
   });
 
   const pairingByPointId = resolvePairingByPoint(projectedTracks);

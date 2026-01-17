@@ -1,7 +1,6 @@
 import type { TrackInterpolator } from "../data/interpolator";
 import type { Violation } from "../data/violation";
 import type { DragState } from "./drag-state";
-import type { DragOverlay } from "./drag-overlay";
 import type { ComputedRowData } from "./computed-row-data";
 import type { RenderSampleCache } from "./render-types";
 
@@ -66,8 +65,6 @@ export interface DerivedSnapshot {
   version?: number;
   /** Active drag context (if any) used to build preview rows/tracks. */
   dragContext?: DragState;
-  /** Derived drag overlay (optional, future use). */
-  dragOverlay?: DragOverlay;
   /** Per-track derived data (canonical + optional preview). */
   tracks: Record<TrackKey, DerivedTrackSnapshot>;
   /** Per-row derived data (computed frames/render). */

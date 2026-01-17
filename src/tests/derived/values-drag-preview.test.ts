@@ -74,14 +74,12 @@ describe("values drag preview behavior", () => {
       clickMarkerWith(store, rowId, markerFrame.id);
 
       store.getState().startDrag({
-        origin: { x: markerFrame.stamp, y: 0 },
         axis: "vertical",
         markerId: markerFrame.id,
         rowId,
       });
 
       store.getState().updateDrag({
-        pointer: { x: markerFrame.stamp, y: 0 },
         normalizedValueDelta: 0.1,
         modifiers: { alt: false, shift: false, meta: false },
       });
@@ -175,14 +173,12 @@ describe("values drag preview behavior", () => {
       clickMarkerWith(storeWithInstances, rowId, "o1");
 
       storeWithInstances.getState().startDrag({
-        origin: { x: markerFrame.stamp, y: 0 },
         axis: "vertical",
         markerId: markerFrame.id,
         rowId,
       });
 
       storeWithInstances.getState().updateDrag({
-        pointer: { x: markerFrame.stamp, y: 0 },
         normalizedValueDelta: -0.1,
         modifiers: { alt: false, shift: false, meta: false },
       });

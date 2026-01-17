@@ -70,14 +70,12 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
       axis: "horizontal",
       markerId,
       rowId,
-      origin: { x: 0, y: 0 },
     });
 
     // Push the marker past px3.x (0.7).
     const dragState = store.getState().dragState!;
     const origin = dragState.stampOrigin ?? anchor.stamp;
     store.getState().updateDrag({
-      pointer: { x: 0, y: 0 },
       normalizedStamp: { current: origin + 0.5 },
       modifiers: dragState.modifiers,
     });
@@ -151,12 +149,10 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
       axis: "horizontal",
       markerId: anchor.id,
       rowId,
-      origin: { x: 0, y: 0 },
     });
 
     // Move the anchor past o2 (0.6) into the 0.7 region.
     store.getState().updateDrag({
-      pointer: { x: 0, y: 0 },
       normalizedStamp: { current: 0.7 },
       modifiers: store.getState().dragState?.modifiers ?? { alt: false, shift: false, meta: false },
     });

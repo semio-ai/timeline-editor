@@ -76,14 +76,12 @@ describe("drag previews recompute violation overlays", () => {
     clickMarkerWith(store, rowId, markerId);
 
     store.getState().startDrag({
-      origin: { x: markerFrame!.stamp, y: 0 },
       axis: "horizontal",
       markerId,
       rowId,
     });
 
     store.getState().updateDrag({
-      pointer: { x: 0.55, y: 0 },
       normalizedStamp: { current: 0.55 },
       modifiers: { alt: false, shift: false, meta: false },
     });

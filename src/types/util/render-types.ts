@@ -17,6 +17,7 @@ export interface PolylineSample {
   id: RenderSampleId;
   points: Float32Array;
   stride: 2 | 3;
+  resolution?: number;
 }
 
 export interface RenderSampleCache {
@@ -75,6 +76,8 @@ export interface RenderMarker {
   stamp: number;
   /** Numeric value used for rendering (boolean maps to 0/1; string values are skipped). */
   value: number;
+  x: number;
+  y: number;
 }
 
 export interface RenderHandle {

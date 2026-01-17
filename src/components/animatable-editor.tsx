@@ -134,7 +134,6 @@ function InnerAnimatableEditor({
             namespaceId: data.namespaceId,
             instanceId: data.instanceId,
             worldStamp: stamp,
-            origin: { x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY },
           });
         }}
         onDragMoveNative={(e, currentValue) => {
@@ -146,7 +145,6 @@ function InnerAnimatableEditor({
 
           updateValueDrag({
             currentValue: currentActual,
-            pointer: { x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY },
             modifiers: {
               alt: (e as MouseEvent).altKey ?? false,
               shift: (e as MouseEvent).shiftKey ?? false,

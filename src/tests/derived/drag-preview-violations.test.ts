@@ -32,10 +32,8 @@ describe("drag preview funnel", () => {
         keypointId: anchorPoint.id,
         trackId,
         rowId,
-        markerId: anchorPoint.id,
         valueScale: { domain: [0, 2], clamp: false },
       },
-      pointerOrigin: { x: anchorPoint.stamp, y: 0 },
       anchorValueOrigin: anchorPoint.value,
       normalizedValueDelta: 5, // large upward move to trigger constraint violations
       modifiers: { alt: false, shift: false, meta: false },
@@ -134,10 +132,8 @@ describe("drag preview funnel", () => {
         keypointId: anchorPoint.id,
         trackId,
         rowId,
-        markerId: anchorPoint.id,
         valueScale: { domain: [0, 10], clamp: false },
       },
-      pointerOrigin: { x: anchorPoint.stamp, y: 0 },
       anchorValueOrigin: anchorPoint.value,
       modifiers: { alt: false, shift: false, meta: false },
       handleDiffs: {
@@ -248,10 +244,8 @@ describe("drag preview funnel", () => {
         keypointId: anchorPoint.id,
         trackId,
         rowId,
-        markerId: anchorPoint.id,
         valueScale: { domain: [0, 10], clamp: false },
       },
-      pointerOrigin: { x: anchorPoint.stamp, y: 0 },
       anchorValueOrigin: anchorPoint.value,
       modifiers: { alt: false, shift: false, meta: false },
       handleDiffs: {
@@ -362,13 +356,11 @@ describe("drag preview funnel", () => {
       axis: "vertical",
       rowId,
       markerId: markerFrame.id,
-      origin: { x: markerFrame.stamp, y: 0 },
     });
     await flushMicrotasks();
 
     // Apply a vertical delta to generate violations
     store.getState().updateDrag({
-      pointer: { x: markerFrame.stamp, y: 0 },
       normalizedValueDelta: 4,
       modifiers: { alt: false, shift: false, meta: false },
     });
@@ -471,12 +463,10 @@ describe("drag preview funnel", () => {
       axis: "vertical",
       rowId,
       markerId: markerFrame.id,
-      origin: { x: markerFrame.stamp, y: 0 },
     });
     await flushMicrotasks();
 
     store.getState().updateDrag({
-      pointer: { x: markerFrame.stamp, y: 0 },
       normalizedValueDelta: 3,
       modifiers: { alt: false, shift: false, meta: false },
     });

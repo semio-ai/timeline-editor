@@ -36,29 +36,14 @@ export interface ValueScale {
   precision?: number;
 }
 
-interface PointerPosition {
-  x: number;
-  y: number;
-}
-
 /** Anchor metadata identifying what is being dragged. */
 export interface DragAnchorRef {
   /** Id of the keypoint being dragged/anchored. */
   keypointId: string;
   /** Track containing the keypoint. */
   trackId: string;
-  /** Namespace containing the keypoint (used for stable frame ids). */
-  namespaceId?: string;
-  /** Instance containing the keypoint (used for stable frame ids). */
-  instanceId?: string;
   /** Row containing the keypoint (for UI scoping). */
   rowId: string;
-  /** Marker id used for selection/lookup (often same as keypoint). */
-  markerId: string;
-  /** Marker vs handle kind for the anchor. */
-  kind?: "marker" | "handle-in" | "handle-out";
-  /** Neighbor keypoint id used for handle context. */
-  neighborKeypointId?: string;
   /** Optional vertical/value scale for the drag. */
   valueScale?: ValueScale;
 }
@@ -79,8 +64,6 @@ export interface DragState {
   anchor: DragAnchorRef;
   /** Stable frame id for the anchor during drag to avoid React remounts. */
   anchorFrameId?: string;
-  /** Pointer position at drag start (normalized timeline x). */
-  pointerOrigin: PointerPosition;
   /**
    * Canonical stamp/value at drag start; deltas are relative to these.
    * Not written back until commit.
@@ -159,8 +142,6 @@ export interface DragState {
 
 /** Payload for starting a marker drag. */
 export interface DragStartInput {
-  /** Pointer origin in timeline/value space. */
-  origin: PointerPosition;
   /** Axis constraint for the drag. */
   axis: DragAxis;
   /** Marker being dragged. */
@@ -176,8 +157,6 @@ export interface DragStartInput {
 
 /** Payload for updating a marker drag. */
 export interface DragUpdateInput {
-  /** Current pointer position in normalized timeline/value space. */
-  pointer: PointerPosition;
   normalizedStamp?: {
     /** Current stamp (normalized) including raw movement. */
     current: number;
@@ -201,8 +180,6 @@ export interface ValueDragStartInput {
   instanceId: string;
   /** Player/world stamp used to resolve the local keypoint. */
   worldStamp: number;
-  /** Pointer origin (for consistency with drag state). */
-  origin: PointerPosition;
   /**
    * Optional override for the drag value scale; when omitted, row vertical bounds are used.
    * These are literal data bounds and do not include view padding/offset from spline rendering.
@@ -214,16 +191,12 @@ export interface ValueDragStartInput {
 export interface ValueDragUpdateInput {
   /** Current value in canonical units (not view-transformed). */
   currentValue: number;
-  /** Pointer position (optional but kept for parity with drag state). */
-  pointer: PointerPosition;
   /** Modifier keys at the time of update. */
   modifiers: DragState["modifiers"];
 }
 
 /** Payload for starting a handle drag. */
 export interface HandleDragStartInput {
-  /** Pointer origin in timeline/value space. */
-  origin: PointerPosition;
   /** Handle side being dragged. */
   side: "in" | "out";
   /** Row context for the handle. */
@@ -249,8 +222,6 @@ export interface HandleDragStartInput {
 
 /** Payload for updating a handle drag. */
 export interface HandleDragUpdateInput {
-  /** Current pointer in normalized timeline/value space. */
-  pointer?: PointerPosition;
   /** Normalized vertical delta since drag start. */
   normalizedValueDelta?: number;
   /** Raw pointer movements in pixels (for view-space pairing). */
@@ -267,20 +238,8 @@ export interface HandleDragUpdateInput {
   modifiers: DragState["modifiers"];
 }
 
-/** Commit-time change for a keypoint field. */
-export interface KeypointCommitDelta {
-  id: string;
-  trackId: string;
-  stamp?: number;
-  value?: {
-    path?: string[];
-    next: (current: RawValue) => RawValue;
-  };
-}
-
 /** Snapshot of canonical points taken at drag start for a track. */
 export interface TrackSnapshot {
-  trackId: string;
   points: Keypoint<RawValue>[];
 }
 
@@ -314,5 +273,4 @@ export interface DragMarkerHandleOffsets {
 export interface DragHandleOffset {
   delta: Pick<WorldCP, "x" | "y">;
   neighborKeypointId: string;
-  fallback?: RawVector2;
 }

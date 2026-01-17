@@ -152,12 +152,8 @@ export function startHandleDrag(state: AnimationData, input: HandleDragStartInpu
       keypointId: input.keypointId,
       trackId: input.trackId,
       rowId: input.rowId,
-      markerId: input.keypointId,
-      kind: input.side === "out" ? "handle-out" : "handle-in",
-      neighborKeypointId: input.neighborKeypointId,
       valueScale: input.valueScale,
     },
-    pointerOrigin: input.origin,
     stampOrigin: input.side === "out" ? input.startStamp : input.endStamp,
     modifiers: {
       alt: false,

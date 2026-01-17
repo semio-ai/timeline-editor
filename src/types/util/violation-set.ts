@@ -14,5 +14,6 @@ export interface ViolationSet {
 
 export interface ViolationSegment {
   id: string;
+  stampRange: { start: number; end: number };
   violations: string[];
 }

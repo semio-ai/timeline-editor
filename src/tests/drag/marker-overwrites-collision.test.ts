@@ -80,11 +80,9 @@ describe("marker drag overwrites coincident marker", () => {
       axis: "horizontal",
       markerId: anchorId,
       rowId,
-      origin: { x: anchor.stamp, y: 0 },
     });
 
     store.getState().updateDrag({
-      pointer: { x: 0, y: 0 },
       normalizedStamp: { current: target.stamp },
       modifiers: { alt: false, shift: false, meta: false },
     });

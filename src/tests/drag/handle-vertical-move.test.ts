@@ -25,7 +25,6 @@ describe("handle drag vertical freedom", () => {
     };
 
     store.getState().startHandleDrag({
-      origin: { x: controlPoint.x, y: controlPoint.y },
       side: "out",
       rowId: trackId,
       trackId,

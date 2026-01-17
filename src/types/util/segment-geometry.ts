@@ -32,6 +32,11 @@ export interface ClampFlags {
 export type SegmentRenderParams = Partial<Record<TrackRender, TransitionParams>>;
 
 export interface SegmentGeometryState {
+  transitions?: EndpointTransitions;
+  controlPoints?: {
+    cp1?: WorldCP;
+    cp2?: WorldCP;
+  };
   handles?: {
     startOut?: ResolvedHandle;
     endIn?: ResolvedHandle;
@@ -42,4 +47,5 @@ export interface SegmentGeometryState {
 export interface SegmentGeometry {
   raw: SegmentGeometryState;
   effective: SegmentGeometryState;
+  flags?: ClampFlags;
 }

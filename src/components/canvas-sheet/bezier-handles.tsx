@@ -571,7 +571,7 @@ const HandleDot = memo(function HandleDot({
       pointer: { touch: false },
     },
     pixelRangeY: interaction?.pixelRangeY ?? 1,
-    onDragStart: (positionX) => {
+    onDragStart: () => {
       if (!interaction) return;
       dragDidMoveRef.current = false;
       setDragging(true);
@@ -579,8 +579,6 @@ const HandleDot = memo(function HandleDot({
       dragSpring.set(1);
       const viewScaleX = interaction.viewScaleX ?? 1;
       const viewScaleY = interaction.viewScaleY ?? 1;
-      const originX =
-        typeof interaction.xInverse === "function" ? interaction.xInverse(positionX) : positionX;
       pairingBaselineRef.current = interaction.pairedDelta
         ? {
             pairedDelta: interaction.pairedDelta,
@@ -608,7 +606,6 @@ const HandleDot = memo(function HandleDot({
         pairedLengthView: pairingBaselineRef.current?.pairedLengthView,
       });
       interaction.startHandleDrag({
-        origin: { x: originX, y: interaction.controlPoint.y },
         side: interaction.side,
         rowId: interaction.rowId,
         trackId: interaction.trackId,

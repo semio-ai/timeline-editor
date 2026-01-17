@@ -207,30 +207,6 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
   return {
     version: inputs.version,
     dragContext,
-    dragOverlay:
-      shouldPreview && inputs.dragState
-        ? {
-            state: {
-              instanceId: inputs.dragState.instanceId,
-              axis: inputs.dragState.axis,
-              anchor: {
-                keypointId: inputs.dragState.anchor.keypointId,
-                trackId: inputs.dragState.anchor.trackId,
-                rowId: inputs.dragState.anchor.rowId,
-                namespaceId: inputs.dragState.anchor.namespaceId,
-                instanceId: inputs.dragState.anchor.instanceId,
-              },
-              trackSnapshots: inputs.dragState.trackSnapshots,
-              stampDelta: inputs.dragState.stampDelta,
-              normalizedValueDelta: inputs.dragState.normalizedValueDelta,
-              handleDiffs: inputs.dragState.handleDiffs,
-              pendingDiffs,
-              pendingSelectionCleanups,
-            },
-            draggedTrackIds:
-              dragPreviewCache?.draggedTrackIds ?? draggedTrackIds ?? new Set<string>(),
-          }
-        : undefined,
     tracks: derivedTracks,
     rows: derivedRows,
     renderSampleCache:

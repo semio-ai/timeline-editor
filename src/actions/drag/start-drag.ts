@@ -1,4 +1,4 @@
-import type { RawValue, RawVector2 } from "@semio/utils";
+import type { RawValue } from "@semio/utils";
 import type { AnimationData } from "../../store-types";
 import type {
   DragStampTransform,
@@ -82,7 +82,7 @@ const findMarkerFrame = (
 export function startDrag(state: AnimationData, input: DragStartInput): void {
   state.dragState = undefined;
 
-  const selection = state.selectionState;
+  let selection = state.selectionState;
   if (!selection?.instanceId) {
     return;
   }
@@ -122,10 +122,12 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
           nextKeypoints.set(p.trackId, nextSet);
         }
       });
-    state.selectionState = {
-      ...state.selectionState,
+    const nextSelection = {
+      ...selection,
       keypoints: nextKeypoints,
     };
+    state.selectionState = nextSelection;
+    selection = nextSelection;
   }
 
   const pointIndex = track.points.findIndex((point) => point.id === anchorPoint.id);
@@ -134,7 +136,12 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
   }
   const keypoint = track.points[pointIndex];
 
-  const transform = resolveInstanceTransform(state, selection.instanceId) ?? DEFAULT_TRANSFORM;
+  const instanceId = selection.instanceId;
+  if (!instanceId) {
+    return;
+  }
+
+  const transform = resolveInstanceTransform(state, instanceId) ?? DEFAULT_TRANSFORM;
 
   const anchorValueOrigin = extractNumericValue(keypoint.value);
 
@@ -149,18 +156,14 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
 
   const dragState: DragState = {
     axis: input.axis,
-    instanceId: selection.instanceId,
+    instanceId,
     instanceTransform: transform,
     anchor: {
       keypointId: anchorPoint.id,
       trackId: anchorPoint.trackId,
-      namespaceId: anchorPoint.namespaceId,
-      instanceId: anchorPoint.instanceId,
       rowId: input.rowId,
-      markerId: marker.id,
       valueScale,
     },
-    pointerOrigin: input.origin,
     stampOrigin: keypoint.stamp,
     anchorValueOrigin,
     modifiers: {
@@ -222,12 +225,11 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
 
   const snapshotTrackIds = new Set<string>();
   selection.keypoints.forEach((_ids, trackKey) => snapshotTrackIds.add(trackKey));
-  const trackSnapshots: Record<string, { trackId: string; points: Keypoint<RawValue>[] }> = {};
+  const trackSnapshots: Record<string, { points: Keypoint<RawValue>[] }> = {};
   snapshotTrackIds.forEach((trackId) => {
     const trackToClone = state.tracks[trackId];
     if (!trackToClone) return;
     trackSnapshots[trackId] = {
-      trackId,
       points: trackToClone.points.map((point) => ({
         ...point,
         value: cloneRawValue(point.value),
@@ -284,10 +286,6 @@ function computeMarkerHandleOffsets({
           x: deltaX,
           y: deltaY,
         },
-        fallback:
-          typeof outTransition === "object"
-            ? (outTransition as RawVector2)
-            : { x: deltaX, y: deltaY },
       };
     }
   }
@@ -313,10 +311,6 @@ function computeMarkerHandleOffsets({
           x: deltaX,
           y: deltaY,
         },
-        fallback:
-          typeof inTransition === "object"
-            ? (inTransition as RawVector2)
-            : { x: deltaX, y: deltaY },
       };
     }
   }

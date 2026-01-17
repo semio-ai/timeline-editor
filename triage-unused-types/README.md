@@ -80,8 +80,7 @@ Note: a property may be used structurally (object literal matching) without bein
 
 ### `packages/animation/src/types/util/derived-snapshot.ts`
 - interface `DerivedRowSnapshot`: id
-- interface `DerivedSnapshot`: dragOverlay
-
+ 
 ### `packages/animation/src/types/util/diff.ts`
 - interface `DeleteKeypointDiff`: trackId, type
 - interface `HandleDiff`: changes, keypointId, trackId, type
@@ -89,10 +88,6 @@ Note: a property may be used structurally (object literal matching) without bein
 - interface `ProjectedTrackView`: appliedDiffs, framePoints, selectionCleanup, trackKey
 - interface `ReorderKeypointsDiff`: trackId
 - interface `UpdateKeypointDiff`: trackId, type
-
-### `packages/animation/src/types/util/drag-overlay.ts`
-- interface `DragOverlay`: draggedTrackIds, state
-- interface `DragOverlayState`: anchor, axis, handleDiffs, instanceId, normalizedValueDelta, pendingDiffs, pendingSelectionCleanups, stampDelta, trackSnapshots
 
 ### `packages/animation/src/types/util/drag-state.ts`
 - interface `DragAnchorRef`: kind, markerId, neighborKeypointId
@@ -126,9 +121,8 @@ Note: a property may be used structurally (object literal matching) without bein
 ## Util Type Usage Review (manual)
 
 - **`ComputedRowData` (`packages/animation/src/types/util/computed-row-data.ts`)** `valueBounds` is set in `compute-row-data` but never read; all consumers use `verticalBounds` or `verticalAxisByView`. Suggest removing `valueBounds` or making it a real alternate bound (with a clear doc and consumer).
-- **`DerivedSnapshot` / `DerivedRowSnapshot` (`packages/animation/src/types/util/derived-snapshot.ts`)** `dragOverlay` is constructed but never consumed; `DerivedRowSnapshot.id` is redundant with the `rows` map key. `DerivedTrackSnapshot.metadata` only uses `duration/timescale/offset` in `init-derived-orchestrator`; `trackId/namespaceId/instanceId/animatableId` are never read. Suggest trimming metadata and dropping `dragOverlay` until a consumer exists.
-- **`Diff` types (`packages/animation/src/types/util/diff.ts`)** `InsertKeypointDiff` and `HandleDiff` are not produced/consumed; `ProjectedTrackView.appliedDiffs` is stored but never read. Suggest removing these types until the diff pipeline emits them, or wiring handle/insert paths into the diff pipeline so the extra shapes are justified.
-- **`DragOverlay` (`packages/animation/src/types/util/drag-overlay.ts`)** no consumer reads `DerivedSnapshot.dragOverlay`; it mirrors `dragState` and is redundant today. Suggest removing until a renderer needs a stabilized overlay shape.
+- **`DerivedSnapshot` / `DerivedRowSnapshot` (`packages/animation/src/types/util/derived-snapshot.ts`)** `dragOverlay` was removed (no consumers); `DerivedRowSnapshot.id` is redundant with the `rows` map key. `DerivedTrackSnapshot.metadata` only uses `duration/timescale/offset` in `init-derived-orchestrator`; `trackId/namespaceId/instanceId/animatableId` are never read. Suggest trimming metadata.
+- **`Diff` types (`packages/animation/src/types/util/diff.ts`)** `InsertKeypointDiff` and `HandleDiff` are not produced/consumed; `ProjectedTrackView.appliedDiffs` is stored but never read. Note: keypoint insertion currently happens via direct mutations (immediate edits and drag-start insertion), so the lack of `InsertKeypointDiff` usage may indicate a design-vs-implementation mismatch rather than dead code. Suggest either removing these types until the diff pipeline emits them, or wiring handle/insert paths into the diff pipeline so the extra shapes are justified.
 - **`DragState` (`packages/animation/src/types/util/drag-state.ts`)** `pointerOrigin` is stored but unused; `DragUpdateInput.pointer` is unused; `DragAnchorRef.kind` is never read; `DragHandleOffset.fallback` is computed but unused; `TrackSnapshot.trackId` is redundant with the snapshot map key; `KeypointCommitDelta` is unused. Suggest removing or documenting future usage to keep the drag surface minimal.
 - **`Preview` (`packages/animation/src/types/util/preview.ts`)** `label` is never read; previews are driven by `semanticTime` + `stamp`. Suggest dropping `label` or making it optional and only setting when UI displays it.
 - **`Render` types (`packages/animation/src/types/util/render-types.ts`)** `PolylineSample.bounds` is unused; `RenderMarker.x/y` are unused (markers are positioned from `stamp/value` in the renderer); `RenderSegment.trackKey` is unused; `SelectionPointRef.namespaceId` is unused (trackKey already encodes namespace). Suggest removing these fields or adding explicit consumers if precomputed positions or namespaces are needed.

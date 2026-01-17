@@ -400,7 +400,6 @@ export const DataPoint = memo(function DataPoint({
       if (!isSpline) return;
       const resolved = computeDragStamp(x, alt || altPressed);
       updateDragAction({
-        pointer: { x: resolved.raw, y: 0 },
         normalizedValueDelta,
         normalizedStamp: {
           current: resolved.raw,
@@ -420,7 +419,6 @@ export const DataPoint = memo(function DataPoint({
       }
 
       startDragAction({
-        origin: { x: clampedStart, y: 0 },
         axis: isSpline ? "both" : "horizontal",
         markerId,
         rowId: sourceRowId,
@@ -433,7 +431,6 @@ export const DataPoint = memo(function DataPoint({
       const resolved = computeDragStamp(position, altKey || altPressed);
 
       updateDragAction({
-        pointer: { x: resolved.raw, y: 0 },
         normalizedStamp: {
           current: resolved.raw,
           snapped: resolved.snapped,

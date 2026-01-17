@@ -70,14 +70,12 @@ describe("value-driven drag bounds", () => {
       namespaceId: datum.namespaceId,
       instanceId: datum.instanceId,
       worldStamp: anchorPoint.stamp,
-      origin: { x: 0, y: 0 },
     });
 
     const currentValue = anchorPoint.value + 1;
 
     store.getState().updateValueDrag({
       currentValue,
-      pointer: { x: 0, y: 0 },
       modifiers: { alt: false, shift: false, meta: false },
     });
 

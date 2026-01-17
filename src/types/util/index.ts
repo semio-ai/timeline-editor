@@ -13,7 +13,6 @@ export type {
   HandleDragStartInput,
   HandleDragUpdateInput,
   ValueScale,
-  KeypointCommitDelta,
   TrackSnapshot,
   TrackDiff,
   TrackDiffChanges,
@@ -36,7 +35,6 @@ export type {
   SelectionFrame,
   SelectionPointRef,
 } from "./render-types";
-export type { DragOverlay, DragOverlayState } from "./drag-overlay";
 export type {
   SegmentGeometry,
   SegmentGeometryState,

@@ -1,4 +1,4 @@
-import type { RawValue, RawVector2 } from "@semio/utils";
+import type { RawValue } from "@semio/utils";
 import type { AnimationData } from "../../store-types";
 import type {
   DragMarkerHandleOffsets,
@@ -122,10 +122,6 @@ const computeMarkerHandleOffsets = ({
           x: deltaX,
           y: deltaY,
         },
-        fallback:
-          typeof outTransition === "object"
-            ? (outTransition as RawVector2)
-            : { x: deltaX, y: deltaY },
       };
     }
   }
@@ -151,10 +147,6 @@ const computeMarkerHandleOffsets = ({
           x: deltaX,
           y: deltaY,
         },
-        fallback:
-          typeof inTransition === "object"
-            ? (inTransition as RawVector2)
-            : { x: deltaX, y: deltaY },
       };
     }
   }
@@ -240,14 +232,10 @@ export function startValueDrag(state: AnimationData, input: ValueDragStartInput)
     anchor: {
       keypointId: keypoint.id,
       trackId: input.trackId,
-      namespaceId: input.namespaceId,
-      instanceId: input.instanceId,
       rowId: input.rowId,
-      markerId: anchorFrameId,
       valueScale,
     },
     anchorFrameId,
-    pointerOrigin: input.origin,
     stampOrigin: keypoint.stamp,
     anchorValueOrigin,
     modifiers: {
@@ -308,9 +296,8 @@ export function startValueDrag(state: AnimationData, input: ValueDragStartInput)
     };
   });
 
-  const trackSnapshots: Record<string, { trackId: string; points: Keypoint<RawValue>[] }> = {};
+  const trackSnapshots: Record<string, { points: Keypoint<RawValue>[] }> = {};
   trackSnapshots[input.trackId] = {
-    trackId: input.trackId,
     points: track.points.map((point) => ({
       ...point,
       value: cloneRawValue(point.value),
@@ -354,7 +341,6 @@ export function updateValueDrag(state: AnimationData, input: ValueDragUpdateInpu
   const normalizedValueDelta = (input.currentValue - anchorValueOrigin) / range;
 
   updateDrag(state, {
-    pointer: input.pointer,
     normalizedValueDelta,
     modifiers: input.modifiers,
   });

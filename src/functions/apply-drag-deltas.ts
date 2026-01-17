@@ -112,9 +112,11 @@ export function applyDragDeltas(
     typeof dragState.normalizedValueDelta === "number"
   ) {
     if (typeof nextValue === "number") {
+      const isAnchorTrack = dragState.anchor?.trackId === trackId;
+      const anchorScale = isAnchorTrack ? dragState.anchor.valueScale : undefined;
       const domainRange =
-        dragState.anchor.valueScale?.domain !== undefined
-          ? dragState.anchor.valueScale.domain[1] - dragState.anchor.valueScale.domain[0]
+        anchorScale?.domain !== undefined
+          ? anchorScale.domain[1] - anchorScale.domain[0]
           : undefined;
       let verticalRange: number | undefined;
       if (typeof domainRange === "number") {
@@ -127,8 +129,8 @@ export function applyDragDeltas(
           ? verticalRange
           : 1;
       let candidate = nextValue + dragState.normalizedValueDelta * appliedRange;
-      candidate = clampValue(candidate, bounds, dragState.anchor.valueScale);
-      candidate = applyPrecision(candidate, dragState.anchor.valueScale);
+      candidate = clampValue(candidate, bounds, anchorScale);
+      candidate = applyPrecision(candidate, anchorScale);
       nextValue = candidate;
     }
   }

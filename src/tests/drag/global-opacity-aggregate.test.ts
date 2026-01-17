@@ -44,14 +44,12 @@ describe("global row opacity drag projection", () => {
     clickMarkerWith(store, globalRowId, opacityFrame.id);
 
     store.getState().startDrag({
-      origin: { x: opacityFrame.stamp, y: 0 },
       axis: "horizontal",
       markerId: opacityFrame.id,
       rowId: globalRowId,
     });
 
     store.getState().updateDrag({
-      pointer: { x: opacityFrame.stamp + 0.05, y: 0 },
       normalizedStamp: { current: opacityFrame.stamp + 0.05 },
       modifiers: { alt: false, shift: false, meta: false },
     });
