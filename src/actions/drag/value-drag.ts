@@ -1,20 +1,19 @@
-import type { RawValue } from "@semio/utils";
+import isEqual from "lodash/isEqual";
 import type { AnimationData } from "../../store-types";
 import type {
   DragMarkerHandleOffsets,
   DragStampTransform,
   DragState,
-  Keypoint,
   SelectionState,
-  Track,
   ValueDragStartInput,
   ValueDragUpdateInput,
   ValueScale,
 } from "../../types";
+import type { TrackDiffOp } from "../../types/util/diff";
+import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "../../types/data/simple-track";
 import { computeLocalStamp } from "../../functions/compute-instance-time";
 import { insertKeypointAtWorldStamp } from "../insert-keypoint-at-stamp";
-import { removeKeypoint } from "../remove-keypoint";
-import { cloneTransitions } from "../../utils/clone-transitions";
+import { cloneTransitionValue } from "../../utils/clone-transitions";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../../constants";
 import { getWorldControlPoints } from "../../functions/get-world-control-points";
 import { clearSelection } from "../../functions/selection-state-manager";
@@ -43,15 +42,145 @@ const resolveInstanceTransform = (state: AnimationData, instanceId: string): Dra
   return DEFAULT_TRANSFORM;
 };
 
-const extractNumericValue = (value: RawValue): number | undefined =>
+const extractNumericValue = (value: SimpleRawValue): number | undefined =>
   typeof value === "number" ? value : undefined;
 
-const cloneRawValue = (value: RawValue): RawValue => {
+const cloneRawValue = (value: SimpleRawValue): SimpleRawValue => {
   try {
-    return JSON.parse(JSON.stringify(value)) as RawValue;
+    return JSON.parse(JSON.stringify(value)) as SimpleRawValue;
   } catch {
     return value;
   }
+};
+
+const cloneTransitionInfo = (
+  transitions?: SimpleKeypoint["transitions"],
+): SimpleKeypoint["transitions"] => {
+  if (!transitions) {
+    return undefined;
+  }
+  return {
+    in: cloneTransitionValue(transitions.in),
+    out: cloneTransitionValue(transitions.out),
+    pairing: transitions.pairing,
+  };
+};
+
+const cloneKeypoint = (point: SimpleKeypoint): SimpleKeypoint => ({
+  ...point,
+  value: cloneRawValue(point.value),
+  transitions: cloneTransitionInfo(point.transitions),
+});
+
+const arraysEqual = (left: string[], right: string[]): boolean => {
+  if (left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
+};
+
+interface SeedInsertionResult {
+  inserted: SimpleKeypoint;
+  diffs: TrackDiffOp[];
+  track: SimpleTrack;
+}
+
+const buildSeedInsertDiffs = (
+  state: AnimationData,
+  track: SimpleTrack,
+  input: ValueDragStartInput,
+): SeedInsertionResult | undefined => {
+  const seededTrack: SimpleTrack = {
+    ...track,
+    points: track.points.map(cloneKeypoint),
+  };
+  const seedState: AnimationData = {
+    ...state,
+    tracks: {
+      ...state.tracks,
+      [track.id]: seededTrack,
+    },
+  };
+
+  // Build a non-destructive insertion so preview/commit can share diff ops.
+  const inserted = insertKeypointAtWorldStamp(
+    seedState,
+    input.trackId,
+    input.worldStamp,
+    input.instanceId,
+  );
+  if (!inserted) {
+    return undefined;
+  }
+
+  const diffs: TrackDiffOp[] = [];
+  const baseById = new Map(track.points.map((point) => [point.id, point]));
+  seededTrack.points.forEach((point) => {
+    const original = baseById.get(point.id);
+    if (!original) {
+      diffs.push({
+        type: "insertKeypoint",
+        trackId: track.id,
+        keypoint: {
+          id: point.id,
+          stamp: point.stamp,
+          value: cloneRawValue(point.value),
+          transitions: point.transitions
+            ? {
+                in: cloneTransitionValue(point.transitions.in),
+                out: cloneTransitionValue(point.transitions.out),
+                pairing: point.transitions.pairing,
+              }
+            : undefined,
+        },
+      });
+      return;
+    }
+
+    const changes: Extract<TrackDiffOp, { type: "updateKeypoint" }>["changes"] = {};
+    if (!Object.is(original.stamp, point.stamp)) {
+      changes.stamp = point.stamp;
+    }
+    if (!isEqual(original.value, point.value)) {
+      changes.value = cloneRawValue(point.value);
+    }
+    if (!isEqual(original.transitions, point.transitions)) {
+      changes.transitions = point.transitions
+        ? {
+            in: cloneTransitionValue(point.transitions.in),
+            out: cloneTransitionValue(point.transitions.out),
+            pairing: point.transitions.pairing,
+          }
+        : undefined;
+    }
+
+    if (Object.keys(changes).length > 0) {
+      diffs.push({
+        type: "updateKeypoint",
+        trackId: track.id,
+        keypointId: original.id,
+        changes,
+      });
+    }
+  });
+
+  const nextOrder = seededTrack.points.map((point) => point.id);
+  if (
+    !arraysEqual(
+      nextOrder,
+      track.points.map((point) => point.id),
+    )
+  ) {
+    diffs.push({
+      type: "reorderKeypoints",
+      trackId: track.id,
+      order: nextOrder,
+    });
+  }
+
+  return {
+    inserted,
+    diffs,
+    track: seededTrack,
+  };
 };
 
 const buildAnchorFrameId = (
@@ -61,10 +190,7 @@ const buildAnchorFrameId = (
   instanceId: string,
 ): string => `${keypointId}-${trackId}-${namespaceId}-${instanceId}`;
 
-const findKeypointAtStamp = (
-  track: Track<RawValue>,
-  localStamp: number,
-): Keypoint<RawValue> | undefined =>
+const findKeypointAtStamp = (track: SimpleTrack, localStamp: number): SimpleKeypoint | undefined =>
   track.points.find((point) => Math.abs(point.stamp - localStamp) <= EPSILON);
 
 const resolveValueScale = (
@@ -86,8 +212,8 @@ const computeMarkerHandleOffsets = ({
   track,
   keypoint,
 }: {
-  track: Track<RawValue>;
-  keypoint: Keypoint<RawValue>;
+  track: SimpleTrack;
+  keypoint: SimpleKeypoint;
 }): DragMarkerHandleOffsets | undefined => {
   const anchorValue = extractNumericValue(keypoint.value);
   if (typeof anchorValue !== "number") {
@@ -192,20 +318,22 @@ export function startValueDrag(state: AnimationData, input: ValueDragStartInput)
 
   let keypoint = findKeypointAtStamp(track, localStamp);
   let insertedKeypoint: DragState["insertedKeypoint"];
+  let seedDiffs: TrackDiffOp[] | undefined;
+  let activeTrack = track;
   if (!keypoint) {
-    const inserted = insertKeypointAtWorldStamp(state, input.trackId, input.worldStamp, instanceId);
-    if (!inserted) {
+    // Seed an insert diff so preview/commit can apply a consistent pipeline.
+    const seedInsertion = buildSeedInsertDiffs(state, track, input);
+    if (!seedInsertion) {
       return;
     }
-    keypoint = inserted;
-    insertedKeypoint = { trackId: input.trackId, keypointId: inserted.id };
+    keypoint = seedInsertion.inserted;
+    insertedKeypoint = { trackId: input.trackId, keypointId: seedInsertion.inserted.id };
+    seedDiffs = seedInsertion.diffs;
+    activeTrack = seedInsertion.track;
   }
 
   const anchorValueOrigin = extractNumericValue(keypoint.value);
   if (anchorValueOrigin === undefined) {
-    if (insertedKeypoint) {
-      removeKeypoint(state, insertedKeypoint.trackId, insertedKeypoint.keypointId);
-    }
     return;
   }
 
@@ -244,24 +372,25 @@ export function startValueDrag(state: AnimationData, input: ValueDragStartInput)
       meta: false,
     },
     insertedKeypoint,
+    seedDiffs,
   };
 
   const handleOffsetMap: Record<string, DragMarkerHandleOffsets> = {};
 
-  const pointIndex = track.points.findIndex((point) => point.id === keypoint.id);
-  const prevPoint = pointIndex > 0 ? track.points[pointIndex - 1] : undefined;
+  const pointIndex = activeTrack.points.findIndex((point) => point.id === keypoint.id);
+  const prevPoint = pointIndex > 0 ? activeTrack.points[pointIndex - 1] : undefined;
   const nextPoint =
-    pointIndex >= 0 && pointIndex < track.points.length - 1
-      ? track.points[pointIndex + 1]
+    pointIndex >= 0 && pointIndex < activeTrack.points.length - 1
+      ? activeTrack.points[pointIndex + 1]
       : undefined;
 
-  const markerHandleOffsets = computeMarkerHandleOffsets({ track, keypoint });
+  const markerHandleOffsets = computeMarkerHandleOffsets({ track: activeTrack, keypoint });
   if (markerHandleOffsets) {
     handleOffsetMap[keypoint.id] = markerHandleOffsets;
   }
 
   if (prevPoint) {
-    const prevOffsets = computeMarkerHandleOffsets({ track, keypoint: prevPoint });
+    const prevOffsets = computeMarkerHandleOffsets({ track: activeTrack, keypoint: prevPoint });
     if (prevOffsets?.out && prevOffsets.out.neighborKeypointId === keypoint.id) {
       handleOffsetMap[prevPoint.id] = {
         ...(handleOffsetMap[prevPoint.id] ?? {}),
@@ -271,7 +400,7 @@ export function startValueDrag(state: AnimationData, input: ValueDragStartInput)
   }
 
   if (nextPoint) {
-    const nextOffsets = computeMarkerHandleOffsets({ track, keypoint: nextPoint });
+    const nextOffsets = computeMarkerHandleOffsets({ track: activeTrack, keypoint: nextPoint });
     if (nextOffsets?.in && nextOffsets.in.neighborKeypointId === keypoint.id) {
       handleOffsetMap[nextPoint.id] = {
         ...(handleOffsetMap[nextPoint.id] ?? {}),
@@ -284,8 +413,8 @@ export function startValueDrag(state: AnimationData, input: ValueDragStartInput)
     dragState.markerHandleOffsets = handleOffsetMap;
   }
 
-  track.points.forEach((point) => {
-    const offsets = computeMarkerHandleOffsets({ track, keypoint: point });
+  activeTrack.points.forEach((point) => {
+    const offsets = computeMarkerHandleOffsets({ track: activeTrack, keypoint: point });
     if (!offsets) return;
     dragState.markerHandleOffsets = {
       ...(dragState.markerHandleOffsets ?? {}),
@@ -296,13 +425,9 @@ export function startValueDrag(state: AnimationData, input: ValueDragStartInput)
     };
   });
 
-  const trackSnapshots: Record<string, { points: Keypoint<RawValue>[] }> = {};
+  const trackSnapshots: Record<string, { points: SimpleKeypoint[] }> = {};
   trackSnapshots[input.trackId] = {
-    points: track.points.map((point) => ({
-      ...point,
-      value: cloneRawValue(point.value),
-      transitions: cloneTransitions(point.transitions),
-    })),
+    points: activeTrack.points.map(cloneKeypoint),
   };
   dragState.trackSnapshots = trackSnapshots;
 
@@ -357,8 +482,6 @@ export function cancelValueDrag(state: AnimationData): void {
   }
 
   if (current.insertedKeypoint) {
-    const { trackId, keypointId } = current.insertedKeypoint;
-    removeKeypoint(state, trackId, keypointId);
     if (state.selectionState) {
       state.selectionState = clearSelection(state.selectionState);
     }

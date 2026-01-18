@@ -79,6 +79,39 @@ describe("computeTransitionParams real-space conversion", () => {
     expect(params.cp2.y).toBeCloseTo(5); // default in.y is 1
   });
 
+  test("transition view rescales overshooting handles to fit 0-1", () => {
+    const start: InstancedFrameInfo = {
+      id: "start",
+      stamp: 0,
+      points: [{ ...baseRowData, id: "point:start", value: 0 }],
+      transitions: {
+        out: { x: 0.25, y: 2 },
+      },
+    };
+
+    const end: InstancedFrameInfo = {
+      id: "end",
+      stamp: 1,
+      points: [{ ...baseRowData, id: "point:end", value: 1 }],
+      transitions: {
+        in: { x: -0.25, y: -2 },
+      },
+    };
+
+    const params = computeTransitionParams(sourceRow, start, end, false, TrackRender.Transition, {
+      min: 0,
+      max: 1,
+    });
+
+    const ys = [params.start.y, params.end.y, params.cp1.y, params.cp2.y];
+    expect(Math.min(...ys)).toBeCloseTo(0);
+    expect(Math.max(...ys)).toBeCloseTo(1);
+    expect(params.cp1.y).toBeCloseTo(1);
+    expect(params.cp2.y).toBeCloseTo(0);
+    expect(params.start.y).toBeCloseTo(1 / 3);
+    expect(params.end.y).toBeCloseTo(2 / 3);
+  });
+
   test("transition view renders flat segments for empty leading gap", () => {
     const start: InstancedFrameInfo = {
       id: "gap:start",

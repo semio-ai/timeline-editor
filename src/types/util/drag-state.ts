@@ -12,7 +12,7 @@
 import type { RawValue, RawVector2 } from "@semio/utils";
 import type { Keypoint, TransitionPairing } from "../data/keypoint";
 import type { Track } from "../data/track";
-import type { DiffOp, SelectionCleanup } from "./diff";
+import type { DiffOp, SelectionCleanup, TrackDiffOp } from "./diff";
 import type { WorldCP } from "./segment-geometry";
 
 /** Axis constraint for drags. */
@@ -93,7 +93,8 @@ export interface DragState {
    */
   markerHandleOffsets?: Record<string, DragMarkerHandleOffsets>;
   /**
-   * Keypoint created at drag start for value-driven drags; removed on cancel.
+   * Keypoint created at drag start for value-driven drags.
+   * When seeded via diffs, the canonical insert happens on commit.
    */
   insertedKeypoint?: { trackId: string; keypointId: string };
   /**
@@ -105,6 +106,11 @@ export interface DragState {
    * Pending diff ops computed during preview; replay these for commit to avoid recompute skew.
    */
   pendingDiffs?: DiffOp[];
+  /**
+   * Seed diffs applied before drag deltas (e.g. keypoint insertions for slider drags).
+   * These are merged with preview/commit diffs to keep the pipeline consistent.
+   */
+  seedDiffs?: TrackDiffOp[];
   /** Selection cleanup emitted alongside pending diffs. */
   pendingSelectionCleanups?: SelectionCleanup[];
   /** Active handle id when a handle drag is in progress. */

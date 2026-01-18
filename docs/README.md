@@ -28,6 +28,7 @@ This docs folder intentionally contains only this README. Keep working notes in 
 - Transition handles use two representations:
   - `TransitionInfo.in/out` may be a `StandardTransitionType` enum (easing) or an explicit `RawVector2` delta.
   - Missing transitions resolve to `StandardTransitionType.Cubic`. Missing/enum transitions render as empty handles; explicit deltas render as filled handles.
+- Transition track render normalizes control points to the current segment value delta, then rescales when explicit handles overshoot so the curve stays within the track (endpoints may no longer sit at 0/1 in those cases). Explicit handle deltas live in value space, so moving a keypoint can change the transition curve even when handle deltas are unchanged.
 - Marker drags preserve handle world positions using `dragState.markerHandleOffsets`. Only explicit handles are rewritten during preview/commit; missing transitions are promoted to cubic easing enums for selected points.
 - Handle drags are driven by UI-supplied `handleDeltas` (data-space deltas) and stored in `dragState.handleDiffs`. Paired handles preserve view-space length unless the user forces mirrored lengths.
 - Value drags use literal row bounds (`verticalBounds`) and ignore spline view padding/offset; the UI normalizes to those bounds before updating the drag state.

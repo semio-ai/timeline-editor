@@ -390,6 +390,7 @@ export const BoundsCart = memo(function BoundsCart({
             ref={leftDragMeshRef as any}
             position={[leftConfig.cartX, leftConfig.cartY, 0.1]}
             {...leftDragHandlers}
+            onClick={(event) => event.stopPropagation()}
             onDoubleClick={handleDoubleClick}
             onPointerEnter={handleLeftPointerEnter}
             onPointerLeave={handleLeftPointerLeave}
@@ -437,6 +438,7 @@ export const BoundsCart = memo(function BoundsCart({
             ref={rightDragMeshRef as any}
             position={[rightConfig.cartX, rightConfig.cartY, 0.1]}
             {...rightDragHandlers}
+            onClick={(event) => event.stopPropagation()}
             onDoubleClick={handleDoubleClick}
             onPointerEnter={handleRightPointerEnter}
             onPointerLeave={handleRightPointerLeave}

@@ -40,6 +40,25 @@ const buildFlatParams = (startStamp: number, endStamp: number): TransitionParams
   cp2: { x: startStamp + (endStamp - startStamp) * 0.67, y: 0.5 },
 });
 
+const normalizeTransitionRange = (params: TransitionParams): TransitionParams => {
+  const minY = Math.min(params.start.y, params.end.y, params.cp1.y, params.cp2.y);
+  const maxY = Math.max(params.start.y, params.end.y, params.cp1.y, params.cp2.y);
+  const range = maxY - minY;
+  if (!Number.isFinite(range) || range === 0) {
+    return params;
+  }
+  if (minY >= 0 && maxY <= 1) {
+    return params;
+  }
+  const normalize = (value: number) => (value - minY) / range;
+  return {
+    start: { x: params.start.x, y: normalize(params.start.y) },
+    end: { x: params.end.x, y: normalize(params.end.y) },
+    cp1: { x: params.cp1.x, y: normalize(params.cp1.y) },
+    cp2: { x: params.cp2.x, y: normalize(params.cp2.y) },
+  };
+};
+
 export function buildRenderParamsFromControlPoints(input: {
   startStamp: number;
   endStamp: number;
@@ -62,7 +81,7 @@ export function buildRenderParamsFromControlPoints(input: {
     if (!input.cp1 || !input.cp2) {
       return keyParams;
     }
-    return {
+    const params = {
       start: { x: startStamp, y: 0 },
       end: { x: endStamp, y: 1 },
       cp1: {
@@ -74,6 +93,8 @@ export function buildRenderParamsFromControlPoints(input: {
         y: delta === 0 ? 1 : (input.cp2.y - input.startValue) / delta,
       },
     };
+    // Rescale transition-space Y when explicit handles overshoot so the curve fits the track.
+    return normalizeTransitionRange(params);
   })();
 
   const previewParams = (() => {

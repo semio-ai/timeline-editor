@@ -455,6 +455,7 @@ export const DataPoint = memo(function DataPoint({
 
   const handlePointerDown = useCallback(
     (event: PointerGestureEvent) => {
+      event.stopPropagation();
       dragDidMoveRef.current = false;
       dragStartPointerRef.current = null;
       dragAnchorStampRef.current = null;
@@ -547,7 +548,7 @@ export const DataPoint = memo(function DataPoint({
   const fillDepth = foregroundZ + ROW_DEPTH_EPSILON * 0.2;
   const lineDepth = hasBackgroundPoints
     ? LAYER_BAND_OFFSETS[LayerBand.Background] + ROW_DEPTH_EPSILON * 0.1
-    : foregroundZ + ROW_DEPTH_EPSILON * 0.4;
+    : foregroundZ - ROW_DEPTH_EPSILON * 0.1;
   let resolvedYPosition = 0;
   if (trackRender === TrackRender.Spline) {
     resolvedYPosition = yPosition.get();
@@ -571,6 +572,7 @@ export const DataPoint = memo(function DataPoint({
             position={[renderStamp, resolvedYPosition, fillDepth]}
             rotation={[Math.PI / 2, 0, 0]}
             scale={[scaleX.get(), 1, 1]}
+            userData={{ selectionRole: "marker", markerId, sourceRowId }}
             // eslint-dissable-next-line
             color={fillColor.get()}
           />
@@ -580,6 +582,7 @@ export const DataPoint = memo(function DataPoint({
             position={[renderStamp, resolvedYPosition, backplateDepth]}
             rotation={[Math.PI / 2, 0, 0]}
             scale={[scaleX.get() * bgScale.get(), 1, bgScale.get()]}
+            userData={{ selectionRole: "marker", markerId, sourceRowId }}
             // eslint-dissable-next-line
             color={backdropColor.get()}
           />
@@ -595,6 +598,7 @@ export const DataPoint = memo(function DataPoint({
         color={lineColor}
         lineWidth={2.5}
         visible={showsLine}
+        raycast={() => null}
         // Lines are non-interactive when showing unselectable points
       />
     </group>

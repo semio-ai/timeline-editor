@@ -361,6 +361,7 @@ export const PlayheadCart = memo(function PlayheadCart({
             onPointerMove={dragHandlers.onPointerMove}
             onPointerUp={dragHandlers.onPointerUp}
             onPointerCancel={dragHandlers.onPointerCancel}
+            onClick={(event) => event.stopPropagation()}
             onDoubleClick={handleDoubleClick}
             onPointerEnter={handlePointerEnter}
             onPointerLeave={handlePointerLeave}

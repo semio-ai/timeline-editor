@@ -20,6 +20,16 @@ const buildBoundsByTrack = (state: AnimationData): Map<string, { min: number; ma
   return boundsByTrack;
 };
 
+const groupDiffsByTrackId = (diffs: TrackDiffOp[]): Map<string, TrackDiffOp[]> => {
+  const grouped = new Map<string, TrackDiffOp[]>();
+  diffs.forEach((diff) => {
+    const list = grouped.get(diff.trackId) ?? [];
+    list.push(diff);
+    grouped.set(diff.trackId, list);
+  });
+  return grouped;
+};
+
 /**
  * Commit the current drag operation, applying all changes.
  * This uses the ID-based architecture to avoid stale data issues.
@@ -66,8 +76,11 @@ export function commitDrag(state: AnimationData): void {
     (diff): diff is TrackDiffOp => diff.type !== "handle",
   );
   const hasPendingOps = pendingTrackDiffs.length > 0;
+  // Seed diffs capture non-destructive inserts (e.g. slider drags) before deltas are applied.
+  const seedDiffsByTrackId = groupDiffsByTrackId(dragState.seedDiffs ?? []);
+  const hasSeedDiffs = seedDiffsByTrackId.size > 0;
 
-  if (!hasHorizontalDelta && !hasVerticalDelta && !hasPendingOps) {
+  if (!hasHorizontalDelta && !hasVerticalDelta && !hasPendingOps && !hasSeedDiffs) {
     const handleDiffs = dragState.handleDiffs;
     if (handleDiffs && Object.keys(handleDiffs).length > 0) {
       Object.entries(handleDiffs).forEach(([keypointId, diff]) => {
@@ -98,6 +111,9 @@ export function commitDrag(state: AnimationData): void {
 
   if (hasPendingOps) {
     const diffsByTrack = new Map<string, TrackDiffOp[]>();
+    seedDiffsByTrackId.forEach((diffs, trackId) => {
+      diffsByTrack.set(trackId, [...diffs]);
+    });
     pendingTrackDiffs.forEach((diff) => {
       const list = diffsByTrack.get(diff.trackId) ?? [];
       list.push(diff);
@@ -113,10 +129,12 @@ export function commitDrag(state: AnimationData): void {
     if (dragState.pendingSelectionCleanups?.length) {
       selectionCleanups.push(...dragState.pendingSelectionCleanups);
     }
-  } else {
+  } else if (hasHorizontalDelta || hasVerticalDelta) {
     const boundsByTrack = hasVerticalDelta ? buildBoundsByTrack(state) : undefined;
+    const trackIds = new Set<string>(selection.keypoints.keys());
+    seedDiffsByTrackId.forEach((_diffs, trackId) => trackIds.add(trackId));
 
-    for (const [trackId] of selection.keypoints.entries()) {
+    for (const trackId of trackIds) {
       const track = state.tracks[trackId];
       if (!track) continue;
       const snapshotPoints =
@@ -135,14 +153,22 @@ export function commitDrag(state: AnimationData): void {
         selection,
         bounds: hasVerticalDelta ? boundsByTrack?.get(trackId) : undefined,
       });
+      const seedDiffs = seedDiffsByTrackId.get(trackId) ?? [];
+      const combinedDiffs = seedDiffs.length > 0 ? [...seedDiffs, ...diffs] : diffs;
 
-      if (diffs.length > 0) {
-        applyTrackDiffOpsToTrack(track, diffs);
+      if (combinedDiffs.length > 0) {
+        applyTrackDiffOpsToTrack(track, combinedDiffs);
       }
       if (selectionCleanup) {
         selectionCleanups.push(selectionCleanup);
       }
     }
+  } else if (hasSeedDiffs) {
+    seedDiffsByTrackId.forEach((diffs, trackId) => {
+      const track = state.tracks[trackId];
+      if (!track) return;
+      applyTrackDiffOpsToTrack(track, diffs);
+    });
   }
 
   const handleDiffs = dragState.handleDiffs;

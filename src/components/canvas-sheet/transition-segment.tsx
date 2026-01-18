@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
-import { useThree } from "@react-three/fiber";
+import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { Line, useCursor } from "@react-three/drei";
 import { useMotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
@@ -319,6 +319,10 @@ export const TransitionSegment = memo(function TransitionSegment({
   });
 
   const clickLine = useAnimationStore((state) => state.clickLine);
+  const clickMarker = useAnimationStore((state) => state.clickMarker);
+  const selectionFrames = useAnimationStore(
+    (state) => state.derivedSnapshot?.rows?.[sourceRow.id]?.computed?.selection ?? [],
+  );
   const dragState = useAnimationStore((state) => state.dragState);
   const [isHovered, setIsHovered] = useState(false);
   const isInteractive =
@@ -397,6 +401,52 @@ export const TransitionSegment = memo(function TransitionSegment({
     onHoverChange?.(false);
   };
 
+  const handleLineClick = useCallback(
+    (event: ThreeEvent<MouseEvent>) => {
+      if (justFinishedDraggingRef.current) {
+        event?.stopPropagation?.();
+        return;
+      }
+      // Let markers win when both marker + line are under the cursor.
+      const markerHit = event.intersections?.find(
+        (intersection) => intersection.object?.userData?.selectionRole === "marker",
+      );
+      if (markerHit) {
+        const markerId = markerHit.object?.userData?.markerId as string | undefined;
+        const rowId = markerHit.object?.userData?.sourceRowId as string | undefined;
+        if (markerId && rowId) {
+          const frame = selectionFrames.find((entry) => entry.id === markerId);
+          if (frame) {
+            clickMarker(
+              frame.points,
+              rowId,
+              markerId,
+              event.shiftKey,
+              event.metaKey || event.ctrlKey,
+            );
+          }
+        }
+        event?.stopPropagation?.();
+        return;
+      }
+      event?.stopPropagation?.();
+      clickLine(
+        sourceRow.id,
+        `${segment.startKeypointId}:${segment.endKeypointId}`,
+        event.shiftKey,
+        event.metaKey || event.ctrlKey,
+      );
+    },
+    [
+      clickLine,
+      clickMarker,
+      selectionFrames,
+      segment.endKeypointId,
+      segment.startKeypointId,
+      sourceRow.id,
+    ],
+  );
+
   if (!materializedSample || linePointsWithDepth.length === 0) {
     return null;
   }
@@ -417,22 +467,9 @@ export const TransitionSegment = memo(function TransitionSegment({
           </mesh>
         )}
       <group
-        onPointerEnter={handlePointerEnter}
-        onPointerOut={handlePointerOut}
-        onClick={(event) => {
-          if (justFinishedDraggingRef.current) {
-            event?.stopPropagation?.();
-            return;
-          }
-          if (!isInteractive) return;
-          event?.stopPropagation?.();
-          clickLine(
-            sourceRow.id,
-            `${segment.startKeypointId}:${segment.endKeypointId}`,
-            event.shiftKey,
-            event.metaKey || event.ctrlKey,
-          );
-        }}
+        onPointerEnter={isInteractive ? handlePointerEnter : undefined}
+        onPointerOut={isInteractive ? handlePointerOut : undefined}
+        onClick={isInteractive ? handleLineClick : undefined}
       >
         <Line
           ref={lineRef as any}
