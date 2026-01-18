@@ -1,4 +1,4 @@
-import { getLookup, PlayerData, PlayerDirection, RawValue, usePlayerStore } from "@semio/utils";
+import { PlayerData, PlayerDirection, RawValue, usePlayerStore } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import type {
   AnimationApi,
@@ -11,8 +11,9 @@ import {
   matchingIdentityRawValue,
   rawValueMultiplyScalar,
   buildDerivedSnapshot,
+  computeLocalStamp,
 } from "../functions";
-import { parseTrackKey } from "../utils/track-key";
+import { computeDerivativeInterpolator } from "../functions/compute-derivative-interpolator";
 import { logDerivedEvent } from "../utils/derived-debug";
 import { projectRowVerticalAxes } from "./update-view-vertical-axes";
 
@@ -51,21 +52,30 @@ function computeValueAndVelocityMaps(
   const multiplier = (_currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
 
   Object.entries(snapshot.tracks).forEach(([trackKey, track]) => {
-    const { namespaceId } = parseTrackKey(trackKey);
-    const animatableId = track.metadata?.animatableId;
-    if (!animatableId) {
-      return;
+    const lookup = trackKey;
+    const timescale = track.metadata?.timescale ?? 1;
+    const offset = track.metadata?.offset ?? 0;
+    const safeTimescale = Number.isFinite(timescale) && timescale !== 0 ? timescale : 1;
+    const localStamp = computeLocalStamp(stamp, safeTimescale, offset);
+
+    const previewInterpolator = track.preview?.interpolator;
+    const valueInterpolator = previewInterpolator ?? track.canonical.interpolator;
+    values.set(lookup, valueInterpolator(localStamp));
+
+    let velocity: RawValue | undefined;
+    if (previewInterpolator) {
+      const duration = track.metadata?.duration ?? 1000;
+      const previewDerivative = computeDerivativeInterpolator(previewInterpolator, duration);
+      velocity = previewDerivative(localStamp);
+    } else {
+      velocity = track.canonical.derivative(localStamp);
     }
-
-    const lookup = getLookup(namespaceId, animatableId);
-    values.set(lookup, track.canonical.interpolator(stamp));
-
-    const velocity = track.canonical.derivative(stamp);
     if (velocity !== undefined) {
+      const scaledVelocity = rawValueMultiplyScalar(velocity, safeTimescale);
       if (running) {
-        velocities.set(lookup, rawValueMultiplyScalar(velocity, multiplier));
+        velocities.set(lookup, rawValueMultiplyScalar(scaledVelocity, multiplier));
       } else {
-        velocities.set(lookup, matchingIdentityRawValue(velocity));
+        velocities.set(lookup, matchingIdentityRawValue(scaledVelocity));
       }
     } else {
       velocities.set(lookup, undefined);
@@ -103,12 +113,7 @@ function computeDerivedState(
   const trackInterpolators: TrackInterpolators = {};
 
   Object.entries(snapshot.tracks).forEach(([trackKey, track]) => {
-    const { namespaceId } = parseTrackKey(trackKey);
-    const animatableId = track.metadata?.animatableId;
-    if (!animatableId) return;
-
-    const lookup = getLookup(namespaceId, animatableId);
-    trackInterpolators[lookup] = {
+    trackInterpolators[trackKey] = {
       value: track.canonical.interpolator,
       derivative: track.canonical.derivative,
     };
@@ -146,20 +151,22 @@ export function initDerivedOrchestrator(
 ): () => void {
   let latestSnapshot: DerivedSnapshot | undefined;
 
+  const currentState = get();
+
   const initialInputs: DerivedInputs = {
-    tracks: get().tracks,
-    animatables: get().animatables,
-    namespaces: get().namespaces,
-    animations: get().animations,
-    instancedTrackSources: get().instancedTrackSources,
-    dragState: get().dragState,
-    selectionState: get().selectionState,
-    editorViews: get().editorViews,
-    sourceRowIds: get().sourceRowIds,
+    tracks: currentState.tracks,
+    animatables: currentState.animatables,
+    namespaces: currentState.namespaces,
+    animations: currentState.animations,
+    instancedTrackSources: currentState.instancedTrackSources,
+    dragState: currentState.dragState,
+    selectionState: currentState.selectionState,
+    editorViews: currentState.editorViews,
+    sourceRowIds: currentState.sourceRowIds,
   };
 
   const maybeApplyDerived = (inputs: DerivedInputs) => {
-    const versionHint = (latestSnapshot?.version ?? get().derivedSnapshot?.version ?? 0) + 1;
+    const versionHint = (latestSnapshot?.version ?? currentState.derivedSnapshot?.version ?? 0) + 1;
     const result = computeDerivedState(inputs, versionHint, usePlayerStore.getState());
 
     latestSnapshot = result.snapshot;

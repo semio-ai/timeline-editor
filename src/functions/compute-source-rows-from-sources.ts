@@ -22,18 +22,22 @@ export function computeSourceRowsFromSources(
   sources.forEach((source: Source) => {
     if (GROUP_TYPES.has(source.type)) {
       // Get the list of SourceRows for the children;
+      // Note: layout hints (interleave/overlay) are reserved for future row flattening.
+      // For now we always emit the group row followed by its child rows.
+      const sourceGroup = source as SourceGroup;
       const childRows = computeSourceRowsFromSources(
-        (source as SourceGroup).children,
+        sourceGroup.children,
         activeAnimationInstance,
         selectedTrackIds,
       );
       if (childRows.length === 0) return;
-      // Compute the unique set of trackIds/attributes in the children;
+      // Compute the unique set of trackIds in the children.
       const data = uniq(childRows.flatMap((child) => child.data));
       // Add a row for the group itself
       rows.push({
-        id: `${source.namespaceId}/${source.instanceId}/${(source as SourceGroup).groupId}`,
-        expanded: (source as SourceGroup).expanded ?? undefined,
+        id: `${source.namespaceId}/${source.instanceId}/${sourceGroup.groupId}`,
+        expanded: sourceGroup.expanded ?? undefined,
+        name: sourceGroup.name,
         data,
       });
       // Add the child rows
@@ -44,25 +48,10 @@ export function computeSourceRowsFromSources(
       if (sourceTrack.hidden) return;
       const foreground =
         !activeAnimationInstance || sourceTrack.instanceId === activeAnimationInstance;
-      const baseTrackKey = sourceTrack.trackId;
-      const namespacedBaseTrackKey = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${baseTrackKey}`;
-      let attributeTrackKey: string | undefined;
-      let namespacedAttributeTrackKey: string | undefined;
-      if (sourceTrack.attribute) {
-        attributeTrackKey = `${sourceTrack.trackId}.${sourceTrack.attribute}`;
-        namespacedAttributeTrackKey = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${attributeTrackKey}`;
-      }
-
+      const namespacedTrackKey = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}`;
       const baseSelected =
         foreground &&
-        (selectedTrackIds.has(baseTrackKey) || selectedTrackIds.has(namespacedBaseTrackKey));
-      const attributeSelected =
-        foreground &&
-        Boolean(attributeTrackKey) &&
-        (selectedTrackIds.has(attributeTrackKey!) ||
-          (namespacedAttributeTrackKey && selectedTrackIds.has(namespacedAttributeTrackKey)));
-
-      const isSelected = baseSelected || attributeSelected;
+        (selectedTrackIds.has(sourceTrack.trackId) || selectedTrackIds.has(namespacedTrackKey));
 
       let mainBand: LayerBand;
       if (!foreground) {
@@ -72,10 +61,10 @@ export function computeSourceRowsFromSources(
       } else {
         mainBand = LayerBand.ForegroundUnselected;
       }
-      const layerBand = isSelected ? LayerBand.ForegroundSelected : mainBand;
+      const layerBand = baseSelected ? LayerBand.ForegroundSelected : mainBand;
 
       rows.push({
-        id: `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}${sourceTrack.attribute ? `.${sourceTrack.attribute}` : ""}`,
+        id: `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}`,
         data: [
           {
             selectable: foreground,
@@ -87,7 +76,6 @@ export function computeSourceRowsFromSources(
             instanceId: sourceTrack.instanceId,
             trackId: sourceTrack.trackId,
             animatableId: sourceTrack.animatableId,
-            attribute: sourceTrack.attribute,
           },
         ],
       });

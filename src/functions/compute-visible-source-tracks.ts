@@ -16,7 +16,7 @@ export function computeVisibleSourceTracks(sources: Source[]): string[] {
     } else {
       const sourceTrack = source as SourceTrack;
       if (!sourceTrack.hidden) {
-        const id = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}${sourceTrack.attribute ? `.${sourceTrack.attribute}` : ""}`;
+        const id = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}`;
         openTracks.add(id);
       }
     }

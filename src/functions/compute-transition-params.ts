@@ -1,9 +1,6 @@
-import { RawColor, RawEuler, RawVector3, RawVector2 } from "@semio/utils";
-import { type InstancedFrameInfo, SourceRow, TrackRender } from "../types";
-import { COMPLEX_TYPES } from "../constants";
-
-type ComplexRawValue = RawVector3 | RawVector2 | RawEuler | RawColor;
-type ComplexField = keyof ComplexRawValue;
+import { type InstancedFrameInfo, SourceRow, TrackRender, EndpointTransitions } from "../types";
+import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
+import { extractFrameNumericValue } from "./segment-value-utils";
 
 /**
  * A Transition description that gives all 4 coordinates indicating the qualities of the transition
@@ -32,67 +29,78 @@ export interface TransitionParams {
   cp2: { x: number; y: number };
 }
 
-const DEFAULT_TRANSITION_OUT = { x: 0.65, y: 0 };
-const DEFAULT_TRANSITION_IN = { x: 0.35, y: 1 };
+export interface ComputeTransitionParamsOptions {
+  transitions?: EndpointTransitions;
+}
 
-export function computeTransitionParams(
-  source: SourceRow,
-  start: InstancedFrameInfo,
-  end: InstancedFrameInfo,
-  isEmpty: boolean,
-  trackRender: TrackRender,
-  _bounds: { min: number; max: number } = { min: 0, max: 1 },
-): TransitionParams {
-  // Use cubic-ease-in-out as default transtion params
+const buildFlatParams = (startStamp: number, endStamp: number): TransitionParams => ({
+  start: { x: startStamp, y: 0.5 },
+  end: { x: endStamp, y: 0.5 },
+  cp1: { x: startStamp + (endStamp - startStamp) * 0.33, y: 0.5 },
+  cp2: { x: startStamp + (endStamp - startStamp) * 0.67, y: 0.5 },
+});
 
-  // Note, the start transition out is the beginning of the transition segment.
-  // The end transition in is the end of the transition segment.
-
-  if (trackRender === TrackRender.Transition) {
-    const cp1Raw = start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
-    const cp2Raw = end.transitions?.in ?? DEFAULT_TRANSITION_IN;
-    const cp1 = { x: (end.stamp - start.stamp) * cp1Raw.x + start.stamp, y: cp1Raw.y };
-    const cp2 = { x: (end.stamp - start.stamp) * cp2Raw.x + start.stamp, y: cp2Raw.y };
-    return {
-      start: { x: start.stamp, y: 0 },
-      end: { x: end.stamp, y: 1 },
-      cp1,
-      cp2,
-    };
+const normalizeTransitionRange = (params: TransitionParams): TransitionParams => {
+  const minY = Math.min(params.start.y, params.end.y, params.cp1.y, params.cp2.y);
+  const maxY = Math.max(params.start.y, params.end.y, params.cp1.y, params.cp2.y);
+  const range = maxY - minY;
+  if (!Number.isFinite(range) || range === 0) {
+    return params;
   }
-  if (
-    source.data.length === 1 &&
-    (trackRender === TrackRender.Preview || trackRender === TrackRender.Spline)
-  ) {
-    let startValue: number | undefined;
-    let endValue: number | undefined;
+  if (minY >= 0 && maxY <= 1) {
+    return params;
+  }
+  const normalize = (value: number) => (value - minY) / range;
+  return {
+    start: { x: params.start.x, y: normalize(params.start.y) },
+    end: { x: params.end.x, y: normalize(params.end.y) },
+    cp1: { x: params.cp1.x, y: normalize(params.cp1.y) },
+    cp2: { x: params.cp2.x, y: normalize(params.cp2.y) },
+  };
+};
 
-    // Safely extract start value
-    if (start.points && start.points.length > 0) {
-      if (source.data[0].type === "number") {
-        startValue = start.points[0].value as number;
-      } else if (COMPLEX_TYPES.has(source.data[0].type) && source.data[0].attribute) {
-        startValue =
-          (start.points[0].value as ComplexRawValue | undefined)?.[
-            source.data[0].attribute as ComplexField
-          ] ?? undefined;
-      }
+export function buildRenderParamsFromControlPoints(input: {
+  startStamp: number;
+  endStamp: number;
+  startValue?: number;
+  endValue?: number;
+  cp1?: { x: number; y: number };
+  cp2?: { x: number; y: number };
+  isEmpty: boolean;
+  allowValueCurve: boolean;
+}): Partial<Record<TrackRender, TransitionParams>> {
+  const { startStamp, endStamp, isEmpty, allowValueCurve } = input;
+  const keyParams = buildFlatParams(startStamp, endStamp);
+
+  const transitionParams = (() => {
+    if (isEmpty) return keyParams;
+    if (input.startValue === undefined || input.endValue === undefined) {
+      return keyParams;
     }
-
-    // Safely extract end value
-    if (end.points && end.points.length > 0) {
-      if (source.data[0].type === "number") {
-        endValue = end.points[0].value as number;
-      } else if (COMPLEX_TYPES.has(source.data[0].type) && source.data[0].attribute) {
-        endValue =
-          (end.points[0].value as ComplexRawValue | undefined)?.[
-            source.data[0].attribute as ComplexField
-          ] ?? undefined;
-      }
+    const delta = input.endValue - input.startValue;
+    if (!input.cp1 || !input.cp2) {
+      return keyParams;
     }
+    const params = {
+      start: { x: startStamp, y: 0 },
+      end: { x: endStamp, y: 1 },
+      cp1: {
+        x: input.cp1.x,
+        y: delta === 0 ? 0 : (input.cp1.y - input.startValue) / delta,
+      },
+      cp2: {
+        x: input.cp2.x,
+        y: delta === 0 ? 1 : (input.cp2.y - input.startValue) / delta,
+      },
+    };
+    // Rescale transition-space Y when explicit handles overshoot so the curve fits the track.
+    return normalizeTransitionRange(params);
+  })();
 
-    // Handle pseudo-region cases where one value might be undefined
-    // Create flat lines at the defined value's position
+  const previewParams = (() => {
+    if (!allowValueCurve) return keyParams;
+    let startValue = input.startValue;
+    let endValue = input.endValue;
     if (isEmpty) {
       if (startValue === undefined && endValue !== undefined) {
         startValue = endValue;
@@ -101,39 +109,90 @@ export function computeTransitionParams(
       }
     }
     if (startValue === undefined || endValue === undefined) {
-      // We handle this case by just returning the parameters for the TrackRender.Key visual.
-      return {
-        start: { x: start.stamp, y: 0.5 },
-        end: { x: end.stamp, y: 0.5 },
-        cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: 0.5 },
-        cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: 0.5 },
-      };
+      return keyParams;
     }
-
-    const cp1Raw = start.transitions?.out ?? DEFAULT_TRANSITION_OUT;
-    const cp2Raw = end.transitions?.in ?? DEFAULT_TRANSITION_IN;
-
-    const delta = endValue - startValue || 0;
-    const cp1 = {
-      x: (end.stamp - start.stamp) * cp1Raw.x + start.stamp,
-      y: startValue + delta * cp1Raw.y,
+    const defaultCp1 = {
+      x: startStamp + (endStamp - startStamp) * 0.33,
+      y: startValue + (endValue - startValue) * 0.33,
     };
-    const cp2 = {
-      x: (end.stamp - start.stamp) * cp2Raw.x + start.stamp,
-      y: startValue + delta * cp2Raw.y,
+    const defaultCp2 = {
+      x: startStamp + (endStamp - startStamp) * 0.67,
+      y: startValue + (endValue - startValue) * 0.67,
     };
+    const cp1 = input.cp1 ?? defaultCp1;
+    const cp2 = input.cp2 ?? defaultCp2;
     return {
-      start: { x: start.stamp, y: startValue },
-      end: { x: end.stamp, y: endValue },
-      cp1,
-      cp2,
+      start: { x: startStamp, y: startValue },
+      end: { x: endStamp, y: endValue },
+      cp1: { x: cp1.x, y: cp1.y },
+      cp2: { x: cp2.x, y: cp2.y },
     };
-  }
-  // Default: We handle this case by just returning the parameters for the TrackRender.Key visual.
+  })();
+
   return {
-    start: { x: start.stamp, y: 0.5 },
-    end: { x: end.stamp, y: 0.5 },
-    cp1: { x: start.stamp + (end.stamp - start.stamp) * 0.33, y: 0.5 },
-    cp2: { x: start.stamp + (end.stamp - start.stamp) * 0.67, y: 0.5 },
+    [TrackRender.Key]: keyParams,
+    [TrackRender.Transition]: transitionParams,
+    [TrackRender.Preview]: previewParams,
+    [TrackRender.Spline]: previewParams,
   };
+}
+
+export function computeSegmentRenderParams(
+  source: SourceRow,
+  start: InstancedFrameInfo,
+  end: InstancedFrameInfo,
+  isEmpty: boolean,
+  options?: ComputeTransitionParamsOptions,
+): Partial<Record<TrackRender, TransitionParams>> {
+  const startValue = extractFrameNumericValue(start);
+  const endValue = extractFrameNumericValue(end);
+  const allowValueCurve = source.data.length === 1;
+  const transitions: EndpointTransitions | undefined =
+    options?.transitions || start.transitions || end.transitions
+      ? {
+          startOut: options?.transitions?.startOut ?? start.transitions?.out,
+          endIn: options?.transitions?.endIn ?? end.transitions?.in,
+        }
+      : undefined;
+
+  if (startValue === undefined || endValue === undefined) {
+    return buildRenderParamsFromControlPoints({
+      startStamp: start.stamp,
+      endStamp: end.stamp,
+      startValue,
+      endValue,
+      isEmpty,
+      allowValueCurve,
+    });
+  }
+
+  const controlPoints = resolveSegmentControlPoints({
+    start: { stamp: start.stamp, value: startValue },
+    end: { stamp: end.stamp, value: endValue },
+    transitions,
+  });
+
+  return buildRenderParamsFromControlPoints({
+    startStamp: start.stamp,
+    endStamp: end.stamp,
+    startValue,
+    endValue,
+    cp1: controlPoints.cp1Effective,
+    cp2: controlPoints.cp2Effective,
+    isEmpty,
+    allowValueCurve,
+  });
+}
+
+export function computeTransitionParams(
+  source: SourceRow,
+  start: InstancedFrameInfo,
+  end: InstancedFrameInfo,
+  isEmpty: boolean,
+  trackRender: TrackRender,
+  _bounds: { min: number; max: number } = { min: 0, max: 1 },
+  options?: ComputeTransitionParamsOptions,
+): TransitionParams {
+  const params = computeSegmentRenderParams(source, start, end, isEmpty, options);
+  return params[trackRender] ?? buildFlatParams(start.stamp, end.stamp);
 }

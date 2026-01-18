@@ -19,6 +19,7 @@ import {
   getMarkerPoints,
   keypointsToSignatures,
   pointsToSignatures,
+  resolveMarkerFrameId,
   selectionSignatures,
 } from "./selection-test-helpers";
 
@@ -52,7 +53,10 @@ describe("Modifier Key Selection", () => {
       const expectedFirst = pointsToSignatures(firstPoints, selectionState.instanceId);
 
       expect(selectionSignatures(selectionState)).toEqual(expectedFirst);
-      expect(selectionState.reference).toEqual({ rowId: opacityRow, markerId: "o0" });
+      expect(selectionState.reference).toEqual({
+        rowId: opacityRow,
+        markerId: resolveMarkerFrameId(store, opacityRow, "o0"),
+      });
 
       const secondPoints = clickMarkerWith(store, opacityRow, "o2", { mod: true });
       selectionState = store.getState().selectionState;
@@ -60,16 +64,30 @@ describe("Modifier Key Selection", () => {
       const expectedCombined = Array.from(new Set([...expectedFirst, ...expectedSecond])).sort();
 
       expect(selectionSignatures(selectionState)).toEqual(expectedCombined);
-      expect(selectionState.reference).toEqual({ rowId: opacityRow, markerId: "o2" });
+      expect(selectionState.reference).toEqual({
+        rowId: opacityRow,
+        markerId: resolveMarkerFrameId(store, opacityRow, "o2"),
+      });
     });
 
     it("removes a marker when toggled again and clears the reference if it was the anchor", () => {
       clickMarkerWith(store, opacityRow, "o1");
       const initialSelection = store.getState().selectionState;
-      expect(initialSelection.reference).toEqual({ rowId: opacityRow, markerId: "o1" });
+      expect(initialSelection.reference).toEqual({
+        rowId: opacityRow,
+        markerId: resolveMarkerFrameId(store, opacityRow, "o1"),
+      });
 
       const points = getMarkerPoints(store, opacityRow, "o1");
-      store.getState().clickMarker(points, opacityRow, "o1", false, true);
+      store
+        .getState()
+        .clickMarker(
+          points,
+          opacityRow,
+          resolveMarkerFrameId(store, opacityRow, "o1"),
+          false,
+          true,
+        );
 
       const { selectionState } = store.getState();
       expect(selectionSignatures(selectionState)).toEqual([]);
@@ -89,10 +107,10 @@ describe("Modifier Key Selection", () => {
           markerId: "s1",
         },
         {
-          markerId: "px2",
+          markerId: "px2.x",
           predicate: (rowId: string) =>
             rowId.includes(`${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}`) &&
-            rowId.includes(TRACK_IDS.POSITION),
+            rowId.includes(`${TRACK_IDS.POSITION}.x`),
         },
       ];
 
@@ -103,6 +121,7 @@ describe("Modifier Key Selection", () => {
           "rowId" in definition
             ? {
                 rowId: definition.rowId,
+                frameId: resolveMarkerFrameId(store, definition.rowId, definition.markerId),
                 points: getMarkerPoints(store, definition.rowId, definition.markerId),
               }
             : findMarker(store, definition.markerId, definition.predicate);
@@ -112,7 +131,7 @@ describe("Modifier Key Selection", () => {
           .clickMarker(
             markerContext.points,
             markerContext.rowId,
-            definition.markerId,
+            "frameId" in markerContext ? markerContext.frameId : markerContext.frame.id,
             false,
             index > 0,
           );
@@ -142,12 +161,15 @@ describe("Modifier Key Selection", () => {
       const range = collectRangeKeypoints(
         store.getState().derivedSnapshot?.rows?.[opacityRow]?.computed,
         selectionState.instanceId!,
-        "o0",
-        "o2",
+        resolveMarkerFrameId(store, opacityRow, "o0"),
+        resolveMarkerFrameId(store, opacityRow, "o2"),
       );
 
       expect(selectionSignatures(selectionState)).toEqual(keypointsToSignatures(range));
-      expect(selectionState.reference).toEqual({ rowId: opacityRow, markerId: "o0" });
+      expect(selectionState.reference).toEqual({
+        rowId: opacityRow,
+        markerId: resolveMarkerFrameId(store, opacityRow, "o0"),
+      });
     });
 
     it("treats a shift click without an existing reference as a simple click", () => {
@@ -158,7 +180,10 @@ describe("Modifier Key Selection", () => {
       expect(selectionSignatures(selectionState)).toEqual(
         pointsToSignatures(points, selectionState.instanceId),
       );
-      expect(selectionState.reference).toEqual({ rowId: scaleRow, markerId: "s1" });
+      expect(selectionState.reference).toEqual({
+        rowId: scaleRow,
+        markerId: resolveMarkerFrameId(store, scaleRow, "s1"),
+      });
     });
 
     it("falls back to a simple click when the clicked marker is in a different row", () => {
@@ -170,7 +195,10 @@ describe("Modifier Key Selection", () => {
       expect(selectionSignatures(selectionState)).toEqual(
         pointsToSignatures(points, selectionState.instanceId),
       );
-      expect(selectionState.reference).toEqual({ rowId: scaleRow, markerId: "s2" });
+      expect(selectionState.reference).toEqual({
+        rowId: scaleRow,
+        markerId: resolveMarkerFrameId(store, scaleRow, "s2"),
+      });
     });
 
     it("extends an existing range when shift and cmd/ctrl are combined", () => {
@@ -184,14 +212,17 @@ describe("Modifier Key Selection", () => {
       const extendedRange = collectRangeKeypoints(
         store.getState().derivedSnapshot?.rows?.[opacityRow]?.computed,
         selectionState.instanceId!,
-        "o0",
-        "o3",
+        resolveMarkerFrameId(store, opacityRow, "o0"),
+        resolveMarkerFrameId(store, opacityRow, "o3"),
       );
 
       expect(selectionSignatures(selectionState)).toEqual(
         Array.from(new Set([...initialRange, ...keypointsToSignatures(extendedRange)])).sort(),
       );
-      expect(selectionState.reference).toEqual({ rowId: opacityRow, markerId: "o0" });
+      expect(selectionState.reference).toEqual({
+        rowId: opacityRow,
+        markerId: resolveMarkerFrameId(store, opacityRow, "o0"),
+      });
     });
 
     it("preserves earlier row selections when creating a new shift range", () => {
@@ -205,8 +236,8 @@ describe("Modifier Key Selection", () => {
       const scaleRange = collectRangeKeypoints(
         store.getState().derivedSnapshot?.rows?.[scaleRow]?.computed,
         instanceId,
-        "s0",
-        "s3",
+        resolveMarkerFrameId(store, scaleRow, "s0"),
+        resolveMarkerFrameId(store, scaleRow, "s3"),
       );
 
       clickMarkerWith(store, opacityRow, "o2", { mod: true });
@@ -216,8 +247,8 @@ describe("Modifier Key Selection", () => {
       const opacityRange = collectRangeKeypoints(
         stateAfter.derivedSnapshot?.rows?.[opacityRow]?.computed,
         stateAfter.selectionState.instanceId!,
-        "o1",
-        "o2",
+        resolveMarkerFrameId(store, opacityRow, "o1"),
+        resolveMarkerFrameId(store, opacityRow, "o2"),
       );
 
       const expected = Array.from(
@@ -225,7 +256,10 @@ describe("Modifier Key Selection", () => {
       ).sort();
 
       expect(selectionSignatures(stateAfter.selectionState)).toEqual(expected);
-      expect(stateAfter.selectionState.reference).toEqual({ rowId: opacityRow, markerId: "o2" });
+      expect(stateAfter.selectionState.reference).toEqual({
+        rowId: opacityRow,
+        markerId: resolveMarkerFrameId(store, opacityRow, "o2"),
+      });
     });
   });
 });

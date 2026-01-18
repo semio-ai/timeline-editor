@@ -1,9 +1,11 @@
-import { RawValue, usePlayerStore } from "@semio/utils";
+import { usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import { Keypoint } from "../types";
 import { computeTrackInterpolator } from "../functions";
+import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
 
-export interface KeypointDelta<T extends RawValue> extends Omit<Keypoint<T>, "stamp" | "value"> {
+export interface KeypointDelta<T extends SimpleRawValue>
+  extends Omit<Keypoint<T>, "stamp" | "value"> {
   stamp: number | ((current: number) => number);
   value: T | ((current: T) => T);
 }
@@ -19,9 +21,9 @@ export interface KeypointDelta<T extends RawValue> extends Omit<Keypoint<T>, "st
 export function updateKeypoint(
   state: AnimationData,
   trackId: string,
-  keypoint: Partial<Keypoint<RawValue>> | KeypointDelta<RawValue>,
+  keypoint: Partial<SimpleKeypoint> | KeypointDelta<SimpleRawValue>,
   _matchSlopeWhenInserting = true,
-): Keypoint<RawValue> | undefined {
+): SimpleKeypoint | undefined {
   const track = state.tracks[trackId];
   if (!track) {
     return;
@@ -38,7 +40,7 @@ export function updateKeypoint(
       (p) => p.id !== existingPoint.id || p.stamp !== existingPoint.stamp,
     );
     state.tracks[trackId].points = [...newPoints, updatedPoint];
-    return updatedPoint as Keypoint<RawValue>;
+    return updatedPoint;
   } else if (existingPoints.length > 1) {
     // Check to see if there is only one point with the same id, versus matching by stamp.
     const idMatches = existingPoints.filter((p) => p.id === keypoint.id);
@@ -49,7 +51,7 @@ export function updateKeypoint(
         (p) => p.id !== updatedPoint.id || p.stamp !== updatedPoint.stamp,
       );
       state.tracks[trackId].points = [...newPoints, updatedPoint];
-      return updatedPoint as Keypoint<RawValue>;
+      return updatedPoint;
     }
     // If there are multiple id matches, then we are probably in some erroroneous state.
     // We should pick the first id match and update it, then clear out any other points with the same stamp/id;
@@ -62,7 +64,7 @@ export function updateKeypoint(
       (p) => p.id !== updatedPoint.id || p.stamp !== updatedPoint.stamp,
     );
     state.tracks[trackId].points = [...newPoints, updatedPoint];
-    return updatedPoint as Keypoint<RawValue>;
+    return updatedPoint;
   } else if (keypoint.value !== undefined || existingPoints.length === 0) {
     // We need to insert a new point because one does not yet exist
     if (track.points.length === 0) {
@@ -70,11 +72,11 @@ export function updateKeypoint(
       // By definition, this overrides the `matchSlopeWhenInserting` field because the new slope will always be 0.
       const defaultValue = state.animatables[track.animatableId]?.default;
       if (defaultValue !== undefined) {
-        const newPoint = {
+        const newPoint: SimpleKeypoint = {
           id: crypto.randomUUID(),
           stamp: usePlayerStore.getState().player.stamp,
-          value: defaultValue,
-        } as Keypoint<RawValue>;
+          value: defaultValue as SimpleRawValue,
+        };
         track.points.push(newPoint);
       }
     } else {
@@ -90,11 +92,11 @@ export function updateKeypoint(
     } else if (typeof keypoint.stamp === "function") {
       stamp = keypoint.stamp(stamp);
     }
-    const newPoint = {
+    const newPoint: SimpleKeypoint = {
       id: crypto.randomUUID(),
       stamp,
-      value: state.animatables[track.animatableId]?.default,
-    } as Keypoint<RawValue>;
+      value: state.animatables[track.animatableId]?.default as SimpleRawValue,
+    };
 
     if (typeof keypoint.value === "function") {
       // We need to lookup the current value
@@ -103,9 +105,9 @@ export function updateKeypoint(
         animationId: "default",
         settings: { offset: 0, timescale: 1, active: true },
       });
-      const interpolatedValue = interpolator(stamp);
+      const interpolatedValue = interpolator(stamp) as SimpleRawValue | undefined;
       if (interpolatedValue === undefined) {
-        newPoint.value = state.animatables[track.animatableId]?.default;
+        newPoint.value = state.animatables[track.animatableId]?.default as SimpleRawValue;
       } else {
         newPoint.value = keypoint.value(interpolatedValue);
       }
@@ -125,9 +127,9 @@ export function updateKeypoint(
 }
 
 function getUpdatedPoint(
-  existingPoint: Keypoint<RawValue>,
-  update: Partial<Keypoint<RawValue>> | KeypointDelta<RawValue>,
-): Keypoint<RawValue> {
+  existingPoint: SimpleKeypoint,
+  update: Partial<SimpleKeypoint> | KeypointDelta<SimpleRawValue>,
+): SimpleKeypoint {
   let stamp = existingPoint.stamp;
   let value = existingPoint.value;
   if (update.stamp !== undefined && typeof update.stamp !== "function") {
@@ -140,7 +142,7 @@ function getUpdatedPoint(
   } else if (update.value !== undefined && typeof update.value === "function") {
     value = update.value(existingPoint.value);
   }
-  const cleanUpdate: Partial<Keypoint<RawValue>> = { ...update, stamp, value };
-  const updatedPoint = { ...existingPoint, ...cleanUpdate };
+  const cleanUpdate: Partial<SimpleKeypoint> = { ...update, stamp, value };
+  const updatedPoint: SimpleKeypoint = { ...existingPoint, ...cleanUpdate };
   return updatedPoint;
 }

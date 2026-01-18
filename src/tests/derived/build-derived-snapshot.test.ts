@@ -4,9 +4,18 @@ import {
   computeTrackInterpolator,
   computeTrackViolations,
   computeRowData,
+  materializeSegmentSample,
 } from "../../functions";
 import { createTestAnimationStore } from "../../test-fixtures";
-import { parseTrackKey } from "../../utils/track-key";
+import { parseTrackKey, buildTrackKey } from "../../utils/track-key";
+import { TrackRender } from "../../types";
+import type { DragState, TrackKey, Violation } from "../../types";
+import { createEmptySelectionState } from "../../functions/selection-state-manager";
+import {
+  TRACK_IDS,
+  NAMESPACE_IDS,
+  INSTANCE_IDS,
+} from "../../test-fixtures/animation-store-factory";
 
 describe("buildDerivedSnapshot", () => {
   test("matches existing per-track and per-row computations in test store", () => {
@@ -23,6 +32,8 @@ describe("buildDerivedSnapshot", () => {
       selectionState: state.selectionState,
       version: 1,
     });
+
+    const canonicalViolationsByTrackKey: Partial<Record<TrackKey, Violation[]>> = {};
 
     Object.entries(snapshot.tracks).forEach(([trackKey, derivedTrack]) => {
       const { namespaceId, instanceId, trackId } = parseTrackKey(trackKey);
@@ -46,6 +57,8 @@ describe("buildDerivedSnapshot", () => {
         animatable,
       );
 
+      canonicalViolationsByTrackKey[trackKey as TrackKey] = violations;
+
       expect(derivedTrack.canonical.violations.length).toEqual(violations.length);
 
       const snapshotValue = derivedTrack.canonical.interpolator(0.5);
@@ -64,7 +77,7 @@ describe("buildDerivedSnapshot", () => {
       const legacyRow = computeRowData(
         sourceRow,
         state.tracks,
-        state.violations,
+        canonicalViolationsByTrackKey,
         state.animatables,
         state.dragState,
         state.selectionState,
@@ -75,7 +88,97 @@ describe("buildDerivedSnapshot", () => {
       );
 
       expect(rowSnapshot.computed.virtualFrames.length).toEqual(legacyRow.virtualFrames.length);
-      expect(rowSnapshot.computed.interpolations.length).toEqual(legacyRow.interpolations.length);
+      const snapshotSegments = rowSnapshot.computed.render?.segments ?? [];
+      const legacySegments = legacyRow.render?.segments ?? [];
+      expect(snapshotSegments.length).toEqual(legacySegments.length);
     });
+
+    const rowWithSegments = Object.values(snapshot.rows).find(
+      (row) => (row.computed.render?.segments ?? []).length > 0,
+    );
+    if (!rowWithSegments) {
+      throw new Error("Expected at least one row with interpolation geometry");
+    }
+    const firstSegment = rowWithSegments.computed.render?.segments?.[0];
+    expect(firstSegment).toBeDefined();
+    const transitionSample = firstSegment?.samples?.[TrackRender.Transition];
+    if (transitionSample) {
+      const resolved = materializeSegmentSample(transitionSample, snapshot.renderSampleCache);
+      expect(resolved?.points.length ?? 0).toBeGreaterThan(0);
+    }
+    expect(firstSegment?.startKeypointId).toBeDefined();
+  });
+
+  test("builds preview interpolators for all instances sharing a dragged track", () => {
+    const store = createTestAnimationStore();
+    const state = store.getState();
+
+    const trackId = TRACK_IDS.SCALE;
+    const track = state.tracks[trackId];
+    const anchorPoint = track.points[0];
+    if (!anchorPoint || typeof anchorPoint.value !== "number") {
+      throw new Error("Expected numeric anchor point for preview test");
+    }
+
+    const namespaceId = NAMESPACE_IDS.ALPHA;
+    const instanceId = INSTANCE_IDS.ALPHA_SHARED;
+    const otherNamespaceId = NAMESPACE_IDS.BETA;
+    const otherInstanceId = INSTANCE_IDS.BETA_SHARED;
+
+    const rowEntry = Object.entries(state.instancedTrackSources).find(([, row]) =>
+      row.data.some(
+        (entry) =>
+          entry.trackId === trackId &&
+          entry.namespaceId === namespaceId &&
+          entry.instanceId === instanceId,
+      ),
+    );
+    if (!rowEntry) {
+      throw new Error("Row containing dragged track not found");
+    }
+    const [rowId] = rowEntry;
+
+    const selectionState = createEmptySelectionState(instanceId);
+    selectionState.keypoints.set(trackId, new Set([anchorPoint.id]));
+
+    const instance = state.namespaces[namespaceId]?.animationInstances?.[instanceId];
+    if (!instance) {
+      throw new Error("Missing instance for preview test");
+    }
+
+    const dragState: DragState = {
+      axis: "vertical",
+      instanceId,
+      instanceTransform: {
+        offset: instance.settings.offset,
+        timescale: instance.settings.timescale,
+      },
+      anchor: {
+        keypointId: anchorPoint.id,
+        trackId,
+        rowId,
+        valueScale: { domain: [0, 2], clamp: false },
+      },
+      anchorValueOrigin: anchorPoint.value,
+      normalizedValueDelta: 1,
+      modifiers: { alt: false, shift: false, meta: false },
+    };
+
+    const snapshot = buildDerivedSnapshot({
+      tracks: state.tracks,
+      namespaces: state.namespaces,
+      animations: state.animations,
+      animatables: state.animatables,
+      instancedTrackSources: state.instancedTrackSources,
+      dragState,
+      selectionState,
+      version: 2,
+    });
+
+    const activeKey = buildTrackKey(namespaceId, instanceId, trackId);
+    const otherKey = buildTrackKey(otherNamespaceId, otherInstanceId, trackId);
+
+    expect(snapshot.tracks[activeKey]?.preview?.interpolator).toBeDefined();
+    expect(snapshot.tracks[otherKey]?.preview?.interpolator).toBeDefined();
   });
 });

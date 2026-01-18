@@ -4,13 +4,47 @@ export type {
   DragAnchorRef,
   DragStampTransform,
   DragState,
+  DragMarkerHandleOffsets,
+  DragHandleOffset,
   DragStartInput,
   DragUpdateInput,
+  ValueDragStartInput,
+  ValueDragUpdateInput,
+  HandleDragStartInput,
+  HandleDragUpdateInput,
   ValueScale,
-  KeypointCommitDelta,
+  TrackSnapshot,
+  TrackDiff,
+  TrackDiffChanges,
 } from "./drag-state";
 export type { InstancePair } from "./instance-pair";
 export type { InstancedFrameInfo } from "./instanced-frame-info";
+export type {
+  ValueType,
+  ValueBounds,
+  PolylineSample,
+  RenderSampleId,
+  RenderSampleCache,
+  AffineTransform2D,
+  SegmentSample,
+  SegmentSampleRange,
+  RenderSegment,
+  RenderMarker,
+  RenderHandle,
+  RowRenderData,
+  SelectionFrame,
+  SelectionPointRef,
+} from "./render-types";
+export type {
+  SegmentGeometry,
+  SegmentGeometryState,
+  WorldCP,
+  EndpointTransitions,
+  ClampFlags,
+  SegmentRenderParams,
+  ResolvedHandle,
+} from "./segment-geometry";
+export { TransitionHandleKind } from "./segment-geometry";
 export { SemanticTime } from "./semantic-time";
 export type { Preview } from "./preview";
 export { TrackRender } from "./track-render";
@@ -28,6 +62,7 @@ export type {
   KeypointAddress,
 } from "./selection-state";
 export type {
+  TrackInstanceKey,
   TrackKey,
   DerivedTrackSnapshot,
   DerivedRowSnapshot,

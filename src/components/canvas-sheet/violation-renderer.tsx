@@ -19,6 +19,7 @@ const ViolationSegment = memo(function ViolationSegment({
   activeAnimationId,
   layer = LayerBand.Background,
   globalOpacityMV,
+  xTransform,
 }: {
   segment: {
     id: string;
@@ -34,6 +35,7 @@ const ViolationSegment = memo(function ViolationSegment({
   activeAnimationId?: string;
   layer?: LayerBand;
   globalOpacityMV?: MotionValue<number>;
+  xTransform?: (stamp: number) => number;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -84,8 +86,10 @@ const ViolationSegment = memo(function ViolationSegment({
   // Geometry: width = end - start, centered at (start + end)/2
   const start = segment.stampRange.start;
   const end = segment.stampRange.end;
-  const width = end - start;
-  const x = (start + end) / 2;
+  const xStart = typeof xTransform === "function" ? xTransform(start) : start;
+  const xEnd = typeof xTransform === "function" ? xTransform(end) : end;
+  const width = Math.abs(xEnd - xStart);
+  const x = (xStart + xEnd) / 2;
   const y = 0;
 
   return (
@@ -123,6 +127,7 @@ export interface ViolationRendererProps {
   measureFromBottom?: boolean;
   trackY?: boolean;
   layer?: LayerBand;
+  xTransform?: (stamp: number) => number;
 }
 
 export const ViolationRenderer = memo(function ViolationRenderer({
@@ -133,6 +138,7 @@ export const ViolationRenderer = memo(function ViolationRenderer({
   measureFromBottom = false,
   trackY = false,
   layer = LayerBand.Background,
+  xTransform,
 }: ViolationRendererProps) {
   const activeAnimationId = useAnimationStore(
     useShallow((state) => state.selectionState.instanceId),
@@ -160,6 +166,7 @@ export const ViolationRenderer = memo(function ViolationRenderer({
           activeAnimationId={activeAnimationId ?? undefined}
           layer={layer}
           globalOpacityMV={globalOpacityMV}
+          xTransform={xTransform}
         />
       ))}
     </>

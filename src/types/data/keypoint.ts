@@ -1,11 +1,48 @@
 import { RawValue, RawVector2 } from "@semio/utils";
 
+/** World-space handle delta for a transition control point. */
+export interface TransitionWorldHandle {
+  /** Delta in normalized stamp space relative to the anchor keypoint. */
+  deltaStamp: number;
+  /** Delta in value space relative to the anchor keypoint. */
+  deltaValue: number;
+}
+
+/** Named easing families used for standard transitions. */
+export enum StandardTransitionType {
+  Sine = "sine",
+  Cubic = "cubic",
+  Quint = "quint",
+  Circ = "circ",
+  Quad = "quad",
+  Quart = "quart",
+  Expo = "expo",
+  Back = "back",
+  Linear = "linear",
+}
+
+/** Whether in/out handles should remain paired or can move independently. */
+export enum TransitionPairing {
+  Paired = "paired",
+  Free = "free",
+}
+
+/** Optional per-keypoint transition info. */
+export interface TransitionInfo {
+  /** Incoming transition (enum or explicit control-point delta). */
+  in?: RawVector2 | StandardTransitionType;
+  /** Outgoing transition (enum or explicit control-point delta). */
+  out?: RawVector2 | StandardTransitionType;
+  /** Pairing intent for in/out handles. */
+  pairing?: TransitionPairing;
+}
+
 /**
  * A single point in time on a track, with a specific value, at a specific time stamp.
  * @property id - a unique identifier for the keypoint.
- * @property stamp - the time stamp that this keypoint occurs at (normalized to the duration of the animation, 0 start and 1 end).
- * @property value - the value of the keypoint (currently either string or number).
- * @property transitions - optional transitions for the keypoint, which function as the control points on a cubic bezier curve, normalized to 0-1.
+ * @property stamp - the time stamp that this keypoint occurs at (normalized to the animation duration, 0 start and 1 end).
+ * @property value - the keypoint value (matches the track's value type).
+ * @property transitions - optional handles (enum easing or explicit deltas in stamp/value space).
  * @description As a collection of points and interpolations, this departs partially from standard practice, which configures transitions as the segment after
  * the position of the keypoint, and before the next keypoint. Instead, transitions are configured around the specified keypoint,
  * such that the 'in' transition indicates the portion of the curve before the keypoint, and the 'out' transition indicates the portion of the curve
@@ -32,14 +69,44 @@ import { RawValue, RawVector2 } from "@semio/utils";
  * D to E: cubic-bezier(0.5, 0, 0.2, 1)
  * E to F: cubic-bezier(0.8, 0, 0.3, 1)
  *
- * If not specified, the transitions default to cubic-bezier(0.65, 0, 0.35, 1) (ease-in-out-cubic)
+ * If not specified, the transitions effectively default to StandardTransitionType.Cubic
  */
+
 export interface Keypoint<DataType extends RawValue> {
   id: string;
   stamp: number;
   value: DataType;
-  transitions?: {
-    in?: RawVector2;
-    out?: RawVector2;
-  };
+  transitions?: TransitionInfo;
 }
+
+// These positions are based on common easing functions using cubic-bezier curves
+// As is standard, x values are in the range 0-1, representing time progression between pairs of keypoints,
+// unlike the in/out transition control points in the Keypoint interface, which [will] represent relative position in x/y space relative to the keypoint stamp/value.
+// Reference: https://easings.net/
+export const StandardEaseInParameters: Record<StandardTransitionType, RawVector2> = {
+  [StandardTransitionType.Sine]: { x: 0.63, y: 1 },
+  [StandardTransitionType.Cubic]: { x: 0.35, y: 1 },
+  [StandardTransitionType.Quint]: { x: 0.17, y: 1 },
+  [StandardTransitionType.Circ]: { x: 0.15, y: 1 },
+  [StandardTransitionType.Quad]: { x: 0.55, y: 1 },
+  [StandardTransitionType.Quart]: { x: 0.24, y: 1 },
+  [StandardTransitionType.Expo]: { x: 0.13, y: 1 },
+  [StandardTransitionType.Back]: { x: 0.32, y: 1.6 },
+  [StandardTransitionType.Linear]: { x: 0.66, y: 0.66 },
+};
+
+// These positions are based on common easing functions using cubic-bezier curves
+// As is standard, x values are in the range 0-1, representing time progression between pairs of keypoints,
+// unlike the in/out transition control points in the Keypoint interface, which [will] represent relative position in x/y space relative to the keypoint stamp/value.
+// Reference: https://easings.net/
+export const StandardEaseOutParameters: Record<StandardTransitionType, RawVector2> = {
+  [StandardTransitionType.Sine]: { x: 0.37, y: 0 },
+  [StandardTransitionType.Cubic]: { x: 0.65, y: 0 },
+  [StandardTransitionType.Quint]: { x: 0.83, y: 0 },
+  [StandardTransitionType.Circ]: { x: 0.85, y: 0 },
+  [StandardTransitionType.Quad]: { x: 0.45, y: 0 },
+  [StandardTransitionType.Quart]: { x: 0.76, y: 0 },
+  [StandardTransitionType.Expo]: { x: 0.87, y: 0 },
+  [StandardTransitionType.Back]: { x: 0.68, y: -0.6 },
+  [StandardTransitionType.Linear]: { x: 0.33, y: 0.33 },
+};

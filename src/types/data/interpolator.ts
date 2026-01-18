@@ -1,18 +1,20 @@
 import { type RawValue } from "@semio/utils";
 
+/** Interpolators for a track value and its derivative. */
 export interface ValueAndDerivativeInterpolators {
+  /** Value interpolator. */
   value: TrackInterpolator;
+  /** Derivative interpolator (velocity). */
   derivative: TrackInterpolator;
 }
 
 /**
- * A collection of Track Interpolators, indexed by id in a Map.
+ * Collection of per-track interpolators keyed by track key.
  */
 export type TrackInterpolators = Record<string, ValueAndDerivativeInterpolators>;
 
 /**
- * A function that interpolates a value for a track at a given time.
- * @param time - The time to interpolate at.
- * @returns - The interpolated value.
+ * Interpolate a track's value at a given stamp.
+ * Returns undefined when the interpolator has insufficient data.
  */
 export type TrackInterpolator = (time: number) => RawValue | undefined;

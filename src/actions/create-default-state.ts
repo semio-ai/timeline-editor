@@ -46,5 +46,6 @@ export const createDefaultState = (): AnimationData => {
       flat: [],
       spline: [],
     },
+    tracksRevision: 0,
   };
 };

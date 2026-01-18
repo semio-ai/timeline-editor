@@ -18,6 +18,7 @@ test("An animation that shifts from within to outside bounds gets a bounds error
     animationId: "thing",
     settings: { offset: 0, timescale: 1, active: true },
   };
+  // Note: timescale/offset alter world-time sampling, so violations can differ per instance.
 
   // Create the animation interpolator
   const track1Interpolator = computeTrackInterpolator(track1, defaultInstance);

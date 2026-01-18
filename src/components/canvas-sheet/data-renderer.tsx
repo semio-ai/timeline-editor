@@ -1,50 +1,85 @@
-import { memo, useMemo, useCallback, useRef, useState } from "react";
+import {
+  Fragment,
+  memo,
+  useMemo,
+  useCallback,
+  useRef,
+  useState,
+  useEffect,
+  useLayoutEffect,
+} from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
 import { MotionValue } from "motion";
+import { animate, useMotionValue, useMotionValueEvent, useSpring } from "motion/react";
 import { Instances } from "@react-three/drei";
 import { uniq } from "lodash";
-import { useAnimationStore, useColors } from "../../hooks";
+import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import {
-  InstancedFrameInfo,
   LayerBand,
+  RenderMarker,
+  SelectionFrame,
   SourceRow,
   TrackRender,
   VerticalAxisRange,
 } from "../../types";
 import { AnimationData, AnimationActions } from "../../store-types";
-import { DEFAULT_COLOR, Z } from "../../constants";
+import { DEFAULT_COLOR, RENDER_MORPH_SPRING, Z } from "../../constants";
 import { DataPoint } from "./data-point";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 import { TransitionSegment } from "./transition-segment";
+import { BezierHandles } from "./bezier-handles";
+
+const HANDLE_REVEAL_DELAY_MS = 120;
 
 const DataPointsRenderer = memo(function DataPointsRenderer({
   sourceRow,
-  frames,
+  selectionFrames,
+  markers,
+  activeInstanceId,
+  xTransform,
   verticalBounds,
   verticalAxisRange,
   theme = Theme.Light,
   trackRender = TrackRender.Key,
+  renderMorphProgress,
   height = 36,
 }: {
   sourceRow: SourceRow;
-  frames: InstancedFrameInfo[];
+  selectionFrames: SelectionFrame[];
+  markers: RenderMarker[];
+  activeInstanceId?: string | null;
+  xTransform?: (stamp: number) => number;
   verticalBounds: { min: number; max: number };
   verticalAxisRange?: VerticalAxisRange;
   theme?: Theme.Light | Theme.Dark;
   trackRender?: TrackRender;
+  renderMorphProgress?: MotionValue<number>;
   height?: number;
 }) {
-  const visibleHexFrameCount = useMemo(
-    () => frames.filter((f) => f.points.some((p) => p.layerBand !== LayerBand.Background)).length,
-    [frames],
-  );
+  const markerLookup = useMemo(() => {
+    const lookup = new Map<string, RenderMarker>();
+    markers.forEach((marker) => {
+      lookup.set(`${marker.trackKey}#${marker.id}`, marker);
+    });
+    return lookup;
+  }, [markers]);
+
+  const visibleHexFrameCount = useMemo(() => {
+    return selectionFrames.filter((frame) =>
+      frame.points.some((point) => {
+        const marker = markerLookup.get(`${point.trackKey}#${point.markerId}`);
+        const band = marker?.layerBand ?? LayerBand.Background;
+        return band !== LayerBand.Background;
+      }),
+    ).length;
+  }, [markerLookup, selectionFrames]);
 
   const instanceCount = visibleHexFrameCount * 2;
 
-  // Unique key to force re-creation when sourceRow or instanceCount changes
-  const instancesKey = `${sourceRow.id}:${instanceCount.toString()}`;
+  // Remount when the active instance changes to refresh instanced subscriptions.
+  const instancesKey = `${sourceRow.id}:${activeInstanceId ?? "none"}`;
 
   // If the track render is spline, but the row is a group, ignore it
   if (trackRender === TrackRender.Spline && sourceRow.data.length > 1) {
@@ -58,13 +93,15 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
       <meshBasicMaterial toneMapped={false} />
 
       {/* Individual instances */}
-      {frames.map((frame) => (
+      {selectionFrames.map((frame) => (
         <DataPoint
           key={frame.id}
           markerId={frame.id}
           sourceRowId={sourceRow.id}
           theme={theme}
           trackRender={trackRender}
+          renderMorphProgress={renderMorphProgress}
+          xTransform={xTransform}
           height={height}
           verticalBounds={verticalBounds}
           verticalAxisRange={verticalAxisRange}
@@ -115,6 +152,9 @@ export const DataRenderer = memo(function DataRenderer({
   const computedData = useAnimationStore(
     useShallow((state: StoreState) => state.derivedSnapshot?.rows?.[sourceRowId]?.computed),
   );
+  const renderSampleCache = useAnimationStore(
+    useShallow((state: StoreState) => state.derivedSnapshot?.renderSampleCache),
+  );
   const selectionState = useAnimationStore(useShallow((state: StoreState) => state.selectionState));
   const focusSelectionInstance = useAnimationStore(
     useShallow((state: StoreState) => state.focusSelectionInstance),
@@ -124,9 +164,45 @@ export const DataRenderer = memo(function DataRenderer({
     () => (sourceRow ? uniq(sourceRow.data.map((s) => s.trackId)) : []),
     [sourceRow],
   );
+  const localGlobalTransformLookup = useLocalGlobalTransformLookup();
+  const rowInstanceId = useMemo(() => {
+    if (!sourceRow) return undefined;
+    const ids = uniq(
+      sourceRow.data
+        .map((entry) => entry.instanceId)
+        .filter((value): value is string => Boolean(value)),
+    );
+    return ids.length === 1 ? ids[0] : undefined;
+  }, [sourceRow]);
+  const xTransform = useMemo(() => {
+    const transform =
+      rowInstanceId && localGlobalTransformLookup.toWorld[rowInstanceId]
+        ? localGlobalTransformLookup.toWorld[rowInstanceId]
+        : undefined;
+    if (typeof transform === "function") {
+      return transform;
+    }
+    return (stamp: number) => stamp;
+  }, [localGlobalTransformLookup, rowInstanceId]);
+  const xInverse = useMemo(() => {
+    const transform =
+      rowInstanceId && localGlobalTransformLookup.toLocal[rowInstanceId]
+        ? localGlobalTransformLookup.toLocal[rowInstanceId]
+        : undefined;
+    if (typeof transform === "function") {
+      return transform;
+    }
+    return (stamp: number) => stamp;
+  }, [localGlobalTransformLookup, rowInstanceId]);
+  const xScale = useMemo(() => {
+    const scaled = xTransform(1) - xTransform(0);
+    return Number.isFinite(scaled) && scaled !== 0 ? scaled : 1;
+  }, [xTransform]);
+  const renderMarkers = computedData?.render?.markers ?? [];
+  const renderHandles = computedData?.render?.handles ?? [];
   const transitionLayer: LayerBand = useMemo(() => {
-    const frames = computedData?.virtualFrames ?? [];
-    const allLayers = uniq(frames.flatMap((vf) => vf.points).map((p) => p.layerBand));
+    const markers = computedData?.render?.markers ?? [];
+    const allLayers = uniq(markers.map((marker) => marker.layerBand ?? LayerBand.Background));
     if (allLayers.length === 0) {
       return LayerBand.Background;
     }
@@ -139,7 +215,7 @@ export const DataRenderer = memo(function DataRenderer({
     } else {
       return LayerBand.Background;
     }
-  }, [computedData?.virtualFrames]);
+  }, [computedData?.render?.markers]);
   const color = useColors(trackIds);
   const hoverCountRef = useRef(0);
   const [isRowHovered, setIsRowHovered] = useState(false);
@@ -159,7 +235,9 @@ export const DataRenderer = memo(function DataRenderer({
   }, [sourceRow]);
 
   const shouldRenderTrackSwitchOverlay =
-    Boolean(uniqueInstanceId) && selectionState.instanceId !== uniqueInstanceId;
+    Boolean(uniqueInstanceId) &&
+    Boolean(selectionState.instanceId) &&
+    selectionState.instanceId !== uniqueInstanceId;
 
   const handleTrackSwitch = useCallback(
     (event?: { stopPropagation?: () => void }) => {
@@ -174,6 +252,69 @@ export const DataRenderer = memo(function DataRenderer({
     if (!sourceRow) return true;
     return !sourceRow.data.every((d) => d.type === "number");
   }, [sourceRow]);
+  const renderMode = keyForced ? TrackRender.Key : trackRender;
+
+  const rowHasSelection = useMemo(() => {
+    if (!sourceRow || !selectionState?.instanceId) return false;
+    const instanceMatchesRow = sourceRow.data.some(
+      (entry) => entry.instanceId === selectionState.instanceId,
+    );
+    if (!instanceMatchesRow) return false;
+    return sourceRow.data.some(
+      (entry) => (selectionState.keypoints.get(entry.trackId)?.size ?? 0) > 0,
+    );
+  }, [selectionState, sourceRow]);
+
+  const [handlesDelayReady, setHandlesDelayReady] = useState(false);
+  const handlesAppearanceMV = useSpring(0, { stiffness: 700, damping: 40 });
+  const [handlesAppearance, setHandlesAppearance] = useState(0);
+  const previousTrackRender = useRef(trackRender);
+  useMotionValueEvent(handlesAppearanceMV, "change", setHandlesAppearance);
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    if (trackRender === TrackRender.Spline) {
+      const delay = previousTrackRender.current === TrackRender.Spline ? 0 : HANDLE_REVEAL_DELAY_MS;
+      setHandlesDelayReady(false);
+      timeout = setTimeout(() => {
+        setHandlesDelayReady(true);
+      }, delay);
+    } else {
+      setHandlesDelayReady(false);
+      handlesAppearanceMV.set(0);
+    }
+    previousTrackRender.current = trackRender;
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [handlesAppearanceMV, trackRender]);
+
+  const renderMorphProgress = useMotionValue(1);
+  const renderMorphAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
+  const previousRenderModeRef = useRef(renderMode);
+  useLayoutEffect(() => {
+    const renderChanged = previousRenderModeRef.current !== renderMode;
+    renderMorphAnimationRef.current?.stop();
+    if (renderChanged) {
+      renderMorphProgress.set(0);
+      renderMorphAnimationRef.current = animate(renderMorphProgress, 1, RENDER_MORPH_SPRING);
+    } else {
+      renderMorphProgress.set(1);
+    }
+    previousRenderModeRef.current = renderMode;
+    return () => {
+      renderMorphAnimationRef.current?.stop();
+    };
+  }, [renderMode, renderMorphProgress]);
+
+  const canRenderHandles = trackRender === TrackRender.Spline && !keyForced;
+  const rowHandlesEligible = canRenderHandles && rowHasSelection;
+
+  useEffect(() => {
+    const target = rowHandlesEligible && handlesDelayReady ? 1 : 0;
+    handlesAppearanceMV.set(target);
+  }, [handlesAppearanceMV, handlesDelayReady, rowHandlesEligible]);
 
   const axisRange = useMemo(() => {
     if (!computedData) {
@@ -193,10 +334,19 @@ export const DataRenderer = memo(function DataRenderer({
   if (!sourceRow) return null;
   if (!sourceRow || !computedData) return null;
 
+  const resolvedSegmentColor =
+    transitionLayer === LayerBand.ForegroundSelected ||
+    transitionLayer === LayerBand.ForegroundUnselected
+      ? color
+      : DEFAULT_COLOR;
+
   return (
     <group
       position={[0, yOffset, baseZ]}
-      onClick={() => console.log("clicked", sourceRow, computedData)} // Reserved no-op; marker/segment clicks stopPropagation and handle selection
+      onClick={() => console.log("clicked row", JSON.stringify(computedData?.selection))} // Reserved no-op; marker/segment clicks stopPropagation and handle selection
+      onDoubleClick={() => {
+        console.log("clicked row", JSON.stringify(computedData?.selection));
+      }}
     >
       {shouldRenderTrackSwitchOverlay && trackRender !== TrackRender.Spline && (
         <mesh
@@ -216,43 +366,61 @@ export const DataRenderer = memo(function DataRenderer({
         </mesh>
       )}
       {/* Render the hexagons/visuals for each keyed point */}
-      {/* PROBLEM: frameData is passed as props here, creating stale references in DataPoint components */}
-      {/* After drag operations, individual DataPoint components retain old stamp values */}
-      {/* Phase 2+ will eliminate this prop drilling by having components subscribe to store directly */}
+      {/* Note: selection frames are passed as props for instancing; DataPoint subscribes to store data */}
       <DataPointsRenderer
         sourceRow={sourceRow}
-        frames={computedData.virtualFrames}
+        selectionFrames={computedData.selection ?? []}
+        markers={renderMarkers}
+        activeInstanceId={selectionState.instanceId}
+        xTransform={xTransform}
         verticalBounds={effectiveVerticalBounds}
         verticalAxisRange={axisRange}
         theme={theme}
-        trackRender={trackRender}
+        trackRender={renderMode}
+        renderMorphProgress={renderMorphProgress}
         height={height - 1}
       />
 
       {/* Render transition segments */}
-      {computedData.interpolations.map((segment, index) => (
-        <TransitionSegment
-          key={`${segment.start.id}-${segment.end.id}-${index.toString()}`}
-          start={segment.start}
-          end={segment.end}
-          trackRender={keyForced ? TrackRender.Key : trackRender}
+      {(computedData.render?.segments ?? []).map((segment) => {
+        return (
+          <Fragment key={segment.id}>
+            <TransitionSegment
+              trackRender={renderMode}
+              height={height - 1}
+              verticalBounds={effectiveVerticalBounds}
+              sourceRow={sourceRow}
+              segment={segment}
+              theme={theme}
+              verticalAxisRange={axisRange}
+              onHoverChange={handleSegmentHoverChange}
+              isRowHovered={isRowHovered}
+              color={resolvedSegmentColor}
+              layer={transitionLayer}
+              renderSampleCache={renderSampleCache}
+              renderMorphProgress={renderMorphProgress}
+            />
+          </Fragment>
+        );
+      })}
+      {rowHandlesEligible && handlesDelayReady && renderHandles.length > 0 && (
+        <BezierHandles
+          handles={renderHandles}
+          markers={renderMarkers}
           height={height - 1}
           verticalBounds={effectiveVerticalBounds}
-          sourceRow={sourceRow}
-          isEmpty={segment.buffer}
-          theme={theme}
           verticalAxisRange={axisRange}
-          onHoverChange={handleSegmentHoverChange}
-          isRowHovered={isRowHovered}
-          color={
-            transitionLayer === LayerBand.ForegroundSelected ||
-            transitionLayer === LayerBand.ForegroundUnselected
-              ? color
-              : DEFAULT_COLOR
-          }
+          rowId={sourceRow.id}
+          color={resolvedSegmentColor}
           layer={transitionLayer}
+          isHighlighted={isRowHovered}
+          appearance={handlesAppearance}
+          theme={theme}
+          xTransform={xTransform}
+          xInverse={xInverse}
+          xScale={xScale}
         />
-      ))}
+      )}
 
       {/* Render violations */}
       {trackRender !== TrackRender.Spline && (
@@ -263,6 +431,7 @@ export const DataRenderer = memo(function DataRenderer({
           yOffset={scrollOffset}
           measureFromBottom={measureFromBottom}
           layer={transitionLayer}
+          xTransform={xTransform}
         />
       )}
 

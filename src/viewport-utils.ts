@@ -8,13 +8,6 @@ import { TIMELINE_PADDING } from "./constants";
  * - Camera Frustum: The expanded bounds that include padding on both sides
  */
 
-export interface Frustum {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
-
 export interface DataViewport {
   left: number;
   right: number;

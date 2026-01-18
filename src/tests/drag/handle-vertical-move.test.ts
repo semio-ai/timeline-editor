@@ -1,0 +1,52 @@
+import { describe, expect, it } from "vitest";
+import type { RawVector2 } from "@semio/utils";
+import { TRACK_IDS, createTestAnimationStore } from "../../test-fixtures/animation-store-factory";
+import { TransitionPairing } from "../../types";
+
+describe("handle drag vertical freedom", () => {
+  it("allows vertical movement of an explicit out handle at the top bound", () => {
+    const store = createTestAnimationStore({ includeNamespaceB: false });
+    const trackId = TRACK_IDS.OPACITY;
+    const anchorId = "o1";
+    const neighborId = "o2";
+
+    const anchor = store.getState().tracks[trackId].points.find((p) => p.id === anchorId);
+    const neighbor = store.getState().tracks[trackId].points.find((p) => p.id === neighborId);
+    expect(anchor?.transitions?.pairing).toBe(TransitionPairing.Paired);
+    if (!anchor || !neighbor) throw new Error("fixture points missing");
+
+    const initialOut = anchor.transitions?.out as RawVector2 | undefined;
+    expect(initialOut).toBeDefined();
+    if (!initialOut) return;
+
+    store.getState().startHandleDrag({
+      side: "out",
+      rowId: trackId,
+      trackId,
+      keypointId: anchorId,
+      neighborKeypointId: neighborId,
+      valueScale: undefined, // no domain clamp
+      startStamp: anchor.stamp,
+      endStamp: neighbor.stamp,
+      startValue: anchor.value as number,
+      endValue: neighbor.value as number,
+    });
+
+    const nextOut = { x: initialOut.x, y: initialOut.y + 0.2 };
+
+    store.getState().updateHandleDrag({
+      handleDeltas: {
+        out: nextOut,
+        pairing: TransitionPairing.Paired,
+        withinSnapTolerance: false,
+      },
+      modifiers: { alt: false, shift: false, meta: false },
+    });
+
+    const diff = store.getState().dragState?.handleDiffs?.[anchorId]?.out as RawVector2 | undefined;
+    expect(diff).toBeDefined();
+    if (!diff) return;
+    expect(diff.y).not.toBeCloseTo(initialOut.y ?? 0);
+    expect(diff.y).toBeGreaterThan(0);
+  });
+});

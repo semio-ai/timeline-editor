@@ -81,7 +81,6 @@ export function TrackControl({
           addPreview({
             stamp: prevKeyframeTime ?? 0,
             semanticTime: SemanticTime.Backward,
-            label: "Previous Keyed Frame",
           });
         }}
         onMouseLeave={() => {
@@ -119,7 +118,6 @@ export function TrackControl({
           addPreview({
             stamp: nextKeyframeTime ?? 0,
             semanticTime: SemanticTime.Forward,
-            label: "Next Keyed Frame",
           });
         }}
         onMouseLeave={() => {

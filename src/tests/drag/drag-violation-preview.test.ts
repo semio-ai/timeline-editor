@@ -67,8 +67,8 @@ describe("drag previews recompute violation overlays", () => {
     let row = store.getState().derivedSnapshot?.rows?.[rowId]?.computed;
     expect(row).toBeDefined();
 
-    const markerFrame = row?.virtualFrames.find((frame) =>
-      frame.points.some((point) => point.id === "s-preview-2"),
+    const markerFrame = row?.selection?.find((frame) =>
+      frame.points.some((point) => point.markerId === "s-preview-2"),
     );
     expect(markerFrame).toBeDefined();
     const markerId = markerFrame!.id;
@@ -76,14 +76,12 @@ describe("drag previews recompute violation overlays", () => {
     clickMarkerWith(store, rowId, markerId);
 
     store.getState().startDrag({
-      origin: { x: markerFrame!.stamp, y: 0 },
       axis: "horizontal",
       markerId,
       rowId,
     });
 
     store.getState().updateDrag({
-      pointer: { x: 0.55, y: 0 },
       normalizedStamp: { current: 0.55 },
       modifiers: { alt: false, shift: false, meta: false },
     });

@@ -2,8 +2,6 @@ import type { RawValue, AnimatableValue, StoreSubscribeWithSelector, Write } fro
 import { TimeDisplay } from "@semio/ui";
 import type { StoreApi } from "zustand";
 import type {
-  Keypoint,
-  Track,
   Animation,
   StoredAnimation,
   Preview,
@@ -11,14 +9,19 @@ import type {
   DragState,
   DragStartInput,
   DragUpdateInput,
+  ValueDragStartInput,
+  ValueDragUpdateInput,
+  HandleDragStartInput,
+  HandleDragUpdateInput,
   SourceRow,
-  SourceRowData,
+  MarkerPoint,
   View,
   VisibleSourceRowIds,
   Namespace,
   DerivedSnapshot,
 } from "./types";
 import type { SelectionState } from "./types/util/selection-state";
+import type { SimpleKeypoint, SimpleTrack } from "./types/data/simple-track";
 
 /**
  * Interface representing the data structure for animation.
@@ -26,11 +29,13 @@ import type { SelectionState } from "./types/util/selection-state";
 export interface AnimationData {
   derivedSnapshot?: DerivedSnapshot;
   /**
-   * Current values (output of interpolator).
+   * Current values (output of interpolator), keyed by `${namespaceId}/${instanceId}/${trackId}`.
+   * Use `buildTrackKey` to construct lookups.
    */
   values: Map<string, RawValue | undefined>;
   /**
-   * Current values (output of interpolator).
+   * Current values (output of interpolator), keyed by `${namespaceId}/${instanceId}/${trackId}`.
+   * Use `buildTrackKey` to construct lookups.
    */
   velocities: Map<string, RawValue | undefined>;
   /**
@@ -44,9 +49,10 @@ export interface AnimationData {
    */
   animations: Record<string, Animation>;
   /**
-   * All tracks loaded in the project.
+   * All tracks loaded in the project. Each track must be scalar-only (number, string, or boolean)
+   * after flattening composite animatables into per-component records.
    */
-  tracks: Record<string, Track<RawValue>>;
+  tracks: Record<string, SimpleTrack>;
   /**
    * Duration of the playback region, in milliseconds.
    */
@@ -108,6 +114,11 @@ export interface AnimationData {
    * Global source row IDs shared across all views
    */
   sourceRowIds: VisibleSourceRowIds;
+  /**
+   * Incremented whenever track metadata changes so subscriptions can detect updates
+   * without diffing the entire track map.
+   */
+  tracksRevision?: number;
 }
 
 /**
@@ -116,14 +127,14 @@ export interface AnimationData {
 export interface AnimationActions {
   /**
    * Click a marker - Points-based with automatic instance handling.
-   * @param clickedPoints - The actual points data that were clicked (pre-filtered for selectable).
+   * @param clickedPoints - Selection points for the marker (pre-filtered for selectable).
    * @param rowId - The source row containing the marker.
    * @param markerId - The marker identifier within the row.
    * @param shift - Whether the shift key is pressed.
    * @param mod - Whether a modifier key (ctrl/cmd) is pressed.
    */
   clickMarker: (
-    clickedPoints: (SourceRowData & { id: string })[],
+    clickedPoints: MarkerPoint[],
     rowId: string,
     markerId: string,
     shift?: boolean,
@@ -173,16 +184,11 @@ export interface AnimationActions {
    */
   updateVelocities: (velocities: Map<string, RawValue | undefined>) => void;
   /**
-   * Set an individual value
-   * @param id - The ID of the value to set.
-   * @param namespace - The namespace of the value to set.
+   * Set an individual value by track key.
+   * @param trackKey - The `${namespaceId}/${instanceId}/${trackId}` key to set.
    * @param value - The value to set.
    */
-  setValue: (
-    id: string,
-    namespace: string,
-    value: RawValue | ((current: RawValue) => RawValue),
-  ) => void;
+  setValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => void;
   /**
    * Creates a new view
    */
@@ -225,18 +231,14 @@ export interface AnimationActions {
    * @param keypoint - The keypoint data to update.
    * @param canMerge - Whether to allow merging of keypoints by stamp.
    */
-  updateKeypoint: (
-    trackId: string,
-    keypoint: Partial<Keypoint<RawValue>>,
-    canMerge?: boolean,
-  ) => void;
+  updateKeypoint: (trackId: string, keypoint: Partial<SimpleKeypoint>, canMerge?: boolean) => void;
   /**
    * Update multiple keypoints at once.
    * @param keypoints - An array of keypoints to update.
    * @param canMerge - Whether to allow merging of keypoints by stamp
    */
   updateKeypoints: (
-    keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[],
+    keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[],
     canMerge?: boolean,
   ) => void;
   /**
@@ -244,19 +246,21 @@ export interface AnimationActions {
    * @param trackId - The ID of the track.
    * @param keypoint - The keypoint data to create.
    */
-  createKeypoint: (trackId: string, keypoint: Partial<Keypoint<RawValue>>) => void;
+  createKeypoint: (trackId: string, keypoint: Partial<SimpleKeypoint>) => void;
   /**
    * Create multiple keypoints at once.
    * @param keypoints - An array of keypoints to create.
    */
-  createKeypoints: (
-    keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[],
-  ) => void;
+  createKeypoints: (keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[]) => void;
   /**
    * Update a track's data (other than id and points).
    * @param track - The track data to update.
    */
-  updateTrack: (track: Partial<Track<RawValue>>) => void;
+  updateTrack: (track: Partial<SimpleTrack>) => void;
+  /**
+   * Update the group label associated with one or more tracks (leaves remain unchanged).
+   */
+  updateTrackGroupName: (trackIds: string[], name: string) => void;
   /**
    * Remove a keypoint from the animation.
    * @param trackId - The ID of the track.
@@ -273,12 +277,12 @@ export interface AnimationActions {
    * @param track - The track data to create.
    * @param animationId - The ID of the animation to add the track to.
    */
-  createTrack: (track: Partial<Track<RawValue>>, animatableId: string, animationId: string) => void;
+  createTrack: (track: Partial<SimpleTrack>, animatableId: string, animationId: string) => void;
   /**
    * Set multiple tracks at once, replacing existing tracks.
    * @param tracks - Record of track ID to Track
    */
-  setTracks: (tracks: Record<string, Track<RawValue>>) => void;
+  setTracks: (tracks: Record<string, SimpleTrack>) => void;
   /**
    * Remove a track from the animation.
    * @param trackId - The ID of the track to remove.
@@ -399,9 +403,29 @@ export interface AnimationActions {
   startDrag: (input: DragStartInput) => void;
 
   /**
+   * Start a value-driven drag (slider-driven vertical drag).
+   */
+  startValueDrag: (input: ValueDragStartInput) => void;
+
+  /**
+   * Start a drag operation for a handle (in/out).
+   */
+  startHandleDrag: (input: HandleDragStartInput) => void;
+
+  /**
    * Update the active drag with pointer deltas.
    */
   updateDrag: (input: DragUpdateInput) => void;
+
+  /**
+   * Update the active value-driven drag with a new value.
+   */
+  updateValueDrag: (input: ValueDragUpdateInput) => void;
+
+  /**
+   * Update the active handle drag with pointer deltas.
+   */
+  updateHandleDrag: (input: HandleDragUpdateInput) => void;
 
   /**
    * Commit the current drag operation, applying all changes.
@@ -409,9 +433,19 @@ export interface AnimationActions {
   commitDrag: () => void;
 
   /**
+   * Commit the current value-driven drag, applying all changes.
+   */
+  commitValueDrag: () => void;
+
+  /**
    * Cancel the current drag operation without applying changes.
    */
   cancelDrag: () => void;
+
+  /**
+   * Cancel the current value-driven drag without applying changes.
+   */
+  cancelValueDrag: () => void;
 }
 
 /**

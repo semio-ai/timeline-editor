@@ -1,23 +1,27 @@
-import { RawValue, getLookup, usePlayerStore, AnimatableValue } from "@semio/utils";
+import { RawValue, usePlayerStore, AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
 import { mapValues } from "lodash";
 import { create } from "zustand";
 import {
-  Keypoint,
   Track,
   StoredAnimation,
   SemanticTime,
   Preview,
   SourceRow,
-  SourceRowData,
   TrackRender,
   Namespace,
   DragUpdateInput,
   DragStartInput,
+  ValueDragStartInput,
+  ValueDragUpdateInput,
   VerticalAxis,
+  HandleDragStartInput,
+  HandleDragUpdateInput,
+  MarkerPoint,
 } from "./types";
+import type { SimpleTrack, SimpleKeypoint } from "./types/data/simple-track";
 import {
   AnimationData,
   AnimationActions,
@@ -40,13 +44,25 @@ import {
   insertKeypointAtWorldStamp as insertKeyAtWorldStampAction,
 } from "./actions";
 import { clickMarkerAction, clearSelectionAction } from "./actions/click-marker";
-import { startDrag, updateDrag, commitDrag, cancelDrag } from "./actions/drag";
+import {
+  startDrag,
+  startValueDrag,
+  updateDrag,
+  updateValueDrag,
+  commitDrag,
+  commitValueDrag,
+  cancelDrag,
+  cancelValueDrag,
+  startHandleDrag,
+  updateHandleDrag,
+} from "./actions/drag";
 import {
   computeStoredAnimation,
   computeNextTime,
   computePreviousTime,
   computeUpdatedSources,
 } from "./functions";
+import { normalizeTrackData } from "./functions/normalize-track-data";
 import {
   updatePlayerLoop,
   updateOverallDuration,
@@ -59,6 +75,7 @@ import {
 import { View } from "./types/util/view";
 import { createEmptySelectionState } from "./functions/selection-state-manager";
 import { clickLineAction } from "./actions/click-line";
+import { parseTrackKey } from "./utils/track-key";
 
 enableMapSet();
 
@@ -118,20 +135,18 @@ export const AnimationSlice = (
         }),
       );
     },
-    setValue: (
-      id: string,
-      namespace: string,
-      value: RawValue | ((current: RawValue) => RawValue),
-    ) => {
+    setValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => {
       set(
         produce((state) => {
-          const lookupId = getLookup(namespace, id);
+          const lookupId = trackKey;
           if (typeof value === "function") {
             const current: RawValue | undefined = state.values.get(lookupId);
             if (current === undefined) {
               // Get the default value from the animatable if it exists
-              const animatable = state.animatables[id];
-              state.values.set(lookupId, value(animatable.default as RawValue));
+              const { trackId } = parseTrackKey(lookupId);
+              const animatableId = state.tracks[trackId]?.animatableId;
+              const animatable = animatableId ? state.animatables[animatableId] : undefined;
+              state.values.set(lookupId, value(animatable?.default as RawValue));
             } else {
               state.values.set(lookupId, value(current));
             }
@@ -152,7 +167,18 @@ export const AnimationSlice = (
     setAnimatables: (animatables: Record<string, AnimatableValue>) => {
       set(
         produce((state: AnimationData): void => {
-          state.animatables = animatables;
+          const normalized = normalizeTrackData({
+            animatables,
+            tracks: state.tracks as Record<string, Track<RawValue>>,
+            animations: state.animations,
+          });
+          state.animatables = normalized.animatables ?? animatables;
+          if (normalized.tracks) {
+            state.tracks = normalized.tracks as Record<string, SimpleTrack>;
+          }
+          if (normalized.animations) {
+            state.animations = normalized.animations;
+          }
         }),
       );
     },
@@ -163,11 +189,7 @@ export const AnimationSlice = (
         }),
       );
     },
-    updateKeypoint: (
-      trackId: string,
-      keypoint: Partial<Keypoint<RawValue>>,
-      canMerge?: boolean,
-    ) => {
+    updateKeypoint: (trackId: string, keypoint: Partial<SimpleKeypoint>, canMerge?: boolean) => {
       set(
         produce((state: AnimationData): void => {
           updateKeypoint(state, trackId, keypoint, canMerge);
@@ -175,7 +197,7 @@ export const AnimationSlice = (
       );
     },
     updateKeypoints: (
-      keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[],
+      keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[],
       canMerge?: boolean,
     ) => {
       set(
@@ -241,14 +263,14 @@ export const AnimationSlice = (
         }),
       );
     },
-    createKeypoint: (trackId: string, point: Partial<Keypoint<RawValue>>) => {
+    createKeypoint: (trackId: string, point: Partial<SimpleKeypoint>) => {
       set(
         produce((state: AnimationData): void => {
           createKeypoint(state, trackId, point);
         }),
       );
     },
-    createKeypoints: (keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[]) => {
+    createKeypoints: (keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[]) => {
       set(
         produce((state: AnimationData): void => {
           keypoints.forEach(({ trackId, keypoint }) => {
@@ -257,10 +279,28 @@ export const AnimationSlice = (
         }),
       );
     },
-    updateTrack: (track: Partial<Track<RawValue>>) => {
+    updateTrack: (track: Partial<SimpleTrack>) => {
       set(
         produce((state: AnimationData) => {
           updateTrack(state, track);
+          if (track.id) {
+            state.tracksRevision = (state.tracksRevision ?? 0) + 1;
+          }
+        }),
+      );
+    },
+    updateTrackGroupName: (trackIds: string[], name: string) => {
+      set(
+        produce((state: AnimationData) => {
+          const nextTracks = { ...state.tracks };
+          trackIds.forEach((id) => {
+            const existing = nextTracks[id];
+            if (existing) {
+              nextTracks[id] = { ...existing, groupName: name };
+            }
+          });
+          state.tracks = nextTracks;
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
     },
@@ -280,22 +320,32 @@ export const AnimationSlice = (
         }),
       );
     },
-    createTrack: (track: Partial<Track<RawValue>>, animatableId: string, animationId: string) => {
+    createTrack: (track: Partial<SimpleTrack>, animatableId: string, animationId: string) => {
       set(
         produce((state: AnimationData): void => {
           createTrack(state, animatableId, animationId, track);
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
     },
     setTracks: (tracks: Record<string, Track<RawValue>>) => {
       set(
         produce((state: AnimationData): void => {
-          // Clear existing tracks
-          state.tracks = {};
-          // Add all tracks with their points
-          Object.entries(tracks).forEach(([trackId, track]) => {
-            state.tracks[trackId] = track;
+          const normalized = normalizeTrackData({
+            tracks,
+            animatables: state.animatables,
+            animations: state.animations,
           });
+          if (normalized.animatables) {
+            state.animatables = normalized.animatables;
+          }
+          if (normalized.animations) {
+            state.animations = normalized.animations;
+          }
+          if (normalized.tracks) {
+            state.tracks = normalized.tracks as Record<string, SimpleTrack>;
+            state.tracksRevision = (state.tracksRevision ?? 0) + 1;
+          }
         }),
       );
     },
@@ -303,6 +353,7 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData) => {
           removeTrack(state, animationId, trackId);
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
     },
@@ -440,14 +491,14 @@ export const AnimationSlice = (
      * 4. Shift-click in any other row behaves like a plain click (replaces selection and moves the reference).
      * 5. If Ctrl/Cmd-click removes the reference marker, the reference is cleared until another marker is explicitly clicked.
      *
-     * @param clickedPoints - The actual points that were clicked (pre-filtered for selectable).
+     * @param clickedPoints - Selection points for the marker (pre-filtered for selectable).
      * @param rowId - The source row containing the marker.
      * @param markerId - The marker identifier within the row.
      * @param shift - Whether shift key is held.
      * @param mod - Whether mod key (Cmd on Mac, Ctrl on PC) is held.
      */
     clickMarker: (
-      clickedPoints: (SourceRowData & { id: string })[],
+      clickedPoints: MarkerPoint[],
       rowId: string,
       markerId: string,
       shift?: boolean,
@@ -497,17 +548,12 @@ export const AnimationSlice = (
           const currentIdx = state.previews.findIndex((p) => p.semanticTime === SemanticTime.Hover);
           if (currentIdx < 0) {
             return {
-              previews: [
-                ...state.previews,
-                { semanticTime: SemanticTime.Hover, stamp: value, label: "Hover" },
-              ],
+              previews: [...state.previews, { semanticTime: SemanticTime.Hover, stamp: value }],
             };
           } else {
             return {
               previews: state.previews.map((p, idx) =>
-                idx === currentIdx
-                  ? { semanticTime: SemanticTime.Hover, stamp: value, label: "Hover" }
-                  : p,
+                idx === currentIdx ? { semanticTime: SemanticTime.Hover, stamp: value } : p,
               ),
             };
           }
@@ -537,10 +583,38 @@ export const AnimationSlice = (
         }),
       );
     },
+    startValueDrag: (input: ValueDragStartInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          startValueDrag(state, input);
+        }),
+      );
+    },
+    startHandleDrag: (input: HandleDragStartInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          startHandleDrag(state, input);
+        }),
+      );
+    },
     updateDrag: (input: DragUpdateInput) => {
       set(
         produce((state: AnimationData): void => {
           updateDrag(state, input);
+        }),
+      );
+    },
+    updateValueDrag: (input: ValueDragUpdateInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateValueDrag(state, input);
+        }),
+      );
+    },
+    updateHandleDrag: (input: HandleDragUpdateInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateHandleDrag(state, input);
         }),
       );
     },
@@ -551,10 +625,24 @@ export const AnimationSlice = (
         }),
       );
     },
+    commitValueDrag: () => {
+      set(
+        produce((state: AnimationData): void => {
+          commitValueDrag(state);
+        }),
+      );
+    },
     cancelDrag: () => {
       set(
         produce((state: AnimationData): void => {
           cancelDrag(state);
+        }),
+      );
+    },
+    cancelValueDrag: () => {
+      set(
+        produce((state: AnimationData): void => {
+          cancelValueDrag(state);
         }),
       );
     },
@@ -570,10 +658,23 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
 useDefaultAnimationStore.getState().initAnimationSubscriptions();
 
 export function createAnimationStore(initial?: Partial<AnimationData>): AnimationStore {
+  const normalized = normalizeTrackData({
+    tracks: initial?.tracks as Record<string, Track<RawValue>> | undefined,
+    animations: initial?.animations,
+    animatables: initial?.animatables,
+  });
+
+  const initialState: Partial<AnimationData> = {
+    ...initial,
+    ...(normalized.animatables ? { animatables: normalized.animatables } : {}),
+    ...(normalized.tracks ? { tracks: normalized.tracks as Record<string, SimpleTrack> } : {}),
+    ...(normalized.animations ? { animations: normalized.animations } : {}),
+  };
+
   const store = create<AnimationData & AnimationActions>()(
     subscribeWithSelector((set, get, api) => ({
       ...AnimationSlice(set, get, api),
-      ...initial,
+      ...initialState,
     })),
   );
   store.getState().initAnimationSubscriptions();

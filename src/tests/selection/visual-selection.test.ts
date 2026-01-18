@@ -44,19 +44,19 @@ describe("Visual Selection", () => {
     clickMarkerWith(store, trackRowId, "o1");
 
     const { selectionState } = store.getState();
-    const globalPoints = getMarkerPoints(store, GLOBAL_ROW_ID, "o1-o1");
+    const globalPoints = getMarkerPoints(store, GLOBAL_ROW_ID, "o1");
 
     expect(selectionSignatures(selectionState)).toContain(`${TRACK_IDS.OPACITY}:o1`);
     expect(isMarkerSelected(selectionState, globalPoints)).toBe(true);
 
     const unrelatedFrame = store
       .getState()
-      .derivedSnapshot?.rows?.[GLOBAL_ROW_ID]?.computed?.virtualFrames.find((frame) => {
+      .derivedSnapshot?.rows?.[GLOBAL_ROW_ID]?.computed?.selection?.find((frame) => {
         const includesAnchor = (frame.points ?? []).some((point) => {
           const matchesAnchor =
             point.trackId === TRACK_IDS.OPACITY &&
             point.instanceId === INSTANCE_IDS.ALPHA_SHARED &&
-            point.id === "o1";
+            point.markerId === "o1";
           const isSelectable = point.selectable ?? true;
           return matchesAnchor && isSelectable;
         });
@@ -74,7 +74,7 @@ describe("Visual Selection", () => {
   });
 
   it("propagates selection from global marker clicks back to the originating track marker", () => {
-    clickMarkerWith(store, GLOBAL_ROW_ID, "o1-o1");
+    clickMarkerWith(store, GLOBAL_ROW_ID, "o1");
 
     const { selectionState } = store.getState();
     const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
@@ -96,7 +96,7 @@ describe("Visual Selection", () => {
     clickMarkerWith(store, trackRowId, "o1");
 
     const { selectionState } = store.getState();
-    const globalFrame = getMarkerFrame(store, GLOBAL_ROW_ID, "o1-o1");
+    const globalFrame = getMarkerFrame(store, GLOBAL_ROW_ID, "o1");
 
     const betaPoints = (globalFrame.points ?? []).filter(
       (point) => point.instanceId === INSTANCE_IDS.BETA_SHARED,

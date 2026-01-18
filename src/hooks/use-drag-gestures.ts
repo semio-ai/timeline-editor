@@ -32,6 +32,8 @@ export interface DragGestureOptions {
   onDrag2D?: (args: {
     x: number;
     normalizedValueDelta: number;
+    movementX: number;
+    movementY: number;
     alt: boolean;
     shift: boolean;
     meta: boolean;
@@ -159,6 +161,8 @@ export const useDragGestures = ({
           onDrag2D({
             x: position,
             normalizedValueDelta,
+            movementX: mx,
+            movementY: my,
             alt: Boolean(altKey),
             shift: Boolean(shiftKey),
             meta: Boolean(metaKey),

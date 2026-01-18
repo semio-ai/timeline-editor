@@ -1,6 +1,7 @@
 import { RawValue, AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
-import type { Track, Animation, Namespace } from "../types";
+import { type Track, type Animation, type Namespace, TransitionPairing } from "../types";
+import type { SimpleTrack } from "../types/data/simple-track";
 import { createAnimationStore, type AnimationStore } from "../store";
 import { createEmptySelectionState } from "../functions/selection-state-manager";
 
@@ -29,16 +30,25 @@ export const INSTANCE_IDS = {
 export const TRACK_IDS = {
   // Shared animation tracks (vector3 position)
   POSITION: "position",
+  POSITION_X: "position.x",
+  POSITION_Y: "position.y",
+  POSITION_Z: "position.z",
   SCALE: "scale",
   OPACITY: "opacity",
 
   // Namespace A tracks (euler rotation)
   ROTATION: "rotation",
+  ROTATION_R: "rotation.r",
+  ROTATION_P: "rotation.p",
+  ROTATION_Y: "rotation.y",
   WIDTH: "width",
   HEIGHT: "height",
 
   // Namespace B tracks (vector3 translation)
   TRANSLATION: "translation",
+  TRANSLATION_X: "translation.x",
+  TRANSLATION_Y: "translation.y",
+  TRANSLATION_Z: "translation.z",
   INTENSITY: "intensity",
   BLUR: "blur",
 } as const;
@@ -221,45 +231,43 @@ function createAnimatables(): Record<string, AnimatableValue> {
  * Create tracks with keypoints
  */
 function createTracks(): Record<string, Track<RawValue>> {
-  return {
+  const tracks: Record<string, Track<RawValue>> = {
     // Shared animation tracks - Position (vector3)
     [TRACK_IDS.POSITION]: {
       id: TRACK_IDS.POSITION,
-      name: "Position X",
+      name: "Position",
       animatableId: ANIMATABLE_IDS.POSITION,
       points: [
         {
           id: "px0",
           stamp: 0,
           value: { x: 0, y: 0, z: 0 },
-          transitions: { out: { x: 0.5, y: 0.1 } },
+          transitions: { out: { x: 0.05, y: 1 } },
         },
         {
           id: "px1",
           stamp: 0.1,
           value: { x: 10, y: 20, z: -15 },
           transitions: {
-            in: { x: 0.2, y: 0.9 },
-            out: { x: 0.7, y: 0.2 },
+            in: { x: -0.08, y: -1 },
+            out: { x: 0.21, y: -1 },
           },
         },
         {
           id: "px2",
           stamp: 0.4,
           value: { x: 5, y: 10, z: 0 },
-          transitions: { in: { x: 0.3, y: 0.8 }, out: { x: 0.6, y: 0.4 } },
         },
         {
           id: "px3",
           stamp: 0.7,
           value: { x: -5, y: 5, z: 10 },
-          transitions: { in: { x: 0.4, y: 0.6 } },
+          transitions: { in: { x: -0.18, y: 4 } },
         },
         {
           id: "px4",
           stamp: 1,
           value: { x: 0, y: 0, z: 14 },
-          transitions: { in: { x: 0.35, y: 0.95 } },
         },
       ],
       settings: { color: "#00FFFF" },
@@ -271,14 +279,14 @@ function createTracks(): Record<string, Track<RawValue>> {
       name: "Scale",
       animatableId: ANIMATABLE_IDS.SCALE,
       points: [
-        { id: "s0", stamp: 0.2, value: 1, transitions: { out: { x: 0.6, y: 0.1 } } },
+        { id: "s0", stamp: 0.2, value: 1, transitions: { out: { x: 0.12, y: 0.05 } } },
         {
           id: "s1",
           stamp: 0.4,
           value: 1.5,
-          transitions: { in: { x: 0.25, y: 0.85 }, out: { x: 0.55, y: 0.3 } },
+          transitions: { in: { x: -0.15, y: -0.075 }, out: { x: 0.055, y: -0.21 } },
         },
-        { id: "s2", stamp: 0.5, value: 0.8, transitions: { out: { x: 0.7, y: 0.6 } } },
+        { id: "s2", stamp: 0.5, value: 0.8, transitions: { out: { x: 0.21, y: 0.12 } } },
         { id: "s3", stamp: 0.8, value: 1 },
       ],
       settings: { color: "#96CEB4" },
@@ -295,14 +303,18 @@ function createTracks(): Record<string, Track<RawValue>> {
           id: "o1",
           stamp: 0.15,
           value: 1,
-          transitions: { in: { x: 0.2, y: 1 }, out: { x: 0.65, y: 0.1 } },
+          transitions: {
+            in: { x: -0.12, y: 0 },
+            out: { x: 0.12, y: 0 },
+            pairing: TransitionPairing.Paired,
+          },
         },
-        { id: "o2", stamp: 0.6, value: 1, transitions: { out: { x: 0.5, y: 0.3 } } },
+        { id: "o2", stamp: 0.6, value: 1, transitions: { out: { x: 0.225, y: 0 } } },
         {
           id: "o3",
           stamp: 1,
           value: 0,
-          transitions: { in: { x: 0.4, y: 0.8 } },
+          transitions: { in: { x: -0.24, y: 0.2 } },
         },
       ],
       settings: { color: "#FFEAA7" },
@@ -319,13 +331,16 @@ function createTracks(): Record<string, Track<RawValue>> {
           id: "rx1",
           stamp: 0.5,
           value: { r: -Math.PI / 4, p: Math.PI / 4, y: 0 },
-          transitions: { in: { x: 0.3, y: 0.7 }, out: { x: 0.6, y: 0.4 } },
+          transitions: {
+            in: { x: -0.28, y: 0.23561944901923448 },
+            out: { x: 0.3, y: -0.3141592653589793 },
+          },
         },
         {
           id: "rx2",
           stamp: 1,
           value: { r: -Math.PI / 2, p: 0, y: Math.PI / 4 },
-          transitions: { in: { x: 0.35, y: 0.9 } },
+          transitions: { in: { x: -0.325, y: 0.07853981633974483 } },
         },
       ],
       settings: { color: "#E17055" },
@@ -337,12 +352,12 @@ function createTracks(): Record<string, Track<RawValue>> {
       name: "Width",
       animatableId: ANIMATABLE_IDS.WIDTH,
       points: [
-        { id: "w0", stamp: 0, value: 100, transitions: { out: { x: 0.45, y: 0.15 } } },
+        { id: "w0", stamp: 0, value: 100, transitions: { out: { x: 0.135, y: 7.5 } } },
         {
           id: "w1",
           stamp: 0.3,
           value: 150,
-          transitions: { in: { x: 0.35, y: 0.85 }, out: { x: 0.7, y: 0.2 } },
+          transitions: { in: { x: -0.195, y: -7.5 }, out: { x: 0.315, y: 10 } },
         },
         { id: "w2", stamp: 0.75, value: 200 },
         { id: "w3", stamp: 0.9, value: 100 },
@@ -356,15 +371,15 @@ function createTracks(): Record<string, Track<RawValue>> {
       name: "Height",
       animatableId: ANIMATABLE_IDS.HEIGHT,
       points: [
-        { id: "h0", stamp: 0.2, value: 50, transitions: { out: { x: 0.55, y: 0.2 } } },
+        { id: "h0", stamp: 0.2, value: 50, transitions: { out: { x: 0.165, y: 10 } } },
         {
           id: "h1",
           stamp: 0.5,
           value: 100,
-          transitions: { in: { x: 0.25, y: 0.9 }, out: { x: 0.65, y: 0.35 } },
+          transitions: { in: { x: -0.225, y: -5 }, out: { x: 0.065, y: -8.75 } },
         },
         { id: "h2", stamp: 0.6, value: 75 },
-        { id: "h3", stamp: 1, value: 50, transitions: { in: { x: 0.4, y: 0.8 } } },
+        { id: "h3", stamp: 1, value: 50, transitions: { in: { x: -0.24, y: 5 } } },
       ],
       settings: { color: "#FDCB6E" },
     },
@@ -379,19 +394,19 @@ function createTracks(): Record<string, Track<RawValue>> {
           id: "tx0",
           stamp: 0.3,
           value: { x: -20, y: 0, z: 10 },
-          transitions: { out: { x: 0.6, y: 0.25 } },
+          transitions: { out: { x: 0.12, y: 5 } },
         },
         {
           id: "tx1",
           stamp: 0.5,
           value: { x: 0, y: -40, z: -50 },
-          transitions: { in: { x: 0.3, y: 0.7 }, out: { x: 0.55, y: 0.3 } },
+          transitions: { in: { x: -0.14, y: -6 }, out: { x: 0.1375, y: 9 } },
         },
         {
           id: "tx2",
           stamp: 0.75,
           value: { x: 30, y: 30, z: 10 },
-          transitions: { in: { x: 0.4, y: 0.85 } },
+          transitions: { in: { x: -0.15, y: -4.5 } },
         },
       ],
       settings: { color: "#00B894" },
@@ -407,16 +422,16 @@ function createTracks(): Record<string, Track<RawValue>> {
           id: "i1",
           stamp: 0.2,
           value: 0.5,
-          transitions: { in: { x: 0.25, y: 0.9 }, out: { x: 0.6, y: 0.3 } },
+          transitions: { in: { x: -0.15, y: -0.05 }, out: { x: 0.12, y: 0.15 } },
         },
         {
           id: "i2",
           stamp: 0.4,
           value: 1,
-          transitions: { out: { x: 0.75, y: 0.4 } },
+          transitions: { out: { x: 0.15, y: 0.2 } },
         },
-        { id: "i3", stamp: 0.6, value: 0.7, transitions: { in: { x: 0.45, y: 0.6 } } },
-        { id: "i4", stamp: 1, value: 0, transitions: { in: { x: 0.35, y: 0.8 } } },
+        { id: "i3", stamp: 0.6, value: 0.7, transitions: { in: { x: -0.11, y: 0.12 } } },
+        { id: "i4", stamp: 1, value: 0, transitions: { in: { x: -0.26, y: 0.14 } } },
       ],
       settings: { color: "#FF7675" },
     },
@@ -427,19 +442,21 @@ function createTracks(): Record<string, Track<RawValue>> {
       name: "Blur",
       animatableId: ANIMATABLE_IDS.BLUR,
       points: [
-        { id: "b0", stamp: 0.7, value: 0, transitions: { out: { x: 0.55, y: 0.2 } } },
+        { id: "b0", stamp: 0.7, value: 0, transitions: { out: { x: 0.055, y: 2 } } },
         {
           id: "b1",
           stamp: 0.8,
           value: 10,
-          transitions: { in: { x: 0.2, y: 0.95 }, out: { x: 0.65, y: 0.4 } },
+          transitions: { in: { x: -0.08, y: -0.5 }, out: { x: 0.039, y: -2 } },
         },
         { id: "b2", stamp: 0.86, value: 5 },
-        { id: "b3", stamp: 0.95, value: 0, transitions: { in: { x: 0.3, y: 0.75 } } },
+        { id: "b3", stamp: 0.95, value: 0, transitions: { in: { x: -0.063, y: 1.25 } } },
       ],
       settings: { color: "#FDCB6E" },
     },
   };
+
+  return tracks;
 }
 
 /**
@@ -509,8 +526,9 @@ function createNamespaces(): Record<string, Namespace> {
           animationId: ANIMATION_IDS.SHARED,
           settings: {
             active: true,
-            offset: 0,
-            timescale: 1,
+            // Non-identity transform to exercise instance time scaling/offset in tests.
+            offset: 0.25,
+            timescale: 2,
           },
         },
         [INSTANCE_IDS.BETA_EXCLUSIVE]: {
@@ -628,7 +646,7 @@ export function createTestAnimationStore(options?: {
     // Core data
     animatables,
     animations,
-    tracks,
+    tracks: tracks as unknown as Record<string, SimpleTrack>,
     namespaces,
 
     selectionState: createEmptySelectionState(activeInstance),
@@ -653,9 +671,11 @@ export function createTestAnimationStore(options?: {
  * Create a minimal AnimationStore for simple tests
  */
 export function createMinimalAnimationStore(): AnimationStore {
+  const animatables = createAnimatables();
+  const tracks = createTracks();
   const store = createAnimationStore({
     animatables: {
-      [ANIMATABLE_IDS.SCALE]: createAnimatables()[ANIMATABLE_IDS.SCALE],
+      [ANIMATABLE_IDS.SCALE]: animatables[ANIMATABLE_IDS.SCALE],
     },
     animations: {
       minimal: {
@@ -667,8 +687,8 @@ export function createMinimalAnimationStore(): AnimationStore {
       },
     },
     tracks: {
-      [TRACK_IDS.SCALE]: createTracks()[TRACK_IDS.SCALE],
-    },
+      [TRACK_IDS.SCALE]: tracks[TRACK_IDS.SCALE],
+    } as unknown as Record<string, SimpleTrack>,
     namespaces: {
       default: {
         id: "default",

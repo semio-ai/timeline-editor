@@ -1,11 +1,5 @@
 import { AnimationData } from "../store-types";
-import {
-  ComputedRowData,
-  InstancedFrameInfo,
-  MarkerPoint,
-  KeypointAddress,
-  LayerBand,
-} from "../types";
+import { ComputedRowData } from "../types";
 import {
   createEmptySelectionState,
   addKeypoints,
@@ -13,6 +7,8 @@ import {
   replaceKeypoints,
   hasAllKeypoints,
   clearSelection,
+  collectRowForegroundKeypoints,
+  resolveSelectionInstanceIdForRow,
 } from "../functions/selection-state-manager";
 
 /**
@@ -40,7 +36,7 @@ export function clickLineAction(
   let selection = state.selectionState ?? createEmptySelectionState();
 
   // Resolve/confirm the instance to operate on.
-  const instanceId = resolveInstanceIdForRow(selection.instanceId, row);
+  const instanceId = resolveSelectionInstanceIdForRow(selection, row);
 
   // If we still don't have an instance, nothing to do.
   if (!instanceId) {
@@ -91,71 +87,6 @@ export function clickLineAction(
     const next = addKeypoints(selection, rowKeypoints);
     return { selectionState: { ...next, reference: selection.reference ?? null } };
   }
-}
-
-/**
- * Try to determine the instanceId to use for a row-wide action.
- * - If an instance is already selected, keep it.
- * - Otherwise, infer from row data if exactly one instance is present.
- */
-function resolveInstanceIdForRow(
-  currentInstanceId: string | null,
-  row: ComputedRowData | undefined,
-): string | null {
-  if (currentInstanceId) return currentInstanceId;
-  if (!row?.virtualFrames?.length) return null;
-
-  const ids = new Set<string>();
-  for (const frame of row.virtualFrames) {
-    for (const point of frame.points as MarkerPoint[]) {
-      if (!point?.instanceId) continue;
-      const isSelectable = point.selectable ?? true;
-      if (!isSelectable) continue;
-      ids.add(point.instanceId);
-      if (ids.size > 1) break;
-    }
-    if (ids.size > 1) break;
-  }
-
-  if (ids.size === 1) {
-    return ids.values().next().value ?? null;
-  }
-  return null;
-}
-
-/**
- * Collect all foreground-selectable keypoints in a row for the given instance.
- * Foreground is defined by LayerBand.ForegroundSelected or LayerBand.ForegroundUnselected.
- */
-function collectRowForegroundKeypoints(
-  row: ComputedRowData | undefined,
-  instanceId: string,
-): KeypointAddress[] {
-  if (!row?.virtualFrames?.length) return [];
-
-  const foregroundLayers = new Set<LayerBand>([
-    LayerBand.ForegroundSelected,
-    LayerBand.ForegroundUnselected,
-  ]);
-
-  const result: KeypointAddress[] = [];
-  const seen = new Set<string>();
-
-  for (const frame of row.virtualFrames as InstancedFrameInfo[]) {
-    for (const point of frame.points as MarkerPoint[]) {
-      if (point.instanceId !== instanceId) continue;
-      const isSelectable = point.selectable ?? true;
-      if (!isSelectable) continue;
-      if (!foregroundLayers.has(point.layerBand as LayerBand)) continue;
-
-      const signature = `${point.trackId}#${point.id}`;
-      if (seen.has(signature)) continue;
-      seen.add(signature);
-      result.push({ trackId: point.trackId, keypointId: point.id });
-    }
-  }
-
-  return result;
 }
 
 export default clickLineAction;

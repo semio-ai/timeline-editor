@@ -7,6 +7,8 @@ import type {
   AnimationStoreSetter,
 } from "../store-types";
 import { LayerBand, SourceRow } from "../types";
+import { groupDerivedTracks } from "../functions/group-derived-tracks";
+import { getIconCode } from "../functions/get-icon-code";
 
 export function updateInstancedTrackSources(
   api: AnimationApi,
@@ -22,6 +24,7 @@ export function updateInstancedTrackSources(
       sourcesByAnimationInstance: state.sourcesByAnimationInstance,
       activeAnimationId: state.selectionState.instanceId,
       selectedKeypoints: state.selectionState.keypoints,
+      tracksRevision: state.tracksRevision ?? 0,
     }),
     ({
       namespaces,
@@ -70,102 +73,69 @@ export function updateInstancedTrackSources(
 
           if (animation) {
             const foreground = !activeAnimationId || activeAnimationId === instance.id;
-            animation.tracks.forEach((trackId) => {
-              const animatable = animatables[tracks[trackId].animatableId];
-              if (!animatable) return;
+            const grouped = groupDerivedTracks(animation.tracks, tracks, animatables);
+            const sources = sourcesByAnimationInstance[instance.id] || [];
 
-              const trackRowId = `${namespaceId}/${instance.id}/${trackId}`;
-              const trackSelected =
-                foreground &&
-                (selectedTrackLookup.has(trackRowId) || selectedTrackLookup.has(trackId));
+            grouped.forEach((group) => {
+              const baseId = `${namespaceId}/${instance.id}/${group.baseTrackId}`;
+              const sourceGroup = sources.find((s) => s.id === baseId);
+              const expanded =
+                sourceGroup && "expanded" in sourceGroup ? sourceGroup.expanded : undefined;
 
-              const foregroundBand = trackSelected
-                ? LayerBand.ForegroundSelected
-                : LayerBand.ForegroundUnselected;
-              const baseBand = !foreground ? LayerBand.Background : foregroundBand;
-
-              // get the type of the animatable;
-              const trackType = animatable.type;
-
-              // If the track type is complex, we need to add both the top-level track and the attribute entries
-              if (COMPLEX_TYPES.has(trackType)) {
-                const id = `${namespaceId}/${instance.id}/${trackId}`;
-                // Find the corresponding source to get its expanded state
-                const sources = sourcesByAnimationInstance[instance.id] || [];
-                const sourceGroup = sources.find((s) => s.id === id);
-                const expanded =
-                  sourceGroup && "expanded" in sourceGroup ? sourceGroup.expanded : undefined;
-                instancedTrackSources[id] = {
-                  id: `${namespaceId}/${instance.id}/${trackId}`,
-                  expanded,
-                  data: TYPE_FIELDS[trackType as string].map((field) => {
-                    const fieldTrackId = `${trackRowId}.${field}`;
-                    const fieldSelected =
-                      foreground &&
-                      (selectedTrackLookup.has(fieldTrackId) ||
-                        selectedTrackLookup.has(`${trackId}.${field}`));
-                    const fieldBand = fieldSelected ? LayerBand.ForegroundSelected : baseBand;
-
-                    return {
-                      selectable: foreground,
-                      editable: true,
-                      layerBand: fieldBand,
-                      animationId: animation.id,
-                      namespaceId,
-                      instanceId: instance.id,
-                      type: "group",
-                      trackId,
-                      animatableId: animatable.id,
-                      attribute: field,
-                    };
-                  }),
+              const groupChildren = group.children.map((child) => {
+                const childId = `${namespaceId}/${instance.id}/${child.trackId}`;
+                const isSelected =
+                  foreground &&
+                  (selectedTrackLookup.has(childId) || selectedTrackLookup.has(child.trackId));
+                let layerBand = LayerBand.Background;
+                if (foreground) {
+                  layerBand = isSelected
+                    ? LayerBand.ForegroundSelected
+                    : LayerBand.ForegroundUnselected;
+                }
+                const childAnimatable =
+                  child.derivedAnimatable ?? animatables[child.track.animatableId];
+                return {
+                  childId,
+                  data: {
+                    selectable: foreground,
+                    editable: true,
+                    layerBand,
+                    animationId: animation.id,
+                    namespaceId,
+                    instanceId: instance.id,
+                    // TODO(semio-agent): This assumes numeric tracks; update when string/boolean tracks are surfaced.
+                    type: "number" as const,
+                    trackId: child.trackId,
+                    animatableId: child.track.animatableId,
+                    iconCode: childAnimatable
+                      ? getIconCode(childAnimatable.type, childAnimatable.pub?.units)
+                      : undefined,
+                  },
                 };
+              });
 
-                TYPE_FIELDS[trackType as string].forEach((field) => {
-                  const fieldId = `${namespaceId}/${instance.id}/${trackId}.${field}`;
-                  const fieldTrackId = `${trackRowId}.${field}`;
-                  const fieldSelected =
-                    foreground &&
-                    (selectedTrackLookup.has(fieldTrackId) ||
-                      selectedTrackLookup.has(`${trackId}.${field}`));
-                  instancedTrackSources[fieldId] = {
-                    id: `${namespaceId}/${instance.id}/${trackId}.${field}`,
-                    data: [
-                      {
-                        selectable: foreground,
-                        editable: true,
-                        layerBand: fieldSelected ? LayerBand.ForegroundSelected : baseBand,
-                        animationId: animation.id,
-                        namespaceId,
-                        instanceId: instance.id,
-                        type: "number",
-                        trackId,
-                        animatableId: animatable.id,
-                        attribute: field,
-                      },
-                    ],
-                  };
-                });
-              } else {
-                // Otherwise, just add the single track entry
-                const id = `${namespaceId}/${instance.id}/${trackId}`;
-                instancedTrackSources[id] = {
-                  id: `${namespaceId}/${instance.id}/${trackId}`,
-                  data: [
-                    {
-                      selectable: foreground,
-                      editable: true,
-                      layerBand: baseBand,
-                      animationId: animation.id,
-                      namespaceId,
-                      instanceId: instance.id,
-                      type: animatable.type as "string" | "number" | "boolean",
-                      trackId,
-                      animatableId: animatable.id,
-                    },
-                  ],
+              const shouldGroup =
+                group.children.length > 1 || group.children.some((child) => Boolean(child.axis));
+
+              if (shouldGroup) {
+                instancedTrackSources[baseId] = {
+                  id: baseId,
+                  name: group.name,
+                  expanded,
+                  data: groupChildren.map((child) => ({
+                    ...child.data,
+                    type: "group",
+                  })),
                 };
               }
+
+              groupChildren.forEach(({ childId, data }) => {
+                instancedTrackSources[childId] = {
+                  id: childId,
+                  data: [data],
+                };
+              });
             });
           }
         });
@@ -206,20 +176,11 @@ export function updateInstancedTrackSources(
           isEqual(allCurrentTracks, allPreviousTracks) &&
           isEqual(allCurrentGroups, allPreviousGroups) &&
           shallow(current.namespaces, previous.namespaces) &&
-          shallow(current.sourcesByAnimationInstance, previous.sourcesByAnimationInstance)
+          shallow(current.sourcesByAnimationInstance, previous.sourcesByAnimationInstance) &&
+          current.tracksRevision === previous.tracksRevision
         );
       },
       fireImmediately: true,
     },
   );
 }
-
-const COMPLEX_TYPES = new Set(["vector2", "vector3", "euler", "rgb", "hsl"]);
-
-const TYPE_FIELDS: Record<string, string[]> = {
-  vector2: ["x", "y"],
-  vector3: ["x", "y", "z"],
-  euler: ["r", "p", "y"],
-  rgb: ["r", "g", "b"],
-  hsl: ["h", "s", "l"],
-};

@@ -1,13 +1,12 @@
 import { TrackRender } from "./track-render";
 import { VerticalAxis } from "./vertical-axis";
 
-/**
- * A container to store information specific to a given editor view
- * @prop id - A unique identifier for the view
- * @prop trackRender - The current setting for how to render content. This may get overridden by datatypes.
- */
+/** Per-view configuration for editor windows. */
 export interface View {
+  /** Unique view id. */
   id: string;
+  /** Preferred track render mode for this view. */
   trackRender: TrackRender;
+  /** Vertical axis scaling mode for this view. */
   verticalAxis: VerticalAxis;
 }

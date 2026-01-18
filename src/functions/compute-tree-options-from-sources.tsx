@@ -23,7 +23,7 @@ export function computeTreeOptionsFromSources(
       const sourceTrack = source as SourceTrack;
       return {
         value: sourceTrack.id,
-        label: sourceTrack.attribute ? sourceTrack.attribute : nameLookup[sourceTrack.trackId],
+        label: nameLookup[sourceTrack.trackId] ?? sourceTrack.trackId,
         icon: <DataIcon iconCode={sourceTrack.iconCode ?? ""} />,
       };
     }

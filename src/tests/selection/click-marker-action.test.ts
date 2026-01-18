@@ -20,6 +20,7 @@ import {
   getMarkerPoints,
   keypointsToSignatures,
   pointsToSignatures,
+  resolveMarkerFrameId,
   selectionSignatures,
 } from "./selection-test-helpers";
 
@@ -53,7 +54,10 @@ describe("Click Marker Action with Complete Store", () => {
       const { selectionState } = store.getState();
 
       expect(selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_SHARED);
-      expect(selectionState.reference).toEqual({ rowId: trackRowId, markerId });
+      expect(selectionState.reference).toEqual({
+        rowId: trackRowId,
+        markerId: resolveMarkerFrameId(store, trackRowId, markerId),
+      });
       expect(selectionSignatures(selectionState)).toEqual(
         pointsToSignatures(points, selectionState.instanceId),
       );
@@ -100,7 +104,10 @@ describe("Click Marker Action with Complete Store", () => {
       let { selectionState } = store.getState();
       const expectedFirst = pointsToSignatures(firstPoints, selectionState.instanceId);
       expect(selectionSignatures(selectionState)).toEqual(expectedFirst);
-      expect(selectionState.reference).toEqual({ rowId: trackRowId, markerId: "o0" });
+      expect(selectionState.reference).toEqual({
+        rowId: trackRowId,
+        markerId: resolveMarkerFrameId(store, trackRowId, "o0"),
+      });
 
       const secondPoints = clickMarkerWith(store, trackRowId, "o2", { mod: true });
       selectionState = store.getState().selectionState;
@@ -108,7 +115,10 @@ describe("Click Marker Action with Complete Store", () => {
       const expectedCombined = Array.from(new Set([...expectedFirst, ...expectedSecond])).sort();
 
       expect(selectionSignatures(selectionState)).toEqual(expectedCombined);
-      expect(selectionState.reference).toEqual({ rowId: trackRowId, markerId: "o2" });
+      expect(selectionState.reference).toEqual({
+        rowId: trackRowId,
+        markerId: resolveMarkerFrameId(store, trackRowId, "o2"),
+      });
     });
 
     it("ctrl/cmd-click retains the previous reference when toggling a non-reference marker off", () => {
@@ -122,23 +132,48 @@ describe("Click Marker Action with Complete Store", () => {
       const expectedSecond = pointsToSignatures(secondPoints, afterAdd.instanceId);
       const expectedCombined = Array.from(new Set([...expectedFirst, ...expectedSecond])).sort();
       expect(selectionSignatures(afterAdd)).toEqual(expectedCombined);
-      expect(afterAdd.reference).toEqual({ rowId: trackRowId, markerId: "o2" });
+      expect(afterAdd.reference).toEqual({
+        rowId: trackRowId,
+        markerId: resolveMarkerFrameId(store, trackRowId, "o2"),
+      });
 
       const removePoints = getMarkerPoints(store, trackRowId, "o0");
-      store.getState().clickMarker(removePoints, trackRowId, "o0", false, true);
+      store
+        .getState()
+        .clickMarker(
+          removePoints,
+          trackRowId,
+          resolveMarkerFrameId(store, trackRowId, "o0"),
+          false,
+          true,
+        );
 
       const { selectionState } = store.getState();
       expect(selectionSignatures(selectionState)).toEqual(expectedSecond);
-      expect(selectionState.reference).toEqual({ rowId: trackRowId, markerId: "o2" });
+      expect(selectionState.reference).toEqual({
+        rowId: trackRowId,
+        markerId: resolveMarkerFrameId(store, trackRowId, "o2"),
+      });
     });
 
     it("clears the reference when ctrl/cmd-click toggles off the current reference marker", () => {
       clickMarkerWith(store, trackRowId, "o1");
       const initial = store.getState().selectionState;
-      expect(initial.reference).toEqual({ rowId: trackRowId, markerId: "o1" });
+      expect(initial.reference).toEqual({
+        rowId: trackRowId,
+        markerId: resolveMarkerFrameId(store, trackRowId, "o1"),
+      });
 
       const points = getMarkerPoints(store, trackRowId, "o1");
-      store.getState().clickMarker(points, trackRowId, "o1", false, true);
+      store
+        .getState()
+        .clickMarker(
+          points,
+          trackRowId,
+          resolveMarkerFrameId(store, trackRowId, "o1"),
+          false,
+          true,
+        );
 
       const { selectionState } = store.getState();
       expect(selectionSignatures(selectionState)).toEqual([]);
@@ -152,7 +187,10 @@ describe("Click Marker Action with Complete Store", () => {
       const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
       clickMarkerWith(store, trackRowId, "o0");
       const referenceSelection = store.getState().selectionState;
-      expect(referenceSelection.reference).toEqual({ rowId: trackRowId, markerId: "o0" });
+      expect(referenceSelection.reference).toEqual({
+        rowId: trackRowId,
+        markerId: resolveMarkerFrameId(store, trackRowId, "o0"),
+      });
 
       clickMarkerWith(store, trackRowId, "o2", { shift: true });
       const { selectionState } = store.getState();
@@ -160,12 +198,15 @@ describe("Click Marker Action with Complete Store", () => {
       const rangeAddresses = collectRangeKeypoints(
         store.getState().derivedSnapshot?.rows?.[trackRowId]?.computed,
         selectionState.instanceId!,
-        "o0",
-        "o2",
+        resolveMarkerFrameId(store, trackRowId, "o0"),
+        resolveMarkerFrameId(store, trackRowId, "o2"),
       );
 
       expect(selectionSignatures(selectionState)).toEqual(keypointsToSignatures(rangeAddresses));
-      expect(selectionState.reference).toEqual({ rowId: trackRowId, markerId: "o0" });
+      expect(selectionState.reference).toEqual({
+        rowId: trackRowId,
+        markerId: resolveMarkerFrameId(store, trackRowId, "o0"),
+      });
     });
 
     it("treats shift-click in a different row as a plain click", () => {
@@ -174,7 +215,10 @@ describe("Click Marker Action with Complete Store", () => {
 
       clickMarkerWith(store, opacityRowId, "o1");
       const firstSelection = store.getState().selectionState;
-      expect(firstSelection.reference).toEqual({ rowId: opacityRowId, markerId: "o1" });
+      expect(firstSelection.reference).toEqual({
+        rowId: opacityRowId,
+        markerId: resolveMarkerFrameId(store, opacityRowId, "o1"),
+      });
 
       const points = clickMarkerWith(store, scaleRowId, "s2", { shift: true });
       const { selectionState } = store.getState();
@@ -182,7 +226,10 @@ describe("Click Marker Action with Complete Store", () => {
       expect(selectionSignatures(selectionState)).toEqual(
         pointsToSignatures(points, selectionState.instanceId),
       );
-      expect(selectionState.reference).toEqual({ rowId: scaleRowId, markerId: "s2" });
+      expect(selectionState.reference).toEqual({
+        rowId: scaleRowId,
+        markerId: resolveMarkerFrameId(store, scaleRowId, "s2"),
+      });
     });
   });
 
@@ -204,16 +251,16 @@ describe("Click Marker Action with Complete Store", () => {
 
   describe("Track type coverage", () => {
     it("selects all vector components in a group track marker", () => {
-      const markerId = "px1";
+      const markerId = "px1.x";
       const marker = findMarker(
         store,
         markerId,
         (rowId) =>
           rowId.includes(`${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}`) &&
-          rowId.includes(TRACK_IDS.POSITION),
+          rowId.includes(`${TRACK_IDS.POSITION}.x`),
       );
 
-      store.getState().clickMarker(marker.points, marker.rowId, markerId);
+      store.getState().clickMarker(marker.points, marker.rowId, marker.frame.id);
       const { selectionState } = store.getState();
 
       expect(selectionSignatures(selectionState)).toEqual(
@@ -222,16 +269,16 @@ describe("Click Marker Action with Complete Store", () => {
     });
 
     it("handles euler rotation tracks", () => {
-      const markerId = "rx0";
+      const markerId = "rx0.r";
       const marker = findMarker(
         store,
         markerId,
         (rowId) =>
           rowId.includes(`${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_EXCLUSIVE}`) &&
-          rowId.includes(TRACK_IDS.ROTATION),
+          rowId.includes(`${TRACK_IDS.ROTATION}.r`),
       );
 
-      store.getState().clickMarker(marker.points, marker.rowId, markerId);
+      store.getState().clickMarker(marker.points, marker.rowId, marker.frame.id);
       const { selectionState } = store.getState();
 
       expect(selectionSignatures(selectionState)).toEqual(
@@ -256,7 +303,10 @@ describe("Click Marker Action with Complete Store", () => {
       expect(selectionSignatures(selectionState)).toEqual(
         pointsToSignatures(points, selectionState.instanceId),
       );
-      expect(selectionState.reference).toEqual({ rowId, markerId });
+      expect(selectionState.reference).toEqual({
+        rowId,
+        markerId: resolveMarkerFrameId(minimalStore, rowId, markerId),
+      });
 
       minimalCleanup?.();
     });

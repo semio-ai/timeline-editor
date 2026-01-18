@@ -1,170 +1,340 @@
-import { memo, useMemo, useState, useEffect, useRef } from "react";
-import { useSpring } from "motion/react";
-import { useThree } from "@react-three/fiber";
-import { useCursor } from "@react-three/drei";
+import { memo, useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import { useThree, type ThreeEvent } from "@react-three/fiber";
+import { Line, useCursor } from "@react-three/drei";
+import { useMotionValue, useMotionValueEvent } from "motion/react";
+import * as THREE from "three";
 import { Theme } from "@semio/ui";
-import { MotionCubicBezierLine, MotionCubicBezierFill } from "../utilities";
+import type { MotionValue } from "motion";
 import {
   TrackRender,
-  InstancedFrameInfo,
   SourceRow,
   LayerBand,
   VerticalAxisRange,
+  RenderSegment,
+  RenderSampleCache,
 } from "../../types";
-import { computeOklabMix, createLinearScale } from "../../functions";
-import { computeTransitionParams } from "../../functions/compute-transition-params";
-import { useTransitionCurve, useAnimationStore } from "../../hooks";
-import { DEFAULT_COLOR, ROW_DEPTH_EPSILON, Z } from "../../constants";
+import { computeOklabMix, materializeSegmentSample } from "../../functions";
+import { useAnimationStore } from "../../hooks";
+import { DEFAULT_COLOR, ROW_DEPTH_EPSILON } from "../../constants";
+import { computeRenderScale } from "./utils/render-scale";
+import { getLayerZ } from "./utils/layers";
+
+const resolveSample = (segment: RenderSegment, render: TrackRender) => {
+  if (render === TrackRender.Preview) {
+    return segment.samples[TrackRender.Preview] ?? segment.samples[TrackRender.Spline];
+  }
+  if (render === TrackRender.Spline) {
+    return segment.samples[TrackRender.Spline] ?? segment.samples[TrackRender.Preview];
+  }
+  return segment.samples[render];
+};
+
+interface LineRef {
+  geometry: {
+    setPositions: (positions: Float32Array) => void;
+  };
+}
+
+const mapSampleToRowPoints = (
+  sample: { points: Float32Array; stride: 2 | 3 },
+  renderScaleY: (value: number) => number,
+): Float32Array => {
+  const raw = sample.points;
+  const stride = sample.stride;
+  const count = Math.floor(raw.length / stride);
+  const mapped = new Float32Array(count * 2);
+  for (let i = 0; i < count; i += 1) {
+    const offset = i * stride;
+    mapped[i * 2] = raw[offset];
+    mapped[i * 2 + 1] = renderScaleY(raw[offset + 1]);
+  }
+  return mapped;
+};
 
 export interface TransitionSegmentProps {
-  start: InstancedFrameInfo;
-  end: InstancedFrameInfo;
+  segment: RenderSegment;
   sourceRow: SourceRow;
   trackRender: TrackRender;
   height: number;
   verticalBounds?: { min: number; max: number };
   verticalAxisRange?: VerticalAxisRange;
-  isEmpty?: boolean;
   theme?: Theme.Light | Theme.Dark;
   color: string;
   layer?: LayerBand;
   onHoverChange?: (hovered: boolean) => void;
   isRowHovered?: boolean;
+  renderMorphProgress?: MotionValue<number>;
+  renderSampleCache?: RenderSampleCache;
 }
 
 /**
- * TransitionSegment renders animated cubic Bezier curves between animation frames.
- *
- * The component supports different rendering modes:
- * - **Preview/Transition mode**: Renders both a filled area below the curve and the curve line
- * - **Key mode**: Renders only a thick line (no fill)
- * - **Spline mode**: Renders the curve with fill (similar to Preview)
- * - **Buffer mode**: Renders a dashed line with reduced opacity (no fill)
- *
- * The fill area extends from the cubic Bezier curve down to a baseline calculated as
- * `-height * 0.4`, creating a visual representation of the interpolated values over time.
- * The fill uses the same motion value system as the line, ensuring perfect synchronization
- * during animations.
- *
- * Key features:
- * - High-performance BufferGeometry-based fill implementation
- * - Spring-animated Y positions with immediate X position updates
- * - Shared motion values between line and fill for perfect synchronization
- * - Z-layered rendering (fill at z=1, line at z=2)
- * - Conditional fill rendering based on track render mode and buffer state
+ * TransitionSegment renders polyline samples for timeline segments.
+ * Samples are mapped into row space based on the active render mode.
  */
 export const TransitionSegment = memo(function TransitionSegment({
-  start,
-  end,
   trackRender,
   height,
   verticalBounds = { min: 0, max: 1 },
   sourceRow,
-  isEmpty = false,
+  segment,
   color,
   theme,
   layer = LayerBand.Background,
   onHoverChange,
   isRowHovered = false,
   verticalAxisRange,
+  renderMorphProgress,
+  renderSampleCache,
 }: TransitionSegmentProps) {
-  // Determine line thickness based on track render mode
-  const lineWidth = useMemo(() => {
-    if (trackRender === TrackRender.Key) return 2.5;
-    // if (trackRender === TrackRender.Spline) return 2;
-    return 2; // For Preview, Transition and Spline
-  }, [trackRender]);
+  const isEmpty = Boolean(segment.buffer);
 
-  const transitionParams = useMemo(
-    () => computeTransitionParams(sourceRow, start, end, isEmpty, trackRender, verticalBounds),
-    [sourceRow, start, end, isEmpty, trackRender, verticalBounds],
+  const sample = resolveSample(segment, trackRender);
+  const materializedSample = useMemo(
+    () => (sample ? materializeSegmentSample(sample, renderSampleCache) : null),
+    [sample, renderSampleCache],
   );
 
-  const buffer = height * 0.4;
-  const isSpline = trackRender === TrackRender.Spline;
-  const visualScaleFactor = verticalAxisRange?.visualScale ?? 1;
-  const visualOffset = verticalAxisRange?.visualOffset ?? 0;
-  const splineRange = useMemo(() => {
-    if (!isSpline) {
-      return { min: 0, max: 0, span: 0 };
-    }
-    const span = Math.max(height * visualScaleFactor, 1);
-    const halfSpan = span / 2;
-    return {
-      min: -halfSpan + visualOffset,
-      max: halfSpan + visualOffset,
-      span,
-    };
-  }, [height, isSpline, visualOffset, visualScaleFactor]);
+  const { renderScaleY } = useMemo(
+    () =>
+      computeRenderScale({
+        trackRender,
+        height,
+        verticalBounds,
+        verticalAxisRange,
+      }),
+    [trackRender, height, verticalBounds, verticalAxisRange],
+  );
 
-  const renderScaleY = useMemo(() => {
-    if (isSpline) {
-      const domainMin = verticalBounds.min;
-      const domainMax = verticalBounds.max;
-      const domainSpan = domainMax - domainMin;
-      if (!Number.isFinite(domainSpan) || domainSpan === 0) {
-        return () => splineRange.min;
-      }
-      return createLinearScale([domainMin, domainMax], [splineRange.min, splineRange.max]);
-    }
-    if (trackRender === TrackRender.Preview) {
-      const min = verticalBounds.min;
-      const max = verticalBounds.max;
-      if (max === min) {
-        return () => 0;
-      }
-      return createLinearScale([min, max], [-buffer, buffer]);
-    }
-    return createLinearScale([0, 1], [-buffer, buffer]);
-  }, [
-    buffer,
-    isSpline,
-    splineRange.max,
-    splineRange.min,
-    trackRender,
-    verticalBounds.max,
-    verticalBounds.min,
-  ]);
+  const currentPoints2D = useMemo(() => {
+    if (!materializedSample) return null;
+    if (materializedSample.points.length === 0) return null;
+    return mapSampleToRowPoints(materializedSample, renderScaleY);
+  }, [materializedSample, renderScaleY]);
 
-  // Calculate buffer color using theme-based mixing
+  const lineWidth = useMemo(() => {
+    if (trackRender === TrackRender.Key) return 2.5;
+    return 2;
+  }, [trackRender]);
+
   const bufferColor = useMemo(() => {
     if (!isEmpty) return color;
     return computeOklabMix(color, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.4);
   }, [isEmpty, color, theme]);
 
-  // Get normalized transition curve motion values
-  const transitionCurve = useTransitionCurve(transitionParams, renderScaleY);
-
-  // Create spring values for the y-values
-  const startY = useSpring(transitionCurve.startY, { stiffness: 300, damping: 30 });
-  const endY = useSpring(transitionCurve.endY, { stiffness: 300, damping: 30 });
-  const cp1Y = useSpring(transitionCurve.cp1Y, { stiffness: 300, damping: 30 });
-  const cp2Y = useSpring(transitionCurve.cp2Y, { stiffness: 300, damping: 30 });
-
-  // Disable y-springs while dragging a segment that includes any selected track
-  const selectionState = useAnimationStore((state) => state.selectionState);
-  const dragState = useAnimationStore((state) => state.dragState);
-  const includesDraggedTrack = useMemo(() => {
-    if (!dragState || !selectionState?.keypoints) return false;
-    const trackset = new Set<string>(sourceRow.data.map((t) => t.trackId));
-    return Array.from(selectionState.keypoints.keys()).some((id) => trackset.has(id));
-  }, [sourceRow.data, dragState, selectionState]);
-
-  const mvStartY = includesDraggedTrack ? transitionCurve.startY : startY;
-  const mvEndY = includesDraggedTrack ? transitionCurve.endY : endY;
-  const mvCp1Y = includesDraggedTrack ? transitionCurve.cp1Y : cp1Y;
-  const mvCp2Y = includesDraggedTrack ? transitionCurve.cp2Y : cp2Y;
-
-  // Lookup the z-value based on the layerband
-  const z = LAYER_TO_Z[layer];
-  // Compute depths for fill and line to avoid z-fighting
+  const z = getLayerZ(layer);
   const fillDepth = z - ROW_DEPTH_EPSILON * 0.4;
   const lineDepth = z - ROW_DEPTH_EPSILON * 0.2;
+
+  const lineZ = isEmpty ? fillDepth : lineDepth;
+  const fallbackMorphProgress = useMotionValue(1);
+  const morphProgress = renderMorphProgress ?? fallbackMorphProgress;
+  const morphBufferRef = useRef<Float32Array | null>(null);
+  const morphStateRef = useRef<{ from: Float32Array; to: Float32Array } | null>(null);
+  const morphingRef = useRef(false);
+  const prevPoints2DRef = useRef<Float32Array | null>(null);
+  const prevRenderRef = useRef(trackRender);
+  const lineRef = useRef<LineRef | null>(null);
+  const hitLineRef = useRef<LineRef | null>(null);
+  const linePositionsRef = useRef<Float32Array | null>(null);
+  const fillGeometryRef = useRef<THREE.BufferGeometry | null>(null);
+  const fillPositionsRef = useRef<Float32Array | null>(null);
+
+  const linePointsWithDepth = useMemo(() => {
+    if (!currentPoints2D) return [];
+    const count = currentPoints2D.length / 2;
+    const resolved = new Array<[number, number, number]>(count);
+    for (let i = 0; i < count; i += 1) {
+      const offset = i * 2;
+      resolved[i] = [currentPoints2D[offset], currentPoints2D[offset + 1], lineZ];
+    }
+    return resolved;
+  }, [currentPoints2D, lineZ]);
+
+  const fillGeometry = useMemo<THREE.BufferGeometry | undefined>(() => {
+    if (
+      !currentPoints2D ||
+      isEmpty ||
+      (trackRender !== TrackRender.Preview && trackRender !== TrackRender.Transition)
+    ) {
+      return undefined;
+    }
+
+    const count = currentPoints2D.length / 2;
+    if (count < 2) return undefined;
+
+    const baseline = -height * 0.4;
+    const baselineExtension = height * 0.1;
+    const effectiveBaseline = baseline - Math.abs(baselineExtension);
+
+    const vertices = new Float32Array(count * 2 * 3);
+    const indices: number[] = [];
+
+    for (let i = 0; i < count; i += 1) {
+      const topIndex = i * 2;
+      const bottomIndex = topIndex + 1;
+      const pointOffset = i * 2;
+      const pointX = currentPoints2D[pointOffset];
+      const pointY = currentPoints2D[pointOffset + 1];
+      const baseOffset = topIndex * 3;
+      const bottomOffset = bottomIndex * 3;
+
+      vertices[baseOffset] = pointX;
+      vertices[baseOffset + 1] = pointY;
+      vertices[baseOffset + 2] = fillDepth;
+
+      vertices[bottomOffset] = pointX;
+      vertices[bottomOffset + 1] = effectiveBaseline;
+      vertices[bottomOffset + 2] = fillDepth;
+    }
+
+    for (let i = 0; i < count - 1; i += 1) {
+      const topCurrent = i * 2;
+      const bottomCurrent = i * 2 + 1;
+      const topNext = (i + 1) * 2;
+      const bottomNext = (i + 1) * 2 + 1;
+      indices.push(topCurrent, bottomCurrent, topNext);
+      indices.push(bottomCurrent, bottomNext, topNext);
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setIndex(indices);
+    return geometry;
+  }, [currentPoints2D, height, isEmpty, trackRender, fillDepth]);
+  const fillGeometryKey = useMemo(() => {
+    const count = currentPoints2D ? currentPoints2D.length / 2 : 0;
+    return `${trackRender}:${isEmpty ? "empty" : "full"}:${String(count)}`;
+  }, [currentPoints2D, isEmpty, trackRender]);
+
+  useLayoutEffect(() => {
+    fillGeometryRef.current = fillGeometry ?? null;
+  }, [fillGeometry]);
+
+  useEffect(() => {
+    return () => {
+      if (fillGeometry) {
+        fillGeometry.dispose();
+      }
+    };
+  }, [fillGeometry]);
+
+  const updateLineGeometry = useCallback(
+    (points2D: Float32Array) => {
+      const count = points2D.length / 2;
+      let positions = linePositionsRef.current;
+      if (!positions || positions.length !== count * 3) {
+        positions = new Float32Array(count * 3);
+        linePositionsRef.current = positions;
+      }
+      for (let i = 0; i < count; i += 1) {
+        const srcOffset = i * 2;
+        const dstOffset = i * 3;
+        positions[dstOffset] = points2D[srcOffset];
+        positions[dstOffset + 1] = points2D[srcOffset + 1];
+        positions[dstOffset + 2] = lineZ;
+      }
+      if (lineRef.current) {
+        lineRef.current.geometry.setPositions(positions);
+      }
+      if (hitLineRef.current) {
+        hitLineRef.current.geometry.setPositions(positions);
+      }
+    },
+    [lineZ],
+  );
+
+  const updateFillGeometry = useCallback(
+    (points2D: Float32Array) => {
+      if (!fillGeometryRef.current) return;
+      if (trackRender !== TrackRender.Preview && trackRender !== TrackRender.Transition) return;
+      if (isEmpty) return;
+      const count = points2D.length / 2;
+      if (count < 2) return;
+      const baseline = -height * 0.4;
+      const baselineExtension = height * 0.1;
+      const effectiveBaseline = baseline - Math.abs(baselineExtension);
+      let positions = fillPositionsRef.current;
+      if (!positions || positions.length !== count * 2 * 3) {
+        positions = new Float32Array(count * 2 * 3);
+        fillPositionsRef.current = positions;
+      }
+      for (let i = 0; i < count; i += 1) {
+        const topIndex = i * 2;
+        const bottomIndex = topIndex + 1;
+        const pointOffset = i * 2;
+        const pointX = points2D[pointOffset];
+        const pointY = points2D[pointOffset + 1];
+        const baseOffset = topIndex * 3;
+        const bottomOffset = bottomIndex * 3;
+        positions[baseOffset] = pointX;
+        positions[baseOffset + 1] = pointY;
+        positions[baseOffset + 2] = fillDepth;
+        positions[bottomOffset] = pointX;
+        positions[bottomOffset + 1] = effectiveBaseline;
+        positions[bottomOffset + 2] = fillDepth;
+      }
+      const positionAttribute = fillGeometryRef.current.getAttribute("position") as
+        | THREE.BufferAttribute
+        | undefined;
+      if (positionAttribute) {
+        positionAttribute.copyArray(positions);
+        positionAttribute.needsUpdate = true;
+      }
+    },
+    [fillDepth, height, isEmpty, trackRender],
+  );
+
+  useEffect(() => {
+    if (!currentPoints2D) return;
+    const activeMorph = morphingRef.current && morphStateRef.current;
+    if (activeMorph) {
+      updateLineGeometry(morphStateRef.current!.from);
+      updateFillGeometry(morphStateRef.current!.from);
+      return;
+    }
+    updateLineGeometry(currentPoints2D);
+    updateFillGeometry(currentPoints2D);
+  }, [currentPoints2D, updateLineGeometry, updateFillGeometry]);
+
+  useMotionValueEvent(morphProgress, "change", (value) => {
+    if (!morphingRef.current) return;
+    const state = morphStateRef.current;
+    if (!state || state.from.length !== state.to.length) return;
+    let buffer = morphBufferRef.current;
+    if (!buffer || buffer.length !== state.to.length) {
+      buffer = new Float32Array(state.to.length);
+      morphBufferRef.current = buffer;
+    }
+    for (let i = 0; i < state.to.length; i += 1) {
+      const from = state.from[i];
+      const to = state.to[i];
+      buffer[i] = from + (to - from) * value;
+    }
+    updateLineGeometry(buffer);
+    updateFillGeometry(buffer);
+    if (value >= 1) {
+      morphingRef.current = false;
+      morphStateRef.current = null;
+    }
+  });
+
   const clickLine = useAnimationStore((state) => state.clickLine);
+  const clickMarker = useAnimationStore((state) => state.clickMarker);
+  const selectionFrames = useAnimationStore(
+    (state) => state.derivedSnapshot?.rows?.[sourceRow.id]?.computed?.selection ?? [],
+  );
+  const dragState = useAnimationStore((state) => state.dragState);
   const [isHovered, setIsHovered] = useState(false);
   const isInteractive =
     !isEmpty &&
     (layer === LayerBand.ForegroundSelected || layer === LayerBand.ForegroundUnselected);
+  const hoverColor = useMemo(
+    () => computeOklabMix(bufferColor, theme === Theme.Dark ? "#FFFFFF" : "#000000", 0.4),
+    [bufferColor, theme],
+  );
+  const emphasize = isInteractive && isRowHovered;
+  const lineDisplayColor = emphasize ? hoverColor : bufferColor;
+  const fillDisplayColor = color;
   const gl = useThree((s) => s.gl);
   useCursor(isInteractive && isHovered, "pointer", "auto", gl.domElement);
 
@@ -182,7 +352,6 @@ export const TransitionSegment = memo(function TransitionSegment({
     };
   }, [isInteractive, isHovered, onHoverChange]);
 
-  // Suppress line clicks immediately after a drag ends
   const justFinishedDraggingRef = useRef(false);
   useEffect(() => {
     if (!dragState && justFinishedDraggingRef.current) {
@@ -196,13 +365,29 @@ export const TransitionSegment = memo(function TransitionSegment({
     }
   }, [dragState]);
 
-  const hoverColor = useMemo(
-    () => computeOklabMix(bufferColor, theme === Theme.Dark ? "#FFFFFF" : "#000000", 0.4),
-    [bufferColor, theme],
-  );
-  const emphasize = isInteractive && isRowHovered;
-  const lineDisplayColor = emphasize ? hoverColor : bufferColor;
-  const fillDisplayColor = color;
+  useLayoutEffect(() => {
+    const prevRender = prevRenderRef.current;
+    const fromPoints = prevPoints2DRef.current;
+    const renderChanged = prevRender !== trackRender;
+    if (
+      renderChanged &&
+      fromPoints &&
+      currentPoints2D &&
+      fromPoints.length === currentPoints2D.length
+    ) {
+      morphStateRef.current = { from: fromPoints, to: currentPoints2D };
+      morphingRef.current = true;
+      updateLineGeometry(fromPoints);
+      updateFillGeometry(fromPoints);
+    } else {
+      morphingRef.current = false;
+      morphStateRef.current = null;
+    }
+    if (currentPoints2D) {
+      prevPoints2DRef.current = currentPoints2D;
+    }
+    prevRenderRef.current = trackRender;
+  }, [trackRender, currentPoints2D, updateLineGeometry, updateFillGeometry]);
 
   const handlePointerEnter = () => {
     if (!isInteractive) return;
@@ -216,118 +401,99 @@ export const TransitionSegment = memo(function TransitionSegment({
     onHoverChange?.(false);
   };
 
+  const handleLineClick = useCallback(
+    (event: ThreeEvent<MouseEvent>) => {
+      if (justFinishedDraggingRef.current) {
+        event?.stopPropagation?.();
+        return;
+      }
+      // Let markers win when both marker + line are under the cursor.
+      const markerHit = event.intersections?.find(
+        (intersection) => intersection.object?.userData?.selectionRole === "marker",
+      );
+      if (markerHit) {
+        const markerId = markerHit.object?.userData?.markerId as string | undefined;
+        const rowId = markerHit.object?.userData?.sourceRowId as string | undefined;
+        if (markerId && rowId) {
+          const frame = selectionFrames.find((entry) => entry.id === markerId);
+          if (frame) {
+            clickMarker(
+              frame.points,
+              rowId,
+              markerId,
+              event.shiftKey,
+              event.metaKey || event.ctrlKey,
+            );
+          }
+        }
+        event?.stopPropagation?.();
+        return;
+      }
+      event?.stopPropagation?.();
+      clickLine(
+        sourceRow.id,
+        `${segment.startKeypointId}:${segment.endKeypointId}`,
+        event.shiftKey,
+        event.metaKey || event.ctrlKey,
+      );
+    },
+    [
+      clickLine,
+      clickMarker,
+      selectionFrames,
+      segment.endKeypointId,
+      segment.startKeypointId,
+      sourceRow.id,
+    ],
+  );
+
+  if (!materializedSample || linePointsWithDepth.length === 0) {
+    return null;
+  }
+
   return (
     <group>
       {(trackRender === TrackRender.Preview || trackRender === TrackRender.Transition) &&
-        !isEmpty && (
-          <MotionCubicBezierFill
-            start={{
-              x: transitionCurve.startX,
-              y: mvStartY,
-            }}
-            end={{
-              x: transitionCurve.endX,
-              y: mvEndY,
-            }}
-            controlPoint1={{
-              x: transitionCurve.cp1X,
-              y: mvCp1Y,
-            }}
-            controlPoint2={{
-              x: transitionCurve.cp2X,
-              y: mvCp2Y,
-            }}
-            baseline={-height * 0.4}
-            baselineExtension={height * 0.1}
-            color={fillDisplayColor}
-            opacity={0.5}
-            segments={50}
-            z={fillDepth}
-            // This doesn't seem to help with the visibility either way?
-            // renderOrder={RenderOrder.TransitionFill}
-          />
+        !isEmpty &&
+        fillGeometry && (
+          <mesh key={fillGeometryKey}>
+            <primitive object={fillGeometry} attach="geometry" />
+            <meshBasicMaterial
+              color={fillDisplayColor}
+              transparent
+              opacity={0.5}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
         )}
       <group
-        onPointerEnter={handlePointerEnter}
-        onPointerOut={handlePointerOut}
-        onClick={(event) => {
-          // Ignore clicks that immediately follow a drag end
-          if (justFinishedDraggingRef.current) {
-            event?.stopPropagation?.();
-            return;
-          }
-          if (!isInteractive) return;
-          console.log();
-          event?.stopPropagation?.();
-          clickLine(
-            sourceRow.id,
-            `${start.id}:${end.id}`,
-            event.shiftKey,
-            event.metaKey || event.ctrlKey,
-          );
-        }}
+        onPointerEnter={isInteractive ? handlePointerEnter : undefined}
+        onPointerOut={isInteractive ? handlePointerOut : undefined}
+        onClick={isInteractive ? handleLineClick : undefined}
       >
-        <MotionCubicBezierLine
-          start={{
-            x: transitionCurve.startX,
-            y: mvStartY,
-          }}
-          end={{
-            x: transitionCurve.endX,
-            y: mvEndY,
-          }}
-          controlPoint1={{
-            x: transitionCurve.cp1X,
-            y: mvCp1Y,
-          }}
-          controlPoint2={{
-            x: transitionCurve.cp2X,
-            y: mvCp2Y,
-          }}
+        <Line
+          ref={lineRef as any}
+          points={linePointsWithDepth}
           color={lineDisplayColor}
           lineWidth={lineWidth + (isRowHovered ? 0.5 : 0)}
-          opacity={isEmpty && trackRender === TrackRender.Transition ? 0.0 : 1.0}
+          opacity={isEmpty && trackRender === TrackRender.Transition ? 0 : 1}
           transparent
           dashed={false}
-          segments={50}
-          z={isEmpty ? fillDepth : lineDepth}
-          // This doesn't seem to help with the visibility either way?
-          // renderOrder={isEmpty ? RenderOrder.TransitionFill : RenderOrder.TransitionLine}
+          depthWrite={false}
+          depthTest
         />
-        <MotionCubicBezierLine
-          start={{
-            x: transitionCurve.startX,
-            y: mvStartY,
-          }}
-          end={{
-            x: transitionCurve.endX,
-            y: mvEndY,
-          }}
-          controlPoint1={{
-            x: transitionCurve.cp1X,
-            y: mvCp1Y,
-          }}
-          controlPoint2={{
-            x: transitionCurve.cp2X,
-            y: mvCp2Y,
-          }}
+        <Line
+          ref={hitLineRef as any}
+          points={linePointsWithDepth}
           color={DEFAULT_COLOR}
           lineWidth={8}
           opacity={0}
           transparent
           dashed={false}
-          segments={20}
-          z={isEmpty ? fillDepth : lineDepth}
-          // This doesn't seem to help with the visibility either way?
-          // renderOrder={isEmpty ? RenderOrder.TransitionFill : RenderOrder.TransitionLine}
+          depthWrite={false}
+          depthTest
         />
       </group>
     </group>
   );
 });
-
-const LAYER_TO_Z: Record<LayerBand, Z> = {
-  [LayerBand.Background]: Z.BackgroundData,
-  [LayerBand.ForegroundUnselected]: Z.ForegroundDataUnselected,
-  [LayerBand.ForegroundSelected]: Z.ForegroundDataSelected,
-};

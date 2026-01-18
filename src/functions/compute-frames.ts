@@ -1,5 +1,6 @@
 import type { RawValue } from "@semio/utils";
 import type { Track, InstancedFrameInfo, SourceRow, Keypoint } from "../types";
+import { StandardTransitionType } from "../types";
 
 interface ComputeFramesOptions {
   draggingKeypointIds?: Set<string>;
@@ -7,6 +8,23 @@ interface ComputeFramesOptions {
     keypoint: Keypoint<RawValue>,
     context: { trackId: string; source: SourceRow["data"][number] },
   ) => Keypoint<RawValue>;
+  /**
+   * When true, frames at the same stamp are merged regardless of dragging state.
+   * Useful for marker projections where drag vs non-drag points should coexist.
+   */
+  ignoreDraggingState?: boolean;
+  /**
+   * If provided, any frame containing this keypoint id will use it as the frame id
+   * to keep React keys stable during drag.
+   */
+  anchorFrameKey?: string;
+  /**
+   * Explicit frame id to use for the anchor frame (stable across canonical/preview).
+   * Only applied when anchorFrameKey matches and namespace/instance also match.
+   */
+  anchorFrameId?: string;
+  anchorNamespaceId?: string;
+  anchorInstanceId?: string;
 }
 
 /**
@@ -31,15 +49,20 @@ export function computeFrames(
 
   sourceRow.data.forEach((sourceRowData) => {
     const trackId = sourceRowData.trackId;
+    const emittedTrackId = (sourceRowData as any).trackIdBase ?? trackId;
     const trackData = tracks[trackId];
     trackData.points.forEach((point) => {
       const previewPoint = transformKeypoint?.(point, { trackId, source: sourceRowData }) ?? point;
 
       const isDragging = draggingKeypointIds?.has(point.id) ?? false;
 
-      // Find existing frame with matching timestamp and compatible dragging state
+      // Find existing frame with matching timestamp (and, optionally, matching dragging state)
       const matchingFrameIndex = instancedFrameInfo.findIndex((frame) => {
         if (frame.stamp !== previewPoint.stamp) return false;
+
+        if (options.ignoreDraggingState) {
+          return true;
+        }
 
         // Check if all points in this frame have the same dragging state as the current point
         const framePointsDragging = frame.points.every(
@@ -49,50 +72,96 @@ export function computeFrames(
         return framePointsDragging === isDragging;
       });
 
-      // If the sourceRowData specifies an attribute, extract the specific value, and set the type of point to number.
-      const valueType = sourceRowData.attribute !== undefined ? "number" : sourceRowData.type;
-      const value =
-        sourceRowData.attribute && typeof previewPoint.value === "object"
-          ? (previewPoint.value as any)[sourceRowData.attribute]
-          : previewPoint.value;
+      // Use the keypoint value directly; derive the point type from the runtime value.
+      const value = previewPoint.value;
+
+      const targetTrackId: string = emittedTrackId;
 
       if (matchingFrameIndex >= 0) {
         // Add point to existing frame
-        instancedFrameInfo[matchingFrameIndex].points.push({
-          ...sourceRowData,
-          id: previewPoint.id,
-          type: valueType,
-          value,
-        });
+        const exists = instancedFrameInfo[matchingFrameIndex].points.some(
+          (p) =>
+            p.id === previewPoint.id &&
+            p.trackId === targetTrackId &&
+            p.namespaceId === sourceRowData.namespaceId &&
+            p.instanceId === sourceRowData.instanceId,
+        );
+        if (!exists) {
+          instancedFrameInfo[matchingFrameIndex].points.push({
+            ...sourceRowData,
+            id: previewPoint.id,
+            type: typeof value as "number" | "string" | "boolean",
+            value,
+            trackId: targetTrackId,
+          });
+        }
         // Update frame ID based on all points in this frame
         const pointIds = instancedFrameInfo[matchingFrameIndex].points
-          .map((p) => p.id)
+          .map((p) => `${p.id}-${p.trackId}-${p.namespaceId ?? "ns"}-${p.instanceId ?? "inst"}`)
           .sort()
           .join("-");
         instancedFrameInfo[matchingFrameIndex].id = pointIds;
-
-        // If this is the first point being added and it has transitions, use them
-        // For multiple points, we clear transitions to avoid conflicts
-        if (
-          instancedFrameInfo[matchingFrameIndex].points.length === 1 &&
-          previewPoint.transitions
-        ) {
-          instancedFrameInfo[matchingFrameIndex].transitions = previewPoint.transitions;
-        } else if (instancedFrameInfo[matchingFrameIndex].points.length > 1) {
-          // Clear transitions when multiple points exist at same timestamp
-          instancedFrameInfo[matchingFrameIndex].transitions = undefined;
+        // Preserve transitions from the first point when available; ensure defaults are set.
+        if (!instancedFrameInfo[matchingFrameIndex].transitions) {
+          instancedFrameInfo[matchingFrameIndex].transitions = withDefaultTransitions(
+            previewPoint.transitions,
+          );
+        } else {
+          instancedFrameInfo[matchingFrameIndex].transitions = withDefaultTransitions({
+            ...previewPoint.transitions,
+            ...instancedFrameInfo[matchingFrameIndex].transitions,
+          });
         }
       } else {
         // Create new frame
-        instancedFrameInfo.push({
-          id: previewPoint.id,
+        const baseFrameId = `${previewPoint.id}-${targetTrackId}-${sourceRowData.namespaceId ?? "ns"}-${
+          sourceRowData.instanceId ?? "inst"
+        }`;
+        const frame: InstancedFrameInfo = {
+          id: baseFrameId,
           stamp: previewPoint.stamp,
-          points: [{ ...sourceRowData, id: previewPoint.id, value, type: valueType, trackId }],
-          transitions: previewPoint.transitions,
-        });
+          points: [
+            {
+              ...sourceRowData,
+              id: previewPoint.id,
+              value,
+              type: typeof value as "number" | "string" | "boolean",
+              trackId: targetTrackId,
+            },
+          ],
+          transitions: withDefaultTransitions(previewPoint.transitions),
+        };
+        instancedFrameInfo.push(frame);
       }
     });
   });
 
-  return instancedFrameInfo.toSorted((a, b) => a.stamp - b.stamp);
+  const sortedFrames = instancedFrameInfo.toSorted((a, b) => a.stamp - b.stamp);
+
+  // Apply stable anchor frame id when provided and matching namespace/instance.
+  if (options.anchorFrameKey && options.anchorFrameId) {
+    sortedFrames.forEach((frame) => {
+      const hasAnchor = frame.points.some(
+        (p) =>
+          p.id === options.anchorFrameKey &&
+          (!options.anchorNamespaceId || p.namespaceId === options.anchorNamespaceId) &&
+          (!options.anchorInstanceId || p.instanceId === options.anchorInstanceId),
+      );
+      if (hasAnchor) {
+        frame.id = options.anchorFrameId!;
+      }
+    });
+  }
+
+  return sortedFrames;
+}
+
+function withDefaultTransitions(
+  transitions?: InstancedFrameInfo["transitions"],
+): InstancedFrameInfo["transitions"] {
+  return {
+    in: transitions?.in ?? StandardTransitionType.Cubic,
+    out: transitions?.out ?? StandardTransitionType.Cubic,
+    pairing: transitions?.pairing,
+  };
 }

@@ -21,6 +21,7 @@ export * from "./types";
 
 export * from "./actions";
 export * from "./utils/context-providers";
+export * from "./utils/track-key";
 
 export * from "./functions";
 export * from "./test-fixtures";

@@ -3,11 +3,6 @@ import { formatHex, oklab, interpolate } from "culori";
 
 export type ThemeMode = Theme.Dark | Theme.Light;
 
-export interface AccentColorSet {
-  [Theme.Dark]: string;
-  [Theme.Light]: string;
-}
-
 /**
  * Computes highlight colors using OKLAB color mixing equivalent to CSS:
  * --light-color: color-mix(in oklab, var(--custom-color) 80%, white);

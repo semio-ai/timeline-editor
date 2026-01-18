@@ -11,7 +11,7 @@ import {
 } from "@semio/ui";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
-import { usePlayerStore, PlayerData, RawValue } from "@semio/utils";
+import { usePlayerStore, PlayerData } from "@semio/utils";
 import { IconDotsVertical, IconChevronDown } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
 import { type SourceRow } from "../types";
@@ -22,8 +22,11 @@ import {
   useNames,
   useTrackAnimatableLookup,
 } from "../hooks";
+import { useValuesRef } from "../hooks/use-values-ref";
 import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
 import { AnimationActions, AnimationData } from "../store-types";
+import type { SimpleRawValue } from "../types/data/simple-track";
+import { buildTrackKey } from "../utils/track-key";
 import { TrackControl } from "./track-control";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
@@ -49,9 +52,8 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     useShallow((state: AnimationActions) => state.updateControlColor),
   );
 
-  // Resolve current interpolators from snapshot-maintained slice
-  const snapshot = useAnimationStore(useShallow((state: AnimationData) => state.derivedSnapshot));
   const animatables = useAnimationStore(useShallow((state) => state.animatables));
+  const valuesRef = useValuesRef();
 
   const trackAnimatableLookup = useTrackAnimatableLookup();
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
@@ -105,15 +107,15 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
   const {
     updateKeypoints,
     removeKeypoints,
-    updateTrack,
     updateSource,
+    updateTrackGroupName,
     insertKeypointAtWorldStamp,
   } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
       updateKeypoints: state.updateKeypoints,
       removeKeypoints: state.removeKeypoints,
-      updateTrack: state.updateTrack,
       updateSource: state.updateSource,
+      updateTrackGroupName: state.updateTrackGroupName,
       insertKeypointAtWorldStamp: state.insertKeypointAtWorldStamp,
     })),
   );
@@ -125,12 +127,15 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
     [updateSource, sourceRow.id],
   );
 
+  const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
+
   const trueColor = useColors(trackIds);
   const color = isActive ? trueColor : DEFAULT_COLOR;
-  const name = useNames(trackIds);
+  const resolvedName = useNames(trackIds);
+  const groupName = sourceRow.name ?? resolvedName;
+  const name = isGroup ? groupName : resolvedName;
 
-  const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
-  const iconCode = isGroup ? "group" : sourceRow.data[0].iconCode || "Group";
+  const iconCode = isGroup ? "group" : (sourceRow.data[0].iconCode ?? "none");
 
   return (
     <div className="relative w-full">
@@ -205,9 +210,9 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
             color={color}
             value={name}
             onChange={(val) => {
-              trackIds.forEach((id) => {
-                updateTrack({ id, name: val });
-              });
+              if (!val) return;
+              updateSource(sourceRow.id, sourceRow.expanded, undefined);
+              updateTrackGroupName(trackIds, val);
             }}
           />
         ) : (
@@ -226,15 +231,27 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
                 }));
                 const updates = datumAnimatablePairs
                   .map(({ datum, animatableId }) => {
-                    const trackKey = `${datum.namespaceId}/${datum.instanceId}/${datum.trackId}`;
-                    const interp = snapshot?.tracks[trackKey as any]?.canonical.interpolator;
                     const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
                     const localStamp =
                       typeof toLocal === "function" ? toLocal(playerStamp) : playerStamp;
-                    const value: RawValue | undefined = interp ? interp(localStamp) : undefined;
-                    const defaultValue = animatables[animatableId].default;
+                    const valueKey = buildTrackKey(
+                      datum.namespaceId,
+                      datum.instanceId,
+                      datum.trackId,
+                    );
+                    const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
+                    const defaultValue = animatables[animatableId]?.default as
+                      | SimpleRawValue
+                      | undefined;
                     if (typeof change === "function") {
-                      const newValue = change(value ?? defaultValue);
+                      const resolvedValue = value ?? defaultValue;
+                      if (resolvedValue === undefined) {
+                        return null;
+                      }
+                      const newValue = change(resolvedValue) as SimpleRawValue;
+                      if (newValue === undefined) {
+                        return null;
+                      }
                       return {
                         trackId: datum.trackId,
                         keypoint: {
@@ -246,13 +263,23 @@ function InnerControlWidget({ sourceRow, emphasis, onEmphasisChange }: ControlWi
                       return {
                         trackId: datum.trackId,
                         keypoint: {
-                          change,
+                          value: change as SimpleRawValue,
                           stamp: localStamp,
                         },
                       };
                     }
                   })
-                  .filter((u) => u.keypoint.value !== undefined);
+                  .filter(
+                    (
+                      u,
+                    ): u is {
+                      trackId: string;
+                      keypoint: { value: SimpleRawValue; stamp: number };
+                    } => {
+                      if (!u) return false;
+                      return u.keypoint.value !== undefined;
+                    },
+                  );
                 updateKeypoints(updates, true);
               }}
             />

@@ -106,13 +106,21 @@ beforeEach(async () => {
 
 ### Marker Selection Pattern
 ```typescript
-// Find marker data
-const markerData = state.computedRowData[rowId]?.virtualFrames.find(
-  (f) => f.id === markerId
+// Find selection frame + render markers
+const row = state.derivedSnapshot?.rows?.[rowId]?.computed;
+const markerData = row?.selection?.find((f) => f.id === markerId);
+const markerLookup = new Map(
+  (row?.render?.markers ?? []).map((marker) => [`${marker.trackKey}#${marker.id}`, marker])
 );
 
-// Filter for selectable points
-const selectablePoints = markerData?.points?.filter((p) => p.selectable) || [];
+// Filter for selectable foreground points
+const selectablePoints =
+  markerData?.points?.filter((p) => {
+    if (!(p.selectable ?? true)) return false;
+    const marker = markerLookup.get(`${p.trackKey}#${p.markerId}`);
+    if (!marker) return false;
+    return marker.layerBand === "foreground-selected" || marker.layerBand === "foreground-unselected";
+  }) || [];
 
 // Create marker path
 const path = createMarkerPath(rowId, markerId);

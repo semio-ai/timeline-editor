@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Theme } from "@semio/ui";
+import { ThreeEvent } from "@react-three/fiber";
 import { usePlaybackGestures } from "../../hooks";
 import { TrackRender } from "../../types";
 import { Z } from "../../constants";
@@ -22,7 +23,11 @@ export const TimelineRenderer = memo(function TimelineRenderer({
 
   return (
     <>
-      <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]}>
+      <mesh
+        position={[0.5, 0, Z.ForegroundBackgroundBoundary]}
+        onClick={(e: ThreeEvent<MouseEvent>) => e.stopPropagation()}
+        onPointerUp={(e: ThreeEvent<MouseEvent>) => e.stopPropagation()}
+      >
         <planeGeometry args={[1.1, 36]} />
         <meshBasicMaterial
           color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
@@ -54,7 +59,10 @@ export const TimelineRenderer = memo(function TimelineRenderer({
         height={36}
         visibility="transparent"
         z={-0.5}
-        pointerEvents={playbackGestures}
+        pointerEvents={{
+          ...playbackGestures,
+          onPointerOver: (e: ThreeEvent<MouseEvent>) => e.stopPropagation(),
+        }}
       />
     </>
   );

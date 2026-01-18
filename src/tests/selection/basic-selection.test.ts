@@ -17,6 +17,7 @@ import {
   clickMarkerWith,
   findMarker,
   pointsToSignatures,
+  resolveMarkerFrameId,
   selectionSignatures,
 } from "./selection-test-helpers";
 
@@ -52,7 +53,10 @@ describe("Basic Selection Operations", () => {
       expect(selectionSignatures(selectionState)).toEqual(
         pointsToSignatures(points, selectionState.instanceId),
       );
-      expect(selectionState.reference).toEqual({ rowId, markerId });
+      expect(selectionState.reference).toEqual({
+        rowId,
+        markerId: resolveMarkerFrameId(store, rowId, markerId),
+      });
     });
 
     it("replaces the selection when a different marker is clicked without modifiers", () => {
@@ -70,19 +74,23 @@ describe("Basic Selection Operations", () => {
       expect(selectionSignatures(selectionState)).toEqual(
         pointsToSignatures(second, selectionState.instanceId),
       );
-      expect(selectionState.reference).toEqual({ rowId, markerId: "o2" });
+      expect(selectionState.reference).toEqual({
+        rowId,
+        markerId: resolveMarkerFrameId(store, rowId, "o2"),
+      });
     });
 
     it("selects all constituent keypoints when clicking a grouped marker", () => {
+      const markerId = "px0.x";
       const marker = findMarker(
         store,
-        "px0",
+        markerId,
         (rowId) =>
           rowId.includes(`${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}`) &&
-          rowId.includes(TRACK_IDS.POSITION),
+          rowId.includes(`${TRACK_IDS.POSITION}.x`),
       );
 
-      store.getState().clickMarker(marker.points, marker.rowId, "px0");
+      store.getState().clickMarker(marker.points, marker.rowId, marker.frame.id);
       const { selectionState } = store.getState();
 
       expect(selectionSignatures(selectionState)).toEqual(
@@ -153,7 +161,10 @@ describe("Basic Selection Operations", () => {
       expect(selectionSignatures(selectionState)).toEqual(
         pointsToSignatures(points, selectionState.instanceId),
       );
-      expect(selectionState.reference).toEqual({ rowId, markerId: "s0" });
+      expect(selectionState.reference).toEqual({
+        rowId,
+        markerId: resolveMarkerFrameId(minimalStore, rowId, "s0"),
+      });
 
       minimalCleanup?.();
     });

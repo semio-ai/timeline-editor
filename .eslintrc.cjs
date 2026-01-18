@@ -1,7 +1,7 @@
 /** @type {import("eslint").Linter.Config} */
 module.exports = {
   extends: ["@semio/eslint-config/react.js"],
-  ignorePatterns: ["docs/**/*"],
+  ignorePatterns: ["docs/**/*", "src/**/*.d.ts"],
   rules: {
     "react/no-unknown-property": [
       "error",
