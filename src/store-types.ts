@@ -184,11 +184,11 @@ export interface AnimationActions {
    */
   updateVelocities: (velocities: Map<string, RawValue | undefined>) => void;
   /**
-   * Set an individual value by track key.
+   * Set an individual value by track key (explicitly named to avoid confusion with scene setValue).
    * @param trackKey - The `${namespaceId}/${instanceId}/${trackId}` key to set.
    * @param value - The value to set.
    */
-  setValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => void;
+  setTrackValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => void;
   /**
    * Creates a new view
    */

@@ -37,7 +37,7 @@ This docs folder intentionally contains only this README. Keep working notes in 
 
 The zustand store (`AnimationData` in `store-types.ts`) is the single source of truth for canonical data. A normalized derived snapshot is produced by the orchestrator for rendering. Key fields:
 
-- `values` / `velocities`: `Map<string, RawValue>` keyed by `${namespaceId}/${instanceId}/${trackId}` describing the sampled value/velocity at the current stamp. Use `buildTrackKey` for lookups.
+- `values` / `velocities`: `Map<string, RawValue>` keyed by `${namespaceId}/${instanceId}/${trackId}` describing the sampled value/velocity at the current stamp. Use `buildTrackKey` for lookups. Derived updates merge into the existing map so downstream apps can retain additional keys (for example, scene-side dot-namespace values).
 - `tracks`: Scalar `SimpleTrack` records after flattening composite animatables into per-component tracks.
 - `namespaces`: Namespaced animation instances keyed by ID. Encodes instance/group relationships so overlapping tracks do not stomp each other.
 - `animations` / `tracks`: Canonical animation metadata (`StoredAnimation` + `Track<RawValue>`) loaded in the editor. Tracks reference keypoints and interpolator configuration.
@@ -145,6 +145,7 @@ All state changes flow through the `src/actions` layer. Notable groups:
   - Marker drags: `startDrag` → `updateDrag` → `commitDrag` / `cancelDrag`.
   - Value drags: `startValueDrag` → `updateValueDrag` → `commitValueDrag` / `cancelValueDrag`.
   - Handle drags: `startHandleDrag` → `updateHandleDrag` → `commitDrag` / `cancelDrag`.
+  - Track-key value writes use `setTrackValue` (not `setValue`) to avoid collisions with scene-level setters in consuming apps.
 
 Each action assumes Immer-managed drafts—pass the zustand state into the helper instead of mutating directly.
 

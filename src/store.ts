@@ -79,6 +79,32 @@ import { parseTrackKey } from "./utils/track-key";
 
 enableMapSet();
 
+const applyTrackValue = (
+  state: AnimationData,
+  trackKey: string,
+  value: RawValue | ((current: RawValue) => RawValue),
+) => {
+  const lookupId = trackKey;
+  if (typeof value === "function") {
+    const current: RawValue | undefined = state.values.get(lookupId);
+    if (current === undefined) {
+      // Get the default value from the animatable if it exists.
+      const { trackId } = parseTrackKey(lookupId);
+      const animatableId = state.tracks[trackId]?.animatableId;
+      const animatable = animatableId ? state.animatables[animatableId] : undefined;
+      const fallback = animatable?.default;
+      if (fallback === undefined) {
+        return;
+      }
+      state.values.set(lookupId, value(fallback));
+    } else {
+      state.values.set(lookupId, value(current));
+    }
+  } else {
+    state.values.set(lookupId, value);
+  }
+};
+
 export const AnimationSlice = (
   set: AnimationStoreSetter,
   get: AnimationStoreGetter,
@@ -135,24 +161,10 @@ export const AnimationSlice = (
         }),
       );
     },
-    setValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => {
+    setTrackValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => {
       set(
-        produce((state) => {
-          const lookupId = trackKey;
-          if (typeof value === "function") {
-            const current: RawValue | undefined = state.values.get(lookupId);
-            if (current === undefined) {
-              // Get the default value from the animatable if it exists
-              const { trackId } = parseTrackKey(lookupId);
-              const animatableId = state.tracks[trackId]?.animatableId;
-              const animatable = animatableId ? state.animatables[animatableId] : undefined;
-              state.values.set(lookupId, value(animatable?.default as RawValue));
-            } else {
-              state.values.set(lookupId, value(current));
-            }
-          } else {
-            state.values.set(lookupId, value);
-          }
+        produce((state: AnimationData) => {
+          applyTrackValue(state, trackKey, value);
         }),
       );
     },

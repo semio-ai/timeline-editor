@@ -37,6 +37,21 @@ interface DerivedComputation {
   velocities: Map<string, RawValue | undefined>;
 }
 
+function mergeValueMaps(
+  base: Map<string, RawValue | undefined>,
+  updates: Map<string, RawValue | undefined>,
+): Map<string, RawValue | undefined> {
+  const merged = new Map(base);
+  updates.forEach((value, key) => {
+    if (value === undefined) {
+      merged.delete(key);
+    } else {
+      merged.set(key, value);
+    }
+  });
+  return merged;
+}
+
 function computeValueAndVelocityMaps(
   snapshot: DerivedSnapshot | undefined,
   player: PlayerData,
@@ -177,12 +192,12 @@ export function initDerivedOrchestrator(
       rowCount: Object.keys(result.snapshot.rows).length,
     }));
 
-    set(() => ({
+    set((state) => ({
       derivedSnapshot: result.snapshot,
       trackInterpolators: result.trackInterpolators,
       violations: result.canonicalViolations,
-      values: result.values,
-      velocities: result.velocities,
+      values: mergeValueMaps(state.values, result.values),
+      velocities: mergeValueMaps(state.velocities, result.velocities),
     }));
   };
 
@@ -220,7 +235,10 @@ export function initDerivedOrchestrator(
         latestSnapshot,
         usePlayerStore.getState(),
       );
-      set({ values, velocities });
+      set((state) => ({
+        values: mergeValueMaps(state.values, values),
+        velocities: mergeValueMaps(state.velocities, velocities),
+      }));
     },
     { fireImmediately: true, equalityFn: shallow },
   );
