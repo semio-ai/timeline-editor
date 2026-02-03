@@ -1,13 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
-import {
-  RawValue,
-  toDegrees,
-  toRadians,
-  AnimatableNumber,
-  usePlayerStore,
-  PlayerData,
-} from "@semio/utils";
+import { RawValue, toDegrees, toRadians, usePlayerStore, PlayerData } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
@@ -67,36 +60,31 @@ function InnerAnimatableEditor({
     })),
   );
 
-  const value = useMemo(() => {
-    if (storedValue === undefined) return undefined;
+  const scalarStoredValue = useMemo(() => {
     if (typeof storedValue === "number") return storedValue;
     if (typeof storedValue === "string") return storedValue;
     if (typeof storedValue === "boolean") return storedValue;
     return undefined;
   }, [storedValue]);
 
-  const defaultValue = useMemo(() => {
-    if (animatableValue === undefined) return 0;
-    if (typeof animatableValue.default === "number") return animatableValue.default;
-    if (typeof animatableValue.default === "string") return animatableValue.default;
-    if (typeof animatableValue.default === "boolean") return animatableValue.default;
-    return undefined;
-  }, [animatableValue]);
+  const hasAnimatable = Boolean(animatableValue && track);
 
-  const rawValue = value !== undefined ? value : defaultValue;
+  const rawValue = useMemo(() => {
+    if (!animatableValue) return undefined;
+    return scalarStoredValue ?? animatableValue.default;
+  }, [animatableValue, scalarStoredValue]);
 
   const renderTransformer = data.iconCode === "rad" ? toDegrees : (v: number) => v;
   const renderInverse = data.iconCode === "rad" ? toRadians : (v: number) => v;
 
   const limits = useMemo(() => {
-    if (animatableValue.type === "number") {
-      return {
-        min: (animatableValue as AnimatableNumber).constraints?.min ?? undefined,
-        max: (animatableValue as AnimatableNumber).constraints?.max ?? undefined,
-      };
-    } else {
+    if (!animatableValue || animatableValue.type !== "number") {
       return { min: undefined, max: undefined };
     }
+    return {
+      min: animatableValue.constraints?.min ?? undefined,
+      max: animatableValue.constraints?.max ?? undefined,
+    };
   }, [animatableValue]);
 
   const updateTrack = useAnimationStore(useShallow((state: AnimationActions) => state.updateTrack));
@@ -111,12 +99,13 @@ function InnerAnimatableEditor({
   const label = useMemo(() => {
     if (track?.name) {
       return track.name;
-    } else {
-      return animatableValue?.name ?? "";
     }
+    return animatableValue?.name ?? "";
   }, [track?.name, animatableValue?.name]);
 
-  if (rawValue === undefined) return;
+  if (!hasAnimatable || rawValue === undefined) {
+    return <div className="flex-1 h-7 rounded bg-neutral-700/30 animate-pulse" />;
+  }
 
   if (data.type === "number" && typeof rawValue === "number") {
     return (

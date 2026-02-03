@@ -5,6 +5,7 @@ export * from "./use-diagonal-material";
 export * from "./use-drag-gestures";
 export * from "./use-hover-spring";
 export * from "./use-invariant-scale";
+export * from "./use-key-control-state";
 export * from "./use-local-global-transforms";
 export * from "./use-names";
 export * from "./use-ortho-camera-setup";

@@ -1,9 +1,13 @@
 export {
-  ControlWidget,
+  AnimatableControl,
+  AnimatableControlList,
   TrackControl,
+  KeyStrip,
   MotionCubicBezierLine,
   MotionCubicBezierFill,
-  type TrackControlProps,
+  type AnimatableControlProps,
+  type AnimatableControlListProps,
+  type KeyStripProps,
   type MotionCubicBezierLineProps,
   type MotionCubicBezierFillProps,
 } from "./components";

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { AnimatableValue, RawVector3, RawValue } from "@semio/utils";
+import type { DeprecatedComplexAnimatableValue, RawVector3, RawValue } from "@semio/utils";
 import type { Track } from "../types";
 import { flattenCompositeTracks } from "../functions/flatten-tracks";
 
-const buildVectorAnimatable = (): AnimatableValue => ({
+const buildVectorAnimatable = (): DeprecatedComplexAnimatableValue => ({
   id: "position",
   name: "Position",
   type: "vector3",

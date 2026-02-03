@@ -34,13 +34,13 @@ describe("scalar track normalization", () => {
       state.tracks,
     );
 
-    const groupId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.POSITION}`;
-    const group = sources.find(
-      (source): source is SourceGroup =>
-        source.id === groupId &&
-        "children" in source &&
-        Array.isArray((source as SourceGroup).children),
-    );
+    const group = sources.find((source): source is SourceGroup => {
+      if (!("children" in source)) return false;
+      const childTrackIds = source.children
+        .map((child) => ("trackId" in child ? child.trackId : undefined))
+        .filter(Boolean);
+      return childTrackIds.includes(`${TRACK_IDS.POSITION}.x`);
+    });
     expect(group).toBeDefined();
     expect(group?.name).toBe("Position");
     expect(group?.children.length).toBe(3);

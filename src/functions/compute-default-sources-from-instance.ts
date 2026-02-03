@@ -1,4 +1,4 @@
-import { RawValue, AnimatableValue } from "@semio/utils";
+import { RawValue, AnimatableValue, AnimatableGroupType } from "@semio/utils";
 import { GROUP_TYPES } from "../constants";
 import { Animation, AnimationInstance, Source, SourceGroup, SourceTrack, Track } from "../types";
 import type { TrackGroup } from "../types/data/track-group";
@@ -89,7 +89,7 @@ export function computeDefaultSourcesFromInstance(
       group.baseTrackId;
 
     const parentType = group.parentAnimatable?.type;
-    const groupType = parentType && GROUP_TYPES.has(parentType) ? parentType : "group";
+    const groupType = getGroupType(group.groupType, parentType);
 
     if (shouldGroup) {
       const childrenSources: SourceTrack[] = group.children.map((child) => {
@@ -113,6 +113,11 @@ export function computeDefaultSourcesFromInstance(
         };
       });
 
+      const representative =
+        group.children[0]?.derivedAnimatable ??
+        animatables[group.children[0]?.track.animatableId] ??
+        group.parentAnimatable;
+
       sources.push({
         id: `${namespaceId}/${animationInstance.id}/${group.baseTrackId}`,
         animationId: animation.id,
@@ -120,9 +125,21 @@ export function computeDefaultSourcesFromInstance(
         instanceId: animationInstance.id,
         name: groupName ?? group.parentAnimatable?.name ?? group.baseTrackId,
         groupId: group.baseTrackId,
-        type: groupType as "vector2" | "vector3" | "euler" | "rgb" | "hsl" | "group",
-        iconCode: group.parentAnimatable
-          ? getIconCode(group.parentAnimatable.type, group.parentAnimatable.pub?.units)
+        type: groupType,
+        iconCode: representative
+          ? getIconCode(
+              groupType as
+                | "string"
+                | "number"
+                | "boolean"
+                | "vector2"
+                | "vector3"
+                | "euler"
+                | "rgb"
+                | "hsl"
+                | "group",
+              representative.pub?.units,
+            )
           : undefined,
         children: childrenSources,
         expanded: true,
@@ -147,4 +164,14 @@ export function computeDefaultSourcesFromInstance(
   });
 
   return sources;
+}
+
+function getGroupType(groupType?: string, parentType?: string): AnimatableGroupType {
+  if (groupType && GROUP_TYPES.has(groupType as string)) {
+    return groupType as AnimatableGroupType;
+  } else if (parentType && GROUP_TYPES.has(parentType as string)) {
+    return parentType as AnimatableGroupType;
+  } else {
+    return AnimatableGroupType.Group;
+  }
 }

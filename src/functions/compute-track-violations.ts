@@ -1,6 +1,7 @@
 import { range } from "lodash";
 import {
   AnimatableValue,
+  DeprecatedComplexAnimatableValue,
   RawEuler,
   RawValue,
   RawVector3,
@@ -60,7 +61,7 @@ export function computeTrackViolations(
   // Animation Instance Id
   instanceId: string,
   // The animatable value paired to the track
-  animatableValue: AnimatableValue,
+  animatableValue: AnimatableValue | DeprecatedComplexAnimatableValue,
 ): Violation[] {
   // Require that we check at an interval of 1/100th of a second (10ms).
   // First, determine the interval size, normalized to to a range of 0 to 1,

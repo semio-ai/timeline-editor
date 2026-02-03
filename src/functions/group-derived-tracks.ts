@@ -1,16 +1,20 @@
-import type { AnimatableValue, RawValue } from "@semio/utils";
+import type { AnimatableValue, DeprecatedComplexAnimatableValue, RawValue } from "@semio/utils";
 import type { Track } from "../types";
+
+type AnimatableValueLike = AnimatableValue | DeprecatedComplexAnimatableValue;
 
 export interface DerivedTrackGroupChild {
   trackId: string;
   track: Track<RawValue>;
   axis?: string;
-  derivedAnimatable?: AnimatableValue;
+  derivedAnimatable?: AnimatableValueLike;
 }
 
 export interface DerivedTrackGroup {
   baseTrackId: string;
-  parentAnimatable?: AnimatableValue;
+  groupId?: string;
+  groupType?: string;
+  parentAnimatable?: AnimatableValueLike;
   name?: string;
   children: DerivedTrackGroupChild[];
 }
@@ -18,7 +22,7 @@ export interface DerivedTrackGroup {
 export function groupDerivedTracks(
   trackIds: string[],
   tracks: Record<string, Track<RawValue>>,
-  animatables: Record<string, AnimatableValue>,
+  animatables: Record<string, AnimatableValueLike>,
 ): DerivedTrackGroup[] {
   const groups = new Map<string, DerivedTrackGroup>();
 
@@ -27,24 +31,34 @@ export function groupDerivedTracks(
     if (!track) return;
 
     const segments = trackId.split(".");
-    const baseTrackId = segments[0];
-    const axis = segments.length > 1 ? segments.slice(1).join(".") : undefined;
+    const inferredBaseTrackId = segments[0];
+    const animatable = animatables[track.animatableId];
+    const groupInfo =
+      animatable && typeof animatable === "object"
+        ? (animatable as { group?: AnimatableValue["group"] }).group
+        : undefined;
+    const baseTrackId = groupInfo?.id ?? inferredBaseTrackId;
+    const axis = groupInfo?.axis ?? (segments.length > 1 ? segments.slice(1).join(".") : undefined);
 
-    const derivedAnimatable = animatables[track.animatableId];
+    const derivedAnimatable = animatable;
     const parentAnimatableId = track.animatableId.split(".")[0];
     const parentAnimatable = animatables[parentAnimatableId] ?? derivedAnimatable;
 
     const preferredName =
-      parentAnimatable?.name ?? track.groupName ?? track.name ?? derivedAnimatable?.name;
-    const bucket = groups.get(baseTrackId) ?? {
+      track.groupName ?? parentAnimatable?.name ?? derivedAnimatable?.name ?? track.name;
+    const bucket: DerivedTrackGroup = groups.get(baseTrackId) ?? {
       baseTrackId,
+      groupId: groupInfo?.id,
+      groupType: groupInfo?.type,
       parentAnimatable,
-      name: track.groupName ?? parentAnimatable?.name ?? baseTrackId,
+      name: track.groupName ?? parentAnimatable?.name ?? derivedAnimatable?.name ?? baseTrackId,
       children: [],
     };
     bucket.parentAnimatable = parentAnimatable ?? bucket.parentAnimatable;
     bucket.name =
       track.groupName ?? bucket.name ?? parentAnimatable?.name ?? preferredName ?? baseTrackId;
+    bucket.groupId = groupInfo?.id ?? bucket.groupId;
+    bucket.groupType = groupInfo?.type ?? bucket.groupType;
 
     bucket.children.push({
       trackId,

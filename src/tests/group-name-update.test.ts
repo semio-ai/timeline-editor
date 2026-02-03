@@ -40,8 +40,13 @@ describe("group name updates", () => {
       updated.tracks,
     );
 
-    const groupId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.POSITION}`;
-    const positionGroup = sources.find((s) => s.id === groupId && "children" in s);
+    const positionGroup = sources.find((source) => {
+      if (!("children" in source)) return false;
+      const childTrackIds = source.children
+        .map((child) => ("trackId" in child ? child.trackId : undefined))
+        .filter(Boolean);
+      return childTrackIds.includes(`${TRACK_IDS.POSITION}.x`);
+    });
     expect(positionGroup && "name" in positionGroup ? positionGroup.name : undefined).toBe("Pos");
   });
 });

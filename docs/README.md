@@ -2,7 +2,11 @@
 
 `@semio/animation` supplies the shared animation timeline, selection, and gesture system used across Semio surfaces. The package exposes React components (timeline HUD, track controls, playback widgets), the zustand store that powers them, helper actions for manipulating animation data, and a suite of utilities for rendering and validating animated motion.
 
-This docs folder intentionally contains only this README. Keep working notes in issues/PRs or project tracking, and update this file when behavior or data shape changes.
+This docs folder intentionally contains only this README, plus temporary tracking documents when migration work is active. Keep working notes in issues/PRs or project tracking, and update this file when behavior or data shape changes.
+
+## Active Tracking
+
+- `migration-tracking.md`: Stored animation migration utility + store load path changes (2026-01-28).
 
 ## Package Anatomy
 
@@ -163,7 +167,7 @@ On commit:
 ## Rendering Surface
 
 - `AnimationSheet` / `AnimationSheetCore` compose the timeline UI (headers, controls, track list, canvas).
-- `ControlWidget`, `TrackControl`, and the `controls/` subtree power the HUD and inspector.
+- `ControlWidget`, `KeyStrip`, and the `controls/` subtree power the HUD and inspector.
 - `canvas-sheet/` contains Three.js powered visualizations, pairing with gesture hooks for pan/zoom.
 - Components rely on `AnimationContext` + `useAnimationStore` to bind to store slices; avoid re-exporting raw store handles from components.
 - Storybook stories live in `apps/docs/stories` under the `Animation/` namespace. Group new stories by package name so the centralized docs stay organized.

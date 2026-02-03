@@ -23,12 +23,15 @@ export function createTrack(
       `createTrack only supports scalar animatables. Received composite type "${animatable.type}".`,
     );
   }
+  const groupAxis = animatable?.group?.axis;
+  const groupName = animatable?.name;
   const id = crypto.randomUUID();
   const newTrack: SimpleTrack = {
     id,
-    name: animatable.name ?? "New Track",
+    name: track.name ?? groupAxis ?? groupName ?? "New Track",
     points: [],
     animatableId,
+    groupName: track.groupName ?? (groupAxis ? groupName : undefined),
     ...track,
   };
   state.tracks[id] = newTrack;

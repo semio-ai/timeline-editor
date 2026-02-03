@@ -380,10 +380,31 @@ export interface AnimationActions {
    */
   setAnimatables: (animatables: Record<string, AnimatableValue>) => void;
   /**
+   * Add or replace a single animatable.
+   * @param animatable - Animatable to add/update
+   */
+  addAnimatable: (animatable: AnimatableValue) => void;
+  /**
+   * Update a single animatable by id.
+   * @param id - Animatable id to update
+   * @param animatable - Partial animatable payload
+   */
+  updateAnimatable: (id: string, animatable: Partial<AnimatableValue>) => void;
+  /**
+   * Remove a single animatable by id.
+   * @param id - Animatable id to remove
+   */
+  removeAnimatable: (id: string) => void;
+  /**
    * Set the namespaces for the animation data.
    * @param namespaces - Record of namespace ID to Namespace
    */
   setNamespaces: (namespaces: Record<string, Namespace>) => void;
+  /**
+   * Add or replace a single namespace entry.
+   * @param namespace - Namespace to add/update
+   */
+  addNamespace: (namespace: Namespace) => void;
   /**
    * Set the preferences for the animation data.
    * @param preferences - The preferences to set.

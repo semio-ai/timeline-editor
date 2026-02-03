@@ -42,14 +42,20 @@ export function ColorContextProvider({ children }: { children: ReactNode }) {
  * @param idOrIds
  * @returns The color associated with the ID(s).
  */
-export function useColors(idOrIds: string | string[]): string {
+export function useColors(idOrIds?: string | string[]): string {
   const lookup = useContext(ColorContext);
   if (!lookup) {
     throw new Error("useColors must be used within a ColorProvider");
   }
+  if (idOrIds === undefined || idOrIds === null) {
+    return lookup.default;
+  }
   if (typeof idOrIds === "string") {
     return lookup[idOrIds] || lookup.default;
   } else {
+    if (idOrIds.length === 0) {
+      return lookup.default;
+    }
     const allColors = uniq(idOrIds.map((id) => lookup[id] || lookup.default));
     return allColors.length === 1 ? allColors[0] : lookup.default;
   }

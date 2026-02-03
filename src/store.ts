@@ -61,8 +61,9 @@ import {
   computeNextTime,
   computePreviousTime,
   computeUpdatedSources,
+  computeLocalStamp,
+  computeWorldStamp,
 } from "./functions";
-import { normalizeTrackData } from "./functions/normalize-track-data";
 import {
   updatePlayerLoop,
   updateOverallDuration,
@@ -179,18 +180,36 @@ export const AnimationSlice = (
     setAnimatables: (animatables: Record<string, AnimatableValue>) => {
       set(
         produce((state: AnimationData): void => {
-          const normalized = normalizeTrackData({
-            animatables,
-            tracks: state.tracks as Record<string, Track<RawValue>>,
-            animations: state.animations,
-          });
-          state.animatables = normalized.animatables ?? animatables;
-          if (normalized.tracks) {
-            state.tracks = normalized.tracks as Record<string, SimpleTrack>;
-          }
-          if (normalized.animations) {
-            state.animations = normalized.animations;
-          }
+          state.animatables = animatables;
+        }),
+      );
+    },
+    addAnimatable: (animatable: AnimatableValue) => {
+      set(
+        produce((state: AnimationData): void => {
+          state.animatables = { ...state.animatables, [animatable.id]: animatable };
+        }),
+      );
+    },
+    updateAnimatable: (id: string, animatable: Partial<AnimatableValue>) => {
+      set(
+        produce((state: AnimationData): void => {
+          const existing = state.animatables[id];
+          if (!existing) return;
+          const nextAnimatable = { ...existing, ...animatable, id } as AnimatableValue;
+          state.animatables = {
+            ...state.animatables,
+            [id]: nextAnimatable,
+          };
+        }),
+      );
+    },
+    removeAnimatable: (id: string) => {
+      set(
+        produce((state: AnimationData): void => {
+          if (!(id in state.animatables)) return;
+          const { [id]: _, ...rest } = state.animatables;
+          state.animatables = rest;
         }),
       );
     },
@@ -198,6 +217,13 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           state.namespaces = namespaces;
+        }),
+      );
+    },
+    addNamespace: (namespace: Namespace) => {
+      set(
+        produce((state: AnimationData): void => {
+          state.namespaces[namespace.id] = namespace;
         }),
       );
     },
@@ -343,21 +369,8 @@ export const AnimationSlice = (
     setTracks: (tracks: Record<string, Track<RawValue>>) => {
       set(
         produce((state: AnimationData): void => {
-          const normalized = normalizeTrackData({
-            tracks,
-            animatables: state.animatables,
-            animations: state.animations,
-          });
-          if (normalized.animatables) {
-            state.animatables = normalized.animatables;
-          }
-          if (normalized.animations) {
-            state.animations = normalized.animations;
-          }
-          if (normalized.tracks) {
-            state.tracks = normalized.tracks as Record<string, SimpleTrack>;
-            state.tracksRevision = (state.tracksRevision ?? 0) + 1;
-          }
+          state.tracks = tracks as Record<string, SimpleTrack>;
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
     },
@@ -378,14 +391,21 @@ export const AnimationSlice = (
       if (!computedData) return;
 
       const instancedFrameData = computedData.virtualFrames;
-      const nextTime = computeNextTime(
-        instancedFrameData,
+      const { localStamp, localBounds, toWorld } = resolveRowTimeContext(
+        state.namespaces,
+        sourceRow,
         playerState.player.stamp,
         playerState.player.bounds,
+      );
+      const nextLocalTime = computeNextTime(
+        instancedFrameData,
+        localStamp,
+        localBounds,
         respectBounds ?? false,
       );
-      if (nextTime !== undefined) {
-        playerState.resetPlayer(nextTime);
+      if (nextLocalTime !== undefined) {
+        const nextWorldTime = toWorld ? toWorld(nextLocalTime) : nextLocalTime;
+        playerState.resetPlayer(nextWorldTime);
       }
     },
     // Skip to the previous keyframe
@@ -397,14 +417,21 @@ export const AnimationSlice = (
       if (!computedData) return;
 
       const instancedFrameData = computedData.virtualFrames;
-      const previousTime = computePreviousTime(
-        instancedFrameData,
+      const { localStamp, localBounds, toWorld } = resolveRowTimeContext(
+        state.namespaces,
+        sourceRow,
         playerState.player.stamp,
         playerState.player.bounds,
+      );
+      const previousLocalTime = computePreviousTime(
+        instancedFrameData,
+        localStamp,
+        localBounds,
         respectBounds ?? false,
       );
-      if (previousTime !== undefined) {
-        playerState.resetPlayer(previousTime);
+      if (previousLocalTime !== undefined) {
+        const previousWorldTime = toWorld ? toWorld(previousLocalTime) : previousLocalTime;
+        playerState.resetPlayer(previousWorldTime);
       }
     },
     // Skip to the start of the current bounds
@@ -669,24 +696,73 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
 
 useDefaultAnimationStore.getState().initAnimationSubscriptions();
 
+function resolveRowTimeContext(
+  namespaces: Record<string, Namespace>,
+  sourceRow: SourceRow,
+  worldStamp: number,
+  worldBounds: [number, number],
+): {
+  localStamp: number;
+  localBounds: [number, number];
+  toWorld?: (stamp: number) => number;
+} {
+  const instanceId = resolveUniqueInstanceId(sourceRow);
+  if (!instanceId) {
+    return { localStamp: worldStamp, localBounds: worldBounds };
+  }
+
+  let settings: { timescale: number; offset: number } | undefined;
+  for (const namespace of Object.values(namespaces)) {
+    const instance = namespace.animationInstances[instanceId];
+    if (instance) {
+      const rawTimescale = instance.settings.timescale ?? 1;
+      const rawOffset = instance.settings.offset ?? 0;
+      const timescale = Number.isFinite(rawTimescale) && rawTimescale !== 0 ? rawTimescale : 1;
+      const offset = Number.isFinite(rawOffset) ? rawOffset : 0;
+      settings = {
+        timescale,
+        offset,
+      };
+      break;
+    }
+  }
+
+  if (!settings) {
+    return { localStamp: worldStamp, localBounds: worldBounds };
+  }
+
+  const toLocal = (stamp: number) => computeLocalStamp(stamp, settings.timescale, settings.offset);
+  const toWorld = (stamp: number) => computeWorldStamp(stamp, settings.timescale, settings.offset);
+  const localStamp = toLocal(worldStamp);
+  const localBounds = normalizeBounds([toLocal(worldBounds[0]), toLocal(worldBounds[1])]);
+
+  return { localStamp, localBounds, toWorld };
+}
+
+function resolveUniqueInstanceId(sourceRow: SourceRow): string | undefined {
+  let uniqueId: string | undefined;
+  for (const entry of sourceRow.data) {
+    if (!entry.instanceId) {
+      return undefined;
+    }
+    if (!uniqueId) {
+      uniqueId = entry.instanceId;
+    } else if (uniqueId !== entry.instanceId) {
+      return undefined;
+    }
+  }
+  return uniqueId;
+}
+
+function normalizeBounds(bounds: [number, number]): [number, number] {
+  return bounds[0] <= bounds[1] ? bounds : [bounds[1], bounds[0]];
+}
+
 export function createAnimationStore(initial?: Partial<AnimationData>): AnimationStore {
-  const normalized = normalizeTrackData({
-    tracks: initial?.tracks as Record<string, Track<RawValue>> | undefined,
-    animations: initial?.animations,
-    animatables: initial?.animatables,
-  });
-
-  const initialState: Partial<AnimationData> = {
-    ...initial,
-    ...(normalized.animatables ? { animatables: normalized.animatables } : {}),
-    ...(normalized.tracks ? { tracks: normalized.tracks as Record<string, SimpleTrack> } : {}),
-    ...(normalized.animations ? { animations: normalized.animations } : {}),
-  };
-
   const store = create<AnimationData & AnimationActions>()(
     subscribeWithSelector((set, get, api) => ({
       ...AnimationSlice(set, get, api),
-      ...initialState,
+      ...initial,
     })),
   );
   store.getState().initAnimationSubscriptions();

@@ -32,3 +32,4 @@ export * from "./normalize-track-data";
 export * from "./group-derived-tracks";
 export * from "./materialize-segment-sample";
 export * from "./selection-state-manager";
+export * from "./migrate-animation-data";

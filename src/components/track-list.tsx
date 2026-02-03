@@ -6,7 +6,7 @@ import { AnimatePresence, MotionValue, motion } from "motion/react";
 import { useAnimationStore } from "../hooks";
 import { AnimationData } from "../store-types";
 import type { SourceRow } from "../types";
-import { ControlWidget } from "./control-widget";
+import { TrackControl } from "./track-control";
 
 export interface TrackListProps {
   height?: number;
@@ -81,7 +81,7 @@ export function TrackList({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20, transition: { duration: 0.15, ease: "easeInOut" } }}
                 >
-                  <ControlWidget
+                  <TrackControl
                     sourceRow={sourceRow}
                     emphasis={emphasis.includes(sourceRow.id)}
                     onEmphasisChange={(v) => onEmphasisChange(sourceRow.id, v ? "add" : "remove")}

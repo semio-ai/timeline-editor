@@ -1,9 +1,8 @@
-import { RawValue, AnimatableValue } from "@semio/utils";
+import { RawValue, AnimatableValue, DeprecatedComplexAnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
-import { type Track, type Animation, type Namespace, TransitionPairing } from "../types";
-import type { SimpleTrack } from "../types/data/simple-track";
+import { type Track, type Namespace, TransitionPairing, StoredAnimation } from "../types";
 import { createAnimationStore, type AnimationStore } from "../store";
-import { createEmptySelectionState } from "../functions/selection-state-manager";
+import { migrateAnimationData } from "../functions/migrate-animation-data";
 
 // Animation IDs
 export const ANIMATION_IDS = {
@@ -55,6 +54,7 @@ export const TRACK_IDS = {
 
 // Animatable IDs
 export const ANIMATABLE_IDS = {
+  UNLISTED: "unlisted-animatable",
   POSITION: "position",
   SCALE: "scale",
   OPACITY: "opacity",
@@ -69,8 +69,19 @@ export const ANIMATABLE_IDS = {
 /**
  * Create animatable value definitions
  */
-function createAnimatables(): Record<string, AnimatableValue> {
+function createAnimatables(): Record<string, AnimatableValue | DeprecatedComplexAnimatableValue> {
   return {
+    [ANIMATABLE_IDS.UNLISTED]: {
+      id: ANIMATABLE_IDS.UNLISTED,
+      name: "Unlisted Animatable",
+      type: "number",
+      default: 0,
+      constraints: {
+        min: -10,
+        max: 10,
+        velocity: 5,
+      },
+    },
     [ANIMATABLE_IDS.POSITION]: {
       id: ANIMATABLE_IDS.POSITION,
       name: "Position",
@@ -323,7 +334,7 @@ function createTracks(): Record<string, Track<RawValue>> {
     // Namespace A tracks - Rotation (euler)
     [TRACK_IDS.ROTATION]: {
       id: TRACK_IDS.ROTATION,
-      name: "Rotation X",
+      name: "Rotation",
       animatableId: ANIMATABLE_IDS.ROTATION,
       points: [
         { id: "rx0", stamp: 0.1, value: { r: 0, p: Math.PI / 2, y: 0 } },
@@ -460,29 +471,31 @@ function createTracks(): Record<string, Track<RawValue>> {
 }
 
 /**
- * Create animation definitions
+ * Create stored animation definitions
  */
-function createAnimations(): Record<string, Animation> {
+function createAnimations(
+  tracks: Record<string, Track<RawValue>> = createTracks(),
+): Record<string, StoredAnimation> {
   return {
     [ANIMATION_IDS.SHARED]: {
       id: ANIMATION_IDS.SHARED,
       name: "Shared Animation",
       duration: 2000,
-      tracks: [TRACK_IDS.POSITION, TRACK_IDS.SCALE, TRACK_IDS.OPACITY],
+      tracks: [tracks[TRACK_IDS.POSITION], tracks[TRACK_IDS.SCALE], tracks[TRACK_IDS.OPACITY]],
       groups: [],
     },
     [ANIMATION_IDS.NAMESPACE_A]: {
       id: ANIMATION_IDS.NAMESPACE_A,
       name: "Namespace A Animation",
       duration: 1500,
-      tracks: [TRACK_IDS.ROTATION, TRACK_IDS.WIDTH, TRACK_IDS.HEIGHT],
+      tracks: [tracks[TRACK_IDS.ROTATION], tracks[TRACK_IDS.WIDTH], tracks[TRACK_IDS.HEIGHT]],
       groups: [],
     },
     [ANIMATION_IDS.NAMESPACE_B]: {
       id: ANIMATION_IDS.NAMESPACE_B,
       name: "Namespace B Animation",
       duration: 3000,
-      tracks: [TRACK_IDS.TRANSLATION, TRACK_IDS.INTENSITY, TRACK_IDS.BLUR],
+      tracks: [tracks[TRACK_IDS.TRANSLATION], tracks[TRACK_IDS.INTENSITY], tracks[TRACK_IDS.BLUR]],
       groups: [],
     },
   };
@@ -545,6 +558,24 @@ function createNamespaces(): Record<string, Namespace> {
   };
 }
 
+function migrateAnimationSet(
+  animations: Record<string, StoredAnimation>,
+  animatables: Record<string, AnimatableValue | DeprecatedComplexAnimatableValue>,
+): { animations: Record<string, StoredAnimation>; animatables: Record<string, AnimatableValue> } {
+  return Object.values(animations).reduce(
+    (acc, animation) => {
+      const migrated = migrateAnimationData(animation, animatables);
+      acc.animations[migrated.animation.id] = migrated.animation;
+      acc.animatables = { ...acc.animatables, ...migrated.animatables };
+      return acc;
+    },
+    {
+      animations: {} as Record<string, StoredAnimation>,
+      animatables: {} as Record<string, AnimatableValue>,
+    },
+  );
+}
+
 /**
  * Create a complete test AnimationStore with all data
  * The store will initialize its subscriptions and compute derived data automatically
@@ -562,14 +593,13 @@ export function createTestAnimationStore(options?: {
 
   const allAnimatables = createAnimatables();
   const allTracks = createTracks();
-  const allAnimations = createAnimations();
+  const allAnimations = createAnimations(allTracks);
   const allNamespaces = createNamespaces();
 
   // Filter based on options
   const namespaces: Record<string, Namespace> = {};
-  const animations: Record<string, Animation> = {};
-  const tracks: Record<string, Track<RawValue>> = {};
-  const animatables: Record<string, AnimatableValue> = {};
+  const animations: Record<string, StoredAnimation> = {};
+  const animatables: Record<string, AnimatableValue | DeprecatedComplexAnimatableValue> = {};
 
   if (includeNamespaceA) {
     namespaces[NAMESPACE_IDS.ALPHA] = allNamespaces[NAMESPACE_IDS.ALPHA];
@@ -578,20 +608,9 @@ export function createTestAnimationStore(options?: {
     animations[ANIMATION_IDS.SHARED] = allAnimations[ANIMATION_IDS.SHARED];
     animations[ANIMATION_IDS.NAMESPACE_A] = allAnimations[ANIMATION_IDS.NAMESPACE_A];
 
-    // Include relevant tracks
-    [
-      TRACK_IDS.POSITION,
-      TRACK_IDS.SCALE,
-      TRACK_IDS.OPACITY,
-      TRACK_IDS.ROTATION,
-      TRACK_IDS.WIDTH,
-      TRACK_IDS.HEIGHT,
-    ].forEach((id) => {
-      tracks[id] = allTracks[id];
-    });
-
     // Include relevant animatables
     [
+      ANIMATABLE_IDS.UNLISTED,
       ANIMATABLE_IDS.POSITION,
       ANIMATABLE_IDS.SCALE,
       ANIMATABLE_IDS.OPACITY,
@@ -612,22 +631,9 @@ export function createTestAnimationStore(options?: {
     }
     animations[ANIMATION_IDS.NAMESPACE_B] = allAnimations[ANIMATION_IDS.NAMESPACE_B];
 
-    // Include relevant tracks
-    [
-      TRACK_IDS.POSITION,
-      TRACK_IDS.SCALE,
-      TRACK_IDS.OPACITY,
-      TRACK_IDS.TRANSLATION,
-      TRACK_IDS.INTENSITY,
-      TRACK_IDS.BLUR,
-    ].forEach((id) => {
-      if (!tracks[id]) {
-        tracks[id] = allTracks[id];
-      }
-    });
-
     // Include relevant animatables
     [
+      ANIMATABLE_IDS.UNLISTED,
       ANIMATABLE_IDS.POSITION,
       ANIMATABLE_IDS.SCALE,
       ANIMATABLE_IDS.OPACITY,
@@ -641,18 +647,12 @@ export function createTestAnimationStore(options?: {
     });
   }
 
-  // Create the store with initial data
-  const store = createAnimationStore({
-    // Core data
-    animatables,
+  const { animations: migratedAnimations, animatables: migratedAnimatables } = migrateAnimationSet(
     animations,
-    tracks: tracks as unknown as Record<string, SimpleTrack>,
-    namespaces,
+    animatables,
+  );
 
-    selectionState: createEmptySelectionState(activeInstance),
-
-    // Basic settings
-    duration: 10000, // Will be computed from animations
+  const store = createAnimationStore({
     framerate: 30,
     timeDisplay: TimeDisplay.Frames,
     expanded: true,
@@ -664,6 +664,17 @@ export function createTestAnimationStore(options?: {
     },
   });
 
+  const setNamespaces = store.getState().setNamespaces;
+  const setAnimatables = store.getState().setAnimatables;
+  const setAnimations = store.getState().setAnimations;
+  const focusSelectionInstance = store.getState().focusSelectionInstance;
+
+  // Set animatables and namespaces first
+  setAnimatables(migratedAnimatables);
+  setAnimations(migratedAnimations);
+  setNamespaces(namespaces);
+  focusSelectionInstance(activeInstance);
+
   return store;
 }
 
@@ -674,40 +685,6 @@ export function createMinimalAnimationStore(): AnimationStore {
   const animatables = createAnimatables();
   const tracks = createTracks();
   const store = createAnimationStore({
-    animatables: {
-      [ANIMATABLE_IDS.SCALE]: animatables[ANIMATABLE_IDS.SCALE],
-    },
-    animations: {
-      minimal: {
-        id: "minimal",
-        name: "Minimal Animation",
-        duration: 2000,
-        tracks: [TRACK_IDS.SCALE],
-        groups: [],
-      },
-    },
-    tracks: {
-      [TRACK_IDS.SCALE]: tracks[TRACK_IDS.SCALE],
-    } as unknown as Record<string, SimpleTrack>,
-    namespaces: {
-      default: {
-        id: "default",
-        name: "Default",
-        animationInstances: {
-          main: {
-            id: "main",
-            animationId: "minimal",
-            settings: {
-              active: true,
-              offset: 0,
-              timescale: 1,
-            },
-          },
-        },
-      },
-    },
-    selectionState: createEmptySelectionState("main"),
-    duration: 2000,
     framerate: 30,
     timeDisplay: TimeDisplay.Frames,
     expanded: true,
@@ -716,6 +693,46 @@ export function createMinimalAnimationStore(): AnimationStore {
       dataPreviews: true,
     },
   });
+
+  const setAnimatables = store.getState().setAnimatables;
+  const setAnimations = store.getState().setAnimations;
+  const setNamespaces = store.getState().setNamespaces;
+  const focusSelectionInstance = store.getState().focusSelectionInstance;
+
+  const { animations: migratedAnimations, animatables: migratedAnimatables } = migrateAnimationSet(
+    {
+      minimal: {
+        id: "minimal",
+        name: "Minimal Animation",
+        duration: 2000,
+        tracks: [tracks[TRACK_IDS.SCALE]],
+        groups: [],
+      },
+    },
+    {
+      [ANIMATABLE_IDS.SCALE]: animatables[ANIMATABLE_IDS.SCALE],
+    },
+  );
+  setAnimatables(migratedAnimatables);
+  setAnimations(migratedAnimations);
+  setNamespaces({
+    default: {
+      id: "default",
+      name: "Default",
+      animationInstances: {
+        main: {
+          id: "main",
+          animationId: "minimal",
+          settings: {
+            active: true,
+            offset: 0,
+            timescale: 1,
+          },
+        },
+      },
+    },
+  });
+  focusSelectionInstance("main");
 
   return store;
 }

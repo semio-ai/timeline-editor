@@ -1,7 +1,6 @@
 import { RawValue } from "@semio/utils";
 import { AnimationData } from "../store-types";
 import { StoredAnimation, Track } from "../types";
-import { normalizeTrackData } from "../functions/normalize-track-data";
 import type { SimpleTrack } from "../types/data/simple-track";
 
 /**
@@ -37,22 +36,12 @@ export function addAnimation(state: AnimationData, animationData: StoredAnimatio
       }
     });
 
-    const pendingAnimations = {
+    state.animations = {
       ...state.animations,
       [animationId]: {
         ...animation,
       },
     };
-    const pendingTracks = { ...state.tracks, ...tracks };
-
-    const normalized = normalizeTrackData({
-      tracks: pendingTracks as Record<string, Track<RawValue>>,
-      animations: pendingAnimations,
-      animatables: state.animatables,
-    });
-
-    state.animations = normalized.animations ?? pendingAnimations;
-    state.tracks = (normalized.tracks as Record<string, SimpleTrack>) ?? state.tracks;
-    state.animatables = normalized.animatables ?? state.animatables;
+    state.tracks = { ...state.tracks, ...tracks } as Record<string, SimpleTrack>;
   }
 }

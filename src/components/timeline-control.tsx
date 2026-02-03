@@ -7,17 +7,18 @@ import { uniq } from "lodash";
 import {
   useAnimationStore,
   useColors,
+  useKeyControlState,
   useLocalGlobalTransformLookup,
   useNameLookup,
 } from "../hooks";
 import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
 import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
-import { InstancedFrameInfo } from "../types";
 import { AnimationActions, AnimationData } from "../store-types";
 import type { SimpleRawValue } from "../types/data/simple-track";
+import type { SourceRow } from "../types";
 import { buildTrackKey } from "../utils/track-key";
 import { useValuesRef } from "../hooks/use-values-ref";
-import { TrackControl } from "./track-control";
+import { KeyStrip } from "./key-strip";
 import { DataIcon } from "./data-icon";
 
 export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
@@ -52,11 +53,12 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
 
   const running = usePlayerStore(useShallow((state) => state.player.running));
   const stamp = usePlayerStore(useShallow((state) => state.player.stamp));
-
-  const instancedFrame = useMemo<InstancedFrameInfo | undefined>(() => {
-    if (!computedRowData || running) return undefined;
-    return computedRowData.virtualFrames.find((s) => s.stamp === stamp);
-  }, [computedRowData, running, stamp]);
+  const fallbackSource = useMemo<SourceRow>(
+    () => source ?? { id: "global-fallback", data: [] },
+    [source],
+  );
+  const { keyState, currentFrame, missingEntries, targetPoints } =
+    useKeyControlState(fallbackSource);
 
   const { treeOptions, treeValues }: { treeOptions: TreeOption[]; treeValues: string[] } =
     useMemo(() => {
@@ -126,33 +128,37 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
 
   return (
     <div className="flex flex-1 flex-row h-9 items-center gap-1 pl-1">
-      <TrackControl
+      <KeyStrip
         source={source}
-        filled={instancedFrame !== undefined}
         color={color}
         onHexClick={() => {
-          if (instancedFrame !== undefined) {
-            const removals = instancedFrame.points.map((p) => ({
+          if (keyState === "full" && currentFrame) {
+            const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
+            const removals = points.map((p) => ({
               trackId: p.trackId,
               keypointId: p.id,
             }));
             removeKeypoints(removals);
-          } else {
-            const updates = source.data
-              .map((datum) => {
-                const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
-                const localStamp = typeof toLocal === "function" ? toLocal(stamp) : stamp;
-                const valueKey = buildTrackKey(datum.namespaceId, datum.instanceId, datum.trackId);
-                const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
-                return {
-                  trackId: datum.trackId,
-                  keypoint: {
-                    value,
-                    stamp: localStamp,
-                  },
-                };
-              })
-              .filter((u) => u.keypoint.value !== undefined);
+            return;
+          }
+
+          const targets = keyState === "partial" ? missingEntries : source.data;
+          const updates = targets
+            .map((datum) => {
+              const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
+              const localStamp = typeof toLocal === "function" ? toLocal(stamp) : stamp;
+              const valueKey = buildTrackKey(datum.namespaceId, datum.instanceId, datum.trackId);
+              const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
+              return {
+                trackId: datum.trackId,
+                keypoint: {
+                  value,
+                  stamp: localStamp,
+                },
+              };
+            })
+            .filter((u) => u.keypoint.value !== undefined);
+          if (updates.length > 0 && !running) {
             updateKeypoints(updates, true);
           }
         }}

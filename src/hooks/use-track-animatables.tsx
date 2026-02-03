@@ -6,9 +6,7 @@ import { useAnimationStore } from "./use-animation-store";
 /**
  * A color context, being a lookup of ids to the string versions of their colors.
  */
-export type TrackAnimatableLookup = Record<string, AnimatableValue>;
-
-const defaultTrackAnimatableLookup: TrackAnimatableLookup = {};
+export type TrackAnimatableLookup = Record<string, AnimatableValue | undefined>;
 
 export const TrackAnimatableContext = createContext<TrackAnimatableLookup>({});
 
@@ -18,13 +16,12 @@ export function TrackAnimatableContextProvider({ children }: { children: ReactNo
   );
 
   const nameMap = useMemo(() => {
-    const trackAnimatables: TrackAnimatableLookup = Object.entries(tracks).reduce(
-      (acc, [id, track]) => {
-        acc[id] = animatables[track.animatableId];
-        return acc;
-      },
-      defaultTrackAnimatableLookup,
-    );
+    const trackAnimatables: TrackAnimatableLookup = Object.entries(
+      tracks,
+    ).reduce<TrackAnimatableLookup>((acc, [id, track]) => {
+      acc[id] = animatables[track.animatableId];
+      return acc;
+    }, {});
     return trackAnimatables;
   }, [tracks, animatables]);
 
@@ -39,7 +36,7 @@ export function TrackAnimatableContextProvider({ children }: { children: ReactNo
  * @param idOrIds
  * @returns The color associated with the ID(s).
  */
-export function useTrackAnimatable(trackId: string): AnimatableValue {
+export function useTrackAnimatable(trackId: string): AnimatableValue | undefined {
   const lookup = useContext(TrackAnimatableContext);
   if (!lookup) {
     throw new Error("useTrackAnimatable must be used within a TrackAnimatableProvider");

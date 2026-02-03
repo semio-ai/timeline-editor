@@ -15,16 +15,18 @@ export function computeNextTime(
   bounds: [number, number],
   respectBounds: boolean,
 ): number | undefined {
+  const EPSILON = 1e-6;
   const stamps = data.map((f) => f.stamp);
   if (stamps.length === 0) return undefined;
 
   // Find the next stamp after the current player stamp
-  const nextStamps = stamps.filter((s) => s > stamp);
+  const nextStamps = stamps.filter((s) => s > stamp + EPSILON);
   if (nextStamps.length === 0) return undefined;
   const nextStampDirect = Math.min(...nextStamps);
 
   if (respectBounds) {
     if (nextStampDirect > bounds[1]) return undefined;
+    return nextStampDirect;
   } else {
     return nextStampDirect;
   }
@@ -45,16 +47,18 @@ export function computePreviousTime(
   bounds: [number, number],
   respectBounds: boolean,
 ): number | undefined {
+  const EPSILON = 1e-6;
   const stamps = data.map((f) => f.stamp);
   if (stamps.length === 0) return undefined;
 
   // Find the previous stamp before the current player stamp
-  const previousStamps = stamps.filter((s) => s < stamp);
+  const previousStamps = stamps.filter((s) => s < stamp - EPSILON);
   if (previousStamps.length === 0) return undefined;
   const previousStampDirect = Math.max(...previousStamps);
 
   if (respectBounds) {
     if (previousStampDirect < bounds[0]) return undefined;
+    return previousStampDirect;
   } else {
     return previousStampDirect;
   }

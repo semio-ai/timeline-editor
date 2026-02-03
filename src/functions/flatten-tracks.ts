@@ -1,7 +1,9 @@
-import type { AnimatableValue, RawValue } from "@semio/utils";
+import type { AnimatableValue, DeprecatedComplexAnimatableValue, RawValue } from "@semio/utils";
 import cloneDeep from "lodash/cloneDeep";
 import type { Track } from "../types";
 import { COMPLEX_TYPES, TYPE_FIELDS } from "../constants";
+
+type AnimatableValueLike = AnimatableValue | DeprecatedComplexAnimatableValue;
 
 export interface FlattenCompositeTracksOptions {
   /**
@@ -25,7 +27,7 @@ export interface FlattenCompositeTracksResult {
  */
 export function flattenCompositeTracks(
   sourceTracks: Record<string, Track<RawValue>>,
-  animatables: Record<string, AnimatableValue>,
+  animatables: Record<string, AnimatableValueLike>,
   options?: FlattenCompositeTracksOptions,
 ): FlattenCompositeTracksResult {
   const preserveOriginal = options?.preserveOriginal ?? true;
