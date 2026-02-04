@@ -172,14 +172,14 @@ export function AnimatableControlList({
         ungroupedAnimatables.push(animatable);
         return;
       }
-      const existing = groupLookup.get(groupId);
+      const existing = groupLookup.get(groupId as string);
       if (existing) {
         existing.items.push(animatable);
         return;
       }
-      groupLookup.set(groupId, {
+      groupLookup.set(groupId as string, {
         id: groupId,
-        label: resolveGroupLabel(animatable, groupId, getGroupLabel),
+        label: resolveGroupLabel(animatable, groupId as string, getGroupLabel),
         items: [animatable],
       });
     });
@@ -387,7 +387,7 @@ function resolveGroupLabel(
   }
   const axis = animatable.group?.axis;
   if (axis && animatable.name) {
-    const suffix = ` ${axis.toUpperCase()}`;
+    const suffix = ` ${(axis as string).toUpperCase()}`;
     if (animatable.name.endsWith(suffix)) {
       return animatable.name.slice(0, -suffix.length);
     }

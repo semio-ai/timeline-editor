@@ -15,14 +15,7 @@ import { animate, useMotionValue, useMotionValueEvent, useSpring } from "motion/
 import { Instances } from "@react-three/drei";
 import { uniq } from "lodash";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
-import {
-  LayerBand,
-  RenderMarker,
-  SelectionFrame,
-  SourceRow,
-  TrackRender,
-  VerticalAxisRange,
-} from "../../types";
+import { LayerBand, SelectionFrame, SourceRow, TrackRender, VerticalAxisRange } from "../../types";
 import { AnimationData, AnimationActions } from "../../store-types";
 import { DEFAULT_COLOR, RENDER_MORPH_SPRING, Z } from "../../constants";
 import { DataPoint } from "./data-point";
@@ -36,7 +29,6 @@ const HANDLE_REVEAL_DELAY_MS = 120;
 const DataPointsRenderer = memo(function DataPointsRenderer({
   sourceRow,
   selectionFrames,
-  markers,
   activeInstanceId,
   xTransform,
   verticalBounds,
@@ -48,7 +40,6 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
 }: {
   sourceRow: SourceRow;
   selectionFrames: SelectionFrame[];
-  markers: RenderMarker[];
   activeInstanceId?: string | null;
   xTransform?: (stamp: number) => number;
   verticalBounds: { min: number; max: number };
@@ -58,28 +49,10 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   renderMorphProgress?: MotionValue<number>;
   height?: number;
 }) {
-  const markerLookup = useMemo(() => {
-    const lookup = new Map<string, RenderMarker>();
-    markers.forEach((marker) => {
-      lookup.set(`${marker.trackKey}#${marker.id}`, marker);
-    });
-    return lookup;
-  }, [markers]);
-
-  const visibleHexFrameCount = useMemo(() => {
-    return selectionFrames.filter((frame) =>
-      frame.points.some((point) => {
-        const marker = markerLookup.get(`${point.trackKey}#${point.markerId}`);
-        const band = marker?.layerBand ?? LayerBand.Background;
-        return band !== LayerBand.Background;
-      }),
-    ).length;
-  }, [markerLookup, selectionFrames]);
-
-  const instanceCount = visibleHexFrameCount * 2;
+  const instanceCount = selectionFrames.length * 2;
 
   // Remount when the active instance changes to refresh instanced subscriptions.
-  const instancesKey = `${sourceRow.id}:${activeInstanceId ?? "none"}`;
+  const instancesKey = `${sourceRow.id}:${activeInstanceId ?? "none"}:${instanceCount.toString()}`;
 
   // If the track render is spline, but the row is a group, ignore it
   if (trackRender === TrackRender.Spline && sourceRow.data.length > 1) {
@@ -370,7 +343,6 @@ export const DataRenderer = memo(function DataRenderer({
       <DataPointsRenderer
         sourceRow={sourceRow}
         selectionFrames={computedData.selection ?? []}
-        markers={renderMarkers}
         activeInstanceId={selectionState.instanceId}
         xTransform={xTransform}
         verticalBounds={effectiveVerticalBounds}
