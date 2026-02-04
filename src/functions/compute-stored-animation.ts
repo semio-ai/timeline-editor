@@ -18,9 +18,10 @@ export function computeStoredAnimation(
     tracks: animation.tracks.map((t) => {
       const track = tracks[t];
       const { muted: _, ...rest } = track.settings || {};
+      const settings = Object.keys(rest).length > 0 ? rest : undefined;
       return {
         ...track,
-        settings: rest,
+        settings,
       };
     }),
     groups: animation.groups,

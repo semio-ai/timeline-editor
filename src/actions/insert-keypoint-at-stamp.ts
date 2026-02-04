@@ -1,5 +1,6 @@
 import { computeLocalStamp } from "../functions/compute-instance-time";
 import type { AnimationData } from "../store-types";
+import { StandardTransitionType } from "../types";
 import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "../types/data/simple-track";
 import { buildTrackKey } from "../utils/track-key";
 import { insertKeypointWithDeCasteljau } from "../functions/insert-keypoint-with-decasteljau";
@@ -39,6 +40,7 @@ export function insertKeypointAtWorldStamp(
   }
   // Convert to local (instance) time for storage in the keypoint.
   const localStamp = computeLocalStamp(worldStamp, timescale, offset);
+  const clampedStamp = clamp01(localStamp);
 
   // Derive the value from the current interpolator snapshot when available.
   const value = resolveInterpolatedOrDefaultValue(
@@ -54,27 +56,26 @@ export function insertKeypointAtWorldStamp(
     return undefined;
   }
 
+  const sortedPoints = track.points.slice().sort((a, b) => a.stamp - b.stamp);
+  const insertIndex = findInsertIndex(sortedPoints, clampedStamp);
+  const prevPoint =
+    insertIndex === -1 ? sortedPoints[sortedPoints.length - 1] : sortedPoints[insertIndex - 1];
+  const nextPoint = insertIndex === -1 ? undefined : sortedPoints[insertIndex];
+
   const newPoint: SimpleKeypoint = {
     id: crypto.randomUUID(),
-    stamp: clamp01(localStamp),
+    stamp: clampedStamp,
     value,
-    // Placeholder transitions: use the interpolator defaults that match compute-track-interpolator.
-    // TODO(semio-agent): Replace these with de Casteljau-based split so the curve shape is preserved:
-    // - Split segment A->B at parameter u corresponding to localStamp
-    // - Convert the resulting absolute control points back into normalized {x,y} transitions
-    //   around A/K/B as defined in types/data/keypoint.ts semantics.
-    transitions: {
-      in: { x: 0.35, y: 1 },
-      out: { x: 0.65, y: 0 },
-    },
+    // Use the default easing enum for out-of-range inserts so handle orientation remains correct.
+    transitions: resolveDefaultTransitions(prevPoint, nextPoint),
   };
 
   // Insert maintaining sort order. If an equal stamp exists, we insert after earlier points with same stamp.
-  const insertIndex = findInsertIndex(track.points, newPoint.stamp);
-  if (insertIndex === -1) {
+  const rawInsertIndex = findInsertIndex(track.points, newPoint.stamp);
+  if (rawInsertIndex === -1) {
     track.points.push(newPoint);
   } else {
-    track.points.splice(insertIndex, 0, newPoint);
+    track.points.splice(rawInsertIndex, 0, newPoint);
   }
 
   // Ensure points remain sorted by stamp after insertion.
@@ -147,4 +148,23 @@ function findInsertIndex(points: SimpleKeypoint[], stamp: number): number {
     }
   }
   return -1; // append
+}
+
+function resolveDefaultTransitions(
+  prevPoint: SimpleKeypoint | undefined,
+  nextPoint: SimpleKeypoint | undefined,
+): SimpleKeypoint["transitions"] | undefined {
+  if (!prevPoint && !nextPoint) {
+    return undefined;
+  }
+  if (!prevPoint) {
+    return { out: StandardTransitionType.Cubic };
+  }
+  if (!nextPoint) {
+    return { in: StandardTransitionType.Cubic };
+  }
+  return {
+    in: StandardTransitionType.Cubic,
+    out: StandardTransitionType.Cubic,
+  };
 }
