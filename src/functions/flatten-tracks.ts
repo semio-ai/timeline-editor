@@ -36,7 +36,7 @@ export function flattenCompositeTracks(
 
   Object.entries(sourceTracks).forEach(([trackId, track]) => {
     const animatable = animatables[track.animatableId];
-    if (!animatable || !COMPLEX_TYPES.has(animatable.type)) {
+    if (!animatable || !COMPLEX_TYPES.has(animatable.type as string)) {
       if (!preserveOriginal && !tracks[trackId]) {
         tracks[trackId] = cloneDeep(track);
       }

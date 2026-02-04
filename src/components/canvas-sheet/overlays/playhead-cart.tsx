@@ -117,7 +117,8 @@ export const PlayheadCart = memo(function PlayheadCart({
     })),
   );
 
-  const frameCount = Math.floor(framerate * (playerDuration / 1000));
+  const safePlayerDuration = Number.isFinite(playerDuration) ? playerDuration : 0;
+  const frameCount = Math.max(1, Math.floor(framerate * (safePlayerDuration / 1000)));
 
   // Create triangle geometries using hooks
   const leftArrowGeometry = useTriangleCaretGeometry({
@@ -428,8 +429,9 @@ function useCartWidthSpring() {
     useShallow((s) => [s.framerate, s.timeDisplay]),
   );
   const [stamp, duration] = usePlayerStore(useShallow((s) => [s.player.stamp, s.player.duration]));
+  const safeDuration = Number.isFinite(duration) ? duration : 0;
 
-  const visualTime = stampToVisualTime(stamp, duration, framerate, timeDisplay, altPressed);
+  const visualTime = stampToVisualTime(stamp, safeDuration, framerate, timeDisplay, altPressed);
 
   const size = (visualTime.length + 1) * fontSize;
 
@@ -564,8 +566,9 @@ const PlayheadTime = memo(function PlayheadTime({
     useShallow((s) => [s.framerate, s.timeDisplay]),
   );
   const [stamp, duration] = usePlayerStore(useShallow((s) => [s.player.stamp, s.player.duration]));
+  const safeDuration = Number.isFinite(duration) ? duration : 0;
 
-  const visualTime = stampToVisualTime(stamp, duration, framerate, timeDisplay, altPressed);
+  const visualTime = stampToVisualTime(stamp, safeDuration, framerate, timeDisplay, altPressed);
 
   return (
     <TrackText

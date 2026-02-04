@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useCallback, useMemo } from "react";
+import { clsx } from "clsx";
 import { SelectTree, Size, TreeOption, Variant } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
@@ -14,7 +15,7 @@ import {
 import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
 import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
 import { AnimationActions, AnimationData } from "../store-types";
-import type { SimpleRawValue } from "../types/data/simple-track";
+import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
 import type { SourceRow } from "../types";
 import { buildTrackKey } from "../utils/track-key";
 import { useValuesRef } from "../hooks/use-values-ref";
@@ -22,24 +23,26 @@ import { KeyStrip } from "./key-strip";
 import { DataIcon } from "./data-icon";
 
 export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
-  const { source, computedRowData, viewData, namespaces, animations, sourcesByAnimationInstance } =
+  const { source, namespaces, animations, sourcesByAnimationInstance, viewData } =
     useAnimationStore(
       useShallow((state: AnimationData) => ({
         source: state.instancedTrackSources.global,
-        computedRowData: state.derivedSnapshot?.rows?.global?.computed,
-        viewData: state.editorViews[viewId],
         namespaces: state.namespaces,
         animations: state.animations,
         sourcesByAnimationInstance: state.sourcesByAnimationInstance,
+        viewData: state.editorViews[viewId],
       })),
     );
 
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   const valuesRef = useValuesRef();
 
-  const hasData = source && computedRowData && viewData;
+  const fallbackSource = useMemo<SourceRow>(
+    () => source ?? { id: "global-fallback", data: [] },
+    [source],
+  );
 
-  const color = useColors(hasData ? uniq(source.data.map((s) => s.trackId)) : []);
+  const color = useColors(source ? uniq(source.data.map((s) => s.trackId)) : []);
 
   const nameLookup = useNameLookup();
 
@@ -53,10 +56,6 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
 
   const running = usePlayerStore(useShallow((state) => state.player.running));
   const stamp = usePlayerStore(useShallow((state) => state.player.stamp));
-  const fallbackSource = useMemo<SourceRow>(
-    () => source ?? { id: "global-fallback", data: [] },
-    [source],
-  );
   const { keyState, currentFrame, missingEntries, targetPoints } =
     useKeyControlState(fallbackSource);
 
@@ -100,8 +99,16 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       return { treeOptions: options, treeValues: values };
     }, [sourcesByAnimationInstance, namespaces, nameLookup, animations]);
 
+  const hasTrackOptions = useMemo(
+    () => Object.values(sourcesByAnimationInstance).some((sources) => sources?.length > 0),
+    [sourcesByAnimationInstance],
+  );
+  const hasView = Boolean(viewData);
+  const controlsDisabled = !source || !hasTrackOptions || !hasView;
+
   const handleChangeSelection = useCallback(
     (_: string[], changes: { id: string; operation: "add" | "remove" }[]) => {
+      if (controlsDisabled) return;
       const base: Record<string, { id: string; hidden: boolean }> = {};
       const updates: Record<string, { id: string; hidden: boolean }> = changes.reduce(
         (acc, change) => {
@@ -119,22 +126,20 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
 
       updateSources(updates);
     },
-    [updateSources],
+    [controlsDisabled, updateSources],
   );
-
-  if (!hasData) {
-    return null;
-  }
 
   return (
     <div className="flex flex-1 flex-row h-9 items-center gap-1 pl-1">
       <KeyStrip
-        source={source}
+        source={fallbackSource}
         color={color}
+        disabled={controlsDisabled}
         onHexClick={() => {
+          if (controlsDisabled) return;
           if (keyState === "full" && currentFrame) {
             const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-            const removals = points.map((p) => ({
+            const removals: { trackId: string; keypointId: string }[] = points.map((p) => ({
               trackId: p.trackId,
               keypointId: p.id,
             }));
@@ -143,11 +148,15 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           }
 
           const targets = keyState === "partial" ? missingEntries : source.data;
-          const updates = targets
+          const updates: { trackId: string; keypoint: Partial<SimpleKeypoint> }[] = targets
             .map((datum) => {
               const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
               const localStamp = typeof toLocal === "function" ? toLocal(stamp) : stamp;
-              const valueKey = buildTrackKey(datum.namespaceId, datum.instanceId, datum.trackId);
+              const valueKey = buildTrackKey(
+                datum.namespaceId as string,
+                datum.instanceId as string,
+                datum.trackId as string,
+              );
               const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
               return {
                 trackId: datum.trackId,
@@ -163,9 +172,15 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           }
         }}
       />
-      <div className="w-full items-center">
+      <div
+        className={clsx(
+          "w-full items-center",
+          controlsDisabled && "opacity-50 pointer-events-none",
+        )}
+        aria-disabled={controlsDisabled}
+      >
         <SelectTree
-          label="Select Track"
+          label={hasTrackOptions ? "Select Track" : "No tracks"}
           variant={Variant.Default}
           size={Size.Sm}
           options={treeOptions}
