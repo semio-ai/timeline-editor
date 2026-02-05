@@ -48,7 +48,6 @@ export function TrackList({
         .filter((row): row is SourceRow => Boolean(row)),
     ),
   );
-
   return (
     <div
       className={clsx(
