@@ -60,6 +60,9 @@ export const RulerRenderer = memo(function RulerRenderer({
 
   // Generate tick data - only major ticks for ruler (every second)
   const tickData = useMemo(() => {
+    if (!Number.isFinite(frameCount) || frameCount <= 0 || framerate <= 0) {
+      return [];
+    }
     const majorTicks = [];
     for (let i = 0; i <= frameCount; i += framerate) {
       const stamp = i / frameCount;
@@ -149,8 +152,16 @@ const Ticks = memo(function Ticks({
   tickColor: string | THREE.Color;
   yPosition: number;
 }) {
+  const instanceCount = tickData.length;
+
+  if (instanceCount === 0) return null;
+
   return (
-    <Instances>
+    <Instances
+      key={`ruler-ticks-${instanceCount.toString()}`}
+      limit={instanceCount}
+      range={instanceCount}
+    >
       <planeGeometry args={[baseTickWidth, tickHeight]} />
       <meshBasicMaterial color={tickColor as any} toneMapped={false} />
 

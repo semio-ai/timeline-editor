@@ -12,7 +12,6 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
   children: ReactNode;
 }) {
   const invalidate = useThree((state) => state.invalidate);
-
   const width = useMotionValue(1);
   const height = useMotionValue(1);
   const invariantScale = useMotionValue(1);
@@ -44,7 +43,6 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
     }
     // Wait for valid canvas size before updating motion values
     if (size.width <= 0 || size.height <= 0) {
-      console.log("size bypassed", size);
       return;
     }
 

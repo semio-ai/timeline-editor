@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef } from "react";
+import { memo, useMemo, useRef, useEffect } from "react";
 import { strip } from "number-precision";
 import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
@@ -36,6 +36,9 @@ export const TickBackground = memo(function TickBackground({
 
   // Pre-calculate all ticks in a single loop using modulo arithmetic
   const allTicks = useMemo(() => {
+    if (!Number.isFinite(frameCount) || frameCount <= 0 || framerate <= 0) {
+      return [];
+    }
     const ticks: TickData[] = [];
 
     for (let tickIndex = 0; tickIndex <= frameCount; tickIndex++) {
@@ -57,9 +60,17 @@ export const TickBackground = memo(function TickBackground({
   }, [frameCount, framerate]);
 
   const baseTickWidth = 1; // Base width that will be scaled by the parent group
+  const instanceCount = allTicks.length;
+
+  if (instanceCount === 0) return null;
 
   return (
-    <Instances ref={instancesRef as any}>
+    <Instances
+      key={`tick-bg-${instanceCount.toString()}`}
+      ref={instancesRef as any}
+      limit={instanceCount}
+      range={instanceCount}
+    >
       <planeGeometry args={[baseTickWidth, height]} />
       <meshBasicMaterial toneMapped={false} />
 
@@ -109,6 +120,12 @@ const Tick = memo(function Tick({
       instanceRef.current.scale.set(s, 1, 1);
     }
   });
+
+  useEffect(() => {
+    if (instanceRef.current) {
+      instanceRef.current.scale.set(scale.get(), 1, 1);
+    }
+  }, [scale]);
 
   return <Instance ref={instanceRef as any} position={[stamp, 0, Z.Ticks]} color={color} />;
 });

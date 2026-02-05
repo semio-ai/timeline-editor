@@ -14,7 +14,6 @@ export function updateOverallDuration(
   _get: AnimationStoreGetter,
 ): () => void {
   const updateDuration = usePlayerStore.getState().updateDuration;
-
   return api.subscribe(
     (state: AnimationData) => ({
       animations: state.animations,
@@ -42,6 +41,7 @@ export function updateOverallDuration(
         1000,
         ...durations,
       );
+
       updateDuration(maxDuration);
       api.setState({ duration: maxDuration });
     },
