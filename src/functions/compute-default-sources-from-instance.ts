@@ -51,7 +51,7 @@ export function computeDefaultSourcesFromInstance(
             animatableId: track.animatableId,
             type: (animatable?.type as "string" | "number" | "boolean") ?? "number",
             iconCode: animatable ? getIconCode(animatable.type, animatable.pub?.units) : undefined,
-            muted: track.settings?.muted || false,
+            muted: track.settings?.muted ?? false,
             hidden: false,
           };
           return sourceTrack;
@@ -108,7 +108,7 @@ export function computeDefaultSourcesFromInstance(
           iconCode: childAnimatable
             ? getIconCode(childAnimatable.type, childAnimatable.pub?.units)
             : undefined,
-          muted: child.track.settings?.muted || false,
+          muted: child.track.settings?.muted ?? false,
           hidden: false,
         };
       });
@@ -157,7 +157,7 @@ export function computeDefaultSourcesFromInstance(
         animatableId: child.track.animatableId,
         type: (animatable?.type as "string" | "number" | "boolean") ?? "number",
         iconCode: animatable ? getIconCode(animatable.type, animatable.pub?.units) : undefined,
-        muted: child.track.settings?.muted || false,
+        muted: child.track.settings?.muted ?? false,
         hidden: false,
       });
     }

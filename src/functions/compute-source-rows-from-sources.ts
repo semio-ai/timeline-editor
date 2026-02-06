@@ -71,6 +71,7 @@ export function computeSourceRowsFromSources(
             editable: !sourceTrack.readonly,
             layerBand,
             type: sourceTrack.type,
+            muted: sourceTrack.muted,
             animationId: sourceTrack.animationId,
             namespaceId: sourceTrack.namespaceId,
             instanceId: sourceTrack.instanceId,

@@ -9,6 +9,7 @@ import type {
 import { LayerBand, SourceRow } from "../types";
 import { groupDerivedTracks } from "../functions/group-derived-tracks";
 import { getIconCode } from "../functions/get-icon-code";
+import { collectSourceTracks } from "../functions/source-utils";
 
 export function updateInstancedTrackSources(
   api: AnimationApi,
@@ -74,6 +75,9 @@ export function updateInstancedTrackSources(
             const foreground = !activeAnimationId || activeAnimationId === instance.id;
             const grouped = groupDerivedTracks(animation.tracks, tracks, animatables);
             const sources = sourcesByAnimationInstance[instance.id] || [];
+            const sourceTrackLookup = new Map(
+              collectSourceTracks(sources).map((track) => [track.id, track]),
+            );
 
             grouped.forEach((group) => {
               const baseId = `${namespaceId}/${instance.id}/${group.baseTrackId}`;
@@ -94,6 +98,7 @@ export function updateInstancedTrackSources(
                 }
                 const childAnimatable =
                   child.derivedAnimatable ?? animatables[child.track.animatableId];
+                const sourceTrack = sourceTrackLookup.get(childId);
                 return {
                   childId,
                   data: {
@@ -105,6 +110,7 @@ export function updateInstancedTrackSources(
                     instanceId: instance.id,
                     // TODO(semio-agent): This assumes numeric tracks; update when string/boolean tracks are surfaced.
                     type: "number" as const,
+                    muted: sourceTrack?.muted ?? false,
                     trackId: child.trackId,
                     animatableId: child.track.animatableId,
                     iconCode: childAnimatable

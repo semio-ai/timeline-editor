@@ -107,6 +107,8 @@ export interface SourceRowData {
   instanceId: string;
   /** Value type for this entry (or "group" for grouped rows). */
   type: AnimatableValue["type"] | "group";
+  /** Whether this entry is muted from playback. */
+  muted?: boolean;
   /** Track id for this entry. */
   trackId: string;
   /** Animatable id for this entry. */

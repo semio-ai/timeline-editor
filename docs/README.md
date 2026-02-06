@@ -49,7 +49,7 @@ The zustand store (`AnimationData` in `store-types.ts`) is the single source of 
 - `previews`: Semantic time markers (`Preview`) for scrubbers, hover, etc.
 - `dragState`: Structure describing in-progress virtual drag operations, including original keypoint positions, handle offsets, and handle diffs.
 - `editorViews`: Multi-window configuration (see `types/util/view.ts`) capturing view mode, active source rows, and layout preferences.
-- `sourcesByAnimationInstance` / `instancedTrackSources`: Hierarchical representation of animation data grouped by animation, namespace, and instance.
+- `sourcesByAnimationInstance` / `instancedTrackSources`: Hierarchical representation of animation data grouped by animation, namespace, and instance. Per-entity muting lives on `SourceTrack.muted` (namespace-scoped), not on shared track settings.
 - `sourceRowIds`: Global order of visible rows for views; per-row computed data is read from `derivedSnapshot.rows[rowId].computed`.
 - `preferences`: UI toggles (hover dashed line, data previews) synced with consuming apps.
 - `derivedSnapshot`: Normalized view (track cache feeding row/selection views) including per-track caches, `rows`, and precomputed aggregates used by the UI and Storybook during both steady state and drag preview.

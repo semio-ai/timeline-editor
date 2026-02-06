@@ -6,8 +6,9 @@ import type {
   AnimationStoreGetter,
   AnimationStoreSetter,
 } from "../store-types";
-import { Source } from "../types";
+import { Source, SourceGroup, SourceTrack } from "../types";
 import { computeDefaultSourcesFromInstance } from "../functions";
+import { GROUP_TYPES } from "../constants";
 
 /**
  * Updates global sources when namespaces, animations, tracks, or animatables change.
@@ -16,7 +17,7 @@ import { computeDefaultSourcesFromInstance } from "../functions";
 export function updateGlobalSources(
   api: AnimationApi,
   set: AnimationStoreSetter,
-  _get: AnimationStoreGetter,
+  get: AnimationStoreGetter,
 ): () => void {
   return api.subscribe(
     (state: AnimationData) => ({
@@ -28,8 +29,41 @@ export function updateGlobalSources(
     ({ namespaces, animations, tracks, animatables }) => {
       // Generate global sources for all animation instances across all namespaces
       const sourcesByAnimationInstance: Record<string, Source[]> = {};
+      const previousSourcesByInstance = get().sourcesByAnimationInstance;
 
       const namespaceKeys = Object.keys(namespaces);
+
+      const mergeSourceState = (next: Source[], previous?: Source[]): Source[] => {
+        if (!previous || previous.length === 0) {
+          return next;
+        }
+        const previousById = new Map(previous.map((source) => [source.id, source]));
+        return next.map((source) => {
+          const previousSource = previousById.get(source.id);
+          if (GROUP_TYPES.has(source.type)) {
+            const group = source as SourceGroup;
+            const previousGroup =
+              previousSource && GROUP_TYPES.has(previousSource.type)
+                ? (previousSource as SourceGroup)
+                : undefined;
+            return {
+              ...group,
+              expanded: previousGroup?.expanded ?? group.expanded,
+              children: mergeSourceState(group.children, previousGroup?.children),
+            };
+          }
+          const track = source as SourceTrack;
+          const previousTrack =
+            previousSource && !GROUP_TYPES.has(previousSource.type)
+              ? (previousSource as SourceTrack)
+              : undefined;
+          return {
+            ...track,
+            hidden: previousTrack?.hidden ?? track.hidden,
+            muted: previousTrack?.muted ?? track.muted,
+          };
+        });
+      };
 
       for (const namespace of namespaceKeys) {
         const animationInstances = Object.values(namespaces[namespace].animationInstances);
@@ -41,8 +75,10 @@ export function updateGlobalSources(
             animatables,
             tracks,
           );
-
-          sourcesByAnimationInstance[animationInstance.id] = sources;
+          sourcesByAnimationInstance[animationInstance.id] = mergeSourceState(
+            sources,
+            previousSourcesByInstance?.[animationInstance.id],
+          );
         }
       }
 

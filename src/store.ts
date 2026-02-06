@@ -63,6 +63,8 @@ import {
   computeUpdatedSources,
   computeLocalStamp,
   computeWorldStamp,
+  collectSourceTracks,
+  findSourceTrackById,
 } from "./functions";
 import {
   updatePlayerLoop,
@@ -610,52 +612,42 @@ export const AnimationSlice = (
         }),
       );
     },
-    setTrackMuted: (trackId: string, muted: boolean) => {
+    setTrackMuted: (sourceId: string, muted: boolean) => {
       set(
         produce((state: AnimationData): void => {
-          const track = state.tracks[trackId];
-          if (!track) return;
-          if (!track.settings) {
-            track.settings = {};
-          }
-          track.settings.muted = muted;
-
+          const updates: Record<string, { muted?: boolean }> = {
+            [sourceId]: { muted },
+          };
           if (!muted) {
-            const animatableId = track.animatableId;
-            if (animatableId) {
-              Object.values(state.namespaces).forEach((namespace) => {
-                let namespaceHasTrack = false;
-                const conflictingTrackIds = new Set<string>();
+            let targetTrack: ReturnType<typeof findSourceTrackById> | undefined;
+            Object.values(state.sourcesByAnimationInstance).some((sources) => {
+              const found = findSourceTrackById(sources, sourceId);
+              if (found) {
+                targetTrack = found;
+                return true;
+              }
+              return false;
+            });
 
-                Object.values(namespace.animationInstances ?? {}).forEach((instance) => {
-                  const animation = state.animations[instance.animationId];
-                  if (!animation) return;
-                  animation.tracks.forEach((candidateId) => {
-                    const candidate = state.tracks[candidateId];
-                    if (!candidate || candidate.animatableId !== animatableId) return;
-                    conflictingTrackIds.add(candidateId);
-                    if (candidateId === trackId) {
-                      namespaceHasTrack = true;
-                    }
+            if (targetTrack) {
+              const { namespaceId, animatableId } = targetTrack;
+              if (animatableId) {
+                Object.values(state.sourcesByAnimationInstance).forEach((sources) => {
+                  collectSourceTracks(sources).forEach((track) => {
+                    if (track.id === sourceId) return;
+                    if (track.namespaceId !== namespaceId) return;
+                    if (track.animatableId !== animatableId) return;
+                    updates[track.id] = { muted: true };
                   });
                 });
-
-                if (!namespaceHasTrack) return;
-
-                conflictingTrackIds.forEach((candidateId) => {
-                  if (candidateId === trackId) return;
-                  const candidate = state.tracks[candidateId];
-                  if (!candidate) return;
-                  if (!candidate.settings) {
-                    candidate.settings = {};
-                  }
-                  candidate.settings.muted = true;
-                });
-              });
+              }
             }
           }
 
-          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
+          state.sourcesByAnimationInstance = mapValues(
+            state.sourcesByAnimationInstance,
+            (instanceSources) => computeUpdatedSources(instanceSources, updates),
+          );
         }),
       );
     },

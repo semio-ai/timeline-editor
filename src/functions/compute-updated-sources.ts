@@ -3,7 +3,7 @@ import { Source, SourceGroup, SourceTrack } from "../types";
 
 export function computeUpdatedSources(
   sources: Source[],
-  updates: Record<string, { hidden?: boolean; expanded?: boolean }>,
+  updates: Record<string, { hidden?: boolean; expanded?: boolean; muted?: boolean }>,
 ): Source[] {
   return sources.map((source) => {
     if (GROUP_TYPES.has(source.type)) {
@@ -18,12 +18,14 @@ export function computeUpdatedSources(
     } else {
       const sourceTrack = source as SourceTrack;
       const updateHidden = updates[source.id]?.hidden !== undefined;
-      if (!updateHidden) {
+      const updateMuted = updates[source.id]?.muted !== undefined;
+      if (!updateHidden && !updateMuted) {
         return sourceTrack;
       } else {
         return {
           ...sourceTrack,
-          hidden: updates[source.id].hidden!,
+          hidden: updateHidden ? updates[source.id].hidden! : sourceTrack.hidden,
+          muted: updateMuted ? updates[source.id].muted! : sourceTrack.muted,
         };
       }
     }

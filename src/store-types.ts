@@ -374,12 +374,12 @@ export interface AnimationActions {
    */
   updateControlColor: (controlId: string, color: string) => void;
   /**
-   * Set the muted state of a track. When unmuting, conflicting tracks within the
+   * Set the muted state of a source track. When unmuting, conflicting tracks within the
    * same namespace and animatable are muted.
-   * @param trackId - Track id to update.
+   * @param sourceId - Source track id (`namespaceId/instanceId/trackId`) to update.
    * @param muted - Whether the track is muted.
    */
-  setTrackMuted: (trackId: string, muted: boolean) => void;
+  setTrackMuted: (sourceId: string, muted: boolean) => void;
   /**
    * Set animatables in bulk, replacing existing animatables.
    * @param animatables - Record of animatable ID to AnimatableValue

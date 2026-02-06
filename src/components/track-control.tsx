@@ -56,18 +56,15 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
 
   const animatables = useAnimationStore(useShallow((state) => state.animatables));
   const valuesRef = useValuesRef();
-  const trackMuted = useAnimationStore(
-    useShallow((state: AnimationData) =>
-      trackIds.length === 1 ? (state.tracks[trackIds[0]]?.settings?.muted ?? false) : false,
-    ),
-  );
-  const rowMuted = useAnimationStore(
-    useCallback(
-      (state: AnimationData) =>
-        trackIds.length > 0 && trackIds.every((id) => state.tracks[id]?.settings?.muted ?? false),
-      [trackIds],
-    ),
-  );
+  const trackMuted = useMemo(() => {
+    if (trackIds.length !== 1) return false;
+    const [entry] = sourceRow.data;
+    return entry?.muted ?? false;
+  }, [sourceRow.data, trackIds.length]);
+  const rowMuted = useMemo(() => {
+    if (sourceRow.data.length === 0) return false;
+    return sourceRow.data.every((entry) => entry.muted ?? false);
+  }, [sourceRow.data]);
 
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
 
@@ -332,7 +329,7 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
                 }
                 onClick={() => {
                   if (trackIds.length !== 1 || !trackIds[0]) return;
-                  setTrackMuted(trackIds[0], !trackMuted);
+                  setTrackMuted(sourceRow.id, !trackMuted);
                 }}
               >
                 {trackMuted ? "Muted" : "Not muted"}

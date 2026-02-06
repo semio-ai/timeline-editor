@@ -34,15 +34,12 @@ export function resolveTrackEntriesByAnimatable(
       const sources = sourcesByAnimationInstance[instance.id];
       if (!sources) return;
 
-      const trackKeys = computeVisibleSourceTracks(sources, { includeHidden });
+      const trackKeys = computeVisibleSourceTracks(sources, { includeHidden, includeMuted });
       trackKeys.forEach((trackKey) => {
         const parsed = parseTrackKey(trackKey);
         const trackId = parsed.trackId;
         const track = tracks[trackId];
         if (!track) return;
-
-        const isMuted = track.settings?.muted ?? false;
-        if (isMuted && !includeMuted) return;
 
         const animatableId = track.animatableId;
         if (!animatableId) return;

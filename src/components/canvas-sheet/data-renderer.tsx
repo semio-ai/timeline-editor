@@ -140,13 +140,10 @@ export const DataRenderer = memo(function DataRenderer({
     () => (sourceRow ? uniq(sourceRow.data.map((s) => s.trackId)) : []),
     [sourceRow],
   );
-  const rowMuted = useAnimationStore(
-    useCallback(
-      (state: StoreState) =>
-        trackIds.length > 0 && trackIds.every((id) => state.tracks[id]?.settings?.muted ?? false),
-      [trackIds],
-    ),
-  );
+  const rowMuted = useMemo(() => {
+    if (!sourceRow || sourceRow.data.length === 0) return false;
+    return sourceRow.data.every((entry) => entry.muted ?? false);
+  }, [sourceRow]);
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   const rowInstanceId = useMemo(() => {
     if (!sourceRow) return undefined;
