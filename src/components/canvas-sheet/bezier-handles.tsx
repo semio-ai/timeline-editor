@@ -5,6 +5,7 @@ import { Camera, Group, Mesh, OrthographicCamera, Vector3 } from "three";
 import { useMotionValueEvent, useSpring } from "motion/react";
 import { Theme } from "@semio/ui";
 import type { RawVector2 } from "@semio/utils";
+import { usePlayerStore } from "@semio/utils";
 import {
   LayerBand,
   RenderHandle,
@@ -147,6 +148,7 @@ export const BezierHandles = memo(function BezierHandles({
   xInverse,
   xScale,
 }: BezierHandlesProps) {
+  const running = usePlayerStore((state) => state.player.running);
   const startHandleDragAction = useAnimationStore((state) => state.startHandleDrag);
   const updateHandleDragAction = useAnimationStore((state) => state.updateHandleDrag);
   const commitDragAction = useAnimationStore((state) => state.commitDrag);
@@ -286,6 +288,7 @@ export const BezierHandles = memo(function BezierHandles({
         const endValue = endMarker?.value;
 
         const interaction =
+          !running &&
           startStamp !== undefined &&
           endStamp !== undefined &&
           typeof startValue === "number" &&
@@ -364,6 +367,7 @@ export const BezierHandles = memo(function BezierHandles({
     viewScaleY,
     xTransform,
     xInverse,
+    running,
   ]);
 
   const renderedHandles: RenderHandleView[] = memoizedHandles.handles;

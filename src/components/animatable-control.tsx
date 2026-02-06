@@ -100,6 +100,7 @@ function AnimatableLeafControl({
   disabled = false,
 }: AnimatableLeafControlProps) {
   const resolvedMode: AnimatableControlMode = mode ?? (sourceRowId ? "track" : "direct");
+  const running = usePlayerStore(useShallow((state) => state.player.running));
 
   const sourceRow = useAnimationStore(
     useShallow((state) => (sourceRowId ? state.instancedTrackSources[sourceRowId] : undefined)),
@@ -157,15 +158,15 @@ function AnimatableLeafControl({
   }, [activeAnimationId, animatable, animatableId, canAutoCreateTrack, createTrack]);
 
   const color = useColors(animatableId);
-  const resolvedColor = disabled ? DEFAULT_COLOR : color;
+  const resolvedColor = disabled || running ? DEFAULT_COLOR : color;
   const iconCode = animatable ? getIconCode(animatable.type, animatable.pub?.units) : "none";
 
   const handleValueChange = useCallback(
     (value: RawValue | ((current: RawValue) => RawValue)) => {
-      if (disabled) return;
+      if (disabled || running) return;
       onValueChange?.(value);
     },
-    [disabled, onValueChange],
+    [disabled, onValueChange, running],
   );
 
   const displayLabel = useMemo(() => {
@@ -185,23 +186,25 @@ function AnimatableLeafControl({
     );
   }
 
+  const editorDisabled = disabled || running;
+  let addTrackAction: (() => void) | undefined;
+  if (!editorDisabled && resolvedMode === "track-missing") {
+    addTrackAction = onAddTrack ?? (canAutoCreateTrack ? handleAddTrack : undefined);
+  }
+
   return (
     <ControlRow
       left={
         <ControlStrip
           color={resolvedColor}
-          disabled={disabled}
+          disabled={editorDisabled}
           prevEnabled={false}
           nextEnabled={false}
           prevVisible={false}
           nextVisible={false}
           centerIcon="plus"
           centerAltText="Add Track"
-          onCenter={
-            resolvedMode === "track-missing"
-              ? (onAddTrack ?? (canAutoCreateTrack ? handleAddTrack : undefined))
-              : undefined
-          }
+          onCenter={addTrackAction}
         />
       }
       mid={
@@ -219,7 +222,7 @@ function AnimatableLeafControl({
             animatable={animatable}
             rawValue={rawValue}
             color={resolvedColor}
-            disabled={disabled}
+            disabled={editorDisabled}
             label={displayLabel}
             emphasis={emphasis}
             onEmphasisChange={onEmphasisChange}
@@ -231,6 +234,7 @@ function AnimatableLeafControl({
       right={
         <div className="w-3 flex items-center justify-around mr-1">
           <Dropdown
+            disabled={editorDisabled}
             variant={Variant.Info}
             trigger={
               <span>
@@ -247,6 +251,7 @@ function AnimatableLeafControl({
             <NestedColorPicker
               variant={Variant.Info}
               value={color}
+              disabled={editorDisabled}
               onChange={(v) => {
                 if (!animatable) return;
                 updateAnimatable(animatableId, {
@@ -279,6 +284,7 @@ function AnimatableGroupControl({
   sourceRowId,
   disabled = false,
 }: AnimatableGroupControlProps) {
+  const running = usePlayerStore(useShallow((state) => state.player.running));
   const sourceRow = useAnimationStore(
     useShallow((state) => (sourceRowId ? state.instancedTrackSources[sourceRowId] : undefined)),
   );
@@ -345,7 +351,7 @@ function AnimatableGroupControl({
   const derivedAddable =
     typeof addable === "boolean" ? addable : missingChildAnimatableIds.length > 0;
   const canAutoCreate =
-    Boolean(activeAnimationId) && missingChildAnimatableIds.length > 0 && !disabled;
+    Boolean(activeAnimationId) && missingChildAnimatableIds.length > 0 && !disabled && !running;
 
   const handleAddTracks = useCallback(() => {
     if (!canAutoCreate || !activeAnimationId) return;
@@ -371,8 +377,8 @@ function AnimatableGroupControl({
 
   const color = useColors(getColorKey(groupId, hasTrackGroup, childAnimatableIds, sourceRow?.data));
 
-  const resolvedColor = disabled ? DEFAULT_COLOR : color;
-  const canAdd = !disabled && derivedAddable && Boolean(onAddTrack || canAutoCreate);
+  const resolvedColor = disabled || running ? DEFAULT_COLOR : color;
+  const canAdd = !disabled && !running && derivedAddable && Boolean(onAddTrack || canAutoCreate);
   const centerIcon = derivedAddable ? "plus" : "key";
 
   return (
@@ -382,9 +388,9 @@ function AnimatableGroupControl({
           <KeyStrip
             source={sourceRow}
             color={resolvedColor}
-            disabled={disabled || allReadonly}
+            disabled={disabled || running || allReadonly}
             onHexClick={() => {
-              if (disabled || allReadonly) return;
+              if (disabled || running || allReadonly) return;
               if (keyState === "full" && currentFrame) {
                 const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
                 const removals = points.map((p) => ({
@@ -404,7 +410,7 @@ function AnimatableGroupControl({
         ) : (
           <ControlStrip
             color={resolvedColor}
-            disabled={disabled}
+            disabled={disabled || running}
             prevEnabled={false}
             nextEnabled={false}
             prevVisible={false}
@@ -428,8 +434,9 @@ function AnimatableGroupControl({
           size={Size.Sm}
           color={resolvedColor}
           value={displayLabel}
-          readOnly={disabled || !onRename}
+          readOnly={disabled || running || !onRename}
           onChange={(val) => {
+            if (running) return;
             if (!val) return;
             onRename?.(val);
           }}

@@ -7,13 +7,14 @@ import {
   Dropdown,
   NestedLabel,
   NestedColorPicker,
+  NestedItem,
   TextField,
   Tooltip,
 } from "@semio/ui";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
 import { usePlayerStore, PlayerData } from "@semio/utils";
-import { IconDotsVertical } from "@tabler/icons-react";
+import { IconDotsVertical, IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
 import { type SourceRow } from "../types";
 import {
@@ -49,9 +50,24 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
   const updateControlColor = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateControlColor),
   );
+  const setTrackMuted = useAnimationStore(
+    useShallow((state: AnimationActions) => state.setTrackMuted),
+  );
 
   const animatables = useAnimationStore(useShallow((state) => state.animatables));
   const valuesRef = useValuesRef();
+  const trackMuted = useAnimationStore(
+    useShallow((state: AnimationData) =>
+      trackIds.length === 1 ? (state.tracks[trackIds[0]]?.settings?.muted ?? false) : false,
+    ),
+  );
+  const rowMuted = useAnimationStore(
+    useCallback(
+      (state: AnimationData) =>
+        trackIds.length > 0 && trackIds.every((id) => state.tracks[id]?.settings?.muted ?? false),
+      [trackIds],
+    ),
+  );
 
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
 
@@ -118,7 +134,7 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
 
   const trueColor = useColors(trackIds);
-  const color = isActive ? trueColor : DEFAULT_COLOR;
+  const color = isActive && !rowMuted ? trueColor : DEFAULT_COLOR;
   const resolvedName = useNames(trackIds);
   const groupName = sourceRow.name ?? resolvedName;
   const name = isGroup ? groupName : resolvedName;
@@ -144,13 +160,17 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
         />
       )}
       <ControlRow
-        className={clsx(!isActive && uniqueInstanceId && "pointer-events-none select-none")}
+        className={clsx(
+          !isActive && uniqueInstanceId && "pointer-events-none select-none",
+          rowMuted && isActive && "opacity-60",
+        )}
         left={
           <KeyStrip
-            disabled={allReadonly || !isActive}
+            disabled={allReadonly || !isActive || playing}
             source={sourceRow}
             color={color}
             onHexClick={() => {
+              if (playing) return;
               if (keyState === "full" && currentFrame) {
                 const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
                 const removals = points.map((p) => ({
@@ -194,7 +214,9 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
               size={Size.Sm}
               color={color}
               value={name}
+              readOnly={playing}
               onChange={(val) => {
+                if (playing) return;
                 if (!val) return;
                 updateSource(sourceRow.id, sourceRow.expanded, undefined);
                 updateTrackGroupName(trackIds, val);
@@ -206,6 +228,7 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
                 rowId={sourceRow.id}
                 data={sourceRow.data[0]}
                 active={isActive}
+                colorOverride={color}
                 playing={playing}
                 emphasis={emphasis}
                 onEmphasisChange={onEmphasisChange}
@@ -274,6 +297,7 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
         right={
           <div className="w-3 flex items-center justify-around mr-1">
             <Dropdown
+              disabled={playing}
               variant={Variant.Info}
               trigger={
                 <span>
@@ -289,12 +313,30 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
               <NestedLabel>Track Settings</NestedLabel>
               <NestedColorPicker
                 variant={Variant.Info}
-                disabled={trackIds.length > 1}
+                disabled={trackIds.length > 1 || playing}
                 value={color}
                 onChange={(v) => {
                   if (trackIds[0]) updateControlColor(trackIds[0], v);
                 }}
               />
+              <NestedItem
+                variant={Variant.Info}
+                disabled={trackIds.length !== 1 || allReadonly || playing}
+                closeOnSelect={false}
+                left={
+                  trackMuted ? (
+                    <IconMicrophoneOff className="size-3/5" />
+                  ) : (
+                    <IconMicrophone className="size-3/5" />
+                  )
+                }
+                onClick={() => {
+                  if (trackIds.length !== 1 || !trackIds[0]) return;
+                  setTrackMuted(trackIds[0], !trackMuted);
+                }}
+              >
+                {trackMuted ? "Muted" : "Not muted"}
+              </NestedItem>
             </Dropdown>
           </div>
         }

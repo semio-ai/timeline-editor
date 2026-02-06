@@ -33,6 +33,7 @@ export interface DataPointProps {
   verticalAxisRange?: VerticalAxisRange;
   renderMorphProgress?: MotionValue<number>;
   xTransform?: (stamp: number) => number;
+  colorOverride?: string;
 }
 
 export const DataPoint = memo(function DataPoint({
@@ -45,6 +46,7 @@ export const DataPoint = memo(function DataPoint({
   verticalAxisRange,
   renderMorphProgress,
   xTransform,
+  colorOverride,
 }: DataPointProps) {
   // Get fresh data from store
   const data = useAnimationStore(
@@ -279,8 +281,10 @@ export const DataPoint = memo(function DataPoint({
   // For TrackRender.Key: show line when there are any unselectable points
   const shouldShowLineForKey = trackRender === TrackRender.Key && hasBackgroundPoints;
 
-  const baseColor = useColors(highestPriorityIds);
-  const lineColor = useColors(vertLineIds);
+  const baseColorFromTracks = useColors(highestPriorityIds);
+  const lineColorFromTracks = useColors(vertLineIds);
+  const baseColor = colorOverride ?? baseColorFromTracks;
+  const lineColor = colorOverride ?? lineColorFromTracks;
 
   const baseBackdropColor = useMemo(() => {
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);

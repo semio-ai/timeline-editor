@@ -16,6 +16,7 @@ export interface AnimatableEditorProps {
   onEmphasisChange?: (v: boolean) => void;
   handleValueChange: (value: RawValue | ((current: RawValue) => RawValue)) => void;
   active?: boolean;
+  colorOverride?: string;
 }
 
 function InnerAnimatableEditor({
@@ -26,9 +27,10 @@ function InnerAnimatableEditor({
   onEmphasisChange,
   handleValueChange,
   active = true,
+  colorOverride,
 }: AnimatableEditorProps) {
   const trueColor = useColors(data.trackId ?? data.animatableId);
-  const color = active ? trueColor : DEFAULT_COLOR;
+  const color = colorOverride ?? (active ? trueColor : DEFAULT_COLOR);
 
   const stamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
   const valueKey = useMemo(

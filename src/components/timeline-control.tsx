@@ -104,7 +104,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
     [sourcesByAnimationInstance],
   );
   const hasView = Boolean(viewData);
-  const controlsDisabled = !source || !hasTrackOptions || !hasView;
+  const controlsDisabled = !source || !hasTrackOptions || !hasView || running;
 
   const handleChangeSelection = useCallback(
     (_: string[], changes: { id: string; operation: "add" | "remove" }[]) => {

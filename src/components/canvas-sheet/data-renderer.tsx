@@ -37,6 +37,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   trackRender = TrackRender.Key,
   renderMorphProgress,
   height = 36,
+  colorOverride,
 }: {
   sourceRow: SourceRow;
   selectionFrames: SelectionFrame[];
@@ -48,6 +49,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   trackRender?: TrackRender;
   renderMorphProgress?: MotionValue<number>;
   height?: number;
+  colorOverride?: string;
 }) {
   const instanceCount = selectionFrames.length * 2;
 
@@ -78,6 +80,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
           height={height}
           verticalBounds={verticalBounds}
           verticalAxisRange={verticalAxisRange}
+          colorOverride={colorOverride}
         />
       ))}
     </Instances>
@@ -137,6 +140,13 @@ export const DataRenderer = memo(function DataRenderer({
     () => (sourceRow ? uniq(sourceRow.data.map((s) => s.trackId)) : []),
     [sourceRow],
   );
+  const rowMuted = useAnimationStore(
+    useCallback(
+      (state: StoreState) =>
+        trackIds.length > 0 && trackIds.every((id) => state.tracks[id]?.settings?.muted ?? false),
+      [trackIds],
+    ),
+  );
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   const rowInstanceId = useMemo(() => {
     if (!sourceRow) return undefined;
@@ -189,7 +199,8 @@ export const DataRenderer = memo(function DataRenderer({
       return LayerBand.Background;
     }
   }, [computedData?.render?.markers]);
-  const color = useColors(trackIds);
+  const baseColor = useColors(trackIds);
+  const color = rowMuted ? DEFAULT_COLOR : baseColor;
   const hoverCountRef = useRef(0);
   const [isRowHovered, setIsRowHovered] = useState(false);
 
@@ -351,6 +362,7 @@ export const DataRenderer = memo(function DataRenderer({
         trackRender={renderMode}
         renderMorphProgress={renderMorphProgress}
         height={height - 1}
+        colorOverride={rowMuted ? DEFAULT_COLOR : undefined}
       />
 
       {/* Render transition segments */}

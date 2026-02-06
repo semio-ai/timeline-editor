@@ -73,13 +73,18 @@ export function createTestAnimationState(trackCount: number, keysPerTrack: numbe
     },
   };
 
+  const namespaceId = "default";
   const namespaces = {
-    default: {
-      [animationInstance.id]: animationInstance,
+    [namespaceId]: {
+      id: namespaceId,
+      name: "Default",
+      animationInstances: {
+        [animationInstance.id]: animationInstance,
+      },
     },
   };
 
-  state.namespaceInfo = namespaces;
+  state.namespaces = namespaces;
 
   return state;
 }

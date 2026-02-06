@@ -71,6 +71,7 @@ import {
   updateConsolidatedSourceRow,
   updateGlobalSources,
   updateSourceRowIds,
+  updateTrackMuting,
   initDerivedOrchestrator,
 } from "./subscriptions";
 import { View } from "./types/util/view";
@@ -509,6 +510,7 @@ export const AnimationSlice = (
         updateOverallDuration,
         initDerivedOrchestrator,
         updateInstancedTrackSources,
+        updateTrackMuting,
         updateGlobalSources,
         updateSourceRowIds,
         updateConsolidatedSourceRow,
@@ -605,6 +607,55 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           updateControlColor(state, controlId, color);
+        }),
+      );
+    },
+    setTrackMuted: (trackId: string, muted: boolean) => {
+      set(
+        produce((state: AnimationData): void => {
+          const track = state.tracks[trackId];
+          if (!track) return;
+          if (!track.settings) {
+            track.settings = {};
+          }
+          track.settings.muted = muted;
+
+          if (!muted) {
+            const animatableId = track.animatableId;
+            if (animatableId) {
+              Object.values(state.namespaces).forEach((namespace) => {
+                let namespaceHasTrack = false;
+                const conflictingTrackIds = new Set<string>();
+
+                Object.values(namespace.animationInstances ?? {}).forEach((instance) => {
+                  const animation = state.animations[instance.animationId];
+                  if (!animation) return;
+                  animation.tracks.forEach((candidateId) => {
+                    const candidate = state.tracks[candidateId];
+                    if (!candidate || candidate.animatableId !== animatableId) return;
+                    conflictingTrackIds.add(candidateId);
+                    if (candidateId === trackId) {
+                      namespaceHasTrack = true;
+                    }
+                  });
+                });
+
+                if (!namespaceHasTrack) return;
+
+                conflictingTrackIds.forEach((candidateId) => {
+                  if (candidateId === trackId) return;
+                  const candidate = state.tracks[candidateId];
+                  if (!candidate) return;
+                  if (!candidate.settings) {
+                    candidate.settings = {};
+                  }
+                  candidate.settings.muted = true;
+                });
+              });
+            }
+          }
+
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
     },

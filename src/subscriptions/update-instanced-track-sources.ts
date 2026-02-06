@@ -13,7 +13,7 @@ import { getIconCode } from "../functions/get-icon-code";
 export function updateInstancedTrackSources(
   api: AnimationApi,
   set: AnimationStoreSetter,
-  _get: AnimationStoreGetter,
+  get: AnimationStoreGetter,
 ): () => void {
   return api.subscribe(
     (state: AnimationData) => ({
@@ -35,7 +35,6 @@ export function updateInstancedTrackSources(
       activeAnimationId,
       selectedKeypoints,
     }) => {
-      // console.log(namespaceInfo, animations, subscribes);
       // for each namespace -> for each instance -> for each track in the instance's aninimation subscribe... to namespace/track
       if (!namespaces) return;
 
@@ -141,7 +140,11 @@ export function updateInstancedTrackSources(
         });
       });
 
-      set({ instancedTrackSources });
+      const existingGlobal = get().instancedTrackSources?.global;
+      const nextSources = existingGlobal
+        ? { ...instancedTrackSources, global: existingGlobal }
+        : instancedTrackSources;
+      set({ instancedTrackSources: nextSources });
     },
     {
       equalityFn: (current, previous) => {

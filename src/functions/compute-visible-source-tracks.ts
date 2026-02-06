@@ -1,7 +1,15 @@
 import { GROUP_TYPES } from "../constants";
 import { Source, SourceGroup, SourceTrack } from "../types";
 
-export function computeVisibleSourceTracks(sources: Source[]): string[] {
+interface ComputeVisibleSourceTracksOptions {
+  includeHidden?: boolean;
+}
+
+export function computeVisibleSourceTracks(
+  sources: Source[],
+  options: ComputeVisibleSourceTracksOptions = {},
+): string[] {
+  const includeHidden = options.includeHidden ?? false;
   const openTracks = new Set<string>();
   if (!sources) {
     return [];
@@ -10,15 +18,16 @@ export function computeVisibleSourceTracks(sources: Source[]): string[] {
   sources.forEach((source) => {
     if (GROUP_TYPES.has(source.type)) {
       const sourceGroup = source as SourceGroup;
-      computeVisibleSourceTracks(sourceGroup.children).forEach((id) => {
+      computeVisibleSourceTracks(sourceGroup.children, options).forEach((id) => {
         openTracks.add(id);
       });
     } else {
       const sourceTrack = source as SourceTrack;
-      if (!sourceTrack.hidden) {
-        const id = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}`;
-        openTracks.add(id);
+      if (sourceTrack.hidden && !includeHidden) {
+        return;
       }
+      const id = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}`;
+      openTracks.add(id);
     }
   });
   return Array.from(openTracks);

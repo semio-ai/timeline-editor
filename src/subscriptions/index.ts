@@ -6,5 +6,6 @@ export { updatePlayerLoop } from "./update-player-loop";
 export { updateConsolidatedSourceRow } from "./update-consolidated-source-row";
 export { updateGlobalSources } from "./update-global-sources";
 export { updateSourceRowIds } from "./update-source-row-ids";
+export { updateTrackMuting } from "./update-track-muting";
 
 export { initDerivedOrchestrator } from "./init-derived-orchestrator";

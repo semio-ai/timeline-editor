@@ -41,7 +41,6 @@ export interface AnimationData {
   /**
    * A record of animation instances and their namespaces, used for specifying how
    * values are written into state.values without overriding others.
-   * namespaceInfo: { [namespace]: { [animationInstanceId]: animationInstance } }
    */
   namespaces: Record<string, Namespace>;
   /**
@@ -374,6 +373,13 @@ export interface AnimationActions {
    * @param color - The color to set.
    */
   updateControlColor: (controlId: string, color: string) => void;
+  /**
+   * Set the muted state of a track. When unmuting, conflicting tracks within the
+   * same namespace and animatable are muted.
+   * @param trackId - Track id to update.
+   * @param muted - Whether the track is muted.
+   */
+  setTrackMuted: (trackId: string, muted: boolean) => void;
   /**
    * Set animatables in bulk, replacing existing animatables.
    * @param animatables - Record of animatable ID to AnimatableValue
