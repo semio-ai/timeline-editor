@@ -379,7 +379,11 @@ function AnimatableGroupControl({
 
   const resolvedColor = disabled || running ? DEFAULT_COLOR : color;
   const canAdd = !disabled && !running && derivedAddable && Boolean(onAddTrack || canAutoCreate);
-  const centerIcon = derivedAddable ? "plus" : "key";
+  // Keep the empty-group affordance aligned with leaf track-missing rows.
+  let centerIcon: "key" | "plus" = "plus";
+  if (hasTrackGroup) {
+    centerIcon = derivedAddable ? "plus" : "key";
+  }
 
   return (
     <ControlRow
