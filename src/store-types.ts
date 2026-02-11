@@ -23,6 +23,11 @@ import type {
 import type { SelectionState } from "./types/util/selection-state";
 import type { SimpleKeypoint, SimpleTrack } from "./types/data/simple-track";
 
+export enum KeypointInsertionMethod {
+  Flat = "flat",
+  Sloped = "sloped",
+}
+
 /**
  * Interface representing the data structure for animation.
  */
@@ -89,6 +94,7 @@ export interface AnimationData {
   preferences: {
     hoverDashedLine: boolean;
     dataPreviews: boolean;
+    keypointInsertionMethod: KeypointInsertionMethod;
   };
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   animatables: Record<string, AnimatableValue>;

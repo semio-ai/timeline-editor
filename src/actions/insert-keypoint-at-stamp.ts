@@ -1,18 +1,17 @@
 import { computeLocalStamp } from "../functions/compute-instance-time";
-import type { AnimationData } from "../store-types";
+import { type AnimationData, KeypointInsertionMethod } from "../store-types";
 import { StandardTransitionType } from "../types";
 import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "../types/data/simple-track";
 import { buildTrackKey } from "../utils/track-key";
 import { insertKeypointWithDeCasteljau } from "../functions/insert-keypoint-with-decasteljau";
 
 /**
- * Inserts a keypoint at a given world stamp for a specific instance, computing a best-effort value
- * using the current interpolator and sorting the resulting points by stamp.
+ * Inserts a keypoint at a given world stamp for a specific instance.
  *
  * Notes:
- * - This is a shape-safe insertion in terms of ordering and default transitions, but it does not yet
- *   preserve the exact pre-insertion curve shape. A de Casteljau-based split should replace the
- *   transition assignment so the curve before/after insertion remains identical.
+ * - When `preferences.keypointInsertionMethod` is `sloped`, insertion uses a de Casteljau split and
+ *   preserves the segment shape.
+ * - When the setting is `flat`, insertion uses default cubic transitions on the new point.
  * - Control-surface callers should pass the world (player) stamp and the instanceId they operate on.
  */
 export function insertKeypointAtWorldStamp(
@@ -31,12 +30,17 @@ export function insertKeypointAtWorldStamp(
   const offset = resolved?.instance?.settings?.offset ?? 0;
   const namespaceId = resolved?.namespaceId;
 
-  // First, attempt shape-preserving de Casteljau split; fall back if no segment contains the stamp.
-  const split = insertKeypointWithDeCasteljau(track, worldStamp, {
-    settings: { offset, timescale, active: true },
-  });
-  if (split) {
-    return split.inserted as SimpleKeypoint;
+  const insertionMethod =
+    state.preferences?.keypointInsertionMethod ?? KeypointInsertionMethod.Flat;
+
+  if (insertionMethod === KeypointInsertionMethod.Sloped) {
+    // Attempt shape-preserving split first; fall back if no segment contains the stamp.
+    const split = insertKeypointWithDeCasteljau(track, worldStamp, {
+      settings: { offset, timescale, active: true },
+    });
+    if (split) {
+      return split.inserted as SimpleKeypoint;
+    }
   }
   // Convert to local (instance) time for storage in the keypoint.
   const localStamp = computeLocalStamp(worldStamp, timescale, offset);

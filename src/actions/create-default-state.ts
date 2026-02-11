@@ -1,5 +1,5 @@
 import { TimeDisplay } from "@semio/ui";
-import { AnimationData } from "../store-types";
+import { AnimationData, KeypointInsertionMethod } from "../store-types";
 import { createEmptySelectionState } from "../functions/selection-state-manager";
 // import { createDefaultAnimation } from "./create-default-animation";
 
@@ -34,6 +34,7 @@ export const createDefaultState = (): AnimationData => {
     preferences: {
       hoverDashedLine: false,
       dataPreviews: true,
+      keypointInsertionMethod: KeypointInsertionMethod.Flat,
     },
 
     animatables: {},

@@ -15,7 +15,14 @@ import { animate, useMotionValue, useMotionValueEvent, useSpring } from "motion/
 import { Instances } from "@react-three/drei";
 import { uniq } from "lodash";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
-import { LayerBand, SelectionFrame, SourceRow, TrackRender, VerticalAxisRange } from "../../types";
+import {
+  LayerBand,
+  SelectionFrame,
+  SourceRow,
+  TrackRender,
+  VerticalAxis,
+  VerticalAxisRange,
+} from "../../types";
 import { AnimationData, AnimationActions } from "../../store-types";
 import { DEFAULT_COLOR, RENDER_MORPH_SPRING, Z } from "../../constants";
 import { DataPoint } from "./data-point";
@@ -274,20 +281,32 @@ export const DataRenderer = memo(function DataRenderer({
   const renderMorphProgress = useMotionValue(1);
   const renderMorphAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
   const previousRenderModeRef = useRef(renderMode);
+  const verticalAxisSetting = useAnimationStore(
+    useShallow((state: StoreState) =>
+      viewId
+        ? (state.editorViews[viewId]?.verticalAxis ?? VerticalAxis.Normalized)
+        : VerticalAxis.Normalized,
+    ),
+  );
+  const previousVerticalAxisRef = useRef(verticalAxisSetting);
   useLayoutEffect(() => {
     const renderChanged = previousRenderModeRef.current !== renderMode;
+    const verticalAxisChanged = previousVerticalAxisRef.current !== verticalAxisSetting;
+    const shouldAnimateVerticalAxisChange =
+      renderMode === TrackRender.Spline && verticalAxisChanged;
     renderMorphAnimationRef.current?.stop();
-    if (renderChanged) {
+    if (renderChanged || shouldAnimateVerticalAxisChange) {
       renderMorphProgress.set(0);
       renderMorphAnimationRef.current = animate(renderMorphProgress, 1, RENDER_MORPH_SPRING);
     } else {
       renderMorphProgress.set(1);
     }
     previousRenderModeRef.current = renderMode;
+    previousVerticalAxisRef.current = verticalAxisSetting;
     return () => {
       renderMorphAnimationRef.current?.stop();
     };
-  }, [renderMode, renderMorphProgress]);
+  }, [renderMode, renderMorphProgress, verticalAxisSetting]);
 
   const canRenderHandles = trackRender === TrackRender.Spline && !keyForced;
   const rowHandlesEligible = canRenderHandles && rowHasSelection;
@@ -368,6 +387,7 @@ export const DataRenderer = memo(function DataRenderer({
           <Fragment key={segment.id}>
             <TransitionSegment
               trackRender={renderMode}
+              verticalAxis={verticalAxisSetting}
               height={height - 1}
               verticalBounds={effectiveVerticalBounds}
               sourceRow={sourceRow}

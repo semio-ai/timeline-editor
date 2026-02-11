@@ -9,6 +9,7 @@ import {
   TrackRender,
   SourceRow,
   LayerBand,
+  VerticalAxis,
   VerticalAxisRange,
   RenderSegment,
   RenderSampleCache,
@@ -55,6 +56,7 @@ export interface TransitionSegmentProps {
   segment: RenderSegment;
   sourceRow: SourceRow;
   trackRender: TrackRender;
+  verticalAxis?: VerticalAxis;
   height: number;
   verticalBounds?: { min: number; max: number };
   verticalAxisRange?: VerticalAxisRange;
@@ -73,6 +75,7 @@ export interface TransitionSegmentProps {
  */
 export const TransitionSegment = memo(function TransitionSegment({
   trackRender,
+  verticalAxis = VerticalAxis.Normalized,
   height,
   verticalBounds = { min: 0, max: 1 },
   sourceRow,
@@ -133,6 +136,7 @@ export const TransitionSegment = memo(function TransitionSegment({
   const morphingRef = useRef(false);
   const prevPoints2DRef = useRef<Float32Array | null>(null);
   const prevRenderRef = useRef(trackRender);
+  const prevVerticalAxisRef = useRef(verticalAxis);
   const lineRef = useRef<LineRef | null>(null);
   const hitLineRef = useRef<LineRef | null>(null);
   const linePositionsRef = useRef<Float32Array | null>(null);
@@ -369,8 +373,11 @@ export const TransitionSegment = memo(function TransitionSegment({
     const prevRender = prevRenderRef.current;
     const fromPoints = prevPoints2DRef.current;
     const renderChanged = prevRender !== trackRender;
+    const verticalAxisChanged = prevVerticalAxisRef.current !== verticalAxis;
+    const shouldAnimateVerticalAxisChange =
+      trackRender === TrackRender.Spline && verticalAxisChanged;
     if (
-      renderChanged &&
+      (renderChanged || shouldAnimateVerticalAxisChange) &&
       fromPoints &&
       currentPoints2D &&
       fromPoints.length === currentPoints2D.length
@@ -387,7 +394,8 @@ export const TransitionSegment = memo(function TransitionSegment({
       prevPoints2DRef.current = currentPoints2D;
     }
     prevRenderRef.current = trackRender;
-  }, [trackRender, currentPoints2D, updateLineGeometry, updateFillGeometry]);
+    prevVerticalAxisRef.current = verticalAxis;
+  }, [trackRender, verticalAxis, currentPoints2D, updateLineGeometry, updateFillGeometry]);
 
   const handlePointerEnter = () => {
     if (!isInteractive) return;

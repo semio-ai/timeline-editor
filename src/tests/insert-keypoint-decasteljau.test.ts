@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createMinimalAnimationStore } from "../test-fixtures/animation-store-factory";
-import type { AnimationData } from "../store-types";
+import { type AnimationData, KeypointInsertionMethod } from "../store-types";
+import { StandardTransitionType } from "../types";
 import { buildTrackKey } from "../utils/track-key";
 import { computeWorldStamp } from "../functions/compute-instance-time";
 import { flushMicrotasks } from "./utils/flush-microtasks";
@@ -56,7 +57,7 @@ function resolveSingleNamespaceAndInstance(state: AnimationData): {
 function findMidSegmentLocalStamp(
   state: AnimationData,
   trackId: string,
-): { start: number; end: number; mid: number } {
+): { start: number; end: number; mid: number; startPointId: string; endPointId: string } {
   const pts = state.tracks[trackId].points.slice().sort((a, b) => a.stamp - b.stamp);
   if (pts.length < 2) {
     throw new Error("Track must have at least two points");
@@ -74,34 +75,59 @@ function findMidSegmentLocalStamp(
   const start = pts[bestIdx].stamp;
   const end = pts[bestIdx + 1].stamp;
   const mid = start + (end - start) * 0.5;
-  return { start, end, mid };
+  return {
+    start,
+    end,
+    mid,
+    startPointId: pts[bestIdx].id,
+    endPointId: pts[bestIdx + 1].id,
+  };
 }
 
-describe("insertKeypointWithDeCasteljau via insertKeypointAtWorldStamp", () => {
-  it("inserts a keypoint at the correct (exact) local time for a numeric track", async () => {
+describe("insertKeypointAtWorldStamp insertion preferences", () => {
+  it("defaults to flat insertion and uses cubic transitions for the new keypoint", async () => {
     const store = createMinimalAnimationStore();
-    // Resolve track/instance context
     const state0 = store.getState();
+    expect(state0.preferences.keypointInsertionMethod).toBe(KeypointInsertionMethod.Flat);
+
     const trackId = Object.keys(state0.tracks)[0]; // minimal store has a single numeric track (SCALE)
     const { instanceId, timescale, offset } = resolveSingleNamespaceAndInstance(state0);
+    const { mid: localMid, startPointId, endPointId } = findMidSegmentLocalStamp(state0, trackId);
 
-    // Choose a mid-segment local time and convert to world time
-    const { mid: localMid } = findMidSegmentLocalStamp(state0, trackId);
+    const startPointBefore = state0.tracks[trackId].points.find(
+      (point) => point.id === startPointId,
+    );
+    const endPointBefore = state0.tracks[trackId].points.find((point) => point.id === endPointId);
+    const startTransitionsBefore = JSON.parse(
+      JSON.stringify(startPointBefore?.transitions ?? null),
+    ) as unknown;
+    const endTransitionsBefore = JSON.parse(
+      JSON.stringify(endPointBefore?.transitions ?? null),
+    ) as unknown;
+
     const worldStamp = computeWorldStamp(localMid, timescale, offset);
 
-    // Perform insertion
     store.getState().insertKeypointAtWorldStamp(trackId, worldStamp, instanceId);
     await flushMicrotasks();
 
     const state1 = store.getState();
     const inserted = state1.tracks[trackId].points.find((p) => Math.abs(p.stamp - localMid) < 1e-6);
     expect(inserted, "Expected a keypoint inserted at the local mid-segment time").toBeTruthy();
-    // Assert exact placement (within a tight tolerance)
     expect(Math.abs(inserted!.stamp - localMid)).toBeLessThan(1e-9);
+    expect(inserted?.transitions?.in).toBe(StandardTransitionType.Cubic);
+    expect(inserted?.transitions?.out).toBe(StandardTransitionType.Cubic);
+
+    const startPointAfter = state1.tracks[trackId].points.find(
+      (point) => point.id === startPointId,
+    );
+    const endPointAfter = state1.tracks[trackId].points.find((point) => point.id === endPointId);
+    expect(startPointAfter?.transitions ?? null).toEqual(startTransitionsBefore);
+    expect(endPointAfter?.transitions ?? null).toEqual(endTransitionsBefore);
   });
 
-  it("preserves curve shape around the insertion point (numeric track)", async () => {
+  it("preserves curve shape around the insertion point when insertion is sloped", async () => {
     const store = createMinimalAnimationStore();
+    store.getState().setPreferences({ keypointInsertionMethod: KeypointInsertionMethod.Sloped });
     const state0 = store.getState();
     const trackId = Object.keys(state0.tracks)[0]; // numeric track
     const { namespaceId, instanceId, timescale, offset } =

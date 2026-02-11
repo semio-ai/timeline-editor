@@ -6,7 +6,7 @@ import { clsx } from "clsx";
 // import { Canvas } from "@react-three/fiber";
 // import { Hud } from "@react-three/drei";
 import {
-  ToggleGroup,
+  Select,
   Size,
   ToggleSquare,
   IconPreviewView,
@@ -26,6 +26,7 @@ import {
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
 import { TrackRender, VerticalAxis } from "../types";
+import { KeypointInsertionMethod } from "../store-types";
 import {
   useAnimationStore,
   ColorContextProvider,
@@ -217,6 +218,7 @@ function InnerSheet({
 
   // Define callbacks that update the view properties in the store;
   const updateView = useAnimationStore(useShallow((state) => state.updateView));
+  const setPreferences = useAnimationStore(useShallow((state) => state.setPreferences));
   const setTrackRender = useCallback(
     (renderOption: TrackRender) => {
       updateView(viewId, { trackRender: renderOption });
@@ -229,8 +231,15 @@ function InnerSheet({
     },
     [viewId, updateView],
   );
+  const setInsertionMethod = useCallback(
+    (method: KeypointInsertionMethod) => {
+      setPreferences({ keypointInsertionMethod: method });
+    },
+    [setPreferences],
+  );
 
   const state = useAnimationStore((s) => s);
+  const insertionMethod = state.preferences.keypointInsertionMethod;
 
   const scrollY = useMotionValue(0);
 
@@ -289,67 +298,90 @@ function InnerSheet({
                     />
                   </ToggleSquare>
 
-                  <ToggleGroup
-                    bg
-                    visuals="icons"
-                    size={Size.Sm}
-                    value={trackRender}
-                    onChange={(v: string) => {
-                      setTrackRender(v as TrackRender);
-                    }}
-                    options={[
-                      {
-                        value: TrackRender.Key,
-                        label: "Key View",
-                        icon: <IconLine size="11px" className="rotate-45" />,
-                      },
-                      {
-                        value: TrackRender.Transition,
-                        label: "Transition View",
-                        icon: <IconLine size="11px" />,
-                      },
-                      {
-                        value: TrackRender.Preview,
-                        label: "Preview View",
-                        icon: <IconPreviewView size="11px" />,
-                      },
-                      {
-                        value: TrackRender.Spline,
-                        label: "Spline View",
-                        icon: <IconVectorBezier2 size="11px" className="-scale-x-100" />,
-                      },
-                      {
-                        value: TrackRender.Data,
-                        label: "Data View",
-                        icon: <IconTable size="11px" />,
-                        disabled: true,
-                      },
-                    ]}
-                  />
+                  <div className="flex gap-2">
+                    <Select
+                      sizing="inner"
+                      visuals="icons"
+                      size={Size.Sm}
+                      value={trackRender}
+                      onChange={(v) => {
+                        setTrackRender(v as TrackRender);
+                      }}
+                      options={[
+                        {
+                          value: TrackRender.Key,
+                          label: "Key View",
+                          icon: <IconLine size="11px" className="rotate-45" />,
+                        },
+                        {
+                          value: TrackRender.Transition,
+                          label: "Transition View",
+                          icon: <IconLine size="11px" />,
+                        },
+                        {
+                          value: TrackRender.Preview,
+                          label: "Preview View",
+                          icon: <IconPreviewView size="11px" />,
+                        },
+                        {
+                          value: TrackRender.Spline,
+                          label: "Spline View",
+                          icon: <IconVectorBezier2 size="11px" className="-scale-x-100" />,
+                        },
+                        {
+                          value: TrackRender.Data,
+                          label: "Data View",
+                          icon: <IconTable size="11px" />,
+                          disabled: true,
+                        },
+                      ]}
+                    />
 
-                  <ToggleGroup
-                    bg
-                    visuals="icons"
-                    size={Size.Sm}
-                    value={verticalAxis}
-                    onChange={(t: string) => {
-                      setVerticalAxis(t as VerticalAxis);
-                    }}
-                    options={[
-                      {
-                        value: VerticalAxis.Normalized,
-                        label: "Normalized Y",
-                        icon: <IconNormalized size="11px" />,
-                        disabled: trackRender !== TrackRender.Spline,
-                      },
-                      {
-                        value: VerticalAxis.Uniform,
-                        label: "Uniform Y",
-                        icon: <IconUniform size="11px" />,
-                        disabled: trackRender !== TrackRender.Spline,
-                      },
-                    ]}
-                  />
+                    <Select
+                      sizing="inner"
+                      visuals="icons"
+                      size={Size.Sm}
+                      value={verticalAxis}
+                      onChange={(t) => {
+                        setVerticalAxis(t as VerticalAxis);
+                      }}
+                      options={[
+                        {
+                          value: VerticalAxis.Normalized,
+                          label: "Normalized Y",
+                          icon: <IconNormalized size="11px" />,
+                          disabled: trackRender !== TrackRender.Spline,
+                        },
+                        {
+                          value: VerticalAxis.Uniform,
+                          label: "Uniform Y",
+                          icon: <IconUniform size="11px" />,
+                          disabled: trackRender !== TrackRender.Spline,
+                        },
+                      ]}
+                    />
+                    <Select
+                      sizing="inner"
+                      visuals="icons"
+                      size={Size.Sm}
+                      value={insertionMethod}
+                      onChange={(v) => {
+                        setInsertionMethod(v as KeypointInsertionMethod);
+                      }}
+                      options={[
+                        {
+                          value: KeypointInsertionMethod.Flat,
+                          label: "Insert Flat",
+                          icon: <IconLine size="11px" />,
+                        },
+                        {
+                          value: KeypointInsertionMethod.Sloped,
+                          label: "Insert Sloped",
+                          icon: <IconVectorBezier2 size="11px" className="-scale-x-100" />,
+                        },
+                      ]}
+                    />
+                  </div>
 
                   <ToggleSquare
                     sizing="inner"

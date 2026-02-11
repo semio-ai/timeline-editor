@@ -3,6 +3,7 @@ import { TimeDisplay } from "@semio/ui";
 import { type Track, type Namespace, TransitionPairing, StoredAnimation } from "../types";
 import { createAnimationStore, type AnimationStore } from "../store";
 import { migrateAnimationData } from "../functions/migrate-animation-data";
+import { KeypointInsertionMethod } from "../store-types";
 
 // Animation IDs
 export const ANIMATION_IDS = {
@@ -661,6 +662,7 @@ export function createTestAnimationStore(options?: {
     preferences: {
       hoverDashedLine: true,
       dataPreviews: true,
+      keypointInsertionMethod: KeypointInsertionMethod.Flat,
     },
   });
 
@@ -691,6 +693,7 @@ export function createMinimalAnimationStore(): AnimationStore {
     preferences: {
       hoverDashedLine: true,
       dataPreviews: true,
+      keypointInsertionMethod: KeypointInsertionMethod.Flat,
     },
   });
 

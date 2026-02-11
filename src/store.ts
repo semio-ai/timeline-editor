@@ -803,10 +803,17 @@ function normalizeBounds(bounds: [number, number]): [number, number] {
 
 export function createAnimationStore(initial?: Partial<AnimationData>): AnimationStore {
   const store = create<AnimationData & AnimationActions>()(
-    subscribeWithSelector((set, get, api) => ({
-      ...AnimationSlice(set, get, api),
-      ...initial,
-    })),
+    subscribeWithSelector((set, get, api) => {
+      const slice = AnimationSlice(set, get, api);
+      return {
+        ...slice,
+        ...initial,
+        preferences: {
+          ...slice.preferences,
+          ...(initial?.preferences ?? {}),
+        },
+      };
+    }),
   );
   store.getState().initAnimationSubscriptions();
   return store;
