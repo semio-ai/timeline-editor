@@ -1,6 +1,8 @@
 import { Transition } from "motion";
 import { LayerBand, StandardTransitionType } from "./types";
 
+export const MIN_SHEET_HEIGHT = 178;
+
 export const TIMELINE_PADDING = 10;
 export const DEFAULT_ANIMATION_ID = "default-animation";
 export const DEFAULT_TRACK_HEIGHT = 36;

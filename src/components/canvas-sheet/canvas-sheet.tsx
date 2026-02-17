@@ -171,11 +171,11 @@ const CanvasContent = memo(function CanvasContent({
       <HudSection
         label="top-hud"
         position="top"
-        pixelHeight={32}
+        pixelHeight={36}
         backgroundColor={bgColor}
         renderPriority={1}
       >
-        <RulerRenderer height={32} side="top" theme={theme} fonts={fonts} />
+        <RulerRenderer height={36} side="top" theme={theme} fonts={fonts} />
       </HudSection>
 
       {/* Timeline HUD: 36px tall */}

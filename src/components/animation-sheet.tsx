@@ -3,26 +3,24 @@ import { useContext, memo, useState, useEffect, useCallback, useId, useRef } fro
 import { useShallow } from "zustand/react/shallow";
 import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
-// import { Canvas } from "@react-three/fiber";
-// import { Hud } from "@react-three/drei";
 import {
   Select,
   Size,
   ToggleSquare,
-  IconPreviewView,
   useTheme,
   TooltipProvider,
   TooltipContext,
-  IconNormalized,
   IconUniform,
+  IconVectorBezier,
+  IconVectorBezierHandles,
+  IconVectorAngled,
+  IconVectorFlat,
+  IconGraphView,
+  IconVectorBezierInsertSloped,
+  IconVectorBezierInsertFlat,
+  IconVerticalNormalize,
 } from "@semio/ui";
-import {
-  IconArrowUpRight,
-  IconChevronDown,
-  IconLine,
-  IconTable,
-  IconVectorBezier2,
-} from "@tabler/icons-react";
+import { IconArrowUpRight, IconChevronDown } from "@tabler/icons-react";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
 import { TrackRender, VerticalAxis } from "../types";
@@ -35,15 +33,16 @@ import {
   LocalGlobalTransformContextProvider,
 } from "../hooks";
 import { WithTooltipAndAnimationContextProps } from "../utils/context-providers";
+import { MIN_SHEET_HEIGHT } from "../constants";
 // Import existing components that we'll reuse for now
 import { TimelineControl } from "./timeline-control";
 import { TimeControls } from "./time-controls";
 import { PlaybackSettings } from "./playback-settings";
 import { TrackList } from "./track-list";
 import { CanvasSheet } from "./canvas-sheet/canvas-sheet";
+import { Toolbar } from "./toolbar";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
-const MIN_SHEET_HEIGHT = 142;
 
 export interface AnimationSheetProps extends WithTooltipAndAnimationContextProps {
   onToggleExpand?: (expanded: boolean) => void;
@@ -277,10 +276,13 @@ function InnerSheet({
                 }}
                 className={clsx(
                   "grid grid-cols-[302px_1fr] group/sheet w-full pr-0.5 pb-0.5",
-                  "grid-rows-[32px_1fr_36px_36px_36px]",
+                  "grid-rows-[36px_36px_1fr_36px_36px_36px]",
                 )}
               >
-                {/* Expand Toggle/Ruler - Row 1 */}
+                {/* Toolbar - Row 1 */}
+                <Toolbar viewId={viewId} onToggleExpand={onToggleExpand} expanded={expanded} />
+
+                {/* Expand Toggle/Ruler - Row 2 */}
                 <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between px-1")}>
                   <ToggleSquare
                     sizing="inner"
@@ -302,6 +304,7 @@ function InnerSheet({
                     <Select
                       sizing="inner"
                       visuals="icons"
+                      side="top"
                       size={Size.Sm}
                       value={trackRender}
                       onChange={(v) => {
@@ -311,27 +314,27 @@ function InnerSheet({
                         {
                           value: TrackRender.Key,
                           label: "Key View",
-                          icon: <IconLine size="11px" className="rotate-45" />,
+                          icon: <IconVectorFlat className="h-3/4 aspect-square" />,
                         },
                         {
                           value: TrackRender.Transition,
                           label: "Transition View",
-                          icon: <IconLine size="11px" />,
+                          icon: <IconVectorAngled className="h-3/4 aspect-square" />,
                         },
                         {
                           value: TrackRender.Preview,
                           label: "Preview View",
-                          icon: <IconPreviewView size="11px" />,
+                          icon: <IconVectorBezier className="h-3/4 aspect-square" />,
                         },
                         {
                           value: TrackRender.Spline,
                           label: "Spline View",
-                          icon: <IconVectorBezier2 size="11px" className="-scale-x-100" />,
+                          icon: <IconVectorBezierHandles className="h-3/4 aspect-square" />,
                         },
                         {
                           value: TrackRender.Data,
-                          label: "Data View",
-                          icon: <IconTable size="11px" />,
+                          label: "Data View (Coming Soon)",
+                          icon: <IconGraphView className="h-3/4 aspect-square" />,
                           disabled: true,
                         },
                       ]}
@@ -340,6 +343,7 @@ function InnerSheet({
                     <Select
                       sizing="inner"
                       visuals="icons"
+                      side="top"
                       size={Size.Sm}
                       value={verticalAxis}
                       onChange={(t) => {
@@ -349,13 +353,13 @@ function InnerSheet({
                         {
                           value: VerticalAxis.Normalized,
                           label: "Normalized Y",
-                          icon: <IconNormalized size="11px" />,
+                          icon: <IconVerticalNormalize className="h-3/4 aspect-square" />,
                           disabled: trackRender !== TrackRender.Spline,
                         },
                         {
                           value: VerticalAxis.Uniform,
                           label: "Uniform Y",
-                          icon: <IconUniform size="11px" />,
+                          icon: <IconUniform className="h-3/4 aspect-square" />,
                           disabled: trackRender !== TrackRender.Spline,
                         },
                       ]}
@@ -363,6 +367,7 @@ function InnerSheet({
                     <Select
                       sizing="inner"
                       visuals="icons"
+                      side="top"
                       size={Size.Sm}
                       value={insertionMethod}
                       onChange={(v) => {
@@ -371,13 +376,13 @@ function InnerSheet({
                       options={[
                         {
                           value: KeypointInsertionMethod.Flat,
-                          label: "Insert Flat",
-                          icon: <IconLine size="11px" />,
+                          label: "Insert Flat Handles",
+                          icon: <IconVectorBezierInsertFlat className="h-3/4 aspect-square" />,
                         },
                         {
                           value: KeypointInsertionMethod.Sloped,
-                          label: "Insert Sloped",
-                          icon: <IconVectorBezier2 size="11px" className="-scale-x-100" />,
+                          label: "Insert Tangent Handles",
+                          icon: <IconVectorBezierInsertSloped className="h-3/4 aspect-square" />,
                         },
                       ]}
                     />
