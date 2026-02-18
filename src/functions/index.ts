@@ -37,3 +37,5 @@ export * from "./resolve-track-entries-by-animatable";
 export * from "./resolve-authored-transition";
 export * from "./infer-auto-handles";
 export * from "./source-utils";
+export * from "./filter-visible-source-row-ids";
+export * from "./view-filtered-global-row";

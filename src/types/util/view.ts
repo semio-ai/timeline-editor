@@ -9,4 +9,6 @@ export interface View {
   trackRender: TrackRender;
   /** Vertical axis scaling mode for this view. */
   verticalAxis: VerticalAxis;
+  /** Transient track search/filter text for this view. */
+  trackFilter?: string;
 }

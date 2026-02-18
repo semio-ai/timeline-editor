@@ -5,9 +5,10 @@ import { MotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
 import { useOrthoCameraSetup, usePlaybackGestures, useAnimationStore } from "../../hooks";
-import { TrackRender } from "../../types";
+import { TrackRender, type VisibleSourceRowIds } from "../../types";
 import { AnimationData } from "../../store-types";
 import { ThemeMode } from "../../functions";
+import { normalizeVisibleSourceRowIds } from "../../functions/filter-visible-source-row-ids";
 import { ROW_DEPTH_EPSILON, Z } from "../../constants";
 import { DataRenderer } from "./data-renderer";
 import { SharedSplineBackground } from "./shared-spline-background";
@@ -27,20 +28,7 @@ interface TracksRendererProps {
   emphasis?: string[];
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   theme?: ThemeMode;
-}
-
-const defaultSourceRowIds: string[] = [];
-const defaultSourceRowLookup = { flat: defaultSourceRowIds, spline: defaultSourceRowIds };
-
-function normalizeRowLookup(rows: AnimationData["sourceRowIds"] | undefined): {
-  flat: string[];
-  spline: string[];
-} {
-  if (!rows) return defaultSourceRowLookup;
-  if (Array.isArray(rows)) {
-    return { flat: rows, spline: rows };
-  }
-  return rows;
+  rowIdLookup?: VisibleSourceRowIds;
 }
 
 export const TracksRenderer = memo(function TracksRenderer({
@@ -52,12 +40,15 @@ export const TracksRenderer = memo(function TracksRenderer({
   emphasis = [],
   onEmphasisChange = () => {},
   theme = Theme.Light,
+  rowIdLookup,
 }: TracksRendererProps) {
   const { size, camera } = useThree();
   const { size: motionSize } = useMotionCanvas();
 
   const sourceRowLookup = useAnimationStore(
-    useShallow((state: AnimationData) => normalizeRowLookup(state.sourceRowIds)),
+    useShallow(
+      (state: AnimationData) => rowIdLookup ?? normalizeVisibleSourceRowIds(state.sourceRowIds),
+    ),
   );
 
   const trackRender = useAnimationStore(

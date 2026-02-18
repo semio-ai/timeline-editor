@@ -5,7 +5,8 @@ import { ScrollArea } from "@semio/ui";
 import { AnimatePresence, MotionValue, motion } from "motion/react";
 import { useAnimationStore } from "../hooks";
 import { AnimationData } from "../store-types";
-import type { SourceRow } from "../types";
+import type { SourceRow, VisibleSourceRowIds } from "../types";
+import { normalizeVisibleSourceRowIds } from "../functions/filter-visible-source-row-ids";
 import { TrackControl } from "./track-control";
 
 export interface TrackListProps {
@@ -13,20 +14,7 @@ export interface TrackListProps {
   scrollY?: MotionValue<number>;
   emphasis: string[];
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
-}
-
-const defaultRowIds: string[] = [];
-const defaultRowLookup = { flat: defaultRowIds, spline: defaultRowIds };
-
-function normalizeRowLookup(rows: AnimationData["sourceRowIds"] | undefined): {
-  flat: string[];
-  spline: string[];
-} {
-  if (!rows) return defaultRowLookup;
-  if (Array.isArray(rows)) {
-    return { flat: rows, spline: rows };
-  }
-  return rows;
+  rowIdLookup?: VisibleSourceRowIds;
 }
 
 export function TrackList({
@@ -34,9 +22,12 @@ export function TrackList({
   scrollY,
   emphasis = [],
   onEmphasisChange = () => {},
+  rowIdLookup,
 }: TrackListProps): ReactNode {
   const sourceRowIdLookup = useAnimationStore(
-    useShallow((state: AnimationData) => normalizeRowLookup(state.sourceRowIds)),
+    useShallow(
+      (state: AnimationData) => rowIdLookup ?? normalizeVisibleSourceRowIds(state.sourceRowIds),
+    ),
   );
 
   const flatRowIds = sourceRowIdLookup.flat;

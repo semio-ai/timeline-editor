@@ -58,21 +58,23 @@ export const DataPoint = memo(function DataPoint({
       };
     }),
   );
+  const effectiveSelectionFrame = data?.selectionFrame;
+  const effectiveMarkers = useMemo(() => data?.markers ?? [], [data?.markers]);
   const selectionPoints = useMemo(
-    () => (data?.selectionFrame?.points ?? []).filter((point) => point.selectable ?? true),
-    [data?.selectionFrame],
+    () => (effectiveSelectionFrame?.points ?? []).filter((point) => point.selectable ?? true),
+    [effectiveSelectionFrame],
   );
   const markerLookup = useMemo(() => {
     const lookup = new Map<string, RenderMarker>();
-    data?.markers?.forEach((marker) => {
+    effectiveMarkers.forEach((marker) => {
       lookup.set(`${marker.trackKey}#${marker.id}`, marker);
     });
     return lookup;
-  }, [data?.markers]);
+  }, [effectiveMarkers]);
 
   const points = useMemo(() => {
-    if (!data?.selectionFrame) return [];
-    return data.selectionFrame.points
+    if (!effectiveSelectionFrame) return [];
+    return effectiveSelectionFrame.points
       .map((point) => {
         const marker = markerLookup.get(`${point.trackKey}#${point.markerId}`);
         if (!marker) return null;
@@ -94,9 +96,9 @@ export const DataPoint = memo(function DataPoint({
         };
       })
       .filter((point): point is NonNullable<typeof point> => Boolean(point));
-  }, [data?.selectionFrame, markerLookup]);
+  }, [effectiveSelectionFrame, markerLookup]);
 
-  const stamp = data?.selectionFrame?.stamp ?? 0;
+  const stamp = effectiveSelectionFrame?.stamp ?? 0;
   const renderStamp = useMemo(
     () => (typeof xTransform === "function" ? xTransform(stamp) : stamp),
     [stamp, xTransform],
@@ -542,7 +544,7 @@ export const DataPoint = memo(function DataPoint({
   }, [combinedForegroundPoints, backgroundPoints, hasBackgroundPoints]);
 
   // Early return if data not found
-  if (!data?.selectionFrame) return null;
+  if (!effectiveSelectionFrame) return null;
 
   const foregroundBand =
     resolvedBand === LayerBand.Background ? LayerBand.ForegroundUnselected : resolvedBand;

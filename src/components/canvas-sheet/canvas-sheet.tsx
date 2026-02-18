@@ -10,6 +10,8 @@ import { PanZoomControls } from "../controls/pan-zoom-controls";
 import { calculatePaddedFrustum } from "../../viewport-utils";
 import { AnimationData } from "../../store-types";
 import { useAnimationStore } from "../../hooks";
+import type { VisibleSourceRowIds } from "../../types";
+import { normalizeVisibleSourceRowIds } from "../../functions/filter-visible-source-row-ids";
 import { MotionCanvasProvider } from "./shared/motion-canvas-provider";
 import { HudSection } from "./hud-section";
 import { RulerRenderer } from "./ruler-renderer";
@@ -23,6 +25,7 @@ export interface CanvasSheetProps {
   theme?: Theme.Dark | Theme.Light;
   emphasis: string[];
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
+  rowIdLookup?: VisibleSourceRowIds;
   fonts?: {
     mono?: string; // Path to monospace font, falls back to system default
     ui?: string; // Path to UI font, falls back to system default
@@ -35,6 +38,7 @@ export const CanvasSheet = memo(function CanvasSheet({
   theme = Theme.Light,
   emphasis = [],
   onEmphasisChange = () => {},
+  rowIdLookup,
   fonts = {},
 }: CanvasSheetProps) {
   // Get initial viewport from player store to prevent camera bounds flash
@@ -78,6 +82,7 @@ export const CanvasSheet = memo(function CanvasSheet({
           theme={theme}
           emphasis={emphasis}
           onEmphasisChange={onEmphasisChange}
+          rowIdLookup={rowIdLookup}
           fonts={fonts}
         />
       </Canvas>
@@ -91,24 +96,11 @@ interface CanvasContentProps {
   theme?: Theme.Dark | Theme.Light;
   emphasis: string[];
   onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
+  rowIdLookup?: VisibleSourceRowIds;
   fonts?: {
     mono?: string; // Path to monospace font, falls back to system default
     ui?: string; // Path to UI font, falls back to system default
   };
-}
-
-const defaultRowIds: string[] = [];
-const defaultRowLookup = { flat: defaultRowIds, spline: defaultRowIds };
-
-function normalizeRowLookup(rows: AnimationData["sourceRowIds"] | undefined): {
-  flat: string[];
-  spline: string[];
-} {
-  if (!rows) return defaultRowLookup;
-  if (Array.isArray(rows)) {
-    return { flat: rows, spline: rows };
-  }
-  return rows;
 }
 
 const CanvasContent = memo(function CanvasContent({
@@ -117,12 +109,15 @@ const CanvasContent = memo(function CanvasContent({
   scrollValue,
   emphasis = [],
   onEmphasisChange = () => {},
+  rowIdLookup,
   fonts = {},
 }: CanvasContentProps) {
   const bgColor = theme === Theme.Dark ? "#202020" : "#EFEFEF";
 
-  const rowIdLookup = useAnimationStore(
-    useShallow((state: AnimationData) => normalizeRowLookup(state.sourceRowIds)),
+  const resolvedRowIdLookup = useAnimationStore(
+    useShallow(
+      (state: AnimationData) => rowIdLookup ?? normalizeVisibleSourceRowIds(state.sourceRowIds),
+    ),
   );
   const trackRender = useAnimationStore(
     useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),
@@ -135,7 +130,7 @@ const CanvasContent = memo(function CanvasContent({
   const trackHeight = 36;
 
   const size = useThree((t) => t.size);
-  const flatRowCount = rowIdLookup.flat.length;
+  const flatRowCount = resolvedRowIdLookup.flat.length;
 
   const totalContentHeightPx = useMemo(() => {
     return trackRender === TrackRender.Spline
@@ -163,6 +158,7 @@ const CanvasContent = memo(function CanvasContent({
           trackHeight={trackHeight}
           emphasis={emphasis}
           onEmphasisChange={onEmphasisChange}
+          rowIdLookup={resolvedRowIdLookup}
           theme={theme}
         />
       </MotionCanvasProvider>
@@ -187,7 +183,7 @@ const CanvasContent = memo(function CanvasContent({
         renderPriority={2}
         gap={72}
       >
-        <TimelineRenderer theme={theme} />
+        <TimelineRenderer theme={theme} viewId={viewId} />
       </HudSection>
 
       {/* Minimap HUD: 36px tall */}

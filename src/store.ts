@@ -75,6 +75,7 @@ import {
   updateOverallDuration,
   updateInstancedTrackSources,
   updateConsolidatedSourceRow,
+  updateViewFilteredGlobalRows,
   updateGlobalSources,
   updateSourceRowIds,
   updateTrackMuting,
@@ -259,6 +260,7 @@ export const AnimationSlice = (
           id: view.id,
           trackRender: view.trackRender ?? TrackRender.Key,
           verticalAxis: view.verticalAxis ?? VerticalAxis.Normalized,
+          trackFilter: view.trackFilter ?? "",
         };
         return {
           editorViews: { ...state.editorViews, [view.id]: { ...defaultView, ...view } },
@@ -534,6 +536,7 @@ export const AnimationSlice = (
         updateGlobalSources,
         updateSourceRowIds,
         updateConsolidatedSourceRow,
+        updateViewFilteredGlobalRows,
       ].map((fn) => fn(api, set, get));
 
       const cleanup = () => {

@@ -42,7 +42,9 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
     [source],
   );
 
-  const color = useColors(source ? uniq(source.data.map((s) => s.trackId)) : []);
+  const color = useColors(
+    fallbackSource.data.length > 0 ? uniq(fallbackSource.data.map((s) => s.trackId)) : [],
+  );
 
   const nameLookup = useNameLookup();
 
@@ -147,7 +149,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
             return;
           }
 
-          const targets = keyState === "partial" ? missingEntries : source.data;
+          const targets = keyState === "partial" ? missingEntries : fallbackSource.data;
           const updates: { trackId: string; keypoint: Partial<SimpleKeypoint> }[] = targets
             .map((datum) => {
               const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
@@ -174,7 +176,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       />
       <div
         className={clsx(
-          "w-full items-center",
+          "w-full min-w-0 items-center",
           controlsDisabled && "opacity-50 pointer-events-none",
         )}
         aria-disabled={controlsDisabled}

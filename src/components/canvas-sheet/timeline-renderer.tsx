@@ -1,9 +1,11 @@
 import { memo } from "react";
 import { Theme } from "@semio/ui";
 import { ThreeEvent } from "@react-three/fiber";
-import { usePlaybackGestures } from "../../hooks";
+import { useShallow } from "zustand/shallow";
+import { useAnimationStore, usePlaybackGestures } from "../../hooks";
 import { TrackRender } from "../../types";
 import { Z } from "../../constants";
+import { buildFilteredGlobalRowId } from "../../functions";
 import { DataRenderer } from "./data-renderer";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
@@ -13,13 +15,23 @@ import { TickBackground } from "./overlays/tick-background";
 
 export interface TimelineRendererProps {
   theme?: Theme.Light | Theme.Dark;
+  viewId: string;
 }
 
 export const TimelineRenderer = memo(function TimelineRenderer({
   theme = Theme.Light,
+  viewId,
 }: TimelineRendererProps) {
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
+  const sourceRowId = useAnimationStore(
+    useShallow((state) => {
+      const filter = state.editorViews[viewId]?.trackFilter?.trim();
+      if (!filter) return "global";
+      const filteredRowId = buildFilteredGlobalRowId(viewId);
+      return state.instancedTrackSources[filteredRowId] ? filteredRowId : "global";
+    }),
+  );
 
   return (
     <>
@@ -49,7 +61,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
       <BoundsOverlay height={36} theme={theme} />
       <DataRenderer
         height={36}
-        sourceRowId="global"
+        sourceRowId={sourceRowId}
         theme={theme}
         measureFromBottom
         showBackground={false}

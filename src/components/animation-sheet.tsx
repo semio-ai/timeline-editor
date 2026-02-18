@@ -1,30 +1,12 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState, useEffect, useCallback, useId, useRef } from "react";
+import { useContext, memo, useState, useEffect, useCallback, useId, useMemo, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
-import {
-  Select,
-  Size,
-  ToggleSquare,
-  useTheme,
-  TooltipProvider,
-  TooltipContext,
-  IconUniform,
-  IconVectorBezier,
-  IconVectorBezierHandles,
-  IconVectorAngled,
-  IconVectorFlat,
-  IconGraphView,
-  IconVectorBezierInsertSloped,
-  IconVectorBezierInsertFlat,
-  IconVerticalNormalize,
-} from "@semio/ui";
-import { IconArrowUpRight, IconChevronDown } from "@tabler/icons-react";
+import { Search, Size, useTheme, TooltipProvider, TooltipContext } from "@semio/ui";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
-import { StandardTransitionType, TrackRender, VerticalAxis } from "../types";
-import { TransitionDirective } from "../store-types";
+import { TrackRender } from "../types";
 import {
   useAnimationStore,
   ColorContextProvider,
@@ -34,6 +16,11 @@ import {
 } from "../hooks";
 import { WithTooltipAndAnimationContextProps } from "../utils/context-providers";
 import { MIN_SHEET_HEIGHT } from "../constants";
+import {
+  filterVisibleSourceRowIds,
+  matchesSourceRowQuery,
+  normalizeVisibleSourceRowIds,
+} from "../functions/filter-visible-source-row-ids";
 // Import existing components that we'll reuse for now
 import { TimelineControl } from "./timeline-control";
 import { TimeControls } from "./time-controls";
@@ -43,11 +30,6 @@ import { CanvasSheet } from "./canvas-sheet/canvas-sheet";
 import { Toolbar } from "./toolbar";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
-const INSERTION_METHODS = {
-  Flat: "flat",
-  Sloped: "sloped",
-} as const;
-type InsertionMethod = (typeof INSERTION_METHODS)[keyof typeof INSERTION_METHODS];
 
 export interface AnimationSheetProps extends WithTooltipAndAnimationContextProps {
   onToggleExpand?: (expanded: boolean) => void;
@@ -203,6 +185,10 @@ function InnerSheet({
   const [addView, removeView] = useAnimationStore(
     useShallow((state) => [state.addView, state.removeView]),
   );
+  const updateView = useAnimationStore(useShallow((state) => state.updateView));
+  const trackFilter = useAnimationStore(
+    useShallow((state) => state.editorViews[viewId]?.trackFilter ?? ""),
+  );
 
   useEffect(() => {
     if (!viewInitialized.current) {
@@ -215,52 +201,36 @@ function InnerSheet({
     };
   }, [viewId, removeView, addView]);
 
-  // Extract information from the view about trackRender and timeline sources;
-  const views = useAnimationStore(useShallow((state) => state.editorViews));
-  const trackRender = views?.[viewId]?.trackRender || TrackRender.Key;
-  const verticalAxis = views?.[viewId]?.verticalAxis || VerticalAxis.Normalized;
-
-  // Define callbacks that update the view properties in the store;
-  const updateView = useAnimationStore(useShallow((state) => state.updateView));
-  const setPreferences = useAnimationStore(useShallow((state) => state.setPreferences));
-  const setTrackRender = useCallback(
-    (renderOption: TrackRender) => {
-      updateView(viewId, { trackRender: renderOption });
-    },
-    [viewId, updateView],
-  );
-  const setVerticalAxis = useCallback(
-    (vAxis: VerticalAxis) => {
-      updateView(viewId, { verticalAxis: vAxis });
-    },
-    [viewId, updateView],
-  );
-  const setInsertionMethod = useCallback(
-    (method: InsertionMethod) => {
-      const useExplicit = method === INSERTION_METHODS.Sloped;
-      setPreferences({
-        newKeyDefaults: {
-          transitions: {
-            in: useExplicit ? TransitionDirective.ExplicitHandles : StandardTransitionType.Cubic,
-            out: useExplicit ? TransitionDirective.ExplicitHandles : StandardTransitionType.Cubic,
-          },
-        },
-      });
-    },
-    [setPreferences],
-  );
-
-  const state = useAnimationStore((s) => s);
-  const defaultTransitions = state.preferences.newKeyDefaults.transitions;
-  const insertionMethod =
-    defaultTransitions.in === TransitionDirective.ExplicitHandles ||
-    defaultTransitions.out === TransitionDirective.ExplicitHandles
-      ? INSERTION_METHODS.Sloped
-      : INSERTION_METHODS.Flat;
-
   const scrollY = useMotionValue(0);
 
   const [emphasis, setEmphasis] = useState<string[]>([]);
+  const setTrackFilter = useCallback(
+    (value: string) => {
+      updateView(viewId, { trackFilter: value });
+    },
+    [updateView, viewId],
+  );
+
+  const { sourceRowLookup, sourceRows, tracks, animatables } = useAnimationStore(
+    useShallow((state) => ({
+      sourceRowLookup: normalizeVisibleSourceRowIds(state.sourceRowIds),
+      sourceRows: state.instancedTrackSources,
+      tracks: state.tracks,
+      animatables: state.animatables,
+    })),
+  );
+
+  const filteredRowLookup = useMemo(
+    () =>
+      filterVisibleSourceRowIds(sourceRowLookup, trackFilter, (rowId, query) =>
+        matchesSourceRowQuery(rowId, query, {
+          sourceRows,
+          tracks,
+          animatables,
+        }),
+      ),
+    [animatables, sourceRowLookup, sourceRows, trackFilter, tracks],
+  );
 
   const setEmphasisSmart = useCallback(
     (id: string, opt: "add" | "remove") => {
@@ -274,8 +244,6 @@ function InnerSheet({
     },
     [setEmphasis],
   );
-
-  const [popped, setPopped] = useState(false);
 
   const expanded = height > MIN_SHEET_HEIGHT;
 
@@ -300,125 +268,19 @@ function InnerSheet({
                 {/* Toolbar - Row 1 */}
                 <Toolbar viewId={viewId} onToggleExpand={onToggleExpand} expanded={expanded} />
 
-                {/* Expand Toggle/Ruler - Row 2 */}
-                <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between px-1")}>
-                  <ToggleSquare
-                    sizing="inner"
-                    size={Size.Sm}
-                    value={expanded}
-                    onChange={(v) => onToggleExpand?.(v)}
-                    label="Expand Tracks"
-                  >
-                    <IconChevronDown
-                      size="11px"
-                      className={clsx(
-                        expanded ? "rotate-0" : "rotate-180",
-                        "transition-transform ease-in-out",
-                      )}
-                    />
-                  </ToggleSquare>
-
-                  <div className="flex gap-2">
-                    <Select
-                      sizing="inner"
-                      visuals="icons"
-                      side="top"
+                {/* Track Filter - Row 2 */}
+                <div className="h-9 px-1.5 py-0.5 flex items-center">
+                  <div className="w-full flex">
+                    <Search
                       size={Size.Sm}
-                      value={trackRender}
-                      onChange={(v) => {
-                        setTrackRender(v as TrackRender);
-                      }}
-                      options={[
-                        {
-                          value: TrackRender.Key,
-                          label: "Key View",
-                          icon: <IconVectorFlat className="h-3/4 aspect-square" />,
-                        },
-                        {
-                          value: TrackRender.Transition,
-                          label: "Transition View",
-                          icon: <IconVectorAngled className="h-3/4 aspect-square" />,
-                        },
-                        {
-                          value: TrackRender.Preview,
-                          label: "Preview View",
-                          icon: <IconVectorBezier className="h-3/4 aspect-square" />,
-                        },
-                        {
-                          value: TrackRender.Spline,
-                          label: "Spline View",
-                          icon: <IconVectorBezierHandles className="h-3/4 aspect-square" />,
-                        },
-                        {
-                          value: TrackRender.Data,
-                          label: "Data View (Coming Soon)",
-                          icon: <IconGraphView className="h-3/4 aspect-square" />,
-                          disabled: true,
-                        },
-                      ]}
-                    />
-
-                    <Select
-                      sizing="inner"
-                      visuals="icons"
-                      side="top"
-                      size={Size.Sm}
-                      value={verticalAxis}
-                      onChange={(t) => {
-                        setVerticalAxis(t as VerticalAxis);
-                      }}
-                      options={[
-                        {
-                          value: VerticalAxis.Normalized,
-                          label: "Normalized Y",
-                          icon: <IconVerticalNormalize className="h-3/4 aspect-square" />,
-                          disabled: trackRender !== TrackRender.Spline,
-                        },
-                        {
-                          value: VerticalAxis.Uniform,
-                          label: "Uniform Y",
-                          icon: <IconUniform className="h-3/4 aspect-square" />,
-                          disabled: trackRender !== TrackRender.Spline,
-                        },
-                      ]}
-                    />
-                    <Select
-                      sizing="inner"
-                      visuals="icons"
-                      side="top"
-                      size={Size.Sm}
-                      value={insertionMethod}
-                      onChange={(v) => {
-                        setInsertionMethod(v as InsertionMethod);
-                      }}
-                      options={[
-                        {
-                          value: INSERTION_METHODS.Flat,
-                          label: "Insert Flat Handles",
-                          icon: <IconVectorBezierInsertFlat className="h-3/4 aspect-square" />,
-                        },
-                        {
-                          value: INSERTION_METHODS.Sloped,
-                          label: "Insert Tangent Handles",
-                          icon: <IconVectorBezierInsertSloped className="h-3/4 aspect-square" />,
-                        },
-                      ]}
+                      value={trackFilter}
+                      placeholder="Filter visible tracks"
+                      onChange={(value) => setTrackFilter(value)}
+                      outline="hidden"
+                      className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-xs"
+                      wrapperClassName="w-full"
                     />
                   </div>
-
-                  <ToggleSquare
-                    sizing="inner"
-                    size={Size.Sm}
-                    value={popped}
-                    onChange={(v) => {
-                      setPopped(v);
-                      console.log(JSON.stringify(state));
-                    }}
-                    label="Pop Out"
-                    // disabled
-                  >
-                    <IconArrowUpRight size="11px" />
-                  </ToggleSquare>
                 </div>
 
                 {/* Canvas (spans all rows) */}
@@ -434,6 +296,7 @@ function InnerSheet({
                     theme={resolvedTheme}
                     emphasis={emphasis}
                     onEmphasisChange={setEmphasisSmart}
+                    rowIdLookup={filteredRowLookup}
                     fonts={fonts}
                   />
                 </div>
@@ -446,6 +309,7 @@ function InnerSheet({
                   scrollY={scrollY}
                   emphasis={emphasis}
                   onEmphasisChange={setEmphasisSmart}
+                  rowIdLookup={filteredRowLookup}
                 />
 
                 {/* Timeline Control - Row 3 */}
