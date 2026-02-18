@@ -1,6 +1,5 @@
-import type { RawVector2 } from "@semio/utils";
 import type { TransitionParams } from "../../functions/compute-transition-params";
-import type { StandardTransitionType } from "../data/keypoint";
+import type { AuthoredTransition } from "../data/keypoint";
 import type { TrackRender } from "./track-render";
 
 /** World-space control point. */
@@ -28,9 +27,9 @@ export interface ResolvedHandle {
 /** Start/end transitions for a segment. */
 export interface EndpointTransitions {
   /** Outgoing transition from the start keypoint. */
-  startOut?: RawVector2 | StandardTransitionType;
+  startOut?: AuthoredTransition;
   /** Incoming transition to the end keypoint. */
-  endIn?: RawVector2 | StandardTransitionType;
+  endIn?: AuthoredTransition;
 }
 
 /** Flags indicating clamp/knot behavior for a segment. */

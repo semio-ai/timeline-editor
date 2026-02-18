@@ -23,8 +23,8 @@ import {
 import { IconArrowUpRight, IconChevronDown } from "@tabler/icons-react";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
-import { TrackRender, VerticalAxis } from "../types";
-import { KeypointInsertionMethod } from "../store-types";
+import { StandardTransitionType, TrackRender, VerticalAxis } from "../types";
+import { TransitionDirective } from "../store-types";
 import {
   useAnimationStore,
   ColorContextProvider,
@@ -43,6 +43,11 @@ import { CanvasSheet } from "./canvas-sheet/canvas-sheet";
 import { Toolbar } from "./toolbar";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
+const INSERTION_METHODS = {
+  Flat: "flat",
+  Sloped: "sloped",
+} as const;
+type InsertionMethod = (typeof INSERTION_METHODS)[keyof typeof INSERTION_METHODS];
 
 export interface AnimationSheetProps extends WithTooltipAndAnimationContextProps {
   onToggleExpand?: (expanded: boolean) => void;
@@ -231,14 +236,27 @@ function InnerSheet({
     [viewId, updateView],
   );
   const setInsertionMethod = useCallback(
-    (method: KeypointInsertionMethod) => {
-      setPreferences({ keypointInsertionMethod: method });
+    (method: InsertionMethod) => {
+      const useExplicit = method === INSERTION_METHODS.Sloped;
+      setPreferences({
+        newKeyDefaults: {
+          transitions: {
+            in: useExplicit ? TransitionDirective.ExplicitHandles : StandardTransitionType.Cubic,
+            out: useExplicit ? TransitionDirective.ExplicitHandles : StandardTransitionType.Cubic,
+          },
+        },
+      });
     },
     [setPreferences],
   );
 
   const state = useAnimationStore((s) => s);
-  const insertionMethod = state.preferences.keypointInsertionMethod;
+  const defaultTransitions = state.preferences.newKeyDefaults.transitions;
+  const insertionMethod =
+    defaultTransitions.in === TransitionDirective.ExplicitHandles ||
+    defaultTransitions.out === TransitionDirective.ExplicitHandles
+      ? INSERTION_METHODS.Sloped
+      : INSERTION_METHODS.Flat;
 
   const scrollY = useMotionValue(0);
 
@@ -371,16 +389,16 @@ function InnerSheet({
                       size={Size.Sm}
                       value={insertionMethod}
                       onChange={(v) => {
-                        setInsertionMethod(v as KeypointInsertionMethod);
+                        setInsertionMethod(v as InsertionMethod);
                       }}
                       options={[
                         {
-                          value: KeypointInsertionMethod.Flat,
+                          value: INSERTION_METHODS.Flat,
                           label: "Insert Flat Handles",
                           icon: <IconVectorBezierInsertFlat className="h-3/4 aspect-square" />,
                         },
                         {
-                          value: KeypointInsertionMethod.Sloped,
+                          value: INSERTION_METHODS.Sloped,
                           label: "Insert Tangent Handles",
                           icon: <IconVectorBezierInsertSloped className="h-3/4 aspect-square" />,
                         },

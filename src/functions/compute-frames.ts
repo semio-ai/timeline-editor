@@ -23,6 +23,7 @@ interface ComputeFramesOptions {
    * Only applied when anchorFrameKey matches and namespace/instance also match.
    */
   anchorFrameId?: string;
+  anchorTrackId?: string;
   anchorNamespaceId?: string;
   anchorInstanceId?: string;
 }
@@ -144,6 +145,7 @@ export function computeFrames(
       const hasAnchor = frame.points.some(
         (p) =>
           p.id === options.anchorFrameKey &&
+          (!options.anchorTrackId || p.trackId === options.anchorTrackId) &&
           (!options.anchorNamespaceId || p.namespaceId === options.anchorNamespaceId) &&
           (!options.anchorInstanceId || p.instanceId === options.anchorInstanceId),
       );

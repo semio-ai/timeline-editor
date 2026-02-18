@@ -25,9 +25,11 @@ import type { SimpleTrack, SimpleKeypoint } from "./types/data/simple-track";
 import {
   AnimationData,
   AnimationActions,
+  AnimationPreferencesPatch,
   AnimationStoreGetter,
   AnimationStoreSetter,
   AnimationApi,
+  TransitionPatch,
 } from "./store-types";
 import {
   createKeypoint,
@@ -42,6 +44,8 @@ import {
   createDefaultAnimation,
   updateControlColor,
   insertKeypointAtWorldStamp as insertKeyAtWorldStampAction,
+  updateNewKeyTransitionDefaults as updateNewKeyTransitionDefaultsAction,
+  updateSelectedKeyTransitions as updateSelectedKeyTransitionsAction,
 } from "./actions";
 import { clickMarkerAction, clearSelectionAction } from "./actions/click-marker";
 import {
@@ -294,6 +298,20 @@ export const AnimationSlice = (
           Object.values(animations).forEach((animation) => {
             addAnimation(state, animation);
           });
+        }),
+      );
+    },
+    updateNewKeyTransitionDefaults: (patch: TransitionPatch) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateNewKeyTransitionDefaultsAction(state, patch);
+        }),
+      );
+    },
+    updateSelectedKeyTransitions: (patch: TransitionPatch) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateSelectedKeyTransitionsAction(state, patch);
         }),
       );
     },
@@ -651,10 +669,27 @@ export const AnimationSlice = (
         }),
       );
     },
-    setPreferences: (preferences: Partial<AnimationData["preferences"]>) => {
-      set((state) => ({
-        preferences: { ...state.preferences, ...preferences },
-      }));
+    setPreferences: (preferences: AnimationPreferencesPatch) => {
+      set((state) => {
+        const mergedNewKeyDefaults = preferences.newKeyDefaults
+          ? {
+              ...state.preferences.newKeyDefaults,
+              ...preferences.newKeyDefaults,
+              transitions: {
+                ...state.preferences.newKeyDefaults.transitions,
+                ...preferences.newKeyDefaults.transitions,
+              },
+            }
+          : state.preferences.newKeyDefaults;
+
+        return {
+          preferences: {
+            ...state.preferences,
+            ...preferences,
+            newKeyDefaults: mergedNewKeyDefaults,
+          },
+        };
+      });
     },
 
     // Drag actions - ID-based with instance validation
@@ -805,12 +840,24 @@ export function createAnimationStore(initial?: Partial<AnimationData>): Animatio
   const store = create<AnimationData & AnimationActions>()(
     subscribeWithSelector((set, get, api) => {
       const slice = AnimationSlice(set, get, api);
+      const mergedNewKeyDefaults = initial?.preferences?.newKeyDefaults
+        ? {
+            ...slice.preferences.newKeyDefaults,
+            ...initial.preferences.newKeyDefaults,
+            transitions: {
+              ...slice.preferences.newKeyDefaults.transitions,
+              ...initial.preferences.newKeyDefaults.transitions,
+            },
+          }
+        : slice.preferences.newKeyDefaults;
+
       return {
         ...slice,
         ...initial,
         preferences: {
           ...slice.preferences,
           ...(initial?.preferences ?? {}),
+          newKeyDefaults: mergedNewKeyDefaults,
         },
       };
     }),

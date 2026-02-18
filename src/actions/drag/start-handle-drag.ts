@@ -1,6 +1,10 @@
-import type { RawVector2 } from "@semio/utils";
 import type { AnimationData } from "../../store-types";
-import type { HandleDragStartInput, DragStampTransform, DragState } from "../../types";
+import type {
+  AuthoredTransition,
+  HandleDragStartInput,
+  DragStampTransform,
+  DragState,
+} from "../../types";
 import { StandardTransitionType, TransitionPairing } from "../../types";
 import { resolveTransitionDelta } from "../../functions/get-world-control-points";
 
@@ -35,8 +39,8 @@ const inferPairingFromTransitions = (params: {
     stamp: number;
     value: number;
     transitions?: {
-      in?: RawVector2 | StandardTransitionType;
-      out?: RawVector2 | StandardTransitionType;
+      in?: AuthoredTransition;
+      out?: AuthoredTransition;
     };
   };
   prev?: { stamp: number; value: number };

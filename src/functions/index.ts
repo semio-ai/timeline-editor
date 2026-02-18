@@ -34,4 +34,6 @@ export * from "./materialize-segment-sample";
 export * from "./selection-state-manager";
 export * from "./migrate-animation-data";
 export * from "./resolve-track-entries-by-animatable";
+export * from "./resolve-authored-transition";
+export * from "./infer-auto-handles";
 export * from "./source-utils";

@@ -7,7 +7,7 @@ import {
   instanceOfRawRGB,
   instanceOfRawHSL,
 } from "@semio/utils";
-import type { AnimationInstance, Track, StandardTransitionType } from "../types";
+import type { AnimationInstance, AuthoredTransition, Track } from "../types";
 import { computeWorldStamp } from "./compute-instance-time";
 import { getWorldControlPoints } from "./get-world-control-points";
 import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
@@ -20,8 +20,8 @@ interface TrackPoint {
   time: number;
   value: RawValue;
   transitions?: {
-    in?: RawVector2 | StandardTransitionType;
-    out?: RawVector2 | StandardTransitionType;
+    in?: AuthoredTransition;
+    out?: AuthoredTransition;
   };
 }
 
@@ -82,12 +82,35 @@ export function computeTrackInterpolator(
     const hasNumeric = startNumeric !== undefined && endNumeric !== undefined;
 
     if (hasNumeric) {
+      const startPrev = i > 0 ? points[i - 1] : undefined;
+      const endNext = i + 2 < points.length ? points[i + 2] : undefined;
+      const startPrevValue =
+        startPrev !== undefined ? coerceNumericValue(startPrev.value) : undefined;
+      const endNextValue = endNext !== undefined ? coerceNumericValue(endNext.value) : undefined;
+      const startPrevNumeric =
+        startPrev && startPrevValue !== undefined
+          ? {
+              stamp: startPrev.time,
+              value: startPrevValue,
+            }
+          : undefined;
+      const endNextNumeric =
+        endNext && endNextValue !== undefined
+          ? {
+              stamp: endNext.time,
+              value: endNextValue,
+            }
+          : undefined;
       const controlPoints = resolveSegmentControlPoints({
         start: { stamp: start.time, value: startNumeric },
         end: { stamp: end.time, value: endNumeric },
         transitions: {
           startOut: start.transitions?.out,
           endIn: end.transitions?.in,
+        },
+        neighbors: {
+          startPrev: startPrevNumeric,
+          endNext: endNextNumeric,
         },
       });
       const cp1 = controlPoints.cp1Effective ?? controlPoints.cp1Raw;

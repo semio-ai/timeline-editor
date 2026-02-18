@@ -21,6 +21,15 @@ export enum StandardTransitionType {
   Linear = "linear",
 }
 
+/** Non-easing authored transition directives resolved during derivation. */
+export enum TransitionDirective {
+  ExplicitHandles = "explicit-handles",
+  InferredAutoClamped = "inferred-auto-clamped",
+}
+
+/** Any authored transition form stored on a keypoint side. */
+export type AuthoredTransition = RawVector2 | StandardTransitionType | TransitionDirective;
+
 /** Whether in/out handles should remain paired or can move independently. */
 export enum TransitionPairing {
   Paired = "paired",
@@ -30,9 +39,9 @@ export enum TransitionPairing {
 /** Optional per-keypoint transition info. */
 export interface TransitionInfo {
   /** Incoming transition (enum or explicit control-point delta). */
-  in?: RawVector2 | StandardTransitionType;
+  in?: AuthoredTransition;
   /** Outgoing transition (enum or explicit control-point delta). */
-  out?: RawVector2 | StandardTransitionType;
+  out?: AuthoredTransition;
   /** Pairing intent for in/out handles. */
   pairing?: TransitionPairing;
 }

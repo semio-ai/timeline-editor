@@ -383,7 +383,6 @@ export const BezierHandles = memo(function BezierHandles({
         const animatedEffective = handle.effective
           ? animateHandlePoint(handle.anchor, handle.effective, appearance)
           : undefined;
-        const connectorTarget = animatedEffective ?? animatedRaw;
         const orientation =
           handle.pairing === TransitionPairing.Paired
             ? 0
@@ -394,7 +393,6 @@ export const BezierHandles = memo(function BezierHandles({
             handle={handle}
             animatedRaw={animatedRaw}
             animatedEffective={animatedEffective}
-            connectorTarget={connectorTarget}
             orientation={orientation}
             connectorOpacity={connectorOpacity}
             gapOpacity={gapOpacity}
@@ -460,7 +458,6 @@ const HandleGroup = memo(function HandleGroup({
   handle,
   animatedRaw,
   animatedEffective,
-  connectorTarget,
   orientation,
   connectorOpacity,
   gapOpacity,
@@ -478,7 +475,6 @@ const HandleGroup = memo(function HandleGroup({
   };
   animatedRaw: HandlePoint;
   animatedEffective?: HandlePoint;
-  connectorTarget: HandlePoint;
   orientation: number;
   connectorOpacity: number;
   gapOpacity: number;
@@ -490,7 +486,7 @@ const HandleGroup = memo(function HandleGroup({
   return (
     <group key={handle.id}>
       <Line
-        points={[handle.anchor, connectorTarget.line]}
+        points={[handle.anchor, animatedRaw.line]}
         color={color}
         lineWidth={1.5}
         transparent
@@ -498,7 +494,7 @@ const HandleGroup = memo(function HandleGroup({
       />
       {handle.hasEffectiveGap && animatedEffective && (
         <Line
-          points={[animatedEffective.line, animatedRaw.line]}
+          points={[animatedRaw.line, animatedEffective.line]}
           color={color}
           lineWidth={1.5}
           transparent
@@ -845,7 +841,9 @@ const HandleDot = memo(function HandleDot({
 
 function hasWorldPointGap(raw?: WorldCP, effective?: WorldCP, epsilon = 1e-5): boolean {
   if (!raw || !effective) return false;
-  return Math.abs(raw.x - effective.x) > epsilon || Math.abs(raw.y - effective.y) > epsilon;
+  // Only visualize a gap when timing (x) differs; y-only effective clamping
+  // can produce confusing vertical ticks at the handle marker.
+  return Math.abs(raw.x - effective.x) > epsilon;
 }
 
 function animateHandlePoint(

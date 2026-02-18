@@ -27,6 +27,7 @@ import {
   RenderSampleCache,
   RenderSampleId,
   AffineTransform2D,
+  AuthoredTransition,
 } from "../types";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
@@ -41,7 +42,7 @@ import { computeTrackInterpolator } from "./compute-track-interpolator";
 import { computeTrackViolations } from "./compute-track-violations";
 import { buildRenderParamsFromControlPoints } from "./compute-transition-params";
 import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
-import { extractFrameNumericValue } from "./segment-value-utils";
+import { coerceNumericValue, extractFrameNumericValue } from "./segment-value-utils";
 import { resolveTransitionDelta } from "./get-world-control-points";
 import { resolveDraggedTrackIds } from "./resolve-dragged-track-ids";
 import type { TransitionParams } from "./compute-transition-params";
@@ -205,6 +206,7 @@ export function computeRowData(
         dragState,
         selection: selectionState,
         bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
+        preferAnchorId: anchorTrackId === trackId ? anchorKeypointId : undefined,
       });
 
       // Overlay handle diffs so preview consumers (violations, interpolator) see updated transitions
@@ -333,6 +335,8 @@ export function computeRowData(
     },
     ignoreDraggingState: true,
     anchorFrameKey: dragState?.anchor?.keypointId,
+    anchorTrackId:
+      sourceRow.id === dragState?.anchor?.rowId ? dragState?.anchor?.trackId : undefined,
     anchorFrameId: sourceRow.id === dragState?.anchor?.rowId ? dragState?.anchorFrameId : undefined,
     anchorNamespaceId,
     anchorInstanceId,
@@ -350,6 +354,8 @@ export function computeRowData(
     },
     ignoreDraggingState: true,
     anchorFrameKey: dragState?.anchor?.keypointId,
+    anchorTrackId:
+      sourceRow.id === dragState?.anchor?.rowId ? dragState?.anchor?.trackId : undefined,
     anchorFrameId: sourceRow.id === dragState?.anchor?.rowId ? dragState?.anchorFrameId : undefined,
     anchorNamespaceId,
     anchorInstanceId,
@@ -365,8 +371,9 @@ export function computeRowData(
   );
   const interpolations = computeFilledInterpGaps(explicitInterpolationSegments);
 
+  const pointNeighborhoodsByTrack = buildPointNeighborhoodByTrack(projectedTracks);
   const segmentsWithGeometry = interpolations.map((segment) =>
-    attachSegmentGeometry(segment, sourceRow, boundsForRow, handleDiffs),
+    attachSegmentGeometry(segment, sourceRow, boundsForRow, handleDiffs, pointNeighborhoodsByTrack),
   );
 
   const shouldPreviewViolations = Boolean(
@@ -935,7 +942,7 @@ function applyPairingToFrames(
   });
 }
 
-function resolveHandleKind(transition?: RawVector2 | StandardTransitionType): TransitionHandleKind {
+function resolveHandleKind(transition?: AuthoredTransition): TransitionHandleKind {
   if (transition && typeof transition === "object") {
     return TransitionHandleKind.Explicit;
   }
@@ -961,6 +968,13 @@ function attachSegmentGeometry(
   sourceRow: SourceRow,
   _verticalBounds: { min: number; max: number },
   handleDiffs?: Record<string, { in?: RawVector2; out?: RawVector2; pairing?: TransitionPairing }>,
+  pointNeighborhoodsByTrack?: Map<
+    string,
+    Map<
+      string,
+      { prev?: { stamp: number; value: number }; next?: { stamp: number; value: number } }
+    >
+  >,
 ): InstancePair {
   const startOutTransition =
     resolveHandleDiff(segment.start, handleDiffs, "out") ?? segment.start.transitions?.out;
@@ -974,12 +988,29 @@ function attachSegmentGeometry(
   const startValue = extractFrameNumericValue(segment.start);
   const endValue = extractFrameNumericValue(segment.end);
   const hasValues = startValue !== undefined && endValue !== undefined;
+  const fallbackEntry = sourceRow.data[0];
+  const startPoint = segment.start.points[0];
+  const endPoint = segment.end.points[0];
+  const trackId = startPoint?.trackId ?? fallbackEntry?.trackId;
+  const namespaceId = startPoint?.namespaceId ?? fallbackEntry?.namespaceId;
+  const instanceId = startPoint?.instanceId ?? fallbackEntry?.instanceId;
+  const trackKey =
+    trackId && namespaceId && instanceId
+      ? buildTrackKey(namespaceId, instanceId, trackId)
+      : undefined;
+  const trackNeighborhoods = trackKey ? pointNeighborhoodsByTrack?.get(trackKey) : undefined;
+  const startNeighbors = startPoint ? trackNeighborhoods?.get(startPoint.id) : undefined;
+  const endNeighbors = endPoint ? trackNeighborhoods?.get(endPoint.id) : undefined;
 
   const controlPoints = hasValues
     ? resolveSegmentControlPoints({
         start: { stamp: segment.start.stamp, value: startValue },
         end: { stamp: segment.end.stamp, value: endValue },
         transitions: rawTransitions,
+        neighbors: {
+          startPrev: startNeighbors?.prev,
+          endNext: endNeighbors?.next,
+        },
       })
     : undefined;
 
@@ -1057,4 +1088,59 @@ function attachSegmentGeometry(
   };
 
   return segment;
+}
+
+function buildPointNeighborhoodByTrack(
+  tracks: Record<string, Track<RawValue>>,
+): Map<
+  string,
+  Map<string, { prev?: { stamp: number; value: number }; next?: { stamp: number; value: number } }>
+> {
+  const neighborhoods = new Map<
+    string,
+    Map<
+      string,
+      { prev?: { stamp: number; value: number }; next?: { stamp: number; value: number } }
+    >
+  >();
+
+  Object.entries(tracks).forEach(([trackKey, track]) => {
+    const sortedPoints = [...track.points].sort((a, b) => {
+      if (!Object.is(a.stamp, b.stamp)) {
+        return a.stamp - b.stamp;
+      }
+      return a.id.localeCompare(b.id);
+    });
+    const pointNeighborhoods = new Map<
+      string,
+      { prev?: { stamp: number; value: number }; next?: { stamp: number; value: number } }
+    >();
+
+    sortedPoints.forEach((point, index) => {
+      const prev = sortedPoints[index - 1];
+      const next = sortedPoints[index + 1];
+      const prevValue = prev ? coerceNumericValue(prev.value) : undefined;
+      const nextValue = next ? coerceNumericValue(next.value) : undefined;
+      pointNeighborhoods.set(point.id, {
+        prev:
+          prev && prevValue !== undefined
+            ? {
+                stamp: prev.stamp,
+                value: prevValue,
+              }
+            : undefined,
+        next:
+          next && nextValue !== undefined
+            ? {
+                stamp: next.stamp,
+                value: nextValue,
+              }
+            : undefined,
+      });
+    });
+
+    neighborhoods.set(trackKey, pointNeighborhoods);
+  });
+
+  return neighborhoods;
 }

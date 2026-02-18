@@ -152,6 +152,8 @@ export function commitDrag(state: AnimationData): void {
         dragState,
         selection,
         bounds: hasVerticalDelta ? boundsByTrack?.get(trackId) : undefined,
+        preferAnchorId:
+          dragState.anchor?.trackId === trackId ? dragState.anchor?.keypointId : undefined,
       });
       const seedDiffs = seedDiffsByTrackId.get(trackId) ?? [];
       const combinedDiffs = seedDiffs.length > 0 ? [...seedDiffs, ...diffs] : diffs;

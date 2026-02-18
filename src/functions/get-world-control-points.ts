@@ -1,11 +1,12 @@
 import { RawValue, RawVector2 } from "@semio/utils";
 import {
+  AuthoredTransition,
   Keypoint,
   StandardEaseInParameters,
   StandardEaseOutParameters,
-  StandardTransitionType,
 } from "../types";
 import { rawValueMultiplyScalar, rawValueDiff, rawValueAdd } from "./raw-value-math";
+import { resolveAuthoredTransition } from "./resolve-authored-transition";
 
 interface ComplexPosition<T> {
   x: number;
@@ -82,14 +83,13 @@ export function resolveTransitionDelta<T extends RawValue>(
   endStamp: number,
   startValue: T,
   endValue: T,
-  transition?: RawVector2 | StandardTransitionType,
+  transition?: AuthoredTransition | string,
 ): RawVector2 {
-  const easing =
-    transition && typeof transition !== "object" ? transition : StandardTransitionType.Cubic;
-
-  if (transition && typeof transition === "object") {
-    return { x: transition.x, y: transition.y };
+  const resolved = resolveAuthoredTransition(transition);
+  if (resolved.kind === "explicit" && resolved.explicit) {
+    return resolved.explicit;
   }
+  const easing = resolved.easing;
 
   const easingParams =
     side === "out" ? StandardEaseOutParameters[easing] : StandardEaseInParameters[easing];

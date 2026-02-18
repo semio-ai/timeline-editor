@@ -10,4 +10,5 @@ export * from "./remove-keypoint";
 export * from "./remove-track";
 export * from "./set-track-color";
 export * from "./update-keypoint";
+export * from "./update-selected-key-transitions";
 export * from "./update-track";

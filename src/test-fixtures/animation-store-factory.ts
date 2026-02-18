@@ -1,9 +1,14 @@
 import { RawValue, AnimatableValue, DeprecatedComplexAnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
-import { type Track, type Namespace, TransitionPairing, StoredAnimation } from "../types";
+import {
+  type Track,
+  type Namespace,
+  TransitionPairing,
+  StoredAnimation,
+  StandardTransitionType,
+} from "../types";
 import { createAnimationStore, type AnimationStore } from "../store";
 import { migrateAnimationData } from "../functions/migrate-animation-data";
-import { KeypointInsertionMethod } from "../store-types";
 
 // Animation IDs
 export const ANIMATION_IDS = {
@@ -662,7 +667,13 @@ export function createTestAnimationStore(options?: {
     preferences: {
       hoverDashedLine: true,
       dataPreviews: true,
-      keypointInsertionMethod: KeypointInsertionMethod.Flat,
+      newKeyDefaults: {
+        transitions: {
+          in: StandardTransitionType.Cubic,
+          out: StandardTransitionType.Cubic,
+          pairing: TransitionPairing.Paired,
+        },
+      },
     },
   });
 
@@ -693,7 +704,13 @@ export function createMinimalAnimationStore(): AnimationStore {
     preferences: {
       hoverDashedLine: true,
       dataPreviews: true,
-      keypointInsertionMethod: KeypointInsertionMethod.Flat,
+      newKeyDefaults: {
+        transitions: {
+          in: StandardTransitionType.Cubic,
+          out: StandardTransitionType.Cubic,
+          pairing: TransitionPairing.Paired,
+        },
+      },
     },
   });
 

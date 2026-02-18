@@ -1,5 +1,5 @@
-import { RawValue, RawVector2 } from "@semio/utils";
-import type { StandardTransitionType, TransitionPairing } from "../data/keypoint";
+import { RawValue } from "@semio/utils";
+import type { AuthoredTransition, TransitionPairing } from "../data/keypoint";
 import { SourceRowData } from "./source";
 
 /**
@@ -18,9 +18,9 @@ export interface InstancedFrameInfo {
    */
   transitions?: {
     /** Incoming transition handle. */
-    in?: RawVector2 | StandardTransitionType;
+    in?: AuthoredTransition;
     /** Outgoing transition handle. */
-    out?: RawVector2 | StandardTransitionType;
+    out?: AuthoredTransition;
     /** Pairing intent for in/out handles. */
     pairing?: TransitionPairing;
   };

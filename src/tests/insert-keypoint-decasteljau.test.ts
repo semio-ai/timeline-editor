@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { createMinimalAnimationStore } from "../test-fixtures/animation-store-factory";
-import { type AnimationData, KeypointInsertionMethod } from "../store-types";
+import { type AnimationData, TransitionDirective } from "../store-types";
 import { StandardTransitionType } from "../types";
 import { buildTrackKey } from "../utils/track-key";
 import { computeWorldStamp } from "../functions/compute-instance-time";
+import { inferAutoHandleDeltas } from "../functions/infer-auto-handles";
 import { flushMicrotasks } from "./utils/flush-microtasks";
 
 /**
@@ -88,7 +89,6 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
   it("defaults to flat insertion and uses cubic transitions for the new keypoint", async () => {
     const store = createMinimalAnimationStore();
     const state0 = store.getState();
-    expect(state0.preferences.keypointInsertionMethod).toBe(KeypointInsertionMethod.Flat);
 
     const trackId = Object.keys(state0.tracks)[0]; // minimal store has a single numeric track (SCALE)
     const { instanceId, timescale, offset } = resolveSingleNamespaceAndInstance(state0);
@@ -125,9 +125,16 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
     expect(endPointAfter?.transitions ?? null).toEqual(endTransitionsBefore);
   });
 
-  it("preserves curve shape around the insertion point when insertion is sloped", async () => {
+  it("preserves curve shape around the insertion point when defaults request explicit handles", async () => {
     const store = createMinimalAnimationStore();
-    store.getState().setPreferences({ keypointInsertionMethod: KeypointInsertionMethod.Sloped });
+    store.getState().setPreferences({
+      newKeyDefaults: {
+        transitions: {
+          in: TransitionDirective.ExplicitHandles,
+          out: TransitionDirective.ExplicitHandles,
+        },
+      },
+    });
     const state0 = store.getState();
     const trackId = Object.keys(state0.tracks)[0]; // numeric track
     const { namespaceId, instanceId, timescale, offset } =
@@ -170,5 +177,93 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
       // We only require neighborhood-level agreement to account for numeric error in time inversion and normalization.
       expect(Math.abs(a - b)).toBeLessThan(2e-4);
     }
+  });
+
+  it("stores inferred auto-clamped directives when inferred defaults are selected", async () => {
+    const store = createMinimalAnimationStore();
+    store.getState().setPreferences({
+      newKeyDefaults: {
+        transitions: {
+          in: TransitionDirective.InferredAutoClamped,
+          out: TransitionDirective.InferredAutoClamped,
+        },
+      },
+    });
+
+    const state0 = store.getState();
+    const trackId = Object.keys(state0.tracks)[0];
+    const { instanceId, timescale, offset } = resolveSingleNamespaceAndInstance(state0);
+    const { mid: localMid } = findMidSegmentLocalStamp(state0, trackId);
+    const worldStamp = computeWorldStamp(localMid, timescale, offset);
+
+    store.getState().insertKeypointAtWorldStamp(trackId, worldStamp, instanceId);
+    await flushMicrotasks();
+
+    const inserted = store
+      .getState()
+      .tracks[trackId].points.find((point) => Math.abs(point.stamp - localMid) < 1e-6);
+    expect(inserted).toBeTruthy();
+    expect(inserted?.transitions?.in).toBe(TransitionDirective.InferredAutoClamped);
+    expect(inserted?.transitions?.out).toBe(TransitionDirective.InferredAutoClamped);
+  });
+
+  it("uses inferred handles for explicit defaults when split insertion is unavailable", async () => {
+    const store = createMinimalAnimationStore();
+    store.getState().setPreferences({
+      newKeyDefaults: {
+        transitions: {
+          in: TransitionDirective.ExplicitHandles,
+          out: TransitionDirective.ExplicitHandles,
+        },
+      },
+    });
+
+    const state0 = store.getState();
+    const trackId = Object.keys(state0.tracks)[0];
+    const { instanceId, timescale, offset } = resolveSingleNamespaceAndInstance(state0);
+    const sortedBefore = state0.tracks[trackId].points.slice().sort((a, b) => a.stamp - b.stamp);
+
+    // Insert at an existing interior stamp to force non-split fallback logic.
+    const insertionIndex = 1;
+    const insertionStamp = sortedBefore[insertionIndex].stamp;
+    const prev = sortedBefore[insertionIndex];
+    const next = sortedBefore[insertionIndex + 1];
+    const beforeIds = new Set(state0.tracks[trackId].points.map((point) => point.id));
+
+    const worldStamp = computeWorldStamp(insertionStamp, timescale, offset);
+    store.getState().insertKeypointAtWorldStamp(trackId, worldStamp, instanceId);
+    await flushMicrotasks();
+
+    const state1 = store.getState();
+    const inserted = state1.tracks[trackId].points.find((point) => !beforeIds.has(point.id));
+    expect(inserted).toBeTruthy();
+    expect(typeof inserted?.value).toBe("number");
+    expect(typeof prev.value).toBe("number");
+    expect(typeof next.value).toBe("number");
+
+    const inferred = inferAutoHandleDeltas({
+      prev: { stamp: prev.stamp, value: prev.value as number },
+      anchor: { stamp: inserted?.stamp ?? insertionStamp, value: inserted?.value as number },
+      next: { stamp: next.stamp, value: next.value as number },
+    });
+    expect(inferred).toBeTruthy();
+
+    expect(inserted?.transitions).toBeTruthy();
+    expect(typeof inserted?.transitions?.in).toBe("object");
+    expect(typeof inserted?.transitions?.out).toBe("object");
+
+    const inTransition = inserted?.transitions?.in;
+    const outTransition = inserted?.transitions?.out;
+    if (!inTransition || typeof inTransition !== "object") {
+      throw new Error("Expected explicit incoming transition");
+    }
+    if (!outTransition || typeof outTransition !== "object") {
+      throw new Error("Expected explicit outgoing transition");
+    }
+
+    expect(inTransition.x).toBeCloseTo(inferred?.in.x ?? 0, 8);
+    expect(inTransition.y).toBeCloseTo(inferred?.in.y ?? 0, 8);
+    expect(outTransition.x).toBeCloseTo(inferred?.out.x ?? 0, 8);
+    expect(outTransition.y).toBeCloseTo(inferred?.out.y ?? 0, 8);
   });
 });

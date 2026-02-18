@@ -20,12 +20,35 @@ import type {
   Namespace,
   DerivedSnapshot,
 } from "./types";
+import { StandardTransitionType, TransitionDirective, TransitionPairing } from "./types";
 import type { SelectionState } from "./types/util/selection-state";
 import type { SimpleKeypoint, SimpleTrack } from "./types/data/simple-track";
 
-export enum KeypointInsertionMethod {
-  Flat = "flat",
-  Sloped = "sloped",
+export { TransitionDirective };
+
+export type TransitionPreference = StandardTransitionType | TransitionDirective;
+export type TransitionPatch = Partial<{
+  in: TransitionPreference;
+  out: TransitionPreference;
+  pairing: TransitionPairing;
+}>;
+
+export interface NewKeyTransitionPreferences {
+  in: TransitionPreference;
+  out: TransitionPreference;
+  pairing: TransitionPairing;
+}
+
+export interface NewKeyPreferences {
+  transitions: NewKeyTransitionPreferences;
+}
+
+export interface AnimationPreferencesPatch {
+  hoverDashedLine?: boolean;
+  dataPreviews?: boolean;
+  newKeyDefaults?: {
+    transitions?: Partial<NewKeyTransitionPreferences>;
+  };
 }
 
 /**
@@ -94,7 +117,7 @@ export interface AnimationData {
   preferences: {
     hoverDashedLine: boolean;
     dataPreviews: boolean;
-    keypointInsertionMethod: KeypointInsertionMethod;
+    newKeyDefaults: NewKeyPreferences;
   };
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   animatables: Record<string, AnimatableValue>;
@@ -220,6 +243,14 @@ export interface AnimationActions {
    * @param animation - The animation data to add.
    */
   addAnimation: (animation: StoredAnimation) => void;
+  /**
+   * Update transition defaults used for newly inserted keypoints.
+   */
+  updateNewKeyTransitionDefaults: (patch: TransitionPatch) => void;
+  /**
+   * Update transitions for the currently selected keypoints.
+   */
+  updateSelectedKeyTransitions: (patch: TransitionPatch) => void;
   /**
    * Set multiple animations at once, replacing existing animations.
    * @param animations - Record of animation ID to StoredAnimation
@@ -421,7 +452,7 @@ export interface AnimationActions {
    * Set the preferences for the animation data.
    * @param preferences - The preferences to set.
    */
-  setPreferences: (preferences: Partial<AnimationData["preferences"]>) => void;
+  setPreferences: (preferences: AnimationPreferencesPatch) => void;
   /**
    * Update the duration of an animation.
    * @param animationId - The ID of the animation.

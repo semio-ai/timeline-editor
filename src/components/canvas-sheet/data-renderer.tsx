@@ -60,8 +60,8 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
 }) {
   const instanceCount = selectionFrames.length * 2;
 
-  // Remount when the active instance changes to refresh instanced subscriptions.
-  const instancesKey = `${sourceRow.id}:${activeInstanceId ?? "none"}:${instanceCount.toString()}`;
+  // Keep instanced children mounted during drag; remount only when row/instance context changes.
+  const instancesKey = `${sourceRow.id}:${activeInstanceId ?? "none"}`;
 
   // If the track render is spline, but the row is a group, ignore it
   if (trackRender === TrackRender.Spline && sourceRow.data.length > 1) {
