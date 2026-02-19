@@ -7,6 +7,7 @@ import {
   NestedSeparator,
   Size,
   TextField,
+  Tooltip,
   Variant,
 } from "@semio/ui";
 import { useShallow } from "zustand/shallow";
@@ -234,51 +235,54 @@ export const ToolbarRightSection = memo(function ToolbarRightSection({
                   wrapperClassName="flex-1 min-w-0"
                 />
                 <span className="inline-flex shrink-0 items-center gap-0.5">
-                  <button
-                    type="button"
-                    title="Rename view"
-                    aria-label="Rename view"
-                    className={VIEW_ACTION_BUTTON_CLASS}
-                    onPointerDown={stopItemActionPropagation}
-                    onClick={(event) => {
-                      stopItemActionPropagation(event);
-                      beginEditingFromView(view.id, view.label);
-                    }}
-                  >
-                    <IconEdit className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    title="Copy view"
-                    aria-label="Copy view"
-                    className={VIEW_ACTION_BUTTON_CLASS}
-                    onPointerDown={stopItemActionPropagation}
-                    onClick={(event) => {
-                      stopItemActionPropagation(event);
-                      finishEditing(true);
-                      onCopyView(view.id);
-                    }}
-                  >
-                    <IconCopy className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    title="Delete view"
-                    aria-label="Delete view"
-                    disabled={viewIds.length <= 1}
-                    className={clsx(
-                      VIEW_ACTION_BUTTON_CLASS,
-                      "disabled:opacity-50 disabled:pointer-events-none",
-                    )}
-                    onPointerDown={stopItemActionPropagation}
-                    onClick={(event) => {
-                      stopItemActionPropagation(event);
-                      finishEditing(true);
-                      onRemoveView(view.id);
-                    }}
-                  >
-                    <IconTrash className="h-3.5 w-3.5" />
-                  </button>
+                  <Tooltip content="Rename view" side="top">
+                    <button
+                      type="button"
+                      aria-label="Rename view"
+                      className={VIEW_ACTION_BUTTON_CLASS}
+                      onPointerDown={stopItemActionPropagation}
+                      onClick={(event) => {
+                        stopItemActionPropagation(event);
+                        beginEditingFromView(view.id, view.label);
+                      }}
+                    >
+                      <IconEdit className="h-3.5 w-3.5" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Copy view" side="top">
+                    <button
+                      type="button"
+                      aria-label="Copy view"
+                      className={VIEW_ACTION_BUTTON_CLASS}
+                      onPointerDown={stopItemActionPropagation}
+                      onClick={(event) => {
+                        stopItemActionPropagation(event);
+                        finishEditing(true);
+                        onCopyView(view.id);
+                      }}
+                    >
+                      <IconCopy className="h-3.5 w-3.5" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Delete view" side="top">
+                    <button
+                      type="button"
+                      aria-label="Delete view"
+                      disabled={viewIds.length <= 1}
+                      className={clsx(
+                        VIEW_ACTION_BUTTON_CLASS,
+                        "disabled:opacity-50 disabled:pointer-events-none",
+                      )}
+                      onPointerDown={stopItemActionPropagation}
+                      onClick={(event) => {
+                        stopItemActionPropagation(event);
+                        finishEditing(true);
+                        onRemoveView(view.id);
+                      }}
+                    >
+                      <IconTrash className="h-3.5 w-3.5" />
+                    </button>
+                  </Tooltip>
                 </span>
               </span>
             </div>
