@@ -4,6 +4,7 @@ import { Source, SourceGroup, SourceTrack } from "../types";
 interface ComputeVisibleSourceTracksOptions {
   includeHidden?: boolean;
   includeMuted?: boolean;
+  hiddenSourceTrackIds?: Set<string>;
 }
 
 export function computeVisibleSourceTracks(
@@ -12,6 +13,7 @@ export function computeVisibleSourceTracks(
 ): string[] {
   const includeHidden = options.includeHidden ?? false;
   const includeMuted = options.includeMuted ?? true;
+  const hiddenSourceTrackIds = options.hiddenSourceTrackIds ?? new Set<string>();
   const openTracks = new Set<string>();
   if (!sources) {
     return [];
@@ -25,7 +27,7 @@ export function computeVisibleSourceTracks(
       });
     } else {
       const sourceTrack = source as SourceTrack;
-      if (sourceTrack.hidden && !includeHidden) {
+      if (hiddenSourceTrackIds.has(sourceTrack.id) && !includeHidden) {
         return;
       }
       if (sourceTrack.muted && !includeMuted) {

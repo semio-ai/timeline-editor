@@ -47,7 +47,9 @@ export const TracksRenderer = memo(function TracksRenderer({
 
   const sourceRowLookup = useAnimationStore(
     useShallow(
-      (state: AnimationData) => rowIdLookup ?? normalizeVisibleSourceRowIds(state.sourceRowIds),
+      (state: AnimationData) =>
+        rowIdLookup ??
+        normalizeVisibleSourceRowIds(state.sourceRowIdsByView[viewId] ?? state.sourceRowIds),
     ),
   );
 

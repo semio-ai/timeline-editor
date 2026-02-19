@@ -116,7 +116,9 @@ const CanvasContent = memo(function CanvasContent({
 
   const resolvedRowIdLookup = useAnimationStore(
     useShallow(
-      (state: AnimationData) => rowIdLookup ?? normalizeVisibleSourceRowIds(state.sourceRowIds),
+      (state: AnimationData) =>
+        rowIdLookup ??
+        normalizeVisibleSourceRowIds(state.sourceRowIdsByView[viewId] ?? state.sourceRowIds),
     ),
   );
   const trackRender = useAnimationStore(

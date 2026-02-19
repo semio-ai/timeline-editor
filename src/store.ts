@@ -7,6 +7,8 @@ import { create } from "zustand";
 import {
   Track,
   StoredAnimation,
+  Source,
+  SourceGroup,
   SemanticTime,
   Preview,
   SourceRow,
@@ -30,6 +32,7 @@ import {
   AnimationStoreSetter,
   AnimationApi,
   TransitionPatch,
+  EditorViewState,
 } from "./store-types";
 import {
   createKeypoint,
@@ -85,6 +88,7 @@ import { View } from "./types/util/view";
 import { createEmptySelectionState } from "./functions/selection-state-manager";
 import { clickLineAction } from "./actions/click-line";
 import { parseTrackKey } from "./utils/track-key";
+import { GROUP_TYPES } from "./constants";
 
 enableMapSet();
 
@@ -114,6 +118,69 @@ const applyTrackValue = (
   }
 };
 
+function collectLegacyHiddenTrackIds(
+  sourcesByAnimationInstance: AnimationData["sourcesByAnimationInstance"],
+): string[] {
+  const hiddenIds = new Set<string>();
+  Object.values(sourcesByAnimationInstance).forEach((sources) => {
+    collectSourceTracks(sources).forEach((track) => {
+      if (track.hidden) {
+        hiddenIds.add(track.id);
+      }
+    });
+  });
+  return Array.from(hiddenIds);
+}
+
+function resolveTrackIdsForVisibilityUpdate(
+  sourcesByAnimationInstance: AnimationData["sourcesByAnimationInstance"],
+  sourceId: string,
+): string[] {
+  const trackIds = new Set<string>();
+
+  const visit = (sources: Source[]): void => {
+    sources.forEach((source) => {
+      if (GROUP_TYPES.has(source.type)) {
+        const sourceGroup = source as SourceGroup;
+        if (source.id === sourceId) {
+          collectSourceTracks([source]).forEach((track) => {
+            trackIds.add(track.id);
+          });
+          return;
+        }
+        visit(sourceGroup.children);
+        return;
+      }
+      if (source.id === sourceId) {
+        trackIds.add(source.id);
+      }
+    });
+  };
+
+  Object.values(sourcesByAnimationInstance).forEach((sources) => {
+    visit(sources);
+  });
+
+  return Array.from(trackIds);
+}
+
+function normalizeEditorViewOrder(
+  viewOrder: string[],
+  editorViews: Record<string, View>,
+): string[] {
+  const ordered: string[] = [];
+  viewOrder.forEach((id) => {
+    if (!editorViews[id] || ordered.includes(id)) return;
+    ordered.push(id);
+  });
+  Object.keys(editorViews).forEach((id) => {
+    if (!ordered.includes(id)) {
+      ordered.push(id);
+    }
+  });
+  return ordered;
+}
+
 export const AnimationSlice = (
   set: AnimationStoreSetter,
   get: AnimationStoreGetter,
@@ -122,10 +189,11 @@ export const AnimationSlice = (
   return {
     ...createDefaultState(),
     updateSource: (groupId: string, expanded?: boolean, hidden?: boolean) => {
+      void hidden;
       set(
         produce((state: AnimationData) => {
-          // Updates global sources, affecting all views
-          const updates = { [groupId]: { expanded, hidden } };
+          // Group expansion is global; track visibility is managed per-view.
+          const updates = { [groupId]: { expanded } };
           state.sourcesByAnimationInstance = mapValues(
             state.sourcesByAnimationInstance,
             (instanceSources) => computeUpdatedSources(instanceSources, updates),
@@ -136,11 +204,49 @@ export const AnimationSlice = (
     updateSources: (updates: Record<string, { expanded?: boolean; hidden?: boolean }>) => {
       set(
         produce((state: AnimationData) => {
-          // Updates global sources, affecting all views
+          // Global source updates only carry expansion; hidden is now view-specific.
+          const expansionUpdates: Record<string, { expanded?: boolean }> = {};
+          Object.entries(updates).forEach(([id, update]) => {
+            if (update.expanded !== undefined) {
+              expansionUpdates[id] = { expanded: update.expanded };
+            }
+          });
+          if (Object.keys(expansionUpdates).length === 0) {
+            return;
+          }
           state.sourcesByAnimationInstance = mapValues(
             state.sourcesByAnimationInstance,
-            (instanceSources) => computeUpdatedSources(instanceSources, updates),
+            (instanceSources) => computeUpdatedSources(instanceSources, expansionUpdates),
           );
+        }),
+      );
+    },
+    updateViewTrackVisibility: (viewId: string, updates: Record<string, { hidden?: boolean }>) => {
+      set(
+        produce((state: AnimationData) => {
+          const view = state.editorViews[viewId];
+          if (!view) return;
+
+          const hiddenSet = new Set(view.hiddenSourceTrackIds ?? []);
+          Object.entries(updates).forEach(([sourceId, update]) => {
+            if (update.hidden === undefined) return;
+            const resolvedTrackIds = resolveTrackIdsForVisibilityUpdate(
+              state.sourcesByAnimationInstance,
+              sourceId,
+            );
+            resolvedTrackIds.forEach((trackId) => {
+              if (update.hidden) {
+                hiddenSet.add(trackId);
+              } else {
+                hiddenSet.delete(trackId);
+              }
+            });
+          });
+
+          state.editorViews[viewId] = {
+            ...view,
+            hiddenSourceTrackIds: Array.from(hiddenSet),
+          };
         }),
       );
     },
@@ -256,22 +362,89 @@ export const AnimationSlice = (
     },
     addView: (view: Partial<View> & { id: string }) => {
       set((state: AnimationData) => {
+        const legacyHiddenIds =
+          Object.keys(state.editorViews).length === 0
+            ? collectLegacyHiddenTrackIds(state.sourcesByAnimationInstance)
+            : [];
         const defaultView: View = {
           id: view.id,
+          name: view.name,
           trackRender: view.trackRender ?? TrackRender.Key,
           verticalAxis: view.verticalAxis ?? VerticalAxis.Normalized,
+          hiddenSourceTrackIds: view.hiddenSourceTrackIds ?? legacyHiddenIds,
           trackFilter: view.trackFilter ?? "",
         };
+        const nextViews = {
+          ...state.editorViews,
+          [view.id]: { ...defaultView, ...view },
+        };
+        const nextOrder = normalizeEditorViewOrder(
+          state.editorViewOrder.includes(view.id)
+            ? state.editorViewOrder
+            : [...state.editorViewOrder, view.id],
+          nextViews,
+        );
         return {
-          editorViews: { ...state.editorViews, [view.id]: { ...defaultView, ...view } },
+          editorViews: nextViews,
+          editorViewOrder: nextOrder,
+          activeEditorViewId: state.activeEditorViewId ?? nextOrder[0],
         };
       });
+    },
+    replaceEditorViews: (next: EditorViewState) => {
+      set(
+        produce((state: AnimationData) => {
+          const nextViews: Record<string, View> = {};
+          next.views.forEach((view) => {
+            if (!view.id || nextViews[view.id]) return;
+            nextViews[view.id] = {
+              id: view.id,
+              name: view.name,
+              trackRender: view.trackRender ?? TrackRender.Key,
+              verticalAxis: view.verticalAxis ?? VerticalAxis.Normalized,
+              hiddenSourceTrackIds: [...(view.hiddenSourceTrackIds ?? [])],
+              trackFilter: view.trackFilter ?? "",
+            };
+          });
+          if (Object.keys(nextViews).length === 0) {
+            nextViews["view-1"] = {
+              id: "view-1",
+              name: "View 1",
+              trackRender: TrackRender.Key,
+              verticalAxis: VerticalAxis.Normalized,
+              hiddenSourceTrackIds: [],
+              trackFilter: "",
+            };
+          }
+          const nextOrder = normalizeEditorViewOrder(next.viewOrder, nextViews);
+          const nextActive =
+            next.activeViewId && nextOrder.includes(next.activeViewId)
+              ? next.activeViewId
+              : nextOrder[0];
+          state.editorViews = nextViews;
+          state.editorViewOrder = nextOrder;
+          state.activeEditorViewId = nextActive;
+        }),
+      );
+    },
+    setActiveEditorView: (viewId: string) => {
+      set(
+        produce((state: AnimationData) => {
+          if (!state.editorViews[viewId]) return;
+          state.activeEditorViewId = viewId;
+        }),
+      );
     },
     updateView: (viewId: string, view: Partial<View>) => {
       set(
         produce((state: AnimationData) => {
           if (!state.editorViews[viewId]) return;
-          state.editorViews[viewId] = { ...state.editorViews[viewId], ...view };
+          state.editorViews[viewId] = {
+            ...state.editorViews[viewId],
+            ...view,
+            hiddenSourceTrackIds:
+              view.hiddenSourceTrackIds ?? state.editorViews[viewId].hiddenSourceTrackIds,
+          };
         }),
       );
     },
@@ -279,8 +452,16 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData) => {
           if (!state.editorViews[viewId]) return;
+          if (Object.keys(state.editorViews).length <= 1) return;
           const { [viewId]: _, ...rest } = state.editorViews;
           state.editorViews = rest;
+          state.editorViewOrder = normalizeEditorViewOrder(
+            state.editorViewOrder.filter((id) => id !== viewId),
+            state.editorViews,
+          );
+          if (state.activeEditorViewId === viewId) {
+            state.activeEditorViewId = state.editorViewOrder[0];
+          }
         }),
       );
     },

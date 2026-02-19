@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState, useEffect, useCallback, useId, useMemo, useRef } from "react";
+import { useContext, memo, useState, useEffect, useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
 import { Search, Size, useTheme, TooltipProvider, TooltipContext } from "@semio/ui";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
-import { TrackRender } from "../types";
+import { TrackRender, VerticalAxis } from "../types";
 import {
   useAnimationStore,
   ColorContextProvider,
@@ -178,42 +178,161 @@ function InnerSheet({
   fonts = {},
 }: AnimationSheetProps): ReactNode {
   const { resolvedTheme } = useTheme();
+  const animationStore = useContext(AnimationContext);
 
-  // Manage view registration with animation store
-  const viewInitialized = useRef(false);
-  const viewId = useId();
-  const [addView, removeView] = useAnimationStore(
-    useShallow((state) => [state.addView, state.removeView]),
+  const initialViewId = useMemo(() => `view-${crypto.randomUUID()}`, []);
+  const {
+    addView,
+    removeView,
+    setActiveEditorView,
+    updateView,
+    editorViews,
+    editorViewOrder,
+    activeEditorViewId,
+  } = useAnimationStore(
+    useShallow((state) => ({
+      addView: state.addView,
+      removeView: state.removeView,
+      setActiveEditorView: state.setActiveEditorView,
+      updateView: state.updateView,
+      editorViews: state.editorViews,
+      editorViewOrder: state.editorViewOrder,
+      activeEditorViewId: state.activeEditorViewId,
+    })),
   );
-  const updateView = useAnimationStore(useShallow((state) => state.updateView));
-  const trackFilter = useAnimationStore(
-    useShallow((state) => state.editorViews[viewId]?.trackFilter ?? ""),
+
+  const viewIds = useMemo(
+    () => editorViewOrder.filter((id) => Boolean(editorViews[id])),
+    [editorViewOrder, editorViews],
   );
+  const activeViewId = useMemo(() => {
+    if (activeEditorViewId && editorViews[activeEditorViewId]) {
+      return activeEditorViewId;
+    }
+    return viewIds[0];
+  }, [activeEditorViewId, editorViews, viewIds]);
+  const resolvedViewId = activeViewId ?? viewIds[0] ?? initialViewId;
+  const trackFilter = editorViews[resolvedViewId]?.trackFilter ?? "";
 
   useEffect(() => {
-    if (!viewInitialized.current) {
-      viewInitialized.current = true;
-      addView({ id: viewId, trackRender: TrackRender.Key });
+    if (viewIds.length === 0) {
+      const currentViews = animationStore?.getState().editorViews;
+      if (currentViews && Object.keys(currentViews).length > 0) {
+        return;
+      }
+      addView({
+        id: initialViewId,
+        name: "View 1",
+        trackRender: TrackRender.Key,
+        verticalAxis: VerticalAxis.Normalized,
+        hiddenSourceTrackIds: [],
+        trackFilter: "",
+      });
+      return;
     }
-    return () => {
-      viewInitialized.current = false;
-      removeView(viewId);
-    };
-  }, [viewId, removeView, addView]);
+    if (activeViewId && activeEditorViewId !== activeViewId) {
+      setActiveEditorView(activeViewId);
+    }
+  }, [
+    activeEditorViewId,
+    activeViewId,
+    addView,
+    animationStore,
+    initialViewId,
+    setActiveEditorView,
+    viewIds,
+  ]);
 
   const scrollY = useMotionValue(0);
 
   const [emphasis, setEmphasis] = useState<string[]>([]);
   const setTrackFilter = useCallback(
     (value: string) => {
-      updateView(viewId, { trackFilter: value });
+      updateView(resolvedViewId, { trackFilter: value });
     },
-    [updateView, viewId],
+    [resolvedViewId, updateView],
+  );
+
+  const handleSelectView = useCallback(
+    (viewId: string) => {
+      setActiveEditorView(viewId);
+    },
+    [setActiveEditorView],
+  );
+
+  const handleCreateView = useCallback(() => {
+    const nextId = `view-${crypto.randomUUID()}`;
+    const activeView = editorViews[resolvedViewId];
+    const existingNames = new Set(
+      viewIds.map((id) => editorViews[id]?.name).filter((name): name is string => Boolean(name)),
+    );
+
+    let nextIndex = 1;
+    let nextName = `View ${String(nextIndex)}`;
+    while (existingNames.has(nextName)) {
+      nextIndex += 1;
+      nextName = `View ${String(nextIndex)}`;
+    }
+
+    addView({
+      id: nextId,
+      name: nextName,
+      trackRender: activeView?.trackRender ?? TrackRender.Key,
+      verticalAxis: activeView?.verticalAxis,
+      // New views inherit render preferences but always start with a clean visibility/search state.
+      hiddenSourceTrackIds: [],
+      trackFilter: "",
+    });
+    setActiveEditorView(nextId);
+  }, [addView, editorViews, resolvedViewId, setActiveEditorView, viewIds]);
+
+  const handleCopyView = useCallback(
+    (sourceViewId: string) => {
+      if (!viewIds.includes(sourceViewId)) return;
+      const sourceView = editorViews[sourceViewId];
+      if (!sourceView) return;
+
+      const nextId = `view-${crypto.randomUUID()}`;
+      const sourceIndex = viewIds.indexOf(sourceViewId);
+      const fallbackSourceName = sourceIndex >= 0 ? `View ${String(sourceIndex + 1)}` : "View";
+      const sourceName = sourceView.name?.trim() || fallbackSourceName;
+      const existingNames = new Set(
+        viewIds.map((id) => editorViews[id]?.name).filter((name): name is string => Boolean(name)),
+      );
+
+      let candidateName = `${sourceName} Copy`;
+      let copyIndex = 2;
+      while (existingNames.has(candidateName)) {
+        candidateName = `${sourceName} Copy ${String(copyIndex)}`;
+        copyIndex += 1;
+      }
+
+      addView({
+        id: nextId,
+        name: candidateName,
+        trackRender: sourceView.trackRender,
+        verticalAxis: sourceView.verticalAxis,
+        hiddenSourceTrackIds: [...(sourceView.hiddenSourceTrackIds ?? [])],
+        trackFilter: sourceView.trackFilter ?? "",
+      });
+      setActiveEditorView(nextId);
+    },
+    [addView, editorViews, setActiveEditorView, viewIds],
+  );
+
+  const handleRemoveView = useCallback(
+    (viewId: string) => {
+      if (viewIds.length <= 1 || !viewIds.includes(viewId)) return;
+      removeView(viewId);
+    },
+    [removeView, viewIds],
   );
 
   const { sourceRowLookup, sourceRows, tracks, animatables } = useAnimationStore(
     useShallow((state) => ({
-      sourceRowLookup: normalizeVisibleSourceRowIds(state.sourceRowIds),
+      sourceRowLookup: normalizeVisibleSourceRowIds(
+        state.sourceRowIdsByView[resolvedViewId] ?? state.sourceRowIds,
+      ),
       sourceRows: state.instancedTrackSources,
       tracks: state.tracks,
       animatables: state.animatables,
@@ -266,7 +385,16 @@ function InnerSheet({
                 )}
               >
                 {/* Toolbar - Row 1 */}
-                <Toolbar viewId={viewId} onToggleExpand={onToggleExpand} expanded={expanded} />
+                <Toolbar
+                  viewId={resolvedViewId}
+                  viewIds={viewIds}
+                  onSelectView={handleSelectView}
+                  onCreateView={handleCreateView}
+                  onCopyView={handleCopyView}
+                  onRemoveView={handleRemoveView}
+                  onToggleExpand={onToggleExpand}
+                  expanded={expanded}
+                />
 
                 {/* Track Filter - Row 2 */}
                 <div className="h-9 px-1.5 py-0.5 flex items-center">
@@ -291,7 +419,7 @@ function InnerSheet({
                   )}
                 >
                   <CanvasSheet
-                    viewId={viewId}
+                    viewId={resolvedViewId}
                     scrollValue={scrollY}
                     theme={resolvedTheme}
                     emphasis={emphasis}
@@ -314,7 +442,7 @@ function InnerSheet({
 
                 {/* Timeline Control - Row 3 */}
                 <div className="pr-2">
-                  <TimelineControl viewId={viewId} />
+                  <TimelineControl viewId={resolvedViewId} />
                 </div>
 
                 {/* Timeline View - Row 3 */}

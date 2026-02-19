@@ -5,11 +5,25 @@ import { ToolbarRightSection } from "./toolbar/toolbar-right-section";
 
 export interface ToolbarProps {
   viewId: string;
+  viewIds: string[];
+  onSelectView: (viewId: string) => void;
+  onCreateView: () => void;
+  onCopyView: (viewId: string) => void;
+  onRemoveView: (viewId: string) => void;
   onToggleExpand?: (expanded: boolean) => void;
   expanded?: boolean;
 }
 
-export const Toolbar = memo(function Toolbar({ viewId, onToggleExpand, expanded }: ToolbarProps) {
+export const Toolbar = memo(function Toolbar({
+  viewId,
+  viewIds,
+  onSelectView,
+  onCreateView,
+  onCopyView,
+  onRemoveView,
+  onToggleExpand,
+  expanded,
+}: ToolbarProps) {
   return (
     <div className="flex flex-1 flex-row h-9 items-center justify-between pl-1.5 pr-1 col-span-2">
       <div className="flex gap-2">
@@ -19,7 +33,14 @@ export const Toolbar = memo(function Toolbar({ viewId, onToggleExpand, expanded 
         <KeyToolbarSection />
       </div>
       <div className="flex gap-2">
-        <ToolbarRightSection />
+        <ToolbarRightSection
+          viewIds={viewIds}
+          activeViewId={viewId}
+          onSelectView={onSelectView}
+          onCreateView={onCreateView}
+          onCopyView={onCopyView}
+          onRemoveView={onRemoveView}
+        />
       </div>
     </div>
   );

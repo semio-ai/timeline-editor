@@ -33,6 +33,12 @@ export type TransitionPatch = Partial<{
   pairing: TransitionPairing;
 }>;
 
+export interface EditorViewState {
+  activeViewId?: string;
+  viewOrder: string[];
+  views: (Partial<View> & { id: string })[];
+}
+
 export interface NewKeyTransitionPreferences {
   in: TransitionPreference;
   out: TransitionPreference;
@@ -131,6 +137,14 @@ export interface AnimationData {
    */
   editorViews: Record<string, View>;
   /**
+   * Ordered editor view ids for toolbar/dropdown rendering.
+   */
+  editorViewOrder: string[];
+  /**
+   * Currently active editor view id.
+   */
+  activeEditorViewId?: string;
+  /**
    * Global set of instanced track sources
    */
   instancedTrackSources: Record<string, SourceRow>;
@@ -142,6 +156,10 @@ export interface AnimationData {
    * Global source row IDs shared across all views
    */
   sourceRowIds: VisibleSourceRowIds;
+  /**
+   * View-specific source row visibility derived from each view's hidden track settings.
+   */
+  sourceRowIdsByView: Record<string, VisibleSourceRowIds>;
   /**
    * Incremented whenever track metadata changes so subscriptions can detect updates
    * without diffing the entire track map.
@@ -202,6 +220,14 @@ export interface AnimationActions {
    */
   updateSources: (groupStates: Record<string, { expanded?: boolean; hidden?: boolean }>) => void;
   /**
+   * Update per-view track visibility state.
+   * `hidden` applies to leaf source track ids; group ids will be expanded to their descendant tracks.
+   */
+  updateViewTrackVisibility: (
+    viewId: string,
+    updates: Record<string, { hidden?: boolean }>,
+  ) => void;
+  /**
    * Update all values in the store.
    * @param values - A map of values to update.
    */
@@ -221,6 +247,14 @@ export interface AnimationActions {
    * Creates a new view
    */
   addView: (view: Partial<View> & { id: string }) => void;
+  /**
+   * Replaces all editor views and selection state in one operation.
+   */
+  replaceEditorViews: (state: EditorViewState) => void;
+  /**
+   * Sets the active editor view id.
+   */
+  setActiveEditorView: (viewId: string) => void;
   /**
    * Updates a view
    */

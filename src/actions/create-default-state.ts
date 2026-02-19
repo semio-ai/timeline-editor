@@ -48,12 +48,15 @@ export const createDefaultState = (): AnimationData => {
 
     dragState: undefined,
     editorViews: {},
+    editorViewOrder: [],
+    activeEditorViewId: undefined,
     instancedTrackSources: {},
     sourcesByAnimationInstance: {},
     sourceRowIds: {
       flat: [],
       spline: [],
     },
+    sourceRowIdsByView: {},
     tracksRevision: 0,
   };
 };

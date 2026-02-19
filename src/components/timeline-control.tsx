@@ -14,6 +14,7 @@ import {
 } from "../hooks";
 import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
 import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
+import { buildFilteredGlobalRowId } from "../functions/view-filtered-global-row";
 import { AnimationActions, AnimationData } from "../store-types";
 import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
 import type { SourceRow } from "../types";
@@ -26,7 +27,9 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   const { source, namespaces, animations, sourcesByAnimationInstance, viewData } =
     useAnimationStore(
       useShallow((state: AnimationData) => ({
-        source: state.instancedTrackSources.global,
+        source:
+          state.instancedTrackSources[buildFilteredGlobalRowId(viewId)] ??
+          state.instancedTrackSources.global,
         namespaces: state.namespaces,
         animations: state.animations,
         sourcesByAnimationInstance: state.sourcesByAnimationInstance,
@@ -48,11 +51,11 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
 
   const nameLookup = useNameLookup();
 
-  const { updateKeypoints, removeKeypoints, updateSources } = useAnimationStore(
+  const { updateKeypoints, removeKeypoints, updateViewTrackVisibility } = useAnimationStore(
     useShallow((state: AnimationActions & AnimationData) => ({
       updateKeypoints: state.updateKeypoints,
       removeKeypoints: state.removeKeypoints,
-      updateSources: state.updateSources,
+      updateViewTrackVisibility: state.updateViewTrackVisibility,
     })),
   );
 
@@ -67,6 +70,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       const options: TreeOption[] = [];
       const values: string[] = [];
 
+      const hiddenSourceTrackIds = new Set(viewData?.hiddenSourceTrackIds ?? []);
       Object.values(namespaces).forEach((namespace) => {
         // Create a tree option group for the namespace;
         const namespaceOption: TreeOption = {
@@ -91,7 +95,12 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           // Then add the instance option to the namespace option;
           namespaceOption.children!.push(instanceOption);
           // Add visible tracks to the values;
-          const visibleTracks = computeVisibleSourceTracks(sourcesByAnimationInstance[instance.id]);
+          const visibleTracks = computeVisibleSourceTracks(
+            sourcesByAnimationInstance[instance.id],
+            {
+              hiddenSourceTrackIds,
+            },
+          );
           visibleTracks.forEach((t) => values.push(t));
         });
 
@@ -99,7 +108,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       });
 
       return { treeOptions: options, treeValues: values };
-    }, [sourcesByAnimationInstance, namespaces, nameLookup, animations]);
+    }, [sourcesByAnimationInstance, namespaces, nameLookup, animations, viewData]);
 
   const hasTrackOptions = useMemo(
     () => Object.values(sourcesByAnimationInstance).some((sources) => sources?.length > 0),
@@ -111,24 +120,21 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   const handleChangeSelection = useCallback(
     (_: string[], changes: { id: string; operation: "add" | "remove" }[]) => {
       if (controlsDisabled) return;
-      const base: Record<string, { id: string; hidden: boolean }> = {};
-      const updates: Record<string, { id: string; hidden: boolean }> = changes.reduce(
-        (acc, change) => {
-          if (change.operation === "add") {
-            // When adding, we are un-hiding a source row.
-            acc[change.id] = { id: change.id, hidden: false };
-          } else if (change.operation === "remove") {
-            // When removing, we are hiding a source row.
-            acc[change.id] = { id: change.id, hidden: true };
-          }
-          return acc;
-        },
-        base,
-      );
+      const base: Record<string, { hidden: boolean }> = {};
+      const updates: Record<string, { hidden: boolean }> = changes.reduce((acc, change) => {
+        if (change.operation === "add") {
+          // When adding, we are un-hiding a source row.
+          acc[change.id] = { hidden: false };
+        } else if (change.operation === "remove") {
+          // When removing, we are hiding a source row.
+          acc[change.id] = { hidden: true };
+        }
+        return acc;
+      }, base);
 
-      updateSources(updates);
+      updateViewTrackVisibility(viewId, updates);
     },
-    [controlsDisabled, updateSources],
+    [controlsDisabled, updateViewTrackVisibility, viewId],
   );
 
   return (

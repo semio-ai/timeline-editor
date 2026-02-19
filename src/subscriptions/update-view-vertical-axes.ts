@@ -29,13 +29,14 @@ function buildViewContexts(
   rowMap: Record<string, ComputedRowData>,
   editorViews: AnimationData["editorViews"],
   sourceRowIds: AnimationData["sourceRowIds"],
+  sourceRowIdsByView: AnimationData["sourceRowIdsByView"],
 ): ViewAxisContext[] {
-  const lookup = normalizeRowLookup(sourceRowIds);
   return Object.entries(editorViews).map(([viewId, view]) => {
     const trackRender = view.trackRender ?? TrackRender.Key;
     const preferredAxis = view.verticalAxis ?? VerticalAxis.Normalized;
     const isSplineView = trackRender === TrackRender.Spline;
     const verticalAxis = isSplineView ? preferredAxis : VerticalAxis.Normalized;
+    const lookup = normalizeRowLookup(sourceRowIdsByView[viewId] ?? sourceRowIds);
     const rowIds = isSplineView ? lookup.spline : lookup.flat;
     const rowSet = new Set(rowIds);
 
@@ -83,13 +84,14 @@ export function projectRowVerticalAxes(
   rowMap: Record<string, ComputedRowData>,
   editorViews: AnimationData["editorViews"],
   sourceRowIds: AnimationData["sourceRowIds"],
+  sourceRowIdsByView: AnimationData["sourceRowIdsByView"],
 ): { rows: Record<string, ComputedRowData>; changed: boolean } {
   const hasRows = rowMap && Object.keys(rowMap).length > 0;
   if (!hasRows) {
     return { rows: rowMap, changed: false };
   }
 
-  const viewContexts = buildViewContexts(rowMap, editorViews, sourceRowIds);
+  const viewContexts = buildViewContexts(rowMap, editorViews, sourceRowIds, sourceRowIdsByView);
   const result: Record<string, ComputedRowData> = {};
 
   if (viewContexts.length === 0) {

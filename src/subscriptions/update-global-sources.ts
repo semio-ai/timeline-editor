@@ -59,7 +59,8 @@ export function updateGlobalSources(
               : undefined;
           return {
             ...track,
-            hidden: previousTrack?.hidden ?? track.hidden,
+            // Track visibility is now view-specific; do not persist hidden state here.
+            hidden: false,
             muted: previousTrack?.muted ?? track.muted,
           };
         });

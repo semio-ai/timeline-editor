@@ -27,11 +27,12 @@ export function updateViewFilteredGlobalRows(
     (state: AnimationData) => ({
       editorViews: state.editorViews,
       sourceRowIds: state.sourceRowIds,
+      sourceRowIdsByView: state.sourceRowIdsByView,
       tracks: state.tracks,
       animatables: state.animatables,
       globalRow: state.instancedTrackSources.global,
     }),
-    ({ editorViews, sourceRowIds, tracks, animatables, globalRow }) => {
+    ({ editorViews, sourceRowIds, sourceRowIdsByView, tracks, animatables, globalRow }) => {
       const state = get();
       const sourceRows = state.instancedTrackSources;
       const normalizedRowLookup = normalizeVisibleSourceRowIds(sourceRowIds);
@@ -40,19 +41,19 @@ export function updateViewFilteredGlobalRows(
       const filteredRows: Record<string, SourceRow> = {};
 
       Object.values(editorViews).forEach((view) => {
-        const query = view.trackFilter?.trim();
-        if (!query) return;
-
-        const filteredLookup = filterVisibleSourceRowIds(
-          normalizedRowLookup,
-          query,
-          (rowId, normalizedQuery) =>
-            matchesSourceRowQuery(rowId, normalizedQuery, {
-              sourceRows,
-              tracks,
-              animatables,
-            }),
+        const viewRowLookup = normalizeVisibleSourceRowIds(
+          sourceRowIdsByView[view.id] ?? normalizedRowLookup,
         );
+        const query = view.trackFilter?.trim();
+        const filteredLookup = query
+          ? filterVisibleSourceRowIds(viewRowLookup, query, (rowId, normalizedQuery) =>
+              matchesSourceRowQuery(rowId, normalizedQuery, {
+                sourceRows,
+                tracks,
+                animatables,
+              }),
+            )
+          : viewRowLookup;
 
         const visibleTrackKeys = new Set<string>();
         filteredLookup.spline.forEach((rowId) => {

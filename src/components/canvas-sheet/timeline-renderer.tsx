@@ -26,8 +26,6 @@ export const TimelineRenderer = memo(function TimelineRenderer({
   const playbackGestures = usePlaybackGestures();
   const sourceRowId = useAnimationStore(
     useShallow((state) => {
-      const filter = state.editorViews[viewId]?.trackFilter?.trim();
-      if (!filter) return "global";
       const filteredRowId = buildFilteredGlobalRowId(viewId);
       return state.instancedTrackSources[filteredRowId] ? filteredRowId : "global";
     }),

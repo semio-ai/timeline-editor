@@ -43,9 +43,8 @@ export function computeSourceRowsFromSources(
       // Add the child rows
       rows.push(...childRows);
     } else {
-      // It is a leaf track, so just add it directly (as long as it isn't hidden);
+      // It is a leaf track, so just add it directly.
       const sourceTrack = source as SourceTrack;
-      if (sourceTrack.hidden) return;
       const foreground =
         !activeAnimationInstance || sourceTrack.instanceId === activeAnimationInstance;
       const namespacedTrackKey = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}`;

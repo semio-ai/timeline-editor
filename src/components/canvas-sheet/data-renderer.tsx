@@ -45,6 +45,7 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   renderMorphProgress,
   height = 36,
   colorOverride,
+  holdCountDuringDrag = false,
 }: {
   sourceRow: SourceRow;
   selectionFrames: SelectionFrame[];
@@ -57,11 +58,37 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   renderMorphProgress?: MotionValue<number>;
   height?: number;
   colorOverride?: string;
+  holdCountDuringDrag?: boolean;
 }) {
   const instanceCount = selectionFrames.length * 2;
+  const stableCountRef = useRef(instanceCount);
+  const wasHoldingRef = useRef(false);
 
-  // Keep instanced children mounted during drag; remount only when row/instance context changes.
-  const instancesKey = `${sourceRow.id}:${activeInstanceId ?? "none"}`;
+  useEffect(() => {
+    // Why hold the count during drag:
+    // - The derived selection frame list can transiently shrink/grow while dragging
+    //   (e.g. overlap/collision previews or merge-like visual states).
+    // - If we let those temporary count changes feed the Instances key, React remounts
+    //   the instanced mesh mid-gesture.
+    // - That remount can interrupt pointer/drag continuity.
+    //
+    // So we freeze the "key count" at drag start and release it when drag ends.
+    if (holdCountDuringDrag) {
+      if (!wasHoldingRef.current) {
+        stableCountRef.current = instanceCount;
+      }
+    } else {
+      stableCountRef.current = instanceCount;
+    }
+    wasHoldingRef.current = holdCountDuringDrag;
+  }, [holdCountDuringDrag, instanceCount]);
+
+  const keyInstanceCount = holdCountDuringDrag ? stableCountRef.current : instanceCount;
+
+  // Keep instanced children mounted during drag.
+  // Outside drag, remount on row/instance/count changes so empty/non-empty transitions refresh
+  // instance buffers correctly for new animations.
+  const instancesKey = `${sourceRow.id}:${activeInstanceId ?? "none"}:${String(keyInstanceCount)}`;
 
   // If the track render is spline, but the row is a group, ignore it
   if (trackRender === TrackRender.Spline && sourceRow.data.length > 1) {
@@ -139,6 +166,9 @@ export const DataRenderer = memo(function DataRenderer({
     useShallow((state: StoreState) => state.derivedSnapshot?.renderSampleCache),
   );
   const selectionState = useAnimationStore(useShallow((state: StoreState) => state.selectionState));
+  const hasActiveDrag = useAnimationStore(
+    useShallow((state: StoreState) => Boolean(state.dragState)),
+  );
   const focusSelectionInstance = useAnimationStore(
     useShallow((state: StoreState) => state.focusSelectionInstance),
   );
@@ -379,6 +409,7 @@ export const DataRenderer = memo(function DataRenderer({
         renderMorphProgress={renderMorphProgress}
         height={height - 1}
         colorOverride={rowMuted ? DEFAULT_COLOR : undefined}
+        holdCountDuringDrag={hasActiveDrag}
       />
 
       {/* Render transition segments */}

@@ -17,14 +17,12 @@ export function computeUpdatedSources(
       };
     } else {
       const sourceTrack = source as SourceTrack;
-      const updateHidden = updates[source.id]?.hidden !== undefined;
       const updateMuted = updates[source.id]?.muted !== undefined;
-      if (!updateHidden && !updateMuted) {
+      if (!updateMuted) {
         return sourceTrack;
       } else {
         return {
           ...sourceTrack,
-          hidden: updateHidden ? updates[source.id].hidden! : sourceTrack.hidden,
           muted: updateMuted ? updates[source.id].muted! : sourceTrack.muted,
         };
       }

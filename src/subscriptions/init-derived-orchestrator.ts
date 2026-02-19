@@ -27,6 +27,7 @@ interface DerivedInputs {
   selectionState: AnimationData["selectionState"];
   editorViews: AnimationData["editorViews"];
   sourceRowIds: AnimationData["sourceRowIds"];
+  sourceRowIdsByView: AnimationData["sourceRowIdsByView"];
 }
 
 interface DerivedComputation {
@@ -122,6 +123,7 @@ function computeDerivedState(
     Object.fromEntries(Object.entries(snapshot.rows).map(([rowId, row]) => [rowId, row.computed])),
     inputs.editorViews,
     inputs.sourceRowIds,
+    inputs.sourceRowIdsByView,
   );
 
   const canonicalViolations: Partial<Record<TrackKey, Violation[]>> = {};
@@ -178,6 +180,7 @@ export function initDerivedOrchestrator(
     selectionState: currentState.selectionState,
     editorViews: currentState.editorViews,
     sourceRowIds: currentState.sourceRowIds,
+    sourceRowIdsByView: currentState.sourceRowIdsByView,
   };
 
   const maybeApplyDerived = (inputs: DerivedInputs) => {
@@ -212,6 +215,7 @@ export function initDerivedOrchestrator(
       selectionState: state.selectionState,
       editorViews: state.editorViews,
       sourceRowIds: state.sourceRowIds,
+      sourceRowIdsByView: state.sourceRowIdsByView,
     }),
     (inputs) => {
       maybeApplyDerived(inputs);
