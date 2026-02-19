@@ -1,6 +1,7 @@
 import { CSSProperties, memo, ReactNode, useCallback, useMemo } from "react";
 import {
   Dropdown,
+  ICON_CLASS_NAME,
   IconHandleIndicator,
   IconVectorBack,
   IconVectorBezierAutoClamp,
@@ -40,7 +41,7 @@ import type { SimpleKeypoint } from "../../types/data/simple-track";
 import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
 
 const MIXED_VALUE = "__mixed__";
-const TRANSITION_ICON_CLASS = "h-3/5 aspect-square";
+const TRANSITION_ICON_CLASS = ICON_CLASS_NAME;
 type HandleIndicatorType = "diamond" | "circle" | "indeterminate";
 
 const TRANSITION_OPTIONS: { value: TransitionPreference; label: string; icon?: ReactNode }[] = [
@@ -484,7 +485,7 @@ function buildPairingOptions(includeMixed: boolean) {
           value: MIXED_VALUE,
           label: "Mixed (Multiple)",
           disabled: true,
-          icon: <IconVertexIndeterminate className="h-3/4 aspect-square" />,
+          icon: <IconVertexIndeterminate className={ICON_CLASS_NAME} />,
         },
       ]
     : [];
@@ -493,12 +494,12 @@ function buildPairingOptions(includeMixed: boolean) {
     {
       value: TransitionPairing.Paired,
       label: "Paired",
-      icon: <IconVertexPaired className="h-3/4 aspect-square" />,
+      icon: <IconVertexPaired className={ICON_CLASS_NAME} />,
     },
     {
       value: TransitionPairing.Free,
       label: "Free",
-      icon: <IconVertexFree className="h-3/4 aspect-square" />,
+      icon: <IconVertexFree className={ICON_CLASS_NAME} />,
     },
   ];
 }
@@ -509,11 +510,11 @@ function isTransitionPreferenceValue(value: string): value is TransitionPreferen
 
 function getPairingStateIcon(pairing: TransitionPairing | typeof MIXED_VALUE): ReactNode {
   if (pairing === TransitionPairing.Paired) {
-    return <IconVertexPaired className="h-3/5 aspect-square" />;
+    return <IconVertexPaired className={TRANSITION_ICON_CLASS} />;
   } else if (pairing === TransitionPairing.Free) {
-    return <IconVertexFree className="h-3/5 aspect-square" />;
+    return <IconVertexFree className={TRANSITION_ICON_CLASS} />;
   } else {
-    return <IconVertexIndeterminate className="h-3/5 aspect-square" />;
+    return <IconVertexIndeterminate className={TRANSITION_ICON_CLASS} />;
   }
 }
 

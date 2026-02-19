@@ -1,6 +1,7 @@
 import { memo, type ReactNode, useCallback } from "react";
 import {
   Dropdown,
+  ICON_CLASS_NAME,
   IconGraphView,
   IconUniform,
   IconVectorAngled,
@@ -35,27 +36,27 @@ const TRACK_RENDER_OPTIONS: {
   {
     value: TrackRender.Key,
     label: "Key View",
-    icon: <IconVectorFlat className="h-3/4 aspect-square" />,
+    icon: <IconVectorFlat className={ICON_CLASS_NAME} />,
   },
   {
     value: TrackRender.Transition,
     label: "Transition View",
-    icon: <IconVectorAngled className="h-3/4 aspect-square" />,
+    icon: <IconVectorAngled className={ICON_CLASS_NAME} />,
   },
   {
     value: TrackRender.Preview,
     label: "Preview View",
-    icon: <IconVectorBezier className="h-3/4 aspect-square" />,
+    icon: <IconVectorBezier className={ICON_CLASS_NAME} />,
   },
   {
     value: TrackRender.Spline,
     label: "Spline View",
-    icon: <IconVectorBezierHandles className="h-3/4 aspect-square" />,
+    icon: <IconVectorBezierHandles className={ICON_CLASS_NAME} />,
   },
   {
     value: TrackRender.Data,
     label: "Data View (Coming Soon)",
-    icon: <IconGraphView className="h-3/4 aspect-square" />,
+    icon: <IconGraphView className={ICON_CLASS_NAME} />,
     disabled: true,
   },
 ];
@@ -101,7 +102,7 @@ export const ToolbarLeftSection = memo(function ToolbarLeftSection({
             className={clsx(
               expanded ? "rotate-0" : "rotate-180",
               "transition-transform ease-in-out duration-75",
-              "h-3/5 aspect-square",
+              ICON_CLASS_NAME,
             )}
           />
         }
@@ -141,13 +142,13 @@ export const ToolbarLeftSection = memo(function ToolbarLeftSection({
             {
               value: VerticalAxis.Normalized,
               label: "Normalized Y",
-              icon: <IconVerticalNormalize className="h-3/4 aspect-square" />,
+              icon: <IconVerticalNormalize className={ICON_CLASS_NAME} />,
               disabled: trackRender !== TrackRender.Spline,
             },
             {
               value: VerticalAxis.Uniform,
               label: "Uniform Y",
-              icon: <IconUniform className="h-3/4 aspect-square" />,
+              icon: <IconUniform className={ICON_CLASS_NAME} />,
               disabled: trackRender !== TrackRender.Spline,
             },
           ]}

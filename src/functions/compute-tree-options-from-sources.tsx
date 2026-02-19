@@ -1,4 +1,4 @@
-import { TreeOption } from "@semio/ui";
+import { ICON_CLASS_NAME, TreeOption } from "@semio/ui";
 import { Source, SourceGroup, SourceTrack } from "../types";
 import { DataIcon } from "../components/data-icon";
 import { GROUP_TYPES } from "../constants";
@@ -16,7 +16,7 @@ export function computeTreeOptionsFromSources(
         value: sourceGroup.id,
         label: sourceGroup.name || "Unnamed Group",
         children: computeTreeOptionsFromSources(sourceGroup.children, nameLookup),
-        icon: <DataIcon iconCode={sourceGroup.iconCode ?? "group"} />,
+        icon: <DataIcon iconCode={sourceGroup.iconCode ?? "group"} className={ICON_CLASS_NAME} />,
       };
       return option;
     } else {
@@ -24,7 +24,7 @@ export function computeTreeOptionsFromSources(
       return {
         value: sourceTrack.id,
         label: nameLookup[sourceTrack.trackId] ?? sourceTrack.trackId,
-        icon: <DataIcon iconCode={sourceTrack.iconCode ?? ""} />,
+        icon: <DataIcon iconCode={sourceTrack.iconCode ?? ""} className={ICON_CLASS_NAME} />,
       };
     }
   });

@@ -1,5 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dropdown, NestedItem, NestedLabel, NestedSeparator, Size, TextField } from "@semio/ui";
+import {
+  Dropdown,
+  ICON_CLASS_NAME,
+  NestedItem,
+  NestedLabel,
+  NestedSeparator,
+  Size,
+  TextField,
+  Variant,
+} from "@semio/ui";
 import { useShallow } from "zustand/shallow";
 import {
   IconCopy,
@@ -22,6 +31,9 @@ export interface ToolbarRightSectionProps {
   onCopyView: (viewId: string) => void;
   onRemoveView: (viewId: string) => void;
 }
+
+const VIEW_ACTION_BUTTON_CLASS =
+  "size-5 rounded-xs grid place-items-center hover:bg-neutral-500/15";
 
 export const ToolbarRightSection = memo(function ToolbarRightSection({
   viewIds,
@@ -73,6 +85,22 @@ export const ToolbarRightSection = memo(function ToolbarRightSection({
     setDraftName(label);
   }, []);
 
+  const stopItemActionPropagation = useCallback(
+    (event: { preventDefault: () => void; stopPropagation: () => void }) => {
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [],
+  );
+
+  const beginEditingFromView = useCallback(
+    (viewId: string, label: string) => {
+      finishEditing(true);
+      beginEditing(viewId, label);
+    },
+    [beginEditing, finishEditing],
+  );
+
   useEffect(() => {
     if (!editingViewId) return;
     editingInputRef.current?.focus();
@@ -106,7 +134,7 @@ export const ToolbarRightSection = memo(function ToolbarRightSection({
             tooltip="Manage views: switch, copy, rename, create, and remove"
             visuals="inverted"
             size={Size.Sm}
-            leftIcon={<IconLayout2 className="h-3/5 aspect-square" />}
+            leftIcon={<IconLayout2 className={ICON_CLASS_NAME} />}
             altText={`Active view: ${activeViewLabel}`}
             className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-xs min-w-44"
           >
@@ -142,25 +170,37 @@ export const ToolbarRightSection = memo(function ToolbarRightSection({
                   }
                 }
               }}
+              onDoubleClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!isEditing) {
+                  // Row handles rename intent because read-only TextField disables pointer events.
+                  beginEditingFromView(view.id, view.label);
+                }
+              }}
             >
               <span
                 className={clsx(
-                  "absolute left-1 inline-flex items-center justify-center",
+                  "absolute left-1 top-1/2 -translate-y-1/2 grid place-items-center",
                   "responsive check-indicator",
                   !isActive && "opacity-40",
                 )}
               >
-                {isActive ? (
-                  <IconPointFilled className="h-3/4 aspect-square" />
-                ) : (
-                  <IconPoint className="h-3/4 aspect-square" />
-                )}
+                <span className="icon-slot">
+                  {isActive ? (
+                    <IconPointFilled className={ICON_CLASS_NAME} />
+                  ) : (
+                    <IconPoint className={ICON_CLASS_NAME} />
+                  )}
+                </span>
               </span>
               <span className="flex min-w-0 flex-1 items-center gap-1">
                 <TextField
-                  ref={editingInputRef}
+                  // Attach the ref only to the active edit field so focus targets the right row.
+                  ref={isEditing ? editingInputRef : undefined}
                   size={Size.Sm}
                   value={isEditing ? draftName : view.label}
+                  variant={isEditing ? Variant.Info : Variant.Default}
                   readOnly={!isEditing}
                   onChange={(value) => setDraftName(value)}
                   onPointerDown={(event) => {
@@ -190,12 +230,7 @@ export const ToolbarRightSection = memo(function ToolbarRightSection({
                     }
                   }}
                   outline="hidden"
-                  className={clsx(
-                    "bg-transparent border rounded-xs",
-                    isEditing
-                      ? "border-neutral-500/40 focus:border-neutral-500/70"
-                      : "pointer-events-none border-transparent",
-                  )}
+                  className={clsx(isEditing ? "bold focus:bold" : "pointer-events-none")}
                   wrapperClassName="flex-1 min-w-0"
                 />
                 <span className="inline-flex shrink-0 items-center gap-0.5">
@@ -203,16 +238,11 @@ export const ToolbarRightSection = memo(function ToolbarRightSection({
                     type="button"
                     title="Rename view"
                     aria-label="Rename view"
-                    className="size-5 rounded-xs grid place-items-center hover:bg-neutral-500/15"
-                    onPointerDown={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                    }}
+                    className={VIEW_ACTION_BUTTON_CLASS}
+                    onPointerDown={stopItemActionPropagation}
                     onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      finishEditing(true);
-                      beginEditing(view.id, view.label);
+                      stopItemActionPropagation(event);
+                      beginEditingFromView(view.id, view.label);
                     }}
                   >
                     <IconEdit className="h-3.5 w-3.5" />
@@ -221,14 +251,10 @@ export const ToolbarRightSection = memo(function ToolbarRightSection({
                     type="button"
                     title="Copy view"
                     aria-label="Copy view"
-                    className="size-5 rounded-xs grid place-items-center hover:bg-neutral-500/15"
-                    onPointerDown={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                    }}
+                    className={VIEW_ACTION_BUTTON_CLASS}
+                    onPointerDown={stopItemActionPropagation}
                     onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
+                      stopItemActionPropagation(event);
                       finishEditing(true);
                       onCopyView(view.id);
                     }}
@@ -240,14 +266,13 @@ export const ToolbarRightSection = memo(function ToolbarRightSection({
                     title="Delete view"
                     aria-label="Delete view"
                     disabled={viewIds.length <= 1}
-                    className="size-5 rounded-xs grid place-items-center hover:bg-neutral-500/15 disabled:opacity-50 disabled:pointer-events-none"
-                    onPointerDown={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                    }}
+                    className={clsx(
+                      VIEW_ACTION_BUTTON_CLASS,
+                      "disabled:opacity-50 disabled:pointer-events-none",
+                    )}
+                    onPointerDown={stopItemActionPropagation}
                     onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
+                      stopItemActionPropagation(event);
                       finishEditing(true);
                       onRemoveView(view.id);
                     }}
@@ -262,7 +287,7 @@ export const ToolbarRightSection = memo(function ToolbarRightSection({
 
         <NestedSeparator />
         <NestedItem
-          left={<IconPlus className="h-3/5 aspect-square" />}
+          left={<IconPlus className={ICON_CLASS_NAME} />}
           onClick={() => {
             finishEditing(true);
             onCreateView();

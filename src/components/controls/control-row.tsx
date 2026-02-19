@@ -14,9 +14,12 @@ const DEFAULT_RIGHT = <div className="w-3 flex items-center justify-around mr-1"
 export function ControlRow({ left, mid, main, right, className }: ControlRowProps) {
   return (
     <div className={clsx("relative w-full", className)}>
-      <div className="w-full grid grid-cols-[64px_16px_1fr_16px] pl-1 pr-2 gap-2 h-9 items-center">
+      {/* Mid column tracks a shared 28px icon slot so static icons and group toggles align visually. */}
+      <div className="w-full grid grid-cols-[64px_28px_1fr_16px] pl-1 pr-2 gap-2 h-9 items-center">
         {left ?? <div className="min-w-16 h-7" />}
-        {mid ?? <div className="size-3" />}
+        <div className="grid h-full w-7 place-items-center">
+          {mid ?? <div className="size-3" />}
+        </div>
         {main ?? <div className="flex-1 min-w-0" />}
         {right ?? DEFAULT_RIGHT}
       </div>

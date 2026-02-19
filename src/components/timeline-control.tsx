@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useCallback, useMemo } from "react";
 import { clsx } from "clsx";
-import { SelectTree, Size, TreeOption, Variant } from "@semio/ui";
+import { ICON_CLASS_NAME, SelectTree, Size, TreeOption, Variant } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
@@ -77,7 +77,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           value: namespace.id,
           label: namespace.name,
           children: [],
-          icon: <DataIcon iconCode="group" className="w-3/5 h-3/5" />,
+          icon: <DataIcon iconCode="group" className={ICON_CLASS_NAME} />,
         };
 
         // For each animation instance, add a group to the namespace option
@@ -85,7 +85,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           const instanceOption: TreeOption = {
             value: `${namespace.id}/${instance.id}`,
             label: animations[instance.animationId]?.name || "Unnamed Instance",
-            icon: <DataIcon iconCode="group" className="w-3/5 h-3/5" />,
+            icon: <DataIcon iconCode="group" className={ICON_CLASS_NAME} />,
             children: computeTreeOptionsFromSources(
               sourcesByAnimationInstance[instance.id],
               nameLookup,

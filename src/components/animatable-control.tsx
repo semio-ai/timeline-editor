@@ -13,6 +13,7 @@ import {
   NestedLabel,
   NestedColorPicker,
   Tooltip,
+  ICON_CLASS_NAME,
 } from "@semio/ui";
 import type { AnimatableValue, RawValue } from "@semio/utils";
 import { usePlayerStore } from "@semio/utils";
@@ -210,8 +211,8 @@ function AnimatableLeafControl({
       mid={
         <Tooltip content={getSemanticLabelForIconCode(iconCode)} disabled={false} invert>
           <div>
-            <StaticIcon size="fit" className="size-3" color={resolvedColor}>
-              <DataIcon iconCode={iconCode} size="13px" />
+            <StaticIcon size={Size.Md} color={resolvedColor}>
+              <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
             </StaticIcon>
           </div>
         </Tooltip>
@@ -242,7 +243,7 @@ function AnimatableLeafControl({
                   size={Size.Xs}
                   className="flex items-center justify-center"
                   visuals="inverted"
-                  leftIcon={<IconDotsVertical className="size-3/5" />}
+                  leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
                 />
               </span>
             }
@@ -457,7 +458,7 @@ function AnimatableGroupControl({
                   size={Size.Xs}
                   className="flex items-center justify-center"
                   visuals="inverted"
-                  leftIcon={<IconDotsVertical className="size-3/5" />}
+                  leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
                 />
               </span>
             }

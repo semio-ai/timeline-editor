@@ -10,6 +10,7 @@ import {
   NestedItem,
   TextField,
   Tooltip,
+  ICON_CLASS_NAME,
 } from "@semio/ui";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
@@ -198,8 +199,8 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
           ) : (
             <Tooltip content={getSemanticLabelForIconCode(iconCode)} invert>
               <div>
-                <StaticIcon size="fit" className="size-3" color={color}>
-                  <DataIcon iconCode={iconCode} size="13px" />
+                <StaticIcon size={Size.Md} color={color}>
+                  <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
                 </StaticIcon>
               </div>
             </Tooltip>
@@ -302,7 +303,7 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
                     size={Size.Xs}
                     className="flex items-center justify-center"
                     visuals="inverted"
-                    leftIcon={<IconDotsVertical className="size-3/5" />}
+                    leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
                   />
                 </span>
               }
@@ -322,9 +323,9 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
                 closeOnSelect={false}
                 left={
                   trackMuted ? (
-                    <IconMicrophoneOff className="size-3/5" />
+                    <IconMicrophoneOff className={ICON_CLASS_NAME} />
                   ) : (
-                    <IconMicrophone className="size-3/5" />
+                    <IconMicrophone className={ICON_CLASS_NAME} />
                   )
                 }
                 onClick={() => {

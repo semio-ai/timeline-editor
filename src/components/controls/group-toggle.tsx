@@ -1,6 +1,6 @@
 import { IconChevronDown } from "@tabler/icons-react";
 import { clsx } from "clsx";
-import { Button, Tooltip } from "@semio/ui";
+import { Button, ICON_CLASS_NAME, Size, Tooltip } from "@semio/ui";
 
 export interface GroupToggleProps {
   expanded?: boolean;
@@ -19,7 +19,7 @@ export function GroupToggle({
   return (
     <Tooltip content={expanded ? "Collapse" : "Expand"} disabled={false} invert>
       <Button
-        size="fit"
+        size={Size.Md}
         visuals="inverted"
         color={color}
         disabled={isDisabled}
@@ -27,8 +27,9 @@ export function GroupToggle({
         leftIcon={
           <IconChevronDown
             className={clsx(
+              ICON_CLASS_NAME,
               "transition-transform",
-              expanded ? "-rotate-180 size-3" : "rotate-0 size-3",
+              expanded ? "-rotate-180" : "rotate-0",
             )}
           />
         }
