@@ -3,28 +3,25 @@ import {
   Dropdown,
   ICON_CLASS_NAME,
   IconGraphView,
-  IconUniform,
   IconVectorAngled,
   IconVectorBezier,
   IconVectorBezierHandles,
   IconVectorFlat,
   IconVerticalNormalize,
+  IconVerticalUniform,
   NestedLabel,
   NestedRadio,
   NestedSeparator,
   Size,
 } from "@semio/ui";
 import { useShallow } from "zustand/shallow";
-import { IconChevronDown } from "@tabler/icons-react";
-import { clsx } from "clsx";
+import { IconSelector } from "@tabler/icons-react";
 import { TrackRender, VerticalAxis } from "../../types";
 import { useAnimationStore } from "../../hooks";
 import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
 
-export interface ToolbarLeftSectionProps {
+export interface ViewToolbarSectionProps {
   viewId: string;
-  onToggleExpand?: (expanded: boolean) => void;
-  expanded?: boolean;
 }
 
 const TRACK_RENDER_OPTIONS: {
@@ -61,11 +58,9 @@ const TRACK_RENDER_OPTIONS: {
   },
 ];
 
-export const ToolbarLeftSection = memo(function ToolbarLeftSection({
+export const ViewToolbarSection = memo(function ViewToolbarSection({
   viewId,
-  onToggleExpand,
-  expanded,
-}: ToolbarLeftSectionProps) {
+}: ViewToolbarSectionProps) {
   const views = useAnimationStore(useShallow((state) => state.editorViews));
   const updateView = useAnimationStore(useShallow((state) => state.updateView));
 
@@ -91,23 +86,6 @@ export const ToolbarLeftSection = memo(function ToolbarLeftSection({
 
   return (
     <div className="rounded-sm flex responsive variant-responsive-persistent-outline gap-0.5 p-0.5">
-      <ToolbarTooltipButton
-        tooltip="Toggle track list expansion"
-        visuals="inverted"
-        size={Size.Sm}
-        onClick={() => onToggleExpand?.(!(expanded ?? false))}
-        altText="Expand Tracks"
-        leftIcon={
-          <IconChevronDown
-            className={clsx(
-              expanded ? "rotate-0" : "rotate-180",
-              "transition-transform ease-in-out duration-75",
-              ICON_CLASS_NAME,
-            )}
-          />
-        }
-        className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-l-xs"
-      />
       <Dropdown
         side="top"
         trigger={
@@ -116,6 +94,7 @@ export const ToolbarLeftSection = memo(function ToolbarLeftSection({
             visuals="inverted"
             size={Size.Sm}
             leftIcon={activeTrackRenderOption.icon}
+            rightIcon={<IconSelector className={ICON_CLASS_NAME} />}
             altText={`View mode: ${activeTrackRenderOption.label}`}
             className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-r-xs min-w-36"
           >
@@ -148,7 +127,7 @@ export const ToolbarLeftSection = memo(function ToolbarLeftSection({
             {
               value: VerticalAxis.Uniform,
               label: "Uniform Y",
-              icon: <IconUniform className={ICON_CLASS_NAME} />,
+              icon: <IconVerticalUniform className={ICON_CLASS_NAME} />,
               disabled: trackRender !== TrackRender.Spline,
             },
           ]}

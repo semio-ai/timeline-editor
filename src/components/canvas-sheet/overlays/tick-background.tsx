@@ -13,6 +13,7 @@ import { Z } from "../../../constants";
 interface TickBackgroundProps {
   height: number;
   theme?: Theme.Light | Theme.Dark;
+  opacity?: number; // Opacity for the tick marks, default is 1 (fully opaque)
 }
 
 interface TickData {
@@ -23,6 +24,7 @@ interface TickData {
 export const TickBackground = memo(function TickBackground({
   height,
   theme = Theme.Light,
+  opacity = 1,
 }: TickBackgroundProps) {
   const instancesRef = useRef<THREE.InstancedMesh>(null);
 
@@ -72,7 +74,7 @@ export const TickBackground = memo(function TickBackground({
       range={instanceCount}
     >
       <planeGeometry args={[baseTickWidth, height]} />
-      <meshBasicMaterial toneMapped={false} />
+      <meshBasicMaterial toneMapped={false} opacity={opacity} transparent={opacity !== 1} />
 
       {allTicks.map((tick, index) => (
         <Tick
@@ -107,11 +109,11 @@ const Tick = memo(function Tick({
 
   const color = useMemo(() => {
     switch (tickType) {
-      case TickType.Major:
+      case TickType.Minor:
         return "#737373";
 
-      case TickType.Minor:
-        return theme === Theme.Dark ? "#262626" : "#E4E4E4";
+      case TickType.Major:
+        return theme === Theme.Light ? "#262626" : "#E4E4E4";
     }
   }, [tickType, theme]);
 

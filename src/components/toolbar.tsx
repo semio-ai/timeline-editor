@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { KeyToolbarSection } from "./toolbar/key-toolbar-section";
-import { ToolbarLeftSection } from "./toolbar/toolbar-left-section";
-import { ToolbarRightSection } from "./toolbar/toolbar-right-section";
+import { ToolbarWrapper } from "./toolbar/toolbar-wrapper";
+import { ViewToolbarSection } from "./toolbar/view-toolbar-section";
 
 export interface ToolbarProps {
   viewId: string;
@@ -14,34 +14,12 @@ export interface ToolbarProps {
   expanded?: boolean;
 }
 
-export const Toolbar = memo(function Toolbar({
-  viewId,
-  viewIds,
-  onSelectView,
-  onCreateView,
-  onCopyView,
-  onRemoveView,
-  onToggleExpand,
-  expanded,
-}: ToolbarProps) {
+export const Toolbar = memo(function Toolbar({ viewId }: ToolbarProps) {
   return (
-    <div className="flex flex-1 flex-row h-9 items-center justify-between pl-1.5 pr-1 col-span-2">
-      <div className="flex gap-2">
-        <ToolbarLeftSection viewId={viewId} onToggleExpand={onToggleExpand} expanded={expanded} />
-      </div>
-      <div className="flex gap-2">
-        <KeyToolbarSection />
-      </div>
-      <div className="flex gap-2">
-        <ToolbarRightSection
-          viewIds={viewIds}
-          activeViewId={viewId}
-          onSelectView={onSelectView}
-          onCreateView={onCreateView}
-          onCopyView={onCopyView}
-          onRemoveView={onRemoveView}
-        />
-      </div>
-    </div>
+    <ToolbarWrapper>
+      <ViewToolbarSection viewId={viewId} />
+      <KeyToolbarSection />
+      <div className="min-w-[450px] hidden lg:flex" />
+    </ToolbarWrapper>
   );
 });

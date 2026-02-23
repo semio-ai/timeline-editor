@@ -28,6 +28,8 @@ import { PlaybackSettings } from "./playback-settings";
 import { TrackList } from "./track-list";
 import { CanvasSheet } from "./canvas-sheet/canvas-sheet";
 import { Toolbar } from "./toolbar";
+import { ToolbarWrapper } from "./toolbar/toolbar-wrapper";
+import { WorkspaceToolbarSection } from "./toolbar/workspace-toolbar-section";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
 
@@ -384,7 +386,21 @@ function InnerSheet({
                   "grid-rows-[36px_36px_1fr_36px_36px_36px]",
                 )}
               >
-                {/* Toolbar - Row 1 */}
+                {/* Toolbar - Row 1 (Left) */}
+                <ToolbarWrapper rightPadding={6}>
+                  <WorkspaceToolbarSection
+                    viewIds={viewIds}
+                    activeViewId={resolvedViewId}
+                    onSelectView={handleSelectView}
+                    onCreateView={handleCreateView}
+                    onCopyView={handleCopyView}
+                    onRemoveView={handleRemoveView}
+                    onToggleExpand={onToggleExpand}
+                    expanded={expanded}
+                  />
+                </ToolbarWrapper>
+
+                {/* Toolbar - Row 1 (Right) */}
                 <Toolbar
                   viewId={resolvedViewId}
                   viewIds={viewIds}

@@ -229,7 +229,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
         pointerEvents={playbackGestures}
       />
 
-      <TickBackground height={height} theme={theme} />
+      <TickBackground height={height} theme={theme} opacity={0.1} />
       <HoverMarker height={height} theme={theme} />
       <PlayheadMarker height={height} theme={theme} />
       <BoundsOverlay height={height} theme={theme} />

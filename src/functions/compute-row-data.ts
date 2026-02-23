@@ -369,7 +369,32 @@ export function computeRowData(
     projectedFramesWithPairing,
     trackIds,
   );
-  const interpolations = computeFilledInterpGaps(explicitInterpolationSegments);
+  let interpolations = computeFilledInterpGaps(explicitInterpolationSegments);
+  if (explicitInterpolationSegments.length === 0 && sourceRow.data.length === 1) {
+    const singleFrame = projectedFramesWithPairing[0];
+    if (singleFrame?.points?.length) {
+      // First-key tracks have no explicit pairwise segments; synthesize a full-span
+      // buffer segment anchored to that key so spline/preview lines stay connected.
+      const clonedPoints = singleFrame.points.map((point) => ({ ...point }));
+      interpolations = [
+        {
+          start: {
+            ...singleFrame,
+            id: `gap-0:${singleFrame.id}`,
+            stamp: 0,
+            points: clonedPoints,
+          },
+          end: {
+            ...singleFrame,
+            id: `gap-1:${singleFrame.id}`,
+            stamp: 1,
+            points: clonedPoints,
+          },
+          buffer: true,
+        },
+      ];
+    }
+  }
 
   const pointNeighborhoodsByTrack = buildPointNeighborhoodByTrack(projectedTracks);
   const segmentsWithGeometry = interpolations.map((segment) =>

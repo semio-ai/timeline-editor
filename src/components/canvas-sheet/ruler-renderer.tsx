@@ -1,4 +1,5 @@
 import { useMemo, useRef, memo, useEffect } from "react";
+import { strip } from "number-precision";
 import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
 import { Instances, Instance } from "@react-three/drei";
@@ -27,6 +28,12 @@ interface RulerRendererProps {
     mono?: string;
     ui?: string;
   };
+}
+
+interface RulerTick {
+  worldX: number;
+  frameIndex: number;
+  timeLabel?: string;
 }
 
 // Helper function for calculating text position relative to tick marks
@@ -58,32 +65,44 @@ export const RulerRenderer = memo(function RulerRenderer({
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
 
-  // Generate tick data - only major ticks for ruler (every second)
-  const tickData = useMemo(() => {
+  // Generate major (labeled) and minor (unlabeled) ticks for the ruler.
+  const { majorTicks, minorTicks } = useMemo(() => {
     if (!Number.isFinite(frameCount) || frameCount <= 0 || framerate <= 0) {
-      return [];
+      return { majorTicks: [], minorTicks: [] };
     }
-    const majorTicks = [];
+
+    const major: RulerTick[] = [];
     for (let i = 0; i <= frameCount; i += framerate) {
       const stamp = i / frameCount;
       const worldX = stamp;
       const timeLabel = stampToVisualTime(stamp, duration, framerate, timeDisplay, altPressed);
 
-      majorTicks.push({
+      major.push({
         worldX,
-        stamp,
         timeLabel,
         frameIndex: i,
       });
     }
-    return majorTicks;
+
+    // Minor ticks follow timeline background rules: every non-major frame.
+    const minor: RulerTick[] = [];
+    for (let i = 0; i <= frameCount; i += 1) {
+      if (i % framerate === 0) continue;
+      minor.push({
+        worldX: strip(i / frameCount),
+        frameIndex: i,
+      });
+    }
+
+    return { majorTicks: major, minorTicks: minor };
   }, [frameCount, framerate, duration, timeDisplay, altPressed]);
 
   // Calculate tick dimensions - convert pixel heights to world units
 
   // Set tick heights in pixels, then convert to world units
-  const tickHeightPixels = side === "top" ? 12 : 13;
-  const tickHeight = tickHeightPixels;
+  const majorTickHeightPixels = side === "top" ? 12 : 13;
+  const majorTickHeight = majorTickHeightPixels;
+  const minorTickHeight = Math.max(6, Math.round(majorTickHeightPixels * 0.7));
   const baseTickWidth = 1; // Base width of 1 unit that will be scaled down
 
   // Position ticks at the edge of the HUD
@@ -93,15 +112,20 @@ export const RulerRenderer = memo(function RulerRenderer({
   // Top HUD: position at bottom edge (1px above bottom)
   // Bottom HUD: position at top edge (0px below top)
   const edgeOffset = 1;
-  const yPosition =
+  const majorTickYPosition =
     side === "top"
-      ? -hudHeightWorld / 2 + tickHeight / 2 + edgeOffset
-      : hudHeightWorld / 2 - tickHeight / 2 - edgeOffset;
+      ? -hudHeightWorld / 2 + majorTickHeight / 2 + edgeOffset
+      : hudHeightWorld / 2 - majorTickHeight / 2 - edgeOffset;
+  const minorTickYPosition =
+    side === "top"
+      ? -hudHeightWorld / 2 + minorTickHeight / 2 + edgeOffset
+      : hudHeightWorld / 2 - minorTickHeight / 2 - edgeOffset;
 
-  const tickColor = new THREE.Color(theme === "dark" ? "#737373" : "#737373");
+  const majorTickColor = new THREE.Color(theme === "dark" ? "#737373" : "#737373");
+  const minorTickColor = majorTickColor;
 
-  // Use all ticks since HudSection handles viewport management
-  const visibleTicks = tickData;
+  // Use all major ticks for text labels since HudSection handles viewport management.
+  const visibleTicks = majorTicks;
 
   return (
     <>
@@ -119,11 +143,22 @@ export const RulerRenderer = memo(function RulerRenderer({
 
       {/* Tick lines using Instances */}
       <Ticks
-        tickData={tickData}
-        tickHeight={tickHeight}
+        tickData={minorTicks}
+        tickHeight={minorTickHeight}
         baseTickWidth={baseTickWidth}
-        tickColor={tickColor}
-        yPosition={yPosition}
+        tickColor={minorTickColor}
+        tickOpacity={0.5}
+        instanceKey="minor"
+        yPosition={minorTickYPosition}
+      />
+      <Ticks
+        tickData={majorTicks}
+        tickHeight={majorTickHeight}
+        baseTickWidth={baseTickWidth}
+        tickColor={majorTickColor}
+        tickOpacity={1}
+        instanceKey="major"
+        yPosition={majorTickYPosition}
       />
 
       {/* Time labels */}
@@ -131,8 +166,8 @@ export const RulerRenderer = memo(function RulerRenderer({
         ticks={visibleTicks}
         side={side}
         theme={theme}
-        yPosition={yPosition}
-        tickHeight={tickHeight}
+        yPosition={majorTickYPosition}
+        tickHeight={majorTickHeight}
         fonts={fonts}
       />
     </>
@@ -144,12 +179,16 @@ const Ticks = memo(function Ticks({
   tickHeight,
   baseTickWidth,
   tickColor,
+  tickOpacity,
+  instanceKey,
   yPosition,
 }: {
-  tickData: { worldX: number; frameIndex: number; timeLabel: string }[];
+  tickData: RulerTick[];
   tickHeight: number;
   baseTickWidth: number;
   tickColor: string | THREE.Color;
+  tickOpacity: number;
+  instanceKey: string;
   yPosition: number;
 }) {
   const instanceCount = tickData.length;
@@ -158,16 +197,21 @@ const Ticks = memo(function Ticks({
 
   return (
     <Instances
-      key={`ruler-ticks-${instanceCount.toString()}`}
+      key={`ruler-ticks-${instanceKey}-${instanceCount.toString()}`}
       limit={instanceCount}
       range={instanceCount}
     >
       <planeGeometry args={[baseTickWidth, tickHeight]} />
-      <meshBasicMaterial color={tickColor as any} toneMapped={false} />
+      <meshBasicMaterial
+        color={tickColor as any}
+        toneMapped={false}
+        transparent={tickOpacity < 1}
+        opacity={tickOpacity}
+      />
 
       {tickData.map((tick) => (
         <TickMark
-          key={tick.frameIndex}
+          key={`${tick.frameIndex.toString()}-${tick.worldX.toString()}`}
           position={[tick.worldX, yPosition, 0]}
           baseTickWidth={baseTickWidth}
         />
@@ -185,7 +229,7 @@ const TextBoxes = memo(function TextBoxes({
   tickHeight,
   fonts,
 }: {
-  ticks: { worldX: number; frameIndex: number; timeLabel: string }[];
+  ticks: RulerTick[];
   side: "top" | "bottom";
   theme: "light" | "dark";
   yPosition: number;
@@ -203,7 +247,7 @@ const TextBoxes = memo(function TextBoxes({
       {ticks.map((tick) => (
         <TrackText
           key={`label-${tick.frameIndex.toString()}`}
-          text={tick.timeLabel}
+          text={tick.timeLabel ?? ""}
           position={[tick.worldX, textYWorld, Z.RulerText]}
           color={theme === "dark" ? "#ffffff" : "#000000"}
           font={fonts?.mono}

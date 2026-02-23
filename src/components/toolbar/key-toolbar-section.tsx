@@ -22,7 +22,6 @@ import {
   NestedSeparator,
   Size,
 } from "@semio/ui";
-import { IconPointFilled } from "@tabler/icons-react";
 import { useShallow } from "zustand/shallow";
 import { clsx } from "clsx";
 import {
@@ -42,6 +41,8 @@ import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
 
 const MIXED_VALUE = "__mixed__";
 const TRANSITION_ICON_CLASS = ICON_CLASS_NAME;
+const TRANSITION_TEXT_BUTTON_CLASS = "hidden @[500px]:flex";
+const TRANSITION_ICON_ONLY_BUTTON_CLASS = "flex @[500px]:hidden";
 type HandleIndicatorType = "diamond" | "circle" | "indeterminate";
 
 const TRANSITION_OPTIONS: { value: TransitionPreference; label: string; icon?: ReactNode }[] = [
@@ -341,125 +342,200 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
   );
 
   return (
-    <div
-      className={clsx(
-        "rounded-sm flex responsive custom-color variant-responsive-persistent-outline gap-0.5 p-0.5",
-        hasSelection ? "outline-2" : "outline-1",
-      )}
-      style={
-        {
-          "--custom-color": trackColor,
-        } as CSSProperties
-      }
-    >
-      <Dropdown
-        side="top"
-        trigger={
-          <ToolbarTooltipButton
-            tooltip={incomingTransitionTooltip}
-            color={trackColor}
-            visuals="inverted"
-            size={Size.Sm}
-            altText={incomingTransitionTooltip}
-            leftIcon={getTransitionSettingIcon(incomingValue)}
-            rightIcon={
-              <IconHandleIndicator
-                className={clsx(
-                  TRANSITION_ICON_CLASS,
-                  "-scale-x-100",
-                  resolveHandleIndicatorClass(
-                    incomingHandleIndicator,
-                    incomingValue,
-                    incomingHasHandle,
-                  ),
-                )}
-                handle={incomingHandleIndicator}
-                fillOpacity={resolveHandleIndicatorFillOpacity(incomingValue, incomingHasHandle)}
-              />
-            }
-            className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-l-xs min-w-36"
-          >
-            {getTransitionSettingText(incomingValue)}
-          </ToolbarTooltipButton>
+    <div className="sm:flex items-center hidden">
+      <div
+        className={clsx(
+          "rounded-sm flex responsive custom-color variant-responsive-persistent-outline gap-0.5 p-0.5",
+          hasSelection ? "outline-2" : "outline-1",
+        )}
+        style={
+          {
+            "--custom-color": trackColor,
+          } as CSSProperties
         }
       >
-        <NestedLabel>
-          {hasSelection ? "Incoming Transition" : "Default Incoming Transition"}
-        </NestedLabel>
-        <NestedRadio
-          value={incomingValue}
-          onChange={handleIncomingChange}
-          options={buildTransitionOptions(incomingValue === MIXED_VALUE)}
-        />
-      </Dropdown>
-      <Dropdown
-        side="top"
-        trigger={
-          <ToolbarTooltipButton
-            tooltip={pairingTooltip}
-            color={trackColor}
-            visuals="inverted"
-            size={Size.Sm}
-            altText={pairingTooltip}
-            leftIcon={getPairingStateIcon(pairingValue)}
-            className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-none"
+        <Dropdown
+          side="top"
+          trigger={
+            <>
+              <div className={TRANSITION_TEXT_BUTTON_CLASS}>
+                <ToolbarTooltipButton
+                  tooltip={incomingTransitionTooltip}
+                  color={trackColor}
+                  visuals="inverted"
+                  size={Size.Sm}
+                  altText={incomingTransitionTooltip}
+                  // leftIcon={getTransitionSettingIcon(incomingValue)}
+                  leftIcon={
+                    <IconHandleIndicator
+                      className={clsx(
+                        TRANSITION_ICON_CLASS,
+                        "-scale-x-100",
+                        resolveHandleIndicatorClass(
+                          incomingHandleIndicator,
+                          incomingValue,
+                          incomingHasHandle,
+                        ),
+                      )}
+                      handle={incomingHandleIndicator}
+                      fillOpacity={resolveHandleIndicatorFillOpacity(
+                        incomingValue,
+                        incomingHasHandle,
+                      )}
+                    />
+                  }
+                  className={clsx(
+                    "bg-neutral-500/10 hover:bg-neutral-500/25",
+                    "rounded-l-xs min-w-36",
+                  )}
+                >
+                  {getTransitionSettingText(incomingValue)}
+                </ToolbarTooltipButton>
+              </div>
+              <div className={TRANSITION_ICON_ONLY_BUTTON_CLASS}>
+                <ToolbarTooltipButton
+                  tooltip={incomingTransitionTooltip}
+                  color={trackColor}
+                  visuals="inverted"
+                  size={Size.Sm}
+                  altText={incomingTransitionTooltip}
+                  leftIcon={
+                    <IconHandleIndicator
+                      className={clsx(
+                        TRANSITION_ICON_CLASS,
+                        "-scale-x-100",
+                        resolveHandleIndicatorClass(
+                          incomingHandleIndicator,
+                          incomingValue,
+                          incomingHasHandle,
+                        ),
+                      )}
+                      handle={incomingHandleIndicator}
+                      fillOpacity={resolveHandleIndicatorFillOpacity(
+                        incomingValue,
+                        incomingHasHandle,
+                      )}
+                    />
+                  }
+                  className={clsx("bg-neutral-500/10 hover:bg-neutral-500/25", "rounded-l-xs")}
+                />
+              </div>
+            </>
+          }
+        >
+          <NestedLabel>
+            {hasSelection ? "Incoming Transition" : "Default Incoming Transition"}
+          </NestedLabel>
+          <NestedRadio
+            value={incomingValue}
+            onChange={handleIncomingChange}
+            options={buildTransitionOptions(incomingValue === MIXED_VALUE)}
           />
-        }
-      >
-        <NestedLabel>{hasSelection ? "Handle Pairing" : "Default Handle Pairing"}</NestedLabel>
-        <NestedRadio
-          value={pairingValue}
-          onChange={handlePairingChange}
-          options={buildPairingOptions(pairingValue === MIXED_VALUE)}
-        />
+        </Dropdown>
+        <Dropdown
+          side="top"
+          trigger={
+            <ToolbarTooltipButton
+              tooltip={pairingTooltip}
+              color={trackColor}
+              visuals="inverted"
+              size={Size.Sm}
+              altText={pairingTooltip}
+              leftIcon={getPairingStateIcon(pairingValue)}
+              className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-none"
+            />
+          }
+        >
+          <NestedLabel>{hasSelection ? "Handle Pairing" : "Default Handle Pairing"}</NestedLabel>
+          <NestedRadio
+            value={pairingValue}
+            onChange={handlePairingChange}
+            options={buildPairingOptions(pairingValue === MIXED_VALUE)}
+          />
 
-        <NestedSeparator />
-        <NestedLabel>{hasSelection ? "Transition Type" : "Default Transition Type"}</NestedLabel>
-        <NestedRadio
-          value={transitionTypeValue}
-          onChange={handleTransitionTypeChange}
-          options={buildTransitionOptions(transitionTypeValue === MIXED_VALUE)}
-        />
-      </Dropdown>
-      <Dropdown
-        side="top"
-        trigger={
-          <ToolbarTooltipButton
-            tooltip={outgoingTransitionTooltip}
-            color={trackColor}
-            visuals="inverted"
-            size={Size.Sm}
-            altText={outgoingTransitionTooltip}
-            rightIcon={getTransitionSettingIcon(outgoingValue)}
-            leftIcon={
-              <IconHandleIndicator
-                className={clsx(
-                  TRANSITION_ICON_CLASS,
-                  resolveHandleIndicatorClass(
-                    outgoingHandleIndicator,
-                    outgoingValue,
-                    outgoingHasHandle,
-                  ),
-                )}
-                handle={outgoingHandleIndicator}
-                fillOpacity={resolveHandleIndicatorFillOpacity(outgoingValue, outgoingHasHandle)}
-              />
-            }
-            className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-r-xs min-w-36"
-          >
-            {getTransitionSettingText(outgoingValue)}
-          </ToolbarTooltipButton>
-        }
-      >
-        <NestedLabel>
-          {hasSelection ? "Outgoing Transition" : "Default Outgoing Transition"}
-        </NestedLabel>
-        <NestedRadio
-          value={outgoingValue}
-          onChange={handleOutgoingChange}
-          options={buildTransitionOptions(outgoingValue === MIXED_VALUE)}
-        />
-      </Dropdown>
+          <NestedSeparator />
+          <NestedLabel>{hasSelection ? "Transition Type" : "Default Transition Type"}</NestedLabel>
+          <NestedRadio
+            value={transitionTypeValue}
+            onChange={handleTransitionTypeChange}
+            options={buildTransitionOptions(transitionTypeValue === MIXED_VALUE)}
+          />
+        </Dropdown>
+        <Dropdown
+          side="top"
+          trigger={
+            <>
+              <div className={TRANSITION_TEXT_BUTTON_CLASS}>
+                <ToolbarTooltipButton
+                  tooltip={outgoingTransitionTooltip}
+                  color={trackColor}
+                  visuals="inverted"
+                  size={Size.Sm}
+                  altText={outgoingTransitionTooltip}
+                  // leftIcon={getTransitionSettingIcon(outgoingValue)}
+                  rightIcon={
+                    <IconHandleIndicator
+                      className={clsx(
+                        TRANSITION_ICON_CLASS,
+                        resolveHandleIndicatorClass(
+                          outgoingHandleIndicator,
+                          outgoingValue,
+                          outgoingHasHandle,
+                        ),
+                      )}
+                      handle={outgoingHandleIndicator}
+                      fillOpacity={resolveHandleIndicatorFillOpacity(
+                        outgoingValue,
+                        outgoingHasHandle,
+                      )}
+                    />
+                  }
+                  className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-r-xs min-w-36"
+                >
+                  {getTransitionSettingText(outgoingValue)}
+                </ToolbarTooltipButton>
+              </div>
+              <div className={TRANSITION_ICON_ONLY_BUTTON_CLASS}>
+                <ToolbarTooltipButton
+                  tooltip={outgoingTransitionTooltip}
+                  color={trackColor}
+                  visuals="inverted"
+                  size={Size.Sm}
+                  altText={outgoingTransitionTooltip}
+                  // leftIcon={getTransitionSettingIcon(outgoingValue)}
+                  rightIcon={
+                    <IconHandleIndicator
+                      className={clsx(
+                        TRANSITION_ICON_CLASS,
+                        resolveHandleIndicatorClass(
+                          outgoingHandleIndicator,
+                          outgoingValue,
+                          outgoingHasHandle,
+                        ),
+                      )}
+                      handle={outgoingHandleIndicator}
+                      fillOpacity={resolveHandleIndicatorFillOpacity(
+                        outgoingValue,
+                        outgoingHasHandle,
+                      )}
+                    />
+                  }
+                  className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-r-xs"
+                />
+              </div>
+            </>
+          }
+        >
+          <NestedLabel>
+            {hasSelection ? "Outgoing Transition" : "Default Outgoing Transition"}
+          </NestedLabel>
+          <NestedRadio
+            value={outgoingValue}
+            onChange={handleOutgoingChange}
+            options={buildTransitionOptions(outgoingValue === MIXED_VALUE)}
+          />
+        </Dropdown>
+      </div>
     </div>
   );
 });
@@ -524,15 +600,15 @@ function getTransitionSettingText(transition: typeof MIXED_VALUE | TransitionPre
   return option?.label ?? "Mixed (Multiple)";
 }
 
-function getTransitionSettingIcon(
-  transition: typeof MIXED_VALUE | TransitionPreference,
-): ReactNode {
-  if (transition === MIXED_VALUE) {
-    return <IconPointFilled className={TRANSITION_ICON_CLASS} />;
-  }
-  const option = TRANSITION_OPTIONS.find((o) => o.value === transition);
-  return option?.icon ?? <IconPointFilled className={TRANSITION_ICON_CLASS} />;
-}
+// function getTransitionSettingIcon(
+//   transition: typeof MIXED_VALUE | TransitionPreference,
+// ): ReactNode {
+//   if (transition === MIXED_VALUE) {
+//     return <IconPointFilled className={TRANSITION_ICON_CLASS} />;
+//   }
+//   const option = TRANSITION_OPTIONS.find((o) => o.value === transition);
+//   return option?.icon ?? <IconPointFilled className={TRANSITION_ICON_CLASS} />;
+// }
 
 function resolveHandleIndicatorTypeFromPairing(pairing?: TransitionPairing): HandleIndicatorType {
   if (pairing === TransitionPairing.Paired) {
