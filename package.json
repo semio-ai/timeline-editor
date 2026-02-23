@@ -26,7 +26,7 @@
   "dependencies": {
     "@react-spring/web": "^9.7.3",
     "@react-three/drei": "^9.114.0",
-    "@react-three/fiber": "^8.17.10",
+    "@react-three/fiber": "^8.18.0",
     "@semio/ui": "*",
     "@semio/utils": "*",
     "@tabler/icons-react": "^3.34.0",
