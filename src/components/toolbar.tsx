@@ -16,7 +16,7 @@ export interface ToolbarProps {
 
 export const Toolbar = memo(function Toolbar({ viewId }: ToolbarProps) {
   return (
-    <ToolbarWrapper>
+    <ToolbarWrapper leftPadding={1}>
       <ViewToolbarSection viewId={viewId} />
       <KeyToolbarSection />
       <div className="min-w-[450px] hidden lg:flex" />

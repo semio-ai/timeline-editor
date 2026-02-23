@@ -96,7 +96,7 @@ export const ViewToolbarSection = memo(function ViewToolbarSection({
             leftIcon={activeTrackRenderOption.icon}
             rightIcon={<IconSelector className={ICON_CLASS_NAME} />}
             altText={`View mode: ${activeTrackRenderOption.label}`}
-            className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-r-xs min-w-36"
+            className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-xs min-w-36"
           >
             {activeTrackRenderOption.label}
           </ToolbarTooltipButton>
