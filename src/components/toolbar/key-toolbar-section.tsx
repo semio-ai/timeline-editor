@@ -600,16 +600,6 @@ function getTransitionSettingText(transition: typeof MIXED_VALUE | TransitionPre
   return option?.label ?? "Mixed (Multiple)";
 }
 
-// function getTransitionSettingIcon(
-//   transition: typeof MIXED_VALUE | TransitionPreference,
-// ): ReactNode {
-//   if (transition === MIXED_VALUE) {
-//     return <IconPointFilled className={TRANSITION_ICON_CLASS} />;
-//   }
-//   const option = TRANSITION_OPTIONS.find((o) => o.value === transition);
-//   return option?.icon ?? <IconPointFilled className={TRANSITION_ICON_CLASS} />;
-// }
-
 function resolveHandleIndicatorTypeFromPairing(pairing?: TransitionPairing): HandleIndicatorType {
   if (pairing === TransitionPairing.Paired) {
     return "circle";
