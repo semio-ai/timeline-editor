@@ -72,7 +72,8 @@ export function updateInstancedTrackSources(
           }
 
           if (animation) {
-            const foreground = !activeAnimationId || activeAnimationId === instance.id;
+            // Without an active selection instance, all tracks should remain background/inactive.
+            const foreground = Boolean(activeAnimationId) && activeAnimationId === instance.id;
             const grouped = groupDerivedTracks(animation.tracks, tracks, animatables);
             const sources = sourcesByAnimationInstance[instance.id] || [];
             const sourceTrackLookup = new Map(

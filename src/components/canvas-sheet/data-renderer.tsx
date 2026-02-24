@@ -253,9 +253,7 @@ export const DataRenderer = memo(function DataRenderer({
   }, [sourceRow]);
 
   const shouldRenderTrackSwitchOverlay =
-    Boolean(uniqueInstanceId) &&
-    Boolean(selectionState.instanceId) &&
-    selectionState.instanceId !== uniqueInstanceId;
+    Boolean(uniqueInstanceId) && selectionState.instanceId !== uniqueInstanceId;
 
   const handleTrackSwitch = useCallback(
     (event?: { stopPropagation?: () => void }) => {

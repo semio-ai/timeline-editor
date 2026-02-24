@@ -45,8 +45,9 @@ export function computeSourceRowsFromSources(
     } else {
       // It is a leaf track, so just add it directly.
       const sourceTrack = source as SourceTrack;
+      // Keep all rows in the background when no active instance is selected.
       const foreground =
-        !activeAnimationInstance || sourceTrack.instanceId === activeAnimationInstance;
+        Boolean(activeAnimationInstance) && sourceTrack.instanceId === activeAnimationInstance;
       const namespacedTrackKey = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}`;
       const baseSelected =
         foreground &&
