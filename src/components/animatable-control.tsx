@@ -16,7 +16,7 @@ import {
   ICON_CLASS_NAME,
 } from "@semio/ui";
 import type { AnimatableValue, RawValue } from "@semio/utils";
-import { usePlayerStore } from "@semio/utils";
+import { toDegrees, toRadians, usePlayerStore } from "@semio/utils";
 import { useAnimationStore, useColors, useKeyControlState } from "../hooks";
 import { SourceRow, SourceRowData } from "../types";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
@@ -497,30 +497,38 @@ function DirectAnimatableEditor({
 }: DirectAnimatableEditorProps) {
   const value = rawValue ?? animatable.default;
   const displayLabel = label ?? animatable.name ?? "";
+  const iconCode = getIconCode(animatable.type, animatable.pub?.units);
+  const angular = iconCode === "rad";
+  const transformForDisplay = angular ? toDegrees : (v: number) => v;
+  const transformFromDisplay = angular ? toRadians : (v: number) => v;
 
   if (animatable.type === "number" && typeof value === "number") {
     const constraints = animatable.constraints;
-    const min = typeof constraints?.min === "number" ? constraints.min : undefined;
-    const max = typeof constraints?.max === "number" ? constraints.max : undefined;
+    const minRaw = typeof constraints?.min === "number" ? constraints.min : undefined;
+    const maxRaw = typeof constraints?.max === "number" ? constraints.max : undefined;
+    const min = minRaw !== undefined ? transformForDisplay(minRaw) : undefined;
+    const max = maxRaw !== undefined ? transformForDisplay(maxRaw) : undefined;
+    const hasFiniteBounds =
+      min !== undefined && max !== undefined && min !== -Infinity && max !== Infinity;
+    const relativeDragRange = angular && !hasFiniteBounds ? 360 : undefined;
 
     return (
       <SliderNumberField
         size={Size.Sm}
         strictText={false}
-        strictSlider={
-          min !== undefined && max !== undefined && min !== -Infinity && max !== Infinity
-        }
+        strictSlider={hasFiniteBounds}
         disabled={disabled}
-        value={value}
+        value={transformForDisplay(value)}
         min={min}
         max={max}
+        relativeDragRange={relativeDragRange}
         color={color}
-        onChange={(v) => onChange(v)}
+        onChange={(v) => onChange(transformFromDisplay(v))}
         label={displayLabel}
         onLabelChange={onRename}
         highlight={emphasis}
         onHighlightChange={onEmphasisChange}
-        units={animatable.pub?.units}
+        units={angular ? "\u00b0" : animatable.pub?.units}
         wrapperClassName="flex-1"
         className="flex-1"
       />

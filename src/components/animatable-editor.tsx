@@ -76,8 +76,9 @@ function InnerAnimatableEditor({
     return scalarStoredValue ?? animatableValue.default;
   }, [animatableValue, scalarStoredValue]);
 
-  const renderTransformer = data.iconCode === "rad" ? toDegrees : (v: number) => v;
-  const renderInverse = data.iconCode === "rad" ? toRadians : (v: number) => v;
+  const angular = data.iconCode === "rad" || animatableValue?.pub?.units === "rad";
+  const renderTransformer = angular ? toDegrees : (v: number) => v;
+  const renderInverse = angular ? toRadians : (v: number) => v;
 
   const limits = useMemo(() => {
     if (!animatableValue || animatableValue.type !== "number") {
@@ -88,6 +89,19 @@ function InnerAnimatableEditor({
       max: animatableValue.constraints?.max ?? undefined,
     };
   }, [animatableValue]);
+  const hasFiniteBounds =
+    limits.min !== undefined &&
+    limits.max !== undefined &&
+    limits.min !== -Infinity &&
+    limits.max !== Infinity;
+  const relativeDragRange = angular && !hasFiniteBounds ? 360 : undefined;
+  const valueScaleOverride = useMemo(() => {
+    if (!angular || hasFiniteBounds) return undefined;
+    return {
+      domain: [-Math.PI, Math.PI] as [number, number],
+      clamp: false,
+    };
+  }, [angular, hasFiniteBounds]);
 
   const updateTrack = useAnimationStore(useShallow((state: AnimationActions) => state.updateTrack));
 
@@ -125,6 +139,7 @@ function InnerAnimatableEditor({
             namespaceId: data.namespaceId,
             instanceId: data.instanceId,
             worldStamp: stamp,
+            valueScale: valueScaleOverride,
           });
         }}
         onDragMoveNative={(e, currentValue) => {
@@ -156,16 +171,12 @@ function InnerAnimatableEditor({
         }}
         size={Size.Sm}
         strictText={false}
-        strictSlider={
-          limits.min !== undefined &&
-          limits.max !== undefined &&
-          limits.min !== -Infinity &&
-          limits.max !== Infinity
-        }
+        strictSlider={hasFiniteBounds}
         disabled={playing || !data.editable || !active}
         value={displayValue !== null ? displayValue : renderTransformer(rawValue)}
         min={limits.min !== undefined ? renderTransformer(limits.min) : undefined}
         max={limits.max !== undefined ? renderTransformer(limits.max) : undefined}
+        relativeDragRange={relativeDragRange}
         color={color}
         onChange={(v) => {
           if (dragActiveRef.current) return;
@@ -174,7 +185,7 @@ function InnerAnimatableEditor({
         label={label}
         onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
         highlight={emphasis}
-        units={data.iconCode === "rad" ? "°" : animatableValue.pub?.units}
+        units={angular ? "°" : animatableValue.pub?.units}
         onHighlightChange={onEmphasisChange}
         wrapperClassName="flex-1"
         className="flex-1"
