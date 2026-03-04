@@ -27,11 +27,3 @@ export async function flushMicrotasks(passes = 2): Promise<void> {
     await Promise.resolve();
   }
 }
-
-/**
- * Convenience alias for a single microtask tick; clearer intent at call site when only
- * one microtask cycle is desired.
- */
-export async function flushOneMicrotask(): Promise<void> {
-  await flushMicrotasks(1);
-}

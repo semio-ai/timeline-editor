@@ -94,24 +94,3 @@ export function setFrustumFromDataViewport(
     right: dataViewport.right + paddingInWorldUnits,
   };
 }
-
-/**
- * Calculates effective bounds for camera operations, expanding data bounds to include padding.
- *
- * @param dataBounds - The original data bounds [min, max]
- * @param currentFrustumWidth - Current camera frustum width
- * @param canvasWidth - Canvas width in pixels
- * @returns Expanded bounds that include padding space
- */
-export function getEffectiveBoundsWithPadding(
-  dataBounds: [number, number] | undefined,
-  currentFrustumWidth: number,
-  canvasWidth: number,
-): [number, number] | undefined {
-  if (!dataBounds) return undefined;
-
-  const [min, max] = dataBounds;
-  const paddingInWorldUnits = (TIMELINE_PADDING * currentFrustumWidth) / canvasWidth;
-
-  return [min - paddingInWorldUnits, max + paddingInWorldUnits];
-}

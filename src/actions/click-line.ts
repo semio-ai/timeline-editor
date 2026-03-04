@@ -88,5 +88,3 @@ export function clickLineAction(
     return { selectionState: { ...next, reference: selection.reference ?? null } };
   }
 }
-
-export default clickLineAction;

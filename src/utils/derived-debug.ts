@@ -48,7 +48,3 @@ export function logDerivedEvent(
   const id = ++eventCounter;
   console.info(`[derived:${id.toString()}] ${timestamp}ms ${source}::${phase}`, payload);
 }
-
-export function enableDerivedDebugLogging(flag: boolean): void {
-  globalRef[GLOBAL_FLAG] = flag;
-}
