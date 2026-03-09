@@ -64,7 +64,7 @@ export function computeTrackTrajectories(
         throw new Error(`Interpolator not found for track: ${trackName}`);
       }
       p.positions.push(interpolator.value(frame.stamp)!);
-      p.velocities.push(interpolator.derivative(frame.stamp)!);
+      p.velocities.push(interpolator.derivative(frame.stamp) ?? 0);
     });
     return p;
   });
@@ -106,8 +106,8 @@ function rebaseAndReorientTrajectoryMessage(
   trajectoryMessage.points.forEach((point) => {
     const newPoint = {
       positions: point.positions, // Positions remain unchanged
-      velocities: (point as PositionAndVelocityTrajectoryPoint).velocities?.map((v) =>
-        rawValueMultiplyScalar(v, speed),
+      velocities: (point as PositionAndVelocityTrajectoryPoint).velocities?.map(
+        (v) => (v !== undefined ? rawValueMultiplyScalar(v, speed) : 0),
       ), // Rebase velocities
       // For now we don't rebase accelerations or effort values, as they are not used in the current implementation
       accelerations: (point as PositionVelocityAndAccelerationTrajectoryPoint).accelerations,
