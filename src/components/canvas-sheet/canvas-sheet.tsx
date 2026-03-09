@@ -127,7 +127,7 @@ const CanvasContent = memo(function CanvasContent({
 
   // TrackList region offsets
   // When we allow nested/composite tracks these will need to be dynamic
-  const topOffsetPx = 32;
+  const topOffsetPx = 36;
   const bottomOffsetPx = 108;
   const trackHeight = 36;
 
@@ -165,7 +165,7 @@ const CanvasContent = memo(function CanvasContent({
         />
       </MotionCanvasProvider>
 
-      {/* Top HUD: 32px tall */}
+      {/* Top HUD: 36px tall */}
       <HudSection
         label="top-hud"
         position="top"
