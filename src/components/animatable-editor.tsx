@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
-import { RawValue, toDegrees, toRadians, usePlayerStore, PlayerData } from "@semio/utils";
+import { RawValue, toDegrees, toRadians, usePlayerStore, PlayerData, useValuesStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
@@ -37,8 +37,8 @@ function InnerAnimatableEditor({
     () => buildTrackKey(data.namespaceId, data.instanceId, data.trackId),
     [data.namespaceId, data.instanceId, data.trackId],
   );
-  const storedValue = useAnimationStore(
-    useCallback((state: AnimationData) => state.values.get(valueKey), [valueKey]),
+  const storedValue = useValuesStore(
+    useCallback((state) => state.values.get(valueKey), [valueKey]),
   );
 
   // Drag pipeline integration (value-driven)

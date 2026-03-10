@@ -1,25 +1,18 @@
-import { useContext, useEffect, useRef } from "react";
-import type { RawValue } from "@semio/utils";
-import type { AnimationData } from "../store-types";
-import { AnimationContext } from "../context";
+import { useEffect, useRef } from "react";
+import { type RawValue, useValuesStore } from "@semio/utils";
 
 export function useValuesRef(): React.MutableRefObject<Map<string, RawValue | undefined>> {
-  const store = useContext(AnimationContext);
-  if (!store) {
-    throw new Error("Missing AnimationProvider in the tree");
-  }
-
-  const valuesRef = useRef(store.getState().values);
+  const valuesRef = useRef(useValuesStore.getState().values);
 
   useEffect(() => {
-    valuesRef.current = store.getState().values;
-    return store.subscribe(
-      (state: AnimationData) => state.values,
+    valuesRef.current = useValuesStore.getState().values;
+    return useValuesStore.subscribe(
+      (state) => state.values,
       (nextValues) => {
         valuesRef.current = nextValues;
       },
     );
-  }, [store]);
+  }, []);
 
   return valuesRef;
 }

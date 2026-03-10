@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { usePlayerStore } from "@semio/utils";
+import { usePlayerStore, useValuesStore } from "@semio/utils";
 import { computeLocalStamp, computeTrackInterpolator, computeWorldStamp } from "../../functions";
 import { buildTrackKey } from "../../utils/track-key";
 import {
@@ -42,7 +42,7 @@ describe("values timescale behavior", () => {
       const expected = interpolator(localStamp) ?? animatable.default;
 
       const lookup = buildTrackKey(NAMESPACE_IDS.BETA, INSTANCE_IDS.BETA_SHARED, TRACK_IDS.SCALE);
-      const actual = state.values.get(lookup);
+      const actual = useValuesStore.getState().values.get(lookup);
 
       if (typeof expected !== "number" || typeof actual !== "number") {
         throw new Error("Expected numeric values for values timescale test");
@@ -78,7 +78,7 @@ describe("values timescale behavior", () => {
       player.resetPlayer(worldStamp);
 
       const lookup = buildTrackKey(NAMESPACE_IDS.BETA, INSTANCE_IDS.BETA_SHARED, TRACK_IDS.SCALE);
-      const actual = store.getState().values.get(lookup);
+      const actual = useValuesStore.getState().values.get(lookup);
 
       if (typeof firstPoint.value !== "number" || typeof actual !== "number") {
         throw new Error("Expected numeric values for values timescale pre-start test");
@@ -133,7 +133,7 @@ describe("values timescale behavior", () => {
         INSTANCE_IDS.BETA_SHARED,
         TRACK_IDS.POSITION_X,
       );
-      const actual = store.getState().values.get(lookup);
+      const actual = useValuesStore.getState().values.get(lookup);
 
       if (typeof firstPoint.value !== "number" || typeof actual !== "number") {
         throw new Error("Expected numeric values for position.x timescale test");

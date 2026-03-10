@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { usePlayerStore } from "@semio/utils";
+import { usePlayerStore, useValuesStore } from "@semio/utils";
 import {
   INSTANCE_IDS,
   NAMESPACE_IDS,
@@ -108,7 +108,7 @@ describe("values drag preview behavior", () => {
       const expected = previewInterpolator(localStamp);
       const canonical = canonicalInterpolator(localStamp);
       const lookup = buildTrackKey(namespaceId, instanceId, TRACK_IDS.SCALE);
-      const actual = store.getState().values.get(lookup);
+      const actual = useValuesStore.getState().values.get(lookup);
 
       if (
         typeof expected !== "number" ||
@@ -205,7 +205,7 @@ describe("values drag preview behavior", () => {
       const expected = previewInterpolator(localStamp);
       const canonical = canonicalInterpolator(localStamp);
       const lookup = buildTrackKey(NAMESPACE_IDS.BETA, INSTANCE_IDS.BETA_SHARED, TRACK_IDS.OPACITY);
-      const actual = storeWithInstances.getState().values.get(lookup);
+      const actual = useValuesStore.getState().values.get(lookup);
 
       if (
         typeof expected !== "number" ||

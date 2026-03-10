@@ -1,4 +1,4 @@
-import { RawValue, usePlayerStore, AnimatableValue } from "@semio/utils";
+import { RawValue, usePlayerStore, AnimatableValue, useValuesStore } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
@@ -98,8 +98,9 @@ const applyTrackValue = (
   value: RawValue | ((current: RawValue) => RawValue),
 ) => {
   const lookupId = trackKey;
+  const valuesState = useValuesStore.getState();
   if (typeof value === "function") {
-    const current: RawValue | undefined = state.values.get(lookupId);
+    const current: RawValue | undefined = valuesState.values.get(lookupId);
     if (current === undefined) {
       // Get the default value from the animatable if it exists.
       const { trackId } = parseTrackKey(lookupId);
@@ -109,12 +110,12 @@ const applyTrackValue = (
       if (fallback === undefined) {
         return;
       }
-      state.values.set(lookupId, value(fallback));
+      useValuesStore.getState().setTrackValue(lookupId, value(fallback));
     } else {
-      state.values.set(lookupId, value(current));
+      useValuesStore.getState().setTrackValue(lookupId, value(current));
     }
   } else {
-    state.values.set(lookupId, value);
+    useValuesStore.getState().setTrackValue(lookupId, value);
   }
 };
 
@@ -251,37 +252,16 @@ export const AnimationSlice = (
       );
     },
     updateValues: (values: Map<string, RawValue | undefined>) => {
-      set(
-        produce((state: AnimationData) => {
-          values.forEach?.((value, key) => {
-            if (value === undefined) {
-              state.values.delete(key);
-            } else {
-              state.values.set(key, value);
-            }
-          });
-        }),
-      );
+      useValuesStore.getState().updateValues(values);
     },
     updateVelocities: (velocities: Map<string, RawValue | undefined>) => {
-      set(
-        produce((state: AnimationData) => {
-          velocities.forEach?.((value, key) => {
-            if (value === undefined) {
-              state.velocities.delete(key);
-            } else {
-              state.velocities.set(key, value);
-            }
-          });
-        }),
-      );
+      useValuesStore.getState().updateVelocities(velocities);
     },
     setTrackValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => {
-      set(
-        produce((state: AnimationData) => {
-          applyTrackValue(state, trackKey, value);
-        }),
-      );
+      // applyTrackValue needs AnimationData for animatable defaults, so we still
+      // need to read from the main store, but it writes to useValuesStore internally.
+      const state = get();
+      applyTrackValue(state, trackKey, value);
     },
     createNewDefaultAnimation: () => {
       set(

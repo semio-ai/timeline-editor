@@ -63,18 +63,8 @@ export interface AnimationPreferencesPatch {
 export interface AnimationData {
   derivedSnapshot?: DerivedSnapshot;
   /**
-   * Current values (output of interpolator), keyed by `${namespaceId}/${instanceId}/${trackId}`.
-   * Use `buildTrackKey` to construct lookups.
-   */
-  values: Map<string, RawValue | undefined>;
-  /**
-   * Current values (output of interpolator), keyed by `${namespaceId}/${instanceId}/${trackId}`.
-   * Use `buildTrackKey` to construct lookups.
-   */
-  velocities: Map<string, RawValue | undefined>;
-  /**
    * A record of animation instances and their namespaces, used for specifying how
-   * values are written into state.values without overriding others.
+   * values are written into `useValuesStore` without overriding others.
    */
   namespaces: Record<string, Namespace>;
   /**
@@ -228,19 +218,15 @@ export interface AnimationActions {
     updates: Record<string, { hidden?: boolean }>,
   ) => void;
   /**
-   * Update all values in the store.
-   * @param values - A map of values to update.
+   * @deprecated Use `useValuesStore.getState().updateValues` instead.
    */
   updateValues: (values: Map<string, RawValue | undefined>) => void;
   /**
-   * Update the velocities in the store.
-   * @param velocities - A map of velocities to update.
+   * @deprecated Use `useValuesStore.getState().updateVelocities` instead.
    */
   updateVelocities: (velocities: Map<string, RawValue | undefined>) => void;
   /**
-   * Set an individual value by track key (explicitly named to avoid confusion with scene setValue).
-   * @param trackKey - The `${namespaceId}/${instanceId}/${trackId}` key to set.
-   * @param value - The value to set.
+   * @deprecated Use `useValuesStore.getState().setTrackValue` instead.
    */
   setTrackValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => void;
   /**

@@ -29,3 +29,6 @@ export * from "./utils/track-key";
 
 export * from "./functions";
 export * from "./test-fixtures";
+
+// Re-export values store from @semio/utils for convenience
+export { useValuesStore, mergeValueMaps, type ValuesStore, type ValuesData, type ValuesActions } from "@semio/utils";

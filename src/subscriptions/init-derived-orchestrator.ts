@@ -1,4 +1,11 @@
-import { PlayerData, PlayerDirection, RawValue, usePlayerStore } from "@semio/utils";
+import {
+  PlayerData,
+  PlayerDirection,
+  RawValue,
+  usePlayerStore,
+  mergeValueMaps,
+  useValuesStore,
+} from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import type {
   AnimationApi,
@@ -6,7 +13,7 @@ import type {
   AnimationStoreGetter,
   AnimationStoreSetter,
 } from "../store-types";
-import { DerivedSnapshot, TrackInterpolators, TrackKey, Violation } from "../types";
+import { DerivedSnapshot } from "../types";
 import {
   matchingIdentityRawValue,
   rawValueMultiplyScalar,
@@ -32,25 +39,8 @@ interface DerivedInputs {
 
 interface DerivedComputation {
   snapshot: DerivedSnapshot;
-  trackInterpolators: TrackInterpolators;
-  canonicalViolations: Partial<Record<TrackKey, Violation[]>>;
   values: Map<string, RawValue | undefined>;
   velocities: Map<string, RawValue | undefined>;
-}
-
-function mergeValueMaps(
-  base: Map<string, RawValue | undefined>,
-  updates: Map<string, RawValue | undefined>,
-): Map<string, RawValue | undefined> {
-  const merged = new Map(base);
-  updates.forEach((value, key) => {
-    if (value === undefined) {
-      merged.delete(key);
-    } else {
-      merged.set(key, value);
-    }
-  });
-  return merged;
 }
 
 function computeValueAndVelocityMaps(
@@ -126,17 +116,6 @@ function computeDerivedState(
     inputs.sourceRowIdsByView,
   );
 
-  const canonicalViolations: Partial<Record<TrackKey, Violation[]>> = {};
-  const trackInterpolators: TrackInterpolators = {};
-
-  Object.entries(snapshot.tracks).forEach(([trackKey, track]) => {
-    trackInterpolators[trackKey] = {
-      value: track.canonical.interpolator,
-      derivative: track.canonical.derivative,
-    };
-    canonicalViolations[trackKey as TrackKey] = track.canonical.violations;
-  });
-
   const adjustedSnapshot: DerivedSnapshot = {
     ...snapshot,
     rows: Object.fromEntries(
@@ -154,8 +133,6 @@ function computeDerivedState(
 
   return {
     snapshot: adjustedSnapshot,
-    trackInterpolators,
-    canonicalViolations,
     values,
     velocities,
   };
@@ -195,13 +172,17 @@ export function initDerivedOrchestrator(
       rowCount: Object.keys(result.snapshot.rows).length,
     }));
 
-    set((state) => ({
+    // Write stable derived data to the main animation store
+    set({
       derivedSnapshot: result.snapshot,
-      trackInterpolators: result.trackInterpolators,
-      violations: result.canonicalViolations,
-      values: mergeValueMaps(state.values, result.values),
-      velocities: mergeValueMaps(state.velocities, result.velocities),
-    }));
+    });
+
+    // Write transient values/velocities to the dedicated values store
+    const valuesState = useValuesStore.getState();
+    useValuesStore.setState({
+      values: mergeValueMaps(valuesState.values, result.values),
+      velocities: mergeValueMaps(valuesState.velocities, result.velocities),
+    });
   };
 
   const unsubscribeStore = api.subscribe(
@@ -239,10 +220,11 @@ export function initDerivedOrchestrator(
         latestSnapshot,
         usePlayerStore.getState(),
       );
-      set((state) => ({
-        values: mergeValueMaps(state.values, values),
-        velocities: mergeValueMaps(state.velocities, velocities),
-      }));
+      const valuesState = useValuesStore.getState();
+      useValuesStore.setState({
+        values: mergeValueMaps(valuesState.values, values),
+        velocities: mergeValueMaps(valuesState.velocities, velocities),
+      });
     },
     { fireImmediately: true, equalityFn: shallow },
   );

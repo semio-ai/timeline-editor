@@ -5,23 +5,16 @@ import { TransitionDirective, TransitionPairing } from "../types";
 // import { createDefaultAnimation } from "./create-default-animation";
 
 /**
- * Creates the default state for an animation.
+ * Creates the default state for the animation store.
  *
- * This function initializes and returns an object representing the default state
- * of an animation, including various properties such as values, track interpolators,
- * active animation, animations, tracks, visualized animations, duration, framerate,
- * selected keyframe, expanded state, time display, player interval, hover point,
- * previews, preferences, track subscribers, animation subscribers, and violations.
- *
- * @returns [AnimationData] The default state of the animation.
+ * Transient values and velocities live in the dedicated `useValuesStore`
+ * (from `@semio/utils`), not in this state object.
  */
 export const createDefaultState = (): AnimationData => {
   // const defaultAnimation = createDefaultAnimation();
 
   return {
     derivedSnapshot: undefined,
-    values: new Map(),
-    velocities: new Map(),
     namespaces: {},
     animations: {},
     tracks: {},

@@ -16,7 +16,7 @@ import {
   ICON_CLASS_NAME,
 } from "@semio/ui";
 import type { AnimatableValue, RawValue } from "@semio/utils";
-import { toDegrees, toRadians, usePlayerStore } from "@semio/utils";
+import { toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/utils";
 import { useAnimationStore, useColors, useKeyControlState } from "../hooks";
 import { SourceRow, SourceRowData } from "../types";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
@@ -119,7 +119,7 @@ function AnimatableLeafControl({
 
   const animatable = useAnimationStore(useShallow((state) => state.animatables[animatableId]));
 
-  const storedValue = useAnimationStore(
+  const storedValue = useValuesStore(
     useCallback(
       (state) => (valueLookupKey ? state.values.get(valueLookupKey) : undefined),
       [valueLookupKey],
