@@ -43,7 +43,7 @@ export function TrackList({
     <div
       className={clsx(
         "relative h-full w-75 dark:bg-black bg-neutral-100",
-        "flex flex-col not-group-aria-expanded/sheet:hidden",
+        "flex flex-col overflow-hidden",
       )}
     >
       <div
