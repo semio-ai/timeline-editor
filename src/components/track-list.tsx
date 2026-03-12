@@ -42,7 +42,7 @@ export function TrackList({
   return (
     <div
       className={clsx(
-        "relative h-full w-75 dark:bg-black bg-neutral-100",
+        "relative h-full w-78.75 dark:bg-black bg-neutral-100",
         "flex flex-col overflow-hidden",
       )}
     >

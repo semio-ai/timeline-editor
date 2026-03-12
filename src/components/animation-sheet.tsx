@@ -382,12 +382,12 @@ function InnerSheet({
                   minHeight: MIN_SHEET_HEIGHT,
                 }}
                 className={clsx(
-                  "grid grid-cols-[302px_1fr] group/sheet w-full pr-0.5 pb-0.5 overflow-hidden",
+                  "grid grid-cols-[317px_1fr] group/sheet w-full pr-0.5 pb-0.5 overflow-hidden",
                   "grid-rows-[36px_36px_minmax(0,1fr)_36px_36px_36px]",
                 )}
               >
                 {/* Toolbar - Row 1 (Left) */}
-                <ToolbarWrapper rightPadding={6}>
+                <ToolbarWrapper rightPadding={8}>
                   <WorkspaceToolbarSection
                     viewIds={viewIds}
                     activeViewId={resolvedViewId}

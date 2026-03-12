@@ -15,7 +15,7 @@ export function ControlRow({ left, mid, main, right, className }: ControlRowProp
   return (
     <div className={clsx("relative w-full", className)}>
       {/* Mid column tracks a shared 28px icon slot so static icons and group toggles align visually. */}
-      <div className="w-full grid grid-cols-[64px_28px_1fr_16px] pl-1 pr-2 gap-2 h-9 items-center">
+      <div className="w-full grid grid-cols-[79px_28px_minmax(0,1fr)_16px] pl-1 pr-3 gap-2 h-9 items-center">
         {left ?? <div className="min-w-16 h-7" />}
         <div className="grid h-full w-7 place-items-center">
           {mid ?? <div className="size-3" />}
