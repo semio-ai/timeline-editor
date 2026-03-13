@@ -15,9 +15,16 @@ export function computeStoredAnimation(
   return {
     id: animation.id,
     name: animation.name,
-    tracks: animation.tracks.map((t) => tracks[t]),
+    tracks: animation.tracks.map((t) => {
+      const track = tracks[t];
+      const { muted: _, ...rest } = track.settings || {};
+      const settings = Object.keys(rest).length > 0 ? rest : undefined;
+      return {
+        ...track,
+        settings,
+      };
+    }),
     groups: animation.groups,
-    transitions: animation.transitions,
     duration: animation.duration,
   };
 }

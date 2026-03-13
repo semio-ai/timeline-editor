@@ -15,7 +15,6 @@ import { AnimationData } from "../store-types";
 export function removeAnimation(state: AnimationData, animationId: string, removeTracks = true) {
   if (animationId in state.animations) {
     const { [animationId]: animation, ...newAnimations } = state.animations;
-    state.visualizedAnimations = state.visualizedAnimations.filter((id) => id !== animationId);
     state.animations = newAnimations;
     // Remove the tracks for that animation
     animation.tracks.forEach((trackId) => {

@@ -1,6 +1,6 @@
-import { RawValue, usePlayerStore } from "@semio/utils";
+import { usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
-import { Keypoint } from "../types";
+import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
 
 /**
  * Creates a keypoint in the specified track of the animation state.
@@ -18,24 +18,29 @@ import { Keypoint } from "../types";
 export function createKeypoint(
   state: AnimationData,
   trackId: string,
-  point: Partial<Keypoint<RawValue>>,
-): Keypoint<RawValue> {
-  const id = crypto.randomUUID();
-  const existingPoint = state.tracks[trackId].points.find((p) => p.id === point.id);
+  point: Partial<SimpleKeypoint>,
+): SimpleKeypoint {
+  const track = state.tracks[trackId];
+  if (!track) {
+    throw new Error(`Track ${trackId} not found when creating keypoint.`);
+  }
+
+  const id = point.id ?? crypto.randomUUID();
+  const existingPoint = track.points.find((p) => p.id === id);
   if (existingPoint) {
-    state.tracks[trackId].points = state.tracks[trackId].points.map((p) =>
-      p.id === id ? { ...p, ...point } : p,
-    );
-    return existingPoint;
+    const nextPoint = { ...existingPoint, ...point } as SimpleKeypoint;
+    track.points = track.points.map((p) => (p.id === id ? nextPoint : p));
+    return nextPoint;
   } else {
-    const newPoint = {
+    const fallbackValue: SimpleRawValue =
+      point.value ?? (typeof track.points[0]?.value !== "undefined" ? track.points[0].value : 0);
+    const newPoint: SimpleKeypoint = {
       id,
       stamp: point.stamp ?? usePlayerStore.getState().player.stamp,
-      value: point.value,
-    } as Keypoint<RawValue>;
-    state.tracks[trackId].points = [...state.tracks[trackId].points, newPoint].toSorted(
-      (a, b) => a.stamp - b.stamp,
-    );
+      value: fallbackValue,
+      transitions: point.transitions,
+    };
+    track.points = [...track.points, newPoint].toSorted((a, b) => a.stamp - b.stamp);
     return newPoint;
   }
 }

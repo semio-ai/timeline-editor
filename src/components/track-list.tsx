@@ -1,66 +1,87 @@
-import { ScrollArea } from "@semio/ui";
+import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
-import useMeasure from "react-use-measure";
+import { clsx } from "clsx";
+import { ScrollArea } from "@semio/ui";
+import { AnimatePresence, MotionValue, motion } from "motion/react";
 import { useAnimationStore } from "../hooks";
-import { TrackRender, AnimationInstanceSettings } from "../types";
-import { DEFAULT_TRACK_HEIGHT, TIMELINE_PADDING } from "../constants";
-import { TrackRow } from "./track-row";
-import { TrackGap } from "./track-gap";
+import { AnimationData } from "../store-types";
+import type { SourceRow, VisibleSourceRowIds } from "../types";
+import { normalizeVisibleSourceRowIds } from "../functions/filter-visible-source-row-ids";
+import { TrackControl } from "./track-control";
+
+export interface TrackListProps {
+  height?: number;
+  scrollY?: MotionValue<number>;
+  emphasis: string[];
+  onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
+  rowIdLookup?: VisibleSourceRowIds;
+}
 
 export function TrackList({
-  animationId,
-  namespaceId,
-  instanceSettings,
-  trackRender,
   height = 240,
-  width = 2 * TIMELINE_PADDING,
-}: {
-  animationId: string;
-  namespaceId: string;
-  instanceSettings: AnimationInstanceSettings;
-  trackRender: TrackRender;
-  parentHeight?: number;
-  height?: number;
-  width?: number;
-}) {
-  const [contentRef, contentBounds] = useMeasure();
-  const tracks = useAnimationStore(
-    useShallow((state) => Array.from(state.animations[animationId].tracks)),
+  scrollY,
+  emphasis = [],
+  onEmphasisChange = () => {},
+  rowIdLookup,
+}: TrackListProps): ReactNode {
+  const sourceRowIdLookup = useAnimationStore(
+    useShallow(
+      (state: AnimationData) => rowIdLookup ?? normalizeVisibleSourceRowIds(state.sourceRowIds),
+    ),
   );
 
+  const flatRowIds = sourceRowIdLookup.flat;
+
+  const sourceRows = useAnimationStore(
+    useShallow((state: AnimationData) =>
+      flatRowIds
+        .map((id) => state.instancedTrackSources[id])
+        .filter((row): row is SourceRow => Boolean(row)),
+    ),
+  );
   return (
-    <div className="relative h-full w-full overflow-hidden dark:bg-black bg-neutral-100">
-      <ScrollArea
-        orientation="vertical"
-        className="absolute left-0 top-0 right-0 bottom-0 "
-        style={{ maxHeight: height }}
-      >
-        <div
-          ref={contentRef}
-          className="grid grid-cols-[298px_1fr] gap-x-1 not-group-aria-expanded/sheet:hidden"
-        >
-          {tracks.map((track) => (
-            <TrackRow
-              key={track}
-              animationId={animationId}
-              trackIds={[track]}
-              namespaceId={namespaceId}
-              instanceSettings={instanceSettings}
-              trackRender={trackRender}
-              width={width}
-              height={DEFAULT_TRACK_HEIGHT}
-            />
-          ))}
-        </div>
-        {contentBounds.height < height && (
-          <TrackGap animationId={animationId} height={height - contentBounds.height} />
-        )}
-      </ScrollArea>
-      {tracks.length === 0 && (
-        <div className="absolute grid place-items-center top-0 left-0 right-0 bottom-0 dark:bg-black/50 bg-neutral-100/50 pointer-events-none">
-          <p className="text-neutral-500 text-sm">No tracks</p>
-        </div>
+    <div
+      className={clsx(
+        "relative h-full w-78.75 dark:bg-black bg-neutral-100",
+        "flex flex-col overflow-hidden",
       )}
+    >
+      <div
+        className="w-full overflow-hidden"
+        onWheel={(e) => {
+          // CRITICAL: Prevent ScrollArea from independently handling wheel events
+          // ScrollArea should only respond to motionScrollY changes from canvas gesture system
+          // This ensures all scroll behavior goes through region detection logic
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        <ScrollArea
+          orientation="vertical"
+          className="pr-1 w-full"
+          style={{ maxHeight: height }}
+          motionScrollY={scrollY}
+        >
+          <div className="w-full">
+            <AnimatePresence>
+              {sourceRows.map((sourceRow) => (
+                <motion.div
+                  key={sourceRow.id}
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20, transition: { duration: 0.15, ease: "easeInOut" } }}
+                >
+                  <TrackControl
+                    sourceRow={sourceRow}
+                    emphasis={emphasis.includes(sourceRow.id)}
+                    onEmphasisChange={(v) => onEmphasisChange(sourceRow.id, v ? "add" : "remove")}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </ScrollArea>
+      </div>
     </div>
   );
 }

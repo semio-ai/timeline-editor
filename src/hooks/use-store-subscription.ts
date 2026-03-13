@@ -20,7 +20,15 @@ export function useStoreSubscription<T>(
   }
 
   useEffect(() => {
-    const unsubscribe = store.subscribe(selector, callback, { equalityFn, fireImmediately: true });
+    const unsubscribe = store.subscribe(
+      selector,
+      (next: T, prev: T) => {
+        if (!equalityFn(next, prev)) {
+          callback(next, prev);
+        }
+      },
+      { equalityFn },
+    );
     return unsubscribe;
-  }, [selector, callback, equalityFn, store]);
+  }, [store, selector, callback, equalityFn]);
 }

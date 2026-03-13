@@ -1,0 +1,81 @@
+import { ReactNode, memo, useEffect, useMemo } from "react";
+import { useFrame, useThree, type Size } from "@react-three/fiber";
+import * as THREE from "three";
+import { useMotionValue } from "motion/react";
+import { MotionCanvasContext } from "./motion-canvas-context";
+
+export const MotionCanvasProvider = memo(function MotionCanvasProvider({
+  children,
+  label,
+}: {
+  label?: string;
+  children: ReactNode;
+}) {
+  const invalidate = useThree((state) => state.invalidate);
+  const width = useMotionValue(1);
+  const height = useMotionValue(1);
+  const invariantScale = useMotionValue(1);
+  const frustumTop = useMotionValue(1);
+  const frustumBottom = useMotionValue(-1);
+  const frustumLeft = useMotionValue(-1);
+  const frustumRight = useMotionValue(1);
+
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(
+    () => ({
+      size: { width, height },
+      invariantScale,
+      frustum: {
+        top: frustumTop,
+        bottom: frustumBottom,
+        left: frustumLeft,
+        right: frustumRight,
+      },
+    }),
+    [width, height, invariantScale, frustumTop, frustumBottom, frustumLeft, frustumRight],
+  ); // MotionValues are stable, so this will only create once
+
+  // Update scale on each frame to maintain constant pixel size
+  useFrame(({ size, camera }) => {
+    if (label && camera.name !== label) {
+      console.log(`Mismatched Camera (${label} !== ${camera.name})`);
+      return;
+    }
+    // Wait for valid canvas size before updating motion values
+    if (size.width <= 0 || size.height <= 0) {
+      return;
+    }
+
+    const scaleFactor = calculateScaleFactor(camera as THREE.OrthographicCamera, size);
+    invariantScale.set(scaleFactor);
+    width.set(size.width);
+    height.set(size.height);
+    frustumTop.set((camera as THREE.OrthographicCamera).top);
+    frustumBottom.set((camera as THREE.OrthographicCamera).bottom);
+    frustumLeft.set((camera as THREE.OrthographicCamera).left);
+    frustumRight.set((camera as THREE.OrthographicCamera).right);
+  }, -1);
+
+  useEffect(() => {
+    const forceUpdate = () => {
+      requestAnimationFrame(() => {
+        // This will trigger useFrame to run again with proper canvas dimensions
+        invalidate();
+      });
+    };
+    // Small delay to ensure canvas is fully mounted
+    const timeout = setTimeout(forceUpdate, 16);
+    return () => clearTimeout(timeout);
+  }, [invalidate]);
+
+  return (
+    <MotionCanvasContext.Provider value={contextValue}>{children}</MotionCanvasContext.Provider>
+  );
+});
+
+const calculateScaleFactor = (camera: THREE.OrthographicCamera, viewport: Size) => {
+  const baseWidth = viewport.width;
+  const currentWidth =
+    (camera as THREE.OrthographicCamera).right - (camera as THREE.OrthographicCamera).left;
+  return currentWidth / baseWidth;
+};

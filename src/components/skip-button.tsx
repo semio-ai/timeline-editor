@@ -2,27 +2,25 @@ import { MouseEventHandler, type ReactNode, useCallback } from "react";
 import { IconPlayerPlay } from "@tabler/icons-react";
 import { Button, IconPlayerEndBounds } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
-import type { AnimationActions } from "../store-types";
+import type { AnimationActions, AnimationData } from "../store-types";
 import { SemanticTime } from "../types";
 import { useAnimationStore } from "../hooks";
 
 export interface SkipButtonProps {
-  animationId: string;
-  namespaceIds: string[];
-  trackIds: string[];
   semanticTime: SemanticTime;
   onMouseEnter?: MouseEventHandler<HTMLButtonElement>;
   onMouseLeave?: MouseEventHandler<HTMLButtonElement>;
 }
 
 export function SkipButton({
-  animationId,
-  namespaceIds,
-  trackIds,
   semanticTime,
   onMouseEnter,
   onMouseLeave,
 }: SkipButtonProps): ReactNode {
+  const sourceRow = useAnimationStore(
+    useShallow((state: AnimationData) => state.instancedTrackSources.global),
+  );
+
   const [skipToNextKeyframe, skiptToPrevKeyframe, skipToStart, skipToEnd] = useAnimationStore(
     useShallow((state: AnimationActions) => [
       state.skipToNextKeyframe,
@@ -32,25 +30,30 @@ export function SkipButton({
     ]),
   );
 
+  const directionalDisabled =
+    (semanticTime === SemanticTime.Forward || semanticTime === SemanticTime.Backward) && !sourceRow;
+
   const skip = useCallback(() => {
+    if (directionalDisabled) return;
     if (semanticTime === SemanticTime.Forward) {
-      skipToNextKeyframe(animationId, namespaceIds, trackIds, true);
+      if (!sourceRow) return;
+      skipToNextKeyframe(sourceRow, true);
     } else if (semanticTime === SemanticTime.Backward) {
-      skiptToPrevKeyframe(animationId, namespaceIds, trackIds, true);
+      if (!sourceRow) return;
+      skiptToPrevKeyframe(sourceRow, true);
     } else if (semanticTime === SemanticTime.BoundsStart) {
       skipToStart();
     } else if (semanticTime === SemanticTime.BoundsEnd) {
       skipToEnd();
     }
   }, [
+    directionalDisabled,
+    sourceRow,
     semanticTime,
     skipToNextKeyframe,
     skiptToPrevKeyframe,
     skipToStart,
     skipToEnd,
-    animationId,
-    namespaceIds,
-    trackIds,
   ]);
 
   const [addPreview, removePreview] = useAnimationStore(
@@ -61,12 +64,15 @@ export function SkipButton({
     <Button
       visuals="inverted"
       size="fit"
-      onClick={() => skip?.()}
+      disabled={directionalDisabled}
+      onClick={directionalDisabled ? undefined : () => skip?.()}
       onMouseEnter={(e) => {
+        if (directionalDisabled) return;
         onMouseEnter?.(e);
-        addPreview({ stamp: 0, semanticTime, label: "" });
+        addPreview({ stamp: 0, semanticTime });
       }}
       onMouseLeave={(e) => {
+        if (directionalDisabled) return;
         onMouseLeave?.(e);
         removePreview((p) => p.semanticTime === semanticTime);
       }}

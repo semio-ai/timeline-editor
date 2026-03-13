@@ -1,279 +1,214 @@
-import { memo } from "react";
-import { SliderNumberField, Size, TextField } from "@semio/ui";
-import {
-  getLookup,
-  RawValue,
-  RawVector3,
-  RawEuler,
-  AnimatableValue,
-  toDegrees,
-  toRadians,
-  RawRGB,
-} from "@semio/utils";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
+import { RawValue, toDegrees, toRadians, usePlayerStore, PlayerData, useValuesStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
-import { type Track } from "../types";
+import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
-
-const collapsibleTypes = ["vector3", "euler", "rgb", "hsl"];
-const vector3IndexLookup = {
-  x: 0,
-  y: 1,
-  z: 2,
-};
-
-const eulerIndexLookup = {
-  r: 0,
-  p: 1,
-  y: 2,
-};
-
-const rgbIndexLookup = {
-  r: 0,
-  g: 1,
-  b: 2,
-};
+import { DEFAULT_COLOR } from "../constants";
+import { buildTrackKey } from "../utils/track-key";
 
 export interface AnimatableEditorProps {
-  animatableValue: AnimatableValue;
-  namespace: string;
-  prop?: string;
+  rowId: string;
+  data: SourceRowData;
   playing: boolean;
-  track?: Track<RawValue>;
   emphasis?: boolean;
   onEmphasisChange?: (v: boolean) => void;
-  handleValueChange: (value: RawValue) => void;
+  handleValueChange: (value: RawValue | ((current: RawValue) => RawValue)) => void;
+  active?: boolean;
+  colorOverride?: string;
 }
 
 function InnerAnimatableEditor({
-  animatableValue,
+  rowId,
+  data,
   playing,
-  track,
-  namespace,
-  prop,
   emphasis,
   onEmphasisChange,
   handleValueChange,
+  active = true,
+  colorOverride,
 }: AnimatableEditorProps) {
-  const rawValueId = getLookup(namespace, animatableValue.id);
+  const trueColor = useColors(data.trackId ?? data.animatableId);
+  const color = colorOverride ?? (active ? trueColor : DEFAULT_COLOR);
 
-  const color = useColors(track?.id ?? animatableValue.id);
-
-  const rawValue: RawValue | undefined = useAnimationStore(
-    useShallow((state: AnimationData) => {
-      return state.values.get(rawValueId);
-    }),
+  const stamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
+  const valueKey = useMemo(
+    () => buildTrackKey(data.namespaceId, data.instanceId, data.trackId),
+    [data.namespaceId, data.instanceId, data.trackId],
   );
+  const storedValue = useValuesStore(
+    useCallback((state) => state.values.get(valueKey), [valueKey]),
+  );
+
+  // Drag pipeline integration (value-driven)
+  const { startValueDrag, updateValueDrag, commitValueDrag, cancelValueDrag } = useAnimationStore(
+    useShallow((state: AnimationActions & AnimationData) => ({
+      startValueDrag: state.startValueDrag,
+      updateValueDrag: state.updateValueDrag,
+      commitValueDrag: state.commitValueDrag,
+      cancelValueDrag: state.cancelValueDrag,
+    })),
+  );
+
+  const dragActiveRef = useRef(false);
+  const dragDidMoveRef = useRef(false);
+  const [displayValue, setDisplayValue] = useState<number | null>(null);
+
+  const { animatableValue, track } = useAnimationStore(
+    useShallow((state: AnimationData) => ({
+      animatableValue: state.animatables[data.animatableId],
+      track: state.tracks[data.trackId],
+    })),
+  );
+
+  const scalarStoredValue = useMemo(() => {
+    if (typeof storedValue === "number") return storedValue;
+    if (typeof storedValue === "string") return storedValue;
+    if (typeof storedValue === "boolean") return storedValue;
+    return undefined;
+  }, [storedValue]);
+
+  const hasAnimatable = Boolean(animatableValue && track);
+
+  const rawValue = useMemo(() => {
+    if (!animatableValue) return undefined;
+    return scalarStoredValue ?? animatableValue.default;
+  }, [animatableValue, scalarStoredValue]);
+
+  const angular = data.iconCode === "rad" || animatableValue?.pub?.units === "rad";
+  const renderTransformer = angular ? toDegrees : (v: number) => v;
+  const renderInverse = angular ? toRadians : (v: number) => v;
+
+  const limits = useMemo(() => {
+    if (!animatableValue || animatableValue.type !== "number") {
+      return { min: undefined, max: undefined };
+    }
+    return {
+      min: animatableValue.constraints?.min ?? undefined,
+      max: animatableValue.constraints?.max ?? undefined,
+    };
+  }, [animatableValue]);
+  const hasFiniteBounds =
+    limits.min !== undefined &&
+    limits.max !== undefined &&
+    limits.min !== -Infinity &&
+    limits.max !== Infinity;
+  const relativeDragRange = angular && !hasFiniteBounds ? 360 : undefined;
+  const valueScaleOverride = useMemo(() => {
+    if (!angular || hasFiniteBounds) return undefined;
+    return {
+      domain: [-Math.PI, Math.PI] as [number, number],
+      clamp: false,
+    };
+  }, [angular, hasFiniteBounds]);
 
   const updateTrack = useAnimationStore(useShallow((state: AnimationActions) => state.updateTrack));
 
-  if (animatableValue.type === "number") {
-    const renderTransformer = animatableValue.pub?.units === "rad" ? toDegrees : (v: number) => v;
-    const renderInverse = animatableValue.pub?.units === "rad" ? toRadians : (v: number) => v;
+  const onChange = useCallback(
+    (newValue: RawValue | ((change: RawValue) => RawValue)) => {
+      handleValueChange(newValue);
+    },
+    [handleValueChange],
+  );
 
-    const min =
-      animatableValue.constraints.min !== undefined
-        ? renderTransformer(animatableValue.constraints.min)
-        : undefined;
-    const max =
-      animatableValue.constraints.max !== undefined
-        ? renderTransformer(animatableValue.constraints.max)
-        : undefined;
+  const label = useMemo(() => {
+    if (track?.name) {
+      return track.name;
+    }
+    return animatableValue?.name ?? "";
+  }, [track?.name, animatableValue?.name]);
 
+  if (!hasAnimatable || rawValue === undefined) {
+    return <div className="flex-1 h-7 rounded bg-neutral-700/30 animate-pulse" />;
+  }
+
+  if (data.type === "number" && typeof rawValue === "number") {
     return (
       <SliderNumberField
+        onDragStartNative={(e, currentValue) => {
+          if (playing || !data.editable || !active) return;
+
+          dragActiveRef.current = true;
+          dragDidMoveRef.current = false;
+          setDisplayValue(currentValue as number);
+
+          startValueDrag({
+            rowId,
+            trackId: data.trackId,
+            namespaceId: data.namespaceId,
+            instanceId: data.instanceId,
+            worldStamp: stamp,
+            valueScale: valueScaleOverride,
+          });
+        }}
+        onDragMoveNative={(e, currentValue) => {
+          if (!dragActiveRef.current) return;
+          setDisplayValue(currentValue as number);
+          dragDidMoveRef.current = true;
+
+          const currentActual = renderInverse(currentValue as number);
+
+          updateValueDrag({
+            currentValue: currentActual,
+            modifiers: {
+              alt: (e as MouseEvent).altKey ?? false,
+              shift: (e as MouseEvent).shiftKey ?? false,
+              meta: (e as MouseEvent).metaKey ?? false,
+            },
+          });
+        }}
+        onDragEndNative={(_e, _currentValue) => {
+          if (!dragActiveRef.current) return;
+          dragActiveRef.current = false;
+          setDisplayValue(null);
+          if (dragDidMoveRef.current) {
+            commitValueDrag();
+          } else {
+            cancelValueDrag();
+          }
+          dragDidMoveRef.current = false;
+        }}
         size={Size.Sm}
         strictText={false}
-        strictSlider={
-          animatableValue.constraints.min !== undefined &&
-          animatableValue.constraints.max !== undefined &&
-          animatableValue.constraints.min !== -Infinity &&
-          animatableValue.constraints.max !== Infinity
-        }
-        disabled={playing}
-        value={renderTransformer((rawValue as number) ?? (animatableValue.default as number))}
-        min={min}
-        max={max}
+        strictSlider={hasFiniteBounds}
+        disabled={playing || !data.editable || !active}
+        value={displayValue !== null ? displayValue : renderTransformer(rawValue)}
+        min={limits.min !== undefined ? renderTransformer(limits.min) : undefined}
+        max={limits.max !== undefined ? renderTransformer(limits.max) : undefined}
+        relativeDragRange={relativeDragRange}
         color={color}
-        onChange={(v) => handleValueChange(renderInverse(v))}
-        label={track ? track.name : animatableValue.name}
+        onChange={(v) => {
+          if (dragActiveRef.current) return;
+          onChange(renderInverse(v));
+        }}
+        label={label}
         onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
         highlight={emphasis}
-        units={animatableValue.pub?.units === "rad" ? "°" : animatableValue.pub?.units}
+        units={angular ? "°" : animatableValue.pub?.units}
         onHighlightChange={onEmphasisChange}
         wrapperClassName="flex-1"
         className="flex-1"
       />
     );
-  } else if (animatableValue.type === "string") {
+  } else if (data.type === "string" && typeof rawValue === "string") {
     return (
       <TextField
-        value={(rawValue as string) || (animatableValue.default as string)}
-        readOnly={playing}
+        value={rawValue}
+        readOnly={playing || !data.editable || !active}
         size={Size.Sm}
-        onChange={(v) => handleValueChange(v)}
+        onChange={(v) => onChange(v)}
       />
     );
-  } else if (collapsibleTypes.includes(animatableValue.type) && !prop) {
+  } else if (data.type === "boolean" && typeof rawValue === "boolean") {
     return (
-      <TextField
-        value={track ? track.name : animatableValue.name}
-        readOnly={playing || !track}
+      <ToggleSquare
+        value={rawValue}
+        disabled={playing || !data.editable || !active}
         size={Size.Sm}
-        onChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
+        onChange={(v) => onChange(v)}
       />
     );
-  } else if (animatableValue.type === "vector3" && (prop === "x" || prop === "y" || prop === "z")) {
-    const index = vector3IndexLookup[prop];
-    return (
-      <SliderNumberField
-        size={Size.Sm}
-        strictText={false}
-        strictSlider={
-          animatableValue.constraints?.min?.[index] !== -Infinity &&
-          animatableValue.constraints?.max?.[index] !== Infinity &&
-          animatableValue.constraints?.min?.[index] !== undefined &&
-          animatableValue.constraints?.max?.[index] !== undefined
-        }
-        disabled={playing}
-        value={
-          (rawValue as RawVector3 | undefined)?.[prop] ?? (animatableValue.default[prop] as number)
-        }
-        min={animatableValue.constraints?.min?.[index] ?? undefined}
-        max={animatableValue.constraints?.max?.[index] ?? undefined}
-        visualMin={animatableValue.constraints?.min?.[index] ?? 0}
-        visualMax={animatableValue.constraints?.max?.[index] ?? 1}
-        color={color}
-        onChange={(v) => {
-          if (prop === "x") {
-            handleValueChange({
-              x: v,
-              y: (rawValue as RawVector3)?.y ?? animatableValue.default.y,
-              z: (rawValue as RawVector3)?.z ?? animatableValue.default.z,
-            });
-          } else if (prop === "y") {
-            handleValueChange({
-              x: (rawValue as RawVector3)?.x ?? animatableValue.default.x,
-              y: v,
-              z: (rawValue as RawVector3)?.z ?? animatableValue.default.z,
-            });
-          } else if (prop === "z") {
-            handleValueChange({
-              x: (rawValue as RawVector3)?.x ?? animatableValue.default.x,
-              y: (rawValue as RawVector3)?.y ?? animatableValue.default.z,
-              z: v,
-            });
-          }
-        }}
-        units={animatableValue.pub?.units}
-        label={prop}
-        highlight={emphasis}
-        onHighlightChange={onEmphasisChange}
-      />
-    );
-  } else if (animatableValue.type === "euler" && (prop === "r" || prop === "p" || prop === "y")) {
-    const index = eulerIndexLookup[prop];
-    return (
-      <SliderNumberField
-        size={Size.Sm}
-        units="°"
-        strictText={false}
-        strictSlider={
-          animatableValue.constraints?.min?.[index] !== -Infinity &&
-          animatableValue.constraints?.max?.[index] !== Infinity &&
-          animatableValue.constraints?.min?.[index] !== undefined &&
-          animatableValue.constraints?.max?.[index] !== undefined
-        }
-        visualMin={0}
-        visualMax={360}
-        disabled={playing}
-        value={toDegrees(
-          (rawValue as RawEuler | undefined)?.[prop] ?? (animatableValue.default[prop] as number),
-        )}
-        min={
-          animatableValue.constraints?.min?.[index]
-            ? toDegrees(animatableValue.constraints?.min?.[index])
-            : undefined
-        }
-        max={
-          animatableValue.constraints?.max?.[index]
-            ? toDegrees(animatableValue.constraints?.max?.[index])
-            : undefined
-        }
-        color={color}
-        onChange={(v) => {
-          const vr = toRadians(v);
-          if (prop === "r") {
-            handleValueChange({
-              r: vr,
-              p: (rawValue as RawEuler)?.p ?? animatableValue.default.p,
-              y: (rawValue as RawEuler)?.y ?? animatableValue.default.y,
-            });
-          } else if (prop === "p") {
-            handleValueChange({
-              r: (rawValue as RawEuler)?.r ?? animatableValue.default.r,
-              p: vr,
-              y: (rawValue as RawEuler)?.y ?? animatableValue.default.y,
-            });
-          } else if (prop === "y") {
-            handleValueChange({
-              r: (rawValue as RawEuler)?.r ?? animatableValue.default.r,
-              p: (rawValue as RawEuler)?.p ?? animatableValue.default.p,
-              y: vr,
-            });
-          }
-        }}
-        label={prop}
-        highlight={emphasis}
-        onHighlightChange={onEmphasisChange}
-      />
-    );
-  } else if (animatableValue.type === "rgb" && (prop === "r" || prop === "g" || prop === "b")) {
-    const index = rgbIndexLookup[prop];
-    return (
-      <SliderNumberField
-        size={Size.Sm}
-        strictText
-        strictSlider
-        disabled={playing}
-        value={
-          (rawValue as RawRGB | undefined)?.[prop] ??
-          ((animatableValue.default as RawRGB)[prop] as number)
-        }
-        min={animatableValue.constraints?.min?.[index] ?? undefined}
-        max={animatableValue.constraints?.max?.[index] ?? undefined}
-        visualMin={animatableValue.constraints?.min?.[index] ?? 0}
-        visualMax={animatableValue.constraints?.max?.[index] ?? 1}
-        color={color}
-        onChange={(v) => {
-          if (prop === "r") {
-            handleValueChange({
-              r: v,
-              g: (rawValue as RawRGB)?.g ?? (animatableValue.default as RawRGB).g,
-              b: (rawValue as RawRGB)?.b ?? (animatableValue.default as RawRGB).b,
-            });
-          } else if (prop === "g") {
-            handleValueChange({
-              r: (rawValue as RawRGB)?.r ?? (animatableValue.default as RawRGB).r,
-              g: v,
-              b: (rawValue as RawRGB)?.b ?? (animatableValue.default as RawRGB).b,
-            });
-          } else if (prop === "b") {
-            handleValueChange({
-              r: (rawValue as RawRGB)?.r ?? (animatableValue.default as RawRGB).r,
-              g: (rawValue as RawRGB)?.g ?? (animatableValue.default as RawRGB).g,
-              b: v,
-            });
-          }
-        }}
-        units={animatableValue.pub?.units}
-        label={prop}
-        highlight={emphasis}
-        onHighlightChange={onEmphasisChange}
-      />
-    );
-  } else {
-    return null;
   }
 }
 

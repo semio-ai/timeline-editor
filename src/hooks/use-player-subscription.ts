@@ -13,10 +13,15 @@ export function usePlayerSubscription<T>(
   equalityFn: (a: T, b: T) => boolean = (a, b) => a === b,
 ) {
   useEffect(() => {
-    const unsubscribe = usePlayerStore.subscribe(selector, callback, {
-      equalityFn,
-      fireImmediately: true,
-    });
+    const unsubscribe = usePlayerStore.subscribe(
+      selector,
+      (next: T, prev: T) => {
+        if (!equalityFn(next, prev)) {
+          callback(next, prev);
+        }
+      },
+      { equalityFn, fireImmediately: true },
+    );
     return unsubscribe;
   }, [selector, callback, equalityFn]);
 }
@@ -27,10 +32,15 @@ export function useLayoutPlayerSubscription<T>(
   equalityFn: (a: T, b: T) => boolean = (a, b) => a === b,
 ) {
   useLayoutEffect(() => {
-    const unsubscribe = usePlayerStore.subscribe(selector, callback, {
-      equalityFn,
-      fireImmediately: true,
-    });
+    const unsubscribe = usePlayerStore.subscribe(
+      selector,
+      (next: T, prev: T) => {
+        if (!equalityFn(next, prev)) {
+          callback(next, prev);
+        }
+      },
+      { equalityFn },
+    );
     return unsubscribe;
   }, [selector, callback, equalityFn]);
 }

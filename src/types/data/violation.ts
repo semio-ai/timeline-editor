@@ -1,26 +1,26 @@
 /**
- * A single instance of a violation that has occurred during a range of time
- * @param id - The unique identifier of the violation
- * @param stampRange - The range of time that the violation occurred
- * @param type - The type of violation that has occurred
- * @param trackId - The unique identifier of the track that the violation occurred on
- * @param namespace - The namespace of the violation
+ * Single violation instance detected during playback or editing.
  */
 export interface Violation {
+  /** Unique violation id. */
   id: string;
+  /** Stamp range (normalized timeline units) where the violation applies. */
   stampRange: { start: number; end: number };
+  /** Violation category. */
   type: ViolationType;
+  /** Track id where the violation was detected. */
   trackId: string;
+  /** Namespace id for the violating instance. */
   namespace: string;
+  /** Instance id for the violating track. */
+  instanceId: string;
 }
 
 /**
- * The type of violation that has occurred
- * These have the following types: Boundary, Velocity, Rate.
- * Upper - The track values are above the range allowed
- * Lower - The track values are below the range allowed
- * Velocity - The track values are changing at a rate outside the range allowed
- * Rate - The frequency of changing a given enumerable value is too high
+ * Violation categories:
+ * - Upper/Lower: value exceeds configured bounds.
+ * - Velocity: derivative exceeds allowed range.
+ * - Rate: enumerated value changes too frequently.
  */
 export enum ViolationType {
   Upper = "upper",

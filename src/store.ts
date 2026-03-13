@@ -1,34 +1,38 @@
-import {
-  RawValue,
-  Write,
-  StoreSubscribeWithSelector,
-  getLookup,
-  usePlayerStore,
-  PlayerData,
-  PlayerDirection,
-} from "@semio/utils";
+import { RawValue, usePlayerStore, AnimatableValue, useValuesStore } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
-import { shallow } from "zustand/shallow";
 import { produce, enableMapSet } from "immer";
-import { create, type StoreApi } from "zustand";
-import { isEqual, pick } from "lodash";
+import { mapValues } from "lodash";
+import { create } from "zustand";
 import {
-  Keypoint,
   Track,
-  AnimationInstance,
-  // TrackInterpolator,
-  Animation,
-  Violation,
   StoredAnimation,
+  Source,
+  SourceGroup,
   SemanticTime,
   Preview,
+  SourceRow,
+  TrackRender,
+  Namespace,
+  DragUpdateInput,
+  DragStartInput,
+  ValueDragStartInput,
+  ValueDragUpdateInput,
+  VerticalAxis,
+  HandleDragStartInput,
+  HandleDragUpdateInput,
+  MarkerPoint,
 } from "./types";
+import type { SimpleTrack, SimpleKeypoint } from "./types/data/simple-track";
 import {
   AnimationData,
   AnimationActions,
+  AnimationPreferencesPatch,
   AnimationStoreGetter,
   AnimationStoreSetter,
+  AnimationApi,
+  TransitionPatch,
+  EditorViewState,
 } from "./store-types";
 import {
   createKeypoint,
@@ -42,24 +46,141 @@ import {
   removeAnimation,
   createDefaultAnimation,
   updateControlColor,
+  insertKeypointAtWorldStamp as insertKeyAtWorldStampAction,
+  updateNewKeyTransitionDefaults as updateNewKeyTransitionDefaultsAction,
+  updateSelectedKeyTransitions as updateSelectedKeyTransitionsAction,
 } from "./actions";
+import { clickMarkerAction, clearSelectionAction } from "./actions/click-marker";
 import {
-  computeTrackViolations,
-  computeTrackInterpolator,
+  startDrag,
+  startValueDrag,
+  updateDrag,
+  updateValueDrag,
+  commitDrag,
+  commitValueDrag,
+  cancelDrag,
+  cancelValueDrag,
+  startHandleDrag,
+  updateHandleDrag,
+} from "./actions/drag";
+import {
+  computeStoredAnimation,
   computeNextTime,
   computePreviousTime,
-  computeStoredAnimation,
+  computeUpdatedSources,
+  computeLocalStamp,
   computeWorldStamp,
+  collectSourceTracks,
+  findSourceTrackById,
 } from "./functions";
-import { computeDerivativeInterpolator } from "./functions/compute-derivative-interpolator";
-import { matchingIdentityRawValue, rawValueMultiplyScalar } from "./functions/raw-value-math";
+import {
+  updatePlayerLoop,
+  updateOverallDuration,
+  updateInstancedTrackSources,
+  updateConsolidatedSourceRow,
+  updateViewFilteredGlobalRows,
+  updateGlobalSources,
+  updateSourceRowIds,
+  updateTrackMuting,
+  initDerivedOrchestrator,
+} from "./subscriptions";
+import { View } from "./types/util/view";
+import { createEmptySelectionState } from "./functions/selection-state-manager";
+import { clickLineAction } from "./actions/click-line";
+import { parseTrackKey } from "./utils/track-key";
+import { GROUP_TYPES } from "./constants";
 
 enableMapSet();
 
-export type AnimationApi = Write<
-  StoreApi<AnimationData & AnimationActions>,
-  StoreSubscribeWithSelector<AnimationData & AnimationActions>
->;
+const applyTrackValue = (
+  state: AnimationData,
+  trackKey: string,
+  value: RawValue | ((current: RawValue) => RawValue),
+) => {
+  const lookupId = trackKey;
+  const valuesState = useValuesStore.getState();
+  if (typeof value === "function") {
+    const current: RawValue | undefined = valuesState.values.get(lookupId);
+    if (current === undefined) {
+      // Get the default value from the animatable if it exists.
+      const { trackId } = parseTrackKey(lookupId);
+      const animatableId = state.tracks[trackId]?.animatableId;
+      const animatable = animatableId ? state.animatables[animatableId] : undefined;
+      const fallback = animatable?.default;
+      if (fallback === undefined) {
+        return;
+      }
+      useValuesStore.getState().setTrackValue(lookupId, value(fallback));
+    } else {
+      useValuesStore.getState().setTrackValue(lookupId, value(current));
+    }
+  } else {
+    useValuesStore.getState().setTrackValue(lookupId, value);
+  }
+};
+
+function collectLegacyHiddenTrackIds(
+  sourcesByAnimationInstance: AnimationData["sourcesByAnimationInstance"],
+): string[] {
+  const hiddenIds = new Set<string>();
+  Object.values(sourcesByAnimationInstance).forEach((sources) => {
+    collectSourceTracks(sources).forEach((track) => {
+      if (track.hidden) {
+        hiddenIds.add(track.id);
+      }
+    });
+  });
+  return Array.from(hiddenIds);
+}
+
+function resolveTrackIdsForVisibilityUpdate(
+  sourcesByAnimationInstance: AnimationData["sourcesByAnimationInstance"],
+  sourceId: string,
+): string[] {
+  const trackIds = new Set<string>();
+
+  const visit = (sources: Source[]): void => {
+    sources.forEach((source) => {
+      if (GROUP_TYPES.has(source.type)) {
+        const sourceGroup = source as SourceGroup;
+        if (source.id === sourceId) {
+          collectSourceTracks([source]).forEach((track) => {
+            trackIds.add(track.id);
+          });
+          return;
+        }
+        visit(sourceGroup.children);
+        return;
+      }
+      if (source.id === sourceId) {
+        trackIds.add(source.id);
+      }
+    });
+  };
+
+  Object.values(sourcesByAnimationInstance).forEach((sources) => {
+    visit(sources);
+  });
+
+  return Array.from(trackIds);
+}
+
+function normalizeEditorViewOrder(
+  viewOrder: string[],
+  editorViews: Record<string, View>,
+): string[] {
+  const ordered: string[] = [];
+  viewOrder.forEach((id) => {
+    if (!editorViews[id] || ordered.includes(id)) return;
+    ordered.push(id);
+  });
+  Object.keys(editorViews).forEach((id) => {
+    if (!ordered.includes(id)) {
+      ordered.push(id);
+    }
+  });
+  return ordered;
+}
 
 export const AnimationSlice = (
   set: AnimationStoreSetter,
@@ -68,40 +189,79 @@ export const AnimationSlice = (
 ) => {
   return {
     ...createDefaultState(),
-    updateValues: (values: Map<string, RawValue | undefined>) => {
+    updateSource: (groupId: string, expanded?: boolean, hidden?: boolean) => {
+      void hidden;
       set(
         produce((state: AnimationData) => {
-          values.forEach?.((value, key) => {
-            if (value === undefined) {
-              state.values.delete(key);
-            } else {
-              state.values.set(key, value);
-            }
-          });
+          // Group expansion is global; track visibility is managed per-view.
+          const updates = { [groupId]: { expanded } };
+          state.sourcesByAnimationInstance = mapValues(
+            state.sourcesByAnimationInstance,
+            (instanceSources) => computeUpdatedSources(instanceSources, updates),
+          );
         }),
       );
+    },
+    updateSources: (updates: Record<string, { expanded?: boolean; hidden?: boolean }>) => {
+      set(
+        produce((state: AnimationData) => {
+          // Global source updates only carry expansion; hidden is now view-specific.
+          const expansionUpdates: Record<string, { expanded?: boolean }> = {};
+          Object.entries(updates).forEach(([id, update]) => {
+            if (update.expanded !== undefined) {
+              expansionUpdates[id] = { expanded: update.expanded };
+            }
+          });
+          if (Object.keys(expansionUpdates).length === 0) {
+            return;
+          }
+          state.sourcesByAnimationInstance = mapValues(
+            state.sourcesByAnimationInstance,
+            (instanceSources) => computeUpdatedSources(instanceSources, expansionUpdates),
+          );
+        }),
+      );
+    },
+    updateViewTrackVisibility: (viewId: string, updates: Record<string, { hidden?: boolean }>) => {
+      set(
+        produce((state: AnimationData) => {
+          const view = state.editorViews[viewId];
+          if (!view) return;
+
+          const hiddenSet = new Set(view.hiddenSourceTrackIds ?? []);
+          Object.entries(updates).forEach(([sourceId, update]) => {
+            if (update.hidden === undefined) return;
+            const resolvedTrackIds = resolveTrackIdsForVisibilityUpdate(
+              state.sourcesByAnimationInstance,
+              sourceId,
+            );
+            resolvedTrackIds.forEach((trackId) => {
+              if (update.hidden) {
+                hiddenSet.add(trackId);
+              } else {
+                hiddenSet.delete(trackId);
+              }
+            });
+          });
+
+          state.editorViews[viewId] = {
+            ...view,
+            hiddenSourceTrackIds: Array.from(hiddenSet),
+          };
+        }),
+      );
+    },
+    updateValues: (values: Map<string, RawValue | undefined>) => {
+      useValuesStore.getState().updateValues(values);
     },
     updateVelocities: (velocities: Map<string, RawValue | undefined>) => {
-      set(
-        produce((state: AnimationData) => {
-          velocities.forEach?.((value, key) => {
-            if (value === undefined) {
-              state.velocities.delete(key);
-            } else {
-              state.velocities.set(key, value);
-            }
-          });
-        }),
-      );
+      useValuesStore.getState().updateVelocities(velocities);
     },
-    setValue: (id: string, namespace: string, value: RawValue) => {
-      set(
-        produce((state) => {
-          console.log("(Scene) Setting value", id, namespace, value);
-          const lookupId = getLookup(namespace, id);
-          state.values.set(lookupId, value);
-        }),
-      );
+    setTrackValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => {
+      // applyTrackValue needs AnimationData for animatable defaults, so we still
+      // need to read from the main store, but it writes to useValuesStore internally.
+      const state = get();
+      applyTrackValue(state, trackKey, value);
     },
     createNewDefaultAnimation: () => {
       set(
@@ -111,27 +271,57 @@ export const AnimationSlice = (
         }),
       );
     },
-    visualizeAnimation: (animationId: string) => {
+    setAnimatables: (animatables: Record<string, AnimatableValue>) => {
       set(
         produce((state: AnimationData): void => {
-          state.visualizedAnimations = [...state.visualizedAnimations, animationId];
+          state.animatables = animatables;
         }),
       );
     },
-    unvisualizeAnimation: (animationId: string) => {
+    addAnimatable: (animatable: AnimatableValue) => {
       set(
         produce((state: AnimationData): void => {
-          state.visualizedAnimations = state.visualizedAnimations.filter(
-            (id) => id !== animationId,
-          );
+          state.animatables = { ...state.animatables, [animatable.id]: animatable };
         }),
       );
     },
-    updateKeypoint: (
-      trackId: string,
-      keypoint: Partial<Keypoint<RawValue>>,
-      canMerge?: boolean,
-    ) => {
+    updateAnimatable: (id: string, animatable: Partial<AnimatableValue>) => {
+      set(
+        produce((state: AnimationData): void => {
+          const existing = state.animatables[id];
+          if (!existing) return;
+          const nextAnimatable = { ...existing, ...animatable, id } as AnimatableValue;
+          state.animatables = {
+            ...state.animatables,
+            [id]: nextAnimatable,
+          };
+        }),
+      );
+    },
+    removeAnimatable: (id: string) => {
+      set(
+        produce((state: AnimationData): void => {
+          if (!(id in state.animatables)) return;
+          const { [id]: _, ...rest } = state.animatables;
+          state.animatables = rest;
+        }),
+      );
+    },
+    setNamespaces: (namespaces: Record<string, Namespace>) => {
+      set(
+        produce((state: AnimationData): void => {
+          state.namespaces = namespaces;
+        }),
+      );
+    },
+    addNamespace: (namespace: Namespace) => {
+      set(
+        produce((state: AnimationData): void => {
+          state.namespaces[namespace.id] = namespace;
+        }),
+      );
+    },
+    updateKeypoint: (trackId: string, keypoint: Partial<SimpleKeypoint>, canMerge?: boolean) => {
       set(
         produce((state: AnimationData): void => {
           updateKeypoint(state, trackId, keypoint, canMerge);
@@ -139,7 +329,7 @@ export const AnimationSlice = (
       );
     },
     updateKeypoints: (
-      keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[],
+      keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[],
       canMerge?: boolean,
     ) => {
       set(
@@ -150,10 +340,141 @@ export const AnimationSlice = (
         }),
       );
     },
+    addView: (view: Partial<View> & { id: string }) => {
+      set((state: AnimationData) => {
+        const legacyHiddenIds =
+          Object.keys(state.editorViews).length === 0
+            ? collectLegacyHiddenTrackIds(state.sourcesByAnimationInstance)
+            : [];
+        const defaultView: View = {
+          id: view.id,
+          name: view.name,
+          trackRender: view.trackRender ?? TrackRender.Key,
+          verticalAxis: view.verticalAxis ?? VerticalAxis.Normalized,
+          hiddenSourceTrackIds: view.hiddenSourceTrackIds ?? legacyHiddenIds,
+          trackFilter: view.trackFilter ?? "",
+        };
+        const nextViews = {
+          ...state.editorViews,
+          [view.id]: { ...defaultView, ...view },
+        };
+        const nextOrder = normalizeEditorViewOrder(
+          state.editorViewOrder.includes(view.id)
+            ? state.editorViewOrder
+            : [...state.editorViewOrder, view.id],
+          nextViews,
+        );
+        return {
+          editorViews: nextViews,
+          editorViewOrder: nextOrder,
+          activeEditorViewId: state.activeEditorViewId ?? nextOrder[0],
+        };
+      });
+    },
+    replaceEditorViews: (next: EditorViewState) => {
+      set(
+        produce((state: AnimationData) => {
+          const nextViews: Record<string, View> = {};
+          next.views.forEach((view) => {
+            if (!view.id || nextViews[view.id]) return;
+            nextViews[view.id] = {
+              id: view.id,
+              name: view.name,
+              trackRender: view.trackRender ?? TrackRender.Key,
+              verticalAxis: view.verticalAxis ?? VerticalAxis.Normalized,
+              hiddenSourceTrackIds: [...(view.hiddenSourceTrackIds ?? [])],
+              trackFilter: view.trackFilter ?? "",
+            };
+          });
+          if (Object.keys(nextViews).length === 0) {
+            nextViews["view-1"] = {
+              id: "view-1",
+              name: "View 1",
+              trackRender: TrackRender.Key,
+              verticalAxis: VerticalAxis.Normalized,
+              hiddenSourceTrackIds: [],
+              trackFilter: "",
+            };
+          }
+          const nextOrder = normalizeEditorViewOrder(next.viewOrder, nextViews);
+          const nextActive =
+            next.activeViewId && nextOrder.includes(next.activeViewId)
+              ? next.activeViewId
+              : nextOrder[0];
+          state.editorViews = nextViews;
+          state.editorViewOrder = nextOrder;
+          state.activeEditorViewId = nextActive;
+        }),
+      );
+    },
+    setActiveEditorView: (viewId: string) => {
+      set(
+        produce((state: AnimationData) => {
+          if (!state.editorViews[viewId]) return;
+          state.activeEditorViewId = viewId;
+        }),
+      );
+    },
+    updateView: (viewId: string, view: Partial<View>) => {
+      set(
+        produce((state: AnimationData) => {
+          if (!state.editorViews[viewId]) return;
+          state.editorViews[viewId] = {
+            ...state.editorViews[viewId],
+            ...view,
+            hiddenSourceTrackIds:
+              view.hiddenSourceTrackIds ?? state.editorViews[viewId].hiddenSourceTrackIds,
+          };
+        }),
+      );
+    },
+    removeView: (viewId: string) => {
+      set(
+        produce((state: AnimationData) => {
+          if (!state.editorViews[viewId]) return;
+          if (Object.keys(state.editorViews).length <= 1) return;
+          const { [viewId]: _, ...rest } = state.editorViews;
+          state.editorViews = rest;
+          state.editorViewOrder = normalizeEditorViewOrder(
+            state.editorViewOrder.filter((id) => id !== viewId),
+            state.editorViews,
+          );
+          if (state.activeEditorViewId === viewId) {
+            state.activeEditorViewId = state.editorViewOrder[0];
+          }
+        }),
+      );
+    },
     addAnimation: (animation: StoredAnimation) => {
       set(
         produce((state: AnimationData): void => {
           addAnimation(state, animation);
+        }),
+      );
+    },
+    setAnimations: (animations: Record<string, StoredAnimation>) => {
+      set(
+        produce((state: AnimationData): void => {
+          // Clear existing animations
+          state.animations = {};
+          // Add all animations
+          Object.values(animations).forEach((animation) => {
+            addAnimation(state, animation);
+          });
+        }),
+      );
+    },
+    updateNewKeyTransitionDefaults: (patch: TransitionPatch) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateNewKeyTransitionDefaultsAction(state, patch);
+        }),
+      );
+    },
+    updateSelectedKeyTransitions: (patch: TransitionPatch) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateSelectedKeyTransitionsAction(state, patch);
         }),
       );
     },
@@ -164,14 +485,14 @@ export const AnimationSlice = (
         }),
       );
     },
-    createKeypoint: (trackId: string, point: Partial<Keypoint<RawValue>>) => {
+    createKeypoint: (trackId: string, point: Partial<SimpleKeypoint>) => {
       set(
         produce((state: AnimationData): void => {
           createKeypoint(state, trackId, point);
         }),
       );
     },
-    createKeypoints: (keypoints: { trackId: string; keypoint: Partial<Keypoint<RawValue>> }[]) => {
+    createKeypoints: (keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[]) => {
       set(
         produce((state: AnimationData): void => {
           keypoints.forEach(({ trackId, keypoint }) => {
@@ -180,10 +501,28 @@ export const AnimationSlice = (
         }),
       );
     },
-    updateTrack: (track: Partial<Track<RawValue>>) => {
+    updateTrack: (track: Partial<SimpleTrack>) => {
       set(
         produce((state: AnimationData) => {
           updateTrack(state, track);
+          if (track.id) {
+            state.tracksRevision = (state.tracksRevision ?? 0) + 1;
+          }
+        }),
+      );
+    },
+    updateTrackGroupName: (trackIds: string[], name: string) => {
+      set(
+        produce((state: AnimationData) => {
+          const nextTracks = { ...state.tracks };
+          trackIds.forEach((id) => {
+            const existing = nextTracks[id];
+            if (existing) {
+              nextTracks[id] = { ...existing, groupName: name };
+            }
+          });
+          state.tracks = nextTracks;
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
     },
@@ -203,10 +542,19 @@ export const AnimationSlice = (
         }),
       );
     },
-    createTrack: (track: Partial<Track<RawValue>>, animatableId: string, animationId: string) => {
+    createTrack: (track: Partial<SimpleTrack>, animatableId: string, animationId: string) => {
       set(
-        produce((state: AnimationData) => {
+        produce((state: AnimationData): void => {
           createTrack(state, animatableId, animationId, track);
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
+        }),
+      );
+    },
+    setTracks: (tracks: Record<string, Track<RawValue>>) => {
+      set(
+        produce((state: AnimationData): void => {
+          state.tracks = tracks as Record<string, SimpleTrack>;
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
     },
@@ -214,69 +562,60 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData) => {
           removeTrack(state, animationId, trackId);
+          state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
     },
     // Skip to the next keyframe
-    skipToNextKeyframe: (
-      animationId: string,
-      namespaceIds: string[],
-      trackIds: string[],
-      respectBounds?: boolean,
-    ) => {
-      console.log("skipping to next keyframe");
+    skipToNextKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => {
       const state = get();
       const playerState = usePlayerStore.getState();
-      const animation = state.animations[animationId];
-      const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
-      const trackSubset = pick(state.tracks, trackFilter);
-      const instanceInfo: Record<string, AnimationInstance> = {};
-      Object.entries(state.namespaceInfo).forEach(([namespace, instances]) => {
-        if (namespaceIds.includes(namespace)) {
-          Object.assign(instanceInfo, instances);
-        }
-      });
-      // const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
-      const nextStamp = computeNextTime(
-        trackSubset,
-        instanceInfo,
+      const sourceRowId = sourceRow.id;
+      const computedData = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
+      if (!computedData) return;
+
+      const instancedFrameData = computedData.virtualFrames;
+      const { localStamp, localBounds, toWorld } = resolveRowTimeContext(
+        state.namespaces,
+        sourceRow,
         playerState.player.stamp,
         playerState.player.bounds,
+      );
+      const nextLocalTime = computeNextTime(
+        instancedFrameData,
+        localStamp,
+        localBounds,
         respectBounds ?? false,
       );
-      console.log("next stamp", nextStamp);
-      if (nextStamp !== undefined) {
-        playerState.resetPlayer(nextStamp);
+      if (nextLocalTime !== undefined) {
+        const nextWorldTime = toWorld ? toWorld(nextLocalTime) : nextLocalTime;
+        playerState.resetPlayer(nextWorldTime);
       }
     },
     // Skip to the previous keyframe
-    skipToPrevKeyframe: (
-      animationId: string,
-      namespaceIds: string[],
-      trackIds: string[],
-      respectBounds?: boolean,
-    ) => {
+    skipToPrevKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => {
       const state = get();
       const playerState = usePlayerStore.getState();
-      const animation = state.animations[animationId];
-      const trackFilter: string[] = trackIds.length > 0 ? trackIds : animation.tracks;
-      const trackSubset = pick(state.tracks, trackFilter);
-      const instanceInfo: Record<string, AnimationInstance> = {};
-      Object.entries(state.namespaceInfo).forEach(([namespace, instances]) => {
-        if (namespaceIds.includes(namespace)) {
-          Object.assign(instanceInfo, instances);
-        }
-      });
-      // const instanceInfo = pick(state.animations[animationId].instances, namespaceIds);
-      const previousStamp = computePreviousTime(
-        trackSubset,
-        instanceInfo,
+      const sourceRowId = sourceRow.id;
+      const computedData = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
+      if (!computedData) return;
+
+      const instancedFrameData = computedData.virtualFrames;
+      const { localStamp, localBounds, toWorld } = resolveRowTimeContext(
+        state.namespaces,
+        sourceRow,
         playerState.player.stamp,
         playerState.player.bounds,
+      );
+      const previousLocalTime = computePreviousTime(
+        instancedFrameData,
+        localStamp,
+        localBounds,
         respectBounds ?? false,
       );
-      if (previousStamp !== undefined) {
-        playerState.resetPlayer(previousStamp);
+      if (previousLocalTime !== undefined) {
+        const previousWorldTime = toWorld ? toWorld(previousLocalTime) : previousLocalTime;
+        playerState.resetPlayer(previousWorldTime);
       }
     },
     // Skip to the start of the current bounds
@@ -333,265 +672,85 @@ export const AnimationSlice = (
         state.getStorableAnimation(animationId),
       );
     },
+    insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => {
+      set(
+        produce((state: AnimationData) => {
+          insertKeyAtWorldStampAction(state, trackId, worldStamp, instanceId);
+        }),
+      );
+    },
     initAnimationSubscriptions: () => {
-      const playerStoreState = usePlayerStore.getState();
-      const updatePlayerInner = playerStoreState.updatePlayer;
-      const updateDuration = playerStoreState.updateDuration;
-      const updateValues = get().updateValues;
-      const updateVelocities = get().updateVelocities;
+      // Clean up any previous subscriptions for this store instance
+      const existingCleanup = (api as any).__derivedCleanup as (() => void) | undefined;
+      if (typeof existingCleanup === "function") {
+        existingCleanup();
+        (api as any).__derivedCleanup = undefined;
+      }
 
-      // If the time changes, check if it matches an existing keyframe and
-      // set the current selected keyframe
+      // Delay subscription initialization to prevent cascading updates during store creation
       const unsubs = [
-        // If the playing state changes, start or stop the interval that updates the player
-        usePlayerStore.subscribe(
-          (state: PlayerData) => state.player.running,
-          (running) => {
-            const interval = get().playerInterval;
-            if (interval) {
-              window.clearInterval(interval);
-            }
+        updatePlayerLoop,
+        updateOverallDuration,
+        initDerivedOrchestrator,
+        updateInstancedTrackSources,
+        updateTrackMuting,
+        updateGlobalSources,
+        updateSourceRowIds,
+        updateConsolidatedSourceRow,
+        updateViewFilteredGlobalRows,
+      ].map((fn) => fn(api, set, get));
 
-            if (running) {
-              updatePlayerInner(true);
-              const newInterval = window.setInterval(() => {
-                updatePlayerInner(false);
-              }, 25);
-              set({ playerInterval: newInterval });
-            }
-          },
-          { equalityFn: shallow },
-        ),
-
-        // If the maximum duration (with scaling/offset applied) changes, update the duration of the playerStore
-        api.subscribe(
-          (state: AnimationData) => ({
-            animations: state.animations,
-            namespaces: state.namespaceInfo,
-          }),
-          ({ animations, namespaces }) => {
-            const instances = Object.values(namespaces).flatMap((ns) => Object.values(ns));
-            const maxDuration = Math.max(
-              // Require that the player duration is at least 1000ms
-              1000,
-              ...instances.map(
-                (instance) =>
-                  animations[instance.animationId]?.duration *
-                  computeWorldStamp(
-                    1,
-                    instance.settings.timescale ?? 1,
-                    instance.settings.offset ?? 0,
-                  ),
-              ),
-            );
-            updateDuration(maxDuration);
-            api.setState({ duration: maxDuration });
-          },
-          { equalityFn: shallow, fireImmediately: true },
-        ),
-
-        // If the interpolators change, rerun the interpolators with the time from the playerStore.
-        api.subscribe(
-          (state: AnimationData) => state.trackInterpolators,
-          (trackInterpolators) => {
-            const playerState = usePlayerStore.getState();
-            const stamp = playerState.player.stamp;
-            const playing = playerState.player.running;
-            // The _currentDirection is the actual direction of the player,
-            // as opposed to the "direction" setting, which is a higher-level mode.
-            const currentDirection = playerState.player._currentDirection;
-            const speed = playerState.player.speed;
-            const result = new Map<string, RawValue | undefined>();
-            const velocities = new Map<string, RawValue | undefined>();
-            const multiplier = (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
-            Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
-              // Handle velocity calculation.
-              const vel = interpolatorCollection.derivative(stamp);
-              if (vel !== undefined) {
-                if (playing) {
-                  velocities.set(key, rawValueMultiplyScalar(vel, multiplier));
-                } else {
-                  const stoppedVel = matchingIdentityRawValue(vel);
-                  velocities.set(key, stoppedVel);
-                }
-              } else {
-                velocities.set(key, undefined);
-              }
-              // Handle the value calculation.
-              result.set(key, interpolatorCollection.value(stamp));
-            });
-            updateValues(result);
-            updateVelocities(velocities);
-          },
-          { equalityFn: (current, previous) => current.stamp === previous.stamp },
-        ),
-
-        // If the time changes, run the interpolators with the new time
-        usePlayerStore.subscribe(
-          (state: PlayerData) => ({
-            stamp: state.player.stamp,
-            running: state.player.running,
-            speed: state.player.speed,
-            currentDirection: state.player._currentDirection,
-          }),
-          ({ stamp, running, currentDirection, speed }) => {
-            const trackInterpolators = get().trackInterpolators;
-            const result = new Map<string, RawValue | undefined>();
-            const velocities = new Map<string, RawValue | undefined>();
-            const multiplier = (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
-
-            Object.entries(trackInterpolators).forEach(([key, interpolatorCollection]) => {
-              // Handle velocity calculation.
-              const vel = interpolatorCollection.derivative(stamp);
-              if (vel !== undefined) {
-                if (running) {
-                  velocities.set(key, rawValueMultiplyScalar(vel, multiplier));
-                } else {
-                  const stoppedVel = matchingIdentityRawValue(vel);
-                  velocities.set(key, stoppedVel);
-                }
-              } else {
-                velocities.set(key, undefined);
-              }
-              // Handle the value calculation.
-              result.set(key, interpolatorCollection.value(stamp));
-            });
-            updateValues(result);
-            updateVelocities(velocities);
-          },
-          { equalityFn: shallow },
-        ),
-
-        api.subscribe(
-          (state: AnimationData) => ({
-            namespaceInfo: state.namespaceInfo,
-            animations: state.animations,
-            subscribes: state.trackSubscribers,
-          }),
-          ({ namespaceInfo, animations, subscribes }) => {
-            // Clear the previous subscriptions for each track
-            subscribes.forEach((trackUnsub) => {
-              trackUnsub();
-            });
-            // console.log(namespaceInfo, animations, subscribes);
-            // for each namespace -> for each instance -> for each track in the instance's aninimation subscribe... to namespace/track
-            if (!namespaceInfo) return;
-
-            const namespaceTrackPairs: [string, string, number, AnimationInstance][] = [];
-            Object.entries(namespaceInfo).forEach(([namespace, instances]) => {
-              Object.entries(instances).forEach(([_instanceId, instance]) => {
-                const animation = animations[instance.animationId];
-                if (animation) {
-                  animation.tracks.forEach((trackId) => {
-                    namespaceTrackPairs.push([namespace, trackId, animation.duration, instance]);
-                  });
-                }
-              });
-            });
-
-            const newSubscribes = namespaceTrackPairs.map(
-              ([namespace, trackId, duration, instance]) => {
-                return api.subscribe(
-                  (state: AnimationData) => ({
-                    track: state.tracks[trackId],
-                    animatableValue: state.animatables[state.tracks[trackId].animatableId],
-                  }),
-                  ({ track, animatableValue }) => {
-                    if (!track) return;
-
-                    const playerState = usePlayerStore.getState();
-
-                    const stamp = playerState.player.stamp;
-                    const playing = playerState.player.running;
-                    const currentDirection = playerState.player._currentDirection;
-                    const speed = playerState.player.speed;
-                    const multiplier =
-                      (currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
-
-                    const newVals = new Map<string, RawValue | undefined>();
-                    const newVelocities = new Map<string, RawValue | undefined>();
-                    let newViolations: Violation[] = [];
-
-                    const lookup = getLookup(namespace, track.animatableId ?? trackId);
-
-                    const trackInterp = computeTrackInterpolator(track, instance);
-                    const derivativeInterp = computeDerivativeInterpolator(trackInterp, duration);
-
-                    // Handle setting the values.
-                    newVals.set(lookup, trackInterp(stamp));
-                    // Handle setting the velocities.
-                    // If the player is running, we use the derivative interpolator,
-                    const vel = derivativeInterp(stamp);
-                    if (vel !== undefined) {
-                      if (playing) {
-                        newVelocities.set(lookup, rawValueMultiplyScalar(vel, multiplier));
-                      } else {
-                        const stoppedVel = matchingIdentityRawValue(vel);
-                        newVelocities.set(lookup, stoppedVel);
-                      }
-                    } else {
-                      newVelocities.set(lookup, undefined);
-                    }
-
-                    newVelocities.set(
-                      lookup,
-                      playing ? derivativeInterp(playerState.player.stamp) : 0,
-                    );
-
-                    newViolations = [
-                      ...newViolations,
-                      ...(animatableValue
-                        ? computeTrackViolations(
-                            trackInterp,
-                            duration,
-                            trackId,
-                            namespace,
-                            animatableValue,
-                          )
-                        : []),
-                    ];
-
-                    set((state: AnimationData) => ({
-                      trackInterpolators: {
-                        ...state.trackInterpolators,
-                        [lookup]: {
-                          value: trackInterp,
-                          derivative: derivativeInterp,
-                        },
-                      },
-                      values: new Map([...state.values, ...newVals]),
-                      velocities: new Map([...state.velocities, ...newVelocities]),
-                      violations: { ...state.violations, [trackId]: newViolations },
-                    }));
-                  },
-                  { fireImmediately: true, equalityFn: shallow },
-                );
-              },
-            );
-
-            set({ trackSubscribers: newSubscribes });
-          },
-          {
-            equalityFn: (current: AnimationsAndSubscribes, previous: AnimationsAndSubscribes) => {
-              // We only care about cases where the individual track ids change across all animations
-              const allCurrent = new Set(Object.values(current.animations).map((a) => a.tracks));
-              const allPrevious = new Set(Object.values(previous.animations).map((a) => a.tracks));
-              return (
-                isEqual(allCurrent, allPrevious) &&
-                shallow(current.namespaceInfo, previous.namespaceInfo) &&
-                isEqual(current.subscribes.length, previous.subscribes.length)
-              );
-            },
-          },
-        ),
-      ];
-
-      return () => {
+      const cleanup = () => {
         unsubs.forEach((unsub) => unsub());
       };
+      (api as any).__derivedCleanup = cleanup;
+      return cleanup;
     },
-    setHoverpoint: (hoverpoint: number) => {
-      set({ hoverpoint });
+    /**
+     * Handle marker click with various modifier key behaviors for selection.
+     *
+     * Selection behaviors:
+     * 1. A plain click replaces the current selection and sets the clicked marker as the reference.
+     * 2. Ctrl/Cmd-click toggles a marker in the selection (cross-row allowed) and, when adding, updates the reference to that marker.
+     * 3. Shift-click within the reference row selects the range between the anchor and clicked markers without updating the reference.
+     * 4. Shift-click in any other row behaves like a plain click (replaces selection and moves the reference).
+     * 5. If Ctrl/Cmd-click removes the reference marker, the reference is cleared until another marker is explicitly clicked.
+     *
+     * @param clickedPoints - Selection points for the marker (pre-filtered for selectable).
+     * @param rowId - The source row containing the marker.
+     * @param markerId - The marker identifier within the row.
+     * @param shift - Whether shift key is held.
+     * @param mod - Whether mod key (Cmd on Mac, Ctrl on PC) is held.
+     */
+    clickMarker: (
+      clickedPoints: MarkerPoint[],
+      rowId: string,
+      markerId: string,
+      shift?: boolean,
+      mod?: boolean,
+    ) => {
+      set((state: AnimationData) => {
+        const result = clickMarkerAction(state, clickedPoints, rowId, markerId, shift, mod);
+        return {
+          ...state,
+          ...result,
+        };
+      });
+    },
+    clickLine: (rowId: string, segmentId: string, shift?: boolean, mod?: boolean) => {
+      set((state: AnimationData) => {
+        const result = clickLineAction(state, rowId, segmentId, shift, mod);
+        return {
+          ...state,
+          ...result,
+        };
+      });
+    },
+    clearSelection: () => {
+      set((state: AnimationData) => clearSelectionAction(state));
+    },
+    focusSelectionInstance: (instanceId: string) => {
+      set(() => ({ selectionState: createEmptySelectionState(instanceId) }));
     },
     addPreview: (preview: Preview) => {
       set((state: AnimationData) => ({
@@ -614,17 +773,12 @@ export const AnimationSlice = (
           const currentIdx = state.previews.findIndex((p) => p.semanticTime === SemanticTime.Hover);
           if (currentIdx < 0) {
             return {
-              previews: [
-                ...state.previews,
-                { semanticTime: SemanticTime.Hover, stamp: value, label: "Hover" },
-              ],
+              previews: [...state.previews, { semanticTime: SemanticTime.Hover, stamp: value }],
             };
           } else {
             return {
               previews: state.previews.map((p, idx) =>
-                idx === currentIdx
-                  ? { semanticTime: SemanticTime.Hover, stamp: value, label: "Hover" }
-                  : p,
+                idx === currentIdx ? { semanticTime: SemanticTime.Hover, stamp: value } : p,
               ),
             };
           }
@@ -640,10 +794,138 @@ export const AnimationSlice = (
         }),
       );
     },
-    setPreferences: (preferences: Partial<AnimationData["preferences"]>) => {
-      set((state) => ({
-        preferences: { ...state.preferences, ...preferences },
-      }));
+    setTrackMuted: (sourceId: string, muted: boolean) => {
+      set(
+        produce((state: AnimationData): void => {
+          const updates: Record<string, { muted?: boolean }> = {
+            [sourceId]: { muted },
+          };
+          if (!muted) {
+            let targetTrack: ReturnType<typeof findSourceTrackById> | undefined;
+            Object.values(state.sourcesByAnimationInstance).some((sources) => {
+              const found = findSourceTrackById(sources, sourceId);
+              if (found) {
+                targetTrack = found;
+                return true;
+              }
+              return false;
+            });
+
+            if (targetTrack) {
+              const { namespaceId, animatableId } = targetTrack;
+              if (animatableId) {
+                Object.values(state.sourcesByAnimationInstance).forEach((sources) => {
+                  collectSourceTracks(sources).forEach((track) => {
+                    if (track.id === sourceId) return;
+                    if (track.namespaceId !== namespaceId) return;
+                    if (track.animatableId !== animatableId) return;
+                    updates[track.id] = { muted: true };
+                  });
+                });
+              }
+            }
+          }
+
+          state.sourcesByAnimationInstance = mapValues(
+            state.sourcesByAnimationInstance,
+            (instanceSources) => computeUpdatedSources(instanceSources, updates),
+          );
+        }),
+      );
+    },
+    setPreferences: (preferences: AnimationPreferencesPatch) => {
+      set((state) => {
+        const mergedNewKeyDefaults = preferences.newKeyDefaults
+          ? {
+              ...state.preferences.newKeyDefaults,
+              ...preferences.newKeyDefaults,
+              transitions: {
+                ...state.preferences.newKeyDefaults.transitions,
+                ...preferences.newKeyDefaults.transitions,
+              },
+            }
+          : state.preferences.newKeyDefaults;
+
+        return {
+          preferences: {
+            ...state.preferences,
+            ...preferences,
+            newKeyDefaults: mergedNewKeyDefaults,
+          },
+        };
+      });
+    },
+
+    // Drag actions - ID-based with instance validation
+    startDrag: (input: DragStartInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          startDrag(state, input);
+        }),
+      );
+    },
+    startValueDrag: (input: ValueDragStartInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          startValueDrag(state, input);
+        }),
+      );
+    },
+    startHandleDrag: (input: HandleDragStartInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          startHandleDrag(state, input);
+        }),
+      );
+    },
+    updateDrag: (input: DragUpdateInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateDrag(state, input);
+        }),
+      );
+    },
+    updateValueDrag: (input: ValueDragUpdateInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateValueDrag(state, input);
+        }),
+      );
+    },
+    updateHandleDrag: (input: HandleDragUpdateInput) => {
+      set(
+        produce((state: AnimationData): void => {
+          updateHandleDrag(state, input);
+        }),
+      );
+    },
+    commitDrag: () => {
+      set(
+        produce((state: AnimationData): void => {
+          commitDrag(state);
+        }),
+      );
+    },
+    commitValueDrag: () => {
+      set(
+        produce((state: AnimationData): void => {
+          commitValueDrag(state);
+        }),
+      );
+    },
+    cancelDrag: () => {
+      set(
+        produce((state: AnimationData): void => {
+          cancelDrag(state);
+        }),
+      );
+    },
+    cancelValueDrag: () => {
+      set(
+        produce((state: AnimationData): void => {
+          cancelValueDrag(state);
+        }),
+      );
     },
   };
 };
@@ -654,21 +936,98 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
   })),
 );
 
+useDefaultAnimationStore.getState().initAnimationSubscriptions();
+
+function resolveRowTimeContext(
+  namespaces: Record<string, Namespace>,
+  sourceRow: SourceRow,
+  worldStamp: number,
+  worldBounds: [number, number],
+): {
+  localStamp: number;
+  localBounds: [number, number];
+  toWorld?: (stamp: number) => number;
+} {
+  const instanceId = resolveUniqueInstanceId(sourceRow);
+  if (!instanceId) {
+    return { localStamp: worldStamp, localBounds: worldBounds };
+  }
+
+  let settings: { timescale: number; offset: number } | undefined;
+  for (const namespace of Object.values(namespaces)) {
+    const instance = namespace.animationInstances[instanceId];
+    if (instance) {
+      const rawTimescale = instance.settings.timescale ?? 1;
+      const rawOffset = instance.settings.offset ?? 0;
+      const timescale = Number.isFinite(rawTimescale) && rawTimescale !== 0 ? rawTimescale : 1;
+      const offset = Number.isFinite(rawOffset) ? rawOffset : 0;
+      settings = {
+        timescale,
+        offset,
+      };
+      break;
+    }
+  }
+
+  if (!settings) {
+    return { localStamp: worldStamp, localBounds: worldBounds };
+  }
+
+  const toLocal = (stamp: number) => computeLocalStamp(stamp, settings.timescale, settings.offset);
+  const toWorld = (stamp: number) => computeWorldStamp(stamp, settings.timescale, settings.offset);
+  const localStamp = toLocal(worldStamp);
+  const localBounds = normalizeBounds([toLocal(worldBounds[0]), toLocal(worldBounds[1])]);
+
+  return { localStamp, localBounds, toWorld };
+}
+
+function resolveUniqueInstanceId(sourceRow: SourceRow): string | undefined {
+  let uniqueId: string | undefined;
+  for (const entry of sourceRow.data) {
+    if (!entry.instanceId) {
+      return undefined;
+    }
+    if (!uniqueId) {
+      uniqueId = entry.instanceId;
+    } else if (uniqueId !== entry.instanceId) {
+      return undefined;
+    }
+  }
+  return uniqueId;
+}
+
+function normalizeBounds(bounds: [number, number]): [number, number] {
+  return bounds[0] <= bounds[1] ? bounds : [bounds[1], bounds[0]];
+}
+
 export function createAnimationStore(initial?: Partial<AnimationData>): AnimationStore {
   const store = create<AnimationData & AnimationActions>()(
-    subscribeWithSelector((set, get, api) => ({
-      ...AnimationSlice(set, get, api),
-      ...initial,
-    })),
+    subscribeWithSelector((set, get, api) => {
+      const slice = AnimationSlice(set, get, api);
+      const mergedNewKeyDefaults = initial?.preferences?.newKeyDefaults
+        ? {
+            ...slice.preferences.newKeyDefaults,
+            ...initial.preferences.newKeyDefaults,
+            transitions: {
+              ...slice.preferences.newKeyDefaults.transitions,
+              ...initial.preferences.newKeyDefaults.transitions,
+            },
+          }
+        : slice.preferences.newKeyDefaults;
+
+      return {
+        ...slice,
+        ...initial,
+        preferences: {
+          ...slice.preferences,
+          ...(initial?.preferences ?? {}),
+          newKeyDefaults: mergedNewKeyDefaults,
+        },
+      };
+    }),
   );
   store.getState().initAnimationSubscriptions();
   return store;
 }
 
 export type AnimationStore = typeof useDefaultAnimationStore;
-
-interface AnimationsAndSubscribes {
-  namespaceInfo: Record<string, Record<string, AnimationInstance>>;
-  animations: Record<string, Animation>;
-  subscribes: (() => void)[];
-}

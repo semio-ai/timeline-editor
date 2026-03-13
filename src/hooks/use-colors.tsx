@@ -1,6 +1,7 @@
 import { useContext, createContext, ReactNode, useMemo } from "react";
 import { uniq } from "lodash";
 import { useShallow } from "zustand/shallow";
+import { DEFAULT_COLOR } from "../constants";
 import { useAnimationStore } from "./use-animation-store";
 
 /**
@@ -10,7 +11,7 @@ export interface ColorLookup extends Record<string, string> {
   default: string;
 }
 
-const DEFAULT_COLOR_MAP: ColorLookup = { default: "#737373" };
+const DEFAULT_COLOR_MAP: ColorLookup = { default: DEFAULT_COLOR };
 
 export const ColorContext = createContext<ColorLookup>(DEFAULT_COLOR_MAP);
 
@@ -21,11 +22,12 @@ export function ColorContextProvider({ children }: { children: ReactNode }) {
 
   const colorMap = useMemo(() => {
     const trackColors = Object.entries(tracks).reduce((acc, [id, track]) => {
-      acc[id] = track.settings?.color || animatables[track.animatableId]?.pub?.color || "#737373";
+      acc[id] =
+        track.settings?.color || animatables[track.animatableId]?.pub?.color || DEFAULT_COLOR;
       return acc;
     }, DEFAULT_COLOR_MAP);
     const animatableColors = Object.entries(animatables).reduce((acc, [id, animatable]) => {
-      acc[id] = animatable.pub?.color || "#737373";
+      acc[id] = animatable.pub?.color || DEFAULT_COLOR;
       return acc;
     }, trackColors);
     return animatableColors;
@@ -40,14 +42,20 @@ export function ColorContextProvider({ children }: { children: ReactNode }) {
  * @param idOrIds
  * @returns The color associated with the ID(s).
  */
-export function useColors(idOrIds: string | string[]): string {
+export function useColors(idOrIds?: string | string[]): string {
   const lookup = useContext(ColorContext);
   if (!lookup) {
     throw new Error("useColors must be used within a ColorProvider");
   }
+  if (idOrIds === undefined || idOrIds === null) {
+    return lookup.default;
+  }
   if (typeof idOrIds === "string") {
     return lookup[idOrIds] || lookup.default;
   } else {
+    if (idOrIds.length === 0) {
+      return lookup.default;
+    }
     const allColors = uniq(idOrIds.map((id) => lookup[id] || lookup.default));
     return allColors.length === 1 ? allColors[0] : lookup.default;
   }

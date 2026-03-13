@@ -1,6 +1,7 @@
 import { range } from "lodash";
 import {
   AnimatableValue,
+  DeprecatedComplexAnimatableValue,
   RawEuler,
   RawValue,
   RawVector3,
@@ -23,7 +24,6 @@ import { ViolationType } from "../types";
 import type { Violation, TrackInterpolator } from "../types";
 import { rawValueNorm, rawValueDiff } from "./raw-value-math";
 
-export type InterpolatorCache = Map<string, Map<string, RawValue | undefined>>;
 type Vec3Constraints = (AnimatableVector3 | AnimatableEuler)["constraints"];
 type Vec2Constraints = AnimatableVector2["constraints"];
 type NumberConstraints = AnimatableNumber["constraints"];
@@ -58,8 +58,10 @@ export function computeTrackViolations(
   trackId: string,
   // Namespace to use
   namespace: string,
+  // Animation Instance Id
+  instanceId: string,
   // The animatable value paired to the track
-  animatableValue: AnimatableValue,
+  animatableValue: AnimatableValue | DeprecatedComplexAnimatableValue,
 ): Violation[] {
   // Require that we check at an interval of 1/100th of a second (10ms).
   // First, determine the interval size, normalized to to a range of 0 to 1,
@@ -100,6 +102,7 @@ export function computeTrackViolations(
               type: violationType,
               trackId,
               namespace,
+              instanceId,
             } as Violation;
           } else if (openViolation !== undefined) {
             // Update the end time of the current open violation

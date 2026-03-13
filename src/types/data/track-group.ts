@@ -1,11 +1,12 @@
 /**
- * A collection of tracks that are grouped together for organizational purposes.
- * @param id - a unique identifier for the track group.
- * @param name - the name of the track group, defined by the user.
- * @param tracks - a collection of track ids that exist in this group.
+ * Hierarchical group node used to organize tracks in the editor.
+ * Children can be track ids or nested group definitions.
  */
 export interface TrackGroup {
+  /** Unique group id. */
   id: string;
+  /** Human-readable group name. */
   name: string;
-  tracks: string[];
+  /** Nested children (track ids or nested group nodes). */
+  children: (string | TrackGroup)[];
 }

@@ -1,161 +1,346 @@
-import { useState } from "react";
-import { useShallow } from "zustand/react/shallow";
+import { memo, useCallback, useMemo } from "react";
+import {
+  Button,
+  StaticIcon,
+  Variant,
+  Size,
+  Dropdown,
+  NestedLabel,
+  NestedColorPicker,
+  NestedItem,
+  TextField,
+  Tooltip,
+  ICON_CLASS_NAME,
+} from "@semio/ui";
+import { uniq } from "lodash";
 import { clsx } from "clsx";
-import { pick } from "lodash";
-import { IconPlayerPlay, Button, IconKey } from "@semio/ui";
-import { usePlayerStore } from "@semio/utils";
-import { shallow } from "zustand/shallow";
-import { useAnimationStore, usePlayerSubscription } from "../hooks";
-import { computeNextTime, computePreviousTime } from "../functions";
-import { type AnimationData, type AnimationActions } from "../store-types";
-import { SemanticTime } from "../types";
+import { usePlayerStore, PlayerData } from "@semio/utils";
+import { IconDotsVertical, IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
+import { useShallow } from "zustand/react/shallow";
+import { type SourceRow } from "../types";
+import {
+  useAnimationStore,
+  useColors,
+  useKeyControlState,
+  useLocalGlobalTransformLookup,
+  useNames,
+} from "../hooks";
+import { useValuesRef } from "../hooks/use-values-ref";
+import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
+import { AnimationActions, AnimationData } from "../store-types";
+import type { SimpleRawValue } from "../types/data/simple-track";
+import { buildTrackKey } from "../utils/track-key";
+import { getSemanticLabelForIconCode } from "../functions";
+import { KeyStrip } from "./key-strip";
+import { AnimatableEditor } from "./animatable-editor";
+import { DataIcon } from "./data-icon";
+import { ControlRow, GroupToggle } from "./controls";
 
 export interface TrackControlProps {
-  color?: string;
-  filled?: boolean;
-  onHexClick?: () => void;
-  animationId?: string;
-  namespaceId: string;
-  trackIds: string[];
-  disabled?: boolean;
+  sourceRow: SourceRow;
+  emphasis?: boolean;
+  onEmphasisChange?: (emphasis: boolean) => void;
 }
 
-export function TrackControl({
-  color = "#737373",
-  filled = false,
-  onHexClick,
-  animationId,
-  namespaceId,
-  trackIds,
-  disabled,
-}: TrackControlProps) {
-  const tracks = useAnimationStore(useShallow((state) => pick(state.tracks, trackIds)));
-  const instances = useAnimationStore(useShallow((state) => state.namespaceInfo[namespaceId]));
+function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackControlProps) {
+  const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
+  const allReadonly = sourceRow.data.every((d) => !d.editable);
 
-  const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
+  const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
 
-  const [prevKeyframeTime, setPrevKeyframeTime] = useState<number | undefined>(undefined);
-  const [nextKeyframeTime, setNextKeyframeTime] = useState<number | undefined>(undefined);
+  const updateControlColor = useAnimationStore(
+    useShallow((state: AnimationActions) => state.updateControlColor),
+  );
+  const setTrackMuted = useAnimationStore(
+    useShallow((state: AnimationActions) => state.setTrackMuted),
+  );
 
-  usePlayerSubscription(
-    (state) => state.player.stamp,
-    (stamp) => {
-      const prev = computePreviousTime(tracks, instances, stamp, bounds, true);
-      const next = computeNextTime(tracks, instances, stamp, bounds, true);
-      setPrevKeyframeTime(prev);
-      setNextKeyframeTime(next);
+  const animatables = useAnimationStore(useShallow((state) => state.animatables));
+  const valuesRef = useValuesRef();
+  const trackMuted = useMemo(() => {
+    if (trackIds.length !== 1) return false;
+    const [entry] = sourceRow.data;
+    return entry?.muted ?? false;
+  }, [sourceRow.data, trackIds.length]);
+  const rowMuted = useMemo(() => {
+    if (sourceRow.data.length === 0) return false;
+    return sourceRow.data.every((entry) => entry.muted ?? false);
+  }, [sourceRow.data]);
+
+  const localGlobalTransformLookup = useLocalGlobalTransformLookup();
+
+  // Compute unique instance for this row (must be exactly one)
+  const uniqueInstanceId = useMemo(() => {
+    const ids = uniq(
+      sourceRow.data.map((d) => d.instanceId).filter((v): v is string => Boolean(v)),
+    );
+    return ids.length === 1 ? ids[0] : undefined;
+  }, [sourceRow.data]);
+
+  const playerStamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
+  const { keyState, currentFrame, missingEntries, targetPoints } = useKeyControlState(sourceRow);
+
+  const selectionInstanceId = useAnimationStore(
+    useShallow((state: AnimationData) => state.selectionState.instanceId),
+  );
+  const focusSelectionInstance = useAnimationStore(
+    useShallow((state: AnimationActions) => state.focusSelectionInstance),
+  );
+
+  // Row is active if it has no unique instance mapping OR it matches the selected instance
+  const isActive = useMemo(
+    () => !uniqueInstanceId || selectionInstanceId === uniqueInstanceId,
+    [uniqueInstanceId, selectionInstanceId],
+  );
+
+  const handleActivate = useCallback(
+    (e?: { stopPropagation?: () => void; preventDefault?: () => void }) => {
+      e?.stopPropagation?.();
+      e?.preventDefault?.();
+      if (uniqueInstanceId) {
+        focusSelectionInstance(uniqueInstanceId);
+      }
     },
-    shallow,
+    [focusSelectionInstance, uniqueInstanceId],
   );
 
-  const enabledBack = prevKeyframeTime !== undefined;
-  const enabledForward = nextKeyframeTime !== undefined;
-  const widgetDisabled = disabled || !animationId;
+  // instancedFrame is derived from snapshot and currentLocalStamp; no subscription needed
 
-  const [backFn, forwardFn] = useAnimationStore(
-    useShallow((state: AnimationData & AnimationActions) => [
-      state.skipToPrevKeyframe,
-      state.skipToNextKeyframe,
-    ]),
+  const {
+    updateKeypoints,
+    removeKeypoints,
+    updateSource,
+    updateTrackGroupName,
+    insertKeypointAtWorldStamp,
+  } = useAnimationStore(
+    useShallow((state: AnimationActions & AnimationData) => ({
+      updateKeypoints: state.updateKeypoints,
+      removeKeypoints: state.removeKeypoints,
+      updateSource: state.updateSource,
+      updateTrackGroupName: state.updateTrackGroupName,
+      insertKeypointAtWorldStamp: state.insertKeypointAtWorldStamp,
+    })),
   );
 
-  const dashed = trackIds !== undefined && (!enabledBack || !enabledForward);
-
-  const [addPreview, removePreview] = useAnimationStore(
-    useShallow((state: AnimationData & AnimationActions) => [
-      state.addPreview,
-      state.removePreview,
-    ]),
+  const updateExpanded = useCallback(
+    (expanded: boolean) => {
+      updateSource(sourceRow.id, expanded);
+    },
+    [updateSource, sourceRow.id],
   );
 
-  const [hovered, setHovered] = useState(false);
+  const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
 
-  const center = getCenter(hovered, filled);
+  const trueColor = useColors(trackIds);
+  const color = isActive && !rowMuted ? trueColor : DEFAULT_COLOR;
+  const resolvedName = useNames(trackIds);
+  const groupName = sourceRow.name ?? resolvedName;
+  const name = isGroup ? groupName : resolvedName;
+
+  const iconCode = isGroup ? "group" : (sourceRow.data[0].iconCode ?? "none");
 
   return (
-    <div className={clsx("min-w-16 h-7 rounded-xs grid grid-cols-3 items-center justify-between")}>
-      <Button
-        size="fit"
-        color={color}
-        disabled={!enabledBack || widgetDisabled}
-        onClick={widgetDisabled ? noOp : () => backFn(animationId, [namespaceId], trackIds, true)}
-        onMouseEnter={() => {
-          if (widgetDisabled) return;
-          addPreview({
-            stamp: prevKeyframeTime ?? 0,
-            semanticTime: SemanticTime.Backward,
-            label: "Previous Keyed Frame",
-          });
-        }}
-        onMouseLeave={() => {
-          if (widgetDisabled) return;
-          removePreview((p) => p.semanticTime === SemanticTime.Backward);
-        }}
-        leftIcon={<IconPlayerPlay className="rotate-180" size="14px" />}
-        visuals="inverted"
-      />
-      <Button
-        size="fit"
-        disabled={widgetDisabled}
-        color={color}
-        onClick={widgetDisabled ? noOp : onHexClick}
-        deemphasize={!trackIds}
-        onMouseEnter={() => setHovered(!disabled)}
-        onMouseLeave={() => setHovered(false)}
-        leftIcon={
-          <IconKey
-            size="18px"
-            fillOpacity={getFillOpacity(hovered, filled)}
-            dashed={!filled && dashed}
-            center={center}
+    <div className="relative w-full">
+      {/* Interaction guard overlay when inactive; click or Enter/Space activates the row */}
+      {!isActive && uniqueInstanceId && (
+        <div
+          role="button"
+          tabIndex={0}
+          className="absolute inset-0 z-10 cursor-pointer"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={handleActivate}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              handleActivate(e);
+            }
+          }}
+          aria-label={`Activate ${sourceRow.id}`}
+        />
+      )}
+      <ControlRow
+        className={clsx(
+          !isActive && uniqueInstanceId && "pointer-events-none select-none",
+          rowMuted && isActive && "opacity-60",
+        )}
+        left={
+          <KeyStrip
+            disabled={allReadonly || !isActive || playing}
+            source={sourceRow}
+            color={color}
+            onHexClick={() => {
+              if (playing) return;
+              if (keyState === "full" && currentFrame) {
+                const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
+                const removals = points.map((p) => ({
+                  trackId: p.trackId,
+                  keypointId: p.id,
+                }));
+                removeKeypoints(removals);
+                return;
+              }
+
+              const targets = keyState === "partial" ? missingEntries : sourceRow.data;
+              targets.forEach((datum) => {
+                insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
+              });
+            }}
           />
         }
-        visuals="inverted"
-      />
-      <Button
-        size="fit"
-        color={color}
-        disabled={!enabledForward || widgetDisabled}
-        onClick={
-          widgetDisabled ? noOp : () => forwardFn(animationId, [namespaceId], trackIds, true)
+        mid={
+          isGroup ? (
+            <Tooltip content={sourceRow.expanded ? "Collapse Group" : "Expand Group"} invert>
+              <GroupToggle
+                expanded={sourceRow.expanded}
+                onToggle={updateExpanded}
+                disabled={!isActive}
+                color={color}
+              />
+            </Tooltip>
+          ) : (
+            <Tooltip content={getSemanticLabelForIconCode(iconCode)} invert>
+              <div>
+                <StaticIcon size={Size.Md} color={color}>
+                  <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
+                </StaticIcon>
+              </div>
+            </Tooltip>
+          )
         }
-        onMouseEnter={() => {
-          if (widgetDisabled) return;
-          addPreview({
-            stamp: nextKeyframeTime ?? 0,
-            semanticTime: SemanticTime.Forward,
-            label: "Next Keyed Frame",
-          });
-        }}
-        onMouseLeave={() => {
-          if (widgetDisabled) return;
-          removePreview((p) => p.semanticTime === SemanticTime.Forward);
-        }}
-        leftIcon={<IconPlayerPlay size="14px" />}
-        visuals="inverted"
+        main={
+          isGroup ? (
+            <TextField
+              size={Size.Sm}
+              color={color}
+              value={name}
+              readOnly={playing}
+              onChange={(val) => {
+                if (playing) return;
+                if (!val) return;
+                updateSource(sourceRow.id, sourceRow.expanded, undefined);
+                updateTrackGroupName(trackIds, val);
+              }}
+            />
+          ) : (
+            <div className="flex-1 flex min-w-0">
+              <AnimatableEditor
+                rowId={sourceRow.id}
+                data={sourceRow.data[0]}
+                active={isActive}
+                colorOverride={color}
+                playing={playing}
+                emphasis={emphasis}
+                onEmphasisChange={onEmphasisChange}
+                handleValueChange={(change) => {
+                  const datumAnimatablePairs = sourceRow.data.map((datum) => ({
+                    datum,
+                    animatableId: datum.animatableId,
+                  }));
+                  const updates = datumAnimatablePairs
+                    .map(({ datum, animatableId }) => {
+                      const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
+                      const localStamp =
+                        typeof toLocal === "function" ? toLocal(playerStamp) : playerStamp;
+                      const valueKey = buildTrackKey(
+                        datum.namespaceId,
+                        datum.instanceId,
+                        datum.trackId,
+                      );
+                      const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
+                      const defaultValue = animatables[animatableId]?.default as
+                        | SimpleRawValue
+                        | undefined;
+                      if (typeof change === "function") {
+                        const resolvedValue = value ?? defaultValue;
+                        if (resolvedValue === undefined) {
+                          return null;
+                        }
+                        const newValue = change(resolvedValue) as SimpleRawValue;
+                        if (newValue === undefined) {
+                          return null;
+                        }
+                        return {
+                          trackId: datum.trackId,
+                          keypoint: {
+                            value: newValue,
+                            stamp: localStamp,
+                          },
+                        };
+                      } else {
+                        return {
+                          trackId: datum.trackId,
+                          keypoint: {
+                            value: change as SimpleRawValue,
+                            stamp: localStamp,
+                          },
+                        };
+                      }
+                    })
+                    .filter(
+                      (
+                        u,
+                      ): u is {
+                        trackId: string;
+                        keypoint: { value: SimpleRawValue; stamp: number };
+                      } => {
+                        if (!u) return false;
+                        return u.keypoint.value !== undefined;
+                      },
+                    );
+                  updateKeypoints(updates, true);
+                }}
+              />
+            </div>
+          )
+        }
+        right={
+          <div className="w-3 flex items-center justify-around mr-1">
+            <Dropdown
+              disabled={playing}
+              variant={Variant.Info}
+              trigger={
+                <span>
+                  <Button
+                    size={Size.Xs}
+                    className="flex items-center justify-center"
+                    visuals="inverted"
+                    leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                  />
+                </span>
+              }
+            >
+              <NestedLabel>Track Settings</NestedLabel>
+              <NestedColorPicker
+                variant={Variant.Info}
+                disabled={trackIds.length > 1 || playing}
+                value={color}
+                onChange={(v) => {
+                  if (trackIds[0]) updateControlColor(trackIds[0], v);
+                }}
+              />
+              <NestedItem
+                variant={Variant.Info}
+                disabled={trackIds.length !== 1 || allReadonly || playing}
+                closeOnSelect={false}
+                left={
+                  trackMuted ? (
+                    <IconMicrophoneOff className={ICON_CLASS_NAME} />
+                  ) : (
+                    <IconMicrophone className={ICON_CLASS_NAME} />
+                  )
+                }
+                onClick={() => {
+                  if (trackIds.length !== 1 || !trackIds[0]) return;
+                  setTrackMuted(sourceRow.id, !trackMuted);
+                }}
+              >
+                {trackMuted ? "Muted" : "Not muted"}
+              </NestedItem>
+            </Dropdown>
+          </div>
+        }
       />
     </div>
   );
 }
 
-function getCenter(hovered: boolean, filled: boolean): "plus" | "minus" | undefined {
-  if (filled && hovered) {
-    return "minus";
-  } else if (!filled && hovered) {
-    return "plus";
-  } else {
-    return undefined;
-  }
-}
-
-function getFillOpacity(hovered: boolean, filled: boolean): number {
-  if (hovered) {
-    return 0.5;
-  } else if (filled) {
-    return 1;
-  } else {
-    return 0;
-  }
-}
-
-function noOp() {}
+export const TrackControl = memo(InnerTrackControl);

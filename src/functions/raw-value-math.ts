@@ -92,6 +92,41 @@ export function rawValueDiff(point1: RawValue, point2: RawValue, preserveSign?: 
   }
 }
 
+export function rawValueAdd(a: RawValue, b: RawValue): RawValue {
+  const typeofA = typeof a;
+  const typeofB = typeof b;
+  if (typeofA !== typeofB) {
+    throw new Error(`Cannot add differing raw value types: ${typeofA} and ${typeofB}`);
+  }
+  switch (typeofA) {
+    case "number":
+      return (a as number) + (b as number);
+    case "object":
+      if (instanceOfRawVector3(a) && instanceOfRawVector3(b)) {
+        return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
+      }
+      if (instanceOfRawVector2(a) && instanceOfRawVector2(b)) {
+        return { x: a.x + b.x, y: a.y + b.y };
+      }
+      if (instanceOfRawEuler(a) && instanceOfRawEuler(b)) {
+        return { r: a.r + b.r, p: a.p + b.p, y: a.y + b.y };
+      }
+      if (instanceOfRawRGB(a) && instanceOfRawRGB(b)) {
+        return { r: a.r + b.r, g: a.g + b.g, b: a.b + b.b };
+      }
+      if (instanceOfRawHSL(a) && instanceOfRawHSL(b)) {
+        return { h: a.h + b.h, s: a.s + b.s, l: a.l + b.l };
+      }
+      throw new Error(`Unsupported object type for raw value addition: ${typeofA}`);
+    case "string":
+      return `${a as string}${b as string}`;
+    case "boolean":
+      return Boolean(a) || Boolean(b);
+    default:
+      throw new Error(`Unsupported type for raw value addition: ${typeofA}`);
+  }
+}
+
 /**
  * Multiplies a raw value by a scalar
  * @param value - The raw value to multiply (number, string, boolean, Vector3, Euler, Vector2, RGB, HSL)

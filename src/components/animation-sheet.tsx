@@ -1,234 +1,486 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState, useEffect } from "react";
+import { useContext, memo, useState, useEffect, useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
-import useMeasure from "react-use-measure";
-import { ToggleGroup, Size, ToggleSquare, IconPreviewView } from "@semio/ui";
-import { IconArrowUpRight, IconChevronDown, IconLine, IconTable } from "@tabler/icons-react";
+import { Search, Size, useTheme, TooltipProvider, TooltipContext } from "@semio/ui";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
-import { TrackRender, AnimationInstance } from "../types";
-import { useAnimationStore, ColorContextProvider } from "../hooks";
-import { DEFAULT_TRACK_HEIGHT } from "../constants";
-import { Timeline } from "./timeline";
-import { TrackList } from "./track-list";
-import { Minimap } from "./minimap";
-import { Ruler } from "./ruler";
+import { TrackRender, VerticalAxis } from "../types";
+import {
+  useAnimationStore,
+  ColorContextProvider,
+  NameContextProvider,
+  TrackAnimatableContextProvider,
+  LocalGlobalTransformContextProvider,
+} from "../hooks";
+import { WithTooltipAndAnimationContextProps } from "../utils/context-providers";
+import { MIN_SHEET_HEIGHT } from "../constants";
+import {
+  filterVisibleSourceRowIds,
+  matchesSourceRowQuery,
+  normalizeVisibleSourceRowIds,
+} from "../functions/filter-visible-source-row-ids";
+// Import existing components that we'll reuse for now
 import { TimelineControl } from "./timeline-control";
 import { TimeControls } from "./time-controls";
 import { PlaybackSettings } from "./playback-settings";
+import { TrackList } from "./track-list";
+import { CanvasSheet } from "./canvas-sheet/canvas-sheet";
+import { Toolbar } from "./toolbar";
+import { ToolbarWrapper } from "./toolbar/toolbar-wrapper";
+import { WorkspaceToolbarSection } from "./toolbar/workspace-toolbar-section";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
-const MIN_SHEET_HEIGHT = 142;
 
-export interface AnimationSheetProps {
-  namespaceId: string;
-  animationInstances: Record<string, AnimationInstance>;
+export interface AnimationSheetProps extends WithTooltipAndAnimationContextProps {
   onToggleExpand?: (expanded: boolean) => void;
   height?: number;
+  fonts?: {
+    mono?: string; // Path to monospace font, falls back to system default
+    ui?: string; // Path to UI font, falls back to system default
+  };
 }
 
-export function AnimationSheet(props: AnimationSheetProps): ReactNode {
-  const ctx = useContext(AnimationContext);
-  if (ctx) {
-    return <MemoizedInnerSheet {...props} />;
-  } else {
-    return (
+export interface AnimationSheetCoreProps {
+  onToggleExpand?: (expanded: boolean) => void;
+  height?: number;
+  fonts?: {
+    mono?: string; // Path to monospace font, falls back to system default
+    ui?: string; // Path to UI font, falls back to system default
+  };
+}
+
+/**
+ * Core AnimationSheet component that requires both AnimationContext and TooltipContext to be provided by parent components.
+ *
+ * Use this component when:
+ * - You know both AnimationContext and TooltipContext are already provided by parent components
+ * - You want to avoid automatic context provision (for performance or control)
+ * - You're testing the component in isolation with known contexts
+ * - You're building custom wrapper components with specific context management
+ *
+ * @example
+ * ```tsx
+ * // Use when both contexts are already provided
+ * <AnimationContext.Provider value={myAnimationStore}>
+ *   <TooltipProvider>
+ *     <TooltipHost className="w-full h-full">
+ *       <AnimationSheetCore
+ *         namespaceId="demo"
+ *         animationInstances={instances}
+ *       />
+ *     </TooltipHost>
+ *   </TooltipProvider>
+ * </AnimationContext.Provider>
+ * ```
+ *
+ * @throws Error if AnimationContext is not provided by a parent component
+ * @throws Error if TooltipContext is not provided by a parent component (required for 3D tooltips)
+ */
+export const AnimationSheetCore = memo(function AnimationSheetCore(
+  props: AnimationSheetCoreProps,
+): ReactNode {
+  return <InnerSheet {...props} />;
+});
+
+/**
+ * Full AnimationSheet component that automatically provides AnimationContext and TooltipContext if needed.
+ * This is the main export that most consumers should use for 3D animation sheets.
+ *
+ * Context Behavior:
+ * - **AnimationContext**: If not present, creates one with default animation store
+ * - **TooltipContext**: If not present, creates TooltipProvider + TooltipHost for 3D tooltip support
+ * - If contexts already exist, uses existing ones (no unnecessary nesting)
+ * - Always wraps with TooltipHost for proper 3D tooltip positioning support
+ *
+ * @param skipAnimationContext - Skip providing animation context, assume parent provides it
+ * @param skipTooltipContext - Skip providing tooltip context, assume parent provides it
+ *
+ * @example
+ * ```tsx
+ * // Automatic context provision (recommended for most cases)
+ * <AnimationSheet namespaceId="demo" animationInstances={instances} />
+ *
+ * // Skip animation context when parent provides it
+ * <AnimationContext.Provider value={myCustomStore}>
+ *   <AnimationSheet
+ *     skipAnimationContext
+ *     namespaceId="demo"
+ *     animationInstances={instances}
+ *   />
+ * </AnimationContext.Provider>
+ *
+ * // Skip tooltip context when parent provides it
+ * <TooltipProvider>
+ *   <AnimationSheet
+ *     skipTooltipContext
+ *     namespaceId="demo"
+ *     animationInstances={instances}
+ *   />
+ * </TooltipProvider>
+ *
+ * // Skip both contexts (parent must provide both)
+ * <AnimationContext.Provider value={myStore}>
+ *   <TooltipProvider>
+ *     <AnimationSheet
+ *       skipAnimationContext
+ *       skipTooltipContext
+ *       namespaceId="demo"
+ *       animationInstances={instances}
+ *     />
+ *   </TooltipProvider>
+ * </AnimationContext.Provider>
+ *
+ * // Nested usage (inner components skip contexts)
+ * <AnimationSheet namespaceId="outer" animationInstances={outer}>
+ *   <AnimationSheet
+ *     skipAnimationContext
+ *     skipTooltipContext
+ *     namespaceId="inner"
+ *     animationInstances={inner}
+ *   />
+ * </AnimationSheet>
+ * ```
+ */
+export const AnimationSheet = memo(function AnimationSheet({
+  skipTooltipContext = false,
+  skipAnimationContext = false,
+  ...props
+}: AnimationSheetProps): ReactNode {
+  const animationCtx = useContext(AnimationContext);
+  const tooltipCtx = useContext(TooltipContext);
+
+  // Determine what contexts need to be provided
+  const needsAnimationContext = !skipAnimationContext && !animationCtx;
+  const needsTooltipContext = !skipTooltipContext && !tooltipCtx;
+
+  let content = <AnimationSheetCore {...props} />;
+
+  // Wrap with animation context if needed
+  if (needsAnimationContext) {
+    content = (
       <AnimationContext.Provider value={useDefaultAnimationStore}>
-        <MemoizedInnerSheet {...props} />
+        {content}
       </AnimationContext.Provider>
     );
   }
-}
 
-export function InnerSheet({
-  namespaceId,
-  animationInstances,
-  onToggleExpand,
-  height = MIN_SHEET_HEIGHT,
-}: AnimationSheetProps): ReactNode {
-  // TODO: Eventually we will allow seleciton of different animation instances to view. For now we assume there is only one instance per set.
-  const [trackRender, setTrackRender] = useState<TrackRender>(TrackRender.Key);
-  const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
-  const { animations, updateDuration } = useAnimationStore(
-    useShallow((state) => {
-      return {
-        animations: state.animations,
-        updateDuration: state.updateDuration,
-      };
-    }),
-  );
-
-  const currentAnimationInstance = Object.values(animationInstances)[0];
-  const currentAnimation = currentAnimationInstance.animationId;
-  const instanceSettings = currentAnimationInstance.settings;
-  useEffect(() => {
-    if (!currentAnimation || !animations[currentAnimation]) {
-      return;
-    }
-    setSelectedTracks(animations[currentAnimation].tracks);
-    updateDuration(animations[currentAnimation].duration);
-  }, [currentAnimation, animations, updateDuration]);
-
-  const [trackRegion, trackBounds] = useMeasure();
-
-  if (!currentAnimation || !animations[currentAnimation]) {
-    return null;
+  // Wrap with tooltip context if needed
+  if (needsTooltipContext) {
+    content = <TooltipProvider>{content}</TooltipProvider>;
   }
 
-  const allTracks = animations[currentAnimation].tracks;
+  return content;
+});
+
+function InnerSheet({
+  onToggleExpand,
+  height = MIN_SHEET_HEIGHT,
+  fonts = {},
+}: AnimationSheetProps): ReactNode {
+  const { resolvedTheme } = useTheme();
+  const animationStore = useContext(AnimationContext);
+
+  const initialViewId = useMemo(() => `view-${crypto.randomUUID()}`, []);
+  const {
+    addView,
+    removeView,
+    setActiveEditorView,
+    updateView,
+    editorViews,
+    editorViewOrder,
+    activeEditorViewId,
+  } = useAnimationStore(
+    useShallow((state) => ({
+      addView: state.addView,
+      removeView: state.removeView,
+      setActiveEditorView: state.setActiveEditorView,
+      updateView: state.updateView,
+      editorViews: state.editorViews,
+      editorViewOrder: state.editorViewOrder,
+      activeEditorViewId: state.activeEditorViewId,
+    })),
+  );
+
+  const viewIds = useMemo(
+    () => editorViewOrder.filter((id) => Boolean(editorViews[id])),
+    [editorViewOrder, editorViews],
+  );
+  const activeViewId = useMemo(() => {
+    if (activeEditorViewId && editorViews[activeEditorViewId]) {
+      return activeEditorViewId;
+    }
+    return viewIds[0];
+  }, [activeEditorViewId, editorViews, viewIds]);
+  const resolvedViewId = activeViewId ?? viewIds[0] ?? initialViewId;
+  const trackFilter = editorViews[resolvedViewId]?.trackFilter ?? "";
+
+  useEffect(() => {
+    if (viewIds.length === 0) {
+      const currentViews = animationStore?.getState().editorViews;
+      if (currentViews && Object.keys(currentViews).length > 0) {
+        return;
+      }
+      addView({
+        id: initialViewId,
+        name: "View 1",
+        trackRender: TrackRender.Key,
+        verticalAxis: VerticalAxis.Normalized,
+        hiddenSourceTrackIds: [],
+        trackFilter: "",
+      });
+      return;
+    }
+    if (activeViewId && activeEditorViewId !== activeViewId) {
+      setActiveEditorView(activeViewId);
+    }
+  }, [
+    activeEditorViewId,
+    activeViewId,
+    addView,
+    animationStore,
+    initialViewId,
+    setActiveEditorView,
+    viewIds,
+  ]);
+
+  const scrollY = useMotionValue(0);
+
+  const [emphasis, setEmphasis] = useState<string[]>([]);
+  const setTrackFilter = useCallback(
+    (value: string) => {
+      updateView(resolvedViewId, { trackFilter: value });
+    },
+    [resolvedViewId, updateView],
+  );
+
+  const handleSelectView = useCallback(
+    (viewId: string) => {
+      setActiveEditorView(viewId);
+    },
+    [setActiveEditorView],
+  );
+
+  const handleCreateView = useCallback(() => {
+    const nextId = `view-${crypto.randomUUID()}`;
+    const activeView = editorViews[resolvedViewId];
+    const existingNames = new Set(
+      viewIds.map((id) => editorViews[id]?.name).filter((name): name is string => Boolean(name)),
+    );
+
+    let nextIndex = 1;
+    let nextName = `View ${String(nextIndex)}`;
+    while (existingNames.has(nextName)) {
+      nextIndex += 1;
+      nextName = `View ${String(nextIndex)}`;
+    }
+
+    addView({
+      id: nextId,
+      name: nextName,
+      trackRender: activeView?.trackRender ?? TrackRender.Key,
+      verticalAxis: activeView?.verticalAxis,
+      // New views inherit render preferences but always start with a clean visibility/search state.
+      hiddenSourceTrackIds: [],
+      trackFilter: "",
+    });
+    setActiveEditorView(nextId);
+  }, [addView, editorViews, resolvedViewId, setActiveEditorView, viewIds]);
+
+  const handleCopyView = useCallback(
+    (sourceViewId: string) => {
+      if (!viewIds.includes(sourceViewId)) return;
+      const sourceView = editorViews[sourceViewId];
+      if (!sourceView) return;
+
+      const nextId = `view-${crypto.randomUUID()}`;
+      const sourceIndex = viewIds.indexOf(sourceViewId);
+      const fallbackSourceName = sourceIndex >= 0 ? `View ${String(sourceIndex + 1)}` : "View";
+      const sourceName = sourceView.name?.trim() || fallbackSourceName;
+      const existingNames = new Set(
+        viewIds.map((id) => editorViews[id]?.name).filter((name): name is string => Boolean(name)),
+      );
+
+      let candidateName = `${sourceName} Copy`;
+      let copyIndex = 2;
+      while (existingNames.has(candidateName)) {
+        candidateName = `${sourceName} Copy ${String(copyIndex)}`;
+        copyIndex += 1;
+      }
+
+      addView({
+        id: nextId,
+        name: candidateName,
+        trackRender: sourceView.trackRender,
+        verticalAxis: sourceView.verticalAxis,
+        hiddenSourceTrackIds: [...(sourceView.hiddenSourceTrackIds ?? [])],
+        trackFilter: sourceView.trackFilter ?? "",
+      });
+      setActiveEditorView(nextId);
+    },
+    [addView, editorViews, setActiveEditorView, viewIds],
+  );
+
+  const handleRemoveView = useCallback(
+    (viewId: string) => {
+      if (viewIds.length <= 1 || !viewIds.includes(viewId)) return;
+      removeView(viewId);
+    },
+    [removeView, viewIds],
+  );
+
+  const { sourceRowLookup, sourceRows, tracks, animatables } = useAnimationStore(
+    useShallow((state) => ({
+      sourceRowLookup: normalizeVisibleSourceRowIds(
+        state.sourceRowIdsByView[resolvedViewId] ?? state.sourceRowIds,
+      ),
+      sourceRows: state.instancedTrackSources,
+      tracks: state.tracks,
+      animatables: state.animatables,
+    })),
+  );
+
+  const filteredRowLookup = useMemo(
+    () =>
+      filterVisibleSourceRowIds(sourceRowLookup, trackFilter, (rowId, query) =>
+        matchesSourceRowQuery(rowId, query, {
+          sourceRows,
+          tracks,
+          animatables,
+        }),
+      ),
+    [animatables, sourceRowLookup, sourceRows, trackFilter, tracks],
+  );
+
+  const setEmphasisSmart = useCallback(
+    (id: string, opt: "add" | "remove") => {
+      setEmphasis((prev) => {
+        if (opt === "add") {
+          return [...prev, id];
+        } else {
+          return prev.filter((e) => e !== id);
+        }
+      });
+    },
+    [setEmphasis],
+  );
 
   const expanded = height > MIN_SHEET_HEIGHT;
 
   return (
     <ColorContextProvider>
-      <div
-        aria-expanded={expanded}
-        style={{
-          height,
-          minHeight: MIN_SHEET_HEIGHT,
-        }}
-        className={clsx(
-          "grid grid-cols-[298px_1fr] group/sheet w-full gap-x-1 pr-0.5 pb-0.5",
-          "grid-rows-[32px_1fr_36px_36px_36px]",
-        )}
-      >
-        {/* Expand Toggle/Ruler */}
-        <div className={clsx("flex flex-1 flex-row h-8 items-center justify-between pl-1")}>
-          <ToggleSquare
-            sizing="inner"
-            size={Size.Sm}
-            value={expanded}
-            onChange={(v) => onToggleExpand?.(v)}
-            label="Expand Tracks"
-          >
-            <IconChevronDown
-              size="11px"
-              className={clsx(
-                expanded ? "rotate-0" : "rotate-180",
-                "transition-transform ease-in-out",
-              )}
-            />
-          </ToggleSquare>
+      <NameContextProvider>
+        <TrackAnimatableContextProvider>
+          <LocalGlobalTransformContextProvider>
+            <div className="animation-sheet-container w-full pointer-events-auto">
+              {/* Grid layout with tracking divs - same structure as original */}
+              <div
+                aria-expanded={expanded}
+                style={{
+                  height,
+                  minHeight: MIN_SHEET_HEIGHT,
+                }}
+                className={clsx(
+                  "grid grid-cols-[317px_1fr] group/sheet w-full pr-0.5 pb-0.5 overflow-hidden",
+                  "grid-rows-[36px_36px_minmax(0,1fr)_36px_36px_36px]",
+                )}
+              >
+                {/* Toolbar - Row 1 (Left) */}
+                <ToolbarWrapper rightPadding={8}>
+                  <WorkspaceToolbarSection
+                    viewIds={viewIds}
+                    activeViewId={resolvedViewId}
+                    onSelectView={handleSelectView}
+                    onCreateView={handleCreateView}
+                    onCopyView={handleCopyView}
+                    onRemoveView={handleRemoveView}
+                    onToggleExpand={onToggleExpand}
+                    expanded={expanded}
+                  />
+                </ToolbarWrapper>
 
-          <ToggleGroup
-            bg
-            visuals="icons"
-            size={Size.Sm}
-            value={trackRender}
-            onChange={(v: string) => {
-              setTrackRender(v as TrackRender);
-            }}
-            options={[
-              {
-                value: TrackRender.Key,
-                label: "Key View",
-                icon: <IconLine size="11px" className="rotate-45" />,
-              },
-              {
-                value: TrackRender.Transition,
-                label: "Transition View",
-                icon: <IconLine size="11px" />,
-              },
-              {
-                value: TrackRender.Preview,
-                label: "Preview View",
-                // icon: <IconEaseInOut size="11px" />,
-                icon: <IconPreviewView size="11px" />,
-              },
-              {
-                value: TrackRender.Data,
-                label: "Data View",
-                icon: <IconTable size="11px" />,
-                disabled: true,
-              },
-            ]}
-          />
-          <ToggleSquare
-            sizing="inner"
-            size={Size.Sm}
-            value={false}
-            onChange={() => {}}
-            label="Pop Out"
-            disabled
-          >
-            <IconArrowUpRight size="11px" />
-          </ToggleSquare>
-        </div>
-        <div
-          ref={trackRegion}
-          className={clsx("flex-1 h-8 text-black dark:text-white rounded-t-sm", TRACK_MAIN_BG)}
-        >
-          <Ruler side="top" animationId={currentAnimation} height={32} width={trackBounds.width} />
-        </div>
+                {/* Toolbar - Row 1 (Right) */}
+                <Toolbar
+                  viewId={resolvedViewId}
+                  viewIds={viewIds}
+                  onSelectView={handleSelectView}
+                  onCreateView={handleCreateView}
+                  onCopyView={handleCopyView}
+                  onRemoveView={handleRemoveView}
+                  onToggleExpand={onToggleExpand}
+                  expanded={expanded}
+                />
 
-        <div className="col-span-2">
-          {/* Tracks */}
-          <TrackList
-            animationId={currentAnimation}
-            namespaceId={namespaceId}
-            trackRender={trackRender}
-            instanceSettings={instanceSettings}
-            width={trackBounds.width}
-            // Subtract the height of the other elements from the total height
-            height={height - MIN_SHEET_HEIGHT}
-          />
-        </div>
+                {/* Track Filter - Row 2 */}
+                <div className="h-9 px-1.5 py-0.5 flex items-center">
+                  <div className="w-full flex">
+                    <Search
+                      size={Size.Sm}
+                      value={trackFilter}
+                      placeholder="Filter visible tracks"
+                      onChange={(value) => setTrackFilter(value)}
+                      outline="hidden"
+                      className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-xs"
+                      wrapperClassName="w-full"
+                    />
+                  </div>
+                </div>
 
-        <TimelineControl
-          animationId={currentAnimation}
-          namespaceId={namespaceId}
-          instanceSettings={instanceSettings}
-          selection={selectedTracks}
-          allTracks={allTracks}
-          onChangeSelection={setSelectedTracks}
-        />
+                {/* Canvas (spans all rows) */}
+                <div
+                  className={clsx(
+                    "w-full min-w-0 row-span-5 touch-none rounded-md overflow-clip",
+                    TRACK_MAIN_BG,
+                  )}
+                >
+                  <CanvasSheet
+                    viewId={resolvedViewId}
+                    scrollValue={scrollY}
+                    theme={resolvedTheme}
+                    emphasis={emphasis}
+                    onEmphasisChange={setEmphasisSmart}
+                    rowIdLookup={filteredRowLookup}
+                    fonts={fonts}
+                  />
+                </div>
 
-        <div className={clsx("w-full", TRACK_MAIN_BG)}>
-          <Timeline
-            height={DEFAULT_TRACK_HEIGHT}
-            width={trackBounds.width}
-            trackIds={selectedTracks}
-            animationId={currentAnimation}
-            namespaceId={namespaceId}
-            instanceSettings={instanceSettings}
-            trackRender={
-              ([TrackRender.Key, TrackRender.Preview, TrackRender.Transition].includes(trackRender)
-                ? trackRender
-                : TrackRender.Key) as TrackRender.Key | TrackRender.Preview | TrackRender.Transition
-            }
-          />
-        </div>
+                {/* Track List - Row 2 */}
 
-        <TimeControls
-          animationId={currentAnimation}
-          namespaceId={namespaceId}
-          instanceSettings={instanceSettings}
-          selection={selectedTracks}
-          allTracks={allTracks}
-          onChangeSelection={setSelectedTracks}
-        />
+                {/* Track List with color-coded tracks */}
+                <TrackList
+                  height={height - MIN_SHEET_HEIGHT}
+                  scrollY={scrollY}
+                  emphasis={emphasis}
+                  onEmphasisChange={setEmphasisSmart}
+                  rowIdLookup={filteredRowLookup}
+                />
 
-        <div className={clsx("w-full h-9 items-center text-black dark:text-white", TRACK_MAIN_BG)}>
-          <Minimap
-            animationId={currentAnimation}
-            instanceSettings={instanceSettings}
-            width={trackBounds.width}
-          />
-        </div>
+                {/* Timeline Control - Row 3 */}
+                <div className="pr-2">
+                  <TimelineControl viewId={resolvedViewId} />
+                </div>
 
-        <PlaybackSettings />
-        <div className={clsx("flex-1 h-9 text-black dark:text-white rounded-b-sm", TRACK_MAIN_BG)}>
-          <Ruler
-            side="bottom"
-            animationId={currentAnimation}
-            height={36}
-            width={trackBounds.width}
-          />
-        </div>
-      </div>
+                {/* Timeline View - Row 3 */}
+
+                {/* Time Controls - Row 4 */}
+                <div className="pr-2">
+                  <TimeControls />
+                </div>
+
+                {/* Minimap View - Row 4 */}
+
+                {/* Playback Settings - Row 5 */}
+                <div className="pr-2">
+                  <PlaybackSettings />
+                </div>
+
+                {/* Bottom Ruler - Row 5 */}
+              </div>
+            </div>
+          </LocalGlobalTransformContextProvider>
+        </TrackAnimatableContextProvider>
+      </NameContextProvider>
     </ColorContextProvider>
   );
 }
-
-const MemoizedInnerSheet = memo(InnerSheet);

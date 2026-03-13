@@ -1,9 +1,20 @@
 import { pairwise } from "@semio/utils";
 import { ViolationSet, Violation } from "../types";
 
+// Simple deterministic ID generation based on content
+function createDeterministicId(content: string): string {
+  // Simple hash function for deterministic IDs without bitwise operations
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i);
+    hash = (hash * 31 + char) % 2147483647; // Use prime multiplication and modulo
+  }
+  return Math.abs(hash).toString(36);
+}
+
 export function computeViolationSet(violations: Record<string, Violation[]>): ViolationSet {
   const violationSet: ViolationSet = {
-    id: crypto.randomUUID(),
+    id: "", // Will be set after processing all violations
     violations: {},
     segments: [],
   };
@@ -25,13 +36,25 @@ export function computeViolationSet(violations: Record<string, Violation[]>): Vi
       .filter(([_, v]) => v.stampRange.start <= start && v.stampRange.end >= end)
       .map(([k, _]) => k);
     if (segmentViolations.length > 0) {
+      const stableViolationKeys = segmentViolations
+        .map((id) => {
+          const v = violationSet.violations[id];
+          return `${v.trackId}:${v.type}:${v.instanceId}:${v.namespace}`;
+        })
+        .sort()
+        .join(",");
+      const stableSegmentKey = `${start.toFixed(6)}-${end.toFixed(6)}|${stableViolationKeys}`;
       violationSet.segments.push({
-        id: crypto.randomUUID(),
+        id: `segment-${createDeterministicId(stableSegmentKey)}`,
         stampRange: { start, end },
         violations: segmentViolations,
       });
     }
   });
+
+  // Generate deterministic violation set ID based on all violation IDs
+  const allViolationIds = Object.keys(violationSet.violations).sort().join(",");
+  violationSet.id = `violationset-${createDeterministicId(allViolationIds)}`;
 
   return violationSet;
 }

@@ -11,8 +11,7 @@ export function createDefaultAnimation(): StoredAnimation {
     id: DEFAULT_ANIMATION_ID,
     name: "New Animation",
     tracks: [],
-    groups: new Map(),
-    transitions: new Map(),
+    groups: [],
     duration: 5000,
   };
 }

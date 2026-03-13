@@ -1,5 +1,5 @@
-import { getLookup, PlayerDirection, RawValue } from "@semio/utils";
-import { InstancedFrameInfo, Track, TrackInterpolators } from "../types";
+import { PlayerDirection, RawValue } from "@semio/utils";
+import { InstancedFrameInfo, SourceRow, Track, TrackInterpolators } from "../types";
 import {
   PositionAndEffortTrajectoryPoint,
   PositionAndVelocityTrajectoryPoint,
@@ -7,14 +7,16 @@ import {
   TrajectoryMessage,
   TrajectoryPointArray,
 } from "../types/data/trajectory";
+import { buildTrackKey } from "../utils/track-key";
 import { computeFrames } from "./compute-frames";
 import { rawValueMultiplyScalar } from "./raw-value-math";
 
 /**
  *
  * @param tracks - The set of tracks indexed by their *name* (intended for the trajectory jointNames field)
- * @param trackInterpolators - The set of interpolators indexed by their *lookup* (intended for the trajectory points field)
- * @param namespace - The namespace for the tracks, used to get the correct interpolator
+ * @param trackInterpolators - The set of interpolators indexed by track keys (intended for the trajectory points field)
+ * @param sourceRow - The source row containing the data for the tracks
+ * @param namespace - Fallback namespace if sourceRow does not provide one
  * @param animationDuration - The duration of the animation
  * @param currentStamp - The current timestamp
  * @param speed - The speed of playback
@@ -24,6 +26,7 @@ import { rawValueMultiplyScalar } from "./raw-value-math";
 export function computeTrackTrajectories(
   tracks: Record<string, Track<RawValue>>,
   trackInterpolators: TrackInterpolators,
+  sourceRow: SourceRow,
   namespace: string,
   animationDuration: number,
   currentStamp: number,
@@ -31,8 +34,17 @@ export function computeTrackTrajectories(
   direction: PlayerDirection,
 ): TrajectoryMessage {
   const trackNames = Object.keys(tracks);
+  const trackContextById = new Map<string, { namespaceId: string; instanceId: string }>();
+  sourceRow.data.forEach((datum) => {
+    if (datum.trackId) {
+      trackContextById.set(datum.trackId, {
+        namespaceId: datum.namespaceId,
+        instanceId: datum.instanceId,
+      });
+    }
+  });
 
-  const frames: InstancedFrameInfo[] = computeFrames(tracks);
+  const frames: InstancedFrameInfo[] = computeFrames(tracks, sourceRow);
   const points: TrajectoryPointArray = frames.map((frame) => {
     const p: PositionAndVelocityTrajectoryPoint = {
       positions: [],
@@ -40,14 +52,19 @@ export function computeTrackTrajectories(
       timeFromStart: (frame.stamp * animationDuration) / 1000,
     };
     trackNames.forEach((trackName) => {
-      const track = tracks[trackName];
-      const lookup = getLookup(namespace, track.animatableId);
+      const trackContext = trackContextById.get(trackName);
+      const namespaceId = trackContext?.namespaceId ?? namespace;
+      const instanceId = trackContext?.instanceId;
+      if (!namespaceId || !instanceId) {
+        throw new Error(`Missing instance info for track: ${trackName}`);
+      }
+      const lookup = buildTrackKey(namespaceId, instanceId, trackName);
       const interpolator = trackInterpolators[lookup];
       if (!interpolator) {
         throw new Error(`Interpolator not found for track: ${trackName}`);
       }
       p.positions.push(interpolator.value(frame.stamp)!);
-      p.velocities.push(interpolator.derivative(frame.stamp)!);
+      p.velocities.push(interpolator.derivative(frame.stamp) ?? 0);
     });
     return p;
   });
@@ -89,8 +106,8 @@ function rebaseAndReorientTrajectoryMessage(
   trajectoryMessage.points.forEach((point) => {
     const newPoint = {
       positions: point.positions, // Positions remain unchanged
-      velocities: (point as PositionAndVelocityTrajectoryPoint).velocities?.map((v) =>
-        rawValueMultiplyScalar(v, speed),
+      velocities: (point as PositionAndVelocityTrajectoryPoint).velocities?.map(
+        (v) => (v !== undefined ? rawValueMultiplyScalar(v, speed) : 0),
       ), // Rebase velocities
       // For now we don't rebase accelerations or effort values, as they are not used in the current implementation
       accelerations: (point as PositionVelocityAndAccelerationTrajectoryPoint).accelerations,
