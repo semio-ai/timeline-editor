@@ -196,7 +196,7 @@ export const DataPoint = memo(function DataPoint({
     const domainMax = verticalBounds.max;
     const domainSpan = domainMax - domainMin;
     if (!Number.isFinite(domainSpan) || domainSpan === 0) {
-      return () => valueRangeMin;
+      return () => (valueRangeMin + valueRangeMax) / 2;
     }
     return createLinearScale([domainMin, domainMax], [valueRangeMin, valueRangeMax]);
   }, [isSpline, verticalBounds.min, verticalBounds.max, valueRangeMin, valueRangeMax]);

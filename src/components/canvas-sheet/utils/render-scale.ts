@@ -44,7 +44,8 @@ export function computeRenderScale({
       const domainMax = verticalBounds.max;
       const domainSpan = domainMax - domainMin;
       if (!Number.isFinite(domainSpan) || domainSpan === 0) {
-        return () => splineRange.min;
+        const center = (splineRange.min + splineRange.max) / 2;
+        return () => center;
       }
       return createLinearScale([domainMin, domainMax], [splineRange.min, splineRange.max]);
     }

@@ -121,6 +121,9 @@ export function computeRowData(
     return acc;
   }, {});
   const relevantTracks = pick(tracks, trackIds);
+  // INVARIANT: verticalBounds must be computed from canonical tracks, not preview tracks.
+  // During drag, this keeps the rendering scale stable and prevents feedback loops
+  // where value changes → bounds shift → scale changes → visual drift.
   const verticalBounds = computeVerticalBounds(relevantTracks, animatables, [sourceRow]);
   const boundsForRow = {
     min: verticalBounds[0],
