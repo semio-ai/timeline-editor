@@ -1,5 +1,40 @@
-import { AnimatableValue, RawValue } from "@semio/utils";
+import { AnimatableValue, AnimatableGroupType, RawValue } from "@semio/utils";
 import type { SourceRow, Track } from "../types";
+
+/**
+ * Infer a reasonable fallback range for a degenerate (min === max) domain using
+ * animatable metadata: units, group type, or a generic window around the value.
+ */
+function inferFallbackRange(
+  center: number,
+  animatables: AnimatableValue[],
+): [number, number] {
+  for (const animatable of animatables) {
+    if (animatable.type !== "number") continue;
+
+    // Unit-based inference
+    const units = animatable.pub?.units;
+    if (units === "rad") {
+      return [-Math.PI, Math.PI];
+    }
+
+    // Group-type inference
+    const groupType = animatable.group?.type;
+    if (groupType === AnimatableGroupType.Euler) {
+      return [-Math.PI, Math.PI];
+    }
+    if (groupType === AnimatableGroupType.RGB) {
+      return [0, 1];
+    }
+    if (groupType === AnimatableGroupType.HSL) {
+      return [0, 1];
+    }
+  }
+
+  // Generic fallback: ±1 window around the value (or [-1, 1] at zero)
+  const halfSpan = Math.abs(center) > 0 ? Math.abs(center) : 1;
+  return [center - halfSpan, center + halfSpan];
+}
 
 /**
  * Creates a range from min to max .
@@ -20,6 +55,8 @@ export function computeVerticalBounds(
 
   let min = Number.POSITIVE_INFINITY;
   let max = Number.NEGATIVE_INFINITY;
+  const rowAnimatables: AnimatableValue[] = [];
+
   // First, get a default min and max value from the animatables;
   sources.forEach((source) => {
     source.data.forEach((datum) => {
@@ -27,6 +64,7 @@ export function computeVerticalBounds(
       if (!track) return;
       const animatable = animatableValues[track.animatableId];
       if (!animatable) return;
+      rowAnimatables.push(animatable);
       // Compute the min and max based on the animatable constraints.
       if (animatable.type === "number") {
         const constraintMin = animatable.constraints.min ?? Number.POSITIVE_INFINITY;
@@ -57,6 +95,13 @@ export function computeVerticalBounds(
 
   min = min === Number.POSITIVE_INFINITY ? Math.min(...data) : min;
   max = max === Number.NEGATIVE_INFINITY ? Math.max(...data) : max;
+
+  // When the domain is degenerate (min === max), infer a reasonable range from
+  // animatable metadata (units, group type) so that spline rendering and drag
+  // interactions have a meaningful vertical scale from the first frame.
+  if (Number.isFinite(min) && Number.isFinite(max) && min === max) {
+    return inferFallbackRange(min, rowAnimatables);
+  }
 
   return [min, max];
 }
