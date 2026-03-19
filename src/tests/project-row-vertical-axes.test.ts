@@ -75,7 +75,7 @@ describe("projectRowVerticalAxes", () => {
     expect(axis!.max).toBeGreaterThan(0);
   });
 
-  it("does not modify non-spline views", () => {
+  it("passes through raw bounds without spline expansion for non-spline views", () => {
     const rowMap = { row1: stubRow(Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY) };
     const editorViews = {
       [viewId]: { trackRender: TrackRender.Key, verticalAxis: VerticalAxis.Normalized },
@@ -83,10 +83,10 @@ describe("projectRowVerticalAxes", () => {
     const sourceRowIds = { flat: ["row1"], spline: ["row1"] };
 
     const { rows } = projectRowVerticalAxes(rowMap, editorViews, sourceRowIds, {});
-    // Non-spline views don't get axis projection
+    // Non-spline views still get verticalAxisByView populated, but skip
+    // spline-specific expansion/padding — raw bounds pass through as-is.
     expect(rows.row1.verticalAxisByView?.[viewId]).toBeDefined();
     const axis = rows.row1.verticalAxisByView![viewId];
-    // Should pass through the raw bounds without expansion
     expect(axis.min).toBe(Number.POSITIVE_INFINITY);
     expect(axis.max).toBe(Number.NEGATIVE_INFINITY);
   });

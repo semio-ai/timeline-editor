@@ -17,7 +17,10 @@ interface ApplyDragContext {
   dragState?: DragState;
   selection: SelectionState;
   trackId: string;
+  /** Data-derived bounds used for range scaling (normalizedValueDelta → value). */
   bounds?: { min: number; max: number };
+  /** Explicit animatable constraint bounds used for clamping only. */
+  constraintBounds?: { min: number; max: number };
 }
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
@@ -76,7 +79,7 @@ const clampValue = (
 
 export function applyDragDeltas(
   keypoint: Keypoint<RawValue>,
-  { dragState, selection, trackId, bounds }: ApplyDragContext,
+  { dragState, selection, trackId, bounds, constraintBounds }: ApplyDragContext,
 ): Keypoint<RawValue> {
   if (!dragState || dragState.instanceId !== selection.instanceId) {
     return keypoint;
@@ -129,7 +132,7 @@ export function applyDragDeltas(
           ? verticalRange
           : 1;
       let candidate = nextValue + dragState.normalizedValueDelta * appliedRange;
-      candidate = clampValue(candidate, bounds, anchorScale);
+      candidate = clampValue(candidate, constraintBounds, anchorScale);
       candidate = applyPrecision(candidate, anchorScale);
       nextValue = candidate;
     }
