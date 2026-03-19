@@ -57,23 +57,20 @@ const applyPrecision = (value: number, valueScale?: ValueScale): number => {
   return Math.round(value * factor) / factor;
 };
 
+/**
+ * Clamp a dragged value to explicit animatable constraint bounds only.
+ * Data-derived or visual-domain bounds must NOT be used for clamping —
+ * they reflect the current value range and would prevent the user from
+ * dragging beyond it. The valueScale.domain fallback has been removed;
+ * constraint enforcement is now handled exclusively via constraintBounds.
+ */
 const clampValue = (
   value: number,
-  bounds: { min: number; max: number } | undefined,
-  valueScale?: ValueScale,
+  constraintBounds: { min: number; max: number } | undefined,
 ): number => {
-  if (!valueScale?.clamp) {
-    return value;
+  if (constraintBounds) {
+    return Math.min(constraintBounds.max, Math.max(constraintBounds.min, value));
   }
-
-  if (bounds) {
-    return Math.min(bounds.max, Math.max(bounds.min, value));
-  }
-
-  if (valueScale?.domain) {
-    return Math.min(valueScale.domain[1], Math.max(valueScale.domain[0], value));
-  }
-
   return value;
 };
 
@@ -132,7 +129,7 @@ export function applyDragDeltas(
           ? verticalRange
           : 1;
       let candidate = nextValue + dragState.normalizedValueDelta * appliedRange;
-      candidate = clampValue(candidate, constraintBounds, anchorScale);
+      candidate = clampValue(candidate, constraintBounds);
       candidate = applyPrecision(candidate, anchorScale);
       nextValue = candidate;
     }
