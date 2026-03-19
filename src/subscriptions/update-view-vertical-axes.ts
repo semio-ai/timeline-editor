@@ -58,10 +58,9 @@ function buildViewContexts(
       }
 
       if (isSplineView) {
-        if (!Number.isFinite(min) || !Number.isFinite(max)) {
-          min = -1;
-          max = 1;
-        } else if (min === max) {
+        // Non-finite values are already coerced to [-1, 1] above, so min/max
+        // are guaranteed finite here. Only zero-span and normal cases remain.
+        if (min === max) {
           // Synthetic expansion for degenerate (constant-value) domains so that
           // downstream linear scales receive a non-zero range. This is computed
           // from canonical bounds only — stable during drag operations.
