@@ -3,19 +3,25 @@ import { computeDragDiffOps, applyTrackDiffOpsToTrack } from "../../functions/dr
 import { cloneTransitionValue, cloneTransitions } from "../../utils/clone-transitions";
 import type { SelectionCleanup, TrackDiffOp } from "../../types/util/diff";
 
-const buildBoundsByTrack = (state: AnimationData): Map<string, { min: number; max: number }> => {
+/**
+ * Build constraint-based bounds per track. Only returns bounds when the
+ * animatable defines BOTH min and max constraints — data-derived bounds
+ * must not be used for clamping because they cap the value at the current
+ * data range, preventing the user from dragging beyond the current max/min.
+ */
+const buildConstraintBoundsByTrack = (
+  state: AnimationData,
+): Map<string, { min: number; max: number }> => {
   const boundsByTrack = new Map<string, { min: number; max: number }>();
-  const rows = Object.values(state.derivedSnapshot?.rows ?? {});
-  rows.forEach((row) => {
-    const computed = row.computed;
-    if (!computed?.verticalBounds) return;
-    computed.virtualFrames.forEach((frame) => {
-      frame.points.forEach((point) => {
-        if (!boundsByTrack.has(point.trackId)) {
-          boundsByTrack.set(point.trackId, computed.verticalBounds);
-        }
-      });
-    });
+  Object.values(state.tracks).forEach((track) => {
+    if (boundsByTrack.has(track.id)) return;
+    const animatable = state.animatables[track.animatableId];
+    if (!animatable || animatable.type !== "number") return;
+    const min = animatable.constraints?.min;
+    const max = animatable.constraints?.max;
+    if (typeof min === "number" && typeof max === "number") {
+      boundsByTrack.set(track.id, { min, max });
+    }
   });
   return boundsByTrack;
 };
@@ -130,7 +136,7 @@ export function commitDrag(state: AnimationData): void {
       selectionCleanups.push(...dragState.pendingSelectionCleanups);
     }
   } else if (hasHorizontalDelta || hasVerticalDelta) {
-    const boundsByTrack = hasVerticalDelta ? buildBoundsByTrack(state) : undefined;
+    const boundsByTrack = hasVerticalDelta ? buildConstraintBoundsByTrack(state) : undefined;
     const trackIds = new Set<string>(selection.keypoints.keys());
     seedDiffsByTrackId.forEach((_diffs, trackId) => trackIds.add(trackId));
 
