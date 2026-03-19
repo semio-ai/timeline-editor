@@ -1,6 +1,47 @@
 import type { AnimationData } from "../store-types";
 import { TrackRender, VerticalAxis, VerticalAxisRange, ComputedRowData } from "../types";
 
+/**
+ * Expand a spline-view vertical range with padding, enforcing a minimum span
+ * so that near-flat value ranges don't get stretched into exaggerated steps.
+ * For degenerate (zero-span) ranges, creates a synthetic expansion. For
+ * non-finite inputs, falls back to [-1, 1].
+ */
+function expandSplineRange(rawMin: number, rawMax: number): [number, number] {
+  if (!Number.isFinite(rawMin) || !Number.isFinite(rawMax)) {
+    return [-1, 1];
+  }
+
+  let min = rawMin;
+  let max = rawMax;
+  const span = max - min;
+
+  if (span === 0) {
+    // Degenerate: create a synthetic range around the constant value.
+    const center = min;
+    const halfSpan = Math.abs(center) > 0 ? Math.abs(center) * 0.5 : 1;
+    min = center - halfSpan;
+    max = center + halfSpan;
+  } else {
+    // Enforce a minimum visible span so near-flat sections render as flat
+    // rather than being stretched into step-like artifacts. The threshold
+    // is relative to the magnitude of the values (or absolute 1e-2 at zero).
+    const center = (min + max) / 2;
+    const minSpan = Math.max(Math.abs(center) * 0.01, 1e-2);
+    if (span < minSpan) {
+      const halfMin = minSpan / 2;
+      min = center - halfMin;
+      max = center + halfMin;
+    }
+
+    const pad = (max - min) * 0.125;
+    min -= pad;
+    max += pad;
+  }
+
+  return [min, max];
+}
+
 interface RowLookup {
   flat: string[];
   spline: string[];
@@ -58,20 +99,7 @@ function buildViewContexts(
       }
 
       if (isSplineView) {
-        const span = max - min;
-        if (!Number.isFinite(span) || span === 0) {
-          // Synthetic expansion for degenerate (constant-value) domains so that
-          // downstream linear scales receive a non-zero range. This is computed
-          // from canonical bounds only — stable during drag operations.
-          const center = (min + max) / 2;
-          const halfSpan = Math.abs(center) > 0 ? Math.abs(center) * 0.5 : 1;
-          min = center - halfSpan;
-          max = center + halfSpan;
-        } else {
-          const pad = span * 0.125;
-          min -= pad;
-          max += pad;
-        }
+        [min, max] = expandSplineRange(min, max);
       }
 
       uniformRange = { min, max, visualOffset: 0 };
@@ -127,20 +155,7 @@ export function projectRowVerticalAxes(
       let min = row.verticalBounds.min;
       let max = row.verticalBounds.max;
       if (context.isSplineView) {
-        const span = max - min;
-        if (!Number.isFinite(span) || span === 0) {
-          // Synthetic expansion for degenerate (constant-value) domains so that
-          // downstream linear scales receive a non-zero range. This is computed
-          // from canonical bounds only — stable during drag operations.
-          const center = (min + max) / 2;
-          const halfSpan = Math.abs(center) > 0 ? Math.abs(center) * 0.5 : 1;
-          min = center - halfSpan;
-          max = center + halfSpan;
-        } else {
-          const pad = span * 0.125;
-          min -= pad;
-          max += pad;
-        }
+        [min, max] = expandSplineRange(min, max);
       }
 
       const range =

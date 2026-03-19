@@ -209,6 +209,7 @@ export function computeRowData(
         dragState,
         selection: selectionState,
         bounds: constraintBoundsByTrack.get(trackId) ?? boundsForRow,
+        constraintBounds: constraintBoundsByTrack.get(trackId),
         preferAnchorId: anchorTrackId === trackId ? anchorKeypointId : undefined,
       });
 

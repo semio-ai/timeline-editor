@@ -38,7 +38,10 @@ export interface ComputeDragDiffOpsParams {
   snapshotPoints?: Keypoint<RawValue>[];
   dragState: DragState;
   selection: SelectionState;
+  /** Data-derived bounds used for range scaling (normalizedValueDelta → value). */
   bounds?: { min: number; max: number };
+  /** Explicit animatable constraint bounds used for clamping only. */
+  constraintBounds?: { min: number; max: number };
   preferAnchorId?: string;
 }
 
@@ -72,6 +75,7 @@ export function computeDragDiffOps(params: ComputeDragDiffOpsParams): ComputeDra
       selection,
       trackId,
       bounds: params.bounds,
+      constraintBounds: params.constraintBounds,
     }),
   );
 

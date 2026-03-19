@@ -61,12 +61,22 @@ describe("drag preview funnel", () => {
       version: 1,
     });
 
-    // Apply the same drag diffs to produce a post-commit track state
+    // Apply the same drag diffs to produce a post-commit track state.
+    // Pass constraint bounds to match the preview path (computeRowData passes
+    // constraintBoundsByTrack when the animatable defines both min and max).
+    const scaleAnimatable = state.animatables[track.animatableId];
+    const scaleConstraints =
+      scaleAnimatable?.type === "number" &&
+      typeof scaleAnimatable.constraints?.min === "number" &&
+      typeof scaleAnimatable.constraints?.max === "number"
+        ? { min: scaleAnimatable.constraints.min, max: scaleAnimatable.constraints.max }
+        : undefined;
     const { diffs } = computeDragDiffOps({
       trackId,
       trackPoints: track.points,
       dragState,
       selection: selectionState,
+      constraintBounds: scaleConstraints,
     });
     const committedPoints = applyTrackDiffOpsToPoints(track.points, diffs);
     const committedTracks = {

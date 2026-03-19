@@ -3,7 +3,32 @@ import { computeDragDiffOps, applyTrackDiffOpsToTrack } from "../../functions/dr
 import { cloneTransitionValue, cloneTransitions } from "../../utils/clone-transitions";
 import type { SelectionCleanup, TrackDiffOp } from "../../types/util/diff";
 
-const buildBoundsByTrack = (state: AnimationData): Map<string, { min: number; max: number }> => {
+/**
+ * Build constraint-based bounds per track. Only returns bounds when the
+ * animatable defines BOTH min and max constraints. These are used exclusively
+ * for clamping — data-derived bounds are passed separately for range scaling.
+ * When no constraint bounds exist, clamping falls through to
+ * dragState.anchor.valueScale.domain in applyDragDeltas if clamp is true.
+ */
+const buildConstraintBoundsByTrack = (
+  state: AnimationData,
+): Map<string, { min: number; max: number }> => {
+  const boundsByTrack = new Map<string, { min: number; max: number }>();
+  Object.values(state.tracks).forEach((track) => {
+    if (boundsByTrack.has(track.id)) return;
+    const animatable = state.animatables[track.animatableId];
+    if (!animatable || animatable.type !== "number") return;
+    const min = animatable.constraints?.min;
+    const max = animatable.constraints?.max;
+    if (typeof min === "number" && typeof max === "number") {
+      boundsByTrack.set(track.id, { min, max });
+    }
+  });
+  return boundsByTrack;
+};
+
+/** Build data-derived bounds per track for range scaling (not clamping). */
+const buildDataBoundsByTrack = (state: AnimationData): Map<string, { min: number; max: number }> => {
   const boundsByTrack = new Map<string, { min: number; max: number }>();
   const rows = Object.values(state.derivedSnapshot?.rows ?? {});
   rows.forEach((row) => {
@@ -130,7 +155,8 @@ export function commitDrag(state: AnimationData): void {
       selectionCleanups.push(...dragState.pendingSelectionCleanups);
     }
   } else if (hasHorizontalDelta || hasVerticalDelta) {
-    const boundsByTrack = hasVerticalDelta ? buildBoundsByTrack(state) : undefined;
+    const constraintBounds = hasVerticalDelta ? buildConstraintBoundsByTrack(state) : undefined;
+    const dataBounds = hasVerticalDelta ? buildDataBoundsByTrack(state) : undefined;
     const trackIds = new Set<string>(selection.keypoints.keys());
     seedDiffsByTrackId.forEach((_diffs, trackId) => trackIds.add(trackId));
 
@@ -151,7 +177,10 @@ export function commitDrag(state: AnimationData): void {
         snapshotPoints,
         dragState,
         selection,
-        bounds: hasVerticalDelta ? boundsByTrack?.get(trackId) : undefined,
+        bounds: hasVerticalDelta
+          ? (constraintBounds?.get(trackId) ?? dataBounds?.get(trackId))
+          : undefined,
+        constraintBounds: hasVerticalDelta ? constraintBounds?.get(trackId) : undefined,
         preferAnchorId:
           dragState.anchor?.trackId === trackId ? dragState.anchor?.keypointId : undefined,
       });
