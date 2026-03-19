@@ -31,7 +31,7 @@ function inferFallbackRange(
     }
   }
 
-  // Generic fallback: ±1 window around the value (or [-1, 1] at zero)
+  // Generic fallback: symmetric window scaled to the absolute value (or [-1, 1] at zero)
   const halfSpan = Math.abs(center) > 0 ? Math.abs(center) : 1;
   return [center - halfSpan, center + halfSpan];
 }
@@ -55,6 +55,7 @@ export function computeVerticalBounds(
 
   let min = Number.POSITIVE_INFINITY;
   let max = Number.NEGATIVE_INFINITY;
+  const seenAnimatableIds = new Set<string>();
   const rowAnimatables: AnimatableValue[] = [];
 
   // First, get a default min and max value from the animatables;
@@ -64,7 +65,10 @@ export function computeVerticalBounds(
       if (!track) return;
       const animatable = animatableValues[track.animatableId];
       if (!animatable) return;
-      rowAnimatables.push(animatable);
+      if (!seenAnimatableIds.has(animatable.id)) {
+        seenAnimatableIds.add(animatable.id);
+        rowAnimatables.push(animatable);
+      }
       // Compute the min and max based on the animatable constraints.
       if (animatable.type === "number") {
         const constraintMin = animatable.constraints.min ?? Number.POSITIVE_INFINITY;

@@ -58,17 +58,19 @@ function buildViewContexts(
       }
 
       if (isSplineView) {
-        const span = max - min;
-        if (!Number.isFinite(span) || span === 0) {
+        if (!Number.isFinite(min) || !Number.isFinite(max)) {
+          min = -1;
+          max = 1;
+        } else if (min === max) {
           // Synthetic expansion for degenerate (constant-value) domains so that
           // downstream linear scales receive a non-zero range. This is computed
           // from canonical bounds only — stable during drag operations.
-          const center = (min + max) / 2;
+          const center = min;
           const halfSpan = Math.abs(center) > 0 ? Math.abs(center) * 0.5 : 1;
           min = center - halfSpan;
           max = center + halfSpan;
         } else {
-          const pad = span * 0.125;
+          const pad = (max - min) * 0.125;
           min -= pad;
           max += pad;
         }
@@ -127,17 +129,19 @@ export function projectRowVerticalAxes(
       let min = row.verticalBounds.min;
       let max = row.verticalBounds.max;
       if (context.isSplineView) {
-        const span = max - min;
-        if (!Number.isFinite(span) || span === 0) {
+        if (!Number.isFinite(min) || !Number.isFinite(max)) {
+          min = -1;
+          max = 1;
+        } else if (min === max) {
           // Synthetic expansion for degenerate (constant-value) domains so that
           // downstream linear scales receive a non-zero range. This is computed
           // from canonical bounds only — stable during drag operations.
-          const center = (min + max) / 2;
+          const center = min;
           const halfSpan = Math.abs(center) > 0 ? Math.abs(center) * 0.5 : 1;
           min = center - halfSpan;
           max = center + halfSpan;
         } else {
-          const pad = span * 0.125;
+          const pad = (max - min) * 0.125;
           min -= pad;
           max += pad;
         }
