@@ -2,8 +2,20 @@ import { AnimatableValue, AnimatableGroupType, RawValue } from "@semio/utils";
 import type { SourceRow, Track } from "../types";
 
 /**
+ * Ensure the returned range contains the center value. Unit/group-based
+ * inference can produce ranges that don't include the actual data value
+ * (e.g., value 5.0 with units="rad" would infer [-π, π]). When this
+ * range is used for drag clamping via boundsForRow, values outside the
+ * inferred range would be silently clamped, preventing updates.
+ */
+function ensureContains(min: number, max: number, center: number): [number, number] {
+  return [Math.min(min, center), Math.max(max, center)];
+}
+
+/**
  * Infer a reasonable fallback range for a degenerate (min === max) domain using
  * animatable metadata: units, group type, or a generic window around the value.
+ * The returned range is guaranteed to contain the center value.
  */
 function inferFallbackRange(
   center: number,
@@ -15,19 +27,19 @@ function inferFallbackRange(
     // Unit-based inference
     const units = animatable.pub?.units;
     if (units === "rad") {
-      return [-Math.PI, Math.PI];
+      return ensureContains(-Math.PI, Math.PI, center);
     }
 
     // Group-type inference
     const groupType = animatable.group?.type;
     if (groupType === AnimatableGroupType.Euler) {
-      return [-Math.PI, Math.PI];
+      return ensureContains(-Math.PI, Math.PI, center);
     }
     if (groupType === AnimatableGroupType.RGB) {
-      return [0, 1];
+      return ensureContains(0, 1, center);
     }
     if (groupType === AnimatableGroupType.HSL) {
-      return [0, 1];
+      return ensureContains(0, 1, center);
     }
   }
 
