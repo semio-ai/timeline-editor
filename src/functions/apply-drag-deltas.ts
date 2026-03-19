@@ -59,10 +59,9 @@ const applyPrecision = (value: number, valueScale?: ValueScale): number => {
 
 /**
  * Clamp a dragged value to explicit animatable constraint bounds only.
- * Data-derived or visual-domain bounds must NOT be used for clamping —
+ * Data-derived or visual-domain bounds must not be used for clamping because
  * they reflect the current value range and would prevent the user from
- * dragging beyond it. The valueScale.domain fallback has been removed;
- * constraint enforcement is now handled exclusively via constraintBounds.
+ * dragging beyond it.
  */
 const clampValue = (
   value: number,
