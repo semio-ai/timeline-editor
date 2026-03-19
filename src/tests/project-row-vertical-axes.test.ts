@@ -83,7 +83,7 @@ describe("projectRowVerticalAxes", () => {
     const sourceRowIds = { flat: ["row1"], spline: ["row1"] };
 
     const { rows } = projectRowVerticalAxes(rowMap, editorViews, sourceRowIds, {});
-    // Non-spline views still get verticalAxisByView populated, but skip
+    // Non-spline views get axis projection, but without spline-specific expansion/padding
     // spline-specific expansion/padding — raw bounds pass through as-is.
     expect(rows.row1.verticalAxisByView?.[viewId]).toBeDefined();
     const axis = rows.row1.verticalAxisByView![viewId];
