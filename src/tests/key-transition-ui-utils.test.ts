@@ -411,5 +411,70 @@ describe("key-transition-ui-utils", () => {
       expect(result.in).toBe(StandardTransitionType.Cubic);
       expect(result.out).toBe(StandardTransitionType.Sine);
     });
+
+    it("aligns auto-clamped in-handle to standard out-handle direction", () => {
+      const points = [makePoint("a", 0, 0), makePoint("b", 0.5, 1), makePoint("c", 1, 2)];
+      const context = makeContext(
+        [
+          points[0],
+          {
+            ...points[1],
+            transitions: {
+              in: TransitionDirective.InferredAutoClamped,
+              out: StandardTransitionType.Cubic,
+              pairing: TransitionPairing.Free,
+            },
+          },
+          points[2],
+        ],
+        1,
+      );
+
+      const result = resolveNextSelectionTransitions(context, {
+        pairing: TransitionPairing.Paired,
+      });
+
+      expect(result.pairing).toBe(TransitionPairing.Paired);
+      // Out should remain standard
+      expect(result.out).toBe(StandardTransitionType.Cubic);
+      // In should be resolved to an explicit vector aligned with the out direction
+      expect(typeof result.in).toBe("object");
+      const inDelta = result.in as { x: number; y: number };
+      expect(Number.isFinite(inDelta.x)).toBe(true);
+      expect(Number.isFinite(inDelta.y)).toBe(true);
+      expect(Math.hypot(inDelta.x, inDelta.y)).toBeGreaterThan(0);
+    });
+
+    it("aligns explicit out-handle to auto-clamped in-handle direction", () => {
+      // Use non-monotonic values so auto-clamped direction differs from explicit
+      const points = [makePoint("a", 0, 2), makePoint("b", 0.5, 0), makePoint("c", 1, 1)];
+      const context = makeContext(
+        [
+          points[0],
+          {
+            ...points[1],
+            transitions: {
+              in: TransitionDirective.InferredAutoClamped,
+              out: { x: 0.3, y: 0.1 },
+              pairing: TransitionPairing.Free,
+            },
+          },
+          points[2],
+        ],
+        1,
+      );
+
+      const result = resolveNextSelectionTransitions(context, {
+        pairing: TransitionPairing.Paired,
+      });
+
+      expect(result.pairing).toBe(TransitionPairing.Paired);
+      // Both should be explicit after alignment (auto resolved + averaged)
+      expect(typeof result.in).toBe("object");
+      expect(typeof result.out).toBe("object");
+      const outDelta = result.out as { x: number; y: number };
+      // Out handle length should be preserved
+      expect(Math.hypot(outDelta.x, outDelta.y)).toBeCloseTo(Math.hypot(0.3, 0.1), 6);
+    });
   });
 });

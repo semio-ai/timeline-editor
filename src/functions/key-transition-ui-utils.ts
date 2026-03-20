@@ -413,26 +413,25 @@ function alignHandlesForPairing(
   const inClass = classifyTransition(inTransition);
   const outClass = classifyTransition(outTransition);
 
-  // Both standard → already collinear (horizontal handles), nothing to do
+  // Both standard → leave unchanged; alignment only applies when at least
+  // one side has explicit/auto handles that can be geometrically adjusted.
   if (inClass === "standard" && outClass === "standard") return;
 
-  // Check if already collinear — if so, no modification needed
-  const collinearity = inferPairingFromHandleCollinearity({
-    prev: prevPt,
-    anchor,
-    next: nextPt,
-    inTransition,
-    outTransition,
-  });
-  if (collinearity === TransitionPairing.Paired) return;
-
-  // Resolve both handles to world-space deltas
+  // Resolve both handles to world-space deltas (using proper auto-clamp
+  // resolution, not the fallback that inferPairingFromHandleCollinearity uses)
   const inDelta = resolveHandleDeltaForAlignment("in", inTransition, anchor, prevPt, nextPt);
   const outDelta = resolveHandleDeltaForAlignment("out", outTransition, anchor, nextPt, prevPt);
   if (!inDelta || !outDelta) return;
 
   const inLen = Math.hypot(inDelta.x, inDelta.y);
   const outLen = Math.hypot(outDelta.x, outDelta.y);
+
+  // Check if already collinear — if so, no modification needed
+  if (inLen > 0 && outLen > 0) {
+    const dot = (inDelta.x * outDelta.x + inDelta.y * outDelta.y) / (inLen * outLen);
+    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+    if (Math.abs(Math.PI - angle) <= PAIRING_COLLINEARITY_TOLERANCE_RAD) return;
+  }
 
   if (inClass !== "standard" && outClass === "standard") {
     // Align explicit/auto in-handle to the standard out-handle's direction
