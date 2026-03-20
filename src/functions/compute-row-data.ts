@@ -1,5 +1,4 @@
 import { AnimatableValue, RawValue, RawVector2 } from "@semio/utils";
-import { inferPairingFromHandleCollinearity } from "./key-transition-ui-utils";
 import { pick, uniq } from "lodash";
 import {
   ComputedRowData,
@@ -15,7 +14,6 @@ import {
   EndpointTransitions,
   TrackRender,
   Keypoint,
-  StandardTransitionType,
   SourceRowData,
   TransitionHandleKind,
   TransitionPairing,
@@ -44,8 +42,8 @@ import { computeTrackViolations } from "./compute-track-violations";
 import { buildRenderParamsFromControlPoints } from "./compute-transition-params";
 import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
 import { coerceNumericValue, extractFrameNumericValue } from "./segment-value-utils";
-import { resolveTransitionDelta } from "./get-world-control-points";
 import { resolveDraggedTrackIds } from "./resolve-dragged-track-ids";
+import { inferPairingFromHandleCollinearity } from "./key-transition-ui-utils";
 import type { TransitionParams } from "./compute-transition-params";
 
 const SEGMENT_SAMPLE_RESOLUTION = 50;

@@ -622,7 +622,7 @@ function resolveHandleIndicatorTypeForContext(
   // Use the same collinearity-based inference as the canvas (resolvePairingByPoint)
   // so that the toolbar indicators match the handle shapes rendered in the spline view.
   const pairing = resolvePairingForContext(context);
-  return pairing === TransitionPairing.Paired ? "circle" : "diamond";
+  return resolveHandleIndicatorTypeFromPairing(pairing);
 }
 
 function resolveUniformHandleIndicator(values: HandleIndicatorType[]): HandleIndicatorType {

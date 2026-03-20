@@ -151,7 +151,7 @@ describe("key-transition-ui-utils", () => {
 
     expect(result.in).toEqual({ x: -0.2, y: 0.1 });
     expect(result.out).toEqual({ x: 0.25, y: -0.15 });
-    // Explicitly Free pairing is preserved even when handles are collinear —
+    // Explicitly Free pairing is preserved regardless of handle geometry —
     // re-pairing only happens via explicit toolbar toggle, not type changes.
     expect(result.pairing).toBe(TransitionPairing.Free);
   });

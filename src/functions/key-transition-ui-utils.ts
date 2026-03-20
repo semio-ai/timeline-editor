@@ -49,7 +49,6 @@ export function inferPairingFromHandleCollinearity(params: {
 
   const inDelta = resolveTransitionDelta("in", prev.stamp, anchor.stamp, prev.value, anchor.value, inTransition);
   const outDelta = resolveTransitionDelta("out", anchor.stamp, next.stamp, anchor.value, next.value, outTransition);
-  if (!inDelta || !outDelta) return undefined;
 
   const inLen = Math.hypot(inDelta.x, inDelta.y);
   const outLen = Math.hypot(outDelta.x, outDelta.y);
@@ -64,14 +63,15 @@ export function inferPairingFromHandleCollinearity(params: {
 }
 
 /**
- * Infer default pairing for a pair of transitions using collinearity when
- * neighbor context is available, falling back to Paired for standard types.
+ * Infer a default pairing for a pair of transitions based solely on their
+ * normalized transition types. When both resolve to the same type, the
+ * transitions are treated as Paired; otherwise they are Free.
+ * This is a fallback heuristic when neighbor/geometry context is unavailable.
  */
 export function resolveDefaultPairingForTransitions(
   incoming: RawVector2 | TransitionPreference | undefined,
   outgoing: RawVector2 | TransitionPreference | undefined,
 ): TransitionPairing {
-  // Without neighbor context, fall back to type comparison as a heuristic.
   const inType = normalizeTransitionForUi(incoming);
   const outType = normalizeTransitionForUi(outgoing);
   return inType === outType ? TransitionPairing.Paired : TransitionPairing.Free;
@@ -312,7 +312,9 @@ export function resolveNextSelectionTransitions(
         inTransition: nextTransitions.in,
         outTransition: nextTransitions.out,
       });
-      if (inferred === TransitionPairing.Free) {
+      if (inferred === undefined) {
+        // Collinearity indeterminate (e.g. zero-length handles) — keep existing
+      } else if (inferred === TransitionPairing.Free) {
         // Change broke collinearity — set Free
         nextTransitions.pairing = TransitionPairing.Free;
       } else if (currentPairing === TransitionPairing.Free) {
