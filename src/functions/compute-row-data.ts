@@ -918,6 +918,18 @@ function resolvePairingByPoint(
       const inTransition = point.transitions?.in ?? StandardTransitionType.Cubic;
       const outTransition = point.transitions?.out ?? StandardTransitionType.Cubic;
 
+      // When in/out transition types differ (heterogeneous handles), infer Free
+      // without geometric checks. Standard easing types share the same Y-axis
+      // parametric structure, making their handles geometrically collinear even
+      // when the types are different — the collinearity test would incorrectly
+      // promote them to Paired.
+      const inType = typeof inTransition === "string" ? inTransition : "explicit";
+      const outType = typeof outTransition === "string" ? outTransition : "explicit";
+      if (inType !== outType) {
+        pairingByPoint.set(point.id, TransitionPairing.Free);
+        return;
+      }
+
       const inDelta = resolveTransitionDelta(
         "in",
         prev.stamp,
