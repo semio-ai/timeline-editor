@@ -56,6 +56,7 @@ export const CanvasSheet = memo(function CanvasSheet({
   return (
     <TooltipHost className="w-full h-full">
       <Canvas
+        // @ts-expect-error R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
         style={{ width: "100%", height: "100%" }}
         flat
         orthographic

@@ -7,7 +7,7 @@ function stubRow(min: number, max: number): ComputedRowData {
   return {
     virtualFrames: [],
     verticalBounds: { min, max },
-    violationSet: { violations: [], byTrack: {} },
+    violationSet: { id: "", violations: {}, segments: [] },
   };
 }
 
@@ -17,7 +17,7 @@ describe("projectRowVerticalAxes", () => {
   it("produces finite axis range when row verticalBounds are non-finite", () => {
     const rowMap = { row1: stubRow(Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY) };
     const editorViews = {
-      [viewId]: { trackRender: TrackRender.Spline, verticalAxis: VerticalAxis.Normalized },
+      [viewId]: { id: viewId, trackRender: TrackRender.Spline, verticalAxis: VerticalAxis.Normalized },
     };
     const sourceRowIds = { flat: ["row1"], spline: ["row1"] };
 
@@ -33,7 +33,7 @@ describe("projectRowVerticalAxes", () => {
   it("produces finite axis range when row verticalBounds contain NaN", () => {
     const rowMap = { row1: stubRow(NaN, NaN) };
     const editorViews = {
-      [viewId]: { trackRender: TrackRender.Spline, verticalAxis: VerticalAxis.Normalized },
+      [viewId]: { id: viewId, trackRender: TrackRender.Spline, verticalAxis: VerticalAxis.Normalized },
     };
     const sourceRowIds = { flat: ["row1"], spline: ["row1"] };
 
@@ -48,7 +48,7 @@ describe("projectRowVerticalAxes", () => {
   it("expands degenerate (zero-span) bounds for spline views", () => {
     const rowMap = { row1: stubRow(50, 50) };
     const editorViews = {
-      [viewId]: { trackRender: TrackRender.Spline, verticalAxis: VerticalAxis.Normalized },
+      [viewId]: { id: viewId, trackRender: TrackRender.Spline, verticalAxis: VerticalAxis.Normalized },
     };
     const sourceRowIds = { flat: ["row1"], spline: ["row1"] };
 
@@ -63,7 +63,7 @@ describe("projectRowVerticalAxes", () => {
   it("expands degenerate bounds at zero to a finite range", () => {
     const rowMap = { row1: stubRow(0, 0) };
     const editorViews = {
-      [viewId]: { trackRender: TrackRender.Spline, verticalAxis: VerticalAxis.Normalized },
+      [viewId]: { id: viewId, trackRender: TrackRender.Spline, verticalAxis: VerticalAxis.Normalized },
     };
     const sourceRowIds = { flat: ["row1"], spline: ["row1"] };
 
@@ -78,7 +78,7 @@ describe("projectRowVerticalAxes", () => {
   it("passes through raw bounds without spline expansion for non-spline views", () => {
     const rowMap = { row1: stubRow(Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY) };
     const editorViews = {
-      [viewId]: { trackRender: TrackRender.Key, verticalAxis: VerticalAxis.Normalized },
+      [viewId]: { id: viewId, trackRender: TrackRender.Key, verticalAxis: VerticalAxis.Normalized },
     };
     const sourceRowIds = { flat: ["row1"], spline: ["row1"] };
 
