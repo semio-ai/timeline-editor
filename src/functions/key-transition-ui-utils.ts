@@ -4,7 +4,7 @@ import {
   type TransitionPatch,
   type TransitionPreference,
 } from "../store-types";
-import { StandardTransitionType, TransitionPairing } from "../types";
+import { StandardTransitionType, TransitionPairing, type AuthoredTransition } from "../types";
 import type { SimpleKeypoint } from "../types/data/simple-track";
 import { resolveTransitionDelta } from "./get-world-control-points";
 import { inferAutoHandleDeltas } from "./infer-auto-handles";
@@ -27,10 +27,51 @@ export function normalizeTransitionForUi(
   return transition;
 }
 
+/** Tolerance for collinearity check (3 degrees). */
+const PAIRING_COLLINEARITY_TOLERANCE_RAD = (3 * Math.PI) / 180;
+
+/**
+ * Infer pairing from the geometric collinearity of resolved handle directions.
+ * Pairing is a directional constraint (handles lie on the same line through the
+ * control point), independent of the transition type. Returns undefined when
+ * collinearity cannot be determined (missing neighbors, zero-length handles).
+ */
+export function inferPairingFromHandleCollinearity(params: {
+  prev: { stamp: number; value: number };
+  anchor: { stamp: number; value: number };
+  next: { stamp: number; value: number };
+  inTransition: AuthoredTransition | string | undefined;
+  outTransition: AuthoredTransition | string | undefined;
+}): TransitionPairing | undefined {
+  const { prev, anchor, next } = params;
+  const inTransition = params.inTransition ?? StandardTransitionType.Cubic;
+  const outTransition = params.outTransition ?? StandardTransitionType.Cubic;
+
+  const inDelta = resolveTransitionDelta("in", prev.stamp, anchor.stamp, prev.value, anchor.value, inTransition);
+  const outDelta = resolveTransitionDelta("out", anchor.stamp, next.stamp, anchor.value, next.value, outTransition);
+  if (!inDelta || !outDelta) return undefined;
+
+  const inLen = Math.hypot(inDelta.x, inDelta.y);
+  const outLen = Math.hypot(outDelta.x, outDelta.y);
+  if (inLen === 0 || outLen === 0) return undefined;
+
+  const dot = (inDelta.x * outDelta.x + inDelta.y * outDelta.y) / (inLen * outLen);
+  const clampedDot = Math.max(-1, Math.min(1, dot));
+  const angle = Math.acos(clampedDot);
+  return Math.abs(Math.PI - angle) <= PAIRING_COLLINEARITY_TOLERANCE_RAD
+    ? TransitionPairing.Paired
+    : TransitionPairing.Free;
+}
+
+/**
+ * Infer default pairing for a pair of transitions using collinearity when
+ * neighbor context is available, falling back to Paired for standard types.
+ */
 export function resolveDefaultPairingForTransitions(
   incoming: RawVector2 | TransitionPreference | undefined,
   outgoing: RawVector2 | TransitionPreference | undefined,
 ): TransitionPairing {
+  // Without neighbor context, fall back to type comparison as a heuristic.
   const inType = normalizeTransitionForUi(incoming);
   const outType = normalizeTransitionForUi(outgoing);
   return inType === outType ? TransitionPairing.Paired : TransitionPairing.Free;
@@ -39,12 +80,31 @@ export function resolveDefaultPairingForTransitions(
 export function resolvePairingForContext(
   context: SelectedKeyContext,
 ): TransitionPairing | undefined {
-  const { point } = context;
+  const { point, sortedTrackPoints, pointIndex } = context;
   if (point.transitions?.pairing) {
     return point.transitions.pairing;
   }
 
-  return resolveDefaultPairingForTransitions(point.transitions?.in, point.transitions?.out);
+  // Use collinearity-based inference when we have neighbor context,
+  // matching the canvas behavior in resolvePairingByPoint.
+  const prev = pointIndex > 0 ? sortedTrackPoints[pointIndex - 1] : undefined;
+  const next = pointIndex < sortedTrackPoints.length - 1 ? sortedTrackPoints[pointIndex + 1] : undefined;
+  if (
+    prev && next &&
+    typeof prev.value === "number" &&
+    typeof point.value === "number" &&
+    typeof next.value === "number"
+  ) {
+    return inferPairingFromHandleCollinearity({
+      prev: { stamp: prev.stamp, value: prev.value },
+      anchor: { stamp: point.stamp, value: point.value },
+      next: { stamp: next.stamp, value: next.value },
+      inTransition: point.transitions?.in,
+      outTransition: point.transitions?.out,
+    });
+  }
+
+  return undefined;
 }
 
 function contextHasPairableNeighbors(context: SelectedKeyContext): boolean {
@@ -207,8 +267,9 @@ export function resolveNextSelectionTransitions(
   context: SelectedKeyContext,
   patch: TransitionPatch,
 ) {
+  const { point, sortedTrackPoints, pointIndex } = context;
   const nextTransitions = {
-    ...(context.point.transitions ?? {}),
+    ...(point.transitions ?? {}),
   };
 
   if (patch.in !== undefined && contextHasNeighbor(context, "in")) {
@@ -232,10 +293,36 @@ export function resolveNextSelectionTransitions(
     (patch.in !== undefined || patch.out !== undefined) &&
     contextHasPairableNeighbors(context)
   ) {
-    nextTransitions.pairing = resolveDefaultPairingForTransitions(
-      nextTransitions.in,
-      nextTransitions.out,
-    );
+    // After a toolbar type change, infer pairing from the collinearity of the
+    // resulting handle directions. Only set Free if the change breaks collinearity;
+    // don't re-pair handles that were already Free.
+    const prev = sortedTrackPoints[pointIndex - 1];
+    const next = sortedTrackPoints[pointIndex + 1];
+    if (
+      prev && next &&
+      typeof prev.value === "number" &&
+      typeof point.value === "number" &&
+      typeof next.value === "number"
+    ) {
+      const currentPairing = point.transitions?.pairing;
+      const inferred = inferPairingFromHandleCollinearity({
+        prev: { stamp: prev.stamp, value: prev.value },
+        anchor: { stamp: point.stamp, value: point.value },
+        next: { stamp: next.stamp, value: next.value },
+        inTransition: nextTransitions.in,
+        outTransition: nextTransitions.out,
+      });
+      if (inferred === TransitionPairing.Free) {
+        // Change broke collinearity — set Free
+        nextTransitions.pairing = TransitionPairing.Free;
+      } else if (currentPairing === TransitionPairing.Free) {
+        // Was explicitly Free — don't re-pair (user must toggle explicitly)
+        nextTransitions.pairing = TransitionPairing.Free;
+      } else {
+        // Collinear and not explicitly Free — infer Paired
+        nextTransitions.pairing = inferred;
+      }
+    }
   }
 
   return nextTransitions;

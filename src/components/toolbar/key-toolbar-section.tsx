@@ -619,8 +619,10 @@ function resolveHandleIndicatorTypeForContext(
     return "indeterminate";
   }
 
-  // Match canvas behavior: only explicitly paired handles render as circular.
-  return context.point.transitions?.pairing === TransitionPairing.Paired ? "circle" : "diamond";
+  // Use the same collinearity-based inference as the canvas (resolvePairingByPoint)
+  // so that the toolbar indicators match the handle shapes rendered in the spline view.
+  const pairing = resolvePairingForContext(context);
+  return pairing === TransitionPairing.Paired ? "circle" : "diamond";
 }
 
 function resolveUniformHandleIndicator(values: HandleIndicatorType[]): HandleIndicatorType {
