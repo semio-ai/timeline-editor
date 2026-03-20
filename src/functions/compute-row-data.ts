@@ -910,7 +910,11 @@ function resolvePairingByPoint(
         pairingByPoint.set(point.id, undefined);
         return;
       }
-      if (typeof prev.value !== "number" || typeof next.value !== "number") {
+      if (
+        typeof prev.value !== "number" ||
+        typeof point.value !== "number" ||
+        typeof next.value !== "number"
+      ) {
         pairingByPoint.set(point.id, undefined);
         return;
       }

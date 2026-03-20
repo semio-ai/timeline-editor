@@ -275,4 +275,141 @@ describe("key-transition-ui-utils", () => {
     expect(outgoing.x).toBeCloseTo(0.13643065634710644, 8);
     expect(Number.isFinite(outgoing.y)).toBe(true);
   });
+
+  describe("handle alignment when toggling Free → Paired", () => {
+    it("aligns explicit in-handle to standard out-handle direction, preserving length", () => {
+      const points = [makePoint("a", 0, 0), makePoint("b", 0.5, 1), makePoint("c", 1, 2)];
+      const context = makeContext(
+        [
+          points[0],
+          {
+            ...points[1],
+            transitions: {
+              in: { x: -0.2, y: -0.3 },
+              out: StandardTransitionType.Cubic,
+              pairing: TransitionPairing.Free,
+            },
+          },
+          points[2],
+        ],
+        1,
+      );
+
+      const result = resolveNextSelectionTransitions(context, {
+        pairing: TransitionPairing.Paired,
+      });
+
+      expect(result.pairing).toBe(TransitionPairing.Paired);
+      // Out handle should remain a standard type (unchanged)
+      expect(result.out).toBe(StandardTransitionType.Cubic);
+      // In handle should now be an explicit vector aligned to the out direction
+      expect(typeof result.in).toBe("object");
+      const inDelta = result.in as { x: number; y: number };
+      // Length should be preserved
+      const originalLen = Math.hypot(-0.2, -0.3);
+      const newLen = Math.hypot(inDelta.x, inDelta.y);
+      expect(newLen).toBeCloseTo(originalLen, 6);
+    });
+
+    it("aligns explicit out-handle to standard in-handle direction, preserving length", () => {
+      const points = [makePoint("a", 0, 0), makePoint("b", 0.5, 1), makePoint("c", 1, 2)];
+      const context = makeContext(
+        [
+          points[0],
+          {
+            ...points[1],
+            transitions: {
+              in: StandardTransitionType.Sine,
+              out: { x: 0.3, y: 0.4 },
+              pairing: TransitionPairing.Free,
+            },
+          },
+          points[2],
+        ],
+        1,
+      );
+
+      const result = resolveNextSelectionTransitions(context, {
+        pairing: TransitionPairing.Paired,
+      });
+
+      expect(result.pairing).toBe(TransitionPairing.Paired);
+      expect(result.in).toBe(StandardTransitionType.Sine);
+      expect(typeof result.out).toBe("object");
+      const outDelta = result.out as { x: number; y: number };
+      const originalLen = Math.hypot(0.3, 0.4);
+      const newLen = Math.hypot(outDelta.x, outDelta.y);
+      expect(newLen).toBeCloseTo(originalLen, 6);
+    });
+
+    it("averages directions for two explicit handles, preserving both lengths", () => {
+      const points = [makePoint("a", 0, 0), makePoint("b", 0.5, 1), makePoint("c", 1, 0)];
+      // Handles that are clearly not collinear
+      const inDelta = { x: -0.3, y: 0.1 };
+      const outDelta = { x: 0.1, y: 0.3 };
+      const context = makeContext(
+        [
+          points[0],
+          {
+            ...points[1],
+            transitions: {
+              in: inDelta,
+              out: outDelta,
+              pairing: TransitionPairing.Free,
+            },
+          },
+          points[2],
+        ],
+        1,
+      );
+
+      const result = resolveNextSelectionTransitions(context, {
+        pairing: TransitionPairing.Paired,
+      });
+
+      expect(result.pairing).toBe(TransitionPairing.Paired);
+      const newIn = result.in as { x: number; y: number };
+      const newOut = result.out as { x: number; y: number };
+      // Both should now be explicit vectors
+      expect(typeof newIn).toBe("object");
+      expect(typeof newOut).toBe("object");
+      // Lengths should be preserved
+      expect(Math.hypot(newIn.x, newIn.y)).toBeCloseTo(Math.hypot(inDelta.x, inDelta.y), 6);
+      expect(Math.hypot(newOut.x, newOut.y)).toBeCloseTo(Math.hypot(outDelta.x, outDelta.y), 6);
+      // Handles should now be collinear (anti-parallel)
+      const inLen = Math.hypot(newIn.x, newIn.y);
+      const outLen = Math.hypot(newOut.x, newOut.y);
+      const dot = (newIn.x * newOut.x + newIn.y * newOut.y) / (inLen * outLen);
+      const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+      // Should be ~180 degrees (anti-parallel / collinear)
+      expect(Math.abs(Math.PI - angle)).toBeLessThan(0.01);
+    });
+
+    it("does not modify handles when both are standard types", () => {
+      const points = [makePoint("a", 0, 0), makePoint("b", 0.5, 1), makePoint("c", 1, 2)];
+      const context = makeContext(
+        [
+          points[0],
+          {
+            ...points[1],
+            transitions: {
+              in: StandardTransitionType.Cubic,
+              out: StandardTransitionType.Sine,
+              pairing: TransitionPairing.Free,
+            },
+          },
+          points[2],
+        ],
+        1,
+      );
+
+      const result = resolveNextSelectionTransitions(context, {
+        pairing: TransitionPairing.Paired,
+      });
+
+      expect(result.pairing).toBe(TransitionPairing.Paired);
+      expect(result.in).toBe(StandardTransitionType.Cubic);
+      expect(result.out).toBe(StandardTransitionType.Sine);
+    });
+  });
 });
