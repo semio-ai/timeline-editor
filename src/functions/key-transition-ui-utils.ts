@@ -289,6 +289,13 @@ export function resolveNextSelectionTransitions(
 
   if (patch.pairing !== undefined) {
     nextTransitions.pairing = patch.pairing;
+    // When switching to Paired, align handles if they aren't already collinear.
+    if (
+      patch.pairing === TransitionPairing.Paired &&
+      contextHasPairableNeighbors(context)
+    ) {
+      alignHandlesForPairing(nextTransitions, context);
+    }
   } else if (
     (patch.in !== undefined || patch.out !== undefined) &&
     contextHasPairableNeighbors(context)
@@ -328,4 +335,153 @@ export function resolveNextSelectionTransitions(
   }
 
   return nextTransitions;
+}
+
+/**
+ * Classify a transition as "standard" (easing enum), "explicit" ({x,y} delta),
+ * or "auto" (inferred auto-clamped directive).
+ */
+function classifyTransition(
+  transition: AuthoredTransition | undefined,
+): "standard" | "explicit" | "auto" {
+  if (!transition) return "standard";
+  if (typeof transition === "object") return "explicit";
+  if (transition === TransitionDirective.InferredAutoClamped) return "auto";
+  return "standard";
+}
+
+/**
+ * Resolve a transition to a world-space delta relative to the anchor, using
+ * neighbor context for standard easing types and auto-clamped handles.
+ */
+function resolveHandleDeltaForAlignment(
+  side: "in" | "out",
+  transition: AuthoredTransition | undefined,
+  anchor: { stamp: number; value: number },
+  neighbor: { stamp: number; value: number },
+  otherNeighbor?: { stamp: number; value: number },
+): RawVector2 | undefined {
+  if (transition && typeof transition === "object") {
+    return transition;
+  }
+
+  // For auto-clamped, use the inferred handle delta
+  if (transition === TransitionDirective.InferredAutoClamped && otherNeighbor) {
+    const prev = side === "in" ? neighbor : otherNeighbor;
+    const next = side === "in" ? otherNeighbor : neighbor;
+    const inferred = inferAutoHandleDeltas({ prev, anchor, next });
+    if (!inferred) return undefined;
+    return side === "in" ? inferred.in : inferred.out;
+  }
+
+  // Standard easing type — resolve to world delta
+  const easing = transition ?? StandardTransitionType.Cubic;
+  if (side === "in") {
+    return resolveTransitionDelta("in", neighbor.stamp, anchor.stamp, neighbor.value, anchor.value, easing);
+  }
+  return resolveTransitionDelta("out", anchor.stamp, neighbor.stamp, anchor.value, neighbor.value, easing);
+}
+
+/**
+ * When pairing is set to Paired, align handles so they are collinear.
+ *
+ * Priority:
+ * 1. Both standard types → no modification needed (already collinear)
+ * 2. One explicit + one standard → align the explicit to the standard's direction
+ * 3. Both explicit → average directions, preserve both lengths
+ * 4. Auto-clamped → resolve first, then treat as explicit
+ *
+ * Modifies `nextTransitions` in place.
+ */
+function alignHandlesForPairing(
+  nextTransitions: SimpleKeypoint["transitions"] & Record<string, unknown>,
+  context: SelectedKeyContext,
+): void {
+  const { point, sortedTrackPoints, pointIndex } = context;
+  if (typeof point.value !== "number") return;
+
+  const prev = sortedTrackPoints[pointIndex - 1];
+  const next = sortedTrackPoints[pointIndex + 1];
+  if (!prev || !next || typeof prev.value !== "number" || typeof next.value !== "number") return;
+
+  const anchor = { stamp: point.stamp, value: point.value };
+  const prevPt = { stamp: prev.stamp, value: prev.value as number };
+  const nextPt = { stamp: next.stamp, value: next.value as number };
+
+  const inTransition = nextTransitions.in as AuthoredTransition | undefined;
+  const outTransition = nextTransitions.out as AuthoredTransition | undefined;
+  const inClass = classifyTransition(inTransition);
+  const outClass = classifyTransition(outTransition);
+
+  // Both standard → already collinear (horizontal handles), nothing to do
+  if (inClass === "standard" && outClass === "standard") return;
+
+  // Check if already collinear — if so, no modification needed
+  const collinearity = inferPairingFromHandleCollinearity({
+    prev: prevPt,
+    anchor,
+    next: nextPt,
+    inTransition,
+    outTransition,
+  });
+  if (collinearity === TransitionPairing.Paired) return;
+
+  // Resolve both handles to world-space deltas
+  const inDelta = resolveHandleDeltaForAlignment("in", inTransition, anchor, prevPt, nextPt);
+  const outDelta = resolveHandleDeltaForAlignment("out", outTransition, anchor, nextPt, prevPt);
+  if (!inDelta || !outDelta) return;
+
+  const inLen = Math.hypot(inDelta.x, inDelta.y);
+  const outLen = Math.hypot(outDelta.x, outDelta.y);
+
+  if (inClass !== "standard" && outClass === "standard") {
+    // Align explicit/auto in-handle to the standard out-handle's direction
+    if (outLen === 0) return;
+    // The out direction is the "forward" direction; in should be anti-parallel
+    const dirX = -outDelta.x / outLen;
+    const dirY = -outDelta.y / outLen;
+    nextTransitions.in = { x: dirX * inLen, y: dirY * inLen };
+  } else if (inClass === "standard" && outClass !== "standard") {
+    // Align explicit/auto out-handle to the standard in-handle's direction
+    if (inLen === 0) return;
+    // The in direction points backward; out should be anti-parallel to it
+    const dirX = -inDelta.x / inLen;
+    const dirY = -inDelta.y / inLen;
+    nextTransitions.out = { x: dirX * outLen, y: dirY * outLen };
+  } else {
+    // Both explicit/auto — average directions, preserve lengths
+    // Forward direction: out as-is, negate in
+    const inFwdX = -inDelta.x;
+    const inFwdY = -inDelta.y;
+
+    const inFwdLen = inLen;
+    const outFwdLen = outLen;
+
+    if (inFwdLen === 0 && outFwdLen === 0) return;
+
+    // Normalize and average
+    const inNormX = inFwdLen > 0 ? inFwdX / inFwdLen : 0;
+    const inNormY = inFwdLen > 0 ? inFwdY / inFwdLen : 0;
+    const outNormX = outFwdLen > 0 ? outDelta.x / outFwdLen : 0;
+    const outNormY = outFwdLen > 0 ? outDelta.y / outFwdLen : 0;
+
+    let avgX = inNormX + outNormX;
+    let avgY = inNormY + outNormY;
+    const avgLen = Math.hypot(avgX, avgY);
+
+    if (avgLen === 0) {
+      // Handles point in exactly opposite non-collinear directions — use out
+      if (outFwdLen === 0) return;
+      avgX = outDelta.x / outFwdLen;
+      avgY = outDelta.y / outFwdLen;
+    } else {
+      avgX /= avgLen;
+      avgY /= avgLen;
+    }
+
+    // Out handle: forward direction with original length
+    nextTransitions.out = { x: avgX * outLen, y: avgY * outLen };
+    // In handle: backward direction with original length
+    nextTransitions.in = { x: -avgX * inLen, y: -avgY * inLen };
+  }
 }
