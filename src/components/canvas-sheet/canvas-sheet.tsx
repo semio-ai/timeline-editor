@@ -59,7 +59,8 @@ export const CanvasSheet = memo(function CanvasSheet({
   return (
     <TooltipHost className="w-full h-full">
       <Canvas
-        // @ts-expect-error R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment -- error only exists in tsc, not tsup DTS
+        // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
         style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0, transition: "opacity 0.2s ease-in" }}
         flat
         orthographic
