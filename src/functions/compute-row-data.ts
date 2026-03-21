@@ -14,7 +14,6 @@ import {
   EndpointTransitions,
   TrackRender,
   Keypoint,
-  StandardTransitionType,
   SourceRowData,
   TransitionHandleKind,
   TransitionPairing,
@@ -43,8 +42,8 @@ import { computeTrackViolations } from "./compute-track-violations";
 import { buildRenderParamsFromControlPoints } from "./compute-transition-params";
 import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
 import { coerceNumericValue, extractFrameNumericValue } from "./segment-value-utils";
-import { resolveTransitionDelta } from "./get-world-control-points";
 import { resolveDraggedTrackIds } from "./resolve-dragged-track-ids";
+import { inferPairingFromHandleCollinearity } from "./key-transition-ui-utils";
 import type { TransitionParams } from "./compute-transition-params";
 
 const SEGMENT_SAMPLE_RESOLUTION = 50;
@@ -55,7 +54,7 @@ const IDENTITY_TRANSFORM: AffineTransform2D = {
   offsetY: 0,
 };
 
-const PAIRING_FLAT_TOLERANCE_RAD = (3 * Math.PI) / 180;
+
 
 interface RowComputationContext {
   animations: Record<string, Animation>;
@@ -911,46 +910,21 @@ function resolvePairingByPoint(
         pairingByPoint.set(point.id, undefined);
         return;
       }
-      if (typeof prev.value !== "number" || typeof next.value !== "number") {
+      if (
+        typeof prev.value !== "number" ||
+        typeof point.value !== "number" ||
+        typeof next.value !== "number"
+      ) {
         pairingByPoint.set(point.id, undefined);
         return;
       }
-      const inTransition = point.transitions?.in ?? StandardTransitionType.Cubic;
-      const outTransition = point.transitions?.out ?? StandardTransitionType.Cubic;
-
-      const inDelta = resolveTransitionDelta(
-        "in",
-        prev.stamp,
-        point.stamp,
-        prev.value as number,
-        point.value as number,
-        inTransition,
-      );
-      const outDelta = resolveTransitionDelta(
-        "out",
-        point.stamp,
-        next.stamp,
-        point.value as number,
-        next.value as number,
-        outTransition,
-      );
-      if (!inDelta || !outDelta) {
-        pairingByPoint.set(point.id, undefined);
-        return;
-      }
-      const inLen = Math.hypot(inDelta.x, inDelta.y);
-      const outLen = Math.hypot(outDelta.x, outDelta.y);
-      if (inLen === 0 || outLen === 0) {
-        pairingByPoint.set(point.id, undefined);
-        return;
-      }
-      const dot = (inDelta.x * outDelta.x + inDelta.y * outDelta.y) / (inLen * outLen);
-      const clampedDot = Math.max(-1, Math.min(1, dot));
-      const angle = Math.acos(clampedDot);
-      const inferred =
-        Math.abs(Math.PI - angle) <= PAIRING_FLAT_TOLERANCE_RAD
-          ? TransitionPairing.Paired
-          : TransitionPairing.Free;
+      const inferred = inferPairingFromHandleCollinearity({
+        prev: { stamp: prev.stamp, value: prev.value as number },
+        anchor: { stamp: point.stamp, value: point.value as number },
+        next: { stamp: next.stamp, value: next.value as number },
+        inTransition: point.transitions?.in,
+        outTransition: point.transitions?.out,
+      });
       pairingByPoint.set(point.id, inferred);
     });
   });
