@@ -330,7 +330,7 @@ export const PreviewMode: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <PreviewModeExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -344,7 +344,7 @@ export const TransitionMode: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <TransitionModeExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -358,7 +358,7 @@ export const KeyMode: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <KeyModeExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -372,7 +372,7 @@ export const BufferMode: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <BufferModeExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -386,7 +386,7 @@ export const AnimatedTransition: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <AnimatedTransitionExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -400,7 +400,7 @@ export const MultipleTracks: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <MultipleTracksExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -440,7 +440,7 @@ export const AllModes: Story = {
           <MultipleTracksExample />
         </group>
 
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[500, 25, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>

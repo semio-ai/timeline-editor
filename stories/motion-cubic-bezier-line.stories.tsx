@@ -208,7 +208,7 @@ export const Basic: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <BasicExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -222,7 +222,7 @@ export const Animated: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <AnimatedExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -236,7 +236,7 @@ export const MultipleStyles: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <MultipleStylesExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -250,7 +250,7 @@ export const Interactive: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <InteractiveExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -280,7 +280,7 @@ export const Showcase: Story = {
           <InteractiveExample />
         </group>
 
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[400, 20, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
