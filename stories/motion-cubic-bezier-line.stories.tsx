@@ -49,8 +49,9 @@ function AnimatedExample() {
   const cp2Y = useMotionValue(-25);
 
   useEffect(() => {
+    let cancelled = false;
     const animateControlPoints = async () => {
-      while (true) {
+      while (!cancelled) {
         // Animate to first configuration
         await Promise.all([
           animate(cp1X, 25, { duration: 2 }),
@@ -77,7 +78,8 @@ function AnimatedExample() {
       }
     };
 
-    animateControlPoints();
+    void animateControlPoints();
+    return () => { cancelled = true; };
   }, [cp1X, cp1Y, cp2X, cp2Y]);
 
   return (
