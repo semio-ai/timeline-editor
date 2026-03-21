@@ -400,7 +400,7 @@ export const Basic: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <BasicFillExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -414,7 +414,7 @@ export const FillWithLine: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <FillWithLineExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -428,7 +428,7 @@ export const Animated: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <AnimatedFillExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -442,7 +442,7 @@ export const MultipleFills: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <MultipleFillsExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -456,7 +456,7 @@ export const Interactive: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <InteractiveFillExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -470,7 +470,7 @@ export const DifferentBaselines: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <DifferentBaselinesExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -484,7 +484,7 @@ export const BaselineExtension: Story = {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <BaselineExtensionExample />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[300, 15, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
@@ -526,7 +526,7 @@ export const Showcase: Story = {
           <BaselineExtensionExample />
         </group>
 
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls enablePan enableZoom enableRotate />
         <gridHelper args={[500, 25, "#333", "#333"]} rotation={[Math.PI / 2, 0, 0]} />
       </Canvas>
     </div>
