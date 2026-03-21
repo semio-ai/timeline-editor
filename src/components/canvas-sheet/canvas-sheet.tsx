@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState, useCallback } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
@@ -53,12 +53,18 @@ export const CanvasSheet = memo(function CanvasSheet({
     false, // Dynamic camera follows viewport
   );
 
+  const [ready, setReady] = useState(false);
+  const handleCreated = useCallback(() => setReady(true), []);
+
   return (
     <TooltipHost className="w-full h-full">
       <Canvas
-        style={{ width: "100%", height: "100%" }}
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment -- error only exists in tsc, not tsup DTS
+        // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
+        style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0, transition: "opacity 0.2s ease-in" }}
         flat
         orthographic
+        onCreated={handleCreated}
         resize={{ debounce: 0 }}
         camera={{
           name: "MainCamera",
