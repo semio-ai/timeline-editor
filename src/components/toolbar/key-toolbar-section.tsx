@@ -357,7 +357,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
         <Dropdown
           side="top"
           trigger={
-            <>
+            <div className="flex">
               <div className={TRANSITION_TEXT_BUTTON_CLASS}>
                 <ToolbarTooltipButton
                   tooltip={incomingTransitionTooltip}
@@ -365,7 +365,6 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
                   visuals="inverted"
                   size={Size.Sm}
                   altText={incomingTransitionTooltip}
-                  // leftIcon={getTransitionSettingIcon(incomingValue)}
                   leftIcon={
                     <IconHandleIndicator
                       className={clsx(
@@ -420,7 +419,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
                   className={clsx("bg-neutral-500/10 hover:bg-neutral-500/25", "rounded-l-xs")}
                 />
               </div>
-            </>
+            </div>
           }
         >
           <NestedLabel>
@@ -464,7 +463,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
         <Dropdown
           side="top"
           trigger={
-            <>
+            <div className="flex">
               <div className={TRANSITION_TEXT_BUTTON_CLASS}>
                 <ToolbarTooltipButton
                   tooltip={outgoingTransitionTooltip}
@@ -472,7 +471,6 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
                   visuals="inverted"
                   size={Size.Sm}
                   altText={outgoingTransitionTooltip}
-                  // leftIcon={getTransitionSettingIcon(outgoingValue)}
                   rightIcon={
                     <IconHandleIndicator
                       className={clsx(
@@ -502,7 +500,6 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
                   visuals="inverted"
                   size={Size.Sm}
                   altText={outgoingTransitionTooltip}
-                  // leftIcon={getTransitionSettingIcon(outgoingValue)}
                   rightIcon={
                     <IconHandleIndicator
                       className={clsx(
@@ -523,7 +520,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
                   className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-r-xs"
                 />
               </div>
-            </>
+            </div>
           }
         >
           <NestedLabel>
@@ -622,8 +619,10 @@ function resolveHandleIndicatorTypeForContext(
     return "indeterminate";
   }
 
-  // Match canvas behavior: only explicitly paired handles render as circular.
-  return context.point.transitions?.pairing === TransitionPairing.Paired ? "circle" : "diamond";
+  // Use the same collinearity-based inference as the canvas (resolvePairingByPoint)
+  // so that the toolbar indicators match the handle shapes rendered in the spline view.
+  const pairing = resolvePairingForContext(context);
+  return resolveHandleIndicatorTypeFromPairing(pairing);
 }
 
 function resolveUniformHandleIndicator(values: HandleIndicatorType[]): HandleIndicatorType {
