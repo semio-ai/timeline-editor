@@ -1,7 +1,7 @@
 import { useEffect, useRef, forwardRef, memo } from "react";
 import { useThree } from "@react-three/fiber";
 import { OrthographicCamera, Vector2 } from "three";
-import { usePlayerStore } from "@semio/utils";
+import { usePlayerStore, isOrthographicCamera } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
 import { MotionValue } from "motion";
 import { useGesture } from "@use-gesture/react";
@@ -471,12 +471,17 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
           scrollValue: settingsRef.current.scrollValue,
           trackRegion: settingsRef.current.trackRegion,
           contentHeightPx: settingsRef.current.contentHeightPx,
-          getFrustum: () => ({
-            left: (camera as OrthographicCamera).left,
-            right: (camera as OrthographicCamera).right,
-            top: (camera as OrthographicCamera).top,
-            bottom: (camera as OrthographicCamera).bottom,
-          }),
+          getFrustum: () => {
+            if (isOrthographicCamera(camera)) {
+              return {
+                left: camera.left,
+                right: camera.right,
+                top: camera.top,
+                bottom: camera.bottom,
+              };
+            }
+            return { left: 0, right: 0, top: 0, bottom: 0 };
+          },
           update: () => false,
         };
 

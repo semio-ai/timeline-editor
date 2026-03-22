@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { useFrame, ThreeEvent, useThree } from "@react-three/fiber";
 import { clamp } from "lodash";
 import { useShallow } from "zustand/react/shallow";
-import { usePlayerStore, closestFrame } from "@semio/utils";
+import { usePlayerStore, closestFrame, isOrthographicCamera } from "@semio/utils";
 import {
   useMotionValue,
   easeOut,
@@ -526,9 +526,10 @@ function usePlayheadCartSprings(
   });
 
   useFrame(({ camera }) => {
+    if (!isOrthographicCamera(camera)) return;
     const [l, r] = [
-      (camera as THREE.OrthographicCamera).left,
-      (camera as THREE.OrthographicCamera).right,
+      camera.left,
+      camera.right,
     ];
     const clampedPosition = computeClampedPosition(
       defaultPlayheadSpring.get(),

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useGesture } from "@use-gesture/react";
 import { useThree } from "@react-three/fiber";
 import { clamp } from "lodash";
-import * as THREE from "three";
+import { isOrthographicCamera } from "@semio/utils";
 import { getDataViewportFromFrustum } from "../viewport-utils";
 
 type GestureConfig = Parameters<typeof useGesture>[1];
@@ -69,9 +69,11 @@ export const useDragGestures = ({
   const getTimelinePositionFromMovement = useCallback(
     (movement: number, initial: number): number => {
       // Convert screen movement to normalized coordinate space
-      const orthoCam = camera as unknown as THREE.OrthographicCamera;
+      if (!isOrthographicCamera(camera)) {
+        return clamp(initial, 0, 1);
+      }
       const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
-        { left: orthoCam.left, right: orthoCam.right },
+        { left: camera.left, right: camera.right },
         Math.max(1, size.width),
       );
       const dataWidth = dataRight - dataLeft;
@@ -91,12 +93,15 @@ export const useDragGestures = ({
   // Convert pointer event to timeline position (for initial position)
   const getTimelinePositionFromEvent = useCallback(
     (event: any): number => {
+      if (!isOrthographicCamera(camera)) {
+        return 0;
+      }
+
       // Try to use intersection point if available (from Three.js event)
       if (event?.point) {
         const worldX = event.point.x as number;
-        const orthoCamera = camera as unknown as THREE.OrthographicCamera;
         const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
-          { left: orthoCamera.left, right: orthoCamera.right },
+          { left: camera.left, right: camera.right },
           Math.max(1, size.width),
         );
         const clamped = Math.min(dataRight, Math.max(dataLeft, worldX));
@@ -108,10 +113,9 @@ export const useDragGestures = ({
       const normalizedX = clientX / size.width;
 
       // For orthographic camera, map screen space to world space
-      const orthoCamera = camera as unknown as THREE.OrthographicCamera;
-      const worldX = orthoCamera.left + normalizedX * (orthoCamera.right - orthoCamera.left);
+      const worldX = camera.left + normalizedX * (camera.right - camera.left);
       const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
-        { left: orthoCamera.left, right: orthoCamera.right },
+        { left: camera.left, right: camera.right },
         Math.max(1, size.width),
       );
 
@@ -245,8 +249,8 @@ export const useViewportDragGestures = ({
         }
 
         // Convert screen movement to normalized coordinate space
-        const orthoCam = camera as unknown as THREE.OrthographicCamera;
-        const worldWidth = orthoCam.right - orthoCam.left;
+        if (!isOrthographicCamera(camera)) return;
+        const worldWidth = camera.right - camera.left;
         const deltaX = (mx / size.width) * worldWidth;
 
         const memViewport = memo as [number, number];
@@ -286,8 +290,8 @@ export const useViewportDragGestures = ({
         if (disabled) return;
 
         // Calculate final viewport using same logic as onDrag
-        const orthoCam = camera as unknown as THREE.OrthographicCamera;
-        const worldWidth = orthoCam.right - orthoCam.left;
+        if (!isOrthographicCamera(camera)) return;
+        const worldWidth = camera.right - camera.left;
         const deltaX = (mx / size.width) * worldWidth;
 
         const memViewport = memo as [number, number];
