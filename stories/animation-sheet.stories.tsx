@@ -55,7 +55,7 @@ function AnimationSheetWithStore({
       <div ref={ref} style={{ width: "100vw", height: "100vh", minHeight: 400 }}>
         <AnimationSheet
           {...props}
-          height={props.height || bounds.height || 600}
+          height={props.height ?? (bounds.height > 0 ? bounds.height : 600)}
           fonts={{
             mono: "fonts/roboto-mono-regular.ttf",
             ui: "fonts/roboto-regular.ttf",

@@ -1,11 +1,11 @@
 import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Line, useCursor } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { Camera, Group, Mesh, OrthographicCamera, Vector3 } from "three";
+import { Camera, Group, Mesh, Vector3 } from "three";
 import { useMotionValueEvent, useSpring } from "motion/react";
 import { Theme } from "@semio/ui";
 import type { RawVector2 } from "@semio/utils";
-import { usePlayerStore } from "@semio/utils";
+import { usePlayerStore, isOrthographicCamera } from "@semio/utils";
 import {
   LayerBand,
   RenderHandle,
@@ -211,8 +211,8 @@ export const BezierHandles = memo(function BezierHandles({
     [xScale],
   );
   const viewScaleX = (() => {
-    const ortho = camera as OrthographicCamera;
-    const span = ortho.right - ortho.left;
+    if (!isOrthographicCamera(camera)) return 1;
+    const span = camera.right - camera.left;
     if (!Number.isFinite(span) || span === 0 || size.width === 0) {
       return 1;
     }

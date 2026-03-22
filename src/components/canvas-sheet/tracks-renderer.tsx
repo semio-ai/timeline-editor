@@ -4,6 +4,7 @@ import { useShallow } from "zustand/shallow";
 import { MotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
+import { isOrthographicCamera } from "@semio/utils";
 import { useOrthoCameraSetup, usePlaybackGestures, useAnimationStore } from "../../hooks";
 import { TrackRender, type VisibleSourceRowIds } from "../../types";
 import { AnimationData } from "../../store-types";
@@ -71,22 +72,21 @@ export const TracksRenderer = memo(function TracksRenderer({
 
   // Compute world Y position for the top of the TracksRenderer with caching
   const calculatePosition = useCallback(() => {
-    if ((camera as THREE.OrthographicCamera).isOrthographicCamera) {
-      const orthoCamera = camera as THREE.OrthographicCamera;
-      const worldHeight0 = orthoCamera.top - orthoCamera.bottom;
+    if (isOrthographicCamera(camera)) {
+      const worldHeight0 = camera.top - camera.bottom;
       const offsetWorld = (topOffsetPx / size.height) * worldHeight0;
       const trackWorldHeight0 = (trackHeight / size.height) * worldHeight0;
 
       if (trackRender === TrackRender.Spline) {
         // For spline mode, center the tracks in the available area (respecting top and bottom offsets)
         const bottomOffsetWorld = (bottomOffsetPx / size.height) * worldHeight0;
-        const availableTop = orthoCamera.top - offsetWorld;
-        const availableBottom = orthoCamera.bottom + bottomOffsetWorld;
+        const availableTop = camera.top - offsetWorld;
+        const availableBottom = camera.bottom + bottomOffsetWorld;
         const y0: number = (availableTop + availableBottom) / 2;
         return { y: y0, trackWorldHeight: trackWorldHeight0, worldHeight: worldHeight0 };
       } else {
         // Y position is at top minus offset minus half a track (so first track is flush with HUD)
-        const y0: number = orthoCamera.top - offsetWorld - trackWorldHeight0 / 2;
+        const y0: number = camera.top - offsetWorld - trackWorldHeight0 / 2;
         return { y: y0, trackWorldHeight: trackWorldHeight0, worldHeight: worldHeight0 };
       }
     } else {
@@ -160,9 +160,9 @@ export const TracksRenderer = memo(function TracksRenderer({
       return y; // Already centered for spline mode
     } else {
       // For non-spline, center of the available area
-      const orthoCamera = camera as THREE.OrthographicCamera;
+      if (!isOrthographicCamera(camera)) return 0;
       const offsetWorld = (topOffsetPx / size.height) * worldHeight;
-      return orthoCamera.top - offsetWorld - availableWorldHeight / 2;
+      return camera.top - offsetWorld - availableWorldHeight / 2;
     }
   }, [y, worldHeight, availableHeight, size.height, trackRender, camera, topOffsetPx]);
 
@@ -170,14 +170,16 @@ export const TracksRenderer = memo(function TracksRenderer({
   const playbackGestures = usePlaybackGestures();
 
   useMotionValueEvent(motionSize.height, "change", (height) => {
-    (camera as THREE.OrthographicCamera).top = height / 2;
-    (camera as THREE.OrthographicCamera).bottom = -height / 2;
+    if (!isOrthographicCamera(camera)) return;
+    camera.top = height / 2;
+    camera.bottom = -height / 2;
     camera.updateProjectionMatrix();
   });
 
   useEffect(() => {
-    (camera as THREE.OrthographicCamera).top = motionSize.height.get() / 2;
-    (camera as THREE.OrthographicCamera).bottom = -motionSize.height.get() / 2;
+    if (!isOrthographicCamera(camera)) return;
+    camera.top = motionSize.height.get() / 2;
+    camera.bottom = -motionSize.height.get() / 2;
     camera.updateProjectionMatrix();
   });
 

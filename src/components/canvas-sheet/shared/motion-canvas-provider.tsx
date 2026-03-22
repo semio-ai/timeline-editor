@@ -2,6 +2,7 @@ import { ReactNode, memo, useEffect, useMemo } from "react";
 import { useFrame, useThree, type Size } from "@react-three/fiber";
 import * as THREE from "three";
 import { useMotionValue } from "motion/react";
+import { isOrthographicCamera } from "@semio/utils";
 import { MotionCanvasContext } from "./motion-canvas-context";
 
 export const MotionCanvasProvider = memo(function MotionCanvasProvider({
@@ -46,14 +47,15 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
       return;
     }
 
-    const scaleFactor = calculateScaleFactor(camera as THREE.OrthographicCamera, size);
+    if (!isOrthographicCamera(camera)) return;
+    const scaleFactor = calculateScaleFactor(camera, size);
     invariantScale.set(scaleFactor);
     width.set(size.width);
     height.set(size.height);
-    frustumTop.set((camera as THREE.OrthographicCamera).top);
-    frustumBottom.set((camera as THREE.OrthographicCamera).bottom);
-    frustumLeft.set((camera as THREE.OrthographicCamera).left);
-    frustumRight.set((camera as THREE.OrthographicCamera).right);
+    frustumTop.set(camera.top);
+    frustumBottom.set(camera.bottom);
+    frustumLeft.set(camera.left);
+    frustumRight.set(camera.right);
   }, -1);
 
   useEffect(() => {
@@ -75,7 +77,6 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
 
 const calculateScaleFactor = (camera: THREE.OrthographicCamera, viewport: Size) => {
   const baseWidth = viewport.width;
-  const currentWidth =
-    (camera as THREE.OrthographicCamera).right - (camera as THREE.OrthographicCamera).left;
+  const currentWidth = camera.right - camera.left;
   return currentWidth / baseWidth;
 };

@@ -85,8 +85,9 @@ function AnimatedFillExample() {
   const cp2Y = useMotionValue(20);
 
   useEffect(() => {
+    let cancelled = false;
     const animateShape = async () => {
-      while (true) {
+      while (!cancelled) {
         // Animate to first configuration
         await Promise.all([
           animate(startY, 60, { duration: 2 }),
@@ -119,7 +120,10 @@ function AnimatedFillExample() {
       }
     };
 
-    animateShape();
+    void animateShape();
+    return () => {
+      cancelled = true;
+    };
   }, [startY, endY, cp1X, cp1Y, cp2X, cp2Y]);
 
   return (

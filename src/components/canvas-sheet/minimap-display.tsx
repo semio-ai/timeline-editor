@@ -1,7 +1,7 @@
 import { useRef, useMemo, useState, useEffect, memo, useCallback } from "react";
 import * as THREE from "three";
 import { cubicBezier, MotionValue, useMotionValueEvent } from "motion/react";
-import { PlayerData, usePlayerStore } from "@semio/utils";
+import { PlayerData, usePlayerStore, isOrthographicCamera } from "@semio/utils";
 import { Instance, Instances, useCursor } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Theme } from "@semio/ui";
@@ -154,11 +154,9 @@ export const MinimapDisplay = memo(function MinimapDisplay({
   }, [currentViewport, currentHeight]);
 
   useFrame(({ viewport, camera: frameCamera }) => {
-    if (leftHexRef.current && rightHexRef.current) {
+    if (leftHexRef.current && rightHexRef.current && isOrthographicCamera(frameCamera)) {
       const baseWidth = viewport.width;
-      const currentWidth =
-        (frameCamera as THREE.OrthographicCamera).right -
-        (frameCamera as THREE.OrthographicCamera).left;
+      const currentWidth = frameCamera.right - frameCamera.left;
       const scaleFactor = currentWidth / baseWidth;
 
       // Apply scaling for frustum invariance - same pattern as data points

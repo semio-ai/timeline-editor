@@ -175,8 +175,9 @@ function AnimatedTransitionExample() {
   const baseline = -height * 0.4;
 
   useEffect(() => {
+    let cancelled = false;
     const animateTransition = async () => {
-      while (true) {
+      while (!cancelled) {
         // Animate curve shape
         await Promise.all([
           animate(startY, 50, { duration: 2, type: "spring", stiffness: 300, damping: 30 }),
@@ -195,7 +196,10 @@ function AnimatedTransitionExample() {
       }
     };
 
-    animateTransition();
+    void animateTransition();
+    return () => {
+      cancelled = true;
+    };
   }, [startY, endY, cp1Y, cp2Y]);
 
   return (
