@@ -121,7 +121,9 @@ function AnimatedFillExample() {
     };
 
     void animateShape();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [startY, endY, cp1X, cp1Y, cp2X, cp2Y]);
 
   return (

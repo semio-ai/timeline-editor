@@ -197,7 +197,9 @@ function AnimatedTransitionExample() {
     };
 
     void animateTransition();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [startY, endY, cp1Y, cp2Y]);
 
   return (

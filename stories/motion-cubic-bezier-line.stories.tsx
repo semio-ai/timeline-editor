@@ -79,7 +79,9 @@ function AnimatedExample() {
     };
 
     void animateControlPoints();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [cp1X, cp1Y, cp2X, cp2Y]);
 
   return (
