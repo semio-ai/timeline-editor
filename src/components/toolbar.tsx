@@ -19,7 +19,7 @@ export const Toolbar = memo(function Toolbar({ viewId }: ToolbarProps) {
     <ToolbarWrapper leftPadding={1}>
       <ViewToolbarSection viewId={viewId} />
       <KeyToolbarSection />
-      <div className="min-w-115 hidden lg:flex" />
+      <div className="hidden min-w-115 lg:flex" />
     </ToolbarWrapper>
   );
 });

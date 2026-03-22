@@ -35,7 +35,7 @@ function AnimationSheetWithControls(): ReactNode {
       <ColorContextProvider>
         <NameContextProvider>
           <LocalGlobalTransformContextProvider>
-            <div className="grid grid-cols-[2fr_1fr] h-screen">
+            <div className="grid h-screen grid-cols-[2fr_1fr]">
               <div ref={ref} className="min-h-100">
                 <AnimationSheet
                   height={bounds.height || 600}
@@ -45,7 +45,7 @@ function AnimationSheetWithControls(): ReactNode {
                   }}
                 />
               </div>
-              <div className="border-l border-neutral-800 bg-neutral-950 overflow-y-auto">
+              <div className="overflow-y-auto border-l border-neutral-800 bg-neutral-950">
                 <ControlsList />
               </div>
             </div>

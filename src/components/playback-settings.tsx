@@ -33,10 +33,10 @@ export function PlaybackSettings() {
   );
 
   return (
-    <div className="flex flex-1 flex-row h-9 items-center gap-1 pl-1">
+    <div className="flex h-9 flex-1 flex-row items-center gap-1 pl-1">
       <div
         className={clsx(
-          "min-w-16 h-7 rounded-xs grid grid-cols-3 gap-1 items-center justify-around px-1",
+          "grid h-7 min-w-16 grid-cols-3 items-center justify-around gap-1 rounded-xs px-1",
         )}
       >
         <ToggleSquare

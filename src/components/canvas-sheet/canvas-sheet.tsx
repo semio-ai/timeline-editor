@@ -57,7 +57,7 @@ export const CanvasSheet = memo(function CanvasSheet({
   const handleCreated = useCallback(() => setReady(true), []);
 
   return (
-    <TooltipHost className="w-full h-full">
+    <TooltipHost className="h-full w-full">
       <Canvas
          
         // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19

@@ -124,7 +124,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
 
   const triggerElement: ReactNode = useMemo(() => {
     return (
-      <div className="flex flex-1 items-center gap-0.5 bg-neutral-500/10 hover:bg-neutral-500/25 pl-0.5">
+      <div className="flex flex-1 items-center gap-0.5 bg-neutral-500/10 pl-0.5 hover:bg-neutral-500/25">
         <TextField
           ref={isEditingActiveWorkspace ? editingInputRef : undefined}
           readOnly={!isEditingActiveWorkspace}
@@ -149,7 +149,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
           }}
           outline="hidden"
           className={clsx(
-            "bg-transparent hover:bg-transparent rounded-r-none",
+            "rounded-r-none bg-transparent hover:bg-transparent",
             !isEditingActiveWorkspace && "pointer-events-none",
           )}
           wrapperClassName="flex-1 min-w-0"
@@ -166,7 +166,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
   }, [activeWorkspaceDraftName, commitWorkspaceRename, isEditingActiveWorkspace]);
 
   return (
-    <div className="rounded-sm flex flex-1 responsive variant-responsive-persistent-outline gap-0.5 p-0.5">
+    <div className="responsive variant-responsive-persistent-outline flex flex-1 gap-0.5 rounded-sm p-0.5">
       <ToolbarTooltipButton
         tooltip="Toggle Workspace Expansion"
         visuals="inverted"
@@ -177,12 +177,12 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
           <IconChevronDown
             className={clsx(
               expanded ? "rotate-0" : "rotate-180",
-              "transition-transform ease-in-out duration-75",
+              "transition-transform duration-75 ease-in-out",
               ICON_CLASS_NAME,
             )}
           />
         }
-        className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-l-xs"
+        className="rounded-l-xs bg-neutral-500/10 hover:bg-neutral-500/25"
       />
 
       {isEditingActiveWorkspace ? (
@@ -220,7 +220,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
             size={Size.Sm}
             altText="Workspace Options"
             leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
-            className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-r-xs"
+            className="rounded-r-xs bg-neutral-500/10 hover:bg-neutral-500/25"
           />
         }
       >
