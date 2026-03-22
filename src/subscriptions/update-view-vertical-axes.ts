@@ -171,8 +171,7 @@ export function projectRowVerticalAxes(
       nextAxisByView[context.viewId] = range;
 
       if (
-        !previous ||
-        previous.min !== range.min ||
+        previous?.min !== range.min ||
         previous.max !== range.max ||
         (previous.visualOffset ?? 0) !== (range.visualOffset ?? 0)
       ) {

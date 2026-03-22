@@ -226,7 +226,7 @@ export const TransitionSegment = memo(function TransitionSegment({
     (points2D: Float32Array) => {
       const count = points2D.length / 2;
       let positions = linePositionsRef.current;
-      if (!positions || positions.length !== count * 3) {
+      if (positions?.length !== count * 3) {
         positions = new Float32Array(count * 3);
         linePositionsRef.current = positions;
       }
@@ -258,7 +258,7 @@ export const TransitionSegment = memo(function TransitionSegment({
       const baselineExtension = height * 0.1;
       const effectiveBaseline = baseline - Math.abs(baselineExtension);
       let positions = fillPositionsRef.current;
-      if (!positions || positions.length !== count * 2 * 3) {
+      if (positions?.length !== count * 2 * 3) {
         positions = new Float32Array(count * 2 * 3);
         fillPositionsRef.current = positions;
       }
@@ -305,7 +305,7 @@ export const TransitionSegment = memo(function TransitionSegment({
     const state = morphStateRef.current;
     if (!state || state.from.length !== state.to.length) return;
     let buffer = morphBufferRef.current;
-    if (!buffer || buffer.length !== state.to.length) {
+    if (buffer?.length !== state.to.length) {
       buffer = new Float32Array(state.to.length);
       morphBufferRef.current = buffer;
     }
@@ -379,8 +379,7 @@ export const TransitionSegment = memo(function TransitionSegment({
     if (
       (renderChanged || shouldAnimateVerticalAxisChange) &&
       fromPoints &&
-      currentPoints2D &&
-      fromPoints.length === currentPoints2D.length
+      fromPoints.length === currentPoints2D?.length
     ) {
       morphStateRef.current = { from: fromPoints, to: currentPoints2D };
       morphingRef.current = true;

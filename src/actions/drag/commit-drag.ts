@@ -17,7 +17,7 @@ const buildConstraintBoundsByTrack = (
   Object.values(state.tracks).forEach((track) => {
     if (boundsByTrack.has(track.id)) return;
     const animatable = state.animatables[track.animatableId];
-    if (!animatable || animatable.type !== "number") return;
+    if (animatable?.type !== "number") return;
     const min = animatable.constraints?.min;
     const max = animatable.constraints?.max;
     if (typeof min === "number" && typeof max === "number") {

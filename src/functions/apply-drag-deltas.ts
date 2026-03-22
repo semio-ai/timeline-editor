@@ -77,7 +77,7 @@ export function applyDragDeltas(
   keypoint: Keypoint<RawValue>,
   { dragState, selection, trackId, bounds, constraintBounds }: ApplyDragContext,
 ): Keypoint<RawValue> {
-  if (!dragState || dragState.instanceId !== selection.instanceId) {
+  if (dragState?.instanceId !== selection.instanceId) {
     return keypoint;
   }
 
@@ -249,7 +249,7 @@ const buildUpdateDiff = (
 
 export function computeTrackDiffsForDrag(params: BuildTrackDiffsParams): TrackDiff[] {
   const { dragState, selection, trackId } = params;
-  if (!dragState || dragState.instanceId !== selection.instanceId) {
+  if (dragState?.instanceId !== selection.instanceId) {
     return [];
   }
 

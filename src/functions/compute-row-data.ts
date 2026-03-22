@@ -130,7 +130,7 @@ export function computeRowData(
   };
   const rowTransform = resolveRowTransform(sourceRow, context);
 
-  const shouldPreview = Boolean(dragState && selectionState.instanceId === dragState.instanceId);
+  const shouldPreview = Boolean(selectionState.instanceId === dragState?.instanceId);
   const draggedTrackIds = shouldPreview
     ? (previewCache?.draggedTrackIds ?? resolveDraggedTrackIds(dragState, selectionState))
     : undefined;
@@ -707,7 +707,7 @@ function buildRenderSegments(
       const sampleId = trackEntry[render] ?? (`track:${cacheKey}:${render}` as RenderSampleId);
       const expectedLength = list.length * segmentPointLength;
       let cachedSample = renderSampleCache.samples[sampleId];
-      if (!cachedSample || cachedSample.points.length !== expectedLength) {
+      if (cachedSample?.points.length !== expectedLength) {
         cachedSample = {
           id: sampleId,
           points: new Float32Array(expectedLength),

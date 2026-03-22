@@ -81,7 +81,7 @@ function InnerAnimatableEditor({
   const renderInverse = angular ? toRadians : (v: number) => v;
 
   const limits = useMemo(() => {
-    if (!animatableValue || animatableValue.type !== "number") {
+    if (animatableValue?.type !== "number") {
       return { min: undefined, max: undefined };
     }
     return {
