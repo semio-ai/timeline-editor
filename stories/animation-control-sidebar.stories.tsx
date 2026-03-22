@@ -36,7 +36,7 @@ function AnimationSheetWithControls(): ReactNode {
         <NameContextProvider>
           <LocalGlobalTransformContextProvider>
             <div className="grid grid-cols-[2fr_1fr] h-screen">
-              <div ref={ref} className="min-h-[400px]">
+              <div ref={ref} className="min-h-100">
                 <AnimationSheet
                   height={bounds.height || 600}
                   fonts={{
