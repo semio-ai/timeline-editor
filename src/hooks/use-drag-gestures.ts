@@ -69,7 +69,7 @@ export const useDragGestures = ({
   const getTimelinePositionFromMovement = useCallback(
     (movement: number, initial: number): number => {
       // Convert screen movement to normalized coordinate space
-      const orthoCam = camera as THREE.OrthographicCamera;
+      const orthoCam = camera as unknown as THREE.OrthographicCamera;
       const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
         { left: orthoCam.left, right: orthoCam.right },
         Math.max(1, size.width),
@@ -94,7 +94,7 @@ export const useDragGestures = ({
       // Try to use intersection point if available (from Three.js event)
       if (event?.point) {
         const worldX = event.point.x as number;
-        const orthoCamera = camera as THREE.OrthographicCamera;
+        const orthoCamera = camera as unknown as THREE.OrthographicCamera;
         const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
           { left: orthoCamera.left, right: orthoCamera.right },
           Math.max(1, size.width),
@@ -108,7 +108,7 @@ export const useDragGestures = ({
       const normalizedX = clientX / size.width;
 
       // For orthographic camera, map screen space to world space
-      const orthoCamera = camera as THREE.OrthographicCamera;
+      const orthoCamera = camera as unknown as THREE.OrthographicCamera;
       const worldX = orthoCamera.left + normalizedX * (orthoCamera.right - orthoCamera.left);
       const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
         { left: orthoCamera.left, right: orthoCamera.right },
@@ -245,7 +245,7 @@ export const useViewportDragGestures = ({
         }
 
         // Convert screen movement to normalized coordinate space
-        const orthoCam = camera as THREE.OrthographicCamera;
+        const orthoCam = camera as unknown as THREE.OrthographicCamera;
         const worldWidth = orthoCam.right - orthoCam.left;
         const deltaX = (mx / size.width) * worldWidth;
 
@@ -286,7 +286,7 @@ export const useViewportDragGestures = ({
         if (disabled) return;
 
         // Calculate final viewport using same logic as onDrag
-        const orthoCam = camera as THREE.OrthographicCamera;
+        const orthoCam = camera as unknown as THREE.OrthographicCamera;
         const worldWidth = orthoCam.right - orthoCam.left;
         const deltaX = (mx / size.width) * worldWidth;
 
