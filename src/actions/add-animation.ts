@@ -2,6 +2,7 @@ import { RawValue } from "@semio/utils";
 import { AnimationData } from "../store-types";
 import { StoredAnimation, Track } from "../types";
 import type { SimpleTrack } from "../types/data/simple-track";
+import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
 
 /**
  * Adds an animation to the state.
@@ -12,22 +13,26 @@ import type { SimpleTrack } from "../types/data/simple-track";
  * ensures that the animation is added to the list of visualized animations and sets
  * it as the active animation.
  *
+ * Legacy v1 animations (normalized [0,1] stamps) are automatically migrated to v2
+ * (millisecond stamps) on load via migrateToMillisecondStamps.
+ *
  * @param state - The current state of the animation data.
  * @param animationData - The data of the animation to be added. It should be an object
  *                        containing the animation details.
  */
 export function addAnimation(state: AnimationData, animationData: StoredAnimation) {
-  // console.log("Adding animation", animationData);
   if (animationData && typeof animationData === "object") {
-    const animationId = (animationData as { id: string }).id;
+    // Migrate legacy v1 format to v2 (millisecond stamps) on load
+    const migrated = migrateToMillisecondStamps(animationData);
+    const animationId = migrated.id;
     const animation = {
-      id: animationData.id,
-      name: animationData.name,
-      tracks: animationData.tracks.map((t) => t.id),
-      groups: animationData.groups,
-      duration: animationData.duration,
+      id: migrated.id,
+      name: migrated.name,
+      tracks: migrated.tracks.map((t) => t.id),
+      groups: migrated.groups,
+      duration: migrated.duration,
     };
-    const tracks = animationData.tracks.reduce((acc, track) => ({ ...acc, [track.id]: track }), {});
+    const tracks = migrated.tracks.reduce((acc, track) => ({ ...acc, [track.id]: track }), {});
 
     Object.values(tracks as Record<string, Track<RawValue>>).forEach((track: Track<RawValue>) => {
       const trackColor = track.settings?.color;

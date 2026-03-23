@@ -1,4 +1,4 @@
-export type * from "./data/animation";
+export * from "./data/animation";
 export type * from "./data/interpolator";
 export * from "./data/keypoint";
 export type * from "./data/namespace";

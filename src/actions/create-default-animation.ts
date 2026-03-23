@@ -1,10 +1,11 @@
 import { DEFAULT_ANIMATION_ID } from "../constants";
 import type { StoredAnimation } from "../types";
+import { CURRENT_ANIMATION_FORMAT_VERSION } from "../types/data/animation";
 
 /**
- * Creates a default animation. This is a one-to-one mapping of joints to tracks.
+ * Creates a default animation in v2 format (millisecond stamps).
  *
- * @returns - A set of tracks and a binding configuration
+ * @returns - A new empty animation with 5000ms duration
  */
 export function createDefaultAnimation(): StoredAnimation {
   return {
@@ -13,5 +14,6 @@ export function createDefaultAnimation(): StoredAnimation {
     tracks: [],
     groups: [],
     duration: 5000,
+    formatVersion: CURRENT_ANIMATION_FORMAT_VERSION,
   };
 }
