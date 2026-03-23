@@ -31,7 +31,9 @@ export function updateOverallDuration(
           }
           const timescale = instance.settings.timescale ?? 1;
           const offset = instance.settings.offset ?? 0;
-          const worldDuration = duration * computeWorldStamp(1, timescale, offset);
+          // In v2 format, duration is already in ms. Convert the animation's end
+          // time to world time: worldEnd = duration / timescale + offset
+          const worldDuration = computeWorldStamp(duration, timescale, offset);
           return Number.isFinite(worldDuration) ? worldDuration : undefined;
         })
         .filter((value): value is number => typeof value === "number");

@@ -158,7 +158,7 @@ export function insertKeypointWithDeCasteljauLocal(
   // Construct K
   const K: KP = {
     id: crypto.randomUUID(),
-    stamp: clamp01(stExact),
+    stamp: ensureFinite(stExact),
     value: sv,
     transitions: {
       in: kInDelta,
@@ -213,11 +213,17 @@ export function insertKeypointWithDeCasteljau(
 
 /* ============================== helpers ============================== */
 
+/** Clamp a Bezier parameter to [0,1]. Used for curve parameter solving only. */
 function clamp01(v: number): number {
   if (!Number.isFinite(v)) return 0;
   if (v < 0) return 0;
   if (v > 1) return 1;
   return v;
+}
+
+/** Guard against non-finite stamp values without clamping to any range. */
+function ensureFinite(v: number): number {
+  return Number.isFinite(v) ? v : 0;
 }
 
 function toDelta(anchor: RawValue, target: RawValue): number {

@@ -23,7 +23,11 @@ interface ApplyDragContext {
   constraintBounds?: { min: number; max: number };
 }
 
-const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
+/**
+ * In v2 format, stamps are in ms — no [0,1] clamping needed.
+ * Only ensure the value is non-negative (stamps can't be before t=0).
+ */
+const clampStamp = (value: number): number => Math.max(0, value);
 
 const cloneRawValue = (value: RawValue): RawValue => {
   try {
@@ -101,7 +105,7 @@ export function applyDragDeltas(
   ) {
     const stampDelta = dragState.stampDelta.snapped ?? dragState.stampDelta.raw;
     if (typeof stampDelta === "number" && Number.isFinite(stampDelta)) {
-      nextStamp = clamp01(keypoint.stamp + stampDelta);
+      nextStamp = clampStamp(keypoint.stamp + stampDelta);
     }
   }
 

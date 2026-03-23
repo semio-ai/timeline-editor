@@ -639,15 +639,19 @@ export const AnimationSlice = (
         produce((state: AnimationData) => {
           const oldDuration = state.animations[animationId].duration;
           state.animations[animationId].duration = duration;
-          if (!rescale) {
-            // Adjust the stamps (percentage of completion) to match the new duration's range
+          if (rescale && oldDuration > 0 && duration > 0) {
+            // Rescale stamps proportionally to maintain relative positions.
+            // In v2 format (ms stamps), this stretches/compresses the timeline.
+            const scale = duration / oldDuration;
             state.animations[animationId].tracks.forEach((trackId) => {
               state.tracks[trackId].points = state.tracks[trackId].points.map((point) => ({
                 ...point,
-                stamp: (point.stamp * oldDuration) / duration,
+                stamp: point.stamp * scale,
               }));
             });
           }
+          // When !rescale, stamps stay at their absolute ms values — the animation
+          // just has a new declared duration but keypoints don't move.
         }),
       );
     },

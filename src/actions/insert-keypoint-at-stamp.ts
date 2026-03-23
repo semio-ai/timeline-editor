@@ -52,7 +52,8 @@ export function insertKeypointAtWorldStamp(
   }
   // Convert to local (instance) time for storage in the keypoint.
   const localStamp = computeLocalStamp(worldStamp, timescale, offset);
-  const clampedStamp = clamp01(localStamp);
+  // In v2 format, stamps are in ms — no [0,1] clamping needed.
+  const clampedStamp = Number.isFinite(localStamp) ? localStamp : 0;
 
   // Derive the value from the current interpolator snapshot when available.
   const value = resolveInterpolatedOrDefaultValue(

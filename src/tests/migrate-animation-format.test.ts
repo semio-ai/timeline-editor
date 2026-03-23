@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { StoredAnimation } from "../types";
+import { StandardTransitionType, TransitionPairing } from "../types";
 import { CURRENT_ANIMATION_FORMAT_VERSION } from "../types/data/animation";
 import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
 
@@ -120,13 +121,13 @@ describe("migrateToMillisecondStamps", () => {
               id: "k1",
               stamp: 0,
               value: 0,
-              transitions: { out: "cubic" },
+              transitions: { out: StandardTransitionType.Cubic },
             },
             {
               id: "k2",
               stamp: 1,
               value: 100,
-              transitions: { in: "sine", pairing: "paired" },
+              transitions: { in: StandardTransitionType.Sine, pairing: TransitionPairing.Paired },
             },
           ],
         },
@@ -135,9 +136,9 @@ describe("migrateToMillisecondStamps", () => {
 
     const result = migrateToMillisecondStamps(v1);
 
-    expect(result.tracks[0].points[0].transitions?.out).toBe("cubic");
-    expect(result.tracks[0].points[1].transitions?.in).toBe("sine");
-    expect(result.tracks[0].points[1].transitions?.pairing).toBe("paired");
+    expect(result.tracks[0].points[0].transitions?.out).toBe(StandardTransitionType.Cubic);
+    expect(result.tracks[0].points[1].transitions?.in).toBe(StandardTransitionType.Sine);
+    expect(result.tracks[0].points[1].transitions?.pairing).toBe(TransitionPairing.Paired);
   });
 
   it("preserves keypoint values unchanged", () => {
