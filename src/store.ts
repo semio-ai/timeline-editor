@@ -73,6 +73,7 @@ import {
   collectSourceTracks,
   findSourceTrackById,
 } from "./functions";
+import { resolveAnimationDuration } from "./functions/compute-animation-extent";
 import {
   updatePlayerLoop,
   updateOverallDuration,
@@ -637,21 +638,24 @@ export const AnimationSlice = (
     updateAnimationDuration: (animationId: string, duration: number, rescale: boolean) => {
       set(
         produce((state: AnimationData) => {
-          const oldDuration = state.animations[animationId].duration;
-          state.animations[animationId].duration = duration;
-          if (rescale && oldDuration > 0 && duration > 0) {
+          const animation = state.animations[animationId];
+          if (!animation) return;
+
+          if (rescale) {
             // Rescale stamps proportionally to maintain relative positions.
-            // In v2 format (ms stamps), this stretches/compresses the timeline.
-            const scale = duration / oldDuration;
-            state.animations[animationId].tracks.forEach((trackId) => {
-              state.tracks[trackId].points = state.tracks[trackId].points.map((point) => ({
-                ...point,
-                stamp: point.stamp * scale,
-              }));
-            });
+            const oldExtent = resolveAnimationDuration(animation, state.tracks);
+            if (oldExtent > 0 && duration > 0) {
+              const scale = duration / oldExtent;
+              animation.tracks.forEach((trackId) => {
+                state.tracks[trackId].points = state.tracks[trackId].points.map((point) => ({
+                  ...point,
+                  stamp: point.stamp * scale,
+                }));
+              });
+            }
           }
-          // When !rescale, stamps stay at their absolute ms values — the animation
-          // just has a new declared duration but keypoints don't move.
+          // Update the viewport extent hint
+          animation.defaultViewportExtent = duration;
         }),
       );
     },

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { usePlayerStore, useValuesStore } from "@semio/utils";
 import { computeLocalStamp, computeTrackInterpolator, computeWorldStamp } from "../../functions";
+import { resolveAnimationDuration } from "../../functions/compute-animation-extent";
 import { buildTrackKey } from "../../utils/track-key";
 import {
   ANIMATABLE_IDS,
@@ -115,7 +116,7 @@ describe("values timescale behavior", () => {
           const animation = state.animations[inst.animationId];
           if (!animation) return 0;
           return (
-            animation.duration *
+            resolveAnimationDuration(animation, state.tracks) *
             computeWorldStamp(1, inst.settings.timescale ?? 1, inst.settings.offset ?? 0)
           );
         }),

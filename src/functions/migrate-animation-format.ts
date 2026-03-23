@@ -33,6 +33,8 @@ export function migrateToMillisecondStamps(stored: StoredAnimation): StoredAnima
   return {
     ...stored,
     formatVersion: CURRENT_ANIMATION_FORMAT_VERSION,
+    // Preserve the legacy duration as the default viewport extent
+    defaultViewportExtent: duration,
     tracks: stored.tracks.map((track) => migrateTrack(track, duration)),
   };
 }

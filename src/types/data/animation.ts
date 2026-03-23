@@ -29,11 +29,14 @@ export interface Animation {
   /** Track grouping metadata (hierarchical). */
   groups: TrackGroup[];
   /**
-   * Total duration of the animation in milliseconds.
-   * In format v2, this is derived from track extent but kept for backward compat
-   * and as an explicit viewport hint.
+   * Default viewport extent in milliseconds. Controls the initial visible range
+   * when opening this animation in the editor. The actual animation length is
+   * derived from track content (max keypoint stamp); this value acts as a
+   * minimum floor for the viewport.
+   *
+   * Optional — when absent, the viewport auto-fits to track content.
    */
-  duration: number;
+  defaultViewportExtent?: number;
 }
 
 /**
@@ -50,11 +53,18 @@ export interface StoredAnimation {
   /** Track grouping metadata (hierarchical). */
   groups: TrackGroup[];
   /**
-   * Total duration of the animation in milliseconds.
-   * In format v2, this is derived from track extent but kept for backward compat
-   * and as an explicit viewport hint.
+   * Legacy duration field. In v1 format, this was the authoritative animation
+   * duration in ms. In v2 format, it is preserved during migration as the
+   * defaultViewportExtent value. New v2 animations should use
+   * defaultViewportExtent instead.
    */
-  duration: number;
+  duration?: number;
+  /**
+   * Default viewport extent in milliseconds. Controls the initial visible range
+   * when opening this animation in the editor. Optional — when absent, the
+   * viewport auto-fits to track content.
+   */
+  defaultViewportExtent?: number;
   /**
    * Format version. Absent or 1 = legacy normalized [0,1] stamps.
    * 2 = millisecond stamps.

@@ -16,6 +16,7 @@ import {
   createTestAnimationStore,
 } from "../../test-fixtures/animation-store-factory";
 import { ViolationType } from "../../types";
+import { resolveAnimationDuration } from "../../functions/compute-animation-extent";
 
 const computeMaxVelocity = (
   interpolator: (stamp: number) => RawValue | undefined,
@@ -66,10 +67,11 @@ describe("violation timescale behavior", () => {
     const betaScale =
       Number.isFinite(betaTimescale) && betaTimescale !== 0 ? Math.abs(betaTimescale) : 1;
 
-    const maxAlpha = computeMaxVelocity(alphaInterpolator, animation.duration, animatable.default);
+    const animationDuration = resolveAnimationDuration(animation, state.tracks);
+    const maxAlpha = computeMaxVelocity(alphaInterpolator, animationDuration, animatable.default);
     const maxBeta = computeMaxVelocity(
       betaInterpolator,
-      animation.duration / betaScale,
+      animationDuration / betaScale,
       animatable.default,
     );
 

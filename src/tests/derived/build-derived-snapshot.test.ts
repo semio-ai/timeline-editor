@@ -11,6 +11,7 @@ import { parseTrackKey, buildTrackKey } from "../../utils/track-key";
 import { TrackRender } from "../../types";
 import type { DragState, TrackKey, Violation } from "../../types";
 import { createEmptySelectionState } from "../../functions/selection-state-manager";
+import { resolveAnimationDuration } from "../../functions/compute-animation-extent";
 import {
   TRACK_IDS,
   NAMESPACE_IDS,
@@ -51,7 +52,7 @@ describe("buildDerivedSnapshot", () => {
       // Match build-derived-snapshot.ts: account for timescale in violation duration
       const timescale = instance.settings.timescale ?? 1;
       const durationScale = Number.isFinite(timescale) && timescale !== 0 ? Math.abs(timescale) : 1;
-      const violationDuration = animation.duration / durationScale;
+      const violationDuration = resolveAnimationDuration(animation, state.tracks) / durationScale;
       const violations = computeTrackViolations(
         interpolator,
         violationDuration,
@@ -66,7 +67,7 @@ describe("buildDerivedSnapshot", () => {
       expect(derivedTrack.canonical.violations.length).toEqual(violations.length);
 
       // Sample at a representative ms timestamp (mid-animation)
-      const sampleStamp = animation.duration / 2;
+      const sampleStamp = resolveAnimationDuration(animation, state.tracks) / 2;
       const snapshotValue = derivedTrack.canonical.interpolator(sampleStamp);
       const legacyValue = interpolator(sampleStamp);
       if (typeof snapshotValue === "number" && typeof legacyValue === "number") {

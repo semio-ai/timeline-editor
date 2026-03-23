@@ -19,6 +19,7 @@ import { computeDerivativeInterpolator } from "./compute-derivative-interpolator
 import { computeTrackViolations } from "./compute-track-violations";
 import { computeRowData } from "./compute-row-data";
 import { resolveDraggedTrackIds } from "./resolve-dragged-track-ids";
+import { resolveAnimationDuration } from "./compute-animation-extent";
 
 export interface BuildDerivedSnapshotInputs {
   tracks: Record<string, Track<RawValue>>;
@@ -77,14 +78,15 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
 
         const trackKey = buildTrackKey(namespace.id, instance.id, trackId);
         const canonicalInterpolator = computeTrackInterpolator(track, instance);
+        const animDuration = resolveAnimationDuration(animation, inputs.tracks);
         const canonicalDerivative = computeDerivativeInterpolator(
           canonicalInterpolator,
-          animation.duration,
+          animDuration,
         );
         const timescale = instance.settings.timescale ?? 1;
         const durationScale =
           Number.isFinite(timescale) && timescale !== 0 ? Math.abs(timescale) : 1;
-        const violationDuration = animation.duration / durationScale;
+        const violationDuration = animDuration / durationScale;
         const canonicalViolations = computeTrackViolations(
           canonicalInterpolator,
           violationDuration,
@@ -105,7 +107,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
             namespaceId: namespace.id,
             instanceId: instance.id,
             animatableId: track.animatableId,
-            duration: animation.duration,
+            duration: animDuration,
             timescale: instance.settings.timescale,
             offset: instance.settings.offset,
           },
@@ -165,7 +167,8 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         Number.isFinite(previewTimescale) && previewTimescale !== 0
           ? Math.abs(previewTimescale)
           : 1;
-      const previewDuration = context.animation.duration / previewScale;
+      const previewAnimDuration = resolveAnimationDuration(context.animation, inputs.tracks);
+      const previewDuration = previewAnimDuration / previewScale;
       const previewViolations = computeTrackViolations(
         previewInterpolator,
         previewDuration,

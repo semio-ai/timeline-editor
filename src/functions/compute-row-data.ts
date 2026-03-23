@@ -37,6 +37,7 @@ import { computeTransitionSegments } from "./compute-transition-segments";
 import { computeFilledInterpGaps } from "./compute-filled-interp-gaps";
 import { computeVerticalBounds } from "./compute-vertical-bounds";
 import { computeFrames } from "./compute-frames";
+import { resolveAnimationDuration } from "./compute-animation-extent";
 import { computeTrackInterpolator } from "./compute-track-interpolator";
 import { computeTrackViolations } from "./compute-track-violations";
 import { buildRenderParamsFromControlPoints } from "./compute-transition-params";
@@ -435,7 +436,8 @@ export function computeRowData(
       }
       const timescale = instance.settings.timescale ?? 1;
       const durationScale = Number.isFinite(timescale) && timescale !== 0 ? Math.abs(timescale) : 1;
-      const violationDuration = animation.duration / durationScale;
+      const animDuration = resolveAnimationDuration(animation, tracks);
+      const violationDuration = animDuration / durationScale;
       const interpolator = computeTrackInterpolator(previewTrack, instance);
       const previewViolations = computeTrackViolations(
         interpolator,

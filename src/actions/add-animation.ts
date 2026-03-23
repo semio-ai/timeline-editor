@@ -3,6 +3,7 @@ import { AnimationData } from "../store-types";
 import { StoredAnimation, Track } from "../types";
 import type { SimpleTrack } from "../types/data/simple-track";
 import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
+import { resolveStoredAnimationDuration } from "../functions/compute-animation-extent";
 
 /**
  * Adds an animation to the state.
@@ -30,7 +31,7 @@ export function addAnimation(state: AnimationData, animationData: StoredAnimatio
       name: migrated.name,
       tracks: migrated.tracks.map((t) => t.id),
       groups: migrated.groups,
-      duration: migrated.duration,
+      defaultViewportExtent: migrated.defaultViewportExtent ?? migrated.duration,
     };
     const tracks = migrated.tracks.reduce((acc, track) => ({ ...acc, [track.id]: track }), {});
 
