@@ -151,7 +151,6 @@ const CanvasContent = memo(function CanvasContent({
       <color attach="background" args={theme === Theme.Dark ? [0, 0, 0] : [1, 1, 1]} />
       <ambientLight intensity={1} />
       <PanZoomControls
-        bounds={[0, 1]}
         scrollValue={scrollValue}
         trackRegion={{ top: topOffsetPx, bottom: bottomOffsetPx }}
         contentHeightPx={totalContentHeightPx}
