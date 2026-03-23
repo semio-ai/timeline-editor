@@ -240,26 +240,26 @@ export const useViewportDragGestures = ({
         if (dragType === "viewport") {
           // Drag entire viewport
           const viewportWidth = memViewport[1] - memViewport[0];
-          const newStart = Math.max(
-            bounds[0],
-            Math.min(bounds[1] - viewportWidth, memViewport[0] + deltaX),
-          );
+          let newStart = memViewport[0] + deltaX;
+          if (bounds) {
+            newStart = Math.max(bounds[0], Math.min(bounds[1] - viewportWidth, newStart));
+          }
           const newEnd = newStart + viewportWidth;
           newViewport = [newStart, newEnd];
         } else if (dragType === "left") {
           // Drag left edge
-          const potentialNewStart = Math.max(
-            bounds[0],
-            Math.min(memViewport[1], memViewport[0] + deltaX),
-          );
+          let potentialNewStart = Math.min(memViewport[1], memViewport[0] + deltaX);
+          if (bounds) {
+            potentialNewStart = Math.max(bounds[0], potentialNewStart);
+          }
           const newStart = Math.min(potentialNewStart, memViewport[1] - minWidth);
           newViewport = [newStart, initialViewport[1]];
         } else {
           // Drag right edge
-          const potentialNewEnd = Math.min(
-            bounds[1],
-            Math.max(memViewport[0], memViewport[1] + deltaX),
-          );
+          let potentialNewEnd = Math.max(memViewport[0], memViewport[1] + deltaX);
+          if (bounds) {
+            potentialNewEnd = Math.min(bounds[1], potentialNewEnd);
+          }
           const newEnd = Math.max(potentialNewEnd, memViewport[0] + minWidth);
           newViewport = [initialViewport[0], newEnd];
         }
@@ -280,24 +280,24 @@ export const useViewportDragGestures = ({
 
         if (dragType === "viewport") {
           const viewportWidth = memViewport[1] - memViewport[0];
-          const newStart = Math.max(
-            bounds[0],
-            Math.min(bounds[1] - viewportWidth, memViewport[0] + deltaX),
-          );
+          let newStart = memViewport[0] + deltaX;
+          if (bounds) {
+            newStart = Math.max(bounds[0], Math.min(bounds[1] - viewportWidth, newStart));
+          }
           const newEnd = newStart + viewportWidth;
           finalViewport = [newStart, newEnd];
         } else if (dragType === "left") {
-          const potentialNewStart = Math.max(
-            bounds[0],
-            Math.min(memViewport[1], memViewport[0] + deltaX),
-          );
+          let potentialNewStart = Math.min(memViewport[1], memViewport[0] + deltaX);
+          if (bounds) {
+            potentialNewStart = Math.max(bounds[0], potentialNewStart);
+          }
           const newStart = Math.min(potentialNewStart, memViewport[1] - minWidth);
           finalViewport = [newStart, initialViewport[1]];
         } else {
-          const potentialNewEnd = Math.min(
-            bounds[1],
-            Math.max(memViewport[0], memViewport[1] + deltaX),
-          );
+          let potentialNewEnd = Math.max(memViewport[0], memViewport[1] + deltaX);
+          if (bounds) {
+            potentialNewEnd = Math.min(bounds[1], potentialNewEnd);
+          }
           const newEnd = Math.max(potentialNewEnd, memViewport[0] + minWidth);
           finalViewport = [initialViewport[0], newEnd];
         }
