@@ -65,12 +65,11 @@ export const useDragGestures = ({
 }: DragGestureOptions): DragGestureHandlers => {
   const { camera, size } = useThree();
 
-  // Convert screen movement to timeline position (0-1)
+  // Convert screen movement to timeline position in ms (unbounded)
   const getTimelinePositionFromMovement = useCallback(
     (movement: number, initial: number): number => {
-      // Convert screen movement to normalized coordinate space
       if (!isOrthographicCamera(camera)) {
-        return clamp(initial, 0, 1);
+        return initial;
       }
       const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
         { left: camera.left, right: camera.right },
@@ -78,19 +77,15 @@ export const useDragGestures = ({
       );
       const dataWidth = dataRight - dataLeft;
       if (!Number.isFinite(dataWidth) || dataWidth === 0) {
-        return clamp(initial, 0, 1);
+        return initial;
       }
       const deltaX = (movement / size.width) * dataWidth;
-
-      // Calculate new position (clamped to visible data range and absolute bounds)
-      const newPosition = initial + deltaX;
-      const clampedToViewport = Math.min(dataRight, Math.max(dataLeft, newPosition));
-      return clamp(clampedToViewport, 0, 1);
+      return initial + deltaX;
     },
     [camera, size.width],
   );
 
-  // Convert pointer event to timeline position (for initial position)
+  // Convert pointer event to timeline position in ms (unbounded)
   const getTimelinePositionFromEvent = useCallback(
     (event: any): number => {
       if (!isOrthographicCamera(camera)) {
@@ -99,29 +94,15 @@ export const useDragGestures = ({
 
       // Try to use intersection point if available (from Three.js event)
       if (event?.point) {
-        const worldX = event.point.x as number;
-        const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
-          { left: camera.left, right: camera.right },
-          Math.max(1, size.width),
-        );
-        const clamped = Math.min(dataRight, Math.max(dataLeft, worldX));
-        return clamp(clamped, 0, 1);
+        return event.point.x as number;
       }
 
-      // Fallback: convert screen position to normalized coordinate
+      // Fallback: convert screen position to world space (ms)
       const clientX = (event?.clientX ?? event?.nativeEvent?.clientX ?? 0) as number;
       const normalizedX = clientX / size.width;
 
       // For orthographic camera, map screen space to world space
-      const worldX = camera.left + normalizedX * (camera.right - camera.left);
-      const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
-        { left: camera.left, right: camera.right },
-        Math.max(1, size.width),
-      );
-
-      const clamped = Math.min(dataRight, Math.max(dataLeft, worldX));
-
-      return clamp(clamped, 0, 1);
+      return camera.left + normalizedX * (camera.right - camera.left);
     },
     [camera, size.width],
   );
@@ -221,8 +202,8 @@ export const useViewportDragGestures = ({
   onDrag,
   onDragEnd,
   initialViewport,
-  bounds = [0, 1],
-  minWidth = 0.05,
+  bounds,
+  minWidth = 50, // Minimum viewport width in ms
   dragType = "viewport",
 }: {
   disabled?: boolean;

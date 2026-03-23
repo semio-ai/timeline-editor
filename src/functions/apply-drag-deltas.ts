@@ -24,10 +24,10 @@ interface ApplyDragContext {
 }
 
 /**
- * In v2 format, stamps are in ms — no [0,1] clamping needed.
- * Only ensure the value is non-negative (stamps can't be before t=0).
+ * In v2 format, stamps are in ms and can be negative (pre-roll).
+ * No clamping — stamps are unbounded.
  */
-const clampStamp = (value: number): number => Math.max(0, value);
+const clampStamp = (value: number): number => value;
 
 const cloneRawValue = (value: RawValue): RawValue => {
   try {
