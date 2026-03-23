@@ -99,7 +99,7 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
   }
 
   const anchorPoint = findAnchorPoint(marker, selection);
-  if (!anchorPoint || !anchorPoint.editable) {
+  if (!anchorPoint?.editable) {
     return;
   }
 
@@ -186,7 +186,7 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
   const prevPoint = track.points[pointIndex - 1];
   if (prevPoint) {
     const prevOffsets = computeMarkerHandleOffsets({ track, keypoint: prevPoint });
-    if (prevOffsets?.out && prevOffsets.out.neighborKeypointId === keypoint.id) {
+    if (prevOffsets?.out?.neighborKeypointId === keypoint.id) {
       handleOffsetMap[prevPoint.id] = {
         ...(handleOffsetMap[prevPoint.id] ?? {}),
         out: prevOffsets.out,
@@ -197,7 +197,7 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
   const nextPoint = track.points[pointIndex + 1];
   if (nextPoint) {
     const nextOffsets = computeMarkerHandleOffsets({ track, keypoint: nextPoint });
-    if (nextOffsets?.in && nextOffsets.in.neighborKeypointId === keypoint.id) {
+    if (nextOffsets?.in?.neighborKeypointId === keypoint.id) {
       handleOffsetMap[nextPoint.id] = {
         ...(handleOffsetMap[nextPoint.id] ?? {}),
         in: nextOffsets.in,

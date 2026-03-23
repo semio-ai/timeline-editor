@@ -46,7 +46,7 @@ export function clickMarkerAction(
     return { selectionState: clearSelection(selection) };
   }
 
-  if (shift && selection.reference && selection.reference.rowId === rowId) {
+  if (shift && selection.reference?.rowId === rowId) {
     const row = state.derivedSnapshot?.rows?.[rowId]?.computed;
     return {
       selectionState: handleShiftSelection(

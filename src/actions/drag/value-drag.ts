@@ -391,7 +391,7 @@ export function startValueDrag(state: AnimationData, input: ValueDragStartInput)
 
   if (prevPoint) {
     const prevOffsets = computeMarkerHandleOffsets({ track: activeTrack, keypoint: prevPoint });
-    if (prevOffsets?.out && prevOffsets.out.neighborKeypointId === keypoint.id) {
+    if (prevOffsets?.out?.neighborKeypointId === keypoint.id) {
       handleOffsetMap[prevPoint.id] = {
         ...(handleOffsetMap[prevPoint.id] ?? {}),
         out: prevOffsets.out,
@@ -401,7 +401,7 @@ export function startValueDrag(state: AnimationData, input: ValueDragStartInput)
 
   if (nextPoint) {
     const nextOffsets = computeMarkerHandleOffsets({ track: activeTrack, keypoint: nextPoint });
-    if (nextOffsets?.in && nextOffsets.in.neighborKeypointId === keypoint.id) {
+    if (nextOffsets?.in?.neighborKeypointId === keypoint.id) {
       handleOffsetMap[nextPoint.id] = {
         ...(handleOffsetMap[nextPoint.id] ?? {}),
         in: nextOffsets.in,

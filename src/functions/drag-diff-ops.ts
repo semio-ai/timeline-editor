@@ -65,7 +65,7 @@ export function computeDragDiffOps(params: ComputeDragDiffOpsParams): ComputeDra
   const { dragState, selection, trackId } = params;
   const basePoints = params.snapshotPoints ?? params.trackPoints;
 
-  if (!dragState || selection.instanceId !== dragState.instanceId) {
+  if (selection.instanceId !== dragState?.instanceId) {
     return { diffs: [], projectedPoints: basePoints, framePoints: basePoints };
   }
 

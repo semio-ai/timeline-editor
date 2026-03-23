@@ -81,7 +81,7 @@ function InnerAnimatableEditor({
   const renderInverse = angular ? toRadians : (v: number) => v;
 
   const limits = useMemo(() => {
-    if (!animatableValue || animatableValue.type !== "number") {
+    if (animatableValue?.type !== "number") {
       return { min: undefined, max: undefined };
     }
     return {
@@ -120,7 +120,7 @@ function InnerAnimatableEditor({
   }, [track?.name, animatableValue?.name]);
 
   if (!hasAnimatable || rawValue === undefined) {
-    return <div className="flex-1 h-7 rounded bg-neutral-700/30 animate-pulse" />;
+    return <div className="h-7 flex-1 animate-pulse rounded bg-neutral-700/30" />;
   }
 
   if (data.type === "number" && typeof rawValue === "number") {

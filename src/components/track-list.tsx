@@ -42,7 +42,7 @@ export function TrackList({
   return (
     <div
       className={clsx(
-        "relative h-full w-78.75 dark:bg-black bg-neutral-100",
+        "relative h-full w-78.75 bg-neutral-100 dark:bg-black",
         "flex flex-col overflow-hidden",
       )}
     >
@@ -58,7 +58,7 @@ export function TrackList({
       >
         <ScrollArea
           orientation="vertical"
-          className="pr-1 w-full"
+          className="w-full pr-1"
           style={{ maxHeight: height }}
           motionScrollY={scrollY}
         >

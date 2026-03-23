@@ -47,7 +47,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
     }
   >();
   const shouldPreview = Boolean(
-    inputs.dragState && inputs.selectionState.instanceId === inputs.dragState.instanceId,
+    inputs.selectionState.instanceId === inputs.dragState?.instanceId,
   );
   const draggedTrackIds = shouldPreview
     ? resolveDraggedTrackIds(inputs.dragState, inputs.selectionState)

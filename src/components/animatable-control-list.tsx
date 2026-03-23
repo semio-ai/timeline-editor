@@ -262,7 +262,7 @@ export function AnimatableControlList({
   const hasRows = controlRows.length > 0;
 
   return (
-    <div className={clsx("w-full h-full flex flex-col", className)}>
+    <div className={clsx("flex h-full w-full flex-col", className)}>
       <div className={clsx("flex flex-col gap-0", listClassName)}>
         {hasRows && (
           <AnimatePresence>

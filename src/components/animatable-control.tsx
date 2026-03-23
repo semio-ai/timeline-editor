@@ -178,7 +178,7 @@ function AnimatableLeafControl({
   }, [animatable?.group?.axis, animatable?.name, label]);
 
   if (!animatable) {
-    return <div className="w-full h-9 rounded bg-neutral-700/30 animate-pulse" />;
+    return <div className="h-9 w-full animate-pulse rounded bg-neutral-700/30" />;
   }
 
   if (sourceRow && resolvedMode === "track") {
@@ -218,7 +218,7 @@ function AnimatableLeafControl({
         </Tooltip>
       }
       main={
-        <div className="flex-1 flex min-w-0">
+        <div className="flex min-w-0 flex-1">
           <DirectAnimatableEditor
             animatable={animatable}
             rawValue={rawValue}
@@ -233,7 +233,7 @@ function AnimatableLeafControl({
         </div>
       }
       right={
-        <div className="w-3 flex items-center justify-around mr-1">
+        <div className="mr-1 flex w-3 items-center justify-around">
           <Dropdown
             disabled={editorDisabled}
             variant={Variant.Info}
@@ -448,7 +448,7 @@ function AnimatableGroupControl({
         />
       }
       right={
-        <div className="w-3 flex items-center justify-around mr-1">
+        <div className="mr-1 flex w-3 items-center justify-around">
           <Dropdown
             disabled
             variant={Variant.Info}
@@ -552,7 +552,7 @@ function DirectAnimatableEditor({
     );
   }
 
-  return <div className="flex-1 h-7 rounded bg-neutral-700/30 animate-pulse" />;
+  return <div className="h-7 flex-1 animate-pulse rounded bg-neutral-700/30" />;
 }
 
 export const AnimatableControl = memo((props: AnimatableControlProps) => {

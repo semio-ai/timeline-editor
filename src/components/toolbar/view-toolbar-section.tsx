@@ -85,7 +85,7 @@ export const ViewToolbarSection = memo(function ViewToolbarSection({
     TRACK_RENDER_OPTIONS.find((option) => option.value === trackRender) ?? TRACK_RENDER_OPTIONS[0];
 
   return (
-    <div className="rounded-sm flex responsive variant-responsive-persistent-outline gap-0.5 p-0.5">
+    <div className="responsive variant-responsive-persistent-outline flex gap-0.5 rounded-sm p-0.5">
       <Dropdown
         side="top"
         trigger={
@@ -96,7 +96,7 @@ export const ViewToolbarSection = memo(function ViewToolbarSection({
             leftIcon={activeTrackRenderOption.icon}
             rightIcon={<IconSelector className={ICON_CLASS_NAME} />}
             altText={`View mode: ${activeTrackRenderOption.label}`}
-            className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-xs min-w-36"
+            className="min-w-36 rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
           >
             {activeTrackRenderOption.label}
           </ToolbarTooltipButton>

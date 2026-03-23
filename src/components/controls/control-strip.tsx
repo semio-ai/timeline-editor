@@ -64,7 +64,7 @@ export function ControlStrip({
     );
 
   return (
-    <div className="min-w-16 h-7 rounded-xs grid grid-cols-3 items-center justify-between">
+    <div className="grid h-7 min-w-16 grid-cols-3 items-center justify-between rounded-xs">
       <Tooltip invert content="Previous Key" disabled={prevDisabled}>
         <Button
           size="fit"

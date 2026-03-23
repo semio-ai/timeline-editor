@@ -84,7 +84,7 @@ export function SkipButton({
 const ICONS: Record<SemanticTime, ReactNode> = {
   [SemanticTime.Forward]: <IconPlayerPlay className="rotate-0" size="10px" />,
   [SemanticTime.Backward]: <IconPlayerPlay className="rotate-180" size="10px" />,
-  [SemanticTime.BoundsStart]: <IconPlayerEndBounds className="rotate-180 mt-0.5" size="16px" />,
+  [SemanticTime.BoundsStart]: <IconPlayerEndBounds className="mt-0.5 rotate-180" size="16px" />,
   [SemanticTime.BoundsEnd]: <IconPlayerEndBounds size="16px" />,
   [SemanticTime.Duration]: <IconPlayerPlay size="10px" />,
   [SemanticTime.Current]: <IconPlayerPlay size="10px" />,

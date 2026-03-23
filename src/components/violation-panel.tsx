@@ -32,24 +32,24 @@ export function ViolationPanel({ segment, violations }: ViolationPanelProps) {
   const color = useColors(uniqueTracks);
 
   return (
-    <div className="flex-col max-w-72">
+    <div className="max-w-72 flex-col">
       <div
         className={clsx(
-          "px-2 py-1.5 bg-neutral-50/50 dark:bg-neutral-950/50",
-          "flex-row flex justify-between items-center",
+          "bg-neutral-50/50 px-2 py-1.5 dark:bg-neutral-950/50",
+          "flex flex-row items-center justify-between",
         )}
         style={{ color }}
       >
-        <div className="flex-row flex items-center">
+        <div className="flex flex-row items-center">
           <IconAlertTriangle size={20} className="mr-2" />
           {name}
         </div>
-        <div className="text-black min-w-6 text-center" style={{ backgroundColor: color }}>
+        <div className="min-w-6 text-center text-black" style={{ backgroundColor: color }}>
           {segment.violations.length}
         </div>
       </div>
 
-      <div className="p-2 grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 p-2">
         {collapsedViolations.map((violation) => {
           return (
             <ViolationDescription
@@ -81,14 +81,14 @@ function ViolationDescription({
       <div
         key={`${violation.id}-label`}
         style={{ backgroundColor: color }}
-        className="bg-opacity-25 text-black px-2 py-0.5 text-sm"
+        className="bg-opacity-25 px-2 py-0.5 text-sm text-black"
       >
         {violationType === ViolationType.Upper && <span>Upper Limit</span>}
         {violationType === ViolationType.Lower && <span>Lower Limit</span>}
         {violationType === ViolationType.Velocity && <span>Velocity Limit</span>}
         {violationType === ViolationType.Rate && <span>Rate Limit</span>}
       </div>
-      <div key={`${violation.id}-description`} className="col-span-2 text-wrap text-sm">
+      <div key={`${violation.id}-description`} className="col-span-2 text-sm text-wrap">
         {!onlyTrack && (
           <>
             <span style={{ color }}>{name}</span>

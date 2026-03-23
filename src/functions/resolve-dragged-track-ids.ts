@@ -4,7 +4,7 @@ export function resolveDraggedTrackIds(
   dragState: DragState | undefined,
   selectionState: SelectionState,
 ): Set<string> | undefined {
-  if (!dragState || selectionState.instanceId !== dragState.instanceId) {
+  if (selectionState.instanceId !== dragState?.instanceId) {
     return undefined;
   }
 

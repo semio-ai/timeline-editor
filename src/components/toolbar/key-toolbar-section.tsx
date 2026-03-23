@@ -342,10 +342,10 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
   );
 
   return (
-    <div className="sm:flex items-center hidden">
+    <div className="hidden items-center sm:flex">
       <div
         className={clsx(
-          "rounded-sm flex responsive custom-color variant-responsive-persistent-outline gap-0.5 p-0.5",
+          "responsive custom-color variant-responsive-persistent-outline flex gap-0.5 rounded-sm p-0.5",
           hasSelection ? "outline-2" : "outline-1",
         )}
         style={
@@ -385,7 +385,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
                   }
                   className={clsx(
                     "bg-neutral-500/10 hover:bg-neutral-500/25",
-                    "rounded-l-xs min-w-36",
+                    "min-w-36 rounded-l-xs",
                   )}
                 >
                   {getTransitionSettingText(incomingValue)}
@@ -441,7 +441,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
               size={Size.Sm}
               altText={pairingTooltip}
               leftIcon={getPairingStateIcon(pairingValue)}
-              className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-none"
+              className="rounded-none bg-neutral-500/10 hover:bg-neutral-500/25"
             />
           }
         >
@@ -488,7 +488,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
                       )}
                     />
                   }
-                  className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-r-xs min-w-36"
+                  className="min-w-36 rounded-r-xs bg-neutral-500/10 hover:bg-neutral-500/25"
                 >
                   {getTransitionSettingText(outgoingValue)}
                 </ToolbarTooltipButton>
@@ -517,7 +517,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
                       )}
                     />
                   }
-                  className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-r-xs"
+                  className="rounded-r-xs bg-neutral-500/10 hover:bg-neutral-500/25"
                 />
               </div>
             </div>

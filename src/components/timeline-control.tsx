@@ -138,7 +138,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   );
 
   return (
-    <div className="flex flex-1 flex-row h-9 items-center gap-1 pl-1">
+    <div className="flex h-9 flex-1 flex-row items-center gap-1 pl-1">
       <KeyStrip
         source={fallbackSource}
         color={color}
@@ -183,7 +183,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       <div
         className={clsx(
           "w-full min-w-0 items-center",
-          controlsDisabled && "opacity-50 pointer-events-none",
+          controlsDisabled && "pointer-events-none opacity-50",
         )}
         aria-disabled={controlsDisabled}
       >

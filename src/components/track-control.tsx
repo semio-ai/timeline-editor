@@ -221,7 +221,7 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
               }}
             />
           ) : (
-            <div className="flex-1 flex min-w-0">
+            <div className="flex min-w-0 flex-1">
               <AnimatableEditor
                 rowId={sourceRow.id}
                 data={sourceRow.data[0]}
@@ -293,7 +293,7 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
           )
         }
         right={
-          <div className="w-3 flex items-center justify-around mr-1">
+          <div className="mr-1 flex w-3 items-center justify-around">
             <Dropdown
               disabled={playing}
               variant={Variant.Info}

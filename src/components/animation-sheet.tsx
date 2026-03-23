@@ -373,7 +373,7 @@ function InnerSheet({
       <NameContextProvider>
         <TrackAnimatableContextProvider>
           <LocalGlobalTransformContextProvider>
-            <div className="animation-sheet-container w-full pointer-events-auto">
+            <div className="animation-sheet-container pointer-events-auto w-full">
               {/* Grid layout with tracking divs - same structure as original */}
               <div
                 aria-expanded={expanded}
@@ -382,7 +382,7 @@ function InnerSheet({
                   minHeight: MIN_SHEET_HEIGHT,
                 }}
                 className={clsx(
-                  "grid grid-cols-[317px_1fr] group/sheet w-full pr-0.5 pb-0.5 overflow-hidden",
+                  "group/sheet grid w-full grid-cols-[317px_1fr] overflow-hidden pr-0.5 pb-0.5",
                   "grid-rows-[36px_36px_minmax(0,1fr)_36px_36px_36px]",
                 )}
               >
@@ -413,15 +413,15 @@ function InnerSheet({
                 />
 
                 {/* Track Filter - Row 2 */}
-                <div className="h-9 px-1.5 py-0.5 flex items-center">
-                  <div className="w-full flex">
+                <div className="flex h-9 items-center px-1.5 py-0.5">
+                  <div className="flex w-full">
                     <Search
                       size={Size.Sm}
                       value={trackFilter}
                       placeholder="Filter visible tracks"
                       onChange={(value) => setTrackFilter(value)}
                       outline="hidden"
-                      className="bg-neutral-500/10 hover:bg-neutral-500/25 rounded-xs"
+                      className="rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
                       wrapperClassName="w-full"
                     />
                   </div>
@@ -430,7 +430,7 @@ function InnerSheet({
                 {/* Canvas (spans all rows) */}
                 <div
                   className={clsx(
-                    "w-full min-w-0 row-span-5 touch-none rounded-md overflow-clip",
+                    "row-span-5 w-full min-w-0 touch-none overflow-clip rounded-md",
                     TRACK_MAIN_BG,
                   )}
                 >
