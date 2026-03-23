@@ -10,7 +10,7 @@ test("An animation that shifts from within to outside bounds gets a bounds error
     name: "Track 1",
     points: [
       { id: "point1", stamp: 0, value: -1 },
-      { id: "point2", stamp: 1, value: 1 },
+      { id: "point2", stamp: 2000, value: 1 },
     ],
   };
   const defaultInstance = {
@@ -50,8 +50,8 @@ test("An animation that shifts from within to outside bounds gets a bounds error
     throw new Error("Expected a violation");
   }
   expect(violation.type).toEqual(ViolationType.Upper);
-  expect(violation.stampRange.start).toBeCloseTo(0.505, 3);
-  expect(violation.stampRange.end).toBeCloseTo(1, 2);
+  expect(violation.stampRange.start).toBeCloseTo(1010, 0); // ~50.5% of 2000ms
+  expect(violation.stampRange.end).toBeCloseTo(2000, 0);
 });
 
 test("An animation with a velocity limit of 0 returns a violation for the entire change duration", () => {
@@ -61,9 +61,9 @@ test("An animation with a velocity limit of 0 returns a violation for the entire
     name: "Track 1",
     points: [
       { id: "point1", stamp: 0, value: -1 },
-      { id: "point2", stamp: 0.25, value: -1 },
-      { id: "point3", stamp: 0.75, value: 1 },
-      { id: "point4", stamp: 1, value: 1 },
+      { id: "point2", stamp: 500, value: -1 },
+      { id: "point3", stamp: 1500, value: 1 },
+      { id: "point4", stamp: 2000, value: 1 },
     ],
   };
   const defaultInstance = {
@@ -97,6 +97,7 @@ test("An animation with a velocity limit of 0 returns a violation for the entire
 
   expect(violations.length).toEqual(1);
   expect(violations[0]?.type).toEqual(ViolationType.Velocity);
-  expect(violations[0]?.stampRange.start).toBeCloseTo(0.25);
-  expect(violations[0]?.stampRange.end).toBeCloseTo(0.75);
+  // Violation boundaries have ~10ms precision (step interval)
+  expect(violations[0]?.stampRange.start).toBeCloseTo(500, -2);
+  expect(violations[0]?.stampRange.end).toBeCloseTo(1500, -2);
 });

@@ -64,17 +64,10 @@ export function computeTrackViolations(
   animatableValue: AnimatableValue | DeprecatedComplexAnimatableValue,
 ): Violation[] {
   // Require that we check at an interval of 1/100th of a second (10ms).
-  // First, determine the interval size, normalized to to a range of 0 to 1,
-  // where 0 is the start of the animation and 1 is the end.
-  let intervalSize = 1 / ((duration / 1000) * 100);
-
-  // If the interval size is greater than the duration, then we need to
-  // clamp it to the duration. This results in just a single test for
-  // each track.
-  if (intervalSize > duration) {
-    intervalSize = duration;
-  }
-  const timeDelta: number = (intervalSize * duration) / 1000; // Convert to seconds
+  // Stamps are in milliseconds; iterate over [0, duration].
+  const steps = Math.max(Math.round((duration / 1000) * 100), 1);
+  const intervalSize = duration / steps;
+  const timeDelta: number = intervalSize / 1000; // Convert interval to seconds
 
   const completedViolations = new Array<Violation>();
   const openViolations: Record<ViolationType, Violation | undefined> = {
@@ -87,7 +80,7 @@ export function computeTrackViolations(
 
   let valueStart: RawValue = interpolator(0) ?? defaultValue;
 
-  range(0, 1, intervalSize).forEach((stampStart) => {
+  range(0, duration, intervalSize).forEach((stampStart) => {
     const stampEnd = stampStart + intervalSize;
     const valueEnd: RawValue = interpolator(stampEnd) ?? defaultValue;
     violationCheckerEntries.forEach(
@@ -125,7 +118,7 @@ export function computeTrackViolations(
     if (openViolation !== undefined) {
       completedViolations.push({
         ...openViolation,
-        stampRange: { start: openViolation.stampRange.start, end: 1 },
+        stampRange: { start: openViolation.stampRange.start, end: duration },
       });
     }
   });

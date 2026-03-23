@@ -59,7 +59,7 @@ describe("value-driven drag bounds", () => {
       throw new Error("Missing scale track for value drag test");
     }
 
-    const anchorPoint = track.points.find((point) => Math.abs(point.stamp - 0.4) < 1e-6);
+    const anchorPoint = track.points.find((point) => Math.abs(point.stamp - 800) < 1e-3);
     if (!anchorPoint || typeof anchorPoint.value !== "number") {
       throw new Error("Missing anchor point for value drag test");
     }

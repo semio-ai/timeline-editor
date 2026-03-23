@@ -547,7 +547,8 @@ function createNamespaces(): Record<string, Namespace> {
           settings: {
             active: true,
             // Non-identity transform to exercise instance time scaling/offset in tests.
-            offset: 0.25,
+            // In v2 format, offset is in ms (250ms delay) and timescale=2 means 2x speed.
+            offset: 250,
             timescale: 2,
           },
         },

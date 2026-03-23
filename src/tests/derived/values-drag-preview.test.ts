@@ -27,8 +27,8 @@ describe("values drag preview behavior", () => {
           ...state.tracks[TRACK_IDS.SCALE],
           points: [
             { id: "s0", stamp: 0, value: 1 },
-            { id: "s1", stamp: 0.5, value: 1 },
-            { id: "s2", stamp: 1, value: 1 },
+            { id: "s1", stamp: 1000, value: 1 },
+            { id: "s2", stamp: 2000, value: 1 },
           ],
         },
       },
@@ -46,7 +46,7 @@ describe("values drag preview behavior", () => {
   it("uses preview interpolators while dragging", async () => {
     const player = usePlayerStore.getState();
     const previousStamp = player.player.stamp;
-    const stamp = 0.5;
+    const stamp = 1000;
 
     player.resetPlayer(stamp);
 
@@ -140,7 +140,7 @@ describe("values drag preview behavior", () => {
       const instance =
         state.namespaces[NAMESPACE_IDS.BETA].animationInstances[INSTANCE_IDS.BETA_SHARED];
       const worldStamp = computeWorldStamp(
-        0.15,
+        300,
         instance.settings.timescale,
         instance.settings.offset,
       );
