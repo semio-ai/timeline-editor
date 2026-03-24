@@ -183,7 +183,10 @@ const HudCamera = memo(function HudCamera({
     // Subscribe to viewport and duration changes
     const unsub1 = usePlayerStore.subscribe(
       (state) => state.player.viewport,
-      () => updateCam(),
+      () => {
+        // Dynamic cameras track the viewport; fixed cameras don't need to update
+        if (!fixedCameraRef.current) updateCam();
+      },
     );
     const unsub2 = usePlayerStore.subscribe(
       (state) => state.player.duration,
