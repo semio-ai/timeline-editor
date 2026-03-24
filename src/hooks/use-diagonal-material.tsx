@@ -12,13 +12,17 @@ const vertexShader = `
   uniform float cameraZoom;
   uniform float measureFromBottom;
 
-  varying vec2 vScreenPos;
+  varying vec2 vWorldPos;
+  varying vec2 vPixelsPerUnit;
 
   void main() {
-    // Calculate world position of this vertex
     vec4 worldPosition = modelMatrix * vec4(position, 1.0);
 
-    // Account for camera zoom in frustum calculations
+    // Pass world position directly — pattern is anchored to world space
+    vWorldPos = worldPosition.xy;
+
+    // Compute pixels-per-world-unit so the fragment shader can produce
+    // true 45-degree diagonals at consistent pixel spacing
     float zoomedLeft = frustumBounds.x / cameraZoom;
     float zoomedRight = frustumBounds.y / cameraZoom;
     float zoomedBottom = frustumBounds.z / cameraZoom;
@@ -27,15 +31,9 @@ const vertexShader = `
     float frustumWidth = zoomedRight - zoomedLeft;
     float frustumHeight = zoomedTop - zoomedBottom;
 
-    // Transform to screen pixels for true 45-degree diagonals
-    // X is measured from left (as before)
-    // Y can be measured from TOP (for scrolling elements) or BOTTOM (for bottom-anchored HUDs)
-    float yFromTop = ((zoomedTop - worldPosition.y) / frustumHeight) * viewportSize.y;
-    float yFromBottom = ((worldPosition.y - zoomedBottom) / frustumHeight) * viewportSize.y;
-
-    vScreenPos = vec2(
-      ((worldPosition.x - zoomedLeft) / frustumWidth) * viewportSize.x,
-      mix(yFromTop, yFromBottom, measureFromBottom)
+    vPixelsPerUnit = vec2(
+      viewportSize.x / frustumWidth,
+      viewportSize.y / frustumHeight
     );
 
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -52,19 +50,25 @@ const fragmentShader = `
   uniform float measureFromBottom;
   uniform float globalOpacity;
 
-  varying vec2 vScreenPos;
+  varying vec2 vWorldPos;
+  varying vec2 vPixelsPerUnit;
 
   void main() {
-    // Use different diagonal calculation based on measurement direction
-    // For bottom-measured (timeline): subtract for correct diagonal
-    // For top-measured (track list): add for correct diagonal
-    float diagonal = measureFromBottom > 0.5
-      ? vScreenPos.x - (vScreenPos.y + yOffset)  // Timeline HUD
-      : vScreenPos.x + (vScreenPos.y + yOffset); // Track list
+    // Convert world position to pixel-equivalent coordinates.
+    // This anchors the pattern to world space so it pans with content.
+    // Subtract yOffset so the pattern stays locked to the violation's visual
+    // position during vertical scrolling (yOffset is the scroll offset).
+    float px = vWorldPos.x * vPixelsPerUnit.x;
+    float py = (vWorldPos.y - yOffset) * vPixelsPerUnit.y;
+
+    // Use consistent diagonal direction regardless of measurement mode.
+    // The Y-axis direction difference between HUD and tracks is already
+    // accounted for by the camera orientation — the world-space coordinates
+    // produce the same visual result in both contexts.
+    float diagonal = px + py;
     float pattern = mod(diagonal, stripeSpacing);
     float stripeAlpha = step(pattern, stripeWidth);
 
-    // Blend baseline opacity with stripe and apply global fade
     float finalAlpha = mix(baselineOpacity * opacity, opacity, stripeAlpha) * globalOpacity;
 
     if (finalAlpha < 0.01) discard;

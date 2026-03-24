@@ -13,7 +13,10 @@ import { Theme } from "@semio/ui";
 import { MotionValue } from "motion";
 import { animate, useMotionValue, useMotionValueEvent, useSpring } from "motion/react";
 import { Instances } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
 import { uniq } from "lodash";
+import { isOrthographicCamera } from "@semio/utils";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import {
   LayerBand,
@@ -377,21 +380,10 @@ export const DataRenderer = memo(function DataRenderer({
       }}
     >
       {shouldRenderTrackSwitchOverlay && trackRender !== TrackRender.Spline && (
-        <mesh
-          position={[0.5, 0, Z.TrackSwitchingBoundary]}
-          onPointerDown={(event) => event.stopPropagation()}
+        <TrackSwitchOverlay
+          height={height}
           onClick={handleTrackSwitch}
-          renderOrder={1000}
-        >
-          <planeGeometry args={[1, height]} />
-          <meshBasicMaterial
-            color="#000000"
-            transparent
-            opacity={0}
-            depthWrite={false}
-            depthTest={false}
-          />
-        </mesh>
+        />
       )}
       {/* Render the hexagons/visuals for each keyed point */}
       {/* Note: selection frames are passed as props for instancing; DataPoint subscribes to store data */}
@@ -482,5 +474,44 @@ export const DataRenderer = memo(function DataRenderer({
         />
       )}
     </group>
+  );
+});
+
+/** Invisible overlay that intercepts clicks to switch the active animation instance.
+ *  Uses useFrame to cover the full camera frustum regardless of viewport position. */
+const TrackSwitchOverlay = memo(function TrackSwitchOverlay({
+  height,
+  onClick,
+}: {
+  height: number;
+  onClick: (event?: { stopPropagation?: () => void }) => void;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame(({ camera }) => {
+    if (!meshRef.current || !isOrthographicCamera(camera)) return;
+    const w = camera.right - camera.left;
+    if (w <= 0) return;
+    meshRef.current.position.x = (camera.left + camera.right) / 2;
+    meshRef.current.scale.x = w;
+  });
+
+  return (
+    <mesh
+      ref={meshRef}
+      position={[0, 0, Z.TrackSwitchingBoundary]}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={onClick}
+      renderOrder={1000}
+    >
+      <planeGeometry args={[1, height]} />
+      <meshBasicMaterial
+        color="#000000"
+        transparent
+        opacity={0}
+        depthWrite={false}
+        depthTest={false}
+      />
+    </mesh>
   );
 });
