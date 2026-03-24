@@ -2,7 +2,7 @@ import { RawValue, RawVector2 } from "@semio/utils";
 
 /** World-space handle delta for a transition control point. */
 export interface TransitionWorldHandle {
-  /** Delta in normalized stamp space relative to the anchor keypoint. */
+  /** Delta in milliseconds relative to the anchor keypoint's stamp. */
   deltaStamp: number;
   /** Delta in value space relative to the anchor keypoint. */
   deltaValue: number;
@@ -49,7 +49,7 @@ export interface TransitionInfo {
 /**
  * A single point in time on a track, with a specific value, at a specific time stamp.
  * @property id - a unique identifier for the keypoint.
- * @property stamp - the time stamp that this keypoint occurs at (normalized to the animation duration, 0 start and 1 end).
+ * @property stamp - the time stamp in milliseconds at which this keypoint occurs.
  * @property value - the keypoint value (matches the track's value type).
  * @property transitions - optional handles (enum easing or explicit deltas in stamp/value space).
  * @description As a collection of points and interpolations, this departs partially from standard practice, which configures transitions as the segment after

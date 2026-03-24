@@ -1,7 +1,7 @@
 import { RawValue } from "@semio/utils";
 import { Track } from "../types";
 
-// Define the animation data structure
+// Test animation data in v2 format (millisecond stamps).
 export const instances = {
   default: {
     id: "some",
@@ -16,12 +16,12 @@ export const instances = {
   offset: {
     id: "some",
     animationId: "thing",
-    settings: { offset: 0.5, timescale: 1, active: true },
+    settings: { offset: 500, timescale: 1, active: true },
   },
   offsetDoublespeed: {
     id: "some",
     animationId: "thing",
-    settings: { offset: 0.5, timescale: 2, active: true },
+    settings: { offset: 500, timescale: 2, active: true },
   },
 };
 
@@ -31,9 +31,9 @@ export const tracks: Record<string, Track<RawValue>> = {
     name: "Track 1",
     animatableId: "animatable1",
     points: [
-      { id: "point1", stamp: 0.1, value: 10 },
-      { id: "point2", stamp: 0.3, value: 15 },
-      { id: "point3", stamp: 0.9, value: 20 },
+      { id: "point1", stamp: 100, value: 10 },
+      { id: "point2", stamp: 300, value: 15 },
+      { id: "point3", stamp: 900, value: 20 },
     ],
   },
   track2: {
@@ -41,8 +41,8 @@ export const tracks: Record<string, Track<RawValue>> = {
     name: "Track 2",
     animatableId: "animatable1",
     points: [
-      { id: "point4", stamp: 0.1, value: 1.2 },
-      { id: "point5", stamp: 0.9, value: 2.1 },
+      { id: "point4", stamp: 100, value: 1.2 },
+      { id: "point5", stamp: 900, value: 2.1 },
     ],
   },
 };

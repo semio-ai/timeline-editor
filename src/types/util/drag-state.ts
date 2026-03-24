@@ -155,13 +155,14 @@ export interface DragStartInput {
 
 /** Payload for updating a marker drag. */
 export interface DragUpdateInput {
+  /** @legacy Named "normalized" for historical reasons; values are in milliseconds since v2. */
   normalizedStamp?: {
-    /** Current stamp (normalized) including raw movement. */
+    /** Current stamp in ms including raw movement. */
     current: number;
-    /** Snapped stamp (normalized) if snapping applied. */
+    /** Snapped stamp in ms if frame-snapping applied. */
     snapped?: number;
   };
-  /** Normalized vertical delta since drag start. */
+  /** Vertical delta (normalized to the visible value range, not time). */
   normalizedValueDelta?: number;
   /** Current modifier keys. */
   modifiers: DragState["modifiers"];
