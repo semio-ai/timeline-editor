@@ -1,11 +1,10 @@
-import { useMemo, useRef, useEffect, memo } from "react";
+import { useEffect, useMemo, useRef, memo } from "react";
 import { Hud } from "@react-three/drei";
 import { useMotionValueEvent, useTransform } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
 import { ThreeEvent, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { usePlayerSubscription } from "../../hooks";
 import { Z } from "../../constants";
 import { calculatePaddedFrustum } from "../../viewport-utils";
 import { FrustumBackground } from "./frustum-background";
@@ -127,7 +126,6 @@ const HudCamera = memo(function HudCamera({
   hudHeight?: number;
 }) {
   const { size } = useMotionCanvas();
-  const viewport = usePlayerStore(useShallow((state) => state.player.viewport as [number, number]));
 
   const camera: THREE.OrthographicCamera & { manual?: boolean } = useMemo(() => {
     const height = size.height.get();
@@ -142,10 +140,11 @@ const HudCamera = memo(function HudCamera({
 
   const set = useThree(useShallow((state) => state.set));
 
+  // Set the camera once on mount
   useEffect(() => {
     camera.updateProjectionMatrix();
     set({ camera: camera as any });
-  });
+  }, [camera, set]);
 
   useMotionValueEvent(size.height, "change", (height) => {
     camera.top = height / 2;
@@ -153,28 +152,65 @@ const HudCamera = memo(function HudCamera({
     camera.updateProjectionMatrix();
   });
 
-  useMotionValueEvent(size.width, "change", (width) => {
-    if (width > 0) {
-      const dataViewport: [number, number] = fixedCamera ? [0, 1] : viewport;
-      const { left, right } = calculatePaddedFrustum(dataViewport, width, fixedCamera);
+  // Store fixedCamera in a ref so the subscription callback is stable
+  const fixedCameraRef = useRef(fixedCamera);
+  fixedCameraRef.current = fixedCamera;
+
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
+
+  // Single effect for all player store subscriptions — stable callbacks
+  useEffect(() => {
+    const updateCam = () => {
+      const width = sizeRef.current.width.get();
+      if (width <= 0) return;
+      let dataViewport: [number, number];
+      if (fixedCameraRef.current) {
+        const dur = usePlayerStore.getState().player.duration;
+        dataViewport = [0, Math.max(dur, 1000)];
+      } else {
+        dataViewport = usePlayerStore.getState().player.viewport as [number, number];
+      }
+      const { left, right } = calculatePaddedFrustum(dataViewport, width, fixedCameraRef.current);
       camera.left = left;
       camera.right = right;
       camera.updateProjectionMatrix();
-    }
-  });
+    };
 
-  usePlayerSubscription(
-    (state) => state.player.viewport,
-    (vp: [number, number]) => {
-      if (size.width.get() > 0) {
-        const dataViewport: [number, number] = fixedCamera ? [0, 1] : (vp as [number, number]);
-        const { left, right } = calculatePaddedFrustum(dataViewport, size.width.get(), fixedCamera);
-        camera.left = left;
-        camera.right = right;
-        camera.updateProjectionMatrix();
-      }
-    },
-  );
+    // Initial update
+    updateCam();
+
+    // Subscribe to viewport and duration changes
+    const unsub1 = usePlayerStore.subscribe(
+      (state) => state.player.viewport,
+      () => updateCam(),
+    );
+    const unsub2 = usePlayerStore.subscribe(
+      (state) => state.player.duration,
+      () => updateCam(),
+    );
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, [camera]);
+
+  useMotionValueEvent(size.width, "change", () => {
+    const width = size.width.get();
+    if (width <= 0) return;
+    let dataViewport: [number, number];
+    if (fixedCameraRef.current) {
+      const dur = usePlayerStore.getState().player.duration;
+      dataViewport = [0, Math.max(dur, 1000)];
+    } else {
+      dataViewport = usePlayerStore.getState().player.viewport as [number, number];
+    }
+    const { left, right } = calculatePaddedFrustum(dataViewport, width, fixedCameraRef.current);
+    camera.left = left;
+    camera.right = right;
+    camera.updateProjectionMatrix();
+  });
 
   return <primitive object={camera} />;
 });

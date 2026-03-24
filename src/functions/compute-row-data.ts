@@ -379,19 +379,20 @@ export function computeRowData(
     if (singleFrame?.points?.length) {
       // First-key tracks have no explicit pairwise segments; synthesize a full-span
       // buffer segment anchored to that key so spline/preview lines stay connected.
+      // Use large extents so the buffer visually extends to the viewport edges.
       const clonedPoints = singleFrame.points.map((point) => ({ ...point }));
       interpolations = [
         {
           start: {
             ...singleFrame,
             id: `gap-0:${singleFrame.id}`,
-            stamp: 0,
+            stamp: -1e9,
             points: clonedPoints,
           },
           end: {
             ...singleFrame,
             id: `gap-1:${singleFrame.id}`,
-            stamp: 1,
+            stamp: 1e9,
             points: clonedPoints,
           },
           buffer: true,

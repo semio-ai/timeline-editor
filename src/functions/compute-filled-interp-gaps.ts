@@ -1,6 +1,9 @@
 import { overlappingSegments } from "@semio/utils";
 import { InstancedFrameInfo, InstancePair } from "../types";
 
+// Large sentinel value for buffer segment edges (effectively infinite in ms)
+const BUFFER_EXTENT = 1e9;
+
 export function computeFilledInterpGaps(
   interps: {
     start: InstancedFrameInfo;
@@ -10,9 +13,9 @@ export function computeFilledInterpGaps(
   // Compute gaps where no interpolations exist. Since these may be overlapping,
   // we should compute the overlapping segments first, and then fill in the gaps.
   const overlapping = overlappingSegments([
-    [-Infinity, 0],
+    [-Infinity, -BUFFER_EXTENT],
     ...(interps.map((i) => [i.start.stamp, i.end.stamp]) as [number, number][]),
-    [1, Infinity],
+    [BUFFER_EXTENT, Infinity],
   ]);
 
   if (overlapping.length > 1) {

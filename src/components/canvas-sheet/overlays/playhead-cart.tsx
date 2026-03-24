@@ -142,21 +142,34 @@ export const PlayheadCart = memo(function PlayheadCart({
     rightSideSize: CONE_RADIUS,
   });
 
+  // When in arrow mode (playhead off-screen, opacity ≈ 0), clicking should
+  // center the viewport on the playhead rather than seeking to the click position.
+  const arrowModeGestureRef = useRef(false);
+
   // Use drag gestures hook with @use-gesture/react for better drag handling
   const dragHandlers = useDragGestures({
     disabled: playing,
     onDragStart: () => {
+      if (opacity.get() < 0.5) {
+        // In arrow mode: center viewport on playhead position and skip drag
+        arrowModeGestureRef.current = true;
+        seekPlayer();
+        return;
+      }
+      arrowModeGestureRef.current = false;
       setIsDragging(true);
     },
     onDrag: (position, altKey) => {
+      if (arrowModeGestureRef.current) return;
       if (altKey || altPressed) {
         resetPlayer(position);
       } else {
-        const closest = closestFrame(position, frameCount);
+        const closest = closestFrame(position, framerate);
         resetPlayer(closest);
       }
     },
     onDragEnd: () => {
+      arrowModeGestureRef.current = false;
       setIsDragging(false);
     },
   });
@@ -451,8 +464,10 @@ function computeClampedPosition(
   right: number,
   bound: boolean,
 ): number {
-  const bounds = bound ? [Math.max(left, 0), Math.min(right, 1)] : [0, 1];
-  return clamp(value, bounds[0], bounds[1]);
+  if (bound) {
+    return clamp(value, left, right);
+  }
+  return value;
 }
 
 function computeBoxOffset(

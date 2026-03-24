@@ -1,8 +1,7 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useThree, ThreeEvent } from "@react-three/fiber";
-import { clamp } from "lodash";
-import { closestFrame, usePlayerStore } from "@semio/utils";
+import { closestFrame, usePlayerStore, isOrthographicCamera } from "@semio/utils";
 import { AnimationActions, AnimationData } from "../store-types";
 import { useAltKeyPressed } from "./use-alt-key-pressed";
 import { useAnimationStore } from "./use-animation-store";
@@ -58,14 +57,13 @@ export const usePlaybackGestures = ({
   disabled = false,
 }: UsePlaybackGesturesOptions = {}): UsePlaybackGesturesReturn => {
   const altPressed = useAltKeyPressed();
-  const { size } = useThree();
+  const { size, camera } = useThree();
 
   // Player store actions and state
-  const { resetPlayer, playing, playerDuration } = usePlayerStore(
+  const { resetPlayer, playing } = usePlayerStore(
     useShallow((state) => ({
       resetPlayer: state.resetPlayer,
       playing: state.player.running,
-      playerDuration: state.player.duration,
     })),
   );
 
@@ -77,34 +75,31 @@ export const usePlaybackGestures = ({
     })),
   );
 
-  // Calculate frame count
-  const frameCount = useMemo(() => {
-    return Math.floor(framerate * (playerDuration / 1000));
-  }, [framerate, playerDuration]);
-
-  // Extract timeline position from event
+  // Extract timeline position in ms from event
   const getTimelinePosition = useCallback(
     (event: PlaybackEvent): number => {
       if ("nativeEvent" in event) {
-        // ThreeEvent - use intersection point for precise world coordinate
+        // ThreeEvent - use intersection point for precise world coordinate (ms)
         const threeEvent = event as ThreeEvent<PointerEvent> | ThreeEvent<MouseEvent>;
         if (threeEvent.point) {
-          // The mesh spans 0-1 in world coordinates, so x coordinate is timeline position
-          return clamp(threeEvent.point.x, 0, 1);
+          return threeEvent.point.x;
         }
       }
 
-      // Fallback for regular React events or ThreeEvents without intersection data
-      // Convert screen position to normalized coordinate and assume 0-1 mapping
-      const clientX =
-        "nativeEvent" in event
-          ? ((event as any).clientX ?? (event as any).nativeEvent?.clientX ?? 0)
-          : (event as React.PointerEvent | React.MouseEvent).clientX;
+      // Fallback: convert screen position to world space (ms)
+      if (isOrthographicCamera(camera)) {
+        const clientX =
+          "nativeEvent" in event
+            ? ((event as any).clientX ?? (event as any).nativeEvent?.clientX ?? 0)
+            : (event as React.PointerEvent | React.MouseEvent).clientX;
 
-      const normalizedX = clientX / size.width;
-      return clamp(normalizedX, 0, 1);
+        const normalizedX = clientX / size.width;
+        return camera.left + normalizedX * (camera.right - camera.left);
+      }
+
+      return 0;
     },
-    [size.width],
+    [size.width, camera],
   );
 
   // Double click handler
@@ -119,11 +114,11 @@ export const usePlaybackGestures = ({
         resetPlayer(timelinePosition);
       } else {
         // No alt key: snap to closest frame
-        const closest = closestFrame(timelinePosition, frameCount);
+        const closest = closestFrame(timelinePosition, framerate);
         resetPlayer(closest);
       }
     },
-    [disabled, playing, getTimelinePosition, altPressed, resetPlayer, frameCount],
+    [disabled, playing, getTimelinePosition, altPressed, resetPlayer, framerate],
   );
 
   // Pointer move handler
@@ -138,11 +133,11 @@ export const usePlaybackGestures = ({
         updateHoverpointPreview(timelinePosition);
       } else {
         // No alt key: snap to closest frame
-        const closest = closestFrame(timelinePosition, frameCount);
+        const closest = closestFrame(timelinePosition, framerate);
         updateHoverpointPreview(closest);
       }
     },
-    [disabled, getTimelinePosition, altPressed, updateHoverpointPreview, frameCount],
+    [disabled, getTimelinePosition, altPressed, updateHoverpointPreview, framerate],
   );
 
   // Pointer enter handler

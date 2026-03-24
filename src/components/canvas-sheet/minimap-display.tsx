@@ -166,6 +166,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
   });
 
   // Gesture bindings for each area using the new hook
+  // No bounds constraint — timeline is unbounded in ms space
   const bindViewportDrag = useViewportDragGestures({
     disabled: false,
     onDragStart: () => {
@@ -178,7 +179,6 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging(null);
     },
     initialViewport: currentViewport,
-    bounds: [0, 1],
     minWidth: minZoom,
     dragType: "viewport",
   });
@@ -195,7 +195,6 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging(null);
     },
     initialViewport: currentViewport,
-    bounds: [0, 1],
     minWidth: minZoom,
     dragType: "left",
   });
@@ -212,7 +211,6 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging(null);
     },
     initialViewport: currentViewport,
-    bounds: [0, 1],
     minWidth: minZoom,
     dragType: "right",
   });
@@ -234,7 +232,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
 
       {/* Left hexagon gesture area */}
       <mesh
-        position={[currentViewport[0] - 0.015, 0, Z.Minimap]}
+        position={[currentViewport[0] - 15, 0, Z.Minimap]}
         onPointerEnter={() => {
           setHovered(true);
           setHoveredArea("left");
@@ -245,7 +243,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
         }}
         {...bindLeftDrag}
       >
-        <boxGeometry args={[0.03, activeHeight, 0.1]} />
+        <boxGeometry args={[30, activeHeight, 0.1]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
@@ -268,7 +266,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
 
       {/* Right hexagon gesture area */}
       <mesh
-        position={[currentViewport[1] + 0.015, 0, Z.Minimap]}
+        position={[currentViewport[1] + 15, 0, Z.Minimap]}
         onPointerEnter={() => {
           setHovered(true);
           setHoveredArea("right");
@@ -279,7 +277,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
         }}
         {...bindRightDrag}
       >
-        <boxGeometry args={[0.03, activeHeight, 0.1]} />
+        <boxGeometry args={[30, activeHeight, 0.1]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 

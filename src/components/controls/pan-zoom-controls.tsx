@@ -68,7 +68,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
     ref,
   ) => {
     const { camera, gl, size } = useThree();
-    const initialCameraWidth = useRef(1.0);
+    const initialCameraWidth = useRef(0);
     const viewport = usePlayerStore(
       useShallow((state) => state.player.viewport as [number, number]),
     );
@@ -137,7 +137,10 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
         camera.left = left;
         camera.right = right;
         camera.updateProjectionMatrix();
-        initialCameraWidth.current = vp[1] - vp[0];
+        // Only set initial width once — it anchors the zoom min/max range
+        if (initialCameraWidth.current <= 0) {
+          initialCameraWidth.current = vp[1] - vp[0];
+        }
       };
 
       // Subscribe to player store viewport changes
@@ -168,8 +171,9 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       );
 
       const dataWidth = currentDataViewport.right - currentDataViewport.left;
-      const scale = (dataWidth / initialCameraWidth.current) * 0.25;
-      const adjustedDeltaX = deltaX * scale * settingsRef.current.panSpeed;
+      // Convert pixel delta to world units: each pixel of scroll moves by
+      // (dataWidth / canvasWidth) world units, scaled by panSpeed.
+      const adjustedDeltaX = (deltaX / canvasWidth) * dataWidth * settingsRef.current.panSpeed;
 
       let newDataLeft = currentDataViewport.left + adjustedDeltaX;
       let newDataRight = currentDataViewport.right + adjustedDeltaX;
@@ -358,9 +362,8 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
             absDeltaY > absDeltaX &&
             absDeltaY > threshold
           ) {
-            // Convert vertical scroll to horizontal pan with zoom-adjusted speed
-            const panDelta = deltaY * settingsRef.current.panSpeed * 0.1;
-            panCamera(panDelta);
+            // Convert vertical scroll to horizontal pan
+            panCamera(deltaY);
           }
           // Pan: horizontal scroll
           else if (
@@ -368,8 +371,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
             absDeltaX > absDeltaY &&
             absDeltaX > threshold
           ) {
-            const panDelta = deltaX * settingsRef.current.panSpeed * 0.1;
-            panCamera(panDelta);
+            panCamera(deltaX);
           }
 
           onChange?.();
