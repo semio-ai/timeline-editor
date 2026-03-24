@@ -115,14 +115,8 @@ export const DataPoint = memo(function DataPoint({
   const updateDragAction = useAnimationStore(useShallow((state) => state.updateDrag));
   const commitDrag = useAnimationStore(useShallow((state) => state.commitDrag));
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
-  const duration = useAnimationStore(useShallow((state) => state.duration));
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
-  const { playing, playerDuration } = usePlayerStore(
-    useShallow((state) => ({
-      playing: state.player.running,
-      playerDuration: state.player.duration,
-    })),
-  );
+  const playing = usePlayerStore(useShallow((state) => state.player.running));
   const selectionState = useAnimationStore(useShallow((state) => state.selectionState));
 
   const unselectedForegroundPoints = points.filter(
@@ -164,11 +158,6 @@ export const DataPoint = memo(function DataPoint({
 
   const [isHovered, setIsHovered] = useState(false);
   const altPressed = useAltKeyPressed();
-  const frameCount = useMemo(() => {
-    const baseDuration = typeof playerDuration === "number" ? playerDuration : duration;
-    if (!baseDuration || !framerate) return null;
-    return Math.floor(framerate * (baseDuration / 1000));
-  }, [duration, framerate, playerDuration]);
 
   const isSpline = trackRender === TrackRender.Spline;
   const visualScaleFactor = verticalAxisRange?.visualScale ?? 1;

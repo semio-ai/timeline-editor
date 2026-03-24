@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { useGesture } from "@use-gesture/react";
 import { useThree } from "@react-three/fiber";
-import { clamp } from "lodash";
 import { isOrthographicCamera } from "@semio/utils";
 import { getDataViewportFromFrustum } from "../viewport-utils";
 

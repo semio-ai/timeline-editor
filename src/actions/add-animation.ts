@@ -3,7 +3,6 @@ import { AnimationData } from "../store-types";
 import { StoredAnimation, Track } from "../types";
 import type { SimpleTrack } from "../types/data/simple-track";
 import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
-import { resolveStoredAnimationDuration } from "../functions/compute-animation-extent";
 
 /**
  * Adds an animation to the state.

@@ -98,12 +98,11 @@ export const PlayheadCart = memo(function PlayheadCart({
   const { gl } = useThree();
 
   // Player and animation store actions
-  const { resetPlayer, seekPlayer, playing, playerDuration } = usePlayerStore(
+  const { resetPlayer, seekPlayer, playing } = usePlayerStore(
     useShallow((state) => ({
       resetPlayer: state.resetPlayer,
       seekPlayer: state.updatePlayerViewportCenter,
       playing: state.player.running,
-      playerDuration: state.player.duration,
     })),
   );
 
@@ -117,8 +116,6 @@ export const PlayheadCart = memo(function PlayheadCart({
     })),
   );
 
-  const safePlayerDuration = Number.isFinite(playerDuration) ? playerDuration : 0;
-  const frameCount = Math.max(1, Math.floor(framerate * (safePlayerDuration / 1000)));
 
   // Create triangle geometries using hooks
   const leftArrowGeometry = useTriangleCaretGeometry({

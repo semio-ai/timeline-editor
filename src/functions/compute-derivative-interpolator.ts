@@ -10,7 +10,7 @@ import { rawValueDiff, rawValueMultiplyScalar } from "./raw-value-math";
  */
 export function computeDerivativeInterpolator<T extends RawValue>(
   interp: (time: number) => T | undefined,
-  duration: number,
+  _duration: number,
 ): (t: number) => T | undefined {
   return (t: number): T | undefined => {
     // In v2 format, t is in milliseconds. We compute the derivative by evaluating

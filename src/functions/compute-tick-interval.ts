@@ -24,9 +24,9 @@ export function computeTickIntervals(
 
   // Walk from finest to coarsest, pick the first that meets the pixel threshold
   let majorMs = candidates[candidates.length - 1];
-  for (let i = 0; i < candidates.length; i++) {
-    if (candidates[i] * pixelsPerMs >= minMajorPx) {
-      majorMs = candidates[i];
+  for (const candidate of candidates) {
+    if (candidate * pixelsPerMs >= minMajorPx) {
+      majorMs = candidate;
       break;
     }
   }

@@ -86,11 +86,10 @@ export const BoundsCart = memo(function BoundsCart({
   // Get canvas element for cursor container
   const { gl } = useThree();
 
-  const { updateBounds, playing, playerDuration } = usePlayerStore(
+  const { updateBounds, playing } = usePlayerStore(
     useShallow((state) => ({
       updateBounds: state.updatePlayerBounds,
       playing: state.player.running,
-      playerDuration: state.player.duration,
     })),
   );
 
@@ -120,8 +119,6 @@ export const BoundsCart = memo(function BoundsCart({
       previewRight: state.previews.find((p) => p.semanticTime === SemanticTime.BoundsEnd),
     })),
   );
-
-  const frameCount = Math.floor(framerate * (playerDuration / 1000));
 
   // Create caret geometries using hook
   const leftCaretGeometry = useTriangleCaretGeometry({
