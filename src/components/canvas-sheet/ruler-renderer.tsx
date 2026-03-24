@@ -163,7 +163,7 @@ export const RulerRenderer = memo(function RulerRenderer({
 
       // Build a key from the parameters that affect the label set.
       // Only update React state when this key changes.
-      const labelKey = `${majorMs}:${firstTick}:${lastTick}:${timeDisplay}:${altPressed ? "a" : ""}`;
+      const labelKey = `${majorMs}:${firstTick}:${lastTick}:${Math.round(pxWidth)}:${timeDisplay}:${altPressed ? "a" : ""}`;
       if (labelKey === prevLabelKeyRef.current) return;
       prevLabelKeyRef.current = labelKey;
 

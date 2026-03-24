@@ -53,14 +53,18 @@ function migrateKeypoint<T extends RawValue>(point: Keypoint<T>, duration: numbe
     return { ...point, stamp: migratedStamp };
   }
 
+  const migratedTransitions = { ...point.transitions };
+  if (point.transitions.in !== undefined) {
+    migratedTransitions.in = migrateTransition(point.transitions.in, duration);
+  }
+  if (point.transitions.out !== undefined) {
+    migratedTransitions.out = migrateTransition(point.transitions.out, duration);
+  }
+
   return {
     ...point,
     stamp: migratedStamp,
-    transitions: {
-      ...point.transitions,
-      in: migrateTransition(point.transitions.in, duration),
-      out: migrateTransition(point.transitions.out, duration),
-    },
+    transitions: migratedTransitions,
   };
 }
 
