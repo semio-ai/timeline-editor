@@ -1,4 +1,4 @@
-import { memo, useRef, Suspense } from "react";
+import { memo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 
@@ -41,19 +41,17 @@ export const TrackText = memo(function TrackText({
   name,
 }: TrackTextProps) {
   return (
-    <Suspense fallback={null}>
-      <TrackTextInner
-        text={text}
-        color={color}
-        position={position}
-        fontSizePixels={fontSizePixels}
-        font={font}
-        anchorX={anchorX}
-        anchorY={anchorY}
-        characters={characters}
-        name={name}
-      />
-    </Suspense>
+    <TrackTextInner
+      text={text}
+      color={color}
+      position={position}
+      fontSizePixels={fontSizePixels}
+      font={font}
+      anchorX={anchorX}
+      anchorY={anchorY}
+      characters={characters}
+      name={name}
+    />
   );
 });
 

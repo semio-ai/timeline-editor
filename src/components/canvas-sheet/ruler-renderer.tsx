@@ -1,18 +1,17 @@
-import { useMemo, useRef, memo, useEffect } from "react";
+import { useState, useRef, useMemo, memo, useCallback } from "react";
 import { strip } from "number-precision";
 import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
-import { Instances, Instance } from "@react-three/drei";
-import { useMotionValueEvent } from "motion/react";
+import { useFrame } from "@react-three/fiber";
 import { stampToVisualTime, Theme } from "@semio/ui";
-import { usePlayerStore } from "@semio/utils";
+import { usePlayerStore, isOrthographicCamera } from "@semio/utils";
 import {
   useAnimationStore,
   useAltKeyPressed,
   usePlaybackGestures,
-  useInvariantScale,
 } from "../../hooks";
 import type { AnimationData } from "../../store-types";
+import { computeTickIntervals } from "../../functions/compute-tick-interval";
 import { Z } from "../../constants";
 import { TrackText } from "./shared/track-text";
 import { HoverMarker } from "./overlays/hover-marker";
@@ -32,8 +31,7 @@ interface RulerRendererProps {
 
 interface RulerTick {
   worldX: number;
-  frameIndex: number;
-  timeLabel?: string;
+  timeLabel: string;
 }
 
 // Helper function for calculating text position relative to tick marks
@@ -48,6 +46,81 @@ function calculateTextPosition(
     : yPosition - tickHeight / 2 - spacingPixels;
 }
 
+// --- Simplified Blender-style shader: just major and minor intervals ---
+
+const rulerTickVertexShader = /* glsl */ `
+  varying float vWorldX;
+  varying float vLocalY;
+  void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldX = worldPos.x;
+    vLocalY = position.y;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const rulerTickFragmentShader = /* glsl */ `
+  uniform float uMajorIntervalMs;
+  uniform float uMinorIntervalMs;
+  uniform float uLabelIntervalMs;
+  uniform float uPixelsPerMs;
+  uniform vec3 uMajorColor;
+  uniform vec3 uMinorColor;
+  uniform float uTickWidthPx;
+
+  uniform float uMajorYMin;
+  uniform float uMajorYMax;
+  uniform float uMinorYMin;
+  uniform float uMinorYMax;
+  uniform float uMinorOpacity;
+
+  varying float vWorldX;
+  varying float vLocalY;
+
+  void main() {
+    if (uMajorIntervalMs < 0.001 || uPixelsPerMs < 0.0001) discard;
+
+    float x = vWorldX;
+    float y = vLocalY;
+
+    float halfWidth = uTickWidthPx * 0.5;
+
+    // Labeled tick — at the label interval (major interval * decimation frequency)
+    float nearestLabel = floor(x / uLabelIntervalMs + 0.5);
+    float distLabelPx = abs(x - nearestLabel * uLabelIntervalMs) * uPixelsPerMs;
+    float labelHit = (1.0 - smoothstep(halfWidth - 0.5, halfWidth + 0.5, distLabelPx))
+                   * step(uMajorYMin, y) * step(y, uMajorYMax);
+
+    // Unlabeled major tick — at major interval, major height, but minor color
+    float nearestMajor = floor(x / uMajorIntervalMs + 0.5);
+    float distMajorPx = abs(x - nearestMajor * uMajorIntervalMs) * uPixelsPerMs;
+    float majorHit = (1.0 - smoothstep(halfWidth - 0.5, halfWidth + 0.5, distMajorPx))
+                   * step(uMajorYMin, y) * step(y, uMajorYMax);
+
+    // Minor tick — at minor interval, shorter height
+    float minorHit = 0.0;
+    if (uMinorIntervalMs > 0.001 && uMinorIntervalMs < uMajorIntervalMs - 0.001) {
+      float nearestMinor = floor(x / uMinorIntervalMs + 0.5);
+      float distMinorPx = abs(x - nearestMinor * uMinorIntervalMs) * uPixelsPerMs;
+      minorHit = (1.0 - smoothstep(halfWidth - 0.5, halfWidth + 0.5, distMinorPx))
+               * step(uMinorYMin, y) * step(y, uMinorYMax);
+    }
+
+    // Labeled ticks get major color; unlabeled major ticks get minor color
+    vec3 color = labelHit > 0.01 ? uMajorColor : uMinorColor;
+    float alpha = max(labelHit, max(majorHit * uMinorOpacity, minorHit * uMinorOpacity * (1.0 - majorHit)));
+
+    if (alpha < 0.001) discard;
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
+// Minimum pixel spacing for major ticks — must match content area for alignment
+const RULER_MIN_MAJOR_PX = 40;
+// Approximate character width at 10px font size for label decimation
+const APPROX_CHAR_WIDTH = 6;
+const LABEL_PADDING_PX = 14;
+
 export const RulerRenderer = memo(function RulerRenderer({
   height,
   side,
@@ -60,58 +133,82 @@ export const RulerRenderer = memo(function RulerRenderer({
   );
   const timeDisplay = useAnimationStore(useShallow((state: AnimationData) => state.timeDisplay));
   const altPressed = useAltKeyPressed();
-  const frameCount = Math.floor(framerate * (duration / 1000));
 
-  // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
 
-  // Generate major (labeled) and minor (unlabeled) ticks for the ruler.
-  const { majorTicks, minorTicks } = useMemo(() => {
-    if (!Number.isFinite(frameCount) || frameCount <= 0 || framerate <= 0) {
-      return { majorTicks: [], minorTicks: [] };
-    }
+  // Label state — updated from useFrame only when the visible label set changes.
+  // This prevents React re-render churn during continuous pan/zoom.
+  const [labelState, setLabelState] = useState<{
+    ticks: RulerTick[];
+    majorMs: number;
+    minorMs: number;
+    labelIntervalMs: number;
+  }>({ ticks: [], majorMs: 1000, minorMs: 500, labelIntervalMs: 1000 });
 
-    const major: RulerTick[] = [];
-    for (let i = 0; i <= frameCount; i += framerate) {
-      const stamp = i / frameCount;
-      const worldX = stamp;
-      const timeLabel = stampToVisualTime(stamp, duration, framerate, timeDisplay, altPressed);
+  // Track what we last computed so we can detect changes
+  const prevLabelKeyRef = useRef("");
 
-      major.push({
-        worldX,
-        timeLabel,
-        frameIndex: i,
-      });
-    }
+  const computeLabels = useCallback(
+    (fLeft: number, fRight: number, pxWidth: number) => {
+      if (framerate <= 0) return;
+      const visibleWidth = fRight - fLeft;
+      if (visibleWidth <= 0 || pxWidth <= 0) return;
 
-    // Minor ticks follow timeline background rules: every non-major frame.
-    const minor: RulerTick[] = [];
-    for (let i = 0; i <= frameCount; i += 1) {
-      if (i % framerate === 0) continue;
-      minor.push({
-        worldX: strip(i / frameCount),
-        frameIndex: i,
-      });
-    }
+      const pixelsPerMs = pxWidth / visibleWidth;
+      const { majorMs, minorMs } = computeTickIntervals(framerate, pixelsPerMs, RULER_MIN_MAJOR_PX);
 
-    return { majorTicks: major, minorTicks: minor };
-  }, [frameCount, framerate, duration, timeDisplay, altPressed]);
+      const margin = majorMs * 2;
+      const firstTick = Math.floor((fLeft - margin) / majorMs);
+      const lastTick = Math.ceil((fRight + margin) / majorMs);
 
-  // Calculate tick dimensions - convert pixel heights to world units
+      // Build a key from the parameters that affect the label set.
+      // Only update React state when this key changes.
+      const labelKey = `${majorMs}:${firstTick}:${lastTick}:${Math.round(pxWidth)}:${timeDisplay}:${altPressed ? "a" : ""}`;
+      if (labelKey === prevLabelKeyRef.current) return;
+      prevLabelKeyRef.current = labelKey;
 
-  // Set tick heights in pixels, then convert to world units
+      // Label decimation: compute skip frequency based on label width,
+      // then only generate labels where the absolute tick index is divisible
+      // by the skip. This keeps labels anchored to the same ticks regardless
+      // of viewport position (no shifting during pan).
+      const totalVisible = lastTick - firstTick + 1;
+      const sampleStamp = strip(Math.round((firstTick + lastTick) / 2) * majorMs);
+      const sampleLabel = stampToVisualTime(sampleStamp, duration, framerate, timeDisplay, altPressed);
+      const labelWidthPx = sampleLabel.length * APPROX_CHAR_WIDTH + LABEL_PADDING_PX;
+      const maxLabels = Math.max(1, Math.floor(pxWidth / labelWidthPx));
+      const drawFrequency = Math.max(1, Math.ceil(totalVisible / maxLabels));
+
+      const decimatedTicks: RulerTick[] = [];
+      for (let i = firstTick; i <= lastTick; i++) {
+        // Use absolute tick index (relative to 0) for stable decimation
+        if (i % drawFrequency !== 0) continue;
+        const stampMs = strip(i * majorMs);
+        const timeLabel = stampToVisualTime(stampMs, duration, framerate, timeDisplay, altPressed);
+        decimatedTicks.push({ worldX: stampMs, timeLabel });
+      }
+
+      const labelIntervalMs = majorMs * drawFrequency;
+      setLabelState({ ticks: decimatedTicks, majorMs, minorMs, labelIntervalMs });
+    },
+    [framerate, duration, timeDisplay, altPressed],
+  );
+
+  // Read frustum in useFrame (no React subscription) and update labels only when needed
+  useFrame(({ camera, size }) => {
+    if (!isOrthographicCamera(camera)) return;
+    computeLabels(camera.left, camera.right, size.width);
+  });
+
+  const { ticks: labelTicks, majorMs, minorMs, labelIntervalMs } = labelState;
+
+  // Tick dimensions
   const majorTickHeightPixels = side === "top" ? 12 : 13;
   const majorTickHeight = majorTickHeightPixels;
   const minorTickHeight = Math.max(6, Math.round(majorTickHeightPixels * 0.7));
-  const baseTickWidth = 1; // Base width of 1 unit that will be scaled down
 
-  // Position ticks at the edge of the HUD
-  // HUD height in world units
   const hudHeightWorld = height;
-
-  // Top HUD: position at bottom edge (1px above bottom)
-  // Bottom HUD: position at top edge (0px below top)
   const edgeOffset = 1;
+
   const majorTickYPosition =
     side === "top"
       ? -hudHeightWorld / 2 + majorTickHeight / 2 + edgeOffset
@@ -121,15 +218,11 @@ export const RulerRenderer = memo(function RulerRenderer({
       ? -hudHeightWorld / 2 + minorTickHeight / 2 + edgeOffset
       : hudHeightWorld / 2 - minorTickHeight / 2 - edgeOffset;
 
-  const majorTickColor = new THREE.Color(theme === "dark" ? "#737373" : "#737373");
-  const minorTickColor = majorTickColor;
-
-  // Use all major ticks for text labels since HudSection handles viewport management.
-  const visibleTicks = majorTicks;
+  const majorTickColor = new THREE.Color(theme === "dark" ? "#F0F0F0" : "#999999");
+  const minorTickColor = new THREE.Color(theme === "dark" ? "#909090" : "#B0B0B0");
 
   return (
     <>
-      {/* Background gesture plane for playback interactions */}
       <FrustumBackground
         height={hudHeightWorld}
         visibility="transparent"
@@ -141,29 +234,23 @@ export const RulerRenderer = memo(function RulerRenderer({
       <PlayheadCart height={hudHeightWorld} theme={theme} side={side} fonts={fonts} />
       <BoundsCart side={side} height={hudHeightWorld} theme={theme} />
 
-      {/* Tick lines using Instances */}
-      <Ticks
-        tickData={minorTicks}
-        tickHeight={minorTickHeight}
-        baseTickWidth={baseTickWidth}
-        tickColor={minorTickColor}
-        tickOpacity={0.5}
-        instanceKey="minor"
-        yPosition={minorTickYPosition}
-      />
-      <Ticks
-        tickData={majorTicks}
-        tickHeight={majorTickHeight}
-        baseTickWidth={baseTickWidth}
-        tickColor={majorTickColor}
-        tickOpacity={1}
-        instanceKey="major"
-        yPosition={majorTickYPosition}
+      {/* Shader-based tick lines */}
+      <RulerTicksShader
+        height={hudHeightWorld}
+        majorMs={majorMs}
+        minorMs={minorMs}
+        labelIntervalMs={labelIntervalMs}
+        majorColor={majorTickColor}
+        minorColor={minorTickColor}
+        majorTickYPosition={majorTickYPosition}
+        majorTickHeight={majorTickHeight}
+        minorTickYPosition={minorTickYPosition}
+        minorTickHeight={minorTickHeight}
       />
 
-      {/* Time labels */}
+      {/* Decimated text labels */}
       <TextBoxes
-        ticks={visibleTicks}
+        ticks={labelTicks}
         side={side}
         theme={theme}
         yPosition={majorTickYPosition}
@@ -174,53 +261,92 @@ export const RulerRenderer = memo(function RulerRenderer({
   );
 });
 
-const Ticks = memo(function Ticks({
-  tickData,
-  tickHeight,
-  baseTickWidth,
-  tickColor,
-  tickOpacity,
-  instanceKey,
-  yPosition,
+// Shader-based ruler ticks — Blender-style major + minor at half-interval
+const RulerTicksShader = memo(function RulerTicksShader({
+  height,
+  majorMs,
+  minorMs,
+  labelIntervalMs,
+  majorColor,
+  minorColor,
+  majorTickYPosition,
+  majorTickHeight,
+  minorTickYPosition,
+  minorTickHeight,
 }: {
-  tickData: RulerTick[];
-  tickHeight: number;
-  baseTickWidth: number;
-  tickColor: string | THREE.Color;
-  tickOpacity: number;
-  instanceKey: string;
-  yPosition: number;
+  height: number;
+  majorMs: number;
+  minorMs: number;
+  labelIntervalMs: number;
+  majorColor: THREE.Color;
+  minorColor: THREE.Color;
+  majorTickYPosition: number;
+  majorTickHeight: number;
+  minorTickYPosition: number;
+  minorTickHeight: number;
 }) {
-  const instanceCount = tickData.length;
+  const meshRef = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
 
-  if (instanceCount === 0) return null;
+  const uniforms = useMemo(
+    () => ({
+      uMajorIntervalMs: { value: majorMs },
+      uMinorIntervalMs: { value: minorMs },
+      uLabelIntervalMs: { value: labelIntervalMs },
+      uPixelsPerMs: { value: 1 },
+      uMajorColor: { value: majorColor },
+      uMinorColor: { value: minorColor },
+      uTickWidthPx: { value: 1.0 },
+      uMajorYMin: { value: majorTickYPosition - majorTickHeight / 2 },
+      uMajorYMax: { value: majorTickYPosition + majorTickHeight / 2 },
+      uMinorYMin: { value: minorTickYPosition - minorTickHeight / 2 },
+      uMinorYMax: { value: minorTickYPosition + minorTickHeight / 2 },
+      uMinorOpacity: { value: 0.7 },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  useFrame(({ camera, size }) => {
+    if (!isOrthographicCamera(camera) || !materialRef.current || !meshRef.current) return;
+
+    const frustumWidth = camera.right - camera.left;
+    if (frustumWidth <= 0 || size.width <= 0) return;
+
+    meshRef.current.position.x = (camera.left + camera.right) / 2;
+    meshRef.current.scale.x = frustumWidth;
+
+    const mat = materialRef.current;
+    mat.uniforms.uMajorIntervalMs.value = majorMs;
+    mat.uniforms.uMinorIntervalMs.value = minorMs;
+    mat.uniforms.uLabelIntervalMs.value = labelIntervalMs;
+    mat.uniforms.uPixelsPerMs.value = size.width / frustumWidth;
+    mat.uniforms.uMajorColor.value = majorColor;
+    mat.uniforms.uMinorColor.value = minorColor;
+    mat.uniforms.uMajorYMin.value = majorTickYPosition - majorTickHeight / 2;
+    mat.uniforms.uMajorYMax.value = majorTickYPosition + majorTickHeight / 2;
+    mat.uniforms.uMinorYMin.value = minorTickYPosition - minorTickHeight / 2;
+    mat.uniforms.uMinorYMax.value = minorTickYPosition + minorTickHeight / 2;
+  });
 
   return (
-    <Instances
-      key={`ruler-ticks-${instanceKey}-${instanceCount.toString()}`}
-      limit={instanceCount}
-      range={instanceCount}
-    >
-      <planeGeometry args={[baseTickWidth, tickHeight]} />
-      <meshBasicMaterial
-        color={tickColor as any}
+    <mesh ref={meshRef} position={[0, 0, 0]}>
+      <planeGeometry args={[1, height]} />
+      <shaderMaterial
+        ref={materialRef}
+        vertexShader={rulerTickVertexShader}
+        fragmentShader={rulerTickFragmentShader}
+        uniforms={uniforms}
+        transparent
         toneMapped={false}
-        transparent={tickOpacity < 1}
-        opacity={tickOpacity}
+        depthWrite={false}
       />
-
-      {tickData.map((tick) => (
-        <TickMark
-          key={`${tick.frameIndex.toString()}-${tick.worldX.toString()}`}
-          position={[tick.worldX, yPosition, 0]}
-          baseTickWidth={baseTickWidth}
-        />
-      ))}
-    </Instances>
+    </mesh>
   );
 });
 
-// Component for text labels using shared TrackText
+// Text labels keyed by world position — labels at the same ms position
+// persist across updates, preventing mount/unmount flicker.
 const TextBoxes = memo(function TextBoxes({
   ticks,
   side,
@@ -239,52 +365,25 @@ const TextBoxes = memo(function TextBoxes({
     ui?: string;
   };
 }) {
-  // Calculate text position using helper function
   const textYWorld = calculateTextPosition(yPosition, tickHeight, side, 6);
+  const color = theme === "dark" ? "#ffffff" : "#000000";
 
   return (
     <>
       {ticks.map((tick) => (
         <TrackText
-          key={`label-${tick.frameIndex.toString()}`}
-          text={tick.timeLabel ?? ""}
+          key={tick.worldX}
+          text={tick.timeLabel}
           position={[tick.worldX, textYWorld, Z.RulerText]}
-          color={theme === "dark" ? "#ffffff" : "#000000"}
+          color={color}
           font={fonts?.mono}
           fontSizePixels={10}
           anchorX="center"
           anchorY="middle"
-          characters="0123456789:.-sf"
-          name={`ruler-text-${tick.frameIndex.toString()}`}
+          characters="0123456789:.-sfm"
+          name={`ruler-text-${tick.worldX.toString()}`}
         />
       ))}
     </>
   );
-});
-
-// Component for individual tick marks with zoom-invariant scaling
-const TickMark = memo(function TickMark({
-  position,
-  baseTickWidth,
-}: {
-  position: [number, number, number];
-  baseTickWidth: number;
-}) {
-  const tickRef = useRef<THREE.Object3D>(null);
-
-  const scaleX = useInvariantScale();
-
-  useMotionValueEvent(scaleX, "change", (s) => {
-    if (tickRef.current) {
-      tickRef.current.scale.set(s * baseTickWidth, 1, 1);
-    }
-  });
-
-  useEffect(() => {
-    if (tickRef.current) {
-      tickRef.current.scale.set(scaleX.get() * baseTickWidth, 1, 1);
-    }
-  }, [baseTickWidth, scaleX]);
-
-  return <Instance ref={tickRef} position={position} />;
 });

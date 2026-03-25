@@ -115,14 +115,8 @@ export const DataPoint = memo(function DataPoint({
   const updateDragAction = useAnimationStore(useShallow((state) => state.updateDrag));
   const commitDrag = useAnimationStore(useShallow((state) => state.commitDrag));
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
-  const duration = useAnimationStore(useShallow((state) => state.duration));
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
-  const { playing, playerDuration } = usePlayerStore(
-    useShallow((state) => ({
-      playing: state.player.running,
-      playerDuration: state.player.duration,
-    })),
-  );
+  const playing = usePlayerStore(useShallow((state) => state.player.running));
   const selectionState = useAnimationStore(useShallow((state) => state.selectionState));
 
   const unselectedForegroundPoints = points.filter(
@@ -164,11 +158,6 @@ export const DataPoint = memo(function DataPoint({
 
   const [isHovered, setIsHovered] = useState(false);
   const altPressed = useAltKeyPressed();
-  const frameCount = useMemo(() => {
-    const baseDuration = typeof playerDuration === "number" ? playerDuration : duration;
-    if (!baseDuration || !framerate) return null;
-    return Math.floor(framerate * (baseDuration / 1000));
-  }, [duration, framerate, playerDuration]);
 
   const isSpline = trackRender === TrackRender.Spline;
   const visualScaleFactor = verticalAxisRange?.visualScale ?? 1;
@@ -379,17 +368,18 @@ export const DataPoint = memo(function DataPoint({
 
   const computeDragStamp = useCallback(
     (pointerX: number, modifierAlt: boolean) => {
-      const timelinePointer = Math.min(1, Math.max(0, pointerX));
+      // pointerX is now in ms (unbounded)
+      const timelinePointer = pointerX;
       const anchorTimeline = dragAnchorStampRef.current ?? renderStamp;
       const startPointer = dragStartPointerRef.current ?? timelinePointer;
-      const raw = Math.min(1, Math.max(0, anchorTimeline + (timelinePointer - startPointer)));
-      if (modifierAlt || !frameCount || frameCount <= 0) {
+      const raw = anchorTimeline + (timelinePointer - startPointer);
+      if (modifierAlt || !framerate || framerate <= 0) {
         return { raw, snapped: undefined };
       }
-      const snapped = Math.min(1, Math.max(0, closestFrame(raw, frameCount)));
+      const snapped = closestFrame(raw, framerate);
       return { raw, snapped };
     },
-    [frameCount, renderStamp],
+    [framerate, renderStamp],
   );
 
   const dragHandlers = useDragGestures({
@@ -415,8 +405,7 @@ export const DataPoint = memo(function DataPoint({
     onDragStart: (_position) => {
       // Drag gesture has begun — start drag here, not on pointer down
       dragDidMoveRef.current = false;
-      const clampedStart = Math.min(1, Math.max(0, _position));
-      dragStartPointerRef.current = clampedStart;
+      dragStartPointerRef.current = _position;
       dragAnchorStampRef.current = renderStamp;
       if (!isSelected && selectionPoints.length > 0) {
         clickMarker(selectionPoints, sourceRowId, markerId, false, false);

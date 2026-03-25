@@ -73,6 +73,7 @@ import {
   collectSourceTracks,
   findSourceTrackById,
 } from "./functions";
+import { resolveAnimationDuration } from "./functions/compute-animation-extent";
 import {
   updatePlayerLoop,
   updateOverallDuration,
@@ -637,17 +638,24 @@ export const AnimationSlice = (
     updateAnimationDuration: (animationId: string, duration: number, rescale: boolean) => {
       set(
         produce((state: AnimationData) => {
-          const oldDuration = state.animations[animationId].duration;
-          state.animations[animationId].duration = duration;
-          if (!rescale) {
-            // Adjust the stamps (percentage of completion) to match the new duration's range
-            state.animations[animationId].tracks.forEach((trackId) => {
-              state.tracks[trackId].points = state.tracks[trackId].points.map((point) => ({
-                ...point,
-                stamp: (point.stamp * oldDuration) / duration,
-              }));
-            });
+          const animation = state.animations[animationId];
+          if (!animation) return;
+
+          if (rescale) {
+            // Rescale stamps proportionally to maintain relative positions.
+            const oldExtent = resolveAnimationDuration(animation, state.tracks);
+            if (oldExtent > 0 && duration > 0) {
+              const scale = duration / oldExtent;
+              animation.tracks.forEach((trackId) => {
+                state.tracks[trackId].points = state.tracks[trackId].points.map((point) => ({
+                  ...point,
+                  stamp: point.stamp * scale,
+                }));
+              });
+            }
           }
+          // Update the viewport extent hint
+          animation.defaultViewportExtent = duration;
         }),
       );
     },

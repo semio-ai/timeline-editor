@@ -37,6 +37,7 @@ import { computeTransitionSegments } from "./compute-transition-segments";
 import { computeFilledInterpGaps } from "./compute-filled-interp-gaps";
 import { computeVerticalBounds } from "./compute-vertical-bounds";
 import { computeFrames } from "./compute-frames";
+import { resolveAnimationDuration } from "./compute-animation-extent";
 import { computeTrackInterpolator } from "./compute-track-interpolator";
 import { computeTrackViolations } from "./compute-track-violations";
 import { buildRenderParamsFromControlPoints } from "./compute-transition-params";
@@ -378,19 +379,20 @@ export function computeRowData(
     if (singleFrame?.points?.length) {
       // First-key tracks have no explicit pairwise segments; synthesize a full-span
       // buffer segment anchored to that key so spline/preview lines stay connected.
+      // Use large extents so the buffer visually extends to the viewport edges.
       const clonedPoints = singleFrame.points.map((point) => ({ ...point }));
       interpolations = [
         {
           start: {
             ...singleFrame,
             id: `gap-0:${singleFrame.id}`,
-            stamp: 0,
+            stamp: -1e9,
             points: clonedPoints,
           },
           end: {
             ...singleFrame,
             id: `gap-1:${singleFrame.id}`,
-            stamp: 1,
+            stamp: 1e9,
             points: clonedPoints,
           },
           buffer: true,
@@ -435,7 +437,8 @@ export function computeRowData(
       }
       const timescale = instance.settings.timescale ?? 1;
       const durationScale = Number.isFinite(timescale) && timescale !== 0 ? Math.abs(timescale) : 1;
-      const violationDuration = animation.duration / durationScale;
+      const animDuration = resolveAnimationDuration(animation, tracks);
+      const violationDuration = animDuration / durationScale;
       const interpolator = computeTrackInterpolator(previewTrack, instance);
       const previewViolations = computeTrackViolations(
         interpolator,

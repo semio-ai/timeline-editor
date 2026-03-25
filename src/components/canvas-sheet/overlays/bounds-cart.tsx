@@ -1,11 +1,12 @@
 import { Theme } from "@semio/ui";
-import { memo, useEffect, useRef, useCallback, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useShallow } from "zustand/react/shallow";
 import { usePlayerStore, closestFrame, PlayerData } from "@semio/utils";
 import { useMotionValue, useSpring, useTransform, useMotionValueEvent } from "motion/react";
 import { useCursor } from "@react-three/drei";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
+import { isOrthographicCamera } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import { DynamicRoundedRect } from "../shared/rounded-rectangle-geometry";
 import { useTriangleCaretGeometry } from "../shared/triangle-caret";
@@ -85,11 +86,10 @@ export const BoundsCart = memo(function BoundsCart({
   // Get canvas element for cursor container
   const { gl } = useThree();
 
-  const { updateBounds, playing, playerDuration } = usePlayerStore(
+  const { updateBounds, playing } = usePlayerStore(
     useShallow((state) => ({
       updateBounds: state.updatePlayerBounds,
       playing: state.player.running,
-      playerDuration: state.player.duration,
     })),
   );
 
@@ -119,8 +119,6 @@ export const BoundsCart = memo(function BoundsCart({
       previewRight: state.previews.find((p) => p.semanticTime === SemanticTime.BoundsEnd),
     })),
   );
-
-  const frameCount = Math.floor(framerate * (playerDuration / 1000));
 
   // Create caret geometries using hook
   const leftCaretGeometry = useTriangleCaretGeometry({
@@ -184,7 +182,7 @@ export const BoundsCart = memo(function BoundsCart({
       });
     },
     onDrag: (position, altKey) => {
-      const newValue = altKey || altPressed ? position : closestFrame(position, frameCount);
+      const newValue = altKey || altPressed ? position : closestFrame(position, framerate);
       const newBounds =
         newValue >= rightSpring.get()
           ? [rightSpring.get(), newValue]
@@ -211,7 +209,7 @@ export const BoundsCart = memo(function BoundsCart({
       });
     },
     onDrag: (position, altKey) => {
-      const newValue = altKey || altPressed ? position : closestFrame(position, frameCount);
+      const newValue = altKey || altPressed ? position : closestFrame(position, framerate);
       const newBounds =
         newValue <= leftSpring.get() ? [newValue, leftSpring.get()] : [leftSpring.get(), newValue];
       updateBounds(newBounds[0], newBounds[1]);
@@ -273,40 +271,23 @@ export const BoundsCart = memo(function BoundsCart({
   useCursor(hasRightPreview && !playing && !isDraggingRight, "ew-resize", "auto", gl.domElement);
   useCursor(isDraggingLeft || isDraggingRight, "ew-resize", "auto", gl.domElement);
 
-  // Update left position
-  useMotionValueEvent(leftSpring, "change", (pos) => {
+  // Update all positions each frame
+  useFrame(({ camera }) => {
+    if (!isOrthographicCamera(camera)) return;
+
+    const leftPos = leftSpring.get();
+    const rightPos = rightSpring.get();
+    const s = invariantScale.get();
+
+    // Cart positions
     if (leftCartRef.current) {
-      leftCartRef.current.position.x = pos;
+      leftCartRef.current.position.x = leftPos;
     }
-    // Update left overlay
-    if (leftOverlayRef.current) {
-      const scale = invariantScale.get();
-      const leftEdge = -TIMELINE_PADDING * scale;
-      const centerX = (leftEdge + pos) / 2;
-      const width = Math.abs(pos - leftEdge);
-      leftOverlayRef.current.position.x = centerX;
-      leftOverlayRef.current.scale.x = width;
-    }
-  });
-
-  // Update right position
-  useMotionValueEvent(rightSpring, "change", (pos) => {
     if (rightCartRef.current) {
-      rightCartRef.current.position.x = pos;
+      rightCartRef.current.position.x = rightPos;
     }
-    // Update right overlay
-    if (rightOverlayRef.current) {
-      const scale = invariantScale.get();
-      const rightEdge = 1 + TIMELINE_PADDING * scale;
-      const centerX = (pos + rightEdge) / 2;
-      const width = Math.abs(rightEdge - pos);
-      rightOverlayRef.current.position.x = centerX;
-      rightOverlayRef.current.scale.x = width;
-    }
-  });
 
-  // Update scale based on invariant scale
-  useMotionValueEvent(invariantScale, "change", (s) => {
+    // Scale groups
     if (leftScaleRef.current) {
       leftScaleRef.current.scale.x = s;
     }
@@ -314,22 +295,17 @@ export const BoundsCart = memo(function BoundsCart({
       rightScaleRef.current.scale.x = s;
     }
 
-    // Update overlay positions when scale changes
-    const leftPos = leftSpring.get();
-    const rightPos = rightSpring.get();
+    // Out-of-bounds overlays
+    const leftEdge = camera.left - TIMELINE_PADDING * s;
+    const rightEdge = camera.right + TIMELINE_PADDING * s;
 
-    // Update left overlay
     if (leftOverlayRef.current) {
-      const leftEdge = -TIMELINE_PADDING * s;
       const centerX = (leftEdge + leftPos) / 2;
       const width = Math.abs(leftPos - leftEdge);
       leftOverlayRef.current.position.x = centerX;
       leftOverlayRef.current.scale.x = width;
     }
-
-    // Update right overlay
     if (rightOverlayRef.current) {
-      const rightEdge = 1 + TIMELINE_PADDING * s;
       const centerX = (rightPos + rightEdge) / 2;
       const width = Math.abs(rightEdge - rightPos);
       rightOverlayRef.current.position.x = centerX;
@@ -347,12 +323,8 @@ export const BoundsCart = memo(function BoundsCart({
       {/* Left overlay - deemphasizes content outside bounds */}
       <mesh
         ref={leftOverlayRef as any}
-        position={[
-          (-TIMELINE_PADDING * invariantScale.get() + leftSpring.get()) / 2,
-          0,
-          Z.OutOfBoundsOverlay,
-        ]}
-        scale={[Math.abs(leftSpring.get() - -TIMELINE_PADDING * invariantScale.get()), 1, 1]}
+        position={[0, 0, Z.OutOfBoundsOverlay]}
+        scale={[1, 1, 1]}
       >
         <planeGeometry args={[1, height]} />
         <meshBasicMaterial
@@ -366,12 +338,8 @@ export const BoundsCart = memo(function BoundsCart({
       {/* Right overlay - deemphasizes content outside bounds */}
       <mesh
         ref={rightOverlayRef as any}
-        position={[
-          (rightSpring.get() + 1 + TIMELINE_PADDING * invariantScale.get()) / 2,
-          0,
-          Z.OutOfBoundsOverlay,
-        ]}
-        scale={[Math.abs(1 + TIMELINE_PADDING * invariantScale.get() - rightSpring.get()), 1, 1]}
+        position={[0, 0, Z.OutOfBoundsOverlay]}
+        scale={[1, 1, 1]}
       >
         <planeGeometry args={[1, height]} />
         <meshBasicMaterial

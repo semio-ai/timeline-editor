@@ -16,21 +16,21 @@ import {
   createTestAnimationStore,
 } from "../../test-fixtures/animation-store-factory";
 import { ViolationType } from "../../types";
+import { resolveAnimationDuration } from "../../functions/compute-animation-extent";
 
 const computeMaxVelocity = (
   interpolator: (stamp: number) => RawValue | undefined,
   durationMs: number,
   defaultValue: RawValue,
 ): number => {
-  let intervalSize = 1 / ((durationMs / 1000) * 100);
-  if (intervalSize > durationMs) {
-    intervalSize = durationMs;
-  }
-  const timeDelta = (intervalSize * durationMs) / 1000;
+  // Stamps are now in milliseconds; iterate over [0, durationMs]
+  const steps = Math.max(Math.round((durationMs / 1000) * 100), 1);
+  const intervalSize = durationMs / steps;
+  const timeDelta = intervalSize / 1000;
   let valueStart = interpolator(0) ?? defaultValue;
   let maxVelocity = 0;
 
-  for (let stampStart = 0; stampStart < 1; stampStart += intervalSize) {
+  for (let stampStart = 0; stampStart < durationMs; stampStart += intervalSize) {
     const stampEnd = stampStart + intervalSize;
     const valueEnd = interpolator(stampEnd) ?? defaultValue;
     const valueDelta = rawValueNorm(rawValueDiff(valueStart, valueEnd));
@@ -67,10 +67,11 @@ describe("violation timescale behavior", () => {
     const betaScale =
       Number.isFinite(betaTimescale) && betaTimescale !== 0 ? Math.abs(betaTimescale) : 1;
 
-    const maxAlpha = computeMaxVelocity(alphaInterpolator, animation.duration, animatable.default);
+    const animationDuration = resolveAnimationDuration(animation, state.tracks);
+    const maxAlpha = computeMaxVelocity(alphaInterpolator, animationDuration, animatable.default);
     const maxBeta = computeMaxVelocity(
       betaInterpolator,
-      animation.duration / betaScale,
+      animationDuration / betaScale,
       animatable.default,
     );
 

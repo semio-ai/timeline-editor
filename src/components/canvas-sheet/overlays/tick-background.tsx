@@ -1,133 +1,137 @@
-import { memo, useMemo, useRef, useEffect } from "react";
-import { strip } from "number-precision";
+import { memo, useRef, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
-import { Instances, Instance } from "@react-three/drei";
-import { MotionValue, useMotionValueEvent } from "motion/react";
+import { useFrame } from "@react-three/fiber";
 import { Theme } from "@semio/ui";
-import { usePlayerStore } from "@semio/utils";
-import { useAnimationStore, useInvariantScale } from "../../../hooks";
+import { isOrthographicCamera } from "@semio/utils";
+import { useAnimationStore } from "../../../hooks";
 import type { AnimationData } from "../../../store-types";
+import { computeTickIntervals } from "../../../functions/compute-tick-interval";
 import { Z } from "../../../constants";
 
 interface TickBackgroundProps {
   height: number;
   theme?: Theme.Light | Theme.Dark;
-  opacity?: number; // Opacity for the tick marks, default is 1 (fully opaque)
+  opacity?: number;
 }
 
-interface TickData {
-  stamp: number;
-  type: TickType;
-}
+// Minimum pixel spacing for major ticks in the content area (less than ruler)
+const CONTENT_MIN_MAJOR_PX = 40;
+
+const vertexShader = /* glsl */ `
+  varying vec2 vWorldPos;
+  void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPos = worldPos.xy;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const fragmentShader = /* glsl */ `
+  uniform float uMajorIntervalMs;
+  uniform float uMinorIntervalMs;
+  uniform float uPixelsPerMs;
+  uniform vec3 uMajorColor;
+  uniform vec3 uMinorColor;
+  uniform float uTickWidthPx;
+  uniform float uBaseOpacity;
+
+  varying vec2 vWorldPos;
+
+  void main() {
+    if (uMajorIntervalMs < 0.001 || uPixelsPerMs < 0.0001) discard;
+
+    float x = vWorldPos.x;
+    float halfWidth = uTickWidthPx * 0.5;
+
+    // Major tick
+    float nearestMajor = floor(x / uMajorIntervalMs + 0.5);
+    float distMajorPx = abs(x - nearestMajor * uMajorIntervalMs) * uPixelsPerMs;
+    float majorAlpha = 1.0 - smoothstep(halfWidth - 0.5, halfWidth + 0.5, distMajorPx);
+
+    // Minor tick — only if interval differs from major
+    float minorAlpha = 0.0;
+    if (uMinorIntervalMs > 0.001 && uMinorIntervalMs < uMajorIntervalMs - 0.001) {
+      float nearestMinor = floor(x / uMinorIntervalMs + 0.5);
+      float distMinorPx = abs(x - nearestMinor * uMinorIntervalMs) * uPixelsPerMs;
+      minorAlpha = 1.0 - smoothstep(halfWidth - 0.5, halfWidth + 0.5, distMinorPx);
+    }
+
+    float isMajor = step(0.01, majorAlpha);
+    vec3 color = mix(uMinorColor, uMajorColor, isMajor);
+    float alpha = max(majorAlpha, minorAlpha * 0.7 * (1.0 - majorAlpha)) * uBaseOpacity;
+
+    if (alpha < 0.001) discard;
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
 
 export const TickBackground = memo(function TickBackground({
   height,
   theme = Theme.Light,
   opacity = 1,
 }: TickBackgroundProps) {
-  const instancesRef = useRef<THREE.InstancedMesh>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
 
-  const duration = usePlayerStore(useShallow((state) => state.player.duration));
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );
-  const invariantScale = useInvariantScale();
 
-  const frameCount = Math.floor(framerate * (duration / 1000));
+  const majorColor = theme === Theme.Light ? new THREE.Color("#C0C0C0") : new THREE.Color("#E0E0E0");
+  const minorColor = theme === Theme.Light ? new THREE.Color("#D0D0D0") : new THREE.Color("#808080");
 
-  // Pre-calculate all ticks in a single loop using modulo arithmetic
-  const allTicks = useMemo(() => {
-    if (!Number.isFinite(frameCount) || frameCount <= 0 || framerate <= 0) {
-      return [];
-    }
-    const ticks: TickData[] = [];
-
-    for (let tickIndex = 0; tickIndex <= frameCount; tickIndex++) {
-      const stamp = strip(tickIndex / frameCount);
-
-      let tickType: TickType;
-      if (tickIndex % framerate === 0) {
-        tickType = TickType.Major; // Every second
-      } else {
-        tickType = TickType.Minor; // Every frame
-      }
-
-      ticks.push({
-        stamp,
-        type: tickType,
-      });
-    }
-    return ticks;
-  }, [frameCount, framerate]);
-
-  const baseTickWidth = 1; // Base width that will be scaled by the parent group
-  const instanceCount = allTicks.length;
-
-  if (instanceCount === 0) return null;
-
-  return (
-    <Instances
-      key={`tick-bg-${instanceCount.toString()}`}
-      ref={instancesRef as any}
-      limit={instanceCount}
-      range={instanceCount}
-    >
-      <planeGeometry args={[baseTickWidth, height]} />
-      <meshBasicMaterial toneMapped={false} opacity={opacity} transparent={opacity !== 1} />
-
-      {allTicks.map((tick, index) => (
-        <Tick
-          key={`tick-${index.toString()}`}
-          stamp={tick.stamp}
-          tickType={tick.type}
-          scale={invariantScale}
-          theme={theme}
-        />
-      ))}
-    </Instances>
+  const uniforms = useMemo(
+    () => ({
+      uMajorIntervalMs: { value: 1000 },
+      uMinorIntervalMs: { value: 500 },
+      uPixelsPerMs: { value: 1 },
+      uMajorColor: { value: majorColor },
+      uMinorColor: { value: minorColor },
+      uTickWidthPx: { value: 1.0 },
+      uBaseOpacity: { value: opacity },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
   );
-});
 
-enum TickType {
-  Major = "major",
-  Minor = "minor",
-}
+  useFrame(({ camera, size }) => {
+    if (!isOrthographicCamera(camera) || !materialRef.current || !meshRef.current) return;
 
-const Tick = memo(function Tick({
-  stamp,
-  tickType,
-  scale,
-  theme = Theme.Light,
-}: {
-  stamp: number;
-  tickType: TickType;
-  scale: MotionValue<number>;
-  theme?: Theme.Light | Theme.Dark;
-}) {
-  const instanceRef = useRef<THREE.InstancedMesh>(null);
+    const frustumWidth = camera.right - camera.left;
+    if (frustumWidth <= 0 || size.width <= 0) return;
 
-  const color = useMemo(() => {
-    switch (tickType) {
-      case TickType.Minor:
-        return "#737373";
+    meshRef.current.position.x = (camera.left + camera.right) / 2;
+    meshRef.current.scale.x = frustumWidth;
 
-      case TickType.Major:
-        return theme === Theme.Light ? "#262626" : "#E4E4E4";
-    }
-  }, [tickType, theme]);
+    const pixelsPerMs = size.width / frustumWidth;
+    const { majorMs, minorMs } = computeTickIntervals(
+      framerate,
+      pixelsPerMs,
+      CONTENT_MIN_MAJOR_PX,
+    );
 
-  useMotionValueEvent(scale, "change", (s) => {
-    if (instanceRef.current) {
-      instanceRef.current.scale.set(s, 1, 1);
-    }
+    const mat = materialRef.current;
+    mat.uniforms.uMajorIntervalMs.value = majorMs;
+    mat.uniforms.uMinorIntervalMs.value = minorMs;
+    mat.uniforms.uPixelsPerMs.value = pixelsPerMs;
+    mat.uniforms.uMajorColor.value = majorColor;
+    mat.uniforms.uMinorColor.value = minorColor;
+    mat.uniforms.uBaseOpacity.value = opacity;
   });
 
-  useEffect(() => {
-    if (instanceRef.current) {
-      instanceRef.current.scale.set(scale.get(), 1, 1);
-    }
-  }, [scale]);
-
-  return <Instance ref={instanceRef as any} position={[stamp, 0, Z.Ticks]} color={color} />;
+  return (
+    <mesh ref={meshRef} position={[0, 0, Z.Ticks]}>
+      <planeGeometry args={[1, height]} />
+      <shaderMaterial
+        ref={materialRef}
+        vertexShader={vertexShader}
+        fragmentShader={fragmentShader}
+        uniforms={uniforms}
+        transparent
+        toneMapped={false}
+        depthWrite={false}
+      />
+    </mesh>
+  );
 });

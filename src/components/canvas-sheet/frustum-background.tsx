@@ -1,10 +1,11 @@
 import { memo, useEffect, useRef } from "react";
 import { MotionValue, useMotionValueEvent, useSpring } from "motion/react";
 import { useShallow } from "zustand/shallow";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
-import { useAnimationStore, useInvariantScale } from "../../hooks";
-import { TIMELINE_PADDING } from "../../constants";
+import { isOrthographicCamera } from "@semio/utils";
+import { useAnimationStore } from "../../hooks";
 import { getBackgroundElementProps, getEmphasisOpacity, ThemeMode } from "../../functions";
 
 interface FrustumBackgroundProps {
@@ -53,12 +54,14 @@ export const FrustumBackground = memo(function FrustumBackground({
     }
   }, [dragState]);
 
-  const invariantScale = useInvariantScale();
-
-  useMotionValueEvent(invariantScale, "change", (s) => {
-    if (bgRef.current) {
-      bgRef.current.scale.x = 1 + 2 * TIMELINE_PADDING * s;
-    }
+  // Use useFrame to position/scale the background to fill the camera frustum.
+  // This runs once per frame and is more efficient than motion value listeners.
+  useFrame(({ camera }) => {
+    if (!bgRef.current || !isOrthographicCamera(camera)) return;
+    const width = camera.right - camera.left;
+    if (width <= 0) return;
+    bgRef.current.position.x = (camera.left + camera.right) / 2;
+    bgRef.current.scale.x = width;
   });
 
   const targetOpacity = getTargetOpacity(visibility, emphasis, theme);
@@ -94,7 +97,7 @@ export const FrustumBackground = memo(function FrustumBackground({
   return (
     <mesh
       ref={bgRef as any}
-      position={[0.5, y.get(), z]}
+      position={[0, y.get(), z]}
       {...pointerEvents}
       onPointerOver={(e) => {
         onHoverChange?.(true);

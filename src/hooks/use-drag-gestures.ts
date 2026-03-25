@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { useGesture } from "@use-gesture/react";
 import { useThree } from "@react-three/fiber";
-import { clamp } from "lodash";
 import { isOrthographicCamera } from "@semio/utils";
 import { getDataViewportFromFrustum } from "../viewport-utils";
 
@@ -26,7 +25,7 @@ export interface DragGestureOptions {
   onDragEnd?: (position: number) => void;
   /**
    * Optional 2D drag callback for consumers that need vertical normalized deltas.
-   * x is the normalized timeline position [0,1].
+   * x is the timeline position in milliseconds.
    * normalizedValueDelta is -(movementY / pixelRangeY).
    */
   onDrag2D?: (args: {
@@ -65,12 +64,11 @@ export const useDragGestures = ({
 }: DragGestureOptions): DragGestureHandlers => {
   const { camera, size } = useThree();
 
-  // Convert screen movement to timeline position (0-1)
+  // Convert screen movement to timeline position in ms (unbounded)
   const getTimelinePositionFromMovement = useCallback(
     (movement: number, initial: number): number => {
-      // Convert screen movement to normalized coordinate space
       if (!isOrthographicCamera(camera)) {
-        return clamp(initial, 0, 1);
+        return initial;
       }
       const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
         { left: camera.left, right: camera.right },
@@ -78,19 +76,15 @@ export const useDragGestures = ({
       );
       const dataWidth = dataRight - dataLeft;
       if (!Number.isFinite(dataWidth) || dataWidth === 0) {
-        return clamp(initial, 0, 1);
+        return initial;
       }
       const deltaX = (movement / size.width) * dataWidth;
-
-      // Calculate new position (clamped to visible data range and absolute bounds)
-      const newPosition = initial + deltaX;
-      const clampedToViewport = Math.min(dataRight, Math.max(dataLeft, newPosition));
-      return clamp(clampedToViewport, 0, 1);
+      return initial + deltaX;
     },
     [camera, size.width],
   );
 
-  // Convert pointer event to timeline position (for initial position)
+  // Convert pointer event to timeline position in ms (unbounded)
   const getTimelinePositionFromEvent = useCallback(
     (event: any): number => {
       if (!isOrthographicCamera(camera)) {
@@ -99,29 +93,15 @@ export const useDragGestures = ({
 
       // Try to use intersection point if available (from Three.js event)
       if (event?.point) {
-        const worldX = event.point.x as number;
-        const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
-          { left: camera.left, right: camera.right },
-          Math.max(1, size.width),
-        );
-        const clamped = Math.min(dataRight, Math.max(dataLeft, worldX));
-        return clamp(clamped, 0, 1);
+        return event.point.x as number;
       }
 
-      // Fallback: convert screen position to normalized coordinate
+      // Fallback: convert screen position to world space (ms)
       const clientX = (event?.clientX ?? event?.nativeEvent?.clientX ?? 0) as number;
       const normalizedX = clientX / size.width;
 
       // For orthographic camera, map screen space to world space
-      const worldX = camera.left + normalizedX * (camera.right - camera.left);
-      const { left: dataLeft, right: dataRight } = getDataViewportFromFrustum(
-        { left: camera.left, right: camera.right },
-        Math.max(1, size.width),
-      );
-
-      const clamped = Math.min(dataRight, Math.max(dataLeft, worldX));
-
-      return clamp(clamped, 0, 1);
+      return camera.left + normalizedX * (camera.right - camera.left);
     },
     [camera, size.width],
   );
@@ -221,8 +201,8 @@ export const useViewportDragGestures = ({
   onDrag,
   onDragEnd,
   initialViewport,
-  bounds = [0, 1],
-  minWidth = 0.05,
+  bounds,
+  minWidth = 50, // Minimum viewport width in ms
   dragType = "viewport",
 }: {
   disabled?: boolean;
@@ -259,26 +239,26 @@ export const useViewportDragGestures = ({
         if (dragType === "viewport") {
           // Drag entire viewport
           const viewportWidth = memViewport[1] - memViewport[0];
-          const newStart = Math.max(
-            bounds[0],
-            Math.min(bounds[1] - viewportWidth, memViewport[0] + deltaX),
-          );
+          let newStart = memViewport[0] + deltaX;
+          if (bounds) {
+            newStart = Math.max(bounds[0], Math.min(bounds[1] - viewportWidth, newStart));
+          }
           const newEnd = newStart + viewportWidth;
           newViewport = [newStart, newEnd];
         } else if (dragType === "left") {
           // Drag left edge
-          const potentialNewStart = Math.max(
-            bounds[0],
-            Math.min(memViewport[1], memViewport[0] + deltaX),
-          );
+          let potentialNewStart = Math.min(memViewport[1], memViewport[0] + deltaX);
+          if (bounds) {
+            potentialNewStart = Math.max(bounds[0], potentialNewStart);
+          }
           const newStart = Math.min(potentialNewStart, memViewport[1] - minWidth);
           newViewport = [newStart, initialViewport[1]];
         } else {
           // Drag right edge
-          const potentialNewEnd = Math.min(
-            bounds[1],
-            Math.max(memViewport[0], memViewport[1] + deltaX),
-          );
+          let potentialNewEnd = Math.max(memViewport[0], memViewport[1] + deltaX);
+          if (bounds) {
+            potentialNewEnd = Math.min(bounds[1], potentialNewEnd);
+          }
           const newEnd = Math.max(potentialNewEnd, memViewport[0] + minWidth);
           newViewport = [initialViewport[0], newEnd];
         }
@@ -299,24 +279,24 @@ export const useViewportDragGestures = ({
 
         if (dragType === "viewport") {
           const viewportWidth = memViewport[1] - memViewport[0];
-          const newStart = Math.max(
-            bounds[0],
-            Math.min(bounds[1] - viewportWidth, memViewport[0] + deltaX),
-          );
+          let newStart = memViewport[0] + deltaX;
+          if (bounds) {
+            newStart = Math.max(bounds[0], Math.min(bounds[1] - viewportWidth, newStart));
+          }
           const newEnd = newStart + viewportWidth;
           finalViewport = [newStart, newEnd];
         } else if (dragType === "left") {
-          const potentialNewStart = Math.max(
-            bounds[0],
-            Math.min(memViewport[1], memViewport[0] + deltaX),
-          );
+          let potentialNewStart = Math.min(memViewport[1], memViewport[0] + deltaX);
+          if (bounds) {
+            potentialNewStart = Math.max(bounds[0], potentialNewStart);
+          }
           const newStart = Math.min(potentialNewStart, memViewport[1] - minWidth);
           finalViewport = [newStart, initialViewport[1]];
         } else {
-          const potentialNewEnd = Math.min(
-            bounds[1],
-            Math.max(memViewport[0], memViewport[1] + deltaX),
-          );
+          let potentialNewEnd = Math.max(memViewport[0], memViewport[1] + deltaX);
+          if (bounds) {
+            potentialNewEnd = Math.min(bounds[1], potentialNewEnd);
+          }
           const newEnd = Math.max(potentialNewEnd, memViewport[0] + minWidth);
           finalViewport = [initialViewport[0], newEnd];
         }

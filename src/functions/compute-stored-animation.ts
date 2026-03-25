@@ -1,8 +1,12 @@
 import { RawValue } from "@semio/utils";
 import type { Animation, StoredAnimation, Track } from "../types";
+import { CURRENT_ANIMATION_FORMAT_VERSION } from "../types/data/animation";
 
 /**
  * Computes a stored animation object from the given animation and tracks.
+ * Always outputs in the current format version (v2 millisecond stamps).
+ * Duration is no longer stored — it is derived from track content on load.
+ * defaultViewportExtent is preserved if set.
  *
  * @param animation - The animation object containing details about the animation.
  * @param tracks - A record of track objects indexed by their string keys.
@@ -25,6 +29,7 @@ export function computeStoredAnimation(
       };
     }),
     groups: animation.groups,
-    duration: animation.duration,
+    defaultViewportExtent: animation.defaultViewportExtent,
+    formatVersion: CURRENT_ANIMATION_FORMAT_VERSION,
   };
 }

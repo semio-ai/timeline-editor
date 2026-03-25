@@ -2,7 +2,7 @@ import { useRef, useMemo, useState, useEffect, memo, useCallback } from "react";
 import * as THREE from "three";
 import { cubicBezier, MotionValue, useMotionValueEvent } from "motion/react";
 import { PlayerData, usePlayerStore, isOrthographicCamera } from "@semio/utils";
-import { Instance, Instances, useCursor } from "@react-three/drei";
+import { useCursor } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Theme } from "@semio/ui";
 import {
@@ -21,13 +21,16 @@ import { TickBackground } from "./overlays/tick-background";
 /**
  * MinimapDisplay renders a minimap rectangle and half-hexagons using react-three/fiber,
  * subscribing to viewport changes via usePlayerStore and updating mesh positions directly.
+ *
+ * Blender-style clamping: the scroll element is clamped to stay within the
+ * minimap camera frustum so it's always visible and grabbable.
  */
 export const MinimapDisplay = memo(function MinimapDisplay({
   inactiveHeight = 5,
   activeHeight = 22,
   height = 36,
   theme = Theme.Light,
-  minZoom = 0.05,
+  minZoom = 100,
 }: {
   inactiveHeight?: number;
   activeHeight?: number;
@@ -37,8 +40,8 @@ export const MinimapDisplay = memo(function MinimapDisplay({
 }) {
   // Refs for meshes
   const rectRef = useRef<THREE.Mesh>(null);
-  const leftHexRef = useRef<THREE.Object3D>(null);
-  const rightHexRef = useRef<THREE.Object3D>(null);
+  const leftHexRef = useRef<THREE.Mesh>(null);
+  const rightHexRef = useRef<THREE.Mesh>(null);
 
   // Player store for updating viewport
   const { updatePlayerViewport, updatePlayerViewportBound } = usePlayerStore();
@@ -102,9 +105,8 @@ export const MinimapDisplay = memo(function MinimapDisplay({
     setCurrentHeight(newHeight);
   });
 
-  // Stable geometries and materials
-  const rectGeometry = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
-  const rectMaterial = useMemo(() => new THREE.MeshBasicMaterial(), []);
+  // Stable materials
+  const rectMaterial = useMemo(() => new THREE.MeshBasicMaterial({ toneMapped: false }), []);
   const hexMaterial = useMemo(() => new THREE.MeshBasicMaterial({ toneMapped: false }), []);
 
   // Update material colors when active state changes
@@ -116,7 +118,6 @@ export const MinimapDisplay = memo(function MinimapDisplay({
   }, [rectMaterial, hexMaterial, colors, isActive]);
 
   // Use drei's useCursor hook for cursor management
-  // Use drei's cursor hook with canvas container for reliable cursor management
   useCursor(hovered && hoveredArea === "viewport" && !dragging, "grab", "auto", gl.domElement);
   useCursor(
     hovered && (hoveredArea === "left" || hoveredArea === "right") && !dragging,
@@ -135,37 +136,99 @@ export const MinimapDisplay = memo(function MinimapDisplay({
 
   usePlayerSubscription(selectViewport, handleViewportChange);
 
-  useEffect(() => {
-    const [start, end] = currentViewport;
-    const rectWidth = end - start;
+  // Blender-style per-edge clamping: each edge independently clamps to the
+  // frustum boundary, so the element shrinks as the viewport leaves the range,
+  // down to a minimum pixel width (~10px).
 
+  useFrame(({ viewport: threeViewport, camera: frameCamera }) => {
+    if (!isOrthographicCamera(frameCamera)) return;
+
+    const fLeft = frameCamera.left;
+    const fRight = frameCamera.right;
+    const frustumWidth = fRight - fLeft;
+    if (frustumWidth <= 0) return;
+
+    const pixelWidth = threeViewport.width;
+    const scaleFactor = frustumWidth / pixelWidth;
+
+    // Hex visual radius in world units (unit circle scaled by scaleFactor * hexSize)
+    const hexRadius = scaleFactor * (currentHeight / 2);
+
+    // Minimum visual width in world units (~10px), not counting hex caps
+    const minWidth = scaleFactor * 10;
+
+    const [vpStart, vpEnd] = currentViewport;
+
+    // Inset the clamping bounds by the hex radius so the hex caps stay fully visible
+    const clampLeft = fLeft + hexRadius;
+    const clampRight = fRight - hexRadius;
+
+    // Clamp each edge independently
+    let clampedStart = Math.max(clampLeft, vpStart);
+    let clampedEnd = Math.min(clampRight, vpEnd);
+
+    // If clamped width is below minimum, pin to the nearest frustum edge
+    if (clampedEnd - clampedStart < minWidth) {
+      if (vpEnd <= clampLeft) {
+        // Entire viewport is left of visible range — pin to left
+        clampedStart = clampLeft;
+        clampedEnd = clampLeft + minWidth;
+      } else if (vpStart >= clampRight) {
+        // Entire viewport is right of visible range — pin to right
+        clampedStart = clampRight - minWidth;
+        clampedEnd = clampRight;
+      } else if (vpStart < clampLeft) {
+        // Left edge is outside
+        clampedStart = clampLeft;
+        clampedEnd = Math.max(clampLeft + minWidth, clampedEnd);
+      } else {
+        // Right edge is outside
+        clampedEnd = clampRight;
+        clampedStart = Math.min(clampRight - minWidth, clampedStart);
+      }
+    }
+
+    const rectWidth = clampedEnd - clampedStart;
+
+    // Visual rect
     if (rectRef.current) {
-      rectRef.current.position.set(start + rectWidth / 2, 0, Z.Minimap);
+      rectRef.current.position.set(clampedStart + rectWidth / 2, 0, Z.Minimap);
       rectRef.current.scale.set(rectWidth, currentHeight, 1);
-      rectRef.current.renderOrder = 1; // Render on top
     }
 
-    if (leftHexRef.current && rightHexRef.current) {
-      leftHexRef.current.position.set(start, 0, Z.Minimap);
-      rightHexRef.current.position.set(end, 0, Z.Minimap);
-      leftHexRef.current.renderOrder = 0; // Render behind
-      rightHexRef.current.renderOrder = 0; // Render behind
+    // Hex caps — behind the rect so they appear as half-hexagons.
+    // Unit circle geometry (radius=1): scale X by scaleFactor * hexSize for frustum invariance,
+    // scale Y by hexSize to match the animated height.
+    const hexSize = currentHeight / 2;
+    if (leftHexRef.current) {
+      leftHexRef.current.position.set(clampedStart, 0, Z.Minimap - 0.1);
+      leftHexRef.current.scale.set(scaleFactor * hexSize, hexSize, 1);
     }
-  }, [currentViewport, currentHeight]);
+    if (rightHexRef.current) {
+      rightHexRef.current.position.set(clampedEnd, 0, Z.Minimap - 0.1);
+      rightHexRef.current.scale.set(scaleFactor * hexSize, hexSize, 1);
+    }
 
-  useFrame(({ viewport, camera: frameCamera }) => {
-    if (leftHexRef.current && rightHexRef.current && isOrthographicCamera(frameCamera)) {
-      const baseWidth = viewport.width;
-      const currentWidth = frameCamera.right - frameCamera.left;
-      const scaleFactor = currentWidth / baseWidth;
-
-      // Apply scaling for frustum invariance - same pattern as data points
-      leftHexRef.current.scale.set(scaleFactor, 1, 1);
-      rightHexRef.current.scale.set(scaleFactor, 1, 1);
+    // Grab meshes — in front of visual elements, covering the hex areas.
+    // Handle grab extends outward from the rect edge by hexRadius.
+    const grabZ = Z.Minimap + 0.5;
+    const handleGrabWidth = hexRadius * 2;
+    if (leftGrabRef.current) {
+      // Centered on the hex: from (clampedStart - hexRadius) to (clampedStart + hexRadius)
+      leftGrabRef.current.position.set(clampedStart, 0, grabZ);
+      leftGrabRef.current.scale.set(handleGrabWidth, activeHeight, 1);
+    }
+    if (rectGrabRef.current) {
+      rectGrabRef.current.position.set(clampedStart + rectWidth / 2, 0, grabZ);
+      rectGrabRef.current.scale.set(Math.max(rectWidth - handleGrabWidth, 1), activeHeight, 1);
+    }
+    if (rightGrabRef.current) {
+      rightGrabRef.current.position.set(clampedEnd, 0, grabZ);
+      rightGrabRef.current.scale.set(handleGrabWidth, activeHeight, 1);
     }
   });
 
-  // Gesture bindings for each area using the new hook
+  // Gesture bindings — no bounds constraint, timeline is unbounded
   const bindViewportDrag = useViewportDragGestures({
     disabled: false,
     onDragStart: () => {
@@ -178,7 +241,6 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging(null);
     },
     initialViewport: currentViewport,
-    bounds: [0, 1],
     minWidth: minZoom,
     dragType: "viewport",
   });
@@ -195,7 +257,6 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging(null);
     },
     initialViewport: currentViewport,
-    bounds: [0, 1],
     minWidth: minZoom,
     dragType: "left",
   });
@@ -212,18 +273,22 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging(null);
     },
     initialViewport: currentViewport,
-    bounds: [0, 1],
     minWidth: minZoom,
     dragType: "right",
   });
 
+  // Refs for grab meshes — positioned by useFrame alongside visual elements
+  const leftGrabRef = useRef<THREE.Mesh>(null);
+  const rectGrabRef = useRef<THREE.Mesh>(null);
+  const rightGrabRef = useRef<THREE.Mesh>(null);
+
   return (
     <group>
-      {/* Background gesture plane for playback interactions */}
+      {/* Background gesture plane for playback interactions — behind everything */}
       <FrustumBackground
         height={height}
         visibility="transparent"
-        z={Z.Minimap + 0.1}
+        z={Z.Minimap - 1}
         pointerEvents={playbackGestures}
       />
 
@@ -232,69 +297,50 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       <PlayheadMarker height={height} theme={theme} />
       <BoundsOverlay height={height} theme={theme} />
 
-      {/* Left hexagon gesture area */}
+      {/* Grab meshes — in front of visual elements, positioned by useFrame */}
       <mesh
-        position={[currentViewport[0] - 0.015, 0, Z.Minimap]}
-        onPointerEnter={() => {
-          setHovered(true);
-          setHoveredArea("left");
-        }}
-        onPointerLeave={() => {
-          setHovered(false);
-          setHoveredArea(null);
-        }}
+        ref={leftGrabRef}
+        onPointerEnter={() => { setHovered(true); setHoveredArea("left"); }}
+        onPointerLeave={() => { setHovered(false); setHoveredArea(null); }}
         {...bindLeftDrag}
       >
-        <boxGeometry args={[0.03, activeHeight, 0.1]} />
+        <planeGeometry args={[1, 1]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
-      {/* Rectangle gesture area */}
       <mesh
-        position={[(currentViewport[0] + currentViewport[1]) / 2, 0, Z.Minimap]}
-        onPointerEnter={() => {
-          setHovered(true);
-          setHoveredArea("viewport");
-        }}
-        onPointerLeave={() => {
-          setHovered(false);
-          setHoveredArea(null);
-        }}
+        ref={rectGrabRef}
+        onPointerEnter={() => { setHovered(true); setHoveredArea("viewport"); }}
+        onPointerLeave={() => { setHovered(false); setHoveredArea(null); }}
         {...bindViewportDrag}
       >
-        <boxGeometry args={[currentViewport[1] - currentViewport[0], activeHeight, 0.1]} />
+        <planeGeometry args={[1, 1]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
-      {/* Right hexagon gesture area */}
       <mesh
-        position={[currentViewport[1] + 0.015, 0, Z.Minimap]}
-        onPointerEnter={() => {
-          setHovered(true);
-          setHoveredArea("right");
-        }}
-        onPointerLeave={() => {
-          setHovered(false);
-          setHoveredArea(null);
-        }}
+        ref={rightGrabRef}
+        onPointerEnter={() => { setHovered(true); setHoveredArea("right"); }}
+        onPointerLeave={() => { setHovered(false); setHoveredArea(null); }}
         {...bindRightDrag}
       >
-        <boxGeometry args={[0.03, activeHeight, 0.1]} />
+        <planeGeometry args={[1, 1]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
       {/* Main rectangle */}
-      <mesh ref={rectRef as any} geometry={rectGeometry as any} material={rectMaterial as any} />
+      <mesh ref={rectRef as any} material={rectMaterial as any}>
+        <planeGeometry args={[1, 1]} />
+      </mesh>
 
-      {/* Left/Right hexagon approximations using cylinders */}
-      <Instances limit={2} range={2}>
-        <cylinderGeometry args={[currentHeight / 2, currentHeight / 2, 0.1, 6]} />
-        <primitive object={hexMaterial} />
+      {/* Left/Right hexagon caps — regular meshes, positioned by useFrame */}
+      <mesh ref={leftHexRef as any} material={hexMaterial as any}>
+        <circleGeometry args={[1, 6, Math.PI / 6]} />
+      </mesh>
 
-        <Instance ref={leftHexRef} rotation={[Math.PI / 2, 0, 0]} />
-
-        <Instance ref={rightHexRef} rotation={[Math.PI / 2, 0, 0]} />
-      </Instances>
+      <mesh ref={rightHexRef as any} material={hexMaterial as any}>
+        <circleGeometry args={[1, 6, Math.PI / 6]} />
+      </mesh>
     </group>
   );
 });

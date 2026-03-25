@@ -11,6 +11,8 @@ import {
   MotionValue,
 } from "motion/react";
 import { shallow } from "zustand/shallow";
+import { useFrame } from "@react-three/fiber";
+import { isOrthographicCamera } from "@semio/utils";
 import { useInvariantScale, useAnimationStore, usePlayerSubscription } from "../../../hooks";
 import { AnimationData } from "../../../store-types";
 import { SemanticTime } from "../../../types";
@@ -96,78 +98,43 @@ export const BoundsOverlay = memo(function BoundsOverlay({
     }
   });
 
-  // Update left position based on bound spring
-  useMotionValueEvent(leftSpring, "change", (pos) => {
-    if (markerLeftRef.current) {
-      markerLeftRef.current.position.x = pos;
-    }
-    // Update fill position and scale
-    if (fillRef.current) {
-      const rightPos = rightSpring.get();
-      const centerX = (pos + rightPos) / 2;
-      const width = Math.abs(rightPos - pos);
-      fillRef.current.position.x = centerX;
-      fillRef.current.scale.x = width;
-    }
-    // Update left overlay
-    if (leftOverlayRef.current) {
-      const scale = invariantScale.get();
-      const leftEdge = -TIMELINE_PADDING * scale;
-      const centerX = (leftEdge + pos) / 2;
-      const width = Math.abs(pos - leftEdge);
-      leftOverlayRef.current.position.x = centerX;
-      leftOverlayRef.current.scale.x = width;
-    }
-  });
+  // Update all positions each frame — bounds markers, fill, and out-of-bounds overlays
+  useFrame(({ camera }) => {
+    if (!isOrthographicCamera(camera)) return;
 
-  // Update right position based on bound spring
-  useMotionValueEvent(rightSpring, "change", (pos) => {
-    if (markerRightRef.current) {
-      markerRightRef.current.position.x = pos;
-    }
-    // Update fill position and scale
-    if (fillRef.current) {
-      const leftPos = leftSpring.get();
-      const centerX = (leftPos + pos) / 2;
-      const width = Math.abs(pos - leftPos);
-      fillRef.current.position.x = centerX;
-      fillRef.current.scale.x = width;
-    }
-    // Update right overlay
-    if (rightOverlayRef.current) {
-      const scale = invariantScale.get();
-      const rightEdge = 1 + TIMELINE_PADDING * scale;
-      const centerX = (pos + rightEdge) / 2;
-      const width = Math.abs(rightEdge - pos);
-      rightOverlayRef.current.position.x = centerX;
-      rightOverlayRef.current.scale.x = width;
-    }
-  });
+    const leftPos = leftSpring.get();
+    const rightPos = rightSpring.get();
+    const s = invariantScale.get();
 
-  // Update scale based on invariant scale
-  useMotionValueEvent(invariantScale, "change", (s: number) => {
+    // Bounds markers
     if (markerLeftRef.current) {
+      markerLeftRef.current.position.x = leftPos;
       markerLeftRef.current.scale.x = s;
     }
     if (markerRightRef.current) {
+      markerRightRef.current.position.x = rightPos;
       markerRightRef.current.scale.x = s;
     }
-    // Update overlay positions when scale changes
-    const leftPos = leftSpring.get();
-    const rightPos = rightSpring.get();
 
-    // Update left overlay
+    // Fill between bounds
+    if (fillRef.current) {
+      const centerX = (leftPos + rightPos) / 2;
+      const width = Math.abs(rightPos - leftPos);
+      fillRef.current.position.x = centerX;
+      fillRef.current.scale.x = width;
+    }
+
+    // Out-of-bounds overlays — extend from frustum edges to bounds
+    const leftEdge = camera.left - TIMELINE_PADDING * s;
+    const rightEdge = camera.right + TIMELINE_PADDING * s;
+
     if (leftOverlayRef.current) {
-      const leftEdge = -TIMELINE_PADDING * s;
       const centerX = (leftEdge + leftPos) / 2;
       const width = Math.abs(leftPos - leftEdge);
       leftOverlayRef.current.position.x = centerX;
       leftOverlayRef.current.scale.x = width;
     }
-
-    // Update right overlay
     if (rightOverlayRef.current) {
-      const rightEdge = 1 + TIMELINE_PADDING * s;
       const centerX = (rightPos + rightEdge) / 2;
       const width = Math.abs(rightEdge - rightPos);
       rightOverlayRef.current.position.x = centerX;
@@ -180,12 +147,8 @@ export const BoundsOverlay = memo(function BoundsOverlay({
       {/* Left overlay - deemphasizes content outside bounds */}
       <mesh
         ref={leftOverlayRef as any}
-        position={[
-          (-TIMELINE_PADDING * invariantScale.get() + leftSpring.get()) / 2,
-          0,
-          Z.OutOfBoundsOverlay,
-        ]}
-        scale={[Math.abs(leftSpring.get() - -TIMELINE_PADDING * invariantScale.get()), 1, 1]}
+        position={[0, 0, Z.OutOfBoundsOverlay]}
+        scale={[1, 1, 1]}
       >
         <planeGeometry args={[1, height]} />
         <meshBasicMaterial
@@ -198,12 +161,8 @@ export const BoundsOverlay = memo(function BoundsOverlay({
       {/* Right overlay - deemphasizes content outside bounds */}
       <mesh
         ref={rightOverlayRef as any}
-        position={[
-          (rightSpring.get() + 1 + TIMELINE_PADDING * invariantScale.get()) / 2,
-          0,
-          Z.OutOfBoundsOverlay,
-        ]}
-        scale={[Math.abs(1 + TIMELINE_PADDING * invariantScale.get() - rightSpring.get()), 1, 1]}
+        position={[0, 0, Z.OutOfBoundsOverlay]}
+        scale={[1, 1, 1]}
       >
         <planeGeometry args={[1, height]} />
         <meshBasicMaterial

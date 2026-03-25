@@ -4,7 +4,7 @@ import { TIMELINE_PADDING } from "./constants";
  * Utility functions for handling viewport frustum calculations with padding.
  *
  * Key concepts:
- * - Data Viewport: The actual [0,1] bounds where data is displayed
+ * - Data Viewport: The bounds (in ms) where data is displayed
  * - Camera Frustum: The expanded bounds that include padding on both sides
  */
 

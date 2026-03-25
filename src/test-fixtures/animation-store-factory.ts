@@ -9,6 +9,7 @@ import {
 } from "../types";
 import { createAnimationStore, type AnimationStore } from "../store";
 import { migrateAnimationData } from "../functions/migrate-animation-data";
+import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
 
 // Animation IDs
 export const ANIMATION_IDS = {
@@ -546,7 +547,8 @@ function createNamespaces(): Record<string, Namespace> {
           settings: {
             active: true,
             // Non-identity transform to exercise instance time scaling/offset in tests.
-            offset: 0.25,
+            // In v2 format, offset is in ms (250ms delay) and timescale=2 means 2x speed.
+            offset: 250,
             timescale: 2,
           },
         },
@@ -570,8 +572,11 @@ function migrateAnimationSet(
 ): { animations: Record<string, StoredAnimation>; animatables: Record<string, AnimatableValue> } {
   return Object.values(animations).reduce(
     (acc, animation) => {
+      // First migrate composite tracks to scalar tracks
       const migrated = migrateAnimationData(animation, animatables);
-      acc.animations[migrated.animation.id] = migrated.animation;
+      // Then migrate from v1 normalized stamps to v2 millisecond stamps
+      const v2 = migrateToMillisecondStamps(migrated.animation);
+      acc.animations[v2.id] = v2;
       acc.animatables = { ...acc.animatables, ...migrated.animatables };
       return acc;
     },

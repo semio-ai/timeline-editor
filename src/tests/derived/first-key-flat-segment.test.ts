@@ -35,7 +35,7 @@ describe("single-key derived segment rendering", () => {
     state.animations[animationId] = {
       id: animationId,
       name: "Animation",
-      duration: 1000,
+      defaultViewportExtent: 1000,
       tracks: [trackId],
       groups: [],
     };

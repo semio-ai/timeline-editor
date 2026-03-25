@@ -26,7 +26,7 @@ describe("global row multi-track drag preview", () => {
           ...state.tracks[TRACK_IDS.OPACITY],
           points: [
             ...state.tracks[TRACK_IDS.OPACITY].points,
-            { id: "o4", stamp: 0.4, value: 0.5 },
+            { id: "o4", stamp: 800, value: 0.5 },
           ].toSorted((a, b) => a.stamp - b.stamp),
         },
       },
@@ -57,7 +57,7 @@ describe("global row multi-track drag preview", () => {
       throw new Error("Expected opacity point in shared global frame");
     }
 
-    const expectedStamp = targetFrame.stamp + 0.1;
+    const expectedStamp = targetFrame.stamp + 200;
 
     store.getState().startDrag({
       axis: "horizontal",

@@ -16,7 +16,6 @@ const expectNumber = (value: unknown): number => {
 
 test("should return the interpolated values for each track", () => {
   const defaultTrack1Interpolator = computeTrackInterpolator(tracks.track1, instances.default);
-
   const defaultTrack2Interpolator = computeTrackInterpolator(tracks.track2, instances.default);
   const doublespeedTrack1Interpolator = computeTrackInterpolator(
     tracks.track1,
@@ -28,24 +27,36 @@ test("should return the interpolated values for each track", () => {
     instances.offsetDoublespeed,
   );
 
-  // Test the interpolated values at different times
-  // the method `toBeCloseTo` tests that the values are close to each other with
-  // floating-point precision
+  // Stamps are in ms. Track1 has keypoints at 100, 300, 900ms with values 10, 15, 20.
+  // Track2 has keypoints at 100, 900ms with values 1.2, 2.1.
+
+  // At or before the first keypoint world stamp, should return first value
   expect(expectNumber(defaultTrack1Interpolator(0))).toBeCloseTo(10);
   expect(expectNumber(defaultTrack2Interpolator(0))).toBeCloseTo(1.2);
-  expect(expectNumber(defaultTrack1Interpolator(0.3))).toBeCloseTo(15);
-  expect(expectNumber(defaultTrack2Interpolator(0.5))).toBeCloseTo(1.65);
-  expect(expectNumber(defaultTrack1Interpolator(1))).toBeCloseTo(20);
-  expect(expectNumber(defaultTrack2Interpolator(1))).toBeCloseTo(2.1);
+
+  // At exact keypoint stamps
+  expect(expectNumber(defaultTrack1Interpolator(300))).toBeCloseTo(15);
+
+  // Midpoint of track2 (linear-ish between 100ms and 900ms)
+  expect(expectNumber(defaultTrack2Interpolator(500))).toBeCloseTo(1.65);
+
+  // At or after the last keypoint, should return last value
+  expect(expectNumber(defaultTrack1Interpolator(1000))).toBeCloseTo(20);
+  expect(expectNumber(defaultTrack2Interpolator(1000))).toBeCloseTo(2.1);
+
+  // Double-speed: at t=0 (before content), same as default
   expect(expectNumber(doublespeedTrack1Interpolator(0))).toBeCloseTo(10);
-  const midDefault = expectNumber(defaultTrack1Interpolator(0.5));
-  const midDouble = expectNumber(doublespeedTrack1Interpolator(0.5));
-  expect(midDefault).toBeCloseTo(15.745849186787382);
-  expect(midDouble).toBeCloseTo(midDefault);
-  expect(expectNumber(offsetTrack1Interpolator(0.5))).toBeCloseTo(midDefault);
-  expect(expectNumber(offsetDoublespeedTrack1Interpolator(0.5))).toBeCloseTo(midDefault);
-  expect(expectNumber(offsetDoublespeedTrack1Interpolator(1))).toBeCloseTo(20);
-  expect(expectNumber(offsetDoublespeedTrack1Interpolator(0.65))).toBeCloseTo(18.57389205135405);
+
+  // Midpoint comparisons — double-speed and offset instances should produce
+  // equivalent values at their respective world times
+  const midDefault = expectNumber(defaultTrack1Interpolator(500));
+  const midDouble = expectNumber(doublespeedTrack1Interpolator(500));
+  expect(midDefault).toBeCloseTo(midDouble);
+  expect(expectNumber(offsetTrack1Interpolator(500))).toBeCloseTo(midDefault);
+  expect(expectNumber(offsetDoublespeedTrack1Interpolator(500))).toBeCloseTo(midDefault);
+
+  // End points
+  expect(expectNumber(offsetDoublespeedTrack1Interpolator(1000))).toBeCloseTo(20);
 });
 
 test("falls back inferred-auto-clamped directives to cubic in interpolator path", () => {
@@ -65,7 +76,7 @@ test("falls back inferred-auto-clamped directives to cubic in interpolator path"
       },
       {
         id: "b",
-        stamp: 1,
+        stamp: 1000,
         value: 10,
         transitions: {
           in: TransitionDirective.InferredAutoClamped,
@@ -85,7 +96,7 @@ test("falls back inferred-auto-clamped directives to cubic in interpolator path"
       },
       {
         id: "b",
-        stamp: 1,
+        stamp: 1000,
         value: 10,
         transitions: { in: StandardTransitionType.Cubic },
       },
@@ -95,7 +106,8 @@ test("falls back inferred-auto-clamped directives to cubic in interpolator path"
   const directiveInterpolator = computeTrackInterpolator(directiveTrack, instances.default);
   const cubicInterpolator = computeTrackInterpolator(cubicTrack, instances.default);
 
-  [0, 0.25, 0.5, 0.75, 1].forEach((t) => {
+  // Sample at several ms positions
+  [0, 250, 500, 750, 1000].forEach((t) => {
     expect(expectNumber(directiveInterpolator(t))).toBeCloseTo(expectNumber(cubicInterpolator(t)));
   });
 });

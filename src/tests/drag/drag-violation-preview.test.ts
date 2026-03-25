@@ -8,6 +8,7 @@ import { flushMicrotasks } from "../utils/flush-microtasks";
 import { clickMarkerWith } from "../selection/selection-test-helpers";
 import { computeTrackInterpolator } from "../../functions/compute-track-interpolator";
 import { computeTrackViolations } from "../../functions/compute-track-violations";
+import { resolveAnimationDuration } from "../../functions/compute-animation-extent";
 import { Violation, ViolationType } from "../../types";
 
 function summarizeViolations(
@@ -131,7 +132,7 @@ describe("drag previews recompute violation overlays", () => {
 
     const expectedViolations = computeTrackViolations(
       computeTrackInterpolator(previewTrack, instance),
-      animation.duration,
+      resolveAnimationDuration(animation, store.getState().tracks),
       TRACK_IDS.SCALE,
       namespaceId,
       instanceId,

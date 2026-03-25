@@ -39,9 +39,9 @@ export function InnerTimeDisplay({
   }, [stamp, bounds, computedData]);
 
   const nextKeyframeTime = useMemo(() => {
-    if (!computedData) return 1;
+    if (!computedData) return duration;
     return computeNextTime(computedData.virtualFrames, stamp, bounds, true);
-  }, [stamp, bounds, computedData]);
+  }, [stamp, bounds, computedData, duration]);
 
   const { resetPlayer, updatePlayerBounds } = usePlayerStore(
     useShallow((state: PlayerActions) => ({
@@ -54,9 +54,9 @@ export function InnerTimeDisplay({
     case SemanticTime.BoundsStart:
       return (
         <TimeInput
-          value={bounds[0] * duration}
+          value={bounds[0]}
           onChange={(v) => {
-            const vals = [v / duration, bounds[1]].sort((a, b) => a - b);
+            const vals = [v, bounds[1]].sort((a, b) => a - b);
             updatePlayerBounds(vals[0], vals[1]);
           }}
           label="Bounds Start"
@@ -71,9 +71,9 @@ export function InnerTimeDisplay({
     case SemanticTime.BoundsEnd:
       return (
         <TimeInput
-          value={bounds[1] * duration}
+          value={bounds[1]}
           onChange={(v) => {
-            const vals = [bounds[0], v / duration].sort((a, b) => a - b);
+            const vals = [bounds[0], v].sort((a, b) => a - b);
             updatePlayerBounds(vals[0], vals[1]);
           }}
           label="Bounds End"
@@ -88,7 +88,7 @@ export function InnerTimeDisplay({
     case SemanticTime.Backward:
       return (
         <TimeInput
-          value={valueOverride !== undefined ? valueOverride * duration : prevKeyframeTime}
+          value={valueOverride !== undefined ? valueOverride : prevKeyframeTime}
           onChange={() => {}}
           label="Previous Keyed Frame"
           min={0}
@@ -103,7 +103,7 @@ export function InnerTimeDisplay({
     case SemanticTime.Forward:
       return (
         <TimeInput
-          value={valueOverride !== undefined ? valueOverride * duration : nextKeyframeTime}
+          value={valueOverride !== undefined ? valueOverride : nextKeyframeTime}
           onChange={() => {}}
           label="Next Keyed Frame"
           min={0}
@@ -136,8 +136,8 @@ export function InnerTimeDisplay({
     default:
       return (
         <TimeInput
-          value={stamp * duration}
-          onChange={(v) => resetPlayer(v / duration)}
+          value={stamp}
+          onChange={(v) => resetPlayer(v)}
           label="Current Time"
           min={0}
           size={Size.Sm}

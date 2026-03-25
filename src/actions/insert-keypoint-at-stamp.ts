@@ -52,7 +52,8 @@ export function insertKeypointAtWorldStamp(
   }
   // Convert to local (instance) time for storage in the keypoint.
   const localStamp = computeLocalStamp(worldStamp, timescale, offset);
-  const clampedStamp = clamp01(localStamp);
+  // In v2 format, stamps are in ms — no [0,1] clamping needed.
+  const clampedStamp = Number.isFinite(localStamp) ? localStamp : 0;
 
   // Derive the value from the current interpolator snapshot when available.
   const value = resolveInterpolatedOrDefaultValue(
@@ -165,12 +166,6 @@ function resolveNewKeyTransitionPreferences(state: AnimationData): {
   };
 }
 
-function clamp01(v: number): number {
-  if (!Number.isFinite(v)) return 0;
-  if (v < 0) return 0;
-  if (v > 1) return 1;
-  return v;
-}
 
 function findInsertIndex(points: SimpleKeypoint[], stamp: number): number {
   if (!points.length) return 0;

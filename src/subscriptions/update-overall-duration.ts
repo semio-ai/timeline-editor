@@ -7,6 +7,7 @@ import type {
   AnimationStoreSetter,
 } from "../store-types";
 import { computeWorldStamp } from "../functions";
+import { resolveAnimationDuration } from "../functions/compute-animation-extent";
 
 export function updateOverallDuration(
   api: AnimationApi,
@@ -18,20 +19,21 @@ export function updateOverallDuration(
     (state: AnimationData) => ({
       animations: state.animations,
       namespaces: state.namespaces,
+      tracks: state.tracks,
     }),
-    ({ animations, namespaces }) => {
+    ({ animations, namespaces, tracks }) => {
       const instances = Object.values(namespaces).flatMap((ns) =>
         Object.values(ns.animationInstances),
       );
       const durations = instances
         .map((instance) => {
-          const duration = animations[instance.animationId]?.duration;
-          if (typeof duration !== "number" || !Number.isFinite(duration)) {
-            return undefined;
-          }
+          const animation = animations[instance.animationId];
+          if (!animation) return undefined;
+          const duration = resolveAnimationDuration(animation, tracks);
           const timescale = instance.settings.timescale ?? 1;
           const offset = instance.settings.offset ?? 0;
-          const worldDuration = duration * computeWorldStamp(1, timescale, offset);
+          // Convert animation's end time to world time
+          const worldDuration = computeWorldStamp(duration, timescale, offset);
           return Number.isFinite(worldDuration) ? worldDuration : undefined;
         })
         .filter((value): value is number => typeof value === "number");

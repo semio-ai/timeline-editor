@@ -15,7 +15,7 @@ export function computeNextTime(
   bounds: [number, number],
   respectBounds: boolean,
 ): number | undefined {
-  const EPSILON = 1e-6;
+  const EPSILON = 0.1;
   const stamps = data.map((f) => f.stamp);
   if (stamps.length === 0) return undefined;
 
@@ -47,7 +47,7 @@ export function computePreviousTime(
   bounds: [number, number],
   respectBounds: boolean,
 ): number | undefined {
-  const EPSILON = 1e-6;
+  const EPSILON = 0.1;
   const stamps = data.map((f) => f.stamp);
   if (stamps.length === 0) return undefined;
 

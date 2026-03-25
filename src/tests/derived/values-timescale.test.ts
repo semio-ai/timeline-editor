@@ -106,24 +106,10 @@ describe("values timescale behavior", () => {
         throw new Error("Missing fixture data for position.x timescale test");
       }
 
-      const instances = Object.values(state.namespaces).flatMap((ns) =>
-        Object.values(ns.animationInstances),
-      );
-      const globalDuration = Math.max(
-        1000,
-        ...instances.map((inst) => {
-          const animation = state.animations[inst.animationId];
-          if (!animation) return 0;
-          return (
-            animation.duration *
-            computeWorldStamp(1, inst.settings.timescale ?? 1, inst.settings.offset ?? 0)
-          );
-        }),
-      );
-
-      const frameCount = Math.floor(state.framerate * (globalDuration / 1000));
-      const offsetFrame = 22;
-      const worldStamp = offsetFrame / frameCount;
+      // Pick a frame before the instance offset (250ms) so the animation hasn't started.
+      // At 24fps, frame 5 = 208ms which is before the 250ms offset.
+      const offsetFrame = 5;
+      const worldStamp = (offsetFrame / state.framerate) * 1000;
 
       player.resetPlayer(worldStamp);
 
