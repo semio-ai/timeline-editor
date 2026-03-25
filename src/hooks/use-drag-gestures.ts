@@ -25,7 +25,7 @@ export interface DragGestureOptions {
   onDragEnd?: (position: number) => void;
   /**
    * Optional 2D drag callback for consumers that need vertical normalized deltas.
-   * x is the normalized timeline position [0,1].
+   * x is the timeline position in milliseconds.
    * normalizedValueDelta is -(movementY / pixelRangeY).
    */
   onDrag2D?: (args: {
