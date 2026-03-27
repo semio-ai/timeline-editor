@@ -259,6 +259,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
           onClick={() => {
             onCreateView();
           }}
+          testId="workspace-new-default"
         >
           New Default Workspace
         </NestedItem>
