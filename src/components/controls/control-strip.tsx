@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { IconPlus } from "@tabler/icons-react";
-import { Button, IconKey, IconPlayerPlay, Tooltip } from "@semio/ui";
+import { Play } from "@solar-icons/react-perf/Bold";
+import { Button, IconKey, Tooltip } from "@semio/ui";
 import { DEFAULT_COLOR } from "../../constants";
 
 export type ControlStripCenterIcon = "key" | "plus";
@@ -64,7 +65,7 @@ export function ControlStrip({
     );
 
   return (
-    <div className="grid h-7 min-w-16 grid-cols-3 items-center justify-between rounded-xs">
+    <div className="grid h-7 w-16 grid-cols-3 items-center justify-between">
       <Tooltip invert content="Previous Key" disabled={prevDisabled}>
         <Button
           size="fit"
@@ -73,7 +74,7 @@ export function ControlStrip({
           onClick={prevDisabled ? undefined : onPrev}
           onMouseEnter={prevDisabled ? undefined : onPrevEnter}
           onMouseLeave={prevDisabled ? undefined : onPrevLeave}
-          leftIcon={<IconPlayerPlay className="rotate-180" size="14px" />}
+          leftIcon={<Play className="rotate-180" size="10px" />}
           visuals="inverted"
           className={prevVisible ? undefined : "opacity-20"}
         />
@@ -100,7 +101,7 @@ export function ControlStrip({
           onClick={nextDisabled ? undefined : onNext}
           onMouseEnter={nextDisabled ? undefined : onNextEnter}
           onMouseLeave={nextDisabled ? undefined : onNextLeave}
-          leftIcon={<IconPlayerPlay size="14px" />}
+          leftIcon={<Play size="10px" />}
           visuals="inverted"
           className={nextVisible ? undefined : "opacity-20"}
         />

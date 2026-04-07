@@ -196,17 +196,19 @@ function AnimatableLeafControl({
   return (
     <ControlRow
       left={
-        <ControlStrip
-          color={resolvedColor}
-          disabled={editorDisabled}
-          prevEnabled={false}
-          nextEnabled={false}
-          prevVisible={false}
-          nextVisible={false}
-          centerIcon="plus"
-          centerAltText="Add Track"
-          onCenter={addTrackAction}
-        />
+        <div className="w-16">
+          <ControlStrip
+            color={resolvedColor}
+            disabled={editorDisabled}
+            prevEnabled={false}
+            nextEnabled={false}
+            prevVisible={false}
+            nextVisible={false}
+            centerIcon="plus"
+            centerAltText="Add Track"
+            onCenter={addTrackAction}
+          />
+        </div>
       }
       mid={
         <Tooltip content={getSemanticLabelForIconCode(iconCode)} disabled={false} invert>

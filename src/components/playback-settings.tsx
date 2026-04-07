@@ -1,16 +1,17 @@
 import { clsx } from "clsx";
-import { ICON_CLASS_NAME, Select, Size, ToggleSquare, Variant } from "@semio/ui";
+import {
+  ICON_CLASS_NAME,
+  Slow,
+  Fast,
+  Bounce,
+  Select,
+  Size,
+  ToggleSquare,
+  Variant,
+} from "@semio/ui";
 import { PlayerDirection, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
-import {
-  IconRepeat,
-  IconArrowBounce,
-  IconMultiplier05x,
-  IconMultiplier1x,
-  IconMultiplier15x,
-  IconMultiplier2x,
-  IconArrowNarrowRight,
-} from "@tabler/icons-react";
+import { Repeat, ArrowRight, Play, RewindForward } from "@solar-icons/react-perf/LineDuotone";
 
 export function PlaybackSettings() {
   const { direction, bounce, looping, speed } = usePlayerStore(
@@ -46,7 +47,8 @@ export function PlaybackSettings() {
           value={direction === PlayerDirection.Reverse}
           onChange={(v) => setDirection(v ? PlayerDirection.Reverse : PlayerDirection.Forward)}
         >
-          <IconArrowNarrowRight
+          <ArrowRight
+            size="100%"
             className={clsx(
               ICON_CLASS_NAME,
               "transition-75 ease-in-out",
@@ -61,7 +63,7 @@ export function PlaybackSettings() {
           value={looping}
           onChange={setLooping}
         >
-          <IconRepeat className={ICON_CLASS_NAME} />
+          <Repeat className="block h-4/5 w-4/5 shrink-0" size="100%" />
         </ToggleSquare>
         <ToggleSquare
           sizing="inner"
@@ -70,7 +72,7 @@ export function PlaybackSettings() {
           value={bounce}
           onChange={setBounce}
         >
-          <IconArrowBounce className={ICON_CLASS_NAME} />
+          <Bounce className={ICON_CLASS_NAME} size="100%" />
         </ToggleSquare>
       </div>
       <Select
@@ -81,22 +83,22 @@ export function PlaybackSettings() {
           {
             value: "0.5",
             label: "Slow Playback (0.5x)",
-            icon: <IconMultiplier05x className={ICON_CLASS_NAME} />,
+            icon: <Slow className={ICON_CLASS_NAME} size="100%" />,
           },
           {
             value: "1",
             label: "Normal Playback (1x)",
-            icon: <IconMultiplier1x className={ICON_CLASS_NAME} />,
+            icon: <Play className={ICON_CLASS_NAME} size="100%" />,
           },
           {
             value: "1.5",
             label: "Fast Playback (1.5x)",
-            icon: <IconMultiplier15x className={ICON_CLASS_NAME} />,
+            icon: <RewindForward className={ICON_CLASS_NAME} size="100%" />,
           },
           {
             value: "2",
             label: "Very Fast Playback (2x)",
-            icon: <IconMultiplier2x className={ICON_CLASS_NAME} />,
+            icon: <Fast className={ICON_CLASS_NAME} size="100%" />,
           },
         ]}
         value={speed.toString()}

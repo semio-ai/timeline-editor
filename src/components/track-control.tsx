@@ -163,28 +163,30 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
           rowMuted && isActive && "opacity-60",
         )}
         left={
-          <KeyStrip
-            disabled={allReadonly || !isActive || playing}
-            source={sourceRow}
-            color={color}
-            onHexClick={() => {
-              if (playing) return;
-              if (keyState === "full" && currentFrame) {
-                const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-                const removals = points.map((p) => ({
-                  trackId: p.trackId,
-                  keypointId: p.id,
-                }));
-                removeKeypoints(removals);
-                return;
-              }
+          <div className="w-16">
+            <KeyStrip
+              disabled={allReadonly || !isActive || playing}
+              source={sourceRow}
+              color={color}
+              onHexClick={() => {
+                if (playing) return;
+                if (keyState === "full" && currentFrame) {
+                  const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
+                  const removals = points.map((p) => ({
+                    trackId: p.trackId,
+                    keypointId: p.id,
+                  }));
+                  removeKeypoints(removals);
+                  return;
+                }
 
-              const targets = keyState === "partial" ? missingEntries : sourceRow.data;
-              targets.forEach((datum) => {
-                insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
-              });
-            }}
-          />
+                const targets = keyState === "partial" ? missingEntries : sourceRow.data;
+                targets.forEach((datum) => {
+                  insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
+                });
+              }}
+            />
+          </div>
         }
         mid={
           isGroup ? (

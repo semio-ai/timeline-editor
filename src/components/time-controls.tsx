@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { clsx } from "clsx";
-import { Button, IconPlayerPlay2 } from "@semio/ui";
+import { Button } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
-import { IconPlayerPauseFilled } from "@tabler/icons-react";
+import { Play, Pause } from "@solar-icons/react-perf/Bold";
 import { useShallow } from "zustand/react/shallow";
 import { useAnimationStore } from "../hooks";
 import { SemanticTime } from "../types";
@@ -36,9 +36,7 @@ export function TimeControls(): ReactNode {
               playPlayer();
             }
           }}
-          leftIcon={
-            running ? <IconPlayerPauseFilled size="18px" /> : <IconPlayerPlay2 size="18px" />
-          }
+          leftIcon={running ? <Pause size="18px" /> : <Play size="18px" />}
           visuals="inverted"
         />
         <SkipButton semanticTime={SemanticTime.BoundsEnd} />
