@@ -86,6 +86,14 @@ export interface SourceRow {
   name?: string;
   /** Row entries representing tracks or grouped components. */
   data: SourceRowData[];
+  /** Nesting depth in the tree hierarchy (0 = top-level). */
+  depth?: number;
+  /** Whether this row is the last child of its parent group. */
+  isLastChild?: boolean;
+  /** Whether this row is a group (has children) vs a leaf track. */
+  isGroup?: boolean;
+  /** Parent row ID, if this row is nested inside a group. */
+  parentId?: string;
 }
 
 /**

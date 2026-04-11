@@ -8,44 +8,56 @@ import {
 } from "../types";
 import { GROUP_TYPES } from "../constants";
 
-// A utility function to convert a nested source structure into a flat list of rows.
-// Each
+/**
+ * Converts a nested source structure into a flat list of rows with depth tracking.
+ * Each group emits a group row followed by its child rows. Depth, sibling position,
+ * and parent ID are set on each row to support tree rendering.
+ */
 export function computeSourceRowsFromSources(
   sources: Source[],
   activeAnimationInstance?: string | null,
   selectedTrackIds = new Set<string>(),
+  depth = 0,
+  parentId?: string,
 ): SourceRow[] {
   const rows: SourceRow[] = [];
 
   if (!sources || sources.length === 0) return rows;
 
-  sources.forEach((source: Source) => {
+  // Count how many sources will produce rows (for isLastChild tracking)
+  const sourceCount = sources.length;
+
+  sources.forEach((source: Source, sourceIndex: number) => {
+    const isLastChild = sourceIndex === sourceCount - 1;
+
     if (GROUP_TYPES.has(source.type)) {
-      // Get the list of SourceRows for the children;
-      // Note: layout hints (interleave/overlay) are reserved for future row flattening.
-      // For now we always emit the group row followed by its child rows.
       const sourceGroup = source as SourceGroup;
+      const groupId = `${source.namespaceId}/${source.instanceId}/${sourceGroup.groupId}`;
       const childRows = computeSourceRowsFromSources(
         sourceGroup.children,
         activeAnimationInstance,
         selectedTrackIds,
+        depth + 1,
+        groupId,
       );
       if (childRows.length === 0) return;
-      // Compute the unique set of trackIds in the children.
+
       const data = uniq(childRows.flatMap((child) => child.data));
-      // Add a row for the group itself
+
       rows.push({
-        id: `${source.namespaceId}/${source.instanceId}/${sourceGroup.groupId}`,
+        id: groupId,
         expanded: sourceGroup.expanded ?? undefined,
         name: sourceGroup.name,
         data,
+        depth,
+        isLastChild,
+        isGroup: true,
+        parentId,
       });
-      // Add the child rows
+
       rows.push(...childRows);
     } else {
-      // It is a leaf track, so just add it directly.
       const sourceTrack = source as SourceTrack;
-      // Keep all rows in the background when no active instance is selected.
       const foreground =
         Boolean(activeAnimationInstance) && sourceTrack.instanceId === activeAnimationInstance;
       const namespacedTrackKey = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}`;
@@ -64,7 +76,7 @@ export function computeSourceRowsFromSources(
       const layerBand = baseSelected ? LayerBand.ForegroundSelected : mainBand;
 
       rows.push({
-        id: `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}`,
+        id: namespacedTrackKey,
         data: [
           {
             selectable: foreground,
@@ -79,6 +91,10 @@ export function computeSourceRowsFromSources(
             animatableId: sourceTrack.animatableId,
           },
         ],
+        depth,
+        isLastChild,
+        isGroup: false,
+        parentId,
       });
     }
   });
