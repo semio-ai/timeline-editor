@@ -195,22 +195,7 @@ function AnimatableLeafControl({
 
   return (
     <ControlRow
-      left={
-        <div className="w-16">
-          <ControlStrip
-            color={resolvedColor}
-            disabled={editorDisabled}
-            prevEnabled={false}
-            nextEnabled={false}
-            prevVisible={false}
-            nextVisible={false}
-            centerIcon="plus"
-            centerAltText="Add Track"
-            onCenter={addTrackAction}
-          />
-        </div>
-      }
-      mid={
+      icon={
         <Tooltip content={getSemanticLabelForIconCode(iconCode)} disabled={false} invert>
           <div>
             <StaticIcon size={Size.Md} color={resolvedColor}>
@@ -219,7 +204,7 @@ function AnimatableLeafControl({
           </div>
         </Tooltip>
       }
-      main={
+      editor={
         <div className="flex min-w-0 flex-1">
           <DirectAnimatableEditor
             animatable={animatable}
@@ -234,7 +219,20 @@ function AnimatableLeafControl({
           />
         </div>
       }
-      right={
+      controls={
+        <ControlStrip
+          color={resolvedColor}
+          disabled={editorDisabled}
+          prevEnabled={false}
+          nextEnabled={false}
+          prevVisible={false}
+          nextVisible={false}
+          centerIcon="plus"
+          centerAltText="Add Track"
+          onCenter={addTrackAction}
+        />
+      }
+      options={
         <div className="mr-1 flex w-3 items-center justify-around">
           <Dropdown
             disabled={editorDisabled}
@@ -390,7 +388,29 @@ function AnimatableGroupControl({
 
   return (
     <ControlRow
-      left={
+      isGroup
+      icon={
+        <GroupToggle
+          expanded={expanded}
+          onToggle={onToggle}
+          disabled={disabled}
+          color={resolvedColor}
+        />
+      }
+      label={
+        <TextField
+          size={Size.Sm}
+          color={resolvedColor}
+          value={displayLabel}
+          readOnly={disabled || running || !onRename}
+          onChange={(val) => {
+            if (running) return;
+            if (!val) return;
+            onRename?.(val);
+          }}
+        />
+      }
+      controls={
         hasTrackGroup && sourceRow ? (
           <KeyStrip
             source={sourceRow}
@@ -428,28 +448,7 @@ function AnimatableGroupControl({
           />
         )
       }
-      mid={
-        <GroupToggle
-          expanded={expanded}
-          onToggle={onToggle}
-          disabled={disabled}
-          color={resolvedColor}
-        />
-      }
-      main={
-        <TextField
-          size={Size.Sm}
-          color={resolvedColor}
-          value={displayLabel}
-          readOnly={disabled || running || !onRename}
-          onChange={(val) => {
-            if (running) return;
-            if (!val) return;
-            onRename?.(val);
-          }}
-        />
-      }
-      right={
+      options={
         <div className="mr-1 flex w-3 items-center justify-around">
           <Dropdown
             disabled

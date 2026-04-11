@@ -162,33 +162,8 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
           !isActive && uniqueInstanceId && "pointer-events-none select-none",
           rowMuted && isActive && "opacity-60",
         )}
-        left={
-          <div className="w-16">
-            <KeyStrip
-              disabled={allReadonly || !isActive || playing}
-              source={sourceRow}
-              color={color}
-              onHexClick={() => {
-                if (playing) return;
-                if (keyState === "full" && currentFrame) {
-                  const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-                  const removals = points.map((p) => ({
-                    trackId: p.trackId,
-                    keypointId: p.id,
-                  }));
-                  removeKeypoints(removals);
-                  return;
-                }
-
-                const targets = keyState === "partial" ? missingEntries : sourceRow.data;
-                targets.forEach((datum) => {
-                  insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
-                });
-              }}
-            />
-          </div>
-        }
-        mid={
+        isGroup={isGroup}
+        icon={
           isGroup ? (
             <Tooltip content={sourceRow.expanded ? "Collapse Group" : "Expand Group"} invert>
               <GroupToggle
@@ -208,7 +183,7 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
             </Tooltip>
           )
         }
-        main={
+        label={
           isGroup ? (
             <TextField
               size={Size.Sm}
@@ -222,7 +197,10 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
                 updateTrackGroupName(trackIds, val);
               }}
             />
-          ) : (
+          ) : undefined
+        }
+        editor={
+          !isGroup ? (
             <div className="flex min-w-0 flex-1">
               <AnimatableEditor
                 rowId={sourceRow.id}
@@ -292,10 +270,34 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
                 }}
               />
             </div>
-          )
+          ) : undefined
         }
-        right={
-          <div className="mr-1 flex w-3 items-center justify-around">
+        controls={
+          <KeyStrip
+            disabled={allReadonly || !isActive || playing}
+            source={sourceRow}
+            color={color}
+            onHexClick={() => {
+              if (playing) return;
+              if (keyState === "full" && currentFrame) {
+                const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
+                const removals = points.map((p) => ({
+                  trackId: p.trackId,
+                  keypointId: p.id,
+                }));
+                removeKeypoints(removals);
+                return;
+              }
+
+              const targets = keyState === "partial" ? missingEntries : sourceRow.data;
+              targets.forEach((datum) => {
+                insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
+              });
+            }}
+          />
+        }
+        options={
+          <div className="flex items-center">
             <Dropdown
               disabled={playing}
               variant={Variant.Info}
