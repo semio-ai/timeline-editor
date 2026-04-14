@@ -6,11 +6,18 @@ import type {
   AnimationStoreGetter,
   AnimationStoreSetter,
 } from "../store-types";
-import { LayerBand, SourceRow } from "../types";
-import { groupDerivedTracks } from "../functions/group-derived-tracks";
-import { getIconCode } from "../functions/get-icon-code";
-import { collectSourceTracks } from "../functions/source-utils";
+import { LayerBand, Source, SourceGroup, SourceRow, SourceRowData, SourceTrack } from "../types";
+import { GROUP_TYPES } from "../constants";
 
+/**
+ * Derives the flat `instancedTrackSources` dictionary from the canonical
+ * `sourcesByAnimationInstance` tree. Decorates each source with rendering
+ * state (layerBand, selectable, editable) and flattens into a lookup keyed
+ * by row ID.
+ *
+ * This subscription does NOT re-derive grouping — it walks the Source[] tree
+ * that `updateGlobalSources` already computed via `computeDefaultSourcesFromInstance`.
+ */
 export function updateInstancedTrackSources(
   api: AnimationApi,
   set: AnimationStoreSetter,
@@ -20,8 +27,6 @@ export function updateInstancedTrackSources(
     (state: AnimationData) => ({
       namespaces: state.namespaces,
       animations: state.animations,
-      animatables: state.animatables,
-      tracks: state.tracks,
       sourcesByAnimationInstance: state.sourcesByAnimationInstance,
       activeAnimationId: state.selectionState.instanceId,
       selectedKeypoints: state.selectionState.keypoints,
@@ -29,144 +34,70 @@ export function updateInstancedTrackSources(
     }),
     ({
       namespaces,
-      animations,
-      animatables,
-      tracks,
       sourcesByAnimationInstance,
       activeAnimationId,
       selectedKeypoints,
     }) => {
-      // for each namespace -> for each instance -> for each track in the instance's aninimation subscribe... to namespace/track
       if (!namespaces) return;
 
+      // Build a set of selected track keys for quick lookup.
+      // Registers multiple key formats for flexible matching:
+      //   full key ("ns/inst/trackId"), tail ("trackId"), base ("trackBase")
       const selectedTrackLookup = new Set<string>();
-      const registerSelectionKey = (key: string) => {
-        if (!key) return;
-        selectedTrackLookup.add(key);
-        const tail = key.split("/").pop();
-        if (tail) {
-          selectedTrackLookup.add(tail);
-          const base = tail.split(".")[0];
-          if (base) {
-            selectedTrackLookup.add(base);
-          }
-        }
-      };
-
       selectedKeypoints.forEach((keypointIds, trackKey) => {
         if (keypointIds && keypointIds.size > 0) {
-          registerSelectionKey(trackKey);
+          selectedTrackLookup.add(trackKey);
+          const tail = trackKey.split("/").pop();
+          if (tail) {
+            selectedTrackLookup.add(tail);
+            const base = tail.split(".")[0];
+            if (base) selectedTrackLookup.add(base);
+          }
         }
       });
 
       const instancedTrackSources: Record<string, SourceRow> = {};
-      Object.entries(namespaces).forEach(([namespaceId, namespace]) => {
-        Object.entries(namespace.animationInstances).forEach(([_instanceId, instance]) => {
-          const animation = animations[instance.animationId];
 
-          // if the animation has groups, warn that they are not yet supported.
-          if (animation?.groups && Object.keys(animation.groups).length > 0) {
-            console.warn(
-              `Animation ${animation.id} has groups defined, but groups are not yet supported in instanced track sources.`,
-            );
-          }
+      // Walk each namespace → instance → source tree
+      Object.entries(namespaces).forEach(([_namespaceId, namespace]) => {
+        Object.values(namespace.animationInstances).forEach((instance) => {
+          const sources = sourcesByAnimationInstance[instance.id];
+          if (!sources || sources.length === 0) return;
 
-          if (animation) {
-            // Without an active selection instance, all tracks should remain background/inactive.
-            const foreground = Boolean(activeAnimationId) && activeAnimationId === instance.id;
-            const grouped = groupDerivedTracks(animation.tracks, tracks, animatables);
-            const sources = sourcesByAnimationInstance[instance.id] || [];
-            const sourceTrackLookup = new Map(
-              collectSourceTracks(sources).map((track) => [track.id, track]),
-            );
+          const foreground = Boolean(activeAnimationId) && activeAnimationId === instance.id;
 
-            grouped.forEach((group) => {
-              const baseId = `${namespaceId}/${instance.id}/${group.baseTrackId}`;
-              const sourceGroup = sources.find((s) => s.id === baseId);
-              const expanded =
-                sourceGroup && "expanded" in sourceGroup ? sourceGroup.expanded : undefined;
-
-              const groupChildren = group.children.map((child) => {
-                const childId = `${namespaceId}/${instance.id}/${child.trackId}`;
-                const isSelected =
-                  foreground &&
-                  (selectedTrackLookup.has(childId) || selectedTrackLookup.has(child.trackId));
-                let layerBand = LayerBand.Background;
-                if (foreground) {
-                  layerBand = isSelected
-                    ? LayerBand.ForegroundSelected
-                    : LayerBand.ForegroundUnselected;
-                }
-                const childAnimatable =
-                  child.derivedAnimatable ?? animatables[child.track.animatableId];
-                const sourceTrack = sourceTrackLookup.get(childId);
-                return {
-                  childId,
-                  data: {
-                    selectable: foreground,
-                    editable: true,
-                    layerBand,
-                    animationId: animation.id,
-                    namespaceId,
-                    instanceId: instance.id,
-                    // TODO(semio-agent): This assumes numeric tracks; update when string/boolean tracks are surfaced.
-                    type: "number" as const,
-                    muted: sourceTrack?.muted ?? false,
-                    trackId: child.trackId,
-                    animatableId: child.track.animatableId,
-                    iconCode: childAnimatable
-                      ? getIconCode(childAnimatable.type, childAnimatable.pub?.units)
-                      : undefined,
-                  },
-                };
-              });
-
-              const shouldGroup =
-                group.children.length > 1 || group.children.some((child) => Boolean(child.axis));
-
-              if (shouldGroup) {
-                instancedTrackSources[baseId] = {
-                  id: baseId,
-                  name: group.name,
-                  expanded,
-                  data: groupChildren.map((child) => ({
-                    ...child.data,
-                    type: "group",
-                  })),
-                };
-              }
-
-              groupChildren.forEach(({ childId, data }) => {
-                instancedTrackSources[childId] = {
-                  id: childId,
-                  data: [data],
-                };
-              });
-            });
-          }
+          // Recursively flatten the source tree into SourceRows
+          flattenSources(sources, foreground, selectedTrackLookup, instancedTrackSources);
         });
       });
 
+      // Preserve the global row (managed by update-consolidated-source-row)
       const existingGlobal = get().instancedTrackSources?.global;
-      const nextSources = existingGlobal
-        ? { ...instancedTrackSources, global: existingGlobal }
-        : instancedTrackSources;
-      set({ instancedTrackSources: nextSources });
+      // Also preserve any filtered global rows (managed by update-view-filtered-global-rows)
+      const existingFiltered: Record<string, SourceRow> = {};
+      const current = get().instancedTrackSources ?? {};
+      Object.entries(current).forEach(([key, row]) => {
+        if (key.startsWith("filtered:")) {
+          existingFiltered[key] = row;
+        }
+      });
+
+      set({
+        instancedTrackSources: {
+          ...instancedTrackSources,
+          ...existingFiltered,
+          ...(existingGlobal ? { global: existingGlobal } : {}),
+        },
+      });
     },
     {
       equalityFn: (current, previous) => {
-        // We only care about cases where the individual track ids change across all animations
+        // Re-derive when structure, selection, or active instance changes
         const allCurrentTracks = new Set(
           Object.values(current.animations).flatMap((a) => a.tracks),
         );
         const allPreviousTracks = new Set(
           Object.values(previous.animations).flatMap((a) => a.tracks),
-        );
-        const allCurrentGroups = new Set(
-          Object.values(current.animations).flatMap((a) => a.groups),
-        );
-        const allPreviousGroups = new Set(
-          Object.values(previous.animations).flatMap((a) => a.groups),
         );
 
         const selectionSignature = (selection: AnimationData["selectionState"]["keypoints"]) =>
@@ -179,12 +110,8 @@ export function updateInstancedTrackSources(
 
         return (
           current.activeAnimationId === previous.activeAnimationId &&
-          isEqual(
-            selectionSignature(current.selectedKeypoints),
-            selectionSignature(previous.selectedKeypoints),
-          ) &&
+          isEqual(selectionSignature(current.selectedKeypoints), selectionSignature(previous.selectedKeypoints)) &&
           isEqual(allCurrentTracks, allPreviousTracks) &&
-          isEqual(allCurrentGroups, allPreviousGroups) &&
           shallow(current.namespaces, previous.namespaces) &&
           shallow(current.sourcesByAnimationInstance, previous.sourcesByAnimationInstance) &&
           current.tracksRevision === previous.tracksRevision
@@ -193,4 +120,86 @@ export function updateInstancedTrackSources(
       fireImmediately: true,
     },
   );
+}
+
+/**
+ * Recursively flatten a Source[] tree into a Record<string, SourceRow>,
+ * decorating each node with rendering-specific data (layerBand, selectable, etc.).
+ */
+function flattenSources(
+  sources: Source[],
+  foreground: boolean,
+  selectedTrackLookup: Set<string>,
+  output: Record<string, SourceRow>,
+  depth = 0,
+  parentId?: string,
+): void {
+  const count = sources.length;
+
+  sources.forEach((source, index) => {
+    const isLastChild = index === count - 1;
+
+    if (GROUP_TYPES.has(source.type)) {
+      const group = source as SourceGroup;
+
+      // Recursively flatten children first to collect their data
+      const childOutput: Record<string, SourceRow> = {};
+      flattenSources(group.children, foreground, selectedTrackLookup, childOutput, depth + 1, group.id);
+
+      // Group row data: merge all child data entries with type="group"
+      const childData: SourceRowData[] = Object.values(childOutput)
+        .flatMap((row) => row.data)
+        .map((data) => ({ ...data, type: "group" as const }));
+
+      if (childData.length > 0) {
+        output[group.id] = {
+          id: group.id,
+          name: group.name,
+          expanded: group.expanded,
+          data: childData,
+          depth,
+          isLastChild,
+          isGroup: true,
+          parentId,
+        };
+
+        // Add all child rows to output
+        Object.assign(output, childOutput);
+      }
+    } else {
+      const track = source as SourceTrack;
+      const trackKey = track.id; // format: "ns/inst/trackId"
+      const isSelected =
+        foreground &&
+        (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));
+
+      let layerBand = LayerBand.Background;
+      if (foreground) {
+        layerBand = isSelected ? LayerBand.ForegroundSelected : LayerBand.ForegroundUnselected;
+      }
+
+      output[track.id] = {
+        id: track.id,
+        data: [
+          {
+            selectable: foreground,
+            editable: !track.readonly,
+            layerBand,
+            animationId: track.animationId,
+            namespaceId: track.namespaceId,
+            instanceId: track.instanceId,
+            type: track.type,
+            muted: track.muted ?? false,
+            trackId: track.trackId,
+            animatableId: track.animatableId,
+            iconCode: track.iconCode,
+          },
+        ],
+        depth,
+        isLastChild,
+        isGroup: false,
+        parentId,
+      };
+    }
+  });
 }
