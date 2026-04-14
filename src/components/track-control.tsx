@@ -165,33 +165,33 @@ function InnerTrackControl({ sourceRow, ancestorIsLast = [], emphasis, onEmphasi
           rowMuted && isActive && "opacity-60",
         )}
         isGroup={isGroup}
+        indent={
+          <TreeConnector
+            depth={sourceRow.depth ?? 0}
+            isLastChild={sourceRow.isLastChild ?? false}
+            isGroup={isGroup}
+            ancestorIsLast={ancestorIsLast}
+          />
+        }
         icon={
-          <>
-            <TreeConnector
-              depth={sourceRow.depth ?? 0}
-              isLastChild={sourceRow.isLastChild ?? false}
-              isGroup={isGroup}
-              ancestorIsLast={ancestorIsLast}
-            />
-            {isGroup ? (
-              <Tooltip content={sourceRow.expanded ? "Collapse Group" : "Expand Group"} invert>
-                <GroupToggle
-                  expanded={sourceRow.expanded}
-                  onToggle={updateExpanded}
-                  disabled={!isActive}
-                  color={color}
-                />
-              </Tooltip>
-            ) : (
-              <Tooltip content={getSemanticLabelForIconCode(iconCode)} invert>
-                <div>
-                  <StaticIcon size={Size.Md} color={color}>
-                    <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
-                  </StaticIcon>
-                </div>
-              </Tooltip>
-            )}
-          </>
+          isGroup ? (
+            <Tooltip content={sourceRow.expanded ? "Collapse Group" : "Expand Group"} invert>
+              <GroupToggle
+                expanded={sourceRow.expanded}
+                onToggle={updateExpanded}
+                disabled={!isActive}
+                color={color}
+              />
+            </Tooltip>
+          ) : (
+            <Tooltip content={getSemanticLabelForIconCode(iconCode)} invert>
+              <div>
+                <StaticIcon size={Size.Md} color={color}>
+                  <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
+                </StaticIcon>
+              </div>
+            </Tooltip>
+          )
         }
         label={
           isGroup ? (

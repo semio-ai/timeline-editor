@@ -4,7 +4,9 @@ import { clsx } from "clsx";
 export interface ControlRowProps {
   /** Left-edge target indicator (3px colored bar). */
   target?: ReactNode;
-  /** Tree connector lines + expand/collapse toggle or track icon (28px). */
+  /** Tree indent guides (variable width based on depth). */
+  indent?: ReactNode;
+  /** Expand/collapse toggle or track icon (28px). */
   icon?: ReactNode;
   /** Track label — TextField for name editing. Used for groups. */
   label?: ReactNode;
@@ -25,15 +27,15 @@ export interface ControlRowProps {
 /**
  * A single row in the track list or animatable control list.
  *
- * All rows share the same 5-column grid for alignment:
- *   [target 3px] [icon 28px] [main 1fr] [options 20px] [controls 64px]
+ * Grid layout:
+ *   [target 3px] [indent auto] [icon 28px] [main 1fr] [options 20px] [controls 64px]
  *
- * The main (1fr) column contains either:
- *   - Group rows: label TextField (fills space)
- *   - Leaf rows: editor (AnimatableEditor with integrated label+slider)
+ * The indent column has variable width based on tree depth (0px for top-level).
+ * The main (1fr) column absorbs remaining space — label truncates as needed.
  */
 export function ControlRow({
   target,
+  indent,
   icon,
   label,
   editor,
@@ -45,27 +47,30 @@ export function ControlRow({
 }: ControlRowProps) {
   return (
     <div className={clsx("relative w-full", backgroundClassName, className)}>
-      <div className="grid h-9 w-full grid-cols-[3px_28px_minmax(0,1fr)_20px_64px] items-center gap-1 pr-1">
+      <div className="flex h-9 w-full items-center gap-1 pr-1">
         {/* Target indicator */}
-        <div className="h-full w-0.75">{target}</div>
+        <div className="h-full w-0.75 shrink-0">{target}</div>
 
-        {/* Tree + icon */}
-        <div className="relative grid h-full w-7 place-items-center">
+        {/* Tree indent guides */}
+        {indent}
+
+        {/* Icon (expand/collapse toggle or track icon) */}
+        <div className="relative grid h-full w-7 shrink-0 place-items-center">
           {icon ?? <div className="size-3" />}
         </div>
 
         {/* Main content — label for groups, editor for leaf tracks */}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           {isGroup
             ? (label ?? <div className="flex-1" />)
             : (editor ?? label ?? <div className="flex-1" />)}
         </div>
 
         {/* Options (⋮ dropdown) */}
-        <div className="flex items-center justify-center">{options}</div>
+        <div className="flex w-5 shrink-0 items-center justify-center">{options}</div>
 
         {/* Control strip (key/skip or vis/mute/lock) */}
-        <div className="flex items-center">{controls}</div>
+        <div className="flex w-16 shrink-0 items-center">{controls}</div>
       </div>
     </div>
   );
