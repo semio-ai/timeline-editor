@@ -6,8 +6,8 @@ import type {
   AnimationStoreGetter,
   AnimationStoreSetter,
 } from "../store-types";
-import { computeUpdatedSources } from "../functions/compute-updated-sources";
 import { collectSourceTracks } from "../functions/source-utils";
+import { computeUpdatedSources } from "../functions/compute-updated-sources";
 
 /**
  * Ensures only one unmuted track per animatable within each namespace.
@@ -20,28 +20,27 @@ export function updateTrackMuting(
 ): () => void {
   return api.subscribe(
     (state: AnimationData) => ({
-      sourcesByInstance: state.sourcesByInstance,
+      globalSourceTree: state.globalSourceTree,
     }),
-    ({ sourcesByInstance }) => {
+    ({ globalSourceTree }) => {
       const tracksToMute = new Set<string>();
       const unmutedByNamespace = new Map<string, Set<string>>();
 
-      Object.values(sourcesByInstance).forEach((sources) => {
-        const tracks = collectSourceTracks(sources);
-        tracks.forEach((track) => {
-          const animatableId = track.animatableId;
-          if (!animatableId) return;
-          if (track.muted) return;
+      // Collect all tracks across the entire tree
+      const tracks = collectSourceTracks(globalSourceTree);
+      tracks.forEach((track) => {
+        const animatableId = track.animatableId;
+        if (!animatableId) return;
+        if (track.muted) return;
 
-          const namespaceId = track.namespaceId;
-          const unmutedForNamespace = unmutedByNamespace.get(namespaceId) ?? new Set<string>();
-          if (unmutedForNamespace.has(animatableId)) {
-            tracksToMute.add(track.id);
-          } else {
-            unmutedForNamespace.add(animatableId);
-            unmutedByNamespace.set(namespaceId, unmutedForNamespace);
-          }
-        });
+        const namespaceId = track.namespaceId;
+        const unmutedForNamespace = unmutedByNamespace.get(namespaceId) ?? new Set<string>();
+        if (unmutedForNamespace.has(animatableId)) {
+          tracksToMute.add(track.id);
+        } else {
+          unmutedForNamespace.add(animatableId);
+          unmutedByNamespace.set(namespaceId, unmutedForNamespace);
+        }
       });
 
       if (tracksToMute.size === 0) return;
@@ -52,14 +51,9 @@ export function updateTrackMuting(
           tracksToMute.forEach((sourceId) => {
             updates[sourceId] = { muted: true };
           });
-          const nextSourcesByInstance: Record<
-            string,
-            AnimationData["sourcesByInstance"][string]
-          > = {};
-          Object.entries(state.sourcesByInstance).forEach(([instanceId, sources]) => {
-            nextSourcesByInstance[instanceId] = computeUpdatedSources(sources, updates);
-          });
-          state.sourcesByInstance = nextSourcesByInstance;
+          // Update the tree in-place — computeUpdatedSources walks Source[]
+          // recursively and applies updates to matching source IDs.
+          state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
         }),
       );
     },

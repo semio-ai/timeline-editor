@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { ScrollArea } from "@semio/ui";
@@ -7,6 +8,7 @@ import { useAnimationStore } from "../hooks";
 import { AnimationData } from "../store-types";
 import type { SourceRow, VisibleSourceRowIds } from "../types";
 import { normalizeVisibleSourceRowIds } from "../functions/filter-visible-source-row-ids";
+import { computeAncestorIsLast } from "../functions/compute-ancestor-is-last";
 import { TrackControl } from "./track-control";
 
 export interface TrackListProps {

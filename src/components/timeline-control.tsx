@@ -14,6 +14,7 @@ import {
 } from "../hooks";
 import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
 import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
+import { getInstanceSources } from "../functions/source-tree-utils";
 import { buildFilteredGlobalRowId } from "../functions/view-filtered-global-row";
 import { AnimationActions, AnimationData } from "../store-types";
 import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
@@ -24,7 +25,7 @@ import { KeyStrip } from "./key-strip";
 import { DataIcon } from "./data-icon";
 
 export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
-  const { source, namespaces, animations, sourcesByInstance, viewData } =
+  const { source, namespaces, animations, globalSourceTree, viewData } =
     useAnimationStore(
       useShallow((state: AnimationData) => ({
         source:
@@ -32,7 +33,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           state.instancedTrackSources.global,
         namespaces: state.namespaces,
         animations: state.animations,
-        sourcesByInstance: state.sourcesByInstance,
+        globalSourceTree: state.globalSourceTree,
         viewData: state.editorViews[viewId],
       })),
     );
@@ -87,7 +88,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
             label: animations[instance.animationId]?.name || "Unnamed Instance",
             icon: <DataIcon iconCode="group" className={ICON_CLASS_NAME} />,
             children: computeTreeOptionsFromSources(
-              sourcesByInstance[instance.id],
+              getInstanceSources(globalSourceTree, instance.id),
               nameLookup,
             ),
           };
@@ -96,7 +97,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           namespaceOption.children!.push(instanceOption);
           // Add visible tracks to the values;
           const visibleTracks = computeVisibleSourceTracks(
-            sourcesByInstance[instance.id],
+            getInstanceSources(globalSourceTree, instance.id),
             {
               hiddenSourceTrackIds,
             },
@@ -108,11 +109,11 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       });
 
       return { treeOptions: options, treeValues: values };
-    }, [sourcesByInstance, namespaces, nameLookup, animations, viewData]);
+    }, [globalSourceTree, namespaces, nameLookup, animations, viewData]);
 
   const hasTrackOptions = useMemo(
-    () => Object.values(sourcesByInstance).some((sources) => sources?.length > 0),
-    [sourcesByInstance],
+    () => globalSourceTree.length > 0,
+    [globalSourceTree],
   );
   const hasView = Boolean(viewData);
   const controlsDisabled = !source || !hasTrackOptions || !hasView || running;

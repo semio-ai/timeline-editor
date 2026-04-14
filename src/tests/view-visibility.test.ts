@@ -13,11 +13,9 @@ describe("view-specific visibility", () => {
     await flushMicrotasks();
 
     const seeded = store.getState();
-    const firstSourceSet = Object.values(seeded.sourcesByInstance).find(
-      (sources) => sources.length > 0,
-    );
-    expect(firstSourceSet).toBeDefined();
-    const targetTrack = firstSourceSet ? collectSourceTracks(firstSourceSet)[0] : undefined;
+    const allTracks = collectSourceTracks(seeded.globalSourceTree);
+    expect(allTracks.length).toBeGreaterThan(0);
+    const targetTrack = allTracks[0];
     expect(targetTrack).toBeDefined();
     if (!targetTrack) return;
 
@@ -53,8 +51,7 @@ describe("view-specific visibility", () => {
     expect(hasTrackInA).toBe(false);
     expect(hasTrackInB).toBe(true);
 
-    const refreshedTrack = Object.values(state.sourcesByInstance)
-      .flatMap((sources) => collectSourceTracks(sources))
+    const refreshedTrack = collectSourceTracks(state.globalSourceTree)
       .find((track) => track.id === targetTrack.id);
     expect(refreshedTrack?.hidden).toBe(false);
   });
@@ -65,11 +62,7 @@ describe("view-specific visibility", () => {
     await flushMicrotasks();
 
     const seeded = store.getState();
-    const firstSourceSet = Object.values(seeded.sourcesByInstance).find(
-      (sources) => sources.length > 0,
-    );
-    expect(firstSourceSet).toBeDefined();
-    const group = firstSourceSet?.find((source) => "children" in source);
+    const group = seeded.globalSourceTree.find((source) => "children" in source);
     expect(group).toBeDefined();
     if (!group || !("children" in group)) return;
 

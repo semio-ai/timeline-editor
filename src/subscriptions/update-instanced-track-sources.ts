@@ -10,7 +10,7 @@ import { GROUP_TYPES } from "../constants";
 
 /**
  * Derives the flat `instancedTrackSources` dictionary from the canonical
- * `sourcesByInstance` tree. Decorates each source with rendering
+ * `globalSourceTree`. Decorates each source with rendering
  * state (layerBand, selectable, editable) and flattens into a lookup keyed
  * by row ID.
  *

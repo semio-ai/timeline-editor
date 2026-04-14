@@ -2,7 +2,6 @@ import { RawValue, usePlayerStore, AnimatableValue, useValuesStore } from "@semi
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
-import { mapValues } from "lodash";
 import { create } from "zustand";
 import {
   Track,
@@ -121,21 +120,19 @@ const applyTrackValue = (
 };
 
 function collectLegacyHiddenTrackIds(
-  sourcesByInstance: AnimationData["sourcesByInstance"],
+  globalSourceTree: AnimationData["globalSourceTree"],
 ): string[] {
   const hiddenIds = new Set<string>();
-  Object.values(sourcesByInstance).forEach((sources) => {
-    collectSourceTracks(sources).forEach((track) => {
-      if (track.hidden) {
-        hiddenIds.add(track.id);
-      }
-    });
+  collectSourceTracks(globalSourceTree).forEach((track) => {
+    if (track.hidden) {
+      hiddenIds.add(track.id);
+    }
   });
   return Array.from(hiddenIds);
 }
 
 function resolveTrackIdsForVisibilityUpdate(
-  sourcesByInstance: AnimationData["sourcesByInstance"],
+  globalSourceTree: AnimationData["globalSourceTree"],
   sourceId: string,
 ): string[] {
   const trackIds = new Set<string>();
@@ -159,9 +156,7 @@ function resolveTrackIdsForVisibilityUpdate(
     });
   };
 
-  Object.values(sourcesByInstance).forEach((sources) => {
-    visit(sources);
-  });
+  visit(globalSourceTree);
 
   return Array.from(trackIds);
 }
@@ -196,10 +191,7 @@ export const AnimationSlice = (
         produce((state: AnimationData) => {
           // Group expansion is global; track visibility is managed per-view.
           const updates = { [groupId]: { expanded } };
-          state.sourcesByInstance = mapValues(
-            state.sourcesByInstance,
-            (instanceSources) => computeUpdatedSources(instanceSources, updates),
-          );
+          state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
         }),
       );
     },
@@ -216,10 +208,7 @@ export const AnimationSlice = (
           if (Object.keys(expansionUpdates).length === 0) {
             return;
           }
-          state.sourcesByInstance = mapValues(
-            state.sourcesByInstance,
-            (instanceSources) => computeUpdatedSources(instanceSources, expansionUpdates),
-          );
+          state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, expansionUpdates);
         }),
       );
     },
@@ -233,7 +222,7 @@ export const AnimationSlice = (
           Object.entries(updates).forEach(([sourceId, update]) => {
             if (update.hidden === undefined) return;
             const resolvedTrackIds = resolveTrackIdsForVisibilityUpdate(
-              state.sourcesByInstance,
+              state.globalSourceTree,
               sourceId,
             );
             resolvedTrackIds.forEach((trackId) => {
@@ -345,7 +334,7 @@ export const AnimationSlice = (
       set((state: AnimationData) => {
         const legacyHiddenIds =
           Object.keys(state.editorViews).length === 0
-            ? collectLegacyHiddenTrackIds(state.sourcesByInstance)
+            ? collectLegacyHiddenTrackIds(state.globalSourceTree)
             : [];
         const defaultView: View = {
           id: view.id,
@@ -809,35 +798,22 @@ export const AnimationSlice = (
             [sourceId]: { muted },
           };
           if (!muted) {
-            let targetTrack: ReturnType<typeof findSourceTrackById> | undefined;
-            Object.values(state.sourcesByInstance).some((sources) => {
-              const found = findSourceTrackById(sources, sourceId);
-              if (found) {
-                targetTrack = found;
-                return true;
-              }
-              return false;
-            });
+            const targetTrack = findSourceTrackById(state.globalSourceTree, sourceId);
 
             if (targetTrack) {
               const { namespaceId, animatableId } = targetTrack;
               if (animatableId) {
-                Object.values(state.sourcesByInstance).forEach((sources) => {
-                  collectSourceTracks(sources).forEach((track) => {
-                    if (track.id === sourceId) return;
-                    if (track.namespaceId !== namespaceId) return;
-                    if (track.animatableId !== animatableId) return;
-                    updates[track.id] = { muted: true };
-                  });
+                collectSourceTracks(state.globalSourceTree).forEach((track) => {
+                  if (track.id === sourceId) return;
+                  if (track.namespaceId !== namespaceId) return;
+                  if (track.animatableId !== animatableId) return;
+                  updates[track.id] = { muted: true };
                 });
               }
             }
           }
 
-          state.sourcesByInstance = mapValues(
-            state.sourcesByInstance,
-            (instanceSources) => computeUpdatedSources(instanceSources, updates),
-          );
+          state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
         }),
       );
     },

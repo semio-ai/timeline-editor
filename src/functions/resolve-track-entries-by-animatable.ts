@@ -2,6 +2,7 @@ import type { RawValue } from "@semio/utils";
 import type { Namespace, Source, Track } from "../types";
 import { parseTrackKey } from "../utils/track-key";
 import { computeVisibleSourceTracks } from "./compute-visible-source-tracks";
+import { getInstanceSources } from "./source-tree-utils";
 
 export interface ResolvedTrackEntry {
   namespaceId: string;
@@ -18,7 +19,7 @@ interface ResolveTrackEntriesOptions {
 
 export function resolveTrackEntriesByAnimatable(
   namespaces: Record<string, Namespace>,
-  sourcesByInstance: Record<string, Source[]>,
+  globalSourceTree: Source[],
   tracks: Record<string, Track<RawValue>>,
   options: ResolveTrackEntriesOptions = {},
 ): Map<string, Map<string, ResolvedTrackEntry>> {
@@ -31,8 +32,8 @@ export function resolveTrackEntriesByAnimatable(
     const instances = Object.values(namespace.animationInstances ?? {});
 
     instances.forEach((instance) => {
-      const sources = sourcesByInstance[instance.id];
-      if (!sources) return;
+      const sources = getInstanceSources(globalSourceTree, instance.id);
+      if (sources.length === 0) return;
 
       const trackKeys = computeVisibleSourceTracks(sources, { includeHidden, includeMuted });
       trackKeys.forEach((trackKey) => {

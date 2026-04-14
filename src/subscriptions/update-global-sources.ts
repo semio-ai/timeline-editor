@@ -8,6 +8,7 @@ import type {
 } from "../store-types";
 import { Source, SourceGroup, SourceTrack } from "../types";
 import { computeDefaultSourcesFromInstance } from "../functions";
+import { collectSourcesByInstance as collectSourcesByInstanceFromTree } from "../functions/source-tree-utils";
 import { GROUP_TYPES } from "../constants";
 
 /**
@@ -18,7 +19,7 @@ import { GROUP_TYPES } from "../constants";
  * - `globalSourceTree`: Full hierarchy with entity/instance group wrapping
  *   (entity → instance → composite groups → tracks). Entity/instance groups
  *   are omitted when only one entity or one instance exists (auto-collapse).
- * - `sourcesByInstance`: Per-instance index referencing the same Source objects.
+ * Per-instance sources are built internally then wrapped into the tree.
  */
 export function updateGlobalSources(
   api: AnimationApi,
@@ -33,10 +34,10 @@ export function updateGlobalSources(
       animatables: state.animatables,
     }),
     ({ namespaces, animations, tracks, animatables }) => {
-      const previousState = get();
-      const previousByInstance = previousState.sourcesByInstance;
+      const previousTree = get().globalSourceTree;
+      const previousByInstance = collectSourcesByInstanceFromTree(previousTree);
 
-      // Step 1: Build per-instance sources (same as before)
+      // Step 1: Build per-instance sources with state preservation
       const sourcesByInstance: Record<string, Source[]> = {};
 
       const namespaceEntries = Object.entries(namespaces);
@@ -53,7 +54,7 @@ export function updateGlobalSources(
           );
           sourcesByInstance[animationInstance.id] = mergeSourceState(
             sources,
-            previousByInstance?.[animationInstance.id],
+            previousByInstance[animationInstance.id],
           );
         }
       }
@@ -82,7 +83,7 @@ export function updateGlobalSources(
             const instanceGroupId = `instance:${namespaceId}/${instance.id}`;
 
             // Preserve expanded state from previous tree
-            const prevExpanded = findPreviousExpanded(previousState.globalSourceTree, instanceGroupId);
+            const prevExpanded = findPreviousExpanded(previousTree, instanceGroupId);
 
             const instanceGroup: SourceGroup = {
               id: instanceGroupId,
@@ -107,7 +108,7 @@ export function updateGlobalSources(
         if (showEntityLevel) {
           // Wrap in an entity-level group
           const entityGroupId = `entity:${namespaceId}`;
-          const prevExpanded = findPreviousExpanded(previousState.globalSourceTree, entityGroupId);
+          const prevExpanded = findPreviousExpanded(previousTree, entityGroupId);
 
           const entityGroup: SourceGroup = {
             id: entityGroupId,
@@ -129,7 +130,6 @@ export function updateGlobalSources(
 
       set({
         globalSourceTree,
-        sourcesByInstance,
       });
     },
     {

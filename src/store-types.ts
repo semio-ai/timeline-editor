@@ -145,12 +145,6 @@ export interface AnimationData {
    */
   globalSourceTree: Source[];
   /**
-   * Per-instance index into the source tree. References the same Source objects
-   * as globalSourceTree — not copies. Used for per-instance operations: muting
-   * enforcement, values bridge, tree options, visibility filtering.
-   */
-  sourcesByInstance: Record<string, Source[]>;
-  /**
    * Global source row IDs shared across all views
    */
   sourceRowIds: VisibleSourceRowIds;
