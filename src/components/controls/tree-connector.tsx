@@ -15,8 +15,8 @@ export interface TreeConnectorProps {
   ancestorIsLast: boolean[];
 }
 
-/** Width in pixels per indent level. */
-export const INDENT_PX = 12;
+/** Width in pixels per indent level. Must be >= 14 (half icon column) for guide alignment. */
+export const INDENT_PX = 20;
 
 /**
  * Renders vertical indent guide lines for tree hierarchy visualization.
@@ -40,7 +40,9 @@ export const TreeConnector = memo(function TreeConnector({
           Lines run the full height of the row — they connect visually across
           all sibling rows at that depth. */}
       {Array.from({ length: depth }, (_, i) => {
-        const x = i * INDENT_PX + INDENT_PX / 2;
+        // Position at the parent's icon center: parent's indent (i * INDENT_PX)
+        // plus half the 28px icon column (14px).
+        const x = i * INDENT_PX + 14;
         return (
           <div
             key={i}
