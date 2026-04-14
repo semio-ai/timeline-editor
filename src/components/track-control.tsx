@@ -35,14 +35,16 @@ import { KeyStrip } from "./key-strip";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
 import { ControlRow, GroupToggle } from "./controls";
+import { TreeConnector } from "./controls/tree-connector";
 
 export interface TrackControlProps {
   sourceRow: SourceRow;
+  ancestorIsLast?: boolean[];
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
 }
 
-function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackControlProps) {
+function InnerTrackControl({ sourceRow, ancestorIsLast = [], emphasis, onEmphasisChange }: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
 
@@ -164,24 +166,32 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
         )}
         isGroup={isGroup}
         icon={
-          isGroup ? (
-            <Tooltip content={sourceRow.expanded ? "Collapse Group" : "Expand Group"} invert>
-              <GroupToggle
-                expanded={sourceRow.expanded}
-                onToggle={updateExpanded}
-                disabled={!isActive}
-                color={color}
-              />
-            </Tooltip>
-          ) : (
-            <Tooltip content={getSemanticLabelForIconCode(iconCode)} invert>
-              <div>
-                <StaticIcon size={Size.Md} color={color}>
-                  <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
-                </StaticIcon>
-              </div>
-            </Tooltip>
-          )
+          <>
+            <TreeConnector
+              depth={sourceRow.depth ?? 0}
+              isLastChild={sourceRow.isLastChild ?? false}
+              isGroup={isGroup}
+              ancestorIsLast={ancestorIsLast}
+            />
+            {isGroup ? (
+              <Tooltip content={sourceRow.expanded ? "Collapse Group" : "Expand Group"} invert>
+                <GroupToggle
+                  expanded={sourceRow.expanded}
+                  onToggle={updateExpanded}
+                  disabled={!isActive}
+                  color={color}
+                />
+              </Tooltip>
+            ) : (
+              <Tooltip content={getSemanticLabelForIconCode(iconCode)} invert>
+                <div>
+                  <StaticIcon size={Size.Md} color={color}>
+                    <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
+                  </StaticIcon>
+                </div>
+              </Tooltip>
+            )}
+          </>
         }
         label={
           isGroup ? (

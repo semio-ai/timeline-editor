@@ -50,7 +50,7 @@ export function ControlRow({
         <div className="h-full w-0.75">{target}</div>
 
         {/* Tree + icon */}
-        <div className="grid h-full w-7 place-items-center">
+        <div className="relative grid h-full w-7 place-items-center">
           {icon ?? <div className="size-3" />}
         </div>
 

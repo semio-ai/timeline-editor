@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { ScrollArea } from "@semio/ui";
@@ -7,6 +8,7 @@ import { useAnimationStore } from "../hooks";
 import { AnimationData } from "../store-types";
 import type { SourceRow, VisibleSourceRowIds } from "../types";
 import { normalizeVisibleSourceRowIds } from "../functions/filter-visible-source-row-ids";
+import { computeAncestorIsLast } from "../functions/compute-ancestor-is-last";
 import { TrackControl } from "./track-control";
 
 export interface TrackListProps {
@@ -32,13 +34,24 @@ export function TrackList({
 
   const flatRowIds = sourceRowIdLookup.flat;
 
-  const sourceRows = useAnimationStore(
-    useShallow((state: AnimationData) =>
-      flatRowIds
-        .map((id) => state.instancedTrackSources[id])
-        .filter((row): row is SourceRow => Boolean(row)),
-    ),
+  const instancedTrackSources = useAnimationStore(
+    useShallow((state: AnimationData) => state.instancedTrackSources),
   );
+
+  const sourceRows = useMemo(
+    () =>
+      flatRowIds
+        .map((id) => instancedTrackSources[id])
+        .filter((row): row is SourceRow => Boolean(row)),
+    [flatRowIds, instancedTrackSources],
+  );
+
+  // Compute ancestor chain for tree connector lines
+  const ancestorMap = useMemo(
+    () => computeAncestorIsLast(flatRowIds, instancedTrackSources),
+    [flatRowIds, instancedTrackSources],
+  );
+
   return (
     <div
       className={clsx(
@@ -73,6 +86,7 @@ export function TrackList({
                 >
                   <TrackControl
                     sourceRow={sourceRow}
+                    ancestorIsLast={ancestorMap.get(sourceRow.id) ?? []}
                     emphasis={emphasis.includes(sourceRow.id)}
                     onEmphasisChange={(v) => onEmphasisChange(sourceRow.id, v ? "add" : "remove")}
                   />
