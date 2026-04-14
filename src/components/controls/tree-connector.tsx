@@ -40,9 +40,9 @@ export const TreeConnector = memo(function TreeConnector({
           Lines run the full height of the row — they connect visually across
           all sibling rows at that depth. */}
       {Array.from({ length: depth }, (_, i) => {
-        // Position at the parent's icon center: parent's indent (i * INDENT_PX)
-        // plus half the 28px icon column (14px).
-        const x = i * INDENT_PX + 14;
+        // Position each guide at a consistent offset per level.
+        // Each level's guide aligns to the center of that level's indent slot.
+        const x = i * INDENT_PX + INDENT_PX / 2;
         return (
           <div
             key={i}
