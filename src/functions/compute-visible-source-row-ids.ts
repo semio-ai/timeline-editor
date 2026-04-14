@@ -40,14 +40,14 @@ function collectIds(
       const sourceGroup = source as SourceGroup;
       const isOrgGroup = sourceGroup.type === "entity" || sourceGroup.type === "instance";
 
-      if (!isOrgGroup && !collapsed) {
-        // Composite group: appears in flat list (track list) unless a parent is collapsed
+      if (!collapsed) {
+        // Group appears in flat list (track list) unless a parent is collapsed
         acc.flat.push(sourceGroup.id);
       }
 
       // Recurse into children. If this group is collapsed, pass collapsed=true
       // so descendants are excluded from `flat` but still included in `spline`.
-      const childCollapsed = collapsed || (!isOrgGroup && !sourceGroup.expanded);
+      const childCollapsed = collapsed || !sourceGroup.expanded;
       collectIds(sourceGroup.children, acc, hiddenSourceTrackIds, childCollapsed);
     } else {
       const sourceTrack = source as SourceTrack;
