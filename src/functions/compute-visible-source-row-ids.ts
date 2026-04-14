@@ -6,9 +6,13 @@ interface ComputeVisibleSourceRowIdsOptions {
 }
 
 /**
- * Computes both the flat (groups + leaves) and spline (leaf-only) lists of source row IDs
- * based on the expanded state of groups. Groups are always included in the flat list, but
- * only expanded groups contribute their children to either list.
+ * Computes both the flat (groups + leaves) and spline (leaf-only) lists of source row IDs.
+ *
+ * - `flat`: Respects group expanded/collapsed state. Collapsed groups appear but their
+ *   children do not. Used for track list row ordering.
+ * - `spline`: Always includes ALL non-hidden leaf tracks regardless of collapse state.
+ *   Used for canvas rendering and the filtered global row. Collapsing a group in the
+ *   track list should not remove its tracks from the canvas/timeline.
  */
 export function computeVisibleSourceRowIds(
   sources: Source[],
@@ -20,31 +24,44 @@ export function computeVisibleSourceRowIds(
     return accumulator;
   }
 
-  collectVisibleIds(sources, accumulator, options.hiddenSourceTrackIds ?? new Set<string>());
+  const hiddenIds = options.hiddenSourceTrackIds ?? new Set<string>();
+  collectIds(sources, accumulator, hiddenIds);
   return accumulator;
 }
 
-function collectVisibleIds(
+function collectIds(
   sources: Source[],
   acc: VisibleSourceRowIds,
   hiddenSourceTrackIds: Set<string>,
+  collapsed = false,
 ): void {
   sources.forEach((source: Source) => {
     if (GROUP_TYPES.has(source.type)) {
       const sourceGroup = source as SourceGroup;
-      acc.flat.push(sourceGroup.id);
+      const isOrgGroup = sourceGroup.type === "entity" || sourceGroup.type === "instance";
 
-      if (sourceGroup.expanded) {
-        collectVisibleIds(sourceGroup.children, acc, hiddenSourceTrackIds);
+      if (!isOrgGroup && !collapsed) {
+        // Composite group: appears in flat list (track list) unless a parent is collapsed
+        acc.flat.push(sourceGroup.id);
       }
+
+      // Recurse into children. If this group is collapsed, pass collapsed=true
+      // so descendants are excluded from `flat` but still included in `spline`.
+      const childCollapsed = collapsed || (!isOrgGroup && !sourceGroup.expanded);
+      collectIds(sourceGroup.children, acc, hiddenSourceTrackIds, childCollapsed);
     } else {
       const sourceTrack = source as SourceTrack;
       if (hiddenSourceTrackIds.has(sourceTrack.id)) return;
 
       const trackId = `${sourceTrack.namespaceId}/${sourceTrack.instanceId}/${sourceTrack.trackId}`;
 
-      acc.flat.push(trackId);
+      // Spline list: always includes all non-hidden tracks (canvas rendering)
       acc.spline.push(trackId);
+
+      // Flat list: only includes tracks whose parent groups are all expanded
+      if (!collapsed) {
+        acc.flat.push(trackId);
+      }
     }
   });
 }
