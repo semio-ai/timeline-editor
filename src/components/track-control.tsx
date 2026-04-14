@@ -297,7 +297,6 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
           />
         }
         options={
-          <div className="flex items-center">
             <Dropdown
               disabled={playing}
               variant={Variant.Info}
@@ -340,7 +339,6 @@ function InnerTrackControl({ sourceRow, emphasis, onEmphasisChange }: TrackContr
                 {trackMuted ? "Muted" : "Not muted"}
               </NestedItem>
             </Dropdown>
-          </div>
         }
       />
     </div>

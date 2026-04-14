@@ -233,7 +233,6 @@ function AnimatableLeafControl({
         />
       }
       options={
-        <div className="mr-1 flex w-3 items-center justify-around">
           <Dropdown
             disabled={editorDisabled}
             variant={Variant.Info}
@@ -267,7 +266,6 @@ function AnimatableLeafControl({
               }}
             />
           </Dropdown>
-        </div>
       }
     />
   );
@@ -449,7 +447,6 @@ function AnimatableGroupControl({
         )
       }
       options={
-        <div className="mr-1 flex w-3 items-center justify-around">
           <Dropdown
             disabled
             variant={Variant.Info}
@@ -467,7 +464,6 @@ function AnimatableGroupControl({
             <NestedLabel>Control Settings</NestedLabel>
             {/* No content currently. May add more. Dropdown disabled */}
           </Dropdown>
-        </div>
       }
     />
   );
