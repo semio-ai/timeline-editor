@@ -29,7 +29,6 @@ export const INDENT_PX = 12;
  */
 export const TreeConnector = memo(function TreeConnector({
   depth,
-  ancestorIsLast,
 }: TreeConnectorProps) {
   if (depth === 0) return null;
 
@@ -37,10 +36,10 @@ export const TreeConnector = memo(function TreeConnector({
 
   return (
     <div className="relative h-full shrink-0" style={{ width }}>
-      {ancestorIsLast.map((isLast, i) => {
-        // Draw a vertical guide at this ancestor's indent level
-        // only if the ancestor is NOT the last child (more siblings below)
-        if (isLast) return null;
+      {/* Render a vertical guide line at each depth level where a parent exists.
+          Lines run the full height of the row — they connect visually across
+          all sibling rows at that depth. */}
+      {Array.from({ length: depth }, (_, i) => {
         const x = i * INDENT_PX + INDENT_PX / 2;
         return (
           <div
