@@ -139,9 +139,18 @@ export interface AnimationData {
    */
   instancedTrackSources: Record<string, SourceRow>;
   /**
-   * Global sources shared across all views (computed from namespaces/animations)
+   * Full hierarchical source tree (entity → instance → groups → tracks).
+   * Used by rendering pipeline, sourceRowIds, and derived snapshot.
+   * Entity/instance groups are included when multiple entities or instances exist.
    */
-  sourcesByAnimationInstance: Record<string, Source[]>;
+  globalSourceTree: Source[];
+  /**
+   * Per-instance index into the source tree. References the same Source objects
+   * as globalSourceTree — not copies. Used by muting, values bridge, visibility.
+   * @deprecated Prefer globalSourceTree for new code. This exists as a convenience
+   * index for consumers that need per-instance lookup.
+   */
+  sourcesByInstance: Record<string, Source[]>;
   /**
    * Global source row IDs shared across all views
    */

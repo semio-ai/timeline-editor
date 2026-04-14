@@ -52,7 +52,7 @@ export enum Z {
 
 // These will no longer be needed when we support nested properties in the animatable values.
 export const COMPLEX_TYPES = new Set(["vector2", "vector3", "euler", "rgb", "hsl"]);
-export const GROUP_TYPES = new Set(["vector2", "vector3", "euler", "rgb", "hsl", "group"]);
+export const GROUP_TYPES = new Set(["vector2", "vector3", "euler", "rgb", "hsl", "group", "entity", "instance"]);
 
 export const TYPE_FIELDS: Record<string, string[]> = {
   vector2: ["x", "y"],

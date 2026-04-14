@@ -27,10 +27,13 @@ export interface SourceGroup extends SourceBase {
   /** Display name for the group. */
   name: string;
   /**
-   * Composite type for the group, or "group" when structural only.
-   * Composite types are used to group derived component tracks.
+   * Composite type for the group.
+   * - Composite types ("vector3", "euler", etc.) group derived component tracks.
+   * - "group" is structural only (no composite semantics).
+   * - "entity" groups all instances for one entity/namespace.
+   * - "instance" groups all tracks for one animation instance.
    */
-  type: "vector3" | "vector2" | "euler" | "rgb" | "hsl" | "group";
+  type: "vector3" | "vector2" | "euler" | "rgb" | "hsl" | "group" | "entity" | "instance";
   /** Whether the group is expanded in the UI. */
   expanded: boolean;
   /** Optional icon code for UI rendering. */
