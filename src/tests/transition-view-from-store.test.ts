@@ -31,9 +31,10 @@ describe("transition view params from store data", () => {
       selectionState: state.selectionState,
     });
 
-    const opacityRowEntry = Object.values(derived.rows).find((row) =>
-      row.trackKeys?.some((key) => key.endsWith(`/${TRACK_IDS.OPACITY}`)),
-    );
+    const opacityRowEntry = Object.entries(derived.rows)
+      .filter(([id]) => !id.startsWith("entity:") && !id.startsWith("instance:"))
+      .map(([, row]) => row)
+      .find((row) => row.trackKeys?.some((key) => key.endsWith(`/${TRACK_IDS.OPACITY}`)));
     if (!opacityRowEntry) {
       throw new Error(`Row not found; rows: ${Object.keys(derived.rows).join(",")}`);
     }

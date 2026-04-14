@@ -32,20 +32,10 @@ function collectVisibleIds(
   sources.forEach((source: Source) => {
     if (GROUP_TYPES.has(source.type)) {
       const sourceGroup = source as SourceGroup;
-      const isOrgGroup = sourceGroup.type === "entity" || sourceGroup.type === "instance";
+      acc.flat.push(sourceGroup.id);
 
-      // Entity/instance groups are organizational — they don't have entries
-      // in instancedTrackSources, so they shouldn't appear in sourceRowIds.
-      // Their children are included directly (the org group is transparent).
-      if (isOrgGroup) {
-        // Always recurse into org groups (they don't have expand/collapse yet
-        // at the sourceRowIds level — that's handled by the track list UI).
+      if (sourceGroup.expanded) {
         collectVisibleIds(sourceGroup.children, acc, hiddenSourceTrackIds);
-      } else {
-        acc.flat.push(sourceGroup.id);
-        if (sourceGroup.expanded) {
-          collectVisibleIds(sourceGroup.children, acc, hiddenSourceTrackIds);
-        }
       }
     } else {
       const sourceTrack = source as SourceTrack;

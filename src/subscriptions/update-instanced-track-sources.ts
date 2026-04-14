@@ -123,45 +123,32 @@ function flattenSources(
 
     if (GROUP_TYPES.has(source.type)) {
       const group = source as SourceGroup;
-      const isOrgGroup = group.type === "entity" || group.type === "instance";
 
-      // Recursively flatten children. Organizational groups (entity/instance)
-      // don't produce rows in instancedTrackSources — they exist only in
-      // globalSourceTree and sourceRowIds. The track list renders them directly
-      // from the tree. This keeps the derived snapshot free of organizational
-      // aggregates that would interfere with track-level operations.
+      // Recursively flatten children
       const childOutput: Record<string, SourceRow> = {};
-      flattenSources(
-        group.children,
-        activeAnimationId,
-        selectedTrackLookup,
-        childOutput,
-        isOrgGroup ? depth : depth + 1,
-        isOrgGroup ? parentId : group.id,
-      );
+      flattenSources(group.children, activeAnimationId, selectedTrackLookup, childOutput, depth + 1, group.id);
 
-      if (!isOrgGroup) {
-        // Composite group: merge child data entries with type="group"
-        const childData: SourceRowData[] = Object.values(childOutput)
-          .flatMap((row) => row.data)
-          .map((data) => ({ ...data, type: "group" as const }));
+      // All groups (composite, entity, instance) produce rows with
+      // aggregate child data typed as "group".
+      const childData: SourceRowData[] = Object.values(childOutput)
+        .flatMap((row) => row.data)
+        .map((data) => ({ ...data, type: "group" as const }));
 
-        if (childData.length > 0) {
-          output[group.id] = {
-            id: group.id,
-            name: group.name,
-            expanded: group.expanded,
-            data: childData,
-            depth,
-            isLastChild,
-            isGroup: true,
-            parentId,
-          };
-        }
+      if (childData.length > 0) {
+        output[group.id] = {
+          id: group.id,
+          name: group.name,
+          expanded: group.expanded,
+          data: childData,
+          depth,
+          isLastChild,
+          isGroup: true,
+          parentId,
+        };
+
+        // Add all child rows to output
+        Object.assign(output, childOutput);
       }
-
-      // Add all child rows regardless
-      Object.assign(output, childOutput);
     } else {
       const track = source as SourceTrack;
       const trackKey = track.id; // format: "ns/inst/trackId"
