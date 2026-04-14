@@ -1,4 +1,3 @@
-import { shallow } from "zustand/shallow";
 import { isEqual } from "lodash";
 import type {
   AnimationApi,
@@ -11,7 +10,7 @@ import { GROUP_TYPES } from "../constants";
 
 /**
  * Derives the flat `instancedTrackSources` dictionary from the canonical
- * `sourcesByAnimationInstance` tree. Decorates each source with rendering
+ * `sourcesByInstance` tree. Decorates each source with rendering
  * state (layerBand, selectable, editable) and flattens into a lookup keyed
  * by row ID.
  *
@@ -25,20 +24,17 @@ export function updateInstancedTrackSources(
 ): () => void {
   return api.subscribe(
     (state: AnimationData) => ({
-      namespaces: state.namespaces,
-      animations: state.animations,
-      sourcesByAnimationInstance: state.sourcesByAnimationInstance,
+      globalSourceTree: state.globalSourceTree,
       activeAnimationId: state.selectionState.instanceId,
       selectedKeypoints: state.selectionState.keypoints,
       tracksRevision: state.tracksRevision ?? 0,
     }),
     ({
-      namespaces,
-      sourcesByAnimationInstance,
+      globalSourceTree,
       activeAnimationId,
       selectedKeypoints,
     }) => {
-      if (!namespaces) return;
+      if (!globalSourceTree || globalSourceTree.length === 0) return;
 
       // Build a set of selected track keys for quick lookup.
       // Registers multiple key formats for flexible matching:
@@ -58,18 +54,9 @@ export function updateInstancedTrackSources(
 
       const instancedTrackSources: Record<string, SourceRow> = {};
 
-      // Walk each namespace → instance → source tree
-      Object.entries(namespaces).forEach(([_namespaceId, namespace]) => {
-        Object.values(namespace.animationInstances).forEach((instance) => {
-          const sources = sourcesByAnimationInstance[instance.id];
-          if (!sources || sources.length === 0) return;
-
-          const foreground = Boolean(activeAnimationId) && activeAnimationId === instance.id;
-
-          // Recursively flatten the source tree into SourceRows
-          flattenSources(sources, foreground, selectedTrackLookup, instancedTrackSources);
-        });
-      });
+      // Walk the full source tree (entity → instance → groups → tracks)
+      // The tree already has entity/instance groups when appropriate.
+      flattenSources(globalSourceTree, activeAnimationId, selectedTrackLookup, instancedTrackSources);
 
       // Preserve the global row (managed by update-consolidated-source-row)
       const existingGlobal = get().instancedTrackSources?.global;
@@ -92,13 +79,7 @@ export function updateInstancedTrackSources(
     },
     {
       equalityFn: (current, previous) => {
-        // Re-derive when structure, selection, or active instance changes
-        const allCurrentTracks = new Set(
-          Object.values(current.animations).flatMap((a) => a.tracks),
-        );
-        const allPreviousTracks = new Set(
-          Object.values(previous.animations).flatMap((a) => a.tracks),
-        );
+        // Re-derive when tree, selection, or active instance changes
 
         const selectionSignature = (selection: AnimationData["selectionState"]["keypoints"]) =>
           Array.from(selection.entries())
@@ -111,9 +92,7 @@ export function updateInstancedTrackSources(
         return (
           current.activeAnimationId === previous.activeAnimationId &&
           isEqual(selectionSignature(current.selectedKeypoints), selectionSignature(previous.selectedKeypoints)) &&
-          isEqual(allCurrentTracks, allPreviousTracks) &&
-          shallow(current.namespaces, previous.namespaces) &&
-          shallow(current.sourcesByAnimationInstance, previous.sourcesByAnimationInstance) &&
+          current.globalSourceTree === previous.globalSourceTree &&
           current.tracksRevision === previous.tracksRevision
         );
       },
@@ -125,10 +104,13 @@ export function updateInstancedTrackSources(
 /**
  * Recursively flatten a Source[] tree into a Record<string, SourceRow>,
  * decorating each node with rendering-specific data (layerBand, selectable, etc.).
+ *
+ * The `activeAnimationId` is used to determine foreground status per-leaf
+ * (each leaf track knows its instanceId, compared against the active one).
  */
 function flattenSources(
   sources: Source[],
-  foreground: boolean,
+  activeAnimationId: string | null,
   selectedTrackLookup: Set<string>,
   output: Record<string, SourceRow>,
   depth = 0,
@@ -141,34 +123,49 @@ function flattenSources(
 
     if (GROUP_TYPES.has(source.type)) {
       const group = source as SourceGroup;
+      const isOrgGroup = group.type === "entity" || group.type === "instance";
 
-      // Recursively flatten children first to collect their data
+      // Recursively flatten children. Organizational groups (entity/instance)
+      // don't produce rows in instancedTrackSources — they exist only in
+      // globalSourceTree and sourceRowIds. The track list renders them directly
+      // from the tree. This keeps the derived snapshot free of organizational
+      // aggregates that would interfere with track-level operations.
       const childOutput: Record<string, SourceRow> = {};
-      flattenSources(group.children, foreground, selectedTrackLookup, childOutput, depth + 1, group.id);
+      flattenSources(
+        group.children,
+        activeAnimationId,
+        selectedTrackLookup,
+        childOutput,
+        isOrgGroup ? depth : depth + 1,
+        isOrgGroup ? parentId : group.id,
+      );
 
-      // Group row data: merge all child data entries with type="group"
-      const childData: SourceRowData[] = Object.values(childOutput)
-        .flatMap((row) => row.data)
-        .map((data) => ({ ...data, type: "group" as const }));
+      if (!isOrgGroup) {
+        // Composite group: merge child data entries with type="group"
+        const childData: SourceRowData[] = Object.values(childOutput)
+          .flatMap((row) => row.data)
+          .map((data) => ({ ...data, type: "group" as const }));
 
-      if (childData.length > 0) {
-        output[group.id] = {
-          id: group.id,
-          name: group.name,
-          expanded: group.expanded,
-          data: childData,
-          depth,
-          isLastChild,
-          isGroup: true,
-          parentId,
-        };
-
-        // Add all child rows to output
-        Object.assign(output, childOutput);
+        if (childData.length > 0) {
+          output[group.id] = {
+            id: group.id,
+            name: group.name,
+            expanded: group.expanded,
+            data: childData,
+            depth,
+            isLastChild,
+            isGroup: true,
+            parentId,
+          };
+        }
       }
+
+      // Add all child rows regardless
+      Object.assign(output, childOutput);
     } else {
       const track = source as SourceTrack;
       const trackKey = track.id; // format: "ns/inst/trackId"
+      const foreground = Boolean(activeAnimationId) && track.instanceId === activeAnimationId;
       const isSelected =
         foreground &&
         (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));

@@ -18,7 +18,7 @@ interface ResolveTrackEntriesOptions {
 
 export function resolveTrackEntriesByAnimatable(
   namespaces: Record<string, Namespace>,
-  sourcesByAnimationInstance: Record<string, Source[]>,
+  sourcesByInstance: Record<string, Source[]>,
   tracks: Record<string, Track<RawValue>>,
   options: ResolveTrackEntriesOptions = {},
 ): Map<string, Map<string, ResolvedTrackEntry>> {
@@ -31,7 +31,7 @@ export function resolveTrackEntriesByAnimatable(
     const instances = Object.values(namespace.animationInstances ?? {});
 
     instances.forEach((instance) => {
-      const sources = sourcesByAnimationInstance[instance.id];
+      const sources = sourcesByInstance[instance.id];
       if (!sources) return;
 
       const trackKeys = computeVisibleSourceTracks(sources, { includeHidden, includeMuted });

@@ -13,7 +13,7 @@ describe("view-specific visibility", () => {
     await flushMicrotasks();
 
     const seeded = store.getState();
-    const firstSourceSet = Object.values(seeded.sourcesByAnimationInstance).find(
+    const firstSourceSet = Object.values(seeded.sourcesByInstance).find(
       (sources) => sources.length > 0,
     );
     expect(firstSourceSet).toBeDefined();
@@ -53,7 +53,7 @@ describe("view-specific visibility", () => {
     expect(hasTrackInA).toBe(false);
     expect(hasTrackInB).toBe(true);
 
-    const refreshedTrack = Object.values(state.sourcesByAnimationInstance)
+    const refreshedTrack = Object.values(state.sourcesByInstance)
       .flatMap((sources) => collectSourceTracks(sources))
       .find((track) => track.id === targetTrack.id);
     expect(refreshedTrack?.hidden).toBe(false);
@@ -65,7 +65,7 @@ describe("view-specific visibility", () => {
     await flushMicrotasks();
 
     const seeded = store.getState();
-    const firstSourceSet = Object.values(seeded.sourcesByAnimationInstance).find(
+    const firstSourceSet = Object.values(seeded.sourcesByInstance).find(
       (sources) => sources.length > 0,
     );
     expect(firstSourceSet).toBeDefined();

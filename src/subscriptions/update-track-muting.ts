@@ -20,13 +20,13 @@ export function updateTrackMuting(
 ): () => void {
   return api.subscribe(
     (state: AnimationData) => ({
-      sourcesByAnimationInstance: state.sourcesByAnimationInstance,
+      sourcesByInstance: state.sourcesByInstance,
     }),
-    ({ sourcesByAnimationInstance }) => {
+    ({ sourcesByInstance }) => {
       const tracksToMute = new Set<string>();
       const unmutedByNamespace = new Map<string, Set<string>>();
 
-      Object.values(sourcesByAnimationInstance).forEach((sources) => {
+      Object.values(sourcesByInstance).forEach((sources) => {
         const tracks = collectSourceTracks(sources);
         tracks.forEach((track) => {
           const animatableId = track.animatableId;
@@ -54,12 +54,12 @@ export function updateTrackMuting(
           });
           const nextSourcesByInstance: Record<
             string,
-            AnimationData["sourcesByAnimationInstance"][string]
+            AnimationData["sourcesByInstance"][string]
           > = {};
-          Object.entries(state.sourcesByAnimationInstance).forEach(([instanceId, sources]) => {
+          Object.entries(state.sourcesByInstance).forEach(([instanceId, sources]) => {
             nextSourcesByInstance[instanceId] = computeUpdatedSources(sources, updates);
           });
-          state.sourcesByAnimationInstance = nextSourcesByInstance;
+          state.sourcesByInstance = nextSourcesByInstance;
         }),
       );
     },

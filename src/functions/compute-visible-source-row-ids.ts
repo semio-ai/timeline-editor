@@ -32,8 +32,9 @@ function collectVisibleIds(
   sources.forEach((source: Source) => {
     if (GROUP_TYPES.has(source.type)) {
       const sourceGroup = source as SourceGroup;
-      const groupId = `${source.namespaceId}/${source.instanceId}/${sourceGroup.groupId}`;
-      acc.flat.push(groupId);
+      // Use source.id directly — it's set during source generation and matches
+      // the ID used in instancedTrackSources for consistent lookup.
+      acc.flat.push(sourceGroup.id);
 
       if (sourceGroup.expanded) {
         collectVisibleIds(sourceGroup.children, acc, hiddenSourceTrackIds);

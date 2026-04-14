@@ -15,13 +15,13 @@ export function updateConsolidatedSourceRow(
 ): () => void {
   return api.subscribe(
     (state: AnimationData) => ({
-      sourcesByAnimationInstance: state.sourcesByAnimationInstance,
+      globalSourceTree: state.globalSourceTree,
       activeInstanceId: state.selectionState.instanceId,
       keySelection: state.selectionState.keypoints,
     }),
-    ({ sourcesByAnimationInstance, activeInstanceId, keySelection }) => {
-      // Compute a single consolidated source row for all views
-      const allSources = Object.values(sourcesByAnimationInstance).flat();
+    ({ globalSourceTree, activeInstanceId, keySelection }) => {
+      // Compute a single consolidated source row from the full tree
+      const allSources = globalSourceTree;
 
       if (allSources.length === 0) {
         // No sources available, remove global entry
@@ -77,7 +77,7 @@ export function updateConsolidatedSourceRow(
             .sort((left, right) => left.trackKey.localeCompare(right.trackKey));
 
         return (
-          shallow(a.sourcesByAnimationInstance, b.sourcesByAnimationInstance) &&
+          a.globalSourceTree === b.globalSourceTree &&
           a.activeInstanceId === b.activeInstanceId &&
           isEqual(signature(a.keySelection), signature(b.keySelection))
         );

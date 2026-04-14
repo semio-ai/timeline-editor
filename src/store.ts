@@ -121,10 +121,10 @@ const applyTrackValue = (
 };
 
 function collectLegacyHiddenTrackIds(
-  sourcesByAnimationInstance: AnimationData["sourcesByAnimationInstance"],
+  sourcesByInstance: AnimationData["sourcesByInstance"],
 ): string[] {
   const hiddenIds = new Set<string>();
-  Object.values(sourcesByAnimationInstance).forEach((sources) => {
+  Object.values(sourcesByInstance).forEach((sources) => {
     collectSourceTracks(sources).forEach((track) => {
       if (track.hidden) {
         hiddenIds.add(track.id);
@@ -135,7 +135,7 @@ function collectLegacyHiddenTrackIds(
 }
 
 function resolveTrackIdsForVisibilityUpdate(
-  sourcesByAnimationInstance: AnimationData["sourcesByAnimationInstance"],
+  sourcesByInstance: AnimationData["sourcesByInstance"],
   sourceId: string,
 ): string[] {
   const trackIds = new Set<string>();
@@ -159,7 +159,7 @@ function resolveTrackIdsForVisibilityUpdate(
     });
   };
 
-  Object.values(sourcesByAnimationInstance).forEach((sources) => {
+  Object.values(sourcesByInstance).forEach((sources) => {
     visit(sources);
   });
 
@@ -196,8 +196,8 @@ export const AnimationSlice = (
         produce((state: AnimationData) => {
           // Group expansion is global; track visibility is managed per-view.
           const updates = { [groupId]: { expanded } };
-          state.sourcesByAnimationInstance = mapValues(
-            state.sourcesByAnimationInstance,
+          state.sourcesByInstance = mapValues(
+            state.sourcesByInstance,
             (instanceSources) => computeUpdatedSources(instanceSources, updates),
           );
         }),
@@ -216,8 +216,8 @@ export const AnimationSlice = (
           if (Object.keys(expansionUpdates).length === 0) {
             return;
           }
-          state.sourcesByAnimationInstance = mapValues(
-            state.sourcesByAnimationInstance,
+          state.sourcesByInstance = mapValues(
+            state.sourcesByInstance,
             (instanceSources) => computeUpdatedSources(instanceSources, expansionUpdates),
           );
         }),
@@ -233,7 +233,7 @@ export const AnimationSlice = (
           Object.entries(updates).forEach(([sourceId, update]) => {
             if (update.hidden === undefined) return;
             const resolvedTrackIds = resolveTrackIdsForVisibilityUpdate(
-              state.sourcesByAnimationInstance,
+              state.sourcesByInstance,
               sourceId,
             );
             resolvedTrackIds.forEach((trackId) => {
@@ -345,7 +345,7 @@ export const AnimationSlice = (
       set((state: AnimationData) => {
         const legacyHiddenIds =
           Object.keys(state.editorViews).length === 0
-            ? collectLegacyHiddenTrackIds(state.sourcesByAnimationInstance)
+            ? collectLegacyHiddenTrackIds(state.sourcesByInstance)
             : [];
         const defaultView: View = {
           id: view.id,
@@ -810,7 +810,7 @@ export const AnimationSlice = (
           };
           if (!muted) {
             let targetTrack: ReturnType<typeof findSourceTrackById> | undefined;
-            Object.values(state.sourcesByAnimationInstance).some((sources) => {
+            Object.values(state.sourcesByInstance).some((sources) => {
               const found = findSourceTrackById(sources, sourceId);
               if (found) {
                 targetTrack = found;
@@ -822,7 +822,7 @@ export const AnimationSlice = (
             if (targetTrack) {
               const { namespaceId, animatableId } = targetTrack;
               if (animatableId) {
-                Object.values(state.sourcesByAnimationInstance).forEach((sources) => {
+                Object.values(state.sourcesByInstance).forEach((sources) => {
                   collectSourceTracks(sources).forEach((track) => {
                     if (track.id === sourceId) return;
                     if (track.namespaceId !== namespaceId) return;
@@ -834,8 +834,8 @@ export const AnimationSlice = (
             }
           }
 
-          state.sourcesByAnimationInstance = mapValues(
-            state.sourcesByAnimationInstance,
+          state.sourcesByInstance = mapValues(
+            state.sourcesByInstance,
             (instanceSources) => computeUpdatedSources(instanceSources, updates),
           );
         }),

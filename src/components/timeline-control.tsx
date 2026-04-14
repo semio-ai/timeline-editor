@@ -24,7 +24,7 @@ import { KeyStrip } from "./key-strip";
 import { DataIcon } from "./data-icon";
 
 export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
-  const { source, namespaces, animations, sourcesByAnimationInstance, viewData } =
+  const { source, namespaces, animations, sourcesByInstance, viewData } =
     useAnimationStore(
       useShallow((state: AnimationData) => ({
         source:
@@ -32,7 +32,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           state.instancedTrackSources.global,
         namespaces: state.namespaces,
         animations: state.animations,
-        sourcesByAnimationInstance: state.sourcesByAnimationInstance,
+        sourcesByInstance: state.sourcesByInstance,
         viewData: state.editorViews[viewId],
       })),
     );
@@ -87,7 +87,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
             label: animations[instance.animationId]?.name || "Unnamed Instance",
             icon: <DataIcon iconCode="group" className={ICON_CLASS_NAME} />,
             children: computeTreeOptionsFromSources(
-              sourcesByAnimationInstance[instance.id],
+              sourcesByInstance[instance.id],
               nameLookup,
             ),
           };
@@ -96,7 +96,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           namespaceOption.children!.push(instanceOption);
           // Add visible tracks to the values;
           const visibleTracks = computeVisibleSourceTracks(
-            sourcesByAnimationInstance[instance.id],
+            sourcesByInstance[instance.id],
             {
               hiddenSourceTrackIds,
             },
@@ -108,11 +108,11 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       });
 
       return { treeOptions: options, treeValues: values };
-    }, [sourcesByAnimationInstance, namespaces, nameLookup, animations, viewData]);
+    }, [sourcesByInstance, namespaces, nameLookup, animations, viewData]);
 
   const hasTrackOptions = useMemo(
-    () => Object.values(sourcesByAnimationInstance).some((sources) => sources?.length > 0),
-    [sourcesByAnimationInstance],
+    () => Object.values(sourcesByInstance).some((sources) => sources?.length > 0),
+    [sourcesByInstance],
   );
   const hasView = Boolean(viewData);
   const controlsDisabled = !source || !hasTrackOptions || !hasView || running;
