@@ -4,10 +4,8 @@ import { clsx } from "clsx";
 export interface ControlRowProps {
   /** Left-edge target indicator (3px colored bar). */
   target?: ReactNode;
-  /** Tree indent guides (variable width based on depth). */
-  indent?: ReactNode;
-  /** Expand/collapse toggle or track icon (28px). */
-  icon?: ReactNode;
+  /** Combined tree guide lines + icon (variable width based on depth). */
+  treeIcon?: ReactNode;
   /** Track label — TextField for name editing. Used for groups. */
   label?: ReactNode;
   /** Slider + value + unit for leaf tracks. Replaces label in the main column. */
@@ -27,16 +25,15 @@ export interface ControlRowProps {
 /**
  * A single row in the track list or animatable control list.
  *
- * Grid layout:
- *   [target 3px] [indent auto] [icon 28px] [main 1fr] [options 20px] [controls 64px]
+ * Layout:
+ *   [target 3px] [treeIcon auto] [main 1fr] [options 20px] [controls 64px]
  *
- * The indent column has variable width based on tree depth (0px for top-level).
+ * The treeIcon column has variable width: (depth+1) * SLOT_WIDTH.
  * The main (1fr) column absorbs remaining space — label truncates as needed.
  */
 export function ControlRow({
   target,
-  indent,
-  icon,
+  treeIcon,
   label,
   editor,
   options,
@@ -51,13 +48,8 @@ export function ControlRow({
         {/* Target indicator */}
         <div className="h-full w-0.75 shrink-0">{target}</div>
 
-        {/* Tree indent guides */}
-        {indent}
-
-        {/* Icon (expand/collapse toggle or track icon) */}
-        <div className="relative grid h-full w-7 shrink-0 place-items-center">
-          {icon ?? <div className="size-3" />}
-        </div>
+        {/* Tree guide lines + icon (variable width) */}
+        {treeIcon}
 
         {/* Main content — label for groups, editor for leaf tracks */}
         <div className="min-w-0 flex-1">

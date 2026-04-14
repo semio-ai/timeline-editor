@@ -1,56 +1,61 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 
-export interface TreeConnectorProps {
-  /** Nesting depth (0 = top-level, no connectors). */
+export interface TreeIconColumnProps {
+  /** Nesting depth (0 = top-level). */
   depth: number;
-  /** Whether this row is the last child of its parent. */
-  isLastChild: boolean;
-  /** Whether this row is a group (renders expand/collapse toggle). */
-  isGroup: boolean;
-  /**
-   * Ancestor "last child" flags, from root (index 0) to parent (index depth-1).
-   * If an ancestor is the last child at its level, no vertical guide line
-   * is drawn at that depth.
-   */
-  ancestorIsLast: boolean[];
+  /** The icon content (expand/collapse toggle or track icon). */
+  icon: ReactNode;
 }
 
-/** Width in pixels per indent level. Must be >= 14 (half icon column) for guide alignment. */
-export const INDENT_PX = 20;
+/**
+ * Width of each nesting slot in pixels. Each depth level occupies one slot.
+ * The icon always occupies the rightmost slot; guide lines occupy ancestor slots.
+ */
+export const SLOT_WIDTH = 24;
 
 /**
- * Renders vertical indent guide lines for tree hierarchy visualization.
- * Each guide is a thin vertical line at the indent position of an ancestor
- * that has more siblings below it. No horizontal stubs — the icon renders
- * immediately after the indent space.
+ * Combined tree guide lines + icon column.
  *
- * Rendered as an inline element with fixed width = depth * INDENT_PX.
- * The parent grid allocates space for this before the icon column.
+ * Renders a single element whose width is `(depth + 1) * SLOT_WIDTH`.
+ * Each depth level gets a fixed-width slot. Ancestor slots render vertical
+ * guide lines; the rightmost slot renders the icon. Both are centered
+ * within their respective slots, ensuring consistent alignment.
+ *
+ * ```
+ * depth=0:  [icon]
+ * depth=1:  [guide₀][icon]
+ * depth=2:  [guide₀][guide₁][icon]
+ * ```
  */
-export const TreeConnector = memo(function TreeConnector({
+export const TreeIconColumn = memo(function TreeIconColumn({
   depth,
-}: TreeConnectorProps) {
-  if (depth === 0) return null;
-
-  const width = depth * INDENT_PX;
+  icon,
+}: TreeIconColumnProps) {
+  const totalSlots = depth + 1;
+  const width = totalSlots * SLOT_WIDTH;
 
   return (
-    <div className="relative h-full shrink-0" style={{ width }}>
-      {/* Render a vertical guide line at each depth level where a parent exists.
-          Lines run the full height of the row — they connect visually across
-          all sibling rows at that depth. */}
-      {Array.from({ length: depth }, (_, i) => {
-        // Position each guide at a consistent offset per level.
-        // Each level's guide aligns to the center of that level's indent slot.
-        const x = i * INDENT_PX + INDENT_PX / 2;
-        return (
-          <div
-            key={i}
-            className="absolute top-0 h-full w-px bg-neutral-500/20"
-            style={{ left: x }}
-          />
-        );
-      })}
+    <div className="relative flex h-full shrink-0 items-center" style={{ width }}>
+      {/* Guide lines for each ancestor depth level */}
+      {Array.from({ length: depth }, (_, i) => (
+        <div
+          key={i}
+          className="absolute top-0 h-full w-px bg-neutral-500/20"
+          style={{ left: i * SLOT_WIDTH + SLOT_WIDTH / 2 }}
+        />
+      ))}
+
+      {/* Icon in the rightmost slot, centered */}
+      <div
+        className="absolute grid place-items-center"
+        style={{
+          left: depth * SLOT_WIDTH,
+          width: SLOT_WIDTH,
+          height: "100%",
+        }}
+      >
+        {icon}
+      </div>
     </div>
   );
 });

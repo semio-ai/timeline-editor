@@ -195,14 +195,16 @@ function AnimatableLeafControl({
 
   return (
     <ControlRow
-      icon={
-        <Tooltip content={getSemanticLabelForIconCode(iconCode)} disabled={false} invert>
-          <div>
-            <StaticIcon size={Size.Md} color={resolvedColor}>
-              <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
-            </StaticIcon>
-          </div>
-        </Tooltip>
+      treeIcon={
+        <div className="grid h-full w-6 shrink-0 place-items-center">
+          <Tooltip content={getSemanticLabelForIconCode(iconCode)} disabled={false} invert>
+            <div>
+              <StaticIcon size={Size.Md} color={resolvedColor}>
+                <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
+              </StaticIcon>
+            </div>
+          </Tooltip>
+        </div>
       }
       editor={
         <div className="flex min-w-0 flex-1">
@@ -387,13 +389,15 @@ function AnimatableGroupControl({
   return (
     <ControlRow
       isGroup
-      icon={
-        <GroupToggle
-          expanded={expanded}
-          onToggle={onToggle}
-          disabled={disabled}
-          color={resolvedColor}
-        />
+      treeIcon={
+        <div className="grid h-full w-6 shrink-0 place-items-center">
+          <GroupToggle
+            expanded={expanded}
+            onToggle={onToggle}
+            disabled={disabled}
+            color={resolvedColor}
+          />
+        </div>
       }
       label={
         <TextField
