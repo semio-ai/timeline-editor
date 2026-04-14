@@ -38,7 +38,6 @@ function collectIds(
   sources.forEach((source: Source) => {
     if (GROUP_TYPES.has(source.type)) {
       const sourceGroup = source as SourceGroup;
-      const isOrgGroup = sourceGroup.type === "entity" || sourceGroup.type === "instance";
 
       if (!collapsed) {
         // Group appears in flat list (track list) unless a parent is collapsed

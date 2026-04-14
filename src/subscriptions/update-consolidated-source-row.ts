@@ -1,4 +1,3 @@
-import { shallow } from "zustand/shallow";
 import { isEqual } from "lodash";
 import type {
   AnimationApi,

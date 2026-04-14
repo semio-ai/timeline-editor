@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { clsx } from "clsx";
 
 export interface TreeConnectorProps {
   /** Nesting depth (0 = top-level, no connectors). */

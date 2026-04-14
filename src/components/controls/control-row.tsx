@@ -47,9 +47,7 @@ export function ControlRow({
     <div className={clsx("relative w-full", backgroundClassName, className)}>
       <div className="grid h-9 w-full grid-cols-[3px_28px_minmax(0,1fr)_20px_64px] items-center gap-1 pr-1">
         {/* Target indicator */}
-        <div className="h-full w-[3px]">
-          {target}
-        </div>
+        <div className="h-full w-0.75">{target}</div>
 
         {/* Tree + icon */}
         <div className="grid h-full w-7 place-items-center">
@@ -58,18 +56,16 @@ export function ControlRow({
 
         {/* Main content — label for groups, editor for leaf tracks */}
         <div className="min-w-0">
-          {isGroup ? (label ?? <div className="flex-1" />) : (editor ?? label ?? <div className="flex-1" />)}
+          {isGroup
+            ? (label ?? <div className="flex-1" />)
+            : (editor ?? label ?? <div className="flex-1" />)}
         </div>
 
         {/* Options (⋮ dropdown) */}
-        <div className="flex items-center justify-center">
-          {options}
-        </div>
+        <div className="flex items-center justify-center">{options}</div>
 
         {/* Control strip (key/skip or vis/mute/lock) */}
-        <div className="flex items-center">
-          {controls}
-        </div>
+        <div className="flex items-center">{controls}</div>
       </div>
     </div>
   );
