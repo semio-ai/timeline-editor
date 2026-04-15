@@ -319,13 +319,14 @@ function InnerTrackControl({
               muted={rowMuted}
               locked={rowLocked}
               onToggleVisible={() => {
-                const leafIds = sourceRow.data
-                  .filter((d) => d.type !== "group")
-                  .map((d) => `${d.namespaceId}/${d.instanceId}/${d.trackId}`);
-                if (leafIds.length > 0) {
-                  // Partial → all visible (true). On → off. Off → on.
+                // Use all data entries' track IDs — for groups, entries have type "group"
+                // but still carry the original track's namespaceId/instanceId/trackId.
+                const ids = uniq(
+                  sourceRow.data.map((d) => `${d.namespaceId}/${d.instanceId}/${d.trackId}`),
+                );
+                if (ids.length > 0) {
                   const next = rowVisible === "partial" ? true : rowVisible === true ? false : true;
-                  setTrackVisible(leafIds, next);
+                  setTrackVisible(ids, next);
                 }
               }}
               onToggleMuted={() => {
@@ -334,13 +335,12 @@ function InnerTrackControl({
                 }
               }}
               onToggleLocked={() => {
-                const leafIds = sourceRow.data
-                  .filter((d) => d.type !== "group")
-                  .map((d) => `${d.namespaceId}/${d.instanceId}/${d.trackId}`);
-                if (leafIds.length > 0) {
-                  // Partial → all locked (true). On → off. Off → on.
+                const ids = uniq(
+                  sourceRow.data.map((d) => `${d.namespaceId}/${d.instanceId}/${d.trackId}`),
+                );
+                if (ids.length > 0) {
                   const next = rowLocked === "partial" ? true : rowLocked === true ? false : true;
-                  setTrackLocked(leafIds, next);
+                  setTrackLocked(ids, next);
                 }
               }}
             />
