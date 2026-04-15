@@ -24,6 +24,7 @@ import { COMPLEX_TYPES, DEFAULT_COLOR } from "../constants";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
 import { ControlRow, ControlStrip, GroupToggle } from "./controls";
+import { TreeIconColumn } from "./controls/tree-connector";
 import { KeyStrip } from "./key-strip";
 
 export type AnimatableControlMode = "track" | "track-missing" | "direct";
@@ -67,6 +68,8 @@ export interface AnimatableLeafControlProps extends AnimatableControlBaseProps {
   onRename?: (name: string) => void;
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
+  /** Tree nesting depth for indentation (0 = top-level). */
+  depth?: number;
 }
 
 export interface AnimatableGroupControlProps extends AnimatableControlBaseProps {
@@ -83,6 +86,8 @@ export interface AnimatableGroupControlProps extends AnimatableControlBaseProps 
    * Optional row id to enable key strip interactions when a matching group row exists.
    */
   sourceRowId?: string;
+  /** Tree nesting depth for indentation (0 = top-level). */
+  depth?: number;
 }
 
 export type AnimatableControlProps = AnimatableLeafControlProps | AnimatableGroupControlProps;
@@ -99,6 +104,7 @@ function AnimatableLeafControl({
   emphasis,
   onEmphasisChange,
   disabled = false,
+  depth = 0,
 }: AnimatableLeafControlProps) {
   const resolvedMode: AnimatableControlMode = mode ?? (sourceRowId ? "track" : "direct");
   const running = usePlayerStore(useShallow((state) => state.player.running));
@@ -196,15 +202,18 @@ function AnimatableLeafControl({
   return (
     <ControlRow
       treeIcon={
-        <div className="grid h-full w-6 shrink-0 place-items-center">
-          <Tooltip content={getSemanticLabelForIconCode(iconCode)} disabled={false} invert>
-            <div>
-              <StaticIcon size={Size.Md} color={resolvedColor}>
-                <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
-              </StaticIcon>
-            </div>
-          </Tooltip>
-        </div>
+        <TreeIconColumn
+          depth={depth}
+          icon={
+            <Tooltip content={getSemanticLabelForIconCode(iconCode)} disabled={false} invert>
+              <div>
+                <StaticIcon size={Size.Md} color={resolvedColor}>
+                  <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
+                </StaticIcon>
+              </div>
+            </Tooltip>
+          }
+        />
       }
       editor={
         <div className="flex min-w-0 flex-1">
@@ -284,6 +293,7 @@ function AnimatableGroupControl({
   addable,
   sourceRowId,
   disabled = false,
+  depth = 0,
 }: AnimatableGroupControlProps) {
   const running = usePlayerStore(useShallow((state) => state.player.running));
   const sourceRow = useAnimationStore(
@@ -390,14 +400,17 @@ function AnimatableGroupControl({
     <ControlRow
       isGroup
       treeIcon={
-        <div className="grid h-full w-6 shrink-0 place-items-center">
-          <GroupToggle
-            expanded={expanded}
-            onToggle={onToggle}
-            disabled={disabled}
-            color={resolvedColor}
-          />
-        </div>
+        <TreeIconColumn
+          depth={depth}
+          icon={
+            <GroupToggle
+              expanded={expanded}
+              onToggle={onToggle}
+              disabled={disabled}
+              color={resolvedColor}
+            />
+          }
+        />
       }
       label={
         <TextField

@@ -47,7 +47,7 @@ export const TreeIconColumn = memo(function TreeIconColumn({
 
       {/* Icon in the rightmost slot, centered */}
       <div
-        className="absolute grid place-items-center"
+        className="absolute flex items-center justify-center overflow-visible"
         style={{
           left: depth * SLOT_WIDTH,
           width: SLOT_WIDTH,

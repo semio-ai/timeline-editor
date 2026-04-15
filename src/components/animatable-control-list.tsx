@@ -39,11 +39,13 @@ type ControlRowData =
       sourceRowId?: string;
       expanded: boolean;
       addable: boolean;
+      depth: number;
     }
   | {
       kind: "animatable";
       animatableId: string;
       sourceRowId?: string;
+      depth: number;
     };
 
 interface GroupBucket {
@@ -215,6 +217,7 @@ export function AnimatableControlList({
         sourceRowId,
         expanded,
         addable,
+        depth: 0,
       });
 
       if (expanded) {
@@ -224,6 +227,7 @@ export function AnimatableControlList({
             kind: "animatable",
             animatableId,
             sourceRowId: innerSourceRowId,
+            depth: 1,
           });
         });
       }
@@ -235,6 +239,7 @@ export function AnimatableControlList({
         kind: "animatable",
         animatableId: animatable.id,
         sourceRowId,
+        depth: 0,
       });
     });
     return result;
@@ -309,6 +314,7 @@ export function AnimatableControlList({
                       sourceRowId={resolvedSourceRowId}
                       expanded={resolvedExpanded}
                       addable={resolvedAddable}
+                      depth={row.depth}
                       onToggle={(next) => {
                         handleToggle(row.groupId, next);
                         overrideOnToggle?.(next);
@@ -346,6 +352,7 @@ export function AnimatableControlList({
                     animatableId={row.animatableId}
                     sourceRowId={resolvedSourceRowId}
                     mode={resolvedMode}
+                    depth={row.depth}
                     {...leafProps}
                   />
                 </motion.div>
