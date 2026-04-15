@@ -182,7 +182,7 @@ function InnerTrackControl({
         className={clsx(
           !isActive && uniqueInstanceId && "pointer-events-none select-none",
           rowMuted && isActive && "opacity-60",
-          controlStripMode === "keySkip" ? "pr-[2.5px]" : "pr-[2.5px]",
+          controlStripMode === "keySkip" ? "pr-0.5" : "pr-0.5",
         )}
         isGroup={isGroup}
         treeIcon={
@@ -341,48 +341,48 @@ function InnerTrackControl({
           )
         }
         options={
-            <Dropdown
-              disabled={playing}
+          <Dropdown
+            disabled={playing}
+            variant={Variant.Info}
+            trigger={
+              <span>
+                <Button
+                  size={Size.Xs}
+                  className="flex items-center justify-center"
+                  visuals="inverted"
+                  leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                />
+              </span>
+            }
+          >
+            <NestedLabel>Track Settings</NestedLabel>
+            <NestedColorPicker
               variant={Variant.Info}
-              trigger={
-                <span>
-                  <Button
-                    size={Size.Xs}
-                    className="flex items-center justify-center"
-                    visuals="inverted"
-                    leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
-                  />
-                </span>
+              disabled={trackIds.length > 1 || playing}
+              value={color}
+              onChange={(v) => {
+                if (trackIds[0]) updateControlColor(trackIds[0], v);
+              }}
+            />
+            <NestedItem
+              variant={Variant.Info}
+              disabled={trackIds.length !== 1 || allReadonly || playing}
+              closeOnSelect={false}
+              left={
+                trackMuted ? (
+                  <IconMicrophoneOff className={ICON_CLASS_NAME} />
+                ) : (
+                  <IconMicrophone className={ICON_CLASS_NAME} />
+                )
               }
+              onClick={() => {
+                if (trackIds.length !== 1 || !trackIds[0]) return;
+                setTrackMuted(sourceRow.id, !trackMuted);
+              }}
             >
-              <NestedLabel>Track Settings</NestedLabel>
-              <NestedColorPicker
-                variant={Variant.Info}
-                disabled={trackIds.length > 1 || playing}
-                value={color}
-                onChange={(v) => {
-                  if (trackIds[0]) updateControlColor(trackIds[0], v);
-                }}
-              />
-              <NestedItem
-                variant={Variant.Info}
-                disabled={trackIds.length !== 1 || allReadonly || playing}
-                closeOnSelect={false}
-                left={
-                  trackMuted ? (
-                    <IconMicrophoneOff className={ICON_CLASS_NAME} />
-                  ) : (
-                    <IconMicrophone className={ICON_CLASS_NAME} />
-                  )
-                }
-                onClick={() => {
-                  if (trackIds.length !== 1 || !trackIds[0]) return;
-                  setTrackMuted(sourceRow.id, !trackMuted);
-                }}
-              >
-                {trackMuted ? "Muted" : "Not muted"}
-              </NestedItem>
-            </Dropdown>
+              {trackMuted ? "Muted" : "Not muted"}
+            </NestedItem>
+          </Dropdown>
         }
       />
     </div>

@@ -207,7 +207,7 @@ function AnimatableLeafControl({
 
   return (
     <ControlRow
-      className="pr-[2.5px]"
+      className="pr-0.5"
       treeIcon={
         <TreeIconColumn
           depth={depth}
@@ -406,7 +406,7 @@ function AnimatableGroupControl({
   return (
     <ControlRow
       isGroup
-      className="pr-[2.5px]"
+      className="pr-0.5"
       treeIcon={
         <TreeIconColumn
           depth={depth}

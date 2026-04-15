@@ -1,15 +1,5 @@
 import { memo } from "react";
-import {
-  ICON_CLASS_NAME,
-  Eye,
-  EyeOff,
-  Speaker,
-  SpeakerOff,
-  Lock,
-  LockOff,
-  ToggleSquare,
-  Size,
-} from "@semio/ui";
+import { Eye, EyeOff, Speaker, SpeakerOff, Lock, LockOff, ToggleSquare, Size } from "@semio/ui";
 
 export interface TrackPropertiesStripProps {
   color?: string;
@@ -48,9 +38,11 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         disabled={disabled || !onToggleVisible}
         onChange={() => onToggleVisible?.()}
       >
-        {visible
-          ? <Eye className={ICON_CLASS_NAME} size="100%" />
-          : <EyeOff className={ICON_CLASS_NAME} size="100%" />}
+        {visible ? (
+          <Eye className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        ) : (
+          <EyeOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        )}
       </ToggleSquare>
 
       <ToggleSquare
@@ -62,9 +54,11 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         disabled={disabled || !onToggleMuted}
         onChange={() => onToggleMuted?.()}
       >
-        {muted
-          ? <SpeakerOff className={ICON_CLASS_NAME} size="100%" />
-          : <Speaker className={ICON_CLASS_NAME} size="100%" />}
+        {muted ? (
+          <SpeakerOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        ) : (
+          <Speaker className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        )}
       </ToggleSquare>
 
       <ToggleSquare
@@ -76,9 +70,11 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         disabled={disabled || !onToggleLocked}
         onChange={() => onToggleLocked?.()}
       >
-        {locked
-          ? <Lock className={ICON_CLASS_NAME} size="100%" />
-          : <LockOff className={ICON_CLASS_NAME} size="100%" />}
+        {locked ? (
+          <Lock className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        ) : (
+          <LockOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        )}
       </ToggleSquare>
     </>
   );
