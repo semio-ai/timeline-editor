@@ -4,9 +4,11 @@ import { Eye, EyeOff, Speaker, SpeakerOff, Lock, LockOff, ToggleSquare, Size } f
 export interface TrackPropertiesStripProps {
   color?: string;
   disabled?: boolean;
-  visible?: boolean;
+  /** true = all visible, false = all hidden, "partial" = mixed */
+  visible?: boolean | "partial";
   muted?: boolean;
-  locked?: boolean;
+  /** true = all locked, false = all unlocked, "partial" = mixed */
+  locked?: boolean | "partial";
   onToggleVisible?: () => void;
   onToggleMuted?: () => void;
   onToggleLocked?: () => void;
@@ -33,15 +35,15 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         sizing="inner"
         size={Size.Xs}
         color={color}
-        label={visible ? "Visible" : "Hidden"}
-        value={!visible}
+        label={visible === true ? "Visible" : visible === false ? "Hidden" : "Partially visible"}
+        value={visible === "partial" ? "partial" : !visible}
         disabled={disabled || !onToggleVisible}
         onChange={() => onToggleVisible?.()}
       >
-        {visible ? (
-          <Eye className="block h-4/5 w-4/5 shrink-0" size="100%" />
-        ) : (
+        {visible === false ? (
           <EyeOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        ) : (
+          <Eye className="block h-4/5 w-4/5 shrink-0" size="100%" />
         )}
       </ToggleSquare>
 
@@ -65,12 +67,12 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         sizing="inner"
         size={Size.Xs}
         color={color}
-        label={locked ? "Locked" : "Unlocked"}
-        value={locked}
+        label={locked === true ? "Locked" : locked === false ? "Unlocked" : "Partially locked"}
+        value={locked === "partial" ? "partial" : (locked ?? false)}
         disabled={disabled || !onToggleLocked}
         onChange={() => onToggleLocked?.()}
       >
-        {locked ? (
+        {locked === true ? (
           <Lock className="block h-4/5 w-4/5 shrink-0" size="100%" />
         ) : (
           <LockOff className="block h-4/5 w-4/5 shrink-0" size="100%" />

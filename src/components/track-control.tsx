@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo } from "react";
 import {
   Button,
   StaticIcon,
@@ -58,10 +58,15 @@ function InnerTrackControl({
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
 
-  // TODO: Wire to trackOverrides in project config for persistence.
-  // These are temporary local states for visual testing.
-  const [localVisible, setLocalVisible] = useState(true);
-  const [localLocked, setLocalLocked] = useState(false);
+  // Read visible/locked from source row data (derived from globalSourceTree).
+  // For groups, data entries are copies of children — compute aggregate state.
+  const allVisible = sourceRow.data.every((d) => d.visible !== false);
+  const noneVisible = sourceRow.data.every((d) => d.visible === false);
+  const rowVisible: boolean | "partial" = allVisible ? true : noneVisible ? false : "partial";
+
+  const allLocked = sourceRow.data.every((d) => d.locked === true);
+  const noneLocked = sourceRow.data.every((d) => d.locked !== true);
+  const rowLocked: boolean | "partial" = allLocked ? true : noneLocked ? false : "partial";
 
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
   const storeControlStripMode = useAnimationStore(
@@ -74,6 +79,12 @@ function InnerTrackControl({
   );
   const setTrackMuted = useAnimationStore(
     useShallow((state: AnimationActions) => state.setTrackMuted),
+  );
+  const setTrackVisible = useAnimationStore(
+    useShallow((state: AnimationActions) => state.setTrackVisible),
+  );
+  const setTrackLocked = useAnimationStore(
+    useShallow((state: AnimationActions) => state.setTrackLocked),
   );
 
   const animatables = useAnimationStore(useShallow((state) => state.animatables));
@@ -304,16 +315,34 @@ function InnerTrackControl({
             <TrackPropertiesStrip
               color={color}
               disabled={!isActive || playing}
-              visible={localVisible}
+              visible={rowVisible}
               muted={rowMuted}
-              locked={localLocked}
-              onToggleVisible={() => setLocalVisible((v) => !v)}
+              locked={rowLocked}
+              onToggleVisible={() => {
+                const leafIds = sourceRow.data
+                  .filter((d) => d.type !== "group")
+                  .map((d) => `${d.namespaceId}/${d.instanceId}/${d.trackId}`);
+                if (leafIds.length > 0) {
+                  // Partial → all visible (true). On → off. Off → on.
+                  const next = rowVisible === "partial" ? true : rowVisible === true ? false : true;
+                  setTrackVisible(leafIds, next);
+                }
+              }}
               onToggleMuted={() => {
                 if (trackIds.length === 1 && trackIds[0]) {
                   setTrackMuted(sourceRow.id, !rowMuted);
                 }
               }}
-              onToggleLocked={() => setLocalLocked((v) => !v)}
+              onToggleLocked={() => {
+                const leafIds = sourceRow.data
+                  .filter((d) => d.type !== "group")
+                  .map((d) => `${d.namespaceId}/${d.instanceId}/${d.trackId}`);
+                if (leafIds.length > 0) {
+                  // Partial → all locked (true). On → off. Off → on.
+                  const next = rowLocked === "partial" ? true : rowLocked === true ? false : true;
+                  setTrackLocked(leafIds, next);
+                }
+              }}
             />
           ) : (
             <KeyStrip

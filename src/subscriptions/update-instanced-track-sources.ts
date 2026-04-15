@@ -174,6 +174,8 @@ function flattenSources(
             instanceId: track.instanceId,
             type: track.type,
             muted: track.muted ?? false,
+            visible: track.visible ?? true,
+            locked: track.locked ?? false,
             trackId: track.trackId,
             animatableId: track.animatableId,
             iconCode: track.iconCode,

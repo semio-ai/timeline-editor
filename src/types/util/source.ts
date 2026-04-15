@@ -65,6 +65,10 @@ export interface SourceTrack extends SourceBase {
   hidden: boolean;
   /** Whether this track is muted from playback. */
   muted: boolean;
+  /** Whether this track's keypoints/splines render in the canvas. Default: true. */
+  visible: boolean;
+  /** Whether this track is locked from editing. Default: false. */
+  locked: boolean;
   /** Optional icon code for UI rendering. */
   iconCode?: string;
   /**
@@ -120,6 +124,10 @@ export interface SourceRowData {
   type: AnimatableValue["type"] | "group";
   /** Whether this entry is muted from playback. */
   muted?: boolean;
+  /** Whether this entry's keypoints/splines render in the canvas. */
+  visible?: boolean;
+  /** Whether this entry is locked from editing. */
+  locked?: boolean;
   /** Track id for this entry. */
   trackId: string;
   /** Animatable id for this entry. */

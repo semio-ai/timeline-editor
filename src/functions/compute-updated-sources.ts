@@ -1,31 +1,39 @@
 import { GROUP_TYPES } from "../constants";
 import { Source, SourceGroup, SourceTrack } from "../types";
 
+interface SourceUpdate {
+  hidden?: boolean;
+  expanded?: boolean;
+  muted?: boolean;
+  visible?: boolean;
+  locked?: boolean;
+}
+
 export function computeUpdatedSources(
   sources: Source[],
-  updates: Record<string, { hidden?: boolean; expanded?: boolean; muted?: boolean }>,
+  updates: Record<string, SourceUpdate>,
 ): Source[] {
   return sources.map((source) => {
     if (GROUP_TYPES.has(source.type)) {
       const sourceGroup = source as SourceGroup;
-      const updateExpanded = updates[source.id]?.expanded !== undefined;
+      const update = updates[source.id];
       return {
         ...sourceGroup,
-        expanded: updateExpanded ? updates[source.id].expanded! : sourceGroup.expanded,
-        // Recursively process the group's children
+        expanded: update?.expanded !== undefined ? update.expanded! : sourceGroup.expanded,
         children: computeUpdatedSources(sourceGroup.children, updates),
       };
     } else {
       const sourceTrack = source as SourceTrack;
-      const updateMuted = updates[source.id]?.muted !== undefined;
-      if (!updateMuted) {
+      const update = updates[source.id];
+      if (!update) {
         return sourceTrack;
-      } else {
-        return {
-          ...sourceTrack,
-          muted: updateMuted ? updates[source.id].muted! : sourceTrack.muted,
-        };
       }
+      return {
+        ...sourceTrack,
+        muted: update.muted !== undefined ? update.muted : sourceTrack.muted,
+        visible: update.visible !== undefined ? update.visible : sourceTrack.visible,
+        locked: update.locked !== undefined ? update.locked : sourceTrack.locked,
+      };
     }
   });
 }

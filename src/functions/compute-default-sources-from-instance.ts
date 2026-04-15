@@ -38,6 +38,8 @@ export function computeDefaultSourcesFromInstance(
               type: "number",
               hidden: false,
               muted: false,
+              visible: true,
+              locked: false,
             };
             return fallbackSource;
           }
@@ -52,6 +54,8 @@ export function computeDefaultSourcesFromInstance(
             type: (animatable?.type as "string" | "number" | "boolean") ?? "number",
             iconCode: animatable ? getIconCode(animatable.type, animatable.pub?.units) : undefined,
             muted: track.settings?.muted ?? false,
+            visible: true,
+            locked: false,
             hidden: false,
           };
           return sourceTrack;
@@ -109,6 +113,8 @@ export function computeDefaultSourcesFromInstance(
             ? getIconCode(childAnimatable.type, childAnimatable.pub?.units)
             : undefined,
           muted: child.track.settings?.muted ?? false,
+          visible: true,
+          locked: false,
           hidden: false,
         };
       });
@@ -158,6 +164,8 @@ export function computeDefaultSourcesFromInstance(
         type: (animatable?.type as "string" | "number" | "boolean") ?? "number",
         iconCode: animatable ? getIconCode(animatable.type, animatable.pub?.units) : undefined,
         muted: child.track.settings?.muted ?? false,
+        visible: true,
+        locked: false,
         hidden: false,
       });
     }

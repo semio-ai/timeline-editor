@@ -817,6 +817,26 @@ export const AnimationSlice = (
         }),
       );
     },
+    setTrackVisible: (sourceIds: string | string[], visible: boolean) => {
+      const ids = Array.isArray(sourceIds) ? sourceIds : [sourceIds];
+      set(
+        produce((state: AnimationData): void => {
+          const updates: Record<string, { visible?: boolean }> = {};
+          ids.forEach((id) => { updates[id] = { visible }; });
+          state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
+        }),
+      );
+    },
+    setTrackLocked: (sourceIds: string | string[], locked: boolean) => {
+      const ids = Array.isArray(sourceIds) ? sourceIds : [sourceIds];
+      set(
+        produce((state: AnimationData): void => {
+          const updates: Record<string, { locked?: boolean }> = {};
+          ids.forEach((id) => { updates[id] = { locked }; });
+          state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
+        }),
+      );
+    },
     setPreferences: (preferences: AnimationPreferencesPatch) => {
       set((state) => {
         const mergedNewKeyDefaults = preferences.newKeyDefaults
