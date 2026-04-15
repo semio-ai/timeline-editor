@@ -139,7 +139,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   );
 
   return (
-    <div className="flex h-9 flex-1 flex-row items-center gap-1 pr-0.5 pl-1">
+    <>
       <div
         className={clsx(
           "w-full min-w-0 items-center",
@@ -156,49 +156,47 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           onChange={handleChangeSelection}
         />
       </div>
-      <div className="w-20.5">
-        <KeyStrip
-          source={fallbackSource}
-          color={color}
-          disabled={controlsDisabled}
-          onHexClick={() => {
-            if (controlsDisabled) return;
-            if (keyState === "full" && currentFrame) {
-              const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-              const removals: { trackId: string; keypointId: string }[] = points.map((p) => ({
-                trackId: p.trackId,
-                keypointId: p.id,
-              }));
-              removeKeypoints(removals);
-              return;
-            }
+      <KeyStrip
+        source={fallbackSource}
+        color={color}
+        disabled={controlsDisabled}
+        onHexClick={() => {
+          if (controlsDisabled) return;
+          if (keyState === "full" && currentFrame) {
+            const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
+            const removals: { trackId: string; keypointId: string }[] = points.map((p) => ({
+              trackId: p.trackId,
+              keypointId: p.id,
+            }));
+            removeKeypoints(removals);
+            return;
+          }
 
-            const targets = keyState === "partial" ? missingEntries : fallbackSource.data;
-            const updates: { trackId: string; keypoint: Partial<SimpleKeypoint> }[] = targets
-              .map((datum) => {
-                const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
-                const localStamp = typeof toLocal === "function" ? toLocal(stamp) : stamp;
-                const valueKey = buildTrackKey(
-                  datum.namespaceId as string,
-                  datum.instanceId as string,
-                  datum.trackId as string,
-                );
-                const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
-                return {
-                  trackId: datum.trackId,
-                  keypoint: {
-                    value,
-                    stamp: localStamp,
-                  },
-                };
-              })
-              .filter((u) => u.keypoint.value !== undefined);
-            if (updates.length > 0 && !running) {
-              updateKeypoints(updates, true);
-            }
-          }}
-        />
-      </div>
-    </div>
+          const targets = keyState === "partial" ? missingEntries : fallbackSource.data;
+          const updates: { trackId: string; keypoint: Partial<SimpleKeypoint> }[] = targets
+            .map((datum) => {
+              const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
+              const localStamp = typeof toLocal === "function" ? toLocal(stamp) : stamp;
+              const valueKey = buildTrackKey(
+                datum.namespaceId as string,
+                datum.instanceId as string,
+                datum.trackId as string,
+              );
+              const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
+              return {
+                trackId: datum.trackId,
+                keypoint: {
+                  value,
+                  stamp: localStamp,
+                },
+              };
+            })
+            .filter((u) => u.keypoint.value !== undefined);
+          if (updates.length > 0 && !running) {
+            updateKeypoints(updates, true);
+          }
+        }}
+      />
+    </>
   );
 }

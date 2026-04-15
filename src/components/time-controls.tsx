@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { clsx } from "clsx";
 import { Button } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import { Play, Pause } from "@solar-icons/react-perf/Bold";
@@ -22,8 +21,8 @@ export function TimeControls(): ReactNode {
   );
 
   return (
-    <div className="flex h-9 flex-1 flex-row items-center gap-1 pr-0.5 pl-1">
-      <div className="flex flex-1 flex-row items-center">
+    <>
+      <div className="flex items-center">
         <TimeDisplay
           valueOverride={
             nonHoverPreviews.length === 1 &&
@@ -36,24 +35,20 @@ export function TimeControls(): ReactNode {
           }
         />
       </div>
-      <div
-        className={clsx("grid h-7 min-w-16 grid-cols-3 items-center justify-between rounded-xs")}
-      >
-        <SkipButton semanticTime={SemanticTime.BoundsStart} />
-        <Button
-          size="fit"
-          onClick={() => {
-            if (running) {
-              pausePlayer();
-            } else {
-              playPlayer();
-            }
-          }}
-          leftIcon={running ? <Pause size="18px" /> : <Play size="18px" />}
-          visuals="inverted"
-        />
-        <SkipButton semanticTime={SemanticTime.BoundsEnd} />
-      </div>
-    </div>
+      <SkipButton semanticTime={SemanticTime.BoundsStart} />
+      <Button
+        size="fit"
+        onClick={() => {
+          if (running) {
+            pausePlayer();
+          } else {
+            playPlayer();
+          }
+        }}
+        leftIcon={running ? <Pause size="18px" /> : <Play size="18px" />}
+        visuals="inverted"
+      />
+      <SkipButton semanticTime={SemanticTime.BoundsEnd} />
+    </>
   );
 }
