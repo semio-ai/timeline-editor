@@ -1,6 +1,15 @@
 import { memo } from "react";
-import { clsx } from "clsx";
-import { IconEye, IconEyeOff, IconVolume, IconVolumeOff, IconLock, IconLockOpen } from "@tabler/icons-react";
+import {
+  ICON_CLASS_NAME,
+  Eye,
+  EyeOff,
+  Speaker,
+  SpeakerOff,
+  Lock,
+  LockOff,
+  ToggleSquare,
+  Size,
+} from "@semio/ui";
 
 export interface TrackPropertiesStripProps {
   color?: string;
@@ -16,10 +25,10 @@ export interface TrackPropertiesStripProps {
 /**
  * Visibility / Mute / Lock toggle strip for track rows.
  * Shown when controlStripMode is "properties".
- * Each button toggles one property; icons change to reflect state.
+ * Uses ToggleSquare for consistent toggle button styling.
  */
 export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
-  color = "#737373",
+  color,
   disabled = false,
   visible = true,
   muted = false,
@@ -30,56 +39,47 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
 }: TrackPropertiesStripProps) {
   return (
     <div className="grid h-7 w-16 grid-cols-3 items-center justify-between">
-      <button
-        type="button"
+      <ToggleSquare
+        sizing="inner"
+        size={Size.Xs}
+
+        label={visible ? "Visible" : "Hidden"}
+        value={!visible}
         disabled={disabled || !onToggleVisible}
-        onClick={onToggleVisible}
-        className={clsx(
-          "flex items-center justify-center",
-          "size-5 cursor-pointer rounded-xs",
-          "transition-colors hover:bg-neutral-500/20",
-          (disabled || !onToggleVisible) && "pointer-events-none opacity-40",
-          !visible && "opacity-50",
-        )}
-        style={{ color }}
-        aria-label={visible ? "Hide track" : "Show track"}
+        onChange={() => onToggleVisible?.()}
       >
-        {visible ? <IconEye size={14} /> : <IconEyeOff size={14} />}
-      </button>
+        {visible
+          ? <Eye className={ICON_CLASS_NAME} size="100%" />
+          : <EyeOff className={ICON_CLASS_NAME} size="100%" />}
+      </ToggleSquare>
 
-      <button
-        type="button"
+      <ToggleSquare
+        sizing="inner"
+        size={Size.Xs}
+
+        label={muted ? "Muted" : "Unmuted"}
+        value={muted}
         disabled={disabled || !onToggleMuted}
-        onClick={onToggleMuted}
-        className={clsx(
-          "flex items-center justify-center",
-          "size-5 cursor-pointer rounded-xs",
-          "transition-colors hover:bg-neutral-500/20",
-          (disabled || !onToggleMuted) && "pointer-events-none opacity-40",
-          muted && "opacity-50",
-        )}
-        style={{ color }}
-        aria-label={muted ? "Unmute track" : "Mute track"}
+        onChange={() => onToggleMuted?.()}
       >
-        {muted ? <IconVolumeOff size={14} /> : <IconVolume size={14} />}
-      </button>
+        {muted
+          ? <SpeakerOff className={ICON_CLASS_NAME} size="100%" />
+          : <Speaker className={ICON_CLASS_NAME} size="100%" />}
+      </ToggleSquare>
 
-      <button
-        type="button"
+      <ToggleSquare
+        sizing="inner"
+        size={Size.Xs}
+
+        label={locked ? "Locked" : "Unlocked"}
+        value={locked}
         disabled={disabled || !onToggleLocked}
-        onClick={onToggleLocked}
-        className={clsx(
-          "flex items-center justify-center",
-          "size-5 cursor-pointer rounded-xs",
-          "transition-colors hover:bg-neutral-500/20",
-          (disabled || !onToggleLocked) && "pointer-events-none opacity-40",
-          locked && "opacity-50",
-        )}
-        style={{ color }}
-        aria-label={locked ? "Unlock track" : "Lock track"}
+        onChange={() => onToggleLocked?.()}
       >
-        {locked ? <IconLock size={14} /> : <IconLockOpen size={14} />}
-      </button>
+        {locked
+          ? <Lock className={ICON_CLASS_NAME} size="100%" />
+          : <LockOff className={ICON_CLASS_NAME} size="100%" />}
+      </ToggleSquare>
     </div>
   );
 });

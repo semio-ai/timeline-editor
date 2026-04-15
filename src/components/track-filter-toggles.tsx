@@ -1,8 +1,14 @@
 import { memo } from "react";
-import { clsx } from "clsx";
 import { useShallow } from "zustand/react/shallow";
-import { IconEye, IconVolume, IconLock, IconKey, IconSettings } from "@tabler/icons-react";
-import { Tooltip } from "@semio/ui";
+import {
+  ICON_CLASS_NAME,
+  Eye,
+  Speaker,
+  Lock,
+  ToggleSquare,
+  Size,
+} from "@semio/ui";
+import { IconKey, IconSettings } from "@tabler/icons-react";
 import { useAnimationStore } from "../hooks";
 import type { AnimationActions, AnimationData } from "../store-types";
 
@@ -26,58 +32,52 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       {/* Mode toggle */}
-      <Tooltip content={isProperties ? "Show key controls" : "Show track properties"} invert>
-        <button
-          type="button"
-          onClick={() =>
-            setPreferences({ controlStripMode: isProperties ? "keySkip" : "properties" })
-          }
-          className={clsx(
-            "flex items-center justify-center",
-            "size-6 cursor-pointer rounded-xs",
-            "transition-colors",
-            isProperties
-              ? "bg-neutral-500/20 text-neutral-200"
-              : "text-neutral-500 hover:bg-neutral-500/10",
-          )}
-          aria-label="Toggle control strip mode"
-        >
-          {isProperties ? <IconSettings size={14} /> : <IconKey size={14} />}
-        </button>
-      </Tooltip>
+      <ToggleSquare
+        sizing="inner"
+        size={Size.Xs}
+        label={isProperties ? "Show key controls" : "Show track properties"}
+        value={isProperties}
+        onChange={() =>
+          setPreferences({ controlStripMode: isProperties ? "keySkip" : "properties" })
+        }
+      >
+        {isProperties
+          ? <IconSettings className={ICON_CLASS_NAME} />
+          : <IconKey className={ICON_CLASS_NAME} />}
+      </ToggleSquare>
 
       {/* Global visibility */}
-      <Tooltip content="Toggle all visibility" invert>
-        <button
-          type="button"
-          className="flex size-6 cursor-pointer items-center justify-center rounded-xs text-neutral-500 transition-colors hover:bg-neutral-500/10"
-          aria-label="Toggle all track visibility"
-        >
-          <IconEye size={14} />
-        </button>
-      </Tooltip>
+      <ToggleSquare
+        sizing="inner"
+        size={Size.Xs}
+        label="Toggle all visibility"
+        value={false}
+        onChange={() => {/* placeholder */}}
+      >
+        <Eye className={ICON_CLASS_NAME} size="100%" />
+      </ToggleSquare>
 
       {/* Global mute */}
-      <Tooltip content="Toggle all mute" invert>
-        <button
-          type="button"
-          className="flex size-6 cursor-pointer items-center justify-center rounded-xs text-neutral-500 transition-colors hover:bg-neutral-500/10"
-          aria-label="Toggle all track mute"
-        >
-          <IconVolume size={14} />
-        </button>
-      </Tooltip>
+      <ToggleSquare
+        sizing="inner"
+        size={Size.Xs}
+        label="Toggle all mute"
+        value={false}
+        onChange={() => {/* placeholder */}}
+      >
+        <Speaker className={ICON_CLASS_NAME} size="100%" />
+      </ToggleSquare>
 
       {/* Global lock */}
-      <Tooltip content="Toggle all lock" invert>
-        <button
-          type="button"
-          className="flex size-6 cursor-pointer items-center justify-center rounded-xs text-neutral-500 transition-colors hover:bg-neutral-500/10"
-          aria-label="Toggle all track lock"
-        >
-          <IconLock size={14} />
-        </button>
-      </Tooltip>
+      <ToggleSquare
+        sizing="inner"
+        size={Size.Xs}
+        label="Toggle all lock"
+        value={false}
+        onChange={() => {/* placeholder */}}
+      >
+        <Lock className={ICON_CLASS_NAME} size="100%" />
+      </ToggleSquare>
     </div>
   );
 });

@@ -42,18 +42,21 @@ export interface TrackControlProps {
   ancestorIsLast?: boolean[];
   /** Override the depth from sourceRow (used when rendered inside AnimatableControlList). */
   depthOverride?: number;
+  /** Override the control strip mode (e.g., force "keySkip" in the animatable control list). */
+  controlStripOverride?: "keySkip" | "properties";
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
 }
 
-function InnerTrackControl({ sourceRow, ancestorIsLast = [], depthOverride, emphasis, onEmphasisChange }: TrackControlProps) {
+function InnerTrackControl({ sourceRow, ancestorIsLast = [], depthOverride, controlStripOverride, emphasis, onEmphasisChange }: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
 
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
-  const controlStripMode = useAnimationStore(
+  const storeControlStripMode = useAnimationStore(
     useShallow((state: AnimationData) => state.preferences.controlStripMode),
   );
+  const controlStripMode = controlStripOverride ?? storeControlStripMode;
 
   const updateControlColor = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateControlColor),
