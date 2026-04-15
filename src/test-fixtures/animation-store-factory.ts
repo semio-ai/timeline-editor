@@ -672,6 +672,7 @@ export function createTestAnimationStore(options?: {
     preferences: {
       hoverDashedLine: true,
       dataPreviews: true,
+      controlStripMode: "keySkip" as const,
       newKeyDefaults: {
         transitions: {
           in: StandardTransitionType.Cubic,
@@ -709,6 +710,7 @@ export function createMinimalAnimationStore(): AnimationStore {
     preferences: {
       hoverDashedLine: true,
       dataPreviews: true,
+      controlStripMode: "keySkip" as const,
       newKeyDefaults: {
         transitions: {
           in: StandardTransitionType.Cubic,

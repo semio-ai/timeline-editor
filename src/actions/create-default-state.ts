@@ -28,6 +28,7 @@ export const createDefaultState = (): AnimationData => {
     preferences: {
       hoverDashedLine: false,
       dataPreviews: true,
+      controlStripMode: "keySkip",
       newKeyDefaults: {
         transitions: {
           in: TransitionDirective.InferredAutoClamped,

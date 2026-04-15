@@ -52,6 +52,7 @@ export interface NewKeyPreferences {
 export interface AnimationPreferencesPatch {
   hoverDashedLine?: boolean;
   dataPreviews?: boolean;
+  controlStripMode?: "keySkip" | "properties";
   newKeyDefaults?: {
     transitions?: Partial<NewKeyTransitionPreferences>;
   };
@@ -114,6 +115,12 @@ export interface AnimationData {
     hoverDashedLine: boolean;
     dataPreviews: boolean;
     newKeyDefaults: NewKeyPreferences;
+    /**
+     * Which controls appear in the right-side strip of each track row.
+     * - "keySkip": Skip-back, keypoint add/remove, skip-forward (default)
+     * - "properties": Visibility, mute, lock toggles
+     */
+    controlStripMode: "keySkip" | "properties";
   };
   // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   animatables: Record<string, AnimatableValue>;
