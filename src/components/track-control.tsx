@@ -34,7 +34,7 @@ import { getSemanticLabelForIconCode } from "../functions";
 import { KeyStrip } from "./key-strip";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
-import { ControlRow, GroupToggle } from "./controls";
+import { ControlRow, GroupToggle, TrackPropertiesStrip } from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
 
 export interface TrackControlProps {
@@ -51,6 +51,9 @@ function InnerTrackControl({ sourceRow, ancestorIsLast = [], depthOverride, emph
   const allReadonly = sourceRow.data.every((d) => !d.editable);
 
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
+  const controlStripMode = useAnimationStore(
+    useShallow((state: AnimationData) => state.preferences.controlStripMode),
+  );
 
   const updateControlColor = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateControlColor),
@@ -282,28 +285,41 @@ function InnerTrackControl({ sourceRow, ancestorIsLast = [], depthOverride, emph
           ) : undefined
         }
         controls={
-          <KeyStrip
-            disabled={allReadonly || !isActive || playing}
-            source={sourceRow}
-            color={color}
-            onHexClick={() => {
-              if (playing) return;
-              if (keyState === "full" && currentFrame) {
-                const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-                const removals = points.map((p) => ({
-                  trackId: p.trackId,
-                  keypointId: p.id,
-                }));
-                removeKeypoints(removals);
-                return;
-              }
+          controlStripMode === "properties" ? (
+            <TrackPropertiesStrip
+              color={color}
+              disabled={!isActive || playing}
+              muted={rowMuted}
+              onToggleMuted={() => {
+                if (trackIds.length === 1 && trackIds[0]) {
+                  setTrackMuted(sourceRow.id, !rowMuted);
+                }
+              }}
+            />
+          ) : (
+            <KeyStrip
+              disabled={allReadonly || !isActive || playing}
+              source={sourceRow}
+              color={color}
+              onHexClick={() => {
+                if (playing) return;
+                if (keyState === "full" && currentFrame) {
+                  const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
+                  const removals = points.map((p) => ({
+                    trackId: p.trackId,
+                    keypointId: p.id,
+                  }));
+                  removeKeypoints(removals);
+                  return;
+                }
 
-              const targets = keyState === "partial" ? missingEntries : sourceRow.data;
-              targets.forEach((datum) => {
-                insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
-              });
-            }}
-          />
+                const targets = keyState === "partial" ? missingEntries : sourceRow.data;
+                targets.forEach((datum) => {
+                  insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
+                });
+              }}
+            />
+          )
         }
         options={
             <Dropdown

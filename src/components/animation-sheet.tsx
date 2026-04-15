@@ -30,6 +30,7 @@ import { CanvasSheet } from "./canvas-sheet/canvas-sheet";
 import { Toolbar } from "./toolbar";
 import { ToolbarWrapper } from "./toolbar/toolbar-wrapper";
 import { WorkspaceToolbarSection } from "./toolbar/workspace-toolbar-section";
+import { TrackFilterToggles } from "./track-filter-toggles";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
 
@@ -413,8 +414,8 @@ function InnerSheet({
                 />
 
                 {/* Track Filter - Row 2 */}
-                <div className="flex h-9 items-center px-1.5 py-0.5">
-                  <div className="flex w-full">
+                <div className="flex h-9 items-center gap-1 px-1.5 py-0.5">
+                  <div className="flex min-w-0 flex-1">
                     <Search
                       size={Size.Sm}
                       value={trackFilter}
@@ -425,6 +426,7 @@ function InnerSheet({
                       wrapperClassName="w-full"
                     />
                   </div>
+                  <TrackFilterToggles />
                 </div>
 
                 {/* Canvas (spans all rows) */}
