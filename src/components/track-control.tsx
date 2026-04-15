@@ -194,7 +194,7 @@ function InnerTrackControl({
                   <GroupToggle
                     expanded={sourceRow.expanded}
                     onToggle={updateExpanded}
-                    disabled={!isActive}
+                    disabled={false}
                     color={color}
                   />
                 </Tooltip>
@@ -303,7 +303,7 @@ function InnerTrackControl({
           controlStripMode === "properties" ? (
             <TrackPropertiesStrip
               color={color}
-              disabled={!isActive || playing}
+              disabled={playing}
               visible={rowVisible}
               muted={rowMuted}
               locked={rowLocked}
@@ -339,7 +339,7 @@ function InnerTrackControl({
             />
           ) : (
             <KeyStrip
-              disabled={allReadonly || !isActive || playing}
+              disabled={allReadonly || playing}
               source={sourceRow}
               color={color}
               onHexClick={() => {
