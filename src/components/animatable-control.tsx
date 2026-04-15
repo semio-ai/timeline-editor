@@ -189,7 +189,13 @@ function AnimatableLeafControl({
 
   if (sourceRow && resolvedMode === "track") {
     return (
-      <TrackControl sourceRow={sourceRow} depthOverride={depth} controlStripOverride="keySkip" emphasis={emphasis} onEmphasisChange={onEmphasisChange} />
+      <TrackControl
+        sourceRow={sourceRow}
+        depthOverride={depth}
+        controlStripOverride="keySkip"
+        emphasis={emphasis}
+        onEmphasisChange={onEmphasisChange}
+      />
     );
   }
 
@@ -201,6 +207,7 @@ function AnimatableLeafControl({
 
   return (
     <ControlRow
+      className="pr-[2.5px]"
       treeIcon={
         <TreeIconColumn
           depth={depth}
@@ -244,39 +251,39 @@ function AnimatableLeafControl({
         />
       }
       options={
-          <Dropdown
-            disabled={editorDisabled}
+        <Dropdown
+          disabled={editorDisabled}
+          variant={Variant.Info}
+          trigger={
+            <span>
+              <Button
+                size={Size.Xs}
+                className="flex items-center justify-center"
+                visuals="inverted"
+                leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+              />
+            </span>
+          }
+        >
+          <NestedLabel>Control Settings</NestedLabel>
+          <NestedColorPicker
             variant={Variant.Info}
-            trigger={
-              <span>
-                <Button
-                  size={Size.Xs}
-                  className="flex items-center justify-center"
-                  visuals="inverted"
-                  leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
-                />
-              </span>
-            }
-          >
-            <NestedLabel>Control Settings</NestedLabel>
-            <NestedColorPicker
-              variant={Variant.Info}
-              value={color}
-              disabled={editorDisabled}
-              onChange={(v) => {
-                if (!animatable) return;
-                updateAnimatable(animatableId, {
-                  pub: {
-                    ...(animatable.pub ?? {
-                      public: true,
-                      output: "none",
-                    }),
-                    color: v,
-                  },
-                });
-              }}
-            />
-          </Dropdown>
+            value={color}
+            disabled={editorDisabled}
+            onChange={(v) => {
+              if (!animatable) return;
+              updateAnimatable(animatableId, {
+                pub: {
+                  ...(animatable.pub ?? {
+                    public: true,
+                    output: "none",
+                  }),
+                  color: v,
+                },
+              });
+            }}
+          />
+        </Dropdown>
       }
     />
   );
@@ -399,6 +406,7 @@ function AnimatableGroupControl({
   return (
     <ControlRow
       isGroup
+      className="pr-[2.5px]"
       treeIcon={
         <TreeIconColumn
           depth={depth}
@@ -464,23 +472,23 @@ function AnimatableGroupControl({
         )
       }
       options={
-          <Dropdown
-            disabled
-            variant={Variant.Info}
-            trigger={
-              <span>
-                <Button
-                  size={Size.Xs}
-                  className="flex items-center justify-center"
-                  visuals="inverted"
-                  leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
-                />
-              </span>
-            }
-          >
-            <NestedLabel>Control Settings</NestedLabel>
-            {/* No content currently. May add more. Dropdown disabled */}
-          </Dropdown>
+        <Dropdown
+          disabled
+          variant={Variant.Info}
+          trigger={
+            <span>
+              <Button
+                size={Size.Xs}
+                className="flex items-center justify-center"
+                visuals="inverted"
+                leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+              />
+            </span>
+          }
+        >
+          <NestedLabel>Control Settings</NestedLabel>
+          {/* No content currently. May add more. Dropdown disabled */}
+        </Dropdown>
       }
     />
   );
