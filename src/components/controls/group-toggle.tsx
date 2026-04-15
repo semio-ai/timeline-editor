@@ -19,10 +19,7 @@ export function GroupToggle({
     <button
       type="button"
       disabled={isDisabled}
-      onClick={isDisabled ? undefined : (e) => {
-        e.stopPropagation();
-        onToggle?.(!expanded);
-      }}
+      onClick={isDisabled ? undefined : () => onToggle?.(!expanded)}
       className={clsx(
         "flex items-center justify-center",
         "size-5 cursor-pointer rounded-xs",

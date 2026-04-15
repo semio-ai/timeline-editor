@@ -127,16 +127,11 @@ function InnerTrackControl({
     [uniqueInstanceId, selectionInstanceId],
   );
 
-  const handleActivate = useCallback(
-    (e?: { stopPropagation?: () => void; preventDefault?: () => void }) => {
-      e?.stopPropagation?.();
-      e?.preventDefault?.();
-      if (uniqueInstanceId) {
-        focusSelectionInstance(uniqueInstanceId);
-      }
-    },
-    [focusSelectionInstance, uniqueInstanceId],
-  );
+  const handleActivate = useCallback(() => {
+    if (uniqueInstanceId) {
+      focusSelectionInstance(uniqueInstanceId);
+    }
+  }, [focusSelectionInstance, uniqueInstanceId]);
 
   // instancedFrame is derived from snapshot and currentLocalStamp; no subscription needed
 
@@ -176,12 +171,11 @@ function InnerTrackControl({
   return (
     <div
       className="relative w-full"
-      onClick={(e) => {
-        // When inactive, clicking the row background activates the instance.
-        // Interactive children (toggles, collapse, dropdown) call stopPropagation
-        // so this handler only fires for non-interactive areas.
+      onPointerDown={() => {
+        // Any interaction with an inactive row switches the active instance
+        // as a side effect — without blocking the interaction itself.
         if (!isActive && uniqueInstanceId) {
-          handleActivate(e);
+          handleActivate();
         }
       }}
     >
@@ -373,7 +367,7 @@ function InnerTrackControl({
             disabled={playing}
             variant={Variant.Info}
             trigger={
-              <span onClick={(e) => e.stopPropagation()}>
+              <span>
                 <Button
                   size={Size.Xs}
                   className="flex items-center justify-center"
