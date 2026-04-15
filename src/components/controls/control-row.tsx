@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { clsx } from "clsx";
+import { SLOT_SIZE, SLOT_GAP } from "../../constants/layout";
 
 export interface ControlRowProps {
   /** Left-edge target indicator (3px colored bar). */
@@ -10,9 +11,9 @@ export interface ControlRowProps {
   label?: ReactNode;
   /** Slider + value + unit for leaf tracks. Replaces label in the main column. */
   editor?: ReactNode;
-  /** Options dropdown (⋮ button). */
+  /** Options dropdown (⋮ button) — occupies slot A (16px). */
   options?: ReactNode;
-  /** Control strip — key/skip or vis/mute/lock toggle buttons. */
+  /** Control strip — 3 buttons (key/skip or vis/mute/lock) — occupies slots B-D. */
   controls?: ReactNode;
   /** Whether this row is a group row (uses label, no editor). */
   isGroup?: boolean;
@@ -26,10 +27,10 @@ export interface ControlRowProps {
  * A single row in the track list or animatable control list.
  *
  * Layout:
- *   [target 3px] [treeIcon auto] [main 1fr] [options 20px] [controls 64px]
+ *   [target 3px] [treeIcon auto] [main 1fr] | [slotA 16px] [slotB 16px] [slotC 16px] [slotD 16px]
  *
- * The treeIcon column has variable width: (depth+1) * SLOT_WIDTH.
- * The main (1fr) column absorbs remaining space — label truncates as needed.
+ * The right 4 slots use the shared SLOT_SIZE and SLOT_GAP constants
+ * for alignment with the filter row and bottom section rows.
  */
 export function ControlRow({
   target,
@@ -44,7 +45,7 @@ export function ControlRow({
 }: ControlRowProps) {
   return (
     <div className={clsx("relative w-full", backgroundClassName, className)}>
-      <div className="flex h-9 w-full items-center gap-1">
+      <div className="flex h-9 w-full items-center">
         {/* Target indicator */}
         <div className="h-full w-0.75 shrink-0">{target}</div>
 
@@ -58,11 +59,23 @@ export function ControlRow({
             : (editor ?? label ?? <div className="flex-1" />)}
         </div>
 
-        {/* Options (⋮ dropdown) */}
-        <div className="flex w-5 shrink-0 items-center justify-center">{options}</div>
-
-        {/* Control strip (key/skip or vis/mute/lock) */}
-        <div className="flex w-16 shrink-0 items-center">{controls}</div>
+        {/* Right-side slots: [⋮] [btn] [btn] [btn] — 4 × SLOT_SIZE with SLOT_GAP */}
+        <div
+          className="shrink-0"
+          style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(4, ${String(SLOT_SIZE)}px)`,
+            gap: `${String(SLOT_GAP)}px`,
+            justifyItems: "center",
+            alignItems: "center",
+            height: "100%",
+          }}
+        >
+          {/* Slot A: options (⋮ dropdown) */}
+          <div className="flex items-center justify-center">{options}</div>
+          {/* Slots B-D: control strip (3 buttons rendered as fragment) */}
+          {controls}
+        </div>
       </div>
     </div>
   );

@@ -38,7 +38,7 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
   onToggleLocked,
 }: TrackPropertiesStripProps) {
   return (
-    <div className="grid h-7 w-16 grid-cols-3 items-center justify-between">
+    <>
       <ToggleSquare
         sizing="inner"
         size={Size.Xs}
@@ -80,6 +80,6 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
           ? <Lock className={ICON_CLASS_NAME} size="100%" />
           : <LockOff className={ICON_CLASS_NAME} size="100%" />}
       </ToggleSquare>
-    </div>
+    </>
   );
 });
