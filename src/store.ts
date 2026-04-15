@@ -791,33 +791,39 @@ export const AnimationSlice = (
         }),
       );
     },
-    setTrackMuted: (sourceId: string, muted: boolean) => {
+    setTracksMuted: (sourceIds: string | string[], muted: boolean) => {
+      const ids = Array.isArray(sourceIds) ? sourceIds : [sourceIds];
       set(
         produce((state: AnimationData): void => {
-          const updates: Record<string, { muted?: boolean }> = {
-            [sourceId]: { muted },
-          };
-          if (!muted) {
-            const targetTrack = findSourceTrackById(state.globalSourceTree, sourceId);
+          const updates: Record<string, { muted?: boolean }> = {};
+          ids.forEach((sourceId) => {
+            updates[sourceId] = { muted };
+          });
 
-            if (targetTrack) {
-              const { namespaceId, animatableId } = targetTrack;
-              if (animatableId) {
-                collectSourceTracks(state.globalSourceTree).forEach((track) => {
-                  if (track.id === sourceId) return;
-                  if (track.namespaceId !== namespaceId) return;
-                  if (track.animatableId !== animatableId) return;
-                  updates[track.id] = { muted: true };
-                });
+          // When unmuting, enforce one-unmuted-per-animatable constraint:
+          // mute other tracks that share the same animatable in the same namespace.
+          if (!muted) {
+            ids.forEach((sourceId) => {
+              const targetTrack = findSourceTrackById(state.globalSourceTree, sourceId);
+              if (targetTrack) {
+                const { namespaceId, animatableId } = targetTrack;
+                if (animatableId) {
+                  collectSourceTracks(state.globalSourceTree).forEach((track) => {
+                    if (ids.includes(track.id)) return;
+                    if (track.namespaceId !== namespaceId) return;
+                    if (track.animatableId !== animatableId) return;
+                    updates[track.id] = { muted: true };
+                  });
+                }
               }
-            }
+            });
           }
 
           state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
         }),
       );
     },
-    setTrackVisible: (sourceIds: string | string[], visible: boolean) => {
+    setTracksVisible: (sourceIds: string | string[], visible: boolean) => {
       const ids = Array.isArray(sourceIds) ? sourceIds : [sourceIds];
       set(
         produce((state: AnimationData): void => {
@@ -827,7 +833,7 @@ export const AnimationSlice = (
         }),
       );
     },
-    setTrackLocked: (sourceIds: string | string[], locked: boolean) => {
+    setTracksLocked: (sourceIds: string | string[], locked: boolean) => {
       const ids = Array.isArray(sourceIds) ? sourceIds : [sourceIds];
       set(
         produce((state: AnimationData): void => {

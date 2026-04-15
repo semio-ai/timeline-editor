@@ -77,14 +77,14 @@ function InnerTrackControl({
   const updateControlColor = useAnimationStore(
     useShallow((state: AnimationActions) => state.updateControlColor),
   );
-  const setTrackMuted = useAnimationStore(
-    useShallow((state: AnimationActions) => state.setTrackMuted),
+  const setTracksMuted = useAnimationStore(
+    useShallow((state: AnimationActions) => state.setTracksMuted),
   );
-  const setTrackVisible = useAnimationStore(
-    useShallow((state: AnimationActions) => state.setTrackVisible),
+  const setTracksVisible = useAnimationStore(
+    useShallow((state: AnimationActions) => state.setTracksVisible),
   );
-  const setTrackLocked = useAnimationStore(
-    useShallow((state: AnimationActions) => state.setTrackLocked),
+  const setTracksLocked = useAnimationStore(
+    useShallow((state: AnimationActions) => state.setTracksLocked),
   );
 
   const animatables = useAnimationStore(useShallow((state) => state.animatables));
@@ -94,9 +94,11 @@ function InnerTrackControl({
     const [entry] = sourceRow.data;
     return entry?.muted ?? false;
   }, [sourceRow.data, trackIds.length]);
-  const rowMuted = useMemo(() => {
+  const rowMuted: boolean | "partial" = useMemo(() => {
     if (sourceRow.data.length === 0) return false;
-    return sourceRow.data.every((entry) => entry.muted ?? false);
+    const allMuted = sourceRow.data.every((entry) => entry.muted ?? false);
+    const noneMuted = sourceRow.data.every((entry) => !(entry.muted ?? false));
+    return allMuted ? true : noneMuted ? false : "partial";
   }, [sourceRow.data]);
 
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
@@ -326,12 +328,16 @@ function InnerTrackControl({
                 );
                 if (ids.length > 0) {
                   const next = rowVisible === "partial" ? true : rowVisible === true ? false : true;
-                  setTrackVisible(ids, next);
+                  setTracksVisible(ids, next);
                 }
               }}
               onToggleMuted={() => {
-                if (trackIds.length === 1 && trackIds[0]) {
-                  setTrackMuted(sourceRow.id, !rowMuted);
+                const ids = uniq(
+                  sourceRow.data.map((d) => `${d.namespaceId}/${d.instanceId}/${d.trackId}`),
+                );
+                if (ids.length > 0) {
+                  const next = rowMuted === "partial" ? true : !rowMuted;
+                  setTracksMuted(ids, next);
                 }
               }}
               onToggleLocked={() => {
@@ -340,7 +346,7 @@ function InnerTrackControl({
                 );
                 if (ids.length > 0) {
                   const next = rowLocked === "partial" ? true : rowLocked === true ? false : true;
-                  setTrackLocked(ids, next);
+                  setTracksLocked(ids, next);
                 }
               }}
             />
@@ -406,7 +412,7 @@ function InnerTrackControl({
               }
               onClick={() => {
                 if (trackIds.length !== 1 || !trackIds[0]) return;
-                setTrackMuted(sourceRow.id, !trackMuted);
+                setTracksMuted(sourceRow.id, !trackMuted);
               }}
             >
               {trackMuted ? "Muted" : "Not muted"}

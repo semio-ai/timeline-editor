@@ -445,19 +445,19 @@ export interface AnimationActions {
    * @param sourceId - Source track id (`namespaceId/instanceId/trackId`) to update.
    * @param muted - Whether the track is muted.
    */
-  setTrackMuted: (sourceId: string, muted: boolean) => void;
+  setTracksMuted: (sourceIds: string | string[], muted: boolean) => void;
   /**
    * Set the visible state of source track(s). Affects canvas rendering.
    * @param sourceIds - Source track id(s) to update.
    * @param visible - Whether the track's keypoints/splines render in the canvas.
    */
-  setTrackVisible: (sourceIds: string | string[], visible: boolean) => void;
+  setTracksVisible: (sourceIds: string | string[], visible: boolean) => void;
   /**
    * Set the locked state of source track(s). Prevents editing.
    * @param sourceIds - Source track id(s) to update.
    * @param locked - Whether the track is locked from editing.
    */
-  setTrackLocked: (sourceIds: string | string[], locked: boolean) => void;
+  setTracksLocked: (sourceIds: string | string[], locked: boolean) => void;
   /**
    * Set animatables in bulk, replacing existing animatables.
    * @param animatables - Record of animatable ID to AnimatableValue

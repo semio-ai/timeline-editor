@@ -6,7 +6,8 @@ export interface TrackPropertiesStripProps {
   disabled?: boolean;
   /** true = all visible, false = all hidden, "partial" = mixed */
   visible?: boolean | "partial";
-  muted?: boolean;
+  /** true = all muted, false = all unmuted, "partial" = mixed */
+  muted?: boolean | "partial";
   /** true = all locked, false = all unlocked, "partial" = mixed */
   locked?: boolean | "partial";
   onToggleVisible?: () => void;
@@ -51,12 +52,12 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         sizing="inner"
         size={Size.Xs}
         color={color}
-        label={muted ? "Muted" : "Unmuted"}
-        value={muted}
+        label={muted === true ? "Muted" : muted === false ? "Unmuted" : "Partially muted"}
+        value={muted === "partial" ? "partial" : (muted ?? false)}
         disabled={disabled || !onToggleMuted}
         onChange={() => onToggleMuted?.()}
       >
-        {muted ? (
+        {muted === true ? (
           <SpeakerOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
         ) : (
           <Speaker className="block h-4/5 w-4/5 shrink-0" size="100%" />
