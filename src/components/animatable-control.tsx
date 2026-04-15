@@ -189,7 +189,7 @@ function AnimatableLeafControl({
 
   if (sourceRow && resolvedMode === "track") {
     return (
-      <TrackControl sourceRow={sourceRow} emphasis={emphasis} onEmphasisChange={onEmphasisChange} />
+      <TrackControl sourceRow={sourceRow} depthOverride={depth} emphasis={emphasis} onEmphasisChange={onEmphasisChange} />
     );
   }
 

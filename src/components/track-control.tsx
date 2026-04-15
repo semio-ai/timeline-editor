@@ -40,11 +40,13 @@ import { TreeIconColumn } from "./controls/tree-connector";
 export interface TrackControlProps {
   sourceRow: SourceRow;
   ancestorIsLast?: boolean[];
+  /** Override the depth from sourceRow (used when rendered inside AnimatableControlList). */
+  depthOverride?: number;
   emphasis?: boolean;
   onEmphasisChange?: (emphasis: boolean) => void;
 }
 
-function InnerTrackControl({ sourceRow, ancestorIsLast = [], emphasis, onEmphasisChange }: TrackControlProps) {
+function InnerTrackControl({ sourceRow, ancestorIsLast = [], depthOverride, emphasis, onEmphasisChange }: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
 
@@ -167,7 +169,7 @@ function InnerTrackControl({ sourceRow, ancestorIsLast = [], emphasis, onEmphasi
         isGroup={isGroup}
         treeIcon={
           <TreeIconColumn
-            depth={sourceRow.depth ?? 0}
+            depth={depthOverride ?? sourceRow.depth ?? 0}
             icon={
               isGroup ? (
                 <Tooltip content={sourceRow.expanded ? "Collapse Group" : "Expand Group"} invert>
