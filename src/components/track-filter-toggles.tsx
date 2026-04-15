@@ -30,7 +30,7 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
   const isProperties = controlStripMode === "properties";
 
   return (
-    <div className="grid h-7 w-22 grid-cols-4 items-center justify-around gap-1 pl-1 pr-0.75">
+    <>
       {/* Mode toggle */}
       <ToggleSquare
         sizing="inner"
@@ -78,6 +78,6 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
       >
         <Lock className={ICON_CLASS_NAME} size="100%" />
       </ToggleSquare>
-    </div>
+    </>
   );
 });

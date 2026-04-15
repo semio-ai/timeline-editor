@@ -15,7 +15,7 @@ import {
   LocalGlobalTransformContextProvider,
 } from "../hooks";
 import { WithTooltipAndAnimationContextProps } from "../utils/context-providers";
-import { MIN_SHEET_HEIGHT } from "../constants";
+import { MIN_SHEET_HEIGHT, SLOT_SIZE, SLOT_GAP } from "../constants";
 import {
   filterVisibleSourceRowIds,
   matchesSourceRowQuery,
@@ -413,9 +413,16 @@ function InnerSheet({
                   expanded={expanded}
                 />
 
-                {/* Track Filter - Row 2 */}
-                <div className="flex h-9 items-center gap-1 px-1.5 py-0.5">
-                  <div className="flex min-w-0 flex-1">
+                {/* Track Filter - Row 2: uses the shared 7-column grid */}
+                <div
+                  className="h-9 items-center px-1 py-0.5"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `1fr 1fr auto repeat(4, ${String(SLOT_SIZE)}px)`,
+                    gap: `${String(SLOT_GAP)}px`,
+                  }}
+                >
+                  <div className="col-span-3 min-w-0">
                     <Search
                       size={Size.Sm}
                       value={trackFilter}
@@ -458,22 +465,46 @@ function InnerSheet({
                   rowIdLookup={filteredRowLookup}
                 />
 
-                {/* Timeline Control - Row 3 */}
-                <div className="pr-2">
+                {/* Timeline Control - Row 4 */}
+                <div
+                  className="px-1"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
+                    gap: `${String(SLOT_GAP)}px`,
+                    alignItems: "center",
+                  }}
+                >
                   <TimelineControl viewId={resolvedViewId} />
                 </div>
 
-                {/* Timeline View - Row 3 */}
+                {/* Timeline View - Row 4 */}
 
-                {/* Time Controls - Row 4 */}
-                <div className="pr-2">
+                {/* Time Controls - Row 5 */}
+                <div
+                  className="px-1"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
+                    gap: `${String(SLOT_GAP)}px`,
+                    alignItems: "center",
+                  }}
+                >
                   <TimeControls />
                 </div>
 
-                {/* Minimap View - Row 4 */}
+                {/* Minimap View - Row 5 */}
 
-                {/* Playback Settings - Row 5 */}
-                <div className="pr-2">
+                {/* Playback Settings - Row 6 */}
+                <div
+                  className="px-1"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
+                    gap: `${String(SLOT_GAP)}px`,
+                    alignItems: "center",
+                  }}
+                >
                   <PlaybackSettings />
                 </div>
 

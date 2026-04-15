@@ -22,7 +22,7 @@ export function TimeControls(): ReactNode {
   );
 
   return (
-    <div className="flex h-9 flex-1 flex-row items-center gap-1 pl-1">
+    <div className="flex h-9 flex-1 flex-row items-center gap-1 pr-0.5 pl-1">
       <div className="flex flex-1 flex-row items-center">
         <TimeDisplay
           valueOverride={
