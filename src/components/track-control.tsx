@@ -174,26 +174,28 @@ function InnerTrackControl({
   const iconCode = isGroup ? "group" : (sourceRow.data[0].iconCode ?? "none");
 
   return (
-    <div className="relative w-full">
-      {/* Interaction guard overlay when inactive; click or Enter/Space activates the row */}
-      {!isActive && uniqueInstanceId && (
-        <div
-          role="button"
-          tabIndex={0}
-          className="absolute inset-0 z-10 cursor-pointer"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={handleActivate}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              handleActivate(e);
-            }
-          }}
-          aria-label={`Activate ${sourceRow.id}`}
-        />
-      )}
+    <div
+      className="relative w-full"
+      onClick={(e) => {
+        // When inactive, clicking the row background activates the instance.
+        // Interactive children (toggles, collapse, dropdown) call stopPropagation
+        // so this handler only fires for non-interactive areas.
+        if (!isActive && uniqueInstanceId) {
+          handleActivate(e);
+        }
+      }}
+      role={!isActive && uniqueInstanceId ? "button" : undefined}
+      tabIndex={!isActive && uniqueInstanceId ? 0 : undefined}
+      onKeyDown={!isActive && uniqueInstanceId ? (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          handleActivate(e);
+        }
+      } : undefined}
+      aria-label={!isActive && uniqueInstanceId ? `Activate ${sourceRow.id}` : undefined}
+    >
       <ControlRow
         className={clsx(
-          !isActive && uniqueInstanceId && "pointer-events-none select-none",
+          !isActive && uniqueInstanceId && "select-none",
           rowMuted && isActive && "opacity-60",
           controlStripMode === "keySkip" ? "pr-0.5" : "pr-0.5",
         )}
@@ -380,7 +382,7 @@ function InnerTrackControl({
             disabled={playing}
             variant={Variant.Info}
             trigger={
-              <span>
+              <span onClick={(e) => e.stopPropagation()}>
                 <Button
                   size={Size.Xs}
                   className="flex items-center justify-center"
