@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import {
   Button,
   StaticIcon,
@@ -51,6 +51,11 @@ export interface TrackControlProps {
 function InnerTrackControl({ sourceRow, ancestorIsLast = [], depthOverride, controlStripOverride, emphasis, onEmphasisChange }: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
+
+  // TODO: Wire to trackOverrides in project config for persistence.
+  // These are temporary local states for visual testing.
+  const [localVisible, setLocalVisible] = useState(true);
+  const [localLocked, setLocalLocked] = useState(false);
 
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
   const storeControlStripMode = useAnimationStore(
@@ -292,12 +297,16 @@ function InnerTrackControl({ sourceRow, ancestorIsLast = [], depthOverride, cont
             <TrackPropertiesStrip
               color={color}
               disabled={!isActive || playing}
+              visible={localVisible}
               muted={rowMuted}
+              locked={localLocked}
+              onToggleVisible={() => setLocalVisible((v) => !v)}
               onToggleMuted={() => {
                 if (trackIds.length === 1 && trackIds[0]) {
                   setTrackMuted(sourceRow.id, !rowMuted);
                 }
               }}
+              onToggleLocked={() => setLocalLocked((v) => !v)}
             />
           ) : (
             <KeyStrip
