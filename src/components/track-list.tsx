@@ -75,7 +75,7 @@ export function TrackList({
           style={{ maxHeight: height }}
           motionScrollY={scrollY}
         >
-          <div className="w-full">
+          <div className="w-full pr-1">
             <AnimatePresence>
               {sourceRows.map((sourceRow) => (
                 <motion.div
