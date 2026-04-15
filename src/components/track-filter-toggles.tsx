@@ -1,14 +1,7 @@
 import { memo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import {
-  ICON_CLASS_NAME,
-  Eye,
-  Speaker,
-  Lock,
-  ToggleSquare,
-  Size,
-} from "@semio/ui";
-import { IconKey, IconSettings } from "@tabler/icons-react";
+import { ICON_CLASS_NAME, Eye, Speaker, Lock, ToggleSquare, Size } from "@semio/ui";
+import { Settings } from "@solar-icons/react-perf/LineDuotone";
 import { useAnimationStore } from "../hooks";
 import type { AnimationActions, AnimationData } from "../store-types";
 
@@ -41,9 +34,7 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
           setPreferences({ controlStripMode: isProperties ? "keySkip" : "properties" })
         }
       >
-        {isProperties
-          ? <IconSettings className={ICON_CLASS_NAME} />
-          : <IconKey className={ICON_CLASS_NAME} />}
+        <Settings className={ICON_CLASS_NAME} size="100%" />
       </ToggleSquare>
 
       {/* Global visibility */}
@@ -52,7 +43,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         size={Size.Xs}
         label="Toggle all visibility"
         value={false}
-        onChange={() => {/* placeholder */}}
+        onChange={() => {
+          /* placeholder */
+        }}
       >
         <Eye className={ICON_CLASS_NAME} size="100%" />
       </ToggleSquare>
@@ -63,7 +56,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         size={Size.Xs}
         label="Toggle all mute"
         value={false}
-        onChange={() => {/* placeholder */}}
+        onChange={() => {
+          /* placeholder */
+        }}
       >
         <Speaker className={ICON_CLASS_NAME} size="100%" />
       </ToggleSquare>
@@ -74,7 +69,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         size={Size.Xs}
         label="Toggle all lock"
         value={false}
-        onChange={() => {/* placeholder */}}
+        onChange={() => {
+          /* placeholder */
+        }}
       >
         <Lock className={ICON_CLASS_NAME} size="100%" />
       </ToggleSquare>
