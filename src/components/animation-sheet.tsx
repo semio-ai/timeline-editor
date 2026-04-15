@@ -415,7 +415,7 @@ function InnerSheet({
 
                 {/* Track Filter - Row 2: uses the shared 7-column grid */}
                 <div
-                  className="h-9 items-center px-1 py-0.5"
+                  className="h-9 items-center py-0.5 pl-1 pr-2"
                   style={{
                     display: "grid",
                     gridTemplateColumns: `1fr 1fr auto repeat(4, ${String(SLOT_SIZE)}px)`,
@@ -467,7 +467,7 @@ function InnerSheet({
 
                 {/* Timeline Control - Row 4 */}
                 <div
-                  className="px-1"
+                  className="pl-1 pr-2"
                   style={{
                     display: "grid",
                     gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
@@ -482,7 +482,7 @@ function InnerSheet({
 
                 {/* Time Controls - Row 5 */}
                 <div
-                  className="px-1"
+                  className="pl-1 pr-2"
                   style={{
                     display: "grid",
                     gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
@@ -497,7 +497,7 @@ function InnerSheet({
 
                 {/* Playback Settings - Row 6 */}
                 <div
-                  className="px-1"
+                  className="pl-1 pr-2"
                   style={{
                     display: "grid",
                     gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
