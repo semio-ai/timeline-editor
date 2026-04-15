@@ -42,7 +42,7 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
       <ToggleSquare
         sizing="inner"
         size={Size.Xs}
-
+        color={color}
         label={visible ? "Visible" : "Hidden"}
         value={!visible}
         disabled={disabled || !onToggleVisible}
@@ -56,7 +56,7 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
       <ToggleSquare
         sizing="inner"
         size={Size.Xs}
-
+        color={color}
         label={muted ? "Muted" : "Unmuted"}
         value={muted}
         disabled={disabled || !onToggleMuted}
@@ -70,7 +70,7 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
       <ToggleSquare
         sizing="inner"
         size={Size.Xs}
-
+        color={color}
         label={locked ? "Locked" : "Unlocked"}
         value={locked}
         disabled={disabled || !onToggleLocked}
