@@ -184,20 +184,11 @@ function InnerTrackControl({
           handleActivate(e);
         }
       }}
-      role={!isActive && uniqueInstanceId ? "button" : undefined}
-      tabIndex={!isActive && uniqueInstanceId ? 0 : undefined}
-      onKeyDown={!isActive && uniqueInstanceId ? (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          handleActivate(e);
-        }
-      } : undefined}
-      aria-label={!isActive && uniqueInstanceId ? `Activate ${sourceRow.id}` : undefined}
     >
       <ControlRow
         className={clsx(
-          !isActive && uniqueInstanceId && "select-none",
           rowMuted && isActive && "opacity-60",
-          controlStripMode === "keySkip" ? "pr-0.5" : "pr-0.5",
+          "pr-0.5",
         )}
         isGroup={isGroup}
         treeIcon={
