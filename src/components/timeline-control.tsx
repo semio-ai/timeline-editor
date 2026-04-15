@@ -139,7 +139,23 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   );
 
   return (
-    <div className="flex h-9 flex-1 flex-row items-center gap-1 pl-1">
+    <div className="flex h-9 flex-1 flex-row items-center gap-1 pr-0.5 pl-1">
+      <div
+        className={clsx(
+          "w-full min-w-0 items-center",
+          controlsDisabled && "pointer-events-none opacity-50",
+        )}
+        aria-disabled={controlsDisabled}
+      >
+        <SelectTree
+          label={hasTrackOptions ? "Select Track" : "No tracks"}
+          variant={Variant.Default}
+          size={Size.Sm}
+          options={treeOptions}
+          value={treeValues}
+          onChange={handleChangeSelection}
+        />
+      </div>
       <div className="w-20.5">
         <KeyStrip
           source={fallbackSource}
@@ -181,22 +197,6 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
               updateKeypoints(updates, true);
             }
           }}
-        />
-      </div>
-      <div
-        className={clsx(
-          "w-full min-w-0 items-center",
-          controlsDisabled && "pointer-events-none opacity-50",
-        )}
-        aria-disabled={controlsDisabled}
-      >
-        <SelectTree
-          label={hasTrackOptions ? "Select Track" : "No tracks"}
-          variant={Variant.Default}
-          size={Size.Sm}
-          options={treeOptions}
-          value={treeValues}
-          onChange={handleChangeSelection}
         />
       </div>
     </div>

@@ -48,7 +48,13 @@ export interface TrackControlProps {
   onEmphasisChange?: (emphasis: boolean) => void;
 }
 
-function InnerTrackControl({ sourceRow, ancestorIsLast = [], depthOverride, controlStripOverride, emphasis, onEmphasisChange }: TrackControlProps) {
+function InnerTrackControl({
+  sourceRow,
+  depthOverride,
+  controlStripOverride,
+  emphasis,
+  onEmphasisChange,
+}: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
 
@@ -176,6 +182,7 @@ function InnerTrackControl({ sourceRow, ancestorIsLast = [], depthOverride, cont
         className={clsx(
           !isActive && uniqueInstanceId && "pointer-events-none select-none",
           rowMuted && isActive && "opacity-60",
+          controlStripMode === "keySkip" ? "pr-[2.5px]" : "pr-[2.5px]",
         )}
         isGroup={isGroup}
         treeIcon={

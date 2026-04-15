@@ -23,6 +23,19 @@ export function TimeControls(): ReactNode {
 
   return (
     <div className="flex h-9 flex-1 flex-row items-center gap-1 pl-1">
+      <div className="flex flex-1 flex-row items-center">
+        <TimeDisplay
+          valueOverride={
+            nonHoverPreviews.length === 1 &&
+            [SemanticTime.Backward, SemanticTime.Forward].includes(nonHoverPreviews[0].semanticTime)
+              ? nonHoverPreviews[0].stamp
+              : undefined
+          }
+          semanticTime={
+            nonHoverPreviews.length === 1 ? nonHoverPreviews[0].semanticTime : SemanticTime.Current
+          }
+        />
+      </div>
       <div
         className={clsx("grid h-7 min-w-16 grid-cols-3 items-center justify-between rounded-xs")}
       >
@@ -40,19 +53,6 @@ export function TimeControls(): ReactNode {
           visuals="inverted"
         />
         <SkipButton semanticTime={SemanticTime.BoundsEnd} />
-      </div>
-      <div className="flex flex-1 flex-row items-center">
-        <TimeDisplay
-          valueOverride={
-            nonHoverPreviews.length === 1 &&
-            [SemanticTime.Backward, SemanticTime.Forward].includes(nonHoverPreviews[0].semanticTime)
-              ? nonHoverPreviews[0].stamp
-              : undefined
-          }
-          semanticTime={
-            nonHoverPreviews.length === 1 ? nonHoverPreviews[0].semanticTime : SemanticTime.Current
-          }
-        />
       </div>
     </div>
   );

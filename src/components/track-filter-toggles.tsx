@@ -30,7 +30,7 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
   const isProperties = controlStripMode === "properties";
 
   return (
-    <div className="flex shrink-0 items-center gap-0.5">
+    <div className="grid h-7 w-22 grid-cols-4 items-center justify-around gap-1 pl-1 pr-0.75">
       {/* Mode toggle */}
       <ToggleSquare
         sizing="inner"

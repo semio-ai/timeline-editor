@@ -44,7 +44,7 @@ export function ControlRow({
 }: ControlRowProps) {
   return (
     <div className={clsx("relative w-full", backgroundClassName, className)}>
-      <div className="flex h-9 w-full items-center gap-1 pr-1">
+      <div className="flex h-9 w-full items-center gap-1">
         {/* Target indicator */}
         <div className="h-full w-0.75 shrink-0">{target}</div>
 
