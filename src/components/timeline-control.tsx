@@ -25,18 +25,17 @@ import { KeyStrip } from "./key-strip";
 import { DataIcon } from "./data-icon";
 
 export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
-  const { source, namespaces, animations, globalSourceTree, viewData } =
-    useAnimationStore(
-      useShallow((state: AnimationData) => ({
-        source:
-          state.instancedTrackSources[buildFilteredGlobalRowId(viewId)] ??
-          state.instancedTrackSources.global,
-        namespaces: state.namespaces,
-        animations: state.animations,
-        globalSourceTree: state.globalSourceTree,
-        viewData: state.editorViews[viewId],
-      })),
-    );
+  const { source, namespaces, animations, globalSourceTree, viewData } = useAnimationStore(
+    useShallow((state: AnimationData) => ({
+      source:
+        state.instancedTrackSources[buildFilteredGlobalRowId(viewId)] ??
+        state.instancedTrackSources.global,
+      namespaces: state.namespaces,
+      animations: state.animations,
+      globalSourceTree: state.globalSourceTree,
+      viewData: state.editorViews[viewId],
+    })),
+  );
 
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   const valuesRef = useValuesRef();
@@ -111,10 +110,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       return { treeOptions: options, treeValues: values };
     }, [globalSourceTree, namespaces, nameLookup, animations, viewData]);
 
-  const hasTrackOptions = useMemo(
-    () => globalSourceTree.length > 0,
-    [globalSourceTree],
-  );
+  const hasTrackOptions = useMemo(() => globalSourceTree.length > 0, [globalSourceTree]);
   const hasView = Boolean(viewData);
   const controlsDisabled = !source || !hasTrackOptions || !hasView || running;
 
@@ -139,7 +135,23 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   );
 
   return (
-    <div className="flex h-9 flex-1 flex-row items-center gap-1 pl-1">
+    <div className="flex h-9 flex-1 flex-row items-center gap-1 pr-0.5 pl-1">
+      <div
+        className={clsx(
+          "w-full min-w-0 items-center",
+          controlsDisabled && "pointer-events-none opacity-50",
+        )}
+        aria-disabled={controlsDisabled}
+      >
+        <SelectTree
+          label={hasTrackOptions ? "Select Track" : "No tracks"}
+          variant={Variant.Default}
+          size={Size.Sm}
+          options={treeOptions}
+          value={treeValues}
+          onChange={handleChangeSelection}
+        />
+      </div>
       <div className="w-20.5">
         <KeyStrip
           source={fallbackSource}
@@ -181,22 +193,6 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
               updateKeypoints(updates, true);
             }
           }}
-        />
-      </div>
-      <div
-        className={clsx(
-          "w-full min-w-0 items-center",
-          controlsDisabled && "pointer-events-none opacity-50",
-        )}
-        aria-disabled={controlsDisabled}
-      >
-        <SelectTree
-          label={hasTrackOptions ? "Select Track" : "No tracks"}
-          variant={Variant.Default}
-          size={Size.Sm}
-          options={treeOptions}
-          value={treeValues}
-          onChange={handleChangeSelection}
         />
       </div>
     </div>

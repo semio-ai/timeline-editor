@@ -414,7 +414,7 @@ function InnerSheet({
                 />
 
                 {/* Track Filter - Row 2 */}
-                <div className="flex h-9 items-center gap-1 px-1.5 py-0.5">
+                <div className="flex h-9 items-center gap-1 pl-1.5 pr-2.5 py-0.5">
                   <div className="flex min-w-0 flex-1">
                     <Search
                       size={Size.Sm}

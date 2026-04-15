@@ -10,10 +10,12 @@ export interface ControlRowProps {
   label?: ReactNode;
   /** Slider + value + unit for leaf tracks. Replaces label in the main column. */
   editor?: ReactNode;
-  /** Options dropdown (⋮ button). */
-  options?: ReactNode;
-  /** Control strip — key/skip or vis/mute/lock toggle buttons. */
-  controls?: ReactNode;
+  /**
+   * Right-side control area (84px, 4-slot grid).
+   * Contains the ⋮ options button + 3 control buttons (key/skip or vis/mute/lock).
+   * All consumers should use ControlArea to wrap their 4 buttons for alignment.
+   */
+  controlArea?: ReactNode;
   /** Whether this row is a group row (uses label, no editor). */
   isGroup?: boolean;
   /** Additional CSS class for the outer container. */
@@ -26,25 +28,25 @@ export interface ControlRowProps {
  * A single row in the track list or animatable control list.
  *
  * Layout:
- *   [target 3px] [treeIcon auto] [main 1fr] [options 20px] [controls 64px]
+ *   [target 3px] [treeIcon auto] [main 1fr] [controlArea 84px]
  *
  * The treeIcon column has variable width: (depth+1) * SLOT_WIDTH.
  * The main (1fr) column absorbs remaining space — label truncates as needed.
+ * The controlArea is a fixed 84px 4-slot grid shared across all row types.
  */
 export function ControlRow({
   target,
   treeIcon,
   label,
   editor,
-  options,
-  controls,
+  controlArea,
   isGroup = false,
   className,
   backgroundClassName,
 }: ControlRowProps) {
   return (
     <div className={clsx("relative w-full", backgroundClassName, className)}>
-      <div className="flex h-9 w-full items-center gap-1 pr-1">
+      <div className="flex h-9 w-full items-center gap-1">
         {/* Target indicator */}
         <div className="h-full w-0.75 shrink-0">{target}</div>
 
@@ -58,11 +60,8 @@ export function ControlRow({
             : (editor ?? label ?? <div className="flex-1" />)}
         </div>
 
-        {/* Options (⋮ dropdown) */}
-        <div className="flex w-5 shrink-0 items-center justify-center">{options}</div>
-
-        {/* Control strip (key/skip or vis/mute/lock) */}
-        <div className="flex w-16 shrink-0 items-center">{controls}</div>
+        {/* Right-side control area (84px, 4-slot grid) */}
+        <div className="shrink-0">{controlArea}</div>
       </div>
     </div>
   );

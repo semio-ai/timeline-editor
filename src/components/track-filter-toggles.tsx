@@ -1,13 +1,6 @@
 import { memo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import {
-  ICON_CLASS_NAME,
-  Eye,
-  Speaker,
-  Lock,
-  ToggleSquare,
-  Size,
-} from "@semio/ui";
+import { ICON_CLASS_NAME, Eye, Speaker, Lock, ToggleSquare, Size } from "@semio/ui";
 import { IconKey, IconSettings } from "@tabler/icons-react";
 import { useAnimationStore } from "../hooks";
 import type { AnimationActions, AnimationData } from "../store-types";
@@ -30,7 +23,7 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
   const isProperties = controlStripMode === "properties";
 
   return (
-    <div className="flex shrink-0 items-center gap-0.5">
+    <div className="grid h-7 w-22 grid-cols-4 items-center justify-around gap-1 pl-1 pr-0.75">
       {/* Mode toggle */}
       <ToggleSquare
         sizing="inner"
@@ -41,9 +34,11 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
           setPreferences({ controlStripMode: isProperties ? "keySkip" : "properties" })
         }
       >
-        {isProperties
-          ? <IconSettings className={ICON_CLASS_NAME} />
-          : <IconKey className={ICON_CLASS_NAME} />}
+        {isProperties ? (
+          <IconSettings className={ICON_CLASS_NAME} />
+        ) : (
+          <IconKey className={ICON_CLASS_NAME} />
+        )}
       </ToggleSquare>
 
       {/* Global visibility */}
@@ -52,7 +47,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         size={Size.Xs}
         label="Toggle all visibility"
         value={false}
-        onChange={() => {/* placeholder */}}
+        onChange={() => {
+          /* placeholder */
+        }}
       >
         <Eye className={ICON_CLASS_NAME} size="100%" />
       </ToggleSquare>
@@ -63,7 +60,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         size={Size.Xs}
         label="Toggle all mute"
         value={false}
-        onChange={() => {/* placeholder */}}
+        onChange={() => {
+          /* placeholder */
+        }}
       >
         <Speaker className={ICON_CLASS_NAME} size="100%" />
       </ToggleSquare>
@@ -74,7 +73,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         size={Size.Xs}
         label="Toggle all lock"
         value={false}
-        onChange={() => {/* placeholder */}}
+        onChange={() => {
+          /* placeholder */
+        }}
       >
         <Lock className={ICON_CLASS_NAME} size="100%" />
       </ToggleSquare>
