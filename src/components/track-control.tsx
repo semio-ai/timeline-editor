@@ -34,7 +34,7 @@ import { getSemanticLabelForIconCode } from "../functions";
 import { KeyStrip } from "./key-strip";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
-import { ControlArea, ControlRow, GroupToggle, TrackPropertiesStrip } from "./controls";
+import { ControlRow, GroupToggle, TrackPropertiesStrip } from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
 
 export interface TrackControlProps {
@@ -48,13 +48,7 @@ export interface TrackControlProps {
   onEmphasisChange?: (emphasis: boolean) => void;
 }
 
-function InnerTrackControl({
-  sourceRow,
-  depthOverride,
-  controlStripOverride,
-  emphasis,
-  onEmphasisChange,
-}: TrackControlProps) {
+function InnerTrackControl({ sourceRow, ancestorIsLast = [], depthOverride, controlStripOverride, emphasis, onEmphasisChange }: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
 
@@ -182,7 +176,6 @@ function InnerTrackControl({
         className={clsx(
           !isActive && uniqueInstanceId && "pointer-events-none select-none",
           rowMuted && isActive && "opacity-60",
-          controlStripMode === "keySkip" ? "pr-[2.5px]" : "pr-[2.5px]",
         )}
         isGroup={isGroup}
         treeIcon={
@@ -299,15 +292,55 @@ function InnerTrackControl({
             </div>
           ) : undefined
         }
-        controlArea={
-          <ControlArea slots={4}>
+        controls={
+          controlStripMode === "properties" ? (
+            <TrackPropertiesStrip
+              color={color}
+              disabled={!isActive || playing}
+              visible={localVisible}
+              muted={rowMuted}
+              locked={localLocked}
+              onToggleVisible={() => setLocalVisible((v) => !v)}
+              onToggleMuted={() => {
+                if (trackIds.length === 1 && trackIds[0]) {
+                  setTrackMuted(sourceRow.id, !rowMuted);
+                }
+              }}
+              onToggleLocked={() => setLocalLocked((v) => !v)}
+            />
+          ) : (
+            <KeyStrip
+              disabled={allReadonly || !isActive || playing}
+              source={sourceRow}
+              color={color}
+              onHexClick={() => {
+                if (playing) return;
+                if (keyState === "full" && currentFrame) {
+                  const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
+                  const removals = points.map((p) => ({
+                    trackId: p.trackId,
+                    keypointId: p.id,
+                  }));
+                  removeKeypoints(removals);
+                  return;
+                }
+
+                const targets = keyState === "partial" ? missingEntries : sourceRow.data;
+                targets.forEach((datum) => {
+                  insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
+                });
+              }}
+            />
+          )
+        }
+        options={
             <Dropdown
               disabled={playing}
               variant={Variant.Info}
               trigger={
                 <span>
                   <Button
-                    size="fit"
+                    size={Size.Xs}
                     className="flex items-center justify-center"
                     visuals="inverted"
                     leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
@@ -343,46 +376,6 @@ function InnerTrackControl({
                 {trackMuted ? "Muted" : "Not muted"}
               </NestedItem>
             </Dropdown>
-            {controlStripMode === "properties" ? (
-              <TrackPropertiesStrip
-                color={color}
-                disabled={!isActive || playing}
-                visible={localVisible}
-                muted={rowMuted}
-                locked={localLocked}
-                onToggleVisible={() => setLocalVisible((v) => !v)}
-                onToggleMuted={() => {
-                  if (trackIds.length === 1 && trackIds[0]) {
-                    setTrackMuted(sourceRow.id, !rowMuted);
-                  }
-                }}
-                onToggleLocked={() => setLocalLocked((v) => !v)}
-              />
-            ) : (
-              <KeyStrip
-                disabled={allReadonly || !isActive || playing}
-                source={sourceRow}
-                color={color}
-                onHexClick={() => {
-                  if (playing) return;
-                  if (keyState === "full" && currentFrame) {
-                    const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-                    const removals = points.map((p) => ({
-                      trackId: p.trackId,
-                      keypointId: p.id,
-                    }));
-                    removeKeypoints(removals);
-                    return;
-                  }
-
-                  const targets = keyState === "partial" ? missingEntries : sourceRow.data;
-                  targets.forEach((datum) => {
-                    insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
-                  });
-                }}
-              />
-            )}
-          </ControlArea>
         }
       />
     </div>

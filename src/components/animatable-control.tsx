@@ -23,7 +23,7 @@ import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-
 import { COMPLEX_TYPES, DEFAULT_COLOR } from "../constants";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
-import { ControlArea, ControlRow, ControlStrip, GroupToggle } from "./controls";
+import { ControlRow, ControlStrip, GroupToggle } from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
 import { KeyStrip } from "./key-strip";
 
@@ -230,15 +230,27 @@ function AnimatableLeafControl({
           />
         </div>
       }
-      controlArea={
-        <ControlArea slots={4}>
+      controls={
+        <ControlStrip
+          color={resolvedColor}
+          disabled={editorDisabled}
+          prevEnabled={false}
+          nextEnabled={false}
+          prevVisible={false}
+          nextVisible={false}
+          centerIcon="plus"
+          centerAltText="Add Track"
+          onCenter={addTrackAction}
+        />
+      }
+      options={
           <Dropdown
             disabled={editorDisabled}
             variant={Variant.Info}
             trigger={
               <span>
                 <Button
-                  size="fit"
+                  size={Size.Xs}
                   className="flex items-center justify-center"
                   visuals="inverted"
                   leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
@@ -265,18 +277,6 @@ function AnimatableLeafControl({
               }}
             />
           </Dropdown>
-          <ControlStrip
-            color={resolvedColor}
-            disabled={editorDisabled}
-            prevEnabled={false}
-            nextEnabled={false}
-            prevVisible={false}
-            nextVisible={false}
-            centerIcon="plus"
-            centerAltText="Add Track"
-            onCenter={addTrackAction}
-          />
-        </ControlArea>
       }
     />
   );
@@ -425,15 +425,52 @@ function AnimatableGroupControl({
           }}
         />
       }
-      controlArea={
-        <ControlArea slots={4}>
+      controls={
+        hasTrackGroup && sourceRow ? (
+          <KeyStrip
+            source={sourceRow}
+            color={resolvedColor}
+            disabled={disabled || running || allReadonly}
+            onHexClick={() => {
+              if (disabled || running || allReadonly) return;
+              if (keyState === "full" && currentFrame) {
+                const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
+                const removals = points.map((p) => ({
+                  trackId: p.trackId,
+                  keypointId: p.id,
+                }));
+                removeKeypoints(removals);
+                return;
+              }
+
+              const targets = missingEntries;
+              targets.forEach((datum) => {
+                insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
+              });
+            }}
+          />
+        ) : (
+          <ControlStrip
+            color={resolvedColor}
+            disabled={disabled || running}
+            prevEnabled={false}
+            nextEnabled={false}
+            prevVisible={false}
+            nextVisible={false}
+            centerIcon={centerIcon}
+            centerAltText="Add Track Group"
+            onCenter={canAdd ? (onAddTrack ?? handleAddTracks) : undefined}
+          />
+        )
+      }
+      options={
           <Dropdown
             disabled
             variant={Variant.Info}
             trigger={
               <span>
                 <Button
-                  size="fit"
+                  size={Size.Xs}
                   className="flex items-center justify-center"
                   visuals="inverted"
                   leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
@@ -442,44 +479,8 @@ function AnimatableGroupControl({
             }
           >
             <NestedLabel>Control Settings</NestedLabel>
+            {/* No content currently. May add more. Dropdown disabled */}
           </Dropdown>
-          {hasTrackGroup && sourceRow ? (
-            <KeyStrip
-              source={sourceRow}
-              color={resolvedColor}
-              disabled={disabled || running || allReadonly}
-              onHexClick={() => {
-                if (disabled || running || allReadonly) return;
-                if (keyState === "full" && currentFrame) {
-                  const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-                  const removals = points.map((p) => ({
-                    trackId: p.trackId,
-                    keypointId: p.id,
-                  }));
-                  removeKeypoints(removals);
-                  return;
-                }
-
-                const targets = missingEntries;
-                targets.forEach((datum) => {
-                  insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
-                });
-              }}
-            />
-          ) : (
-            <ControlStrip
-              color={resolvedColor}
-              disabled={disabled || running}
-              prevEnabled={false}
-              nextEnabled={false}
-              prevVisible={false}
-              nextVisible={false}
-              centerIcon={centerIcon}
-              centerAltText="Add Track Group"
-              onCenter={canAdd ? (onAddTrack ?? handleAddTracks) : undefined}
-            />
-          )}
-        </ControlArea>
       }
     />
   );

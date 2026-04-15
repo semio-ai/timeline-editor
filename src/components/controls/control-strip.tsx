@@ -65,7 +65,7 @@ export function ControlStrip({
     );
 
   return (
-    <>
+    <div className="grid h-7 w-16 grid-cols-3 items-center justify-between">
       <Tooltip invert content="Previous Key" disabled={prevDisabled}>
         <Button
           size="fit"
@@ -106,7 +106,7 @@ export function ControlStrip({
           className={nextVisible ? undefined : "opacity-20"}
         />
       </Tooltip>
-    </>
+    </div>
   );
 }
 

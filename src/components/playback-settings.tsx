@@ -34,42 +34,7 @@ export function PlaybackSettings() {
   );
 
   return (
-    <div className="flex h-9 flex-1 flex-row items-center gap-1 pr-0.5 pl-1">
-      <Select
-        label="Select Playback Speed"
-        variant={Variant.Default}
-        size={Size.Sm}
-        options={[
-          {
-            value: "0.5",
-            label: "Slow Playback (0.5x)",
-            icon: <Slow className={ICON_CLASS_NAME} size="100%" />,
-          },
-          {
-            value: "1",
-            label: "Normal Playback (1x)",
-            icon: <Play className={ICON_CLASS_NAME} size="100%" />,
-          },
-          {
-            value: "1.5",
-            label: "Fast Playback (1.5x)",
-            icon: <RewindForward className={ICON_CLASS_NAME} size="100%" />,
-          },
-          {
-            value: "2",
-            label: "Very Fast Playback (2x)",
-            icon: <Fast className={ICON_CLASS_NAME} size="100%" />,
-          },
-        ]}
-        value={speed.toString()}
-        onChange={(value: string) => {
-          const newSpeed = parseFloat(value);
-          if (!isNaN(newSpeed)) {
-            setSpeed(newSpeed);
-          }
-        }}
-      />
-
+    <div className="flex h-9 flex-1 flex-row items-center gap-1 pl-1">
       <div
         className={clsx(
           "grid h-7 min-w-16 grid-cols-3 items-center justify-around gap-1 rounded-xs px-1",
@@ -110,6 +75,40 @@ export function PlaybackSettings() {
           <Bounce className={ICON_CLASS_NAME} size="100%" />
         </ToggleSquare>
       </div>
+      <Select
+        label="Select Playback Speed"
+        variant={Variant.Default}
+        size={Size.Sm}
+        options={[
+          {
+            value: "0.5",
+            label: "Slow Playback (0.5x)",
+            icon: <Slow className={ICON_CLASS_NAME} size="100%" />,
+          },
+          {
+            value: "1",
+            label: "Normal Playback (1x)",
+            icon: <Play className={ICON_CLASS_NAME} size="100%" />,
+          },
+          {
+            value: "1.5",
+            label: "Fast Playback (1.5x)",
+            icon: <RewindForward className={ICON_CLASS_NAME} size="100%" />,
+          },
+          {
+            value: "2",
+            label: "Very Fast Playback (2x)",
+            icon: <Fast className={ICON_CLASS_NAME} size="100%" />,
+          },
+        ]}
+        value={speed.toString()}
+        onChange={(value: string) => {
+          const newSpeed = parseFloat(value);
+          if (!isNaN(newSpeed)) {
+            setSpeed(newSpeed);
+          }
+        }}
+      />
     </div>
   );
 }

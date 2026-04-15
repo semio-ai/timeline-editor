@@ -23,9 +23,9 @@ export interface TrackPropertiesStripProps {
 }
 
 /**
- * Visibility / Mute / Lock toggle buttons for track rows.
- * Renders 3 bare ToggleSquare elements (no wrapper) to be placed
- * inside a ControlArea grid as the last 3 of 4 slots.
+ * Visibility / Mute / Lock toggle strip for track rows.
+ * Shown when controlStripMode is "properties".
+ * Uses ToggleSquare for consistent toggle button styling.
  */
 export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
   color,
@@ -38,7 +38,7 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
   onToggleLocked,
 }: TrackPropertiesStripProps) {
   return (
-    <>
+    <div className="grid h-7 w-16 grid-cols-3 items-center justify-between">
       <ToggleSquare
         sizing="inner"
         size={Size.Xs}
@@ -80,6 +80,6 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
           ? <Lock className={ICON_CLASS_NAME} size="100%" />
           : <LockOff className={ICON_CLASS_NAME} size="100%" />}
       </ToggleSquare>
-    </>
+    </div>
   );
 });
