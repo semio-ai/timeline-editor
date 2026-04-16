@@ -61,7 +61,13 @@ export const DataPoint = memo(function DataPoint({
   const effectiveSelectionFrame = data?.selectionFrame;
   const effectiveMarkers = useMemo(() => data?.markers ?? [], [data?.markers]);
   const selectionPoints = useMemo(
-    () => (effectiveSelectionFrame?.points ?? []).filter((point) => point.selectable ?? true),
+    () =>
+      (effectiveSelectionFrame?.points ?? []).filter(
+        (point) =>
+          (point.selectable ?? true) &&
+          point.layerBand !== LayerBand.ForegroundLocked &&
+          point.layerBand !== LayerBand.Background,
+      ),
     [effectiveSelectionFrame],
   );
   const markerLookup = useMemo(() => {
@@ -127,6 +133,9 @@ export const DataPoint = memo(function DataPoint({
   );
   const backgroundPoints = points.filter((d) => d.layerBand === LayerBand.Background);
 
+  const lockedForegroundPoints = points.filter(
+    (d) => d.layerBand === LayerBand.ForegroundLocked,
+  );
   const combinedForegroundPoints = useMemo(
     () => [...unselectedForegroundPoints, ...selectedForegroundPoints],
     [unselectedForegroundPoints, selectedForegroundPoints],
@@ -269,11 +278,19 @@ export const DataPoint = memo(function DataPoint({
     }
   }, [trackRender, highestPriorityIds, hasUnselectedForegroundPoints, unselectedForegroundPoints]);
 
-  // For TrackRender.Key: show line when there are any unselectable points
-  const shouldShowLineForKey = trackRender === TrackRender.Key && hasBackgroundPoints;
+  // Show line for: background points, locked foreground points, or non-Key render modes
+  const hasLockedForegroundPoints = lockedForegroundPoints.length > 0;
+  const shouldShowLineForKey =
+    trackRender === TrackRender.Key && (hasBackgroundPoints || hasLockedForegroundPoints);
 
+  const lockedLineIds = useMemo(
+    () => lockedForegroundPoints.map((point) => point.trackId),
+    [lockedForegroundPoints],
+  );
   const baseColorFromTracks = useColors(highestPriorityIds);
-  const lineColorFromTracks = useColors(vertLineIds);
+  const lineColorFromTracks = useColors(
+    lockedLineIds.length > 0 ? lockedLineIds : vertLineIds,
+  );
   const baseColor = colorOverride ?? baseColorFromTracks;
   const lineColor = colorOverride ?? lineColorFromTracks;
 
@@ -288,7 +305,7 @@ export const DataPoint = memo(function DataPoint({
   }, [baseColor, theme]);
 
   const showsLine = RENDERS_WITH_LINES.includes(trackRender) || shouldShowLineForKey;
-  // For key render, only show hexagon when there are foreground points; otherwise always show
+  // Show hexagon only for unlocked foreground points
   const shouldShowHexagon = combinedForegroundPoints.length > 0;
 
   const fillIndex = useMotionValue(getFillIndex(isHovered, isSelected, isReference));
@@ -541,9 +558,14 @@ export const DataPoint = memo(function DataPoint({
 
   const backplateDepth = foregroundZ - ROW_DEPTH_EPSILON * 0.2;
   const fillDepth = foregroundZ + ROW_DEPTH_EPSILON * 0.2;
-  const lineDepth = hasBackgroundPoints
-    ? LAYER_BAND_OFFSETS[LayerBand.Background] + ROW_DEPTH_EPSILON * 0.1
-    : foregroundZ - ROW_DEPTH_EPSILON * 0.1;
+  // Line depth: use the highest-priority band among the points that actually render as lines
+  // (locked foreground or background), not the hexagon band.
+  const lineBand = hasLockedForegroundPoints
+    ? LayerBand.ForegroundLocked
+    : hasBackgroundPoints
+      ? LayerBand.Background
+      : foregroundBand;
+  const lineDepth = LAYER_BAND_OFFSETS[lineBand] + ROW_DEPTH_EPSILON * 0.1;
   let resolvedYPosition = 0;
   if (trackRender === TrackRender.Spline) {
     resolvedYPosition = yPosition.get();

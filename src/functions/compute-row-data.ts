@@ -27,6 +27,7 @@ import {
   RenderSampleId,
   AffineTransform2D,
   AuthoredTransition,
+  LayerBand,
 } from "../types";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
@@ -547,6 +548,7 @@ function buildSelectionFrames(
         namespaceId: point.namespaceId,
         instanceId: point.instanceId,
         selectable: point.selectable,
+        layerBand: point.layerBand,
       }));
 
     if (points.length === 0) continue;

@@ -76,11 +76,9 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
     // - That remount can interrupt pointer/drag continuity.
     //
     // So we freeze the "key count" at drag start and release it when drag ends.
-    if (holdCountDuringDrag) {
-      if (!wasHoldingRef.current) {
-        stableCountRef.current = instanceCount;
-      }
-    } else {
+    // When transitioning TO holding, do NOT update — the ref already has the
+    // pre-drag count from the last non-holding render.
+    if (!holdCountDuringDrag) {
       stableCountRef.current = instanceCount;
     }
     wasHoldingRef.current = holdCountDuringDrag;
@@ -198,6 +196,10 @@ export const DataRenderer = memo(function DataRenderer({
     if (!sourceRow || sourceRow.data.length === 0) return false;
     return sourceRow.data.every((entry) => entry.muted ?? false);
   }, [sourceRow]);
+  const rowVisible = useMemo(() => {
+    if (!sourceRow || sourceRow.data.length === 0) return true;
+    return sourceRow.data.some((entry) => entry.visible !== false);
+  }, [sourceRow]);
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   const rowInstanceId = useMemo(() => {
     if (!sourceRow) return undefined;
@@ -234,7 +236,13 @@ export const DataRenderer = memo(function DataRenderer({
   }, [xTransform]);
   const renderMarkers = computedData?.render?.markers ?? [];
   const renderHandles = computedData?.render?.handles ?? [];
+  const isGroupRow = sourceRow ? (sourceRow.isGroup || sourceRow.data.length > 1) : false;
   const transitionLayer: LayerBand = useMemo(() => {
+    // Group/aggregate rows render behind individual track rows to avoid
+    // covering individual hexagons with group-level segments.
+    if (isGroupRow) {
+      return LayerBand.Background;
+    }
     const markers = computedData?.render?.markers ?? [];
     const allLayers = uniq(markers.map((marker) => marker.layerBand ?? LayerBand.Background));
     if (allLayers.length === 0) {
@@ -242,14 +250,16 @@ export const DataRenderer = memo(function DataRenderer({
     }
     if (allLayers.length === 1) {
       return allLayers[0];
-    } else if (allLayers.includes(LayerBand.ForegroundUnselected)) {
-      return LayerBand.ForegroundUnselected;
     } else if (allLayers.includes(LayerBand.ForegroundSelected)) {
       return LayerBand.ForegroundSelected;
+    } else if (allLayers.includes(LayerBand.ForegroundUnselected)) {
+      return LayerBand.ForegroundUnselected;
+    } else if (allLayers.includes(LayerBand.ForegroundLocked)) {
+      return LayerBand.ForegroundLocked;
     } else {
       return LayerBand.Background;
     }
-  }, [computedData?.render?.markers]);
+  }, [computedData?.render?.markers, isGroupRow]);
   const baseColor = useColors(trackIds);
   const color = rowMuted ? DEFAULT_COLOR : baseColor;
   const hoverCountRef = useRef(0);
@@ -379,11 +389,19 @@ export const DataRenderer = memo(function DataRenderer({
   if (!sourceRow) return null;
   if (!sourceRow || !computedData) return null;
 
-  const resolvedSegmentColor =
+  const isForegroundLayer =
     transitionLayer === LayerBand.ForegroundSelected ||
-    transitionLayer === LayerBand.ForegroundUnselected
-      ? color
-      : DEFAULT_COLOR;
+    transitionLayer === LayerBand.ForegroundUnselected ||
+    transitionLayer === LayerBand.ForegroundLocked;
+  const resolvedSegmentColor = isForegroundLayer ? color : DEFAULT_COLOR;
+  // For group rows, transitionLayer is forced to Background for Z-ordering,
+  // but the row still has foreground data. Use data-level check for color.
+  const hasForegroundData = sourceRow.data.some(
+    (d) =>
+      d.layerBand === LayerBand.ForegroundSelected ||
+      d.layerBand === LayerBand.ForegroundUnselected ||
+      d.layerBand === LayerBand.ForegroundLocked,
+  );
 
   return (
     <group
@@ -399,87 +417,86 @@ export const DataRenderer = memo(function DataRenderer({
           onClick={handleTrackSwitch}
         />
       )}
-      {/* Render the hexagons/visuals for each keyed point */}
-      {/* Note: selection frames are passed as props for instancing; DataPoint subscribes to store data */}
-      <DataPointsRenderer
-        sourceRow={sourceRow}
-        selectionFrames={computedData.selection ?? []}
-        activeInstanceId={selectionState.instanceId}
-        xTransform={xTransform}
-        verticalBounds={effectiveVerticalBounds}
-        verticalAxisRange={axisRange}
-        theme={theme}
-        trackRender={renderMode}
-        renderMorphProgress={renderMorphProgress}
-        height={height - 1}
-        colorOverride={rowMuted ? DEFAULT_COLOR : undefined}
-        holdCountDuringDrag={hasActiveDrag}
-      />
+      {/* Data content — hidden when track is not visible (backdrop remains) */}
+      {rowVisible && (
+        <>
+          {/* Render the hexagons/visuals for each keyed point */}
+          <DataPointsRenderer
+            sourceRow={sourceRow}
+            selectionFrames={computedData.selection ?? []}
+            activeInstanceId={selectionState.instanceId}
+            xTransform={xTransform}
+            verticalBounds={effectiveVerticalBounds}
+            verticalAxisRange={axisRange}
+            theme={theme}
+            trackRender={renderMode}
+            renderMorphProgress={renderMorphProgress}
+            height={height - 1}
+            colorOverride={rowMuted ? DEFAULT_COLOR : undefined}
+            holdCountDuringDrag={hasActiveDrag}
+          />
 
-      {/* Render transition segments */}
-      {(computedData.render?.segments ?? []).map((segment) => {
-        return (
-          <Fragment key={segment.id}>
-            <TransitionSegment
-              trackRender={renderMode}
-              verticalAxis={verticalAxisSetting}
+          {/* Render transition segments */}
+          {(computedData.render?.segments ?? []).map((segment) => {
+            return (
+              <Fragment key={segment.id}>
+                <TransitionSegment
+                  trackRender={renderMode}
+                  verticalAxis={verticalAxisSetting}
+                  height={height - 1}
+                  verticalBounds={effectiveVerticalBounds}
+                  sourceRow={sourceRow}
+                  segment={segment}
+                  theme={theme}
+                  verticalAxisRange={axisRange}
+                  onHoverChange={handleSegmentHoverChange}
+                  isRowHovered={isRowHovered}
+                  color={resolvedSegmentColor}
+                  layer={transitionLayer}
+                  renderSampleCache={renderSampleCache}
+                  renderMorphProgress={renderMorphProgress}
+                />
+              </Fragment>
+            );
+          })}
+          {rowHandlesEligible && handlesDelayReady && renderHandles.length > 0 && (
+            <BezierHandles
+              handles={renderHandles}
+              markers={renderMarkers}
               height={height - 1}
               verticalBounds={effectiveVerticalBounds}
-              sourceRow={sourceRow}
-              segment={segment}
-              theme={theme}
               verticalAxisRange={axisRange}
-              onHoverChange={handleSegmentHoverChange}
-              isRowHovered={isRowHovered}
+              rowId={sourceRow.id}
               color={resolvedSegmentColor}
               layer={transitionLayer}
-              renderSampleCache={renderSampleCache}
-              renderMorphProgress={renderMorphProgress}
+              isHighlighted={isRowHovered}
+              appearance={handlesAppearance}
+              theme={theme}
+              xTransform={xTransform}
+              xInverse={xInverse}
+              xScale={xScale}
             />
-          </Fragment>
-        );
-      })}
-      {rowHandlesEligible && handlesDelayReady && renderHandles.length > 0 && (
-        <BezierHandles
-          handles={renderHandles}
-          markers={renderMarkers}
-          height={height - 1}
-          verticalBounds={effectiveVerticalBounds}
-          verticalAxisRange={axisRange}
-          rowId={sourceRow.id}
-          color={resolvedSegmentColor}
-          layer={transitionLayer}
-          isHighlighted={isRowHovered}
-          appearance={handlesAppearance}
-          theme={theme}
-          xTransform={xTransform}
-          xInverse={xInverse}
-          xScale={xScale}
-        />
-      )}
+          )}
 
-      {/* Render violations */}
-      {trackRender !== TrackRender.Spline && (
-        <ViolationRenderer
-          violationSet={computedData.violationSet}
-          theme={theme}
-          height={height - 1}
-          yOffset={scrollOffset}
-          measureFromBottom={measureFromBottom}
-          layer={transitionLayer}
-          xTransform={xTransform}
-        />
+          {/* Render violations */}
+          {trackRender !== TrackRender.Spline && (
+            <ViolationRenderer
+              violationSet={computedData.violationSet}
+              theme={theme}
+              height={height - 1}
+              yOffset={scrollOffset}
+              measureFromBottom={measureFromBottom}
+              layer={transitionLayer}
+              xTransform={xTransform}
+            />
+          )}
+        </>
       )}
 
       {/* Render a background for the Active region, and the General Background */}
       {showBackground && trackIds.length > 0 && trackRender !== TrackRender.Spline && (
         <FrustumBackground
-          color={
-            transitionLayer === LayerBand.ForegroundSelected ||
-            transitionLayer === LayerBand.ForegroundUnselected
-              ? color
-              : DEFAULT_COLOR
-          }
+          color={hasForegroundData ? color : DEFAULT_COLOR}
           height={height - 1}
           z={Z.Background}
           onHoverChange={(hovered) => setEmphasis(hovered ? sourceRowId : null)}

@@ -73,12 +73,14 @@ export const ROW_DEPTH_EPSILON = 0.01;
 
 export const LAYER_BAND_OFFSETS: Record<LayerBand, number> = {
   [LayerBand.Background]: Z.BackgroundData,
+  [LayerBand.ForegroundLocked]: Z.BackgroundData + 1,
   [LayerBand.ForegroundUnselected]: Z.ForegroundDataUnselected,
   [LayerBand.ForegroundSelected]: Z.ForegroundDataSelected,
 };
 
 export const LAYER_BAND_PRIORITY: Record<LayerBand, number> = {
   [LayerBand.Background]: 0,
-  [LayerBand.ForegroundUnselected]: 1,
-  [LayerBand.ForegroundSelected]: 2,
+  [LayerBand.ForegroundLocked]: 1,
+  [LayerBand.ForegroundUnselected]: 2,
+  [LayerBand.ForegroundSelected]: 3,
 };

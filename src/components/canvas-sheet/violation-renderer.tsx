@@ -175,12 +175,14 @@ export const ViolationRenderer = memo(function ViolationRenderer({
 
 const LAYER_TO_OPACITY: Record<LayerBand, number> = {
   [LayerBand.Background]: 0.25,
+  [LayerBand.ForegroundLocked]: 0.35,
   [LayerBand.ForegroundUnselected]: 0.5,
   [LayerBand.ForegroundSelected]: 0.75,
 };
 
 const LAYER_TO_BASELINE_OPACITY: Record<LayerBand, number> = {
   [LayerBand.Background]: 0.15,
+  [LayerBand.ForegroundLocked]: 0.17,
   [LayerBand.ForegroundUnselected]: 0.2,
   [LayerBand.ForegroundSelected]: 0.25,
 };

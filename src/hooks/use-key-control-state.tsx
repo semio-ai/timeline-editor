@@ -101,7 +101,8 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
     const foreground = source.data.filter(
       (datum) =>
         datum.layerBand === LayerBand.ForegroundSelected ||
-        datum.layerBand === LayerBand.ForegroundUnselected,
+        datum.layerBand === LayerBand.ForegroundUnselected ||
+        datum.layerBand === LayerBand.ForegroundLocked,
     );
     return foreground.length > 0 ? foreground : source.data;
   }, [source.data]);

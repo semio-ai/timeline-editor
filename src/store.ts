@@ -527,9 +527,17 @@ export const AnimationSlice = (
       );
     },
     removeKeypoints: (keypoints: { trackId: string; keypointId: string }[]) => {
+      // Filter out locked tracks
+      const sourceRows = get().instancedTrackSources;
+      const lockedTrackIds = new Set<string>();
+      Object.values(sourceRows).forEach((row) =>
+        row.data.forEach((d) => { if (d.locked) lockedTrackIds.add(d.trackId); }),
+      );
+      const unlocked = keypoints.filter((k) => !lockedTrackIds.has(k.trackId));
+      if (unlocked.length === 0) return;
       set(
         produce((state: AnimationData): void => {
-          keypoints.forEach(({ trackId, keypointId }) => {
+          unlocked.forEach(({ trackId, keypointId }) => {
             removeKeypoint(state, trackId, keypointId);
           });
         }),
@@ -673,6 +681,12 @@ export const AnimationSlice = (
       );
     },
     insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => {
+      // Check if track is locked via source row data
+      const sourceRows = get().instancedTrackSources;
+      const isLocked = Object.values(sourceRows).some(
+        (row) => row.data.some((d) => d.trackId === trackId && d.locked),
+      );
+      if (isLocked) return;
       set(
         produce((state: AnimationData) => {
           insertKeyAtWorldStampAction(state, trackId, worldStamp, instanceId);

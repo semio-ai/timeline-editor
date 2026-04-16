@@ -49,6 +49,8 @@ export function computeFrames(
   const { draggingKeypointIds, transformKeypoint } = options;
 
   sourceRow.data.forEach((sourceRowData) => {
+    // Skip hidden tracks — they should not produce markers, lines, or selection points
+    if (sourceRowData.visible === false) return;
     const trackId = sourceRowData.trackId;
     const emittedTrackId = (sourceRowData as any).trackIdBase ?? trackId;
     const trackData = tracks[trackId];

@@ -49,6 +49,8 @@ export interface DerivedTrackSnapshot {
     timescale: number;
     /** Instance offset for this track. */
     offset: number;
+    /** Whether this track is muted (should not produce playback values). */
+    muted?: boolean;
   };
 }
 

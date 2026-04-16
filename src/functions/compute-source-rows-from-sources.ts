@@ -65,25 +65,30 @@ export function computeSourceRowsFromSources(
         foreground &&
         (selectedTrackIds.has(sourceTrack.trackId) || selectedTrackIds.has(namespacedTrackKey));
 
+      const locked = sourceTrack.locked ?? false;
       let mainBand: LayerBand;
       if (!foreground) {
         mainBand = LayerBand.Background;
+      } else if (locked) {
+        mainBand = LayerBand.ForegroundLocked;
       } else if (baseSelected) {
         mainBand = LayerBand.ForegroundSelected;
       } else {
         mainBand = LayerBand.ForegroundUnselected;
       }
-      const layerBand = baseSelected ? LayerBand.ForegroundSelected : mainBand;
+      const layerBand = baseSelected && !locked ? LayerBand.ForegroundSelected : mainBand;
 
       rows.push({
         id: namespacedTrackKey,
         data: [
           {
-            selectable: foreground,
-            editable: !sourceTrack.readonly,
+            selectable: foreground && !locked,
+            editable: !sourceTrack.readonly && !locked,
             layerBand,
             type: sourceTrack.type,
             muted: sourceTrack.muted,
+            visible: sourceTrack.visible ?? true,
+            locked,
             animationId: sourceTrack.animationId,
             namespaceId: sourceTrack.namespaceId,
             instanceId: sourceTrack.instanceId,

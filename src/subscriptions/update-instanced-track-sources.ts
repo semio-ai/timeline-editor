@@ -157,8 +157,11 @@ function flattenSources(
         foreground &&
         (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));
 
+      const locked = track.locked ?? false;
       let layerBand = LayerBand.Background;
-      if (foreground) {
+      if (foreground && locked) {
+        layerBand = LayerBand.ForegroundLocked;
+      } else if (foreground) {
         layerBand = isSelected ? LayerBand.ForegroundSelected : LayerBand.ForegroundUnselected;
       }
 
@@ -166,8 +169,8 @@ function flattenSources(
         id: track.id,
         data: [
           {
-            selectable: foreground,
-            editable: !track.readonly,
+            selectable: foreground && !(track.locked ?? false),
+            editable: !track.readonly && !(track.locked ?? false),
             layerBand,
             animationId: track.animationId,
             namespaceId: track.namespaceId,

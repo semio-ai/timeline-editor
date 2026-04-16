@@ -165,6 +165,8 @@ export interface SelectionPointRef {
   instanceId?: string;
   /** Whether this point is selectable. */
   selectable?: boolean;
+  /** Layer band for this point. */
+  layerBand?: LayerBand;
 }
 
 /** Selection frame containing all points at a stamp. */

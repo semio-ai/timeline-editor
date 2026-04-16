@@ -58,6 +58,7 @@ function computeValueAndVelocityMaps(
   const multiplier = (_currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
 
   Object.entries(snapshot.tracks).forEach(([trackKey, track]) => {
+    if (track.metadata?.muted) return;
     const lookup = trackKey;
     const timescale = track.metadata?.timescale ?? 1;
     const offset = track.metadata?.offset ?? 0;

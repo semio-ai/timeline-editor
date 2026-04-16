@@ -59,7 +59,9 @@ const findAnchorPoint = (
   selection: SelectionState,
 ): InstancedFrameInfo["points"][number] | undefined => {
   const selectedIds = flattenSelection(selection);
-  return marker.points.find((point) => selectedIds.has(point.id));
+  const selectedPoints = marker.points.filter((point) => selectedIds.has(point.id));
+  // Prefer an editable point as the drag anchor so locked points don't block the drag
+  return selectedPoints.find((point) => point.editable) ?? selectedPoints[0];
 };
 
 // Prefer the dragged marker as the drag anchor; fall back to a selected marker if needed.
@@ -113,7 +115,7 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
   if (selection.instanceId) {
     const nextKeypoints = new Map(selection.keypoints);
     marker.points
-      .filter((p) => p.instanceId === selection.instanceId)
+      .filter((p) => p.instanceId === selection.instanceId && p.editable !== false)
       .forEach((p) => {
         const existing = nextKeypoints.get(p.trackId) ?? new Set<string>();
         if (!existing.has(p.id)) {
