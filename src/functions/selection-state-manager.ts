@@ -25,6 +25,8 @@ export function createEmptySelectionState(instanceId: string | null = null): Sel
     instanceId,
     keypoints: new Map(),
     reference: null,
+    targetedTracks: new Set(),
+    targetAnchor: null,
   };
 }
 
@@ -105,6 +107,8 @@ export function replaceKeypoints(
     instanceId,
     keypoints: keypointMap,
     reference,
+    targetedTracks: selection.targetedTracks,
+    targetAnchor: selection.targetAnchor,
   };
 }
 

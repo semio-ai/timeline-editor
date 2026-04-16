@@ -11,6 +11,8 @@ const makeSelection = (trackId: string, keypointId: string): SelectionState => (
   instanceId: "instance-1",
   keypoints: new Map([[trackId, new Set([keypointId])]]),
   reference: null,
+  targetedTracks: new Set(),
+  targetAnchor: null,
 });
 
 const makeDragState = (anchorId: string, trackId: string, stampDelta: number): DragState => ({

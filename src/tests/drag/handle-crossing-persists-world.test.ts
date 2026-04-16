@@ -62,6 +62,8 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
         instanceId: INSTANCE_IDS.ALPHA_SHARED,
         reference: { rowId, markerId },
         keypoints: new Map([[trackId, new Set([markerId])]]),
+        targetedTracks: new Set(),
+        targetAnchor: null,
       },
     });
 
@@ -142,6 +144,8 @@ describe("drag handles when crossing a neighbor (world-space)", () => {
         instanceId: INSTANCE_IDS.ALPHA_SHARED,
         reference: { rowId, markerId: anchor.id },
         keypoints: new Map([[trackId, new Set([anchor.id])]]),
+        targetedTracks: new Set(),
+        targetAnchor: null,
       },
     });
 

@@ -215,6 +215,24 @@ export interface AnimationActions {
    */
   setEmphasis: (rowId: string | null) => void;
   /**
+   * Toggle a track (or group's leaves) in/out of the targeted set.
+   * Sets the target anchor for subsequent range operations.
+   */
+  toggleTrackTarget: (rowId: string) => void;
+  /**
+   * Replace the targeted track set with the given row IDs (resolved to leaves).
+   */
+  setTrackTargets: (rowIds: string[]) => void;
+  /**
+   * Clear all track targeting.
+   */
+  clearTrackTargets: () => void;
+  /**
+   * Target all rows between fromRowId and toRowId in display order (resolved to leaves).
+   * Uses sourceRowIds.flat for ordering.
+   */
+  rangeTarget: (fromRowId: string, toRowId: string) => void;
+  /**
    * Update the expanded and hidden state of a source group globally.
    * @param groupId - The ID of the source group to update.
    * @param expanded - Whether the group is expanded or collapsed.

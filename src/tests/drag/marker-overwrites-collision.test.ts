@@ -73,6 +73,8 @@ describe("marker drag overwrites coincident marker", () => {
         instanceId: INSTANCE_IDS.ALPHA_SHARED,
         reference: { rowId, markerId: anchorId },
         keypoints: new Map([[trackId, new Set([anchorId])]]),
+        targetedTracks: new Set(),
+        targetAnchor: null,
       },
     });
 

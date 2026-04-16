@@ -73,6 +73,7 @@ import {
   findSourceTrackById,
 } from "./functions";
 import { resolveAnimationDuration } from "./functions/compute-animation-extent";
+import { resolveLeafRowIds } from "./functions/resolve-leaf-row-ids";
 import {
   updatePlayerLoop,
   updateOverallDuration,
@@ -751,6 +752,65 @@ export const AnimationSlice = (
     },
     setEmphasis: (rowId: string | null) => {
       set(() => ({ emphasisRowId: rowId }));
+    },
+    toggleTrackTarget: (rowId: string) => {
+      set(
+        produce((state: AnimationData) => {
+          const leaves = resolveLeafRowIds(rowId, state.instancedTrackSources);
+          const allTargeted = leaves.every((id) =>
+            state.selectionState.targetedTracks.has(id),
+          );
+          if (allTargeted) {
+            leaves.forEach((id) => state.selectionState.targetedTracks.delete(id));
+          } else {
+            leaves.forEach((id) => state.selectionState.targetedTracks.add(id));
+          }
+          state.selectionState.targetAnchor = rowId;
+        }),
+      );
+    },
+    setTrackTargets: (rowIds: string[]) => {
+      set(
+        produce((state: AnimationData) => {
+          const newSet = new Set<string>();
+          rowIds.forEach((id) => {
+            resolveLeafRowIds(id, state.instancedTrackSources).forEach((leafId) =>
+              newSet.add(leafId),
+            );
+          });
+          state.selectionState.targetedTracks = newSet;
+        }),
+      );
+    },
+    clearTrackTargets: () => {
+      set(
+        produce((state: AnimationData) => {
+          state.selectionState.targetedTracks = new Set();
+          state.selectionState.targetAnchor = null;
+        }),
+      );
+    },
+    rangeTarget: (fromRowId: string, toRowId: string) => {
+      set(
+        produce((state: AnimationData) => {
+          const flat = state.sourceRowIds.flat;
+          const fromIndex = flat.indexOf(fromRowId);
+          const toIndex = flat.indexOf(toRowId);
+          if (fromIndex === -1 || toIndex === -1) return;
+
+          const start = Math.min(fromIndex, toIndex);
+          const end = Math.max(fromIndex, toIndex);
+          const rangeIds = flat.slice(start, end + 1);
+
+          const newSet = new Set<string>();
+          rangeIds.forEach((id) => {
+            resolveLeafRowIds(id, state.instancedTrackSources).forEach((leafId) =>
+              newSet.add(leafId),
+            );
+          });
+          state.selectionState.targetedTracks = newSet;
+        }),
+      );
     },
     addPreview: (preview: Preview) => {
       set((state: AnimationData) => ({
