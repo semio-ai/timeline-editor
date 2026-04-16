@@ -118,7 +118,8 @@ export const FrustumBackground = memo(function FrustumBackground({
         // Delegate track selection to caller if provided
         if (onTrackClick) {
           onTrackClick({ ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey });
-        } else {
+          e.stopPropagation();
+        } else if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
           clearSelection();
         }
         pointerEvents.onClick?.(e);
