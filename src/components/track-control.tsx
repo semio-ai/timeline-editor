@@ -118,11 +118,11 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     })),
   );
 
-  // --- Per-row selection state (unified: track selected / keys selected) ---
-  // Track in keypoints with empty Set = track selected (left bar + tint)
-  // Track in keypoints with non-empty Set = keys selected (higher tint)
+  // --- Per-row selection state ---
+  // Track is "selected" if it exists as a key in the keypoints Map (regardless of Set contents).
+  // hasSelectedKeys further distinguishes whether specific keypoints are also selected.
   const trackSelectionEntry = selectedKeypoints.get(sourceRow.id);
-  const isTrackSelected = trackSelectionEntry !== undefined && trackSelectionEntry.size === 0;
+  const isTrackInSelection = trackSelectionEntry !== undefined;
   const hasSelectedKeys = trackSelectionEntry !== undefined && trackSelectionEntry.size > 0;
 
   const valuesRef = useValuesRef();
@@ -177,15 +177,15 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
 
   const iconCode = isGroup ? "group" : (sourceRow.data[0].iconCode ?? "none");
 
-  // Full-row background: track-selected (25%) > keys-selected (20%) > hover (15%) > none
+  // Full-row background: keys-selected (25%) > track-selected (20%) > hover (15%) > none
   // Inactive rows use DEFAULT_COLOR; active rows use their track color.
   const rowBackground = useMemo(() => {
     const bgColor = isActive ? trueColor : DEFAULT_COLOR;
-    if (isTrackSelected) return `${bgColor}40`;
-    if (hasSelectedKeys) return `${bgColor}33`;
+    if (hasSelectedKeys) return `${bgColor}40`;
+    if (isTrackInSelection) return `${bgColor}33`;
     if (emphasis) return `${bgColor}26`;
     return `${bgColor}00`;
-  }, [isActive, hasSelectedKeys, emphasis, trueColor, isTrackSelected]);
+  }, [isActive, hasSelectedKeys, emphasis, trueColor, isTrackInSelection]);
 
   // Reference row ID for shift+click range selection
   const referenceRowId = useAnimationStore(
@@ -225,7 +225,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
         className={clsx(rowMuted && isActive && "opacity-60", "pr-0.5")}
         isGroup={isGroup}
         target={
-          isTrackSelected || hasSelectedKeys ? (
+          isTrackInSelection ? (
             <div
               className="h-full w-full transition-colors duration-150 ease-out"
               style={{ backgroundColor: trueColor }}

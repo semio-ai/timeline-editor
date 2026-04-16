@@ -177,8 +177,17 @@ export const DataRenderer = memo(function DataRenderer({
   const setEmphasis = useAnimationStore(
     useShallow((state: StoreState) => state.setEmphasis),
   );
+  const selectTrack = useAnimationStore(
+    useShallow((state: StoreState) => state.selectTrack),
+  );
   const toggleTrackInSelection = useAnimationStore(
     useShallow((state: StoreState) => state.toggleTrackInSelection),
+  );
+  const rangeSelectTracks = useAnimationStore(
+    useShallow((state: StoreState) => state.rangeSelectTracks),
+  );
+  const referenceRowId = useAnimationStore(
+    (state: StoreState) => state.selectionState.reference?.rowId ?? null,
   );
 
   const trackIds = useMemo(
@@ -474,7 +483,15 @@ export const DataRenderer = memo(function DataRenderer({
           height={height - 1}
           z={Z.Background}
           onHoverChange={(hovered) => setEmphasis(hovered ? sourceRowId : null)}
-          onTargetToggle={() => toggleTrackInSelection(sourceRowId)}
+          onTrackClick={({ ctrl, shift }) => {
+            if (ctrl) {
+              toggleTrackInSelection(sourceRowId);
+            } else if (shift && referenceRowId) {
+              rangeSelectTracks(referenceRowId, sourceRowId);
+            } else {
+              selectTrack(sourceRowId);
+            }
+          }}
           emphasis={emphasis}
           theme={theme}
         />
