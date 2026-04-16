@@ -300,7 +300,6 @@ function AnimatableGroupControl({
   const {
     sourceRow,
     emphasisRowId,
-    targetAnchor,
     namespaces,
     animations,
     tracks,
@@ -310,7 +309,6 @@ function AnimatableGroupControl({
     useShallow((state) => ({
       sourceRow: sourceRowId ? state.instancedTrackSources[sourceRowId] : undefined,
       emphasisRowId: state.emphasisRowId,
-      targetAnchor: state.selectionState.targetAnchor,
       namespaces: state.namespaces,
       animations: state.animations,
       tracks: state.tracks,
@@ -321,14 +319,16 @@ function AnimatableGroupControl({
   const emphasis = sourceRowId ? emphasisRowId === sourceRowId : false;
 
   // --- Consolidated store actions ---
-  const { setEmphasis, toggleTrackTarget, rangeTarget, createTrack } = useAnimationStore(
-    useShallow((state) => ({
-      setEmphasis: state.setEmphasis,
-      toggleTrackTarget: state.toggleTrackTarget,
-      rangeTarget: state.rangeTarget,
-      createTrack: state.createTrack,
-    })),
-  );
+  const { setEmphasis, selectTrack, toggleTrackInSelection, rangeSelectTracks, createTrack } =
+    useAnimationStore(
+      useShallow((state) => ({
+        setEmphasis: state.setEmphasis,
+        selectTrack: state.selectTrack,
+        toggleTrackInSelection: state.toggleTrackInSelection,
+        rangeSelectTracks: state.rangeSelectTracks,
+        createTrack: state.createTrack,
+      })),
+    );
 
   const fallbackSourceRow = useMemo<SourceRow>(
     () => sourceRow ?? { id: `group-fallback-${groupId}`, data: [] },
@@ -415,25 +415,20 @@ function AnimatableGroupControl({
     centerIcon = derivedAddable ? "plus" : "key";
   }
 
-  // Per-row targeting — single selector deriving group tri-state
-  const rowTargeted: boolean | "partial" = useAnimationStore((state) => {
-    if (!sourceRow) return false;
-    const targeted = state.selectionState.targetedTracks;
-    if (targeted.size === 0) return false;
-    const leafIds = sourceRow.data.map((d) =>
-      `${d.namespaceId}/${d.instanceId}/${d.trackId}`,
-    );
-    if (leafIds.length === 0) return false;
-    const allTargeted = leafIds.every((id) => targeted.has(id));
-    const noneTargeted = leafIds.every((id) => !targeted.has(id));
-    return allTargeted ? true : noneTargeted ? false : "partial";
-  });
+  // Per-row selection state — group checks if sourceRowId is in keypoints
+  const isGroupSelected = useAnimationStore((state) =>
+    sourceRowId ? state.selectionState.keypoints.has(sourceRowId) : false,
+  );
+
+  const referenceRowId = useAnimationStore(
+    (state) => state.selectionState.reference?.rowId ?? null,
+  );
 
   const groupBackground = useMemo(() => {
-    if (rowTargeted) return `${resolvedColor}40`;
+    if (isGroupSelected) return `${resolvedColor}40`;
     if (emphasis) return `${resolvedColor}26`;
     return `${resolvedColor}00`;
-  }, [rowTargeted, emphasis, resolvedColor]);
+  }, [isGroupSelected, emphasis, resolvedColor]);
 
   return (
     <div
@@ -443,9 +438,11 @@ function AnimatableGroupControl({
       onPointerDown={(e) => {
         if (!sourceRowId) return;
         if (e.ctrlKey || e.metaKey) {
-          toggleTrackTarget(sourceRowId);
-        } else if (e.shiftKey && targetAnchor) {
-          rangeTarget(targetAnchor, sourceRowId);
+          toggleTrackInSelection(sourceRowId);
+        } else if (e.shiftKey && referenceRowId) {
+          rangeSelectTracks(referenceRowId, sourceRowId);
+        } else {
+          selectTrack(sourceRowId);
         }
       }}
     >
@@ -457,7 +454,7 @@ function AnimatableGroupControl({
         isGroup
         className="pr-0.5"
         target={
-          rowTargeted ? (
+          isGroupSelected ? (
             <div
               className="h-full w-full transition-colors duration-150 ease-out"
               style={{ backgroundColor: color }}

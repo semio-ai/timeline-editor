@@ -17,8 +17,6 @@ const FOREGROUND_LAYERS = new Set<LayerBand>([
 
 const isSelectablePoint = (point: { selectable?: boolean }): boolean => point.selectable ?? true;
 
-const EMPTY_TARGETED_TRACKS: Set<string> = new Set<string>();
-
 /**
  * Create an empty selection state. Optionally seed with a known instance id.
  */
@@ -27,8 +25,6 @@ export function createEmptySelectionState(instanceId: string | null = null): Sel
     instanceId,
     keypoints: new Map(),
     reference: null,
-    targetedTracks: EMPTY_TARGETED_TRACKS,
-    targetAnchor: null,
   };
 }
 
@@ -109,8 +105,6 @@ export function replaceKeypoints(
     instanceId,
     keypoints: keypointMap,
     reference,
-    targetedTracks: selection.targetedTracks,
-    targetAnchor: selection.targetAnchor,
   };
 }
 

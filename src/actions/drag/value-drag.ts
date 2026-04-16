@@ -297,8 +297,6 @@ const seedSelection = (
     instanceId,
     keypoints,
     reference: { rowId, markerId },
-    targetedTracks: new Set(),
-    targetAnchor: null,
   };
 };
 

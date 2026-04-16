@@ -215,23 +215,20 @@ export interface AnimationActions {
    */
   setEmphasis: (rowId: string | null) => void;
   /**
-   * Toggle a track (or group's leaves) in/out of the targeted set.
-   * Sets the target anchor for subsequent range operations.
+   * Select a track (replace selection with this track, empty keypoint set).
+   * Sets the reference anchor for subsequent range operations.
    */
-  toggleTrackTarget: (rowId: string) => void;
+  selectTrack: (rowId: string) => void;
   /**
-   * Replace the targeted track set with the given row IDs (resolved to leaves).
+   * Toggle a track in/out of the current selection (for Ctrl/Cmd+click).
+   * Adds with empty keypoint set, or removes if already present.
    */
-  setTrackTargets: (rowIds: string[]) => void;
+  toggleTrackInSelection: (rowId: string) => void;
   /**
-   * Clear all track targeting.
+   * Range-select tracks between reference and rowId in display order (for Shift+click).
+   * Replaces selection with all tracks in range, each with empty keypoint set.
    */
-  clearTrackTargets: () => void;
-  /**
-   * Target all rows between fromRowId and toRowId in display order (resolved to leaves).
-   * Uses sourceRowIds.flat for ordering.
-   */
-  rangeTarget: (fromRowId: string, toRowId: string) => void;
+  rangeSelectTracks: (fromRowId: string, toRowId: string) => void;
   /**
    * Update the expanded and hidden state of a source group globally.
    * @param groupId - The ID of the source group to update.

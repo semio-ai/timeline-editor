@@ -73,7 +73,6 @@ import {
   findSourceTrackById,
 } from "./functions";
 import { resolveAnimationDuration } from "./functions/compute-animation-extent";
-import { resolveLeafRowIds } from "./functions/resolve-leaf-row-ids";
 import {
   updatePlayerLoop,
   updateOverallDuration,
@@ -753,44 +752,27 @@ export const AnimationSlice = (
     setEmphasis: (rowId: string | null) => {
       set(() => ({ emphasisRowId: rowId }));
     },
-    toggleTrackTarget: (rowId: string) => {
+    selectTrack: (rowId: string) => {
       set(
         produce((state: AnimationData) => {
-          const leaves = resolveLeafRowIds(rowId, state.instancedTrackSources);
-          const allTargeted = leaves.every((id) =>
-            state.selectionState.targetedTracks.has(id),
-          );
-          if (allTargeted) {
-            leaves.forEach((id) => state.selectionState.targetedTracks.delete(id));
+          state.selectionState.keypoints = new Map([[rowId, new Set<string>()]]);
+          state.selectionState.reference = { rowId, markerId: rowId };
+        }),
+      );
+    },
+    toggleTrackInSelection: (rowId: string) => {
+      set(
+        produce((state: AnimationData) => {
+          if (state.selectionState.keypoints.has(rowId)) {
+            state.selectionState.keypoints.delete(rowId);
           } else {
-            leaves.forEach((id) => state.selectionState.targetedTracks.add(id));
+            state.selectionState.keypoints.set(rowId, new Set<string>());
           }
-          state.selectionState.targetAnchor = rowId;
+          state.selectionState.reference = { rowId, markerId: rowId };
         }),
       );
     },
-    setTrackTargets: (rowIds: string[]) => {
-      set(
-        produce((state: AnimationData) => {
-          const newSet = new Set<string>();
-          rowIds.forEach((id) => {
-            resolveLeafRowIds(id, state.instancedTrackSources).forEach((leafId) =>
-              newSet.add(leafId),
-            );
-          });
-          state.selectionState.targetedTracks = newSet;
-        }),
-      );
-    },
-    clearTrackTargets: () => {
-      set(
-        produce((state: AnimationData) => {
-          state.selectionState.targetedTracks = new Set();
-          state.selectionState.targetAnchor = null;
-        }),
-      );
-    },
-    rangeTarget: (fromRowId: string, toRowId: string) => {
+    rangeSelectTracks: (fromRowId: string, toRowId: string) => {
       set(
         produce((state: AnimationData) => {
           const flat = state.sourceRowIds.flat;
@@ -802,13 +784,11 @@ export const AnimationSlice = (
           const end = Math.max(fromIndex, toIndex);
           const rangeIds = flat.slice(start, end + 1);
 
-          const newSet = new Set<string>();
+          const newKeypoints = new Map<string, Set<string>>();
           rangeIds.forEach((id) => {
-            resolveLeafRowIds(id, state.instancedTrackSources).forEach((leafId) =>
-              newSet.add(leafId),
-            );
+            newKeypoints.set(id, new Set<string>());
           });
-          state.selectionState.targetedTracks = newSet;
+          state.selectionState.keypoints = newKeypoints;
         }),
       );
     },

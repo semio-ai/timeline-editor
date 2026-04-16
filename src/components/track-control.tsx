@@ -71,7 +71,6 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     selectionInstanceId,
     selectedKeypoints,
     emphasisRowId,
-    targetAnchor,
   } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       storeControlStripMode: state.preferences.controlStripMode,
@@ -79,7 +78,6 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       selectionInstanceId: state.selectionState.instanceId,
       selectedKeypoints: state.selectionState.keypoints,
       emphasisRowId: state.emphasisRowId,
-      targetAnchor: state.selectionState.targetAnchor,
     })),
   );
   const controlStripMode = controlStripOverride ?? storeControlStripMode;
@@ -93,8 +91,9 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     setTracksLocked,
     focusSelectionInstance,
     setEmphasis,
-    toggleTrackTarget,
-    rangeTarget,
+    selectTrack,
+    toggleTrackInSelection,
+    rangeSelectTracks,
     updateKeypoints,
     removeKeypoints,
     updateSource,
@@ -108,8 +107,9 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       setTracksLocked: state.setTracksLocked,
       focusSelectionInstance: state.focusSelectionInstance,
       setEmphasis: state.setEmphasis,
-      toggleTrackTarget: state.toggleTrackTarget,
-      rangeTarget: state.rangeTarget,
+      selectTrack: state.selectTrack,
+      toggleTrackInSelection: state.toggleTrackInSelection,
+      rangeSelectTracks: state.rangeSelectTracks,
       updateKeypoints: state.updateKeypoints,
       removeKeypoints: state.removeKeypoints,
       updateSource: state.updateSource,
@@ -118,19 +118,12 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     })),
   );
 
-  // --- Per-row targeting (single selector, returns derived state) ---
-  const rowTargeted: boolean | "partial" = useAnimationStore((state: AnimationData) => {
-    const targeted = state.selectionState.targetedTracks;
-    if (!isGroup) return targeted.has(sourceRow.id);
-    if (targeted.size === 0) return false;
-    const leafIds = sourceRow.data.map((d) =>
-      buildTrackKey(d.namespaceId, d.instanceId, d.trackId),
-    );
-    if (leafIds.length === 0) return false;
-    const allTargeted = leafIds.every((id) => targeted.has(id));
-    const noneTargeted = leafIds.every((id) => !targeted.has(id));
-    return allTargeted ? true : noneTargeted ? false : "partial";
-  });
+  // --- Per-row selection state (unified: track selected / keys selected) ---
+  // Track in keypoints with empty Set = track selected (left bar + tint)
+  // Track in keypoints with non-empty Set = keys selected (higher tint)
+  const trackSelectionEntry = selectedKeypoints.get(sourceRow.id);
+  const isTrackSelected = trackSelectionEntry !== undefined && trackSelectionEntry.size === 0;
+  const hasSelectedKeys = trackSelectionEntry !== undefined && trackSelectionEntry.size > 0;
 
   const valuesRef = useValuesRef();
   const trackMuted = useMemo(() => {
@@ -163,12 +156,6 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     [uniqueInstanceId, selectionInstanceId],
   );
 
-  // Check if any keypoints in this row's tracks are selected
-  const hasSelectedKeys = useMemo(
-    () => trackIds.some((id) => (selectedKeypoints.get(id)?.size ?? 0) > 0),
-    [trackIds, selectedKeypoints],
-  );
-
   const handleActivate = useCallback(() => {
     if (uniqueInstanceId) {
       focusSelectionInstance(uniqueInstanceId);
@@ -190,15 +177,20 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
 
   const iconCode = isGroup ? "group" : (sourceRow.data[0].iconCode ?? "none");
 
-  // Full-row background: targeted (25%) > keys-selected (20%) > hover (15%) > none
+  // Full-row background: track-selected (25%) > keys-selected (20%) > hover (15%) > none
   // Inactive rows use DEFAULT_COLOR; active rows use their track color.
   const rowBackground = useMemo(() => {
     const bgColor = isActive ? trueColor : DEFAULT_COLOR;
-    if (rowTargeted) return `${bgColor}40`;
+    if (isTrackSelected) return `${bgColor}40`;
     if (hasSelectedKeys) return `${bgColor}33`;
     if (emphasis) return `${bgColor}26`;
     return `${bgColor}00`;
-  }, [isActive, hasSelectedKeys, emphasis, trueColor, rowTargeted]);
+  }, [isActive, hasSelectedKeys, emphasis, trueColor, isTrackSelected]);
+
+  // Reference row ID for shift+click range selection
+  const referenceRowId = useAnimationStore(
+    (state: AnimationData) => state.selectionState.reference?.rowId ?? null,
+  );
 
   return (
     <div
@@ -211,12 +203,16 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
         if (!isActive && uniqueInstanceId) {
           handleActivate();
         }
-        // Track targeting: Ctrl/Cmd+click toggles, Shift+click range-targets.
-        // Only target rows in the active instance — skip if this click also activates.
-        if (isActive && (e.ctrlKey || e.metaKey)) {
-          toggleTrackTarget(sourceRow.id);
-        } else if (isActive && e.shiftKey && targetAnchor) {
-          rangeTarget(targetAnchor, sourceRow.id);
+        // Track selection: plain click selects, Ctrl/Cmd toggles, Shift range-selects.
+        // Only on active instance rows — skip if this click also activates.
+        if (isActive) {
+          if (e.ctrlKey || e.metaKey) {
+            toggleTrackInSelection(sourceRow.id);
+          } else if (e.shiftKey && referenceRowId) {
+            rangeSelectTracks(referenceRowId, sourceRow.id);
+          } else {
+            selectTrack(sourceRow.id);
+          }
         }
       }}
     >
@@ -229,7 +225,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
         className={clsx(rowMuted && isActive && "opacity-60", "pr-0.5")}
         isGroup={isGroup}
         target={
-          rowTargeted ? (
+          isTrackSelected || hasSelectedKeys ? (
             <div
               className="h-full w-full transition-colors duration-150 ease-out"
               style={{ backgroundColor: trueColor }}

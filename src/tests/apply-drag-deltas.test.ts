@@ -7,8 +7,6 @@ const buildSelection = (trackId: string, keypointId: string): SelectionState => 
   instanceId: "instance-1",
   keypoints: new Map([[trackId, new Set([keypointId])]]),
   reference: null,
-  targetedTracks: new Set(),
-  targetAnchor: null,
 });
 
 const buildTrack = (points: Keypoint<RawValue>[]): Track<RawValue> => ({

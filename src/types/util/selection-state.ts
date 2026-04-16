@@ -36,10 +36,6 @@ export interface SelectionState {
   keypoints: Map<string, Set<string>>;
   /** Anchor used for range selection operations. */
   reference: SelectionAnchor | null;
-  /** Targeted track source row IDs (leaf rows only; group state is derived). */
-  targetedTracks: Set<string>;
-  /** Last targeted row ID for shift+click range operations. */
-  targetAnchor: string | null;
 }
 
 /** Subset of marker point data used to build selection operations. */
