@@ -3,6 +3,7 @@ import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
 import { create } from "zustand";
+import { uniq } from "lodash";
 import {
   Track,
   StoredAnimation,
@@ -752,21 +753,29 @@ export const AnimationSlice = (
     setEmphasis: (rowId: string | null) => {
       set(() => ({ emphasisRowId: rowId }));
     },
-    selectTrack: (rowId: string) => {
+    selectTrack: (rowId: string, trackIds: string[]) => {
       set(
         produce((state: AnimationData) => {
-          state.selectionState.keypoints = new Map([[rowId, new Set<string>()]]);
+          const newKeypoints = new Map<string, Set<string>>();
+          trackIds.forEach((id) => newKeypoints.set(id, new Set<string>()));
+          state.selectionState.keypoints = newKeypoints;
           state.selectionState.reference = { rowId, markerId: rowId };
         }),
       );
     },
-    toggleTrackInSelection: (rowId: string) => {
+    toggleTrackInSelection: (rowId: string, trackIds: string[]) => {
       set(
         produce((state: AnimationData) => {
-          if (state.selectionState.keypoints.has(rowId)) {
-            state.selectionState.keypoints.delete(rowId);
+          // If all trackIds are already in keypoints, remove them; otherwise add them
+          const allPresent = trackIds.every((id) => state.selectionState.keypoints.has(id));
+          if (allPresent) {
+            trackIds.forEach((id) => state.selectionState.keypoints.delete(id));
           } else {
-            state.selectionState.keypoints.set(rowId, new Set<string>());
+            trackIds.forEach((id) => {
+              if (!state.selectionState.keypoints.has(id)) {
+                state.selectionState.keypoints.set(id, new Set<string>());
+              }
+            });
           }
           state.selectionState.reference = { rowId, markerId: rowId };
         }),
@@ -784,9 +793,14 @@ export const AnimationSlice = (
           const end = Math.max(fromIndex, toIndex);
           const rangeIds = flat.slice(start, end + 1);
 
+          // Resolve each row's trackIds from instancedTrackSources
           const newKeypoints = new Map<string, Set<string>>();
           rangeIds.forEach((id) => {
-            newKeypoints.set(id, new Set<string>());
+            const row = state.instancedTrackSources[id];
+            if (row) {
+              const rowTrackIds = uniq(row.data.map((d) => d.trackId));
+              rowTrackIds.forEach((tid) => newKeypoints.set(tid, new Set<string>()));
+            }
           });
           state.selectionState.keypoints = newKeypoints;
         }),

@@ -215,15 +215,15 @@ export interface AnimationActions {
    */
   setEmphasis: (rowId: string | null) => void;
   /**
-   * Select a track (replace selection with this track, empty keypoint set).
+   * Select a track (replace selection with this track's trackIds, each with empty keypoint set).
    * Sets the reference anchor for subsequent range operations.
    */
-  selectTrack: (rowId: string) => void;
+  selectTrack: (rowId: string, trackIds: string[]) => void;
   /**
    * Toggle a track in/out of the current selection (for Ctrl/Cmd+click).
-   * Adds with empty keypoint set, or removes if already present.
+   * Adds trackIds with empty keypoint sets, or removes if all already present.
    */
-  toggleTrackInSelection: (rowId: string) => void;
+  toggleTrackInSelection: (rowId: string, trackIds: string[]) => void;
   /**
    * Range-select tracks between reference and rowId in display order (for Shift+click).
    * Replaces selection with all tracks in range, each with empty keypoint set.

@@ -485,11 +485,11 @@ export const DataRenderer = memo(function DataRenderer({
           onHoverChange={(hovered) => setEmphasis(hovered ? sourceRowId : null)}
           onTrackClick={({ ctrl, shift }) => {
             if (ctrl) {
-              toggleTrackInSelection(sourceRowId);
+              toggleTrackInSelection(sourceRowId, trackIds);
             } else if (shift && referenceRowId) {
               rangeSelectTracks(referenceRowId, sourceRowId);
             } else {
-              selectTrack(sourceRowId);
+              selectTrack(sourceRowId, trackIds);
             }
           }}
           emphasis={emphasis}

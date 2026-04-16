@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { uniq } from "lodash";
 import { IconDotsVertical } from "@tabler/icons-react";
 import {
   StaticIcon,
@@ -415,9 +416,13 @@ function AnimatableGroupControl({
     centerIcon = derivedAddable ? "plus" : "key";
   }
 
-  // Per-row selection state — group checks if sourceRowId is in keypoints
+  // Per-row selection state — group checks if any child trackIds are in keypoints
+  const groupTrackIds = useMemo(
+    () => (sourceRow ? uniq(sourceRow.data.map((d) => d.trackId)) : []),
+    [sourceRow],
+  );
   const isGroupSelected = useAnimationStore((state) =>
-    sourceRowId ? state.selectionState.keypoints.has(sourceRowId) : false,
+    groupTrackIds.some((id) => state.selectionState.keypoints.has(id)),
   );
 
   const referenceRowId = useAnimationStore(
@@ -436,13 +441,13 @@ function AnimatableGroupControl({
       onMouseEnter={() => sourceRowId && setEmphasis(sourceRowId)}
       onMouseLeave={() => setEmphasis(null)}
       onPointerDown={(e) => {
-        if (!sourceRowId) return;
+        if (!sourceRowId || groupTrackIds.length === 0) return;
         if (e.ctrlKey || e.metaKey) {
-          toggleTrackInSelection(sourceRowId);
+          toggleTrackInSelection(sourceRowId, groupTrackIds);
         } else if (e.shiftKey && referenceRowId) {
           rangeSelectTracks(referenceRowId, sourceRowId);
         } else {
-          selectTrack(sourceRowId);
+          selectTrack(sourceRowId, groupTrackIds);
         }
       }}
     >
