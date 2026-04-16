@@ -127,8 +127,6 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
 export interface DataRendererProps {
   sourceRowId: string;
   height?: number;
-  emphasis?: boolean;
-  onEmphasisChange?: (emphasis: boolean) => void;
   viewId?: string;
   yOffset?: number;
   baseZ?: number;
@@ -147,8 +145,6 @@ export interface DataRendererProps {
 export const DataRenderer = memo(function DataRenderer({
   sourceRowId,
   height = 36,
-  emphasis = false,
-  onEmphasisChange = () => {},
   viewId,
   yOffset = 0,
   baseZ = 0,
@@ -174,6 +170,12 @@ export const DataRenderer = memo(function DataRenderer({
   );
   const focusSelectionInstance = useAnimationStore(
     useShallow((state: StoreState) => state.focusSelectionInstance),
+  );
+  const emphasis = useAnimationStore(
+    useShallow((state: StoreState) => state.emphasisRowId === sourceRowId),
+  );
+  const setEmphasis = useAnimationStore(
+    useShallow((state: StoreState) => state.setEmphasis),
   );
 
   const trackIds = useMemo(
@@ -468,7 +470,7 @@ export const DataRenderer = memo(function DataRenderer({
           }
           height={height - 1}
           z={Z.Background}
-          onHoverChange={onEmphasisChange}
+          onHoverChange={(hovered) => setEmphasis(hovered ? sourceRowId : null)}
           emphasis={emphasis}
           theme={theme}
         />

@@ -749,6 +749,9 @@ export const AnimationSlice = (
     focusSelectionInstance: (instanceId: string) => {
       set(() => ({ selectionState: createEmptySelectionState(instanceId) }));
     },
+    setEmphasis: (rowId: string | null) => {
+      set(() => ({ emphasisRowId: rowId }));
+    },
     addPreview: (preview: Preview) => {
       set((state: AnimationData) => ({
         previews: [...state.previews, preview],

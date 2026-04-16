@@ -25,6 +25,7 @@ export const createDefaultState = (): AnimationData => {
     playerInterval: undefined,
     previews: [],
     selectionState: createEmptySelectionState(),
+    emphasisRowId: null,
     preferences: {
       hoverDashedLine: false,
       dataPreviews: true,

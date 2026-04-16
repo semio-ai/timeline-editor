@@ -109,6 +109,12 @@ export interface AnimationData {
   selectionState: SelectionState;
 
   /**
+   * Source row ID currently hovered/emphasized. Transient, single-row, no hierarchy.
+   * Drives track-colored background tint in the track list and canvas band opacity.
+   */
+  emphasisRowId: string | null;
+
+  /**
    * Some configurable preferences.
    */
   preferences: {
@@ -204,6 +210,10 @@ export interface AnimationActions {
    * reference) and seeding the selection state with the provided instance id.
    */
   focusSelectionInstance: (instanceId: string) => void;
+  /**
+   * Set the currently emphasized (hovered) source row. Pass null to clear.
+   */
+  setEmphasis: (rowId: string | null) => void;
   /**
    * Update the expanded and hidden state of a source group globally.
    * @param groupId - The ID of the source group to update.

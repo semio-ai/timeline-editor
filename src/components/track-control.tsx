@@ -44,17 +44,9 @@ export interface TrackControlProps {
   depthOverride?: number;
   /** Override the control strip mode (e.g., force "keySkip" in the animatable control list). */
   controlStripOverride?: "keySkip" | "properties";
-  emphasis?: boolean;
-  onEmphasisChange?: (emphasis: boolean) => void;
 }
 
-function InnerTrackControl({
-  sourceRow,
-  depthOverride,
-  controlStripOverride,
-  emphasis,
-  onEmphasisChange,
-}: TrackControlProps) {
+function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
 
@@ -117,14 +109,28 @@ function InnerTrackControl({
   const selectionInstanceId = useAnimationStore(
     useShallow((state: AnimationData) => state.selectionState.instanceId),
   );
+  const selectedKeypoints = useAnimationStore(
+    useShallow((state: AnimationData) => state.selectionState.keypoints),
+  );
   const focusSelectionInstance = useAnimationStore(
     useShallow((state: AnimationActions) => state.focusSelectionInstance),
   );
+  const emphasisRowId = useAnimationStore(
+    useShallow((state: AnimationData) => state.emphasisRowId),
+  );
+  const emphasis = emphasisRowId === sourceRow.id;
+  const setEmphasis = useAnimationStore(useShallow((state: AnimationActions) => state.setEmphasis));
 
   // Row is active if it has no unique instance mapping OR it matches the selected instance
   const isActive = useMemo(
     () => !uniqueInstanceId || selectionInstanceId === uniqueInstanceId,
     [uniqueInstanceId, selectionInstanceId],
+  );
+
+  // Check if any keypoints in this row's tracks are selected
+  const hasSelectedKeys = useMemo(
+    () => trackIds.some((id) => (selectedKeypoints.get(id)?.size ?? 0) > 0),
+    [trackIds, selectedKeypoints],
   );
 
   const handleActivate = useCallback(() => {
@@ -168,9 +174,20 @@ function InnerTrackControl({
 
   const iconCode = isGroup ? "group" : (sourceRow.data[0].iconCode ?? "none");
 
+  // Full-row background: keys-selected (20%) > hover (15%) > none
+  // Inactive rows use DEFAULT_COLOR; active rows use their track color.
+  const rowBackground = useMemo(() => {
+    const bgColor = isActive ? trueColor : DEFAULT_COLOR;
+    if (hasSelectedKeys) return `${bgColor}33`;
+    if (emphasis) return `${bgColor}26`;
+    return `${bgColor}00`;
+  }, [isActive, hasSelectedKeys, emphasis, trueColor]);
+
   return (
     <div
       className="relative w-full"
+      onMouseEnter={() => setEmphasis(sourceRow.id)}
+      onMouseLeave={() => setEmphasis(null)}
       onPointerDown={() => {
         // Any interaction with an inactive row switches the active instance
         // as a side effect — without blocking the interaction itself.
@@ -179,11 +196,13 @@ function InnerTrackControl({
         }
       }}
     >
+      {/* Full-row track-colored background tint — always rendered for CSS transition */}
+      <div
+        className="pointer-events-none absolute inset-0 -right-2 transition-colors duration-150 ease-out"
+        style={{ backgroundColor: rowBackground }}
+      />
       <ControlRow
-        className={clsx(
-          rowMuted && isActive && "opacity-60",
-          "pr-0.5",
-        )}
+        className={clsx(rowMuted && isActive && "opacity-60", "pr-0.5")}
         isGroup={isGroup}
         treeIcon={
           <TreeIconColumn
@@ -236,7 +255,6 @@ function InnerTrackControl({
                 colorOverride={color}
                 playing={playing}
                 emphasis={emphasis}
-                onEmphasisChange={onEmphasisChange}
                 handleValueChange={(change) => {
                   const datumAnimatablePairs = sourceRow.data.map((datum) => ({
                     datum,

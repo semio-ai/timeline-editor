@@ -23,8 +23,6 @@ export interface CanvasSheetProps {
   viewId: string;
   scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
-  emphasis: string[];
-  onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   rowIdLookup?: VisibleSourceRowIds;
   fonts?: {
     mono?: string; // Path to monospace font, falls back to system default
@@ -36,8 +34,6 @@ export const CanvasSheet = memo(function CanvasSheet({
   viewId,
   scrollValue,
   theme = Theme.Light,
-  emphasis = [],
-  onEmphasisChange = () => {},
   rowIdLookup,
   fonts = {},
 }: CanvasSheetProps) {
@@ -86,8 +82,6 @@ export const CanvasSheet = memo(function CanvasSheet({
           viewId={viewId}
           scrollValue={scrollValue}
           theme={theme}
-          emphasis={emphasis}
-          onEmphasisChange={onEmphasisChange}
           rowIdLookup={rowIdLookup}
           fonts={fonts}
         />
@@ -100,8 +94,6 @@ interface CanvasContentProps {
   viewId: string;
   scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
-  emphasis: string[];
-  onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   rowIdLookup?: VisibleSourceRowIds;
   fonts?: {
     mono?: string; // Path to monospace font, falls back to system default
@@ -113,8 +105,6 @@ const CanvasContent = memo(function CanvasContent({
   viewId,
   theme,
   scrollValue,
-  emphasis = [],
-  onEmphasisChange = () => {},
   rowIdLookup,
   fonts = {},
 }: CanvasContentProps) {
@@ -163,8 +153,6 @@ const CanvasContent = memo(function CanvasContent({
           topOffsetPx={topOffsetPx}
           bottomOffsetPx={bottomOffsetPx}
           trackHeight={trackHeight}
-          emphasis={emphasis}
-          onEmphasisChange={onEmphasisChange}
           rowIdLookup={resolvedRowIdLookup}
           theme={theme}
         />

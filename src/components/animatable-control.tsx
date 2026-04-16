@@ -66,8 +66,6 @@ export interface AnimatableLeafControlProps extends AnimatableControlBaseProps {
    * Callback to rename the animatable (used for direct/track-missing modes).
    */
   onRename?: (name: string) => void;
-  emphasis?: boolean;
-  onEmphasisChange?: (emphasis: boolean) => void;
   /** Tree nesting depth for indentation (0 = top-level). */
   depth?: number;
 }
@@ -101,8 +99,6 @@ function AnimatableLeafControl({
   onAddTrack,
   label,
   onRename,
-  emphasis,
-  onEmphasisChange,
   disabled = false,
   depth = 0,
 }: AnimatableLeafControlProps) {
@@ -193,8 +189,6 @@ function AnimatableLeafControl({
         sourceRow={sourceRow}
         depthOverride={depth}
         controlStripOverride="keySkip"
-        emphasis={emphasis}
-        onEmphasisChange={onEmphasisChange}
       />
     );
   }
@@ -230,8 +224,6 @@ function AnimatableLeafControl({
             color={resolvedColor}
             disabled={editorDisabled}
             label={displayLabel}
-            emphasis={emphasis}
-            onEmphasisChange={onEmphasisChange}
             onRename={onRename}
             onChange={handleValueChange}
           />
@@ -306,6 +298,9 @@ function AnimatableGroupControl({
   const sourceRow = useAnimationStore(
     useShallow((state) => (sourceRowId ? state.instancedTrackSources[sourceRowId] : undefined)),
   );
+  const emphasisRowId = useAnimationStore((state) => state.emphasisRowId);
+  const emphasis = sourceRowId ? emphasisRowId === sourceRowId : false;
+  const setEmphasis = useAnimationStore(useShallow((state) => state.setEmphasis));
   const { namespaces, animations, tracks, animatables, selectionInstanceId, createTrack } =
     useAnimationStore(
       useShallow((state) => ({
@@ -403,94 +398,106 @@ function AnimatableGroupControl({
     centerIcon = derivedAddable ? "plus" : "key";
   }
 
-  return (
-    <ControlRow
-      isGroup
-      className="pr-0.5"
-      treeIcon={
-        <TreeIconColumn
-          depth={depth}
-          icon={
-            <GroupToggle
-              expanded={expanded}
-              onToggle={onToggle}
-              disabled={disabled}
-              color={resolvedColor}
-            />
-          }
-        />
-      }
-      label={
-        <TextField
-          size={Size.Sm}
-          color={resolvedColor}
-          value={displayLabel}
-          readOnly={disabled || running || !onRename}
-          onChange={(val) => {
-            if (running) return;
-            if (!val) return;
-            onRename?.(val);
-          }}
-        />
-      }
-      controls={
-        hasTrackGroup && sourceRow ? (
-          <KeyStrip
-            source={sourceRow}
-            color={resolvedColor}
-            disabled={disabled || running || allReadonly}
-            onHexClick={() => {
-              if (disabled || running || allReadonly) return;
-              if (keyState === "full" && currentFrame) {
-                const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-                const removals = points.map((p) => ({
-                  trackId: p.trackId,
-                  keypointId: p.id,
-                }));
-                removeKeypoints(removals);
-                return;
-              }
+  const groupBackground = emphasis ? `${resolvedColor}26` : `${resolvedColor}00`;
 
-              const targets = missingEntries;
-              targets.forEach((datum) => {
-                insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
-              });
+  return (
+    <div
+      className="relative w-full"
+      onMouseEnter={() => sourceRowId && setEmphasis(sourceRowId)}
+      onMouseLeave={() => setEmphasis(null)}
+    >
+      <div
+        className="pointer-events-none absolute inset-0 -right-2 transition-colors duration-150 ease-out"
+        style={{ backgroundColor: groupBackground }}
+      />
+      <ControlRow
+        isGroup
+        className="pr-0.5"
+        treeIcon={
+          <TreeIconColumn
+            depth={depth}
+            icon={
+              <GroupToggle
+                expanded={expanded}
+                onToggle={onToggle}
+                disabled={disabled}
+                color={resolvedColor}
+              />
+            }
+          />
+        }
+        label={
+          <TextField
+            size={Size.Sm}
+            color={resolvedColor}
+            value={displayLabel}
+            readOnly={disabled || running || !onRename}
+            onChange={(val) => {
+              if (running) return;
+              if (!val) return;
+              onRename?.(val);
             }}
           />
-        ) : (
-          <ControlStrip
-            color={resolvedColor}
-            disabled={disabled || running}
-            prevEnabled={false}
-            nextEnabled={false}
-            prevVisible={false}
-            nextVisible={false}
-            centerIcon={centerIcon}
-            centerAltText="Add Track Group"
-            onCenter={canAdd ? (onAddTrack ?? handleAddTracks) : undefined}
-          />
-        )
-      }
-      options={
-        <Dropdown
-          disabled
-          variant={Variant.Info}
-          trigger={
-            <span>
-              <Button
-                size={Size.Xs}
-                className="flex items-center justify-center"
-                visuals="inverted"
-                leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
-              />
-            </span>
-          }
-        >
-          <NestedLabel>Control Settings</NestedLabel>
-          {/* No content currently. May add more. Dropdown disabled */}
-        </Dropdown>
-      }
-    />
+        }
+        controls={
+          hasTrackGroup && sourceRow ? (
+            <KeyStrip
+              source={sourceRow}
+              color={resolvedColor}
+              disabled={disabled || running || allReadonly}
+              onHexClick={() => {
+                if (disabled || running || allReadonly) return;
+                if (keyState === "full" && currentFrame) {
+                  const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
+                  const removals = points.map((p) => ({
+                    trackId: p.trackId,
+                    keypointId: p.id,
+                  }));
+                  removeKeypoints(removals);
+                  return;
+                }
+
+                const targets = missingEntries;
+                targets.forEach((datum) => {
+                  insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
+                });
+              }}
+            />
+          ) : (
+            <ControlStrip
+              color={resolvedColor}
+              disabled={disabled || running}
+              prevEnabled={false}
+              nextEnabled={false}
+              prevVisible={false}
+              nextVisible={false}
+              centerIcon={centerIcon}
+              centerAltText="Add Track Group"
+              onCenter={canAdd ? (onAddTrack ?? handleAddTracks) : undefined}
+            />
+          )
+        }
+        options={
+          <Dropdown
+            disabled
+            variant={Variant.Info}
+            trigger={
+              <span>
+                <Button
+                  size={Size.Xs}
+                  className="flex items-center justify-center"
+                  visuals="inverted"
+                  leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                />
+              </span>
+            }
+          >
+            <NestedLabel>Control Settings</NestedLabel>
+            {/* No content currently. May add more. Dropdown disabled */}
+          </Dropdown>
+        }
+      />
+    </div>
   );
 }
 
@@ -500,8 +507,6 @@ interface DirectAnimatableEditorProps {
   color: string;
   disabled: boolean;
   label?: string;
-  emphasis?: boolean;
-  onEmphasisChange?: (emphasis: boolean) => void;
   onRename?: (name: string) => void;
   onChange: (value: RawValue | ((current: RawValue) => RawValue)) => void;
 }
@@ -512,8 +517,6 @@ function DirectAnimatableEditor({
   color,
   disabled,
   label,
-  emphasis,
-  onEmphasisChange,
   onRename,
   onChange,
 }: DirectAnimatableEditorProps) {
@@ -548,8 +551,6 @@ function DirectAnimatableEditor({
         onChange={(v) => onChange(transformFromDisplay(v))}
         label={displayLabel}
         onLabelChange={onRename}
-        highlight={emphasis}
-        onHighlightChange={onEmphasisChange}
         units={angular ? "\u00b0" : animatable.pub?.units}
         wrapperClassName="flex-1"
         className="flex-1"

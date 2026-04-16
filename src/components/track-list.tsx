@@ -14,16 +14,12 @@ import { TrackControl } from "./track-control";
 export interface TrackListProps {
   height?: number;
   scrollY?: MotionValue<number>;
-  emphasis: string[];
-  onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   rowIdLookup?: VisibleSourceRowIds;
 }
 
 export function TrackList({
   height = 240,
   scrollY,
-  emphasis = [],
-  onEmphasisChange = () => {},
   rowIdLookup,
 }: TrackListProps): ReactNode {
   const sourceRowIdLookup = useAnimationStore(
@@ -87,8 +83,6 @@ export function TrackList({
                   <TrackControl
                     sourceRow={sourceRow}
                     ancestorIsLast={ancestorMap.get(sourceRow.id) ?? []}
-                    emphasis={emphasis.includes(sourceRow.id)}
-                    onEmphasisChange={(v) => onEmphasisChange(sourceRow.id, v ? "add" : "remove")}
                   />
                 </motion.div>
               ))}

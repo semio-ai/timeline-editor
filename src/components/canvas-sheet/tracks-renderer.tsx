@@ -26,8 +26,6 @@ interface TracksRendererProps {
   scrollValue?: MotionValue<number>;
   topOffsetPx?: number;
   bottomOffsetPx?: number;
-  emphasis?: string[];
-  onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   theme?: ThemeMode;
   rowIdLookup?: VisibleSourceRowIds;
 }
@@ -38,8 +36,6 @@ export const TracksRenderer = memo(function TracksRenderer({
   scrollValue,
   topOffsetPx = 32,
   bottomOffsetPx = 108,
-  emphasis = [],
-  onEmphasisChange = () => {},
   theme = Theme.Light,
   rowIdLookup,
 }: TracksRendererProps) {
@@ -194,8 +190,6 @@ export const TracksRenderer = memo(function TracksRenderer({
             sourceRowId={sourceId}
             viewId={viewId}
             yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
-            emphasis={emphasis.includes(sourceId)}
-            onEmphasisChange={(v) => onEmphasisChange(sourceId, v ? "add" : "remove")}
             theme={theme}
             scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
           />

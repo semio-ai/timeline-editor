@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState, useEffect, useCallback, useMemo } from "react";
+import { useContext, memo, useEffect, useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
@@ -248,7 +248,6 @@ function InnerSheet({
 
   const scrollY = useMotionValue(0);
 
-  const [emphasis, setEmphasis] = useState<string[]>([]);
   const setTrackFilter = useCallback(
     (value: string) => {
       updateView(resolvedViewId, { trackFilter: value });
@@ -354,19 +353,6 @@ function InnerSheet({
     [animatables, sourceRowLookup, sourceRows, trackFilter, tracks],
   );
 
-  const setEmphasisSmart = useCallback(
-    (id: string, opt: "add" | "remove") => {
-      setEmphasis((prev) => {
-        if (opt === "add") {
-          return [...prev, id];
-        } else {
-          return prev.filter((e) => e !== id);
-        }
-      });
-    },
-    [setEmphasis],
-  );
-
   const expanded = height > MIN_SHEET_HEIGHT;
 
   return (
@@ -447,8 +433,6 @@ function InnerSheet({
                     viewId={resolvedViewId}
                     scrollValue={scrollY}
                     theme={resolvedTheme}
-                    emphasis={emphasis}
-                    onEmphasisChange={setEmphasisSmart}
                     rowIdLookup={filteredRowLookup}
                     fonts={fonts}
                   />
@@ -460,8 +444,6 @@ function InnerSheet({
                 <TrackList
                   height={height - MIN_SHEET_HEIGHT}
                   scrollY={scrollY}
-                  emphasis={emphasis}
-                  onEmphasisChange={setEmphasisSmart}
                   rowIdLookup={filteredRowLookup}
                 />
 
