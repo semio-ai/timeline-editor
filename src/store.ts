@@ -33,6 +33,7 @@ import {
   AnimationApi,
   TransitionPatch,
   EditorViewState,
+  EntityAnimationState,
 } from "./store-types";
 import {
   createKeypoint,
@@ -749,6 +750,54 @@ export const AnimationSlice = (
     },
     focusSelectionInstance: (instanceId: string) => {
       set(() => ({ selectionState: createEmptySelectionState(instanceId) }));
+    },
+    setActiveEntity: (entityId: string | null) => {
+      set((state: AnimationData) => {
+        if (entityId === null) {
+          return {
+            activeEntityId: null,
+            selectionState: createEmptySelectionState(null),
+          };
+        }
+        const entityState = state.entityStates[entityId];
+        const instanceId =
+          entityState?.controlMode === "animation" ? (entityState.activeInstanceId ?? null) : null;
+        return {
+          activeEntityId: entityId,
+          selectionState: createEmptySelectionState(instanceId),
+        };
+      });
+    },
+    setEntityControlMode: (
+      entityId: string,
+      mode: "direct" | "animation",
+      instanceId?: string,
+    ) => {
+      set((state: AnimationData) => {
+        const newEntityStates = {
+          ...state.entityStates,
+          [entityId]: {
+            controlMode: mode,
+            activeInstanceId: mode === "animation" ? (instanceId ?? null) : null,
+          },
+        };
+
+        // If this is the active entity, also update selection instance
+        if (state.activeEntityId === entityId) {
+          const newInstanceId = mode === "animation" ? (instanceId ?? null) : null;
+          return {
+            entityStates: newEntityStates,
+            selectionState: createEmptySelectionState(newInstanceId),
+          };
+        }
+
+        return { entityStates: newEntityStates };
+      });
+    },
+    setEntityStates: (states: Record<string, EntityAnimationState>) => {
+      set((state: AnimationData) => ({
+        entityStates: { ...state.entityStates, ...states },
+      }));
     },
     setEmphasis: (rowId: string | null) => {
       set(() => ({ emphasisRowId: rowId }));

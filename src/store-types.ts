@@ -49,6 +49,17 @@ export interface NewKeyPreferences {
   transitions: NewKeyTransitionPreferences;
 }
 
+/**
+ * Per-entity animation state: control mode and which instance is active.
+ * Populated from `projectDoc.configuration.entities` via a one-directional subscription.
+ */
+export interface EntityAnimationState {
+  /** Whether this entity is in "direct" or "animation" control mode. */
+  controlMode: "direct" | "animation";
+  /** The animation instance ID currently active for this entity. Null in direct mode. */
+  activeInstanceId: string | null;
+}
+
 export interface AnimationPreferencesPatch {
   hoverDashedLine?: boolean;
   dataPreviews?: boolean;
@@ -170,6 +181,19 @@ export interface AnimationData {
    * without diffing the entire track map.
    */
   tracksRevision?: number;
+
+  /**
+   * Currently active entity ID in the editor. Null when none selected.
+   * Replaces `activeEntity` in the studio store for animation-scoped concerns.
+   */
+  activeEntityId: string | null;
+
+  /**
+   * Per-entity control mode and active instance configuration.
+   * Populated from projectDoc.configuration.entities via a one-directional subscription.
+   * Only contains entries for entities that participate in animation.
+   */
+  entityStates: Record<string, EntityAnimationState>;
 }
 
 /**
@@ -210,6 +234,26 @@ export interface AnimationActions {
    * reference) and seeding the selection state with the provided instance id.
    */
   focusSelectionInstance: (instanceId: string) => void;
+  /**
+   * Set the active entity. Derives the active instance from entityStates and updates
+   * selectionState.instanceId accordingly. All updates are atomic (single set() call).
+   */
+  setActiveEntity: (entityId: string | null) => void;
+  /**
+   * Set control mode for an entity. When switching to "animation", resolves the active instance.
+   * If this is the currently active entity, also updates selectionState.instanceId.
+   * Persisting to projectDoc is the caller's responsibility.
+   */
+  setEntityControlMode: (
+    entityId: string,
+    mode: "direct" | "animation",
+    instanceId?: string,
+  ) => void;
+  /**
+   * Bulk-initialize or update entityStates from external data (e.g. projectDoc subscription).
+   * Merges incoming entries; does not remove existing entries not in the patch.
+   */
+  setEntityStates: (states: Record<string, EntityAnimationState>) => void;
   /**
    * Set the currently emphasized (hovered) source row. Pass null to clear.
    */

@@ -53,5 +53,7 @@ export const createDefaultState = (): AnimationData => {
     },
     sourceRowIdsByView: {},
     tracksRevision: 0,
+    activeEntityId: null,
+    entityStates: {},
   };
 };
