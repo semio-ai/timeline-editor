@@ -60,6 +60,24 @@ export interface EntityAnimationState {
   activeInstanceId: string | null;
 }
 
+/**
+ * Derived context for the active entity's animation state.
+ * Computed from animation store data only (activeEntityId, entityStates, namespaces).
+ * Studio-specific concerns (asset labels, scene animatables) are resolved by the consumer.
+ */
+export interface ActiveEntityContext {
+  /** Active entity ID. */
+  entityId: string;
+  /** Resolved namespace ID for value lookups (format: "entityId@instanceId"). */
+  namespaceId: string;
+  /** Control mode for the active entity. */
+  controlMode: "direct" | "animation";
+  /** Active animation instance ID, if in animation mode. */
+  activeInstanceId: string | null;
+  /** Available animation instance IDs for this entity (from the namespace). */
+  instanceIds: string[];
+}
+
 export interface AnimationPreferencesPatch {
   hoverDashedLine?: boolean;
   dataPreviews?: boolean;
@@ -194,6 +212,13 @@ export interface AnimationData {
    * Only contains entries for entities that participate in animation.
    */
   entityStates: Record<string, EntityAnimationState>;
+
+  /**
+   * Derived context for the active entity's animation state.
+   * Null when no entity is active. Computed by a store subscription from
+   * activeEntityId, entityStates, and namespaces.
+   */
+  activeEntityContext: ActiveEntityContext | null;
 }
 
 /**

@@ -85,6 +85,7 @@ import {
   updateSourceRowIds,
   updateTrackMuting,
   initDerivedOrchestrator,
+  updateActiveEntityContext,
 } from "./subscriptions";
 import { View } from "./types/util/view";
 import { createEmptySelectionState } from "./functions/selection-state-manager";
@@ -697,6 +698,7 @@ export const AnimationSlice = (
         updateSourceRowIds,
         updateConsolidatedSourceRow,
         updateViewFilteredGlobalRows,
+        updateActiveEntityContext,
       ].map((fn) => fn(api, set, get));
 
       const cleanup = () => {
@@ -752,6 +754,8 @@ export const AnimationSlice = (
       set(() => ({ selectionState: createEmptySelectionState(instanceId) }));
     },
     setActiveEntity: (entityId: string | null) => {
+      const current = get();
+      if (current.activeEntityId === entityId) return;
       set((state: AnimationData) => {
         if (entityId === null) {
           return {
@@ -773,6 +777,14 @@ export const AnimationSlice = (
       mode: "direct" | "animation",
       instanceId?: string,
     ) => {
+      const currentEntityState = get().entityStates[entityId];
+      const resolvedInstanceId = mode === "animation" ? (instanceId ?? null) : null;
+      if (
+        currentEntityState?.controlMode === mode &&
+        currentEntityState?.activeInstanceId === resolvedInstanceId
+      ) {
+        return;
+      }
       set((state: AnimationData) => {
         const newEntityStates = {
           ...state.entityStates,

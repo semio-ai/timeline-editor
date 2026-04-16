@@ -55,5 +55,6 @@ export const createDefaultState = (): AnimationData => {
     tracksRevision: 0,
     activeEntityId: null,
     entityStates: {},
+    activeEntityContext: null,
   };
 };
