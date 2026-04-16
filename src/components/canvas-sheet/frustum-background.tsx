@@ -15,6 +15,7 @@ interface FrustumBackgroundProps {
   y?: MotionValue<number>;
   z?: number;
   onHoverChange?: (hovered: boolean) => void;
+  onTargetToggle?: () => void;
   pointerEvents?: Record<string, any>;
   emphasis?: boolean;
   theme?: ThemeMode;
@@ -27,6 +28,7 @@ export const FrustumBackground = memo(function FrustumBackground({
   y = new MotionValue(0),
   z = -1,
   onHoverChange,
+  onTargetToggle,
   pointerEvents = {},
   emphasis = false,
   theme = Theme.Light,
@@ -108,6 +110,11 @@ export const FrustumBackground = memo(function FrustumBackground({
         pointerEvents.onPointerOut?.();
       }}
       onClick={(e) => {
+        // Ctrl/Cmd+click: toggle track targeting
+        if ((e.ctrlKey || e.metaKey) && onTargetToggle) {
+          onTargetToggle();
+          return;
+        }
         // Don't clear selection if we just finished dragging
         if (!justFinishedDraggingRef.current) {
           clearSelection();

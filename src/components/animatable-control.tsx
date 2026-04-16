@@ -295,23 +295,40 @@ function AnimatableGroupControl({
   depth = 0,
 }: AnimatableGroupControlProps) {
   const running = usePlayerStore(useShallow((state) => state.player.running));
-  const sourceRow = useAnimationStore(
-    useShallow((state) => (sourceRowId ? state.instancedTrackSources[sourceRowId] : undefined)),
+
+  // --- Consolidated store data ---
+  const {
+    sourceRow,
+    emphasisRowId,
+    targetAnchor,
+    namespaces,
+    animations,
+    tracks,
+    animatables,
+    selectionInstanceId,
+  } = useAnimationStore(
+    useShallow((state) => ({
+      sourceRow: sourceRowId ? state.instancedTrackSources[sourceRowId] : undefined,
+      emphasisRowId: state.emphasisRowId,
+      targetAnchor: state.selectionState.targetAnchor,
+      namespaces: state.namespaces,
+      animations: state.animations,
+      tracks: state.tracks,
+      animatables: state.animatables,
+      selectionInstanceId: state.selectionState.instanceId,
+    })),
   );
-  const emphasisRowId = useAnimationStore((state) => state.emphasisRowId);
   const emphasis = sourceRowId ? emphasisRowId === sourceRowId : false;
-  const setEmphasis = useAnimationStore(useShallow((state) => state.setEmphasis));
-  const { namespaces, animations, tracks, animatables, selectionInstanceId, createTrack } =
-    useAnimationStore(
-      useShallow((state) => ({
-        namespaces: state.namespaces,
-        animations: state.animations,
-        tracks: state.tracks,
-        animatables: state.animatables,
-        selectionInstanceId: state.selectionState.instanceId,
-        createTrack: state.createTrack,
-      })),
-    );
+
+  // --- Consolidated store actions ---
+  const { setEmphasis, toggleTrackTarget, rangeTarget, createTrack } = useAnimationStore(
+    useShallow((state) => ({
+      setEmphasis: state.setEmphasis,
+      toggleTrackTarget: state.toggleTrackTarget,
+      rangeTarget: state.rangeTarget,
+      createTrack: state.createTrack,
+    })),
+  );
 
   const fallbackSourceRow = useMemo<SourceRow>(
     () => sourceRow ?? { id: `group-fallback-${groupId}`, data: [] },
@@ -398,13 +415,39 @@ function AnimatableGroupControl({
     centerIcon = derivedAddable ? "plus" : "key";
   }
 
-  const groupBackground = emphasis ? `${resolvedColor}26` : `${resolvedColor}00`;
+  // Per-row targeting — single selector deriving group tri-state
+  const rowTargeted: boolean | "partial" = useAnimationStore((state) => {
+    if (!sourceRow) return false;
+    const targeted = state.selectionState.targetedTracks;
+    if (targeted.size === 0) return false;
+    const leafIds = sourceRow.data.map((d) =>
+      `${d.namespaceId}/${d.instanceId}/${d.trackId}`,
+    );
+    if (leafIds.length === 0) return false;
+    const allTargeted = leafIds.every((id) => targeted.has(id));
+    const noneTargeted = leafIds.every((id) => !targeted.has(id));
+    return allTargeted ? true : noneTargeted ? false : "partial";
+  });
+
+  const groupBackground = useMemo(() => {
+    if (rowTargeted) return `${resolvedColor}40`;
+    if (emphasis) return `${resolvedColor}26`;
+    return `${resolvedColor}00`;
+  }, [rowTargeted, emphasis, resolvedColor]);
 
   return (
     <div
       className="relative w-full"
       onMouseEnter={() => sourceRowId && setEmphasis(sourceRowId)}
       onMouseLeave={() => setEmphasis(null)}
+      onPointerDown={(e) => {
+        if (!sourceRowId) return;
+        if (e.ctrlKey || e.metaKey) {
+          toggleTrackTarget(sourceRowId);
+        } else if (e.shiftKey && targetAnchor) {
+          rangeTarget(targetAnchor, sourceRowId);
+        }
+      }}
     >
       <div
         className="pointer-events-none absolute inset-0 -right-2 transition-colors duration-150 ease-out"
@@ -413,6 +456,14 @@ function AnimatableGroupControl({
       <ControlRow
         isGroup
         className="pr-0.5"
+        target={
+          rowTargeted ? (
+            <div
+              className="h-full w-full transition-colors duration-150 ease-out"
+              style={{ backgroundColor: color }}
+            />
+          ) : undefined
+        }
         treeIcon={
           <TreeIconColumn
             depth={depth}

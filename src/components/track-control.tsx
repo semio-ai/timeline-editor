@@ -49,6 +49,7 @@ export interface TrackControlProps {
 function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
+  const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
 
   // Read visible/locked from source row data (derived from globalSourceTree).
   // For groups, data entries are copies of children — compute aggregate state.
@@ -61,25 +62,76 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   const rowLocked: boolean | "partial" = allLocked ? true : noneLocked ? false : "partial";
 
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
-  const storeControlStripMode = useAnimationStore(
-    useShallow((state: AnimationData) => state.preferences.controlStripMode),
+  const playerStamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
+
+  // --- Consolidated store data ---
+  const {
+    storeControlStripMode,
+    animatables,
+    selectionInstanceId,
+    selectedKeypoints,
+    emphasisRowId,
+    targetAnchor,
+  } = useAnimationStore(
+    useShallow((state: AnimationData) => ({
+      storeControlStripMode: state.preferences.controlStripMode,
+      animatables: state.animatables,
+      selectionInstanceId: state.selectionState.instanceId,
+      selectedKeypoints: state.selectionState.keypoints,
+      emphasisRowId: state.emphasisRowId,
+      targetAnchor: state.selectionState.targetAnchor,
+    })),
   );
   const controlStripMode = controlStripOverride ?? storeControlStripMode;
+  const emphasis = emphasisRowId === sourceRow.id;
 
-  const updateControlColor = useAnimationStore(
-    useShallow((state: AnimationActions) => state.updateControlColor),
-  );
-  const setTracksMuted = useAnimationStore(
-    useShallow((state: AnimationActions) => state.setTracksMuted),
-  );
-  const setTracksVisible = useAnimationStore(
-    useShallow((state: AnimationActions) => state.setTracksVisible),
-  );
-  const setTracksLocked = useAnimationStore(
-    useShallow((state: AnimationActions) => state.setTracksLocked),
+  // --- Consolidated store actions ---
+  const {
+    updateControlColor,
+    setTracksMuted,
+    setTracksVisible,
+    setTracksLocked,
+    focusSelectionInstance,
+    setEmphasis,
+    toggleTrackTarget,
+    rangeTarget,
+    updateKeypoints,
+    removeKeypoints,
+    updateSource,
+    updateTrackGroupName,
+    insertKeypointAtWorldStamp,
+  } = useAnimationStore(
+    useShallow((state: AnimationActions) => ({
+      updateControlColor: state.updateControlColor,
+      setTracksMuted: state.setTracksMuted,
+      setTracksVisible: state.setTracksVisible,
+      setTracksLocked: state.setTracksLocked,
+      focusSelectionInstance: state.focusSelectionInstance,
+      setEmphasis: state.setEmphasis,
+      toggleTrackTarget: state.toggleTrackTarget,
+      rangeTarget: state.rangeTarget,
+      updateKeypoints: state.updateKeypoints,
+      removeKeypoints: state.removeKeypoints,
+      updateSource: state.updateSource,
+      updateTrackGroupName: state.updateTrackGroupName,
+      insertKeypointAtWorldStamp: state.insertKeypointAtWorldStamp,
+    })),
   );
 
-  const animatables = useAnimationStore(useShallow((state) => state.animatables));
+  // --- Per-row targeting (single selector, returns derived state) ---
+  const rowTargeted: boolean | "partial" = useAnimationStore((state: AnimationData) => {
+    const targeted = state.selectionState.targetedTracks;
+    if (!isGroup) return targeted.has(sourceRow.id);
+    if (targeted.size === 0) return false;
+    const leafIds = sourceRow.data.map((d) =>
+      buildTrackKey(d.namespaceId, d.instanceId, d.trackId),
+    );
+    if (leafIds.length === 0) return false;
+    const allTargeted = leafIds.every((id) => targeted.has(id));
+    const noneTargeted = leafIds.every((id) => !targeted.has(id));
+    return allTargeted ? true : noneTargeted ? false : "partial";
+  });
+
   const valuesRef = useValuesRef();
   const trackMuted = useMemo(() => {
     if (trackIds.length !== 1) return false;
@@ -103,23 +155,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow.data]);
 
-  const playerStamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
   const { keyState, currentFrame, missingEntries, targetPoints } = useKeyControlState(sourceRow);
-
-  const selectionInstanceId = useAnimationStore(
-    useShallow((state: AnimationData) => state.selectionState.instanceId),
-  );
-  const selectedKeypoints = useAnimationStore(
-    useShallow((state: AnimationData) => state.selectionState.keypoints),
-  );
-  const focusSelectionInstance = useAnimationStore(
-    useShallow((state: AnimationActions) => state.focusSelectionInstance),
-  );
-  const emphasisRowId = useAnimationStore(
-    useShallow((state: AnimationData) => state.emphasisRowId),
-  );
-  const emphasis = emphasisRowId === sourceRow.id;
-  const setEmphasis = useAnimationStore(useShallow((state: AnimationActions) => state.setEmphasis));
 
   // Row is active if it has no unique instance mapping OR it matches the selected instance
   const isActive = useMemo(
@@ -139,32 +175,12 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     }
   }, [focusSelectionInstance, uniqueInstanceId]);
 
-  // instancedFrame is derived from snapshot and currentLocalStamp; no subscription needed
-
-  const {
-    updateKeypoints,
-    removeKeypoints,
-    updateSource,
-    updateTrackGroupName,
-    insertKeypointAtWorldStamp,
-  } = useAnimationStore(
-    useShallow((state: AnimationActions & AnimationData) => ({
-      updateKeypoints: state.updateKeypoints,
-      removeKeypoints: state.removeKeypoints,
-      updateSource: state.updateSource,
-      updateTrackGroupName: state.updateTrackGroupName,
-      insertKeypointAtWorldStamp: state.insertKeypointAtWorldStamp,
-    })),
-  );
-
   const updateExpanded = useCallback(
     (expanded: boolean) => {
       updateSource(sourceRow.id, expanded);
     },
     [updateSource, sourceRow.id],
   );
-
-  const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
 
   const trueColor = useColors(trackIds);
   const color = isActive && !rowMuted ? trueColor : DEFAULT_COLOR;
@@ -174,25 +190,33 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
 
   const iconCode = isGroup ? "group" : (sourceRow.data[0].iconCode ?? "none");
 
-  // Full-row background: keys-selected (20%) > hover (15%) > none
+  // Full-row background: targeted (25%) > keys-selected (20%) > hover (15%) > none
   // Inactive rows use DEFAULT_COLOR; active rows use their track color.
   const rowBackground = useMemo(() => {
     const bgColor = isActive ? trueColor : DEFAULT_COLOR;
+    if (rowTargeted) return `${bgColor}40`;
     if (hasSelectedKeys) return `${bgColor}33`;
     if (emphasis) return `${bgColor}26`;
     return `${bgColor}00`;
-  }, [isActive, hasSelectedKeys, emphasis, trueColor]);
+  }, [isActive, hasSelectedKeys, emphasis, trueColor, rowTargeted]);
 
   return (
     <div
       className="relative w-full"
       onMouseEnter={() => setEmphasis(sourceRow.id)}
       onMouseLeave={() => setEmphasis(null)}
-      onPointerDown={() => {
+      onPointerDown={(e) => {
         // Any interaction with an inactive row switches the active instance
         // as a side effect — without blocking the interaction itself.
         if (!isActive && uniqueInstanceId) {
           handleActivate();
+        }
+        // Track targeting: Ctrl/Cmd+click toggles, Shift+click range-targets.
+        // Only target rows in the active instance — skip if this click also activates.
+        if (isActive && (e.ctrlKey || e.metaKey)) {
+          toggleTrackTarget(sourceRow.id);
+        } else if (isActive && e.shiftKey && targetAnchor) {
+          rangeTarget(targetAnchor, sourceRow.id);
         }
       }}
     >
@@ -204,6 +228,14 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       <ControlRow
         className={clsx(rowMuted && isActive && "opacity-60", "pr-0.5")}
         isGroup={isGroup}
+        target={
+          rowTargeted ? (
+            <div
+              className="h-full w-full transition-colors duration-150 ease-out"
+              style={{ backgroundColor: trueColor }}
+            />
+          ) : undefined
+        }
         treeIcon={
           <TreeIconColumn
             depth={depthOverride ?? sourceRow.depth ?? 0}

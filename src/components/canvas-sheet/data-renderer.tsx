@@ -177,6 +177,9 @@ export const DataRenderer = memo(function DataRenderer({
   const setEmphasis = useAnimationStore(
     useShallow((state: StoreState) => state.setEmphasis),
   );
+  const toggleTrackTarget = useAnimationStore(
+    useShallow((state: StoreState) => state.toggleTrackTarget),
+  );
 
   const trackIds = useMemo(
     () => (sourceRow ? uniq(sourceRow.data.map((s) => s.trackId)) : []),
@@ -471,6 +474,7 @@ export const DataRenderer = memo(function DataRenderer({
           height={height - 1}
           z={Z.Background}
           onHoverChange={(hovered) => setEmphasis(hovered ? sourceRowId : null)}
+          onTargetToggle={() => toggleTrackTarget(sourceRowId)}
           emphasis={emphasis}
           theme={theme}
         />
