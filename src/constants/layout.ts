@@ -14,6 +14,16 @@
  * - Bottom rows:  col 1-A span (content) | B | C | D
  */
 
+/**
+ * Content width of the sidebar and the animation editor's left (track list) section.
+ * Shared so both stay in sync. Used by the studio layout pane specs and the
+ * animation sheet grid template.
+ *
+ * The animation sheet grid column is SIDEBAR_WIDTH + 2 to account for the 2px
+ * right padding (pr-0.5) between the track list and the canvas.
+ */
+export const SIDEBAR_WIDTH = 400;
+
 /** Size of each control slot in pixels. */
 export const SLOT_SIZE = 16;
 
@@ -24,11 +34,17 @@ export const SLOT_GAP = 4;
 export const SLOT_COUNT = 4;
 
 /**
+ * Fixed width of the slider/value editor column for leaf track rows.
+ * Approximately 2/3 of the full-width slider.
+ */
+export const EDITOR_COLUMN_WIDTH = 120;
+
+/**
  * Grid template columns for the left column.
  * Used by the outer grid and matched by inner track row grids.
  */
 export const LEFT_COLUMN_GRID =
-  `auto 1fr auto ${SLOT_SIZE}px ${SLOT_SIZE}px ${SLOT_SIZE}px ${SLOT_SIZE}px`;
+  `auto 1fr ${EDITOR_COLUMN_WIDTH}px ${SLOT_SIZE}px ${SLOT_SIZE}px ${SLOT_SIZE}px ${SLOT_SIZE}px`;
 
 /**
  * Total width of the 4-slot control area (including gaps and padding).

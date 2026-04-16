@@ -105,7 +105,7 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
   }, [tracks, updatePlayerViewport]);
 
   return (
-    <div className="responsive variant-responsive-persistent-outline hidden gap-0.5 rounded-sm p-0.5 lg:flex">
+    <div className="responsive variant-responsive-persistent-outline hidden gap-0.5 rounded-sm p-0.5 @[600px]:flex">
       {/* Time display mode */}
       <Dropdown
         side="top"

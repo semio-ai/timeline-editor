@@ -217,18 +217,27 @@ function AnimatableLeafControl({
           }
         />
       }
+      label={
+        <TextField
+          size={Size.Sm}
+          color={resolvedColor}
+          value={displayLabel}
+          readOnly={editorDisabled || !onRename}
+          outline="hidden"
+          onChange={(val) => {
+            if (!val) return;
+            onRename?.(val);
+          }}
+        />
+      }
       editor={
-        <div className="flex min-w-0 flex-1">
-          <DirectAnimatableEditor
-            animatable={animatable}
-            rawValue={rawValue}
-            color={resolvedColor}
-            disabled={editorDisabled}
-            label={displayLabel}
-            onRename={onRename}
-            onChange={handleValueChange}
-          />
-        </div>
+        <DirectAnimatableEditor
+          animatable={animatable}
+          rawValue={rawValue}
+          color={resolvedColor}
+          disabled={editorDisabled}
+          onChange={handleValueChange}
+        />
       }
       controls={
         <ControlStrip
@@ -485,6 +494,7 @@ function AnimatableGroupControl({
             color={resolvedColor}
             value={displayLabel}
             readOnly={disabled || running || !onRename}
+            outline="hidden"
             onChange={(val) => {
               if (running) return;
               if (!val) return;
@@ -559,8 +569,6 @@ interface DirectAnimatableEditorProps {
   rawValue: RawValue | undefined;
   color: string;
   disabled: boolean;
-  label?: string;
-  onRename?: (name: string) => void;
   onChange: (value: RawValue | ((current: RawValue) => RawValue)) => void;
 }
 
@@ -569,12 +577,9 @@ function DirectAnimatableEditor({
   rawValue,
   color,
   disabled,
-  label,
-  onRename,
   onChange,
 }: DirectAnimatableEditorProps) {
   const value = rawValue ?? animatable.default;
-  const displayLabel = label ?? animatable.name ?? "";
   const iconCode = getIconCode(animatable.type, animatable.pub?.units);
   const angular = iconCode === "rad";
   const transformForDisplay = angular ? toDegrees : (v: number) => v;
@@ -602,11 +607,7 @@ function DirectAnimatableEditor({
         relativeDragRange={relativeDragRange}
         color={color}
         onChange={(v) => onChange(transformFromDisplay(v))}
-        label={displayLabel}
-        onLabelChange={onRename}
         units={angular ? "\u00b0" : animatable.pub?.units}
-        wrapperClassName="flex-1"
-        className="flex-1"
       />
     );
   }
@@ -628,7 +629,7 @@ function DirectAnimatableEditor({
     );
   }
 
-  return <div className="h-7 flex-1 animate-pulse rounded bg-neutral-700/30" />;
+  return <div className="h-7 animate-pulse rounded bg-neutral-700/30" />;
 }
 
 export const AnimatableControl = memo((props: AnimatableControlProps) => {

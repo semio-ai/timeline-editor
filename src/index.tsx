@@ -27,6 +27,8 @@ export * from "./actions";
 export * from "./utils/context-providers";
 export * from "./utils/track-key";
 
+export { SIDEBAR_WIDTH } from "./constants/layout";
+
 export * from "./functions";
 export * from "./test-fixtures";
 

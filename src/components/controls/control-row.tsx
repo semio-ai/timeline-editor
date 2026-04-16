@@ -1,21 +1,21 @@
 import type { ReactNode } from "react";
 import { clsx } from "clsx";
-import { SLOT_SIZE, SLOT_GAP } from "../../constants/layout";
+import { SLOT_GAP, LEFT_COLUMN_GRID } from "../../constants/layout";
 
 export interface ControlRowProps {
   /** Left-edge target indicator (3px colored bar). */
   target?: ReactNode;
   /** Combined tree guide lines + icon (variable width based on depth). */
   treeIcon?: ReactNode;
-  /** Track label — TextField for name editing. Used for groups. */
+  /** Track label — TextField for name editing. Used for groups and leaf tracks. */
   label?: ReactNode;
-  /** Slider + value + unit for leaf tracks. Replaces label in the main column. */
+  /** Slider + value + unit for leaf tracks. Placed in the fixed-width column after the label. */
   editor?: ReactNode;
   /** Options dropdown (⋮ button) — occupies slot A (16px). */
   options?: ReactNode;
   /** Control strip — 3 buttons (key/skip or vis/mute/lock) — occupies slots B-D. */
   controls?: ReactNode;
-  /** Whether this row is a group row (uses label, no editor). */
+  /** Whether this row is a group row (label spans both flex and fixed columns). */
   isGroup?: boolean;
   /** Additional CSS class for the outer container. */
   className?: string;
@@ -24,13 +24,16 @@ export interface ControlRowProps {
 }
 
 /**
- * A single row in the track list or animatable control list.
+ * A single row in the track list.
  *
- * Layout:
- *   [target 3px] [treeIcon auto] [main 1fr] | [slotA 16px] [slotB 16px] [slotC 16px] [slotD 16px]
+ * Uses the shared 7-column grid from LEFT_COLUMN_GRID:
+ *   [target 3px] [treeIcon auto] [label 1fr] [editor auto] [slotA] [slotB] [slotC] [slotD]
  *
- * The right 4 slots use the shared SLOT_SIZE and SLOT_GAP constants
- * for alignment with the filter row and bottom section rows.
+ * The target indicator is outside the grid (absolute-positioned).
+ * The treeIcon maps to column 1 (auto).
+ * For leaf rows: label in column 2 (1fr), editor in column 3 (auto).
+ * For group rows: label spans columns 2-3.
+ * Slots A-D are the rightmost 4 columns (16px each with 4px gap).
  */
 export function ControlRow({
   target,
@@ -45,37 +48,31 @@ export function ControlRow({
 }: ControlRowProps) {
   return (
     <div className={clsx("relative w-full", backgroundClassName, className)}>
-      <div className="flex h-9 w-full items-center">
-        {/* Target indicator */}
-        <div className="h-full w-0.75 shrink-0">{target}</div>
+      <div
+        className="h-9 w-full items-center"
+        style={{
+          display: "grid",
+          gridTemplateColumns: `3px ${LEFT_COLUMN_GRID}`,
+          gap: `${String(SLOT_GAP)}px`,
+          alignItems: "center",
+        }}
+      >
+        {/* Target indicator — col 0 (3px) */}
+        <div className="h-full">{target}</div>
 
-        {/* Tree guide lines + icon (variable width) */}
-        {treeIcon}
+        {/* Tree guide lines + icon — col 1 (auto) */}
+        {treeIcon ?? <div />}
 
-        {/* Main content — label for groups, editor for leaf tracks */}
-        <div className="min-w-0 flex-1">
-          {isGroup
-            ? (label ?? <div className="flex-1" />)
-            : (editor ?? label ?? <div className="flex-1" />)}
-        </div>
+        {/* Label — col 2 (1fr); for groups spans col 2-3 */}
+        <div className={clsx("min-w-0 truncate", isGroup && "col-span-2")}>{label ?? <div />}</div>
 
-        {/* Right-side slots: [⋮] [btn] [btn] [btn] — 4 × SLOT_SIZE with SLOT_GAP */}
-        <div
-          className="shrink-0"
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(4, ${String(SLOT_SIZE)}px)`,
-            gap: `${String(SLOT_GAP)}px`,
-            justifyItems: "center",
-            alignItems: "center",
-            height: "100%",
-          }}
-        >
-          {/* Slot A: options (⋮ dropdown) */}
-          <div className="flex items-center justify-center">{options}</div>
-          {/* Slots B-D: control strip (3 buttons rendered as fragment) */}
-          {controls}
-        </div>
+        {/* Editor (slider/value) — col 3 (auto); hidden for groups (spanned by label) */}
+        {!isGroup && <div className="min-w-0">{editor ?? <div />}</div>}
+
+        {/* Slot A: options (⋮ dropdown) */}
+        <div className="flex items-center justify-center">{options}</div>
+        {/* Slots B-D: control strip (3 buttons rendered as fragment) */}
+        {controls}
       </div>
     </div>
   );

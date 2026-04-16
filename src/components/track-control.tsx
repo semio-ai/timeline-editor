@@ -97,6 +97,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     updateKeypoints,
     removeKeypoints,
     updateSource,
+    updateTrack,
     updateTrackGroupName,
     insertKeypointAtWorldStamp,
   } = useAnimationStore(
@@ -113,6 +114,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       updateKeypoints: state.updateKeypoints,
       removeKeypoints: state.removeKeypoints,
       updateSource: state.updateSource,
+      updateTrack: state.updateTrack,
       updateTrackGroupName: state.updateTrackGroupName,
       insertKeypointAtWorldStamp: state.insertKeypointAtWorldStamp,
     })),
@@ -263,91 +265,93 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
           />
         }
         label={
-          isGroup ? (
-            <TextField
-              size={Size.Sm}
-              color={color}
-              value={name}
-              readOnly={playing}
-              onChange={(val) => {
-                if (playing) return;
-                if (!val) return;
+          <TextField
+            size={Size.Sm}
+            color={color}
+            value={name}
+            readOnly={playing}
+            outline="hidden"
+            onChange={(val) => {
+              if (playing) return;
+              if (!val) return;
+              if (isGroup) {
                 updateSource(sourceRow.id, sourceRow.expanded, undefined);
                 updateTrackGroupName(trackIds, val);
-              }}
-            />
-          ) : undefined
+              } else {
+                updateTrack({ id: sourceRow.data[0]?.trackId, name: val });
+              }
+            }}
+          />
         }
         editor={
           !isGroup ? (
-            <div className="flex min-w-0 flex-1">
-              <AnimatableEditor
-                rowId={sourceRow.id}
-                data={sourceRow.data[0]}
-                active={isActive}
-                colorOverride={color}
-                playing={playing}
-                emphasis={emphasis}
-                handleValueChange={(change) => {
-                  const datumAnimatablePairs = sourceRow.data.map((datum) => ({
-                    datum,
-                    animatableId: datum.animatableId,
-                  }));
-                  const updates = datumAnimatablePairs
-                    .map(({ datum, animatableId }) => {
-                      const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
-                      const localStamp =
-                        typeof toLocal === "function" ? toLocal(playerStamp) : playerStamp;
-                      const valueKey = buildTrackKey(
-                        datum.namespaceId,
-                        datum.instanceId,
-                        datum.trackId,
-                      );
-                      const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
-                      const defaultValue = animatables[animatableId]?.default as
-                        | SimpleRawValue
-                        | undefined;
-                      if (typeof change === "function") {
-                        const resolvedValue = value ?? defaultValue;
-                        if (resolvedValue === undefined) {
-                          return null;
-                        }
-                        const newValue = change(resolvedValue) as SimpleRawValue;
-                        if (newValue === undefined) {
-                          return null;
-                        }
-                        return {
-                          trackId: datum.trackId,
-                          keypoint: {
-                            value: newValue,
-                            stamp: localStamp,
-                          },
-                        };
-                      } else {
-                        return {
-                          trackId: datum.trackId,
-                          keypoint: {
-                            value: change as SimpleRawValue,
-                            stamp: localStamp,
-                          },
-                        };
-                      }
-                    })
-                    .filter(
-                      (
-                        u,
-                      ): u is {
-                        trackId: string;
-                        keypoint: { value: SimpleRawValue; stamp: number };
-                      } => {
-                        if (!u) return false;
-                        return u.keypoint.value !== undefined;
-                      },
+            <AnimatableEditor
+              hideLabel
+              rowId={sourceRow.id}
+              data={sourceRow.data[0]}
+              active={isActive}
+              colorOverride={color}
+              playing={playing}
+              emphasis={emphasis}
+              handleValueChange={(change) => {
+                const datumAnimatablePairs = sourceRow.data.map((datum) => ({
+                  datum,
+                  animatableId: datum.animatableId,
+                }));
+                const updates = datumAnimatablePairs
+                  .map(({ datum, animatableId }) => {
+                    const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
+                    const localStamp =
+                      typeof toLocal === "function" ? toLocal(playerStamp) : playerStamp;
+                    const valueKey = buildTrackKey(
+                      datum.namespaceId,
+                      datum.instanceId,
+                      datum.trackId,
                     );
-                  updateKeypoints(updates, true);
-                }}
-              />
-            </div>
+                    const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
+                    const defaultValue = animatables[animatableId]?.default as
+                      | SimpleRawValue
+                      | undefined;
+                    if (typeof change === "function") {
+                      const resolvedValue = value ?? defaultValue;
+                      if (resolvedValue === undefined) {
+                        return null;
+                      }
+                      const newValue = change(resolvedValue) as SimpleRawValue;
+                      if (newValue === undefined) {
+                        return null;
+                      }
+                      return {
+                        trackId: datum.trackId,
+                        keypoint: {
+                          value: newValue,
+                          stamp: localStamp,
+                        },
+                      };
+                    } else {
+                      return {
+                        trackId: datum.trackId,
+                        keypoint: {
+                          value: change as SimpleRawValue,
+                          stamp: localStamp,
+                        },
+                      };
+                    }
+                  })
+                  .filter(
+                    (
+                      u,
+                    ): u is {
+                      trackId: string;
+                      keypoint: { value: SimpleRawValue; stamp: number };
+                    } => {
+                      if (!u) return false;
+                      return u.keypoint.value !== undefined;
+                    },
+                  );
+                updateKeypoints(updates, true);
+              }}
+            />
           ) : undefined
         }
         controls={

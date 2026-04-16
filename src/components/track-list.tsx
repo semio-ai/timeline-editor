@@ -7,6 +7,7 @@ import { AnimatePresence, MotionValue, motion } from "motion/react";
 import { useAnimationStore } from "../hooks";
 import { AnimationData } from "../store-types";
 import type { SourceRow, VisibleSourceRowIds } from "../types";
+import { SIDEBAR_WIDTH } from "../constants";
 import { normalizeVisibleSourceRowIds } from "../functions/filter-visible-source-row-ids";
 import { computeAncestorIsLast } from "../functions/compute-ancestor-is-last";
 import { TrackControl } from "./track-control";
@@ -17,11 +18,7 @@ export interface TrackListProps {
   rowIdLookup?: VisibleSourceRowIds;
 }
 
-export function TrackList({
-  height = 240,
-  scrollY,
-  rowIdLookup,
-}: TrackListProps): ReactNode {
+export function TrackList({ height = 240, scrollY, rowIdLookup }: TrackListProps): ReactNode {
   const sourceRowIdLookup = useAnimationStore(
     useShallow(
       (state: AnimationData) => rowIdLookup ?? normalizeVisibleSourceRowIds(state.sourceRowIds),
@@ -50,8 +47,9 @@ export function TrackList({
 
   return (
     <div
+      style={{ width: SIDEBAR_WIDTH }}
       className={clsx(
-        "relative h-full w-78.75 bg-neutral-100 dark:bg-black",
+        "relative h-full bg-neutral-100 dark:bg-black",
         "flex flex-col overflow-hidden",
       )}
     >

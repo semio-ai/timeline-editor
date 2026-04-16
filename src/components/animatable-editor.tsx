@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { clsx } from "clsx";
 import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
 import { RawValue, toDegrees, toRadians, usePlayerStore, PlayerData, useValuesStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
@@ -17,6 +18,8 @@ export interface AnimatableEditorProps {
   handleValueChange: (value: RawValue | ((current: RawValue) => RawValue)) => void;
   active?: boolean;
   colorOverride?: string;
+  /** When true, the label is rendered externally (e.g. in a separate grid column). */
+  hideLabel?: boolean;
 }
 
 function InnerAnimatableEditor({
@@ -28,6 +31,7 @@ function InnerAnimatableEditor({
   handleValueChange,
   active = true,
   colorOverride,
+  hideLabel = false,
 }: AnimatableEditorProps) {
   const trueColor = useColors(data.trackId ?? data.animatableId);
   const color = colorOverride ?? (active ? trueColor : DEFAULT_COLOR);
@@ -120,7 +124,7 @@ function InnerAnimatableEditor({
   }, [track?.name, animatableValue?.name]);
 
   if (!hasAnimatable || rawValue === undefined) {
-    return <div className="h-7 flex-1 animate-pulse rounded bg-neutral-700/30" />;
+    return <div className={clsx("h-7 animate-pulse rounded bg-neutral-700/30", !hideLabel && "flex-1")} />;
   }
 
   if (data.type === "number" && typeof rawValue === "number") {
@@ -182,13 +186,13 @@ function InnerAnimatableEditor({
           if (dragActiveRef.current) return;
           onChange(renderInverse(v));
         }}
-        label={label}
-        onLabelChange={track ? (v) => updateTrack({ id: track.id, name: v }) : undefined}
+        label={hideLabel ? undefined : label}
+        onLabelChange={hideLabel ? undefined : (track ? (v) => updateTrack({ id: track.id, name: v }) : undefined)}
         highlight={emphasis}
         units={angular ? "°" : animatableValue.pub?.units}
         onHighlightChange={onEmphasisChange}
-        wrapperClassName="flex-1"
-        className="flex-1"
+        wrapperClassName={hideLabel ? undefined : "flex-1"}
+        className={hideLabel ? undefined : "flex-1"}
       />
     );
   } else if (data.type === "string" && typeof rawValue === "string") {

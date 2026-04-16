@@ -22,7 +22,7 @@ export function TimeControls(): ReactNode {
 
   return (
     <>
-      <div className="flex items-center">
+      <div className="flex w-full items-center">
         <TimeDisplay
           valueOverride={
             nonHoverPreviews.length === 1 &&

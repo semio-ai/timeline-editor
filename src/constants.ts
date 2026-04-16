@@ -54,7 +54,7 @@ export enum Z {
 export const COMPLEX_TYPES = new Set(["vector2", "vector3", "euler", "rgb", "hsl"]);
 export const GROUP_TYPES = new Set(["vector2", "vector3", "euler", "rgb", "hsl", "group", "entity", "instance"]);
 
-export { SLOT_SIZE, SLOT_GAP, SLOT_COUNT, LEFT_COLUMN_GRID, CONTROL_AREA_4_WIDTH, CONTROL_AREA_3_WIDTH } from "./constants/layout";
+export { SLOT_SIZE, SLOT_GAP, SLOT_COUNT, LEFT_COLUMN_GRID, EDITOR_COLUMN_WIDTH, CONTROL_AREA_4_WIDTH, CONTROL_AREA_3_WIDTH, SIDEBAR_WIDTH } from "./constants/layout";
 
 export const TYPE_FIELDS: Record<string, string[]> = {
   vector2: ["x", "y"],

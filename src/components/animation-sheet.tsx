@@ -15,7 +15,7 @@ import {
   LocalGlobalTransformContextProvider,
 } from "../hooks";
 import { WithTooltipAndAnimationContextProps } from "../utils/context-providers";
-import { MIN_SHEET_HEIGHT, SLOT_SIZE, SLOT_GAP } from "../constants";
+import { MIN_SHEET_HEIGHT, SLOT_SIZE, SLOT_GAP, SIDEBAR_WIDTH } from "../constants";
 import {
   filterVisibleSourceRowIds,
   matchesSourceRowQuery,
@@ -367,9 +367,10 @@ function InnerSheet({
                 style={{
                   height,
                   minHeight: MIN_SHEET_HEIGHT,
+                  gridTemplateColumns: `${SIDEBAR_WIDTH + 2}px 1fr`,
                 }}
                 className={clsx(
-                  "group/sheet grid w-full grid-cols-[317px_1fr] overflow-hidden pr-0.5 pb-0.5",
+                  "group/sheet grid w-full overflow-hidden pr-0.5 pb-0.5",
                   "grid-rows-[36px_36px_minmax(0,1fr)_36px_36px_36px]",
                 )}
               >
@@ -455,6 +456,7 @@ function InnerSheet({
                     gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
                     gap: `${String(SLOT_GAP)}px`,
                     alignItems: "center",
+                    width: SIDEBAR_WIDTH,
                   }}
                 >
                   <TimelineControl viewId={resolvedViewId} />
@@ -470,6 +472,7 @@ function InnerSheet({
                     gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
                     gap: `${String(SLOT_GAP)}px`,
                     alignItems: "center",
+                    width: SIDEBAR_WIDTH,
                   }}
                 >
                   <TimeControls />
@@ -485,6 +488,7 @@ function InnerSheet({
                     gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
                     gap: `${String(SLOT_GAP)}px`,
                     alignItems: "center",
+                    width: SIDEBAR_WIDTH,
                   }}
                 >
                   <PlaybackSettings />
