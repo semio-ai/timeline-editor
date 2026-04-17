@@ -16,11 +16,15 @@ import {
   useDragGestures,
 } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
-import { ROW_DEPTH_EPSILON, LAYER_BAND_OFFSETS, LAYER_BAND_PRIORITY, DEFAULT_COLOR } from "../../constants";
+import {
+  ROW_DEPTH_EPSILON,
+  LAYER_BAND_OFFSETS,
+  LAYER_BAND_PRIORITY,
+  DEFAULT_COLOR,
+} from "../../constants";
 
 const BG_MULTIPLIER = 1.2;
 type PointerGestureEvent = ThreeEvent<MouseEvent>;
-
 
 export interface DataPointProps {
   height?: number;
@@ -135,9 +139,7 @@ export const DataPoint = memo(function DataPoint({
   );
   const backgroundPoints = points.filter((d) => d.layerBand === LayerBand.Background);
 
-  const lockedForegroundPoints = points.filter(
-    (d) => d.layerBand === LayerBand.ForegroundLocked,
-  );
+  const lockedForegroundPoints = points.filter((d) => d.layerBand === LayerBand.ForegroundLocked);
   const combinedForegroundPoints = useMemo(
     () => [...unselectedForegroundPoints, ...selectedForegroundPoints],
     [unselectedForegroundPoints, selectedForegroundPoints],
@@ -282,19 +284,6 @@ export const DataPoint = memo(function DataPoint({
     return [];
   }, [selectedForegroundPoints, unselectedForegroundPoints]);
 
-  const vertLineIds = useMemo(() => {
-    if (RENDERS_WITH_LINES.includes(trackRender)) {
-      return highestPriorityIds;
-    } else if (hasUnselectedForegroundPoints) {
-      const unmuted = unselectedForegroundPoints.filter((p) => !p.muted);
-      return unmuted.length > 0
-        ? unmuted.map((point) => point.trackId)
-        : unselectedForegroundPoints.map((point) => point.trackId);
-    } else {
-      return [];
-    }
-  }, [trackRender, highestPriorityIds, hasUnselectedForegroundPoints, unselectedForegroundPoints]);
-
   // Show line for: background points, locked foreground points, or non-Key render modes
   const hasLockedForegroundPoints = lockedForegroundPoints.length > 0;
   const shouldShowLineForKey =
@@ -333,7 +322,15 @@ export const DataPoint = memo(function DataPoint({
     }
     // Background points → always grey
     return DEFAULT_COLOR;
-  }, [colorOverride, trackRender, allForegroundMuted, baseColorFromTracks, hasLockedForegroundPoints, lockedForegroundPoints, lockedLineColor]);
+  }, [
+    colorOverride,
+    trackRender,
+    allForegroundMuted,
+    baseColorFromTracks,
+    hasLockedForegroundPoints,
+    lockedForegroundPoints,
+    lockedLineColor,
+  ]);
 
   const baseBackdropColor = useMemo(() => {
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);
