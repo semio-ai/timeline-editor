@@ -27,7 +27,6 @@ import {
   RenderSampleId,
   AffineTransform2D,
   AuthoredTransition,
-  LayerBand,
 } from "../types";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
@@ -55,8 +54,6 @@ const IDENTITY_TRANSFORM: AffineTransform2D = {
   offsetX: 0,
   offsetY: 0,
 };
-
-
 
 interface RowComputationContext {
   animations: Record<string, Animation>;
