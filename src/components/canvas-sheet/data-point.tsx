@@ -16,10 +16,11 @@ import {
   useDragGestures,
 } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
-import { ROW_DEPTH_EPSILON, LAYER_BAND_OFFSETS, LAYER_BAND_PRIORITY } from "../../constants";
+import { ROW_DEPTH_EPSILON, LAYER_BAND_OFFSETS, LAYER_BAND_PRIORITY, DEFAULT_COLOR } from "../../constants";
 
 const BG_MULTIPLIER = 1.2;
 type PointerGestureEvent = ThreeEvent<MouseEvent>;
+
 
 export interface DataPointProps {
   height?: number;
@@ -97,6 +98,7 @@ export const DataPoint = memo(function DataPoint({
           editable: marker.editable,
           selectable: marker.selectable,
           layerBand: marker.layerBand ?? LayerBand.Background,
+          muted: marker.muted ?? false,
           type: valueType,
           value: marker.value as RawValue,
         };
@@ -259,10 +261,22 @@ export const DataPoint = memo(function DataPoint({
   const hasUnselectedForegroundPoints = combinedForegroundPoints.length - selectedPoints.length > 0;
   const hasBackgroundPoints = backgroundPoints.length > 0;
 
+  // Color resolution: exclude muted points so their color doesn't bleed into group markers.
+  // Each tier (selected > unselected > locked > background) resolves color independently.
   const highestPriorityIds = useMemo(() => {
+    const unmutedSelected = selectedForegroundPoints.filter((p) => !p.muted);
+    if (unmutedSelected.length > 0) {
+      return unmutedSelected.map((point) => point.trackId);
+    }
+    const unmutedUnselected = unselectedForegroundPoints.filter((p) => !p.muted);
+    if (unmutedUnselected.length > 0) {
+      return unmutedUnselected.map((point) => point.trackId);
+    }
+    // All foreground points are muted — fall back to all IDs (colorOverride will grey them)
     if (selectedForegroundPoints.length > 0) {
       return selectedForegroundPoints.map((point) => point.trackId);
-    } else if (unselectedForegroundPoints.length > 0) {
+    }
+    if (unselectedForegroundPoints.length > 0) {
       return unselectedForegroundPoints.map((point) => point.trackId);
     }
     return [];
@@ -272,7 +286,10 @@ export const DataPoint = memo(function DataPoint({
     if (RENDERS_WITH_LINES.includes(trackRender)) {
       return highestPriorityIds;
     } else if (hasUnselectedForegroundPoints) {
-      return unselectedForegroundPoints.map((point) => point.trackId);
+      const unmuted = unselectedForegroundPoints.filter((p) => !p.muted);
+      return unmuted.length > 0
+        ? unmuted.map((point) => point.trackId)
+        : unselectedForegroundPoints.map((point) => point.trackId);
     } else {
       return [];
     }
@@ -283,16 +300,40 @@ export const DataPoint = memo(function DataPoint({
   const shouldShowLineForKey =
     trackRender === TrackRender.Key && (hasBackgroundPoints || hasLockedForegroundPoints);
 
-  const lockedLineIds = useMemo(
-    () => lockedForegroundPoints.map((point) => point.trackId),
-    [lockedForegroundPoints],
-  );
+  const lockedLineIds = useMemo(() => {
+    const unmuted = lockedForegroundPoints.filter((p) => !p.muted);
+    return unmuted.length > 0
+      ? unmuted.map((point) => point.trackId)
+      : lockedForegroundPoints.map((point) => point.trackId);
+  }, [lockedForegroundPoints]);
+
+  const allForegroundMuted = useMemo(() => {
+    const allFg = [...selectedForegroundPoints, ...unselectedForegroundPoints];
+    return allFg.length > 0 && allFg.every((p) => p.muted);
+  }, [selectedForegroundPoints, unselectedForegroundPoints]);
+
   const baseColorFromTracks = useColors(highestPriorityIds);
-  const lineColorFromTracks = useColors(
-    lockedLineIds.length > 0 ? lockedLineIds : vertLineIds,
-  );
-  const baseColor = colorOverride ?? baseColorFromTracks;
-  const lineColor = colorOverride ?? lineColorFromTracks;
+  const lockedLineColor = useColors(lockedLineIds);
+
+  const baseColor = colorOverride ?? (allForegroundMuted ? DEFAULT_COLOR : baseColorFromTracks);
+
+  // Line color resolution:
+  // - Preview/Transition modes: lines mirror the hexagon, use foreground color
+  // - Key mode with locked foreground points: use locked track color (grey if all muted)
+  // - Key mode with only background points: always grey (inactive instance)
+  const lineColor = useMemo(() => {
+    if (colorOverride) return colorOverride;
+    if (RENDERS_WITH_LINES.includes(trackRender)) {
+      // Preview/Transition: line mirrors hexagon color
+      return allForegroundMuted ? DEFAULT_COLOR : baseColorFromTracks;
+    }
+    if (hasLockedForegroundPoints) {
+      const allLockedMuted = lockedForegroundPoints.every((p) => p.muted);
+      return allLockedMuted ? DEFAULT_COLOR : lockedLineColor;
+    }
+    // Background points → always grey
+    return DEFAULT_COLOR;
+  }, [colorOverride, trackRender, allForegroundMuted, baseColorFromTracks, hasLockedForegroundPoints, lockedForegroundPoints, lockedLineColor]);
 
   const baseBackdropColor = useMemo(() => {
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);

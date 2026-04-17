@@ -516,6 +516,7 @@ function buildRenderMarkers(frames: InstancedFrameInfo[]): RenderMarker[] {
         editable: point.editable,
         selectable: point.selectable,
         layerBand: point.layerBand,
+        muted: point.muted,
         stamp: frame.stamp,
         value: numericValue,
       });

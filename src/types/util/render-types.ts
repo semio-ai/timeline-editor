@@ -111,6 +111,8 @@ export interface RenderMarker {
   selectable?: boolean;
   /** Layer band used for z-ordering. */
   layerBand?: LayerBand;
+  /** Whether this marker's track is muted. */
+  muted?: boolean;
   /** Normalized stamp for the marker. */
   stamp: number;
   /** Numeric value used for rendering (boolean maps to 0/1; string values are skipped). */
