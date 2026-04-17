@@ -29,11 +29,8 @@ export function calculatePaddedFrustum(
   const [dataLeft, dataRight] = dataViewport;
   const dataWidth = dataRight - dataLeft;
 
-  // For fixed cameras, padding is based on full canvas width
-  // For dynamic cameras, padding scales with current viewport to maintain pixel size
-  const paddingInWorldUnits = isFixed
-    ? TIMELINE_PADDING / canvasWidth
-    : (TIMELINE_PADDING * dataWidth) / canvasWidth;
+  // Padding scales with current viewport width to maintain consistent pixel-space padding.
+  const paddingInWorldUnits = (TIMELINE_PADDING * dataWidth) / canvasWidth;
 
   return {
     left: dataLeft - paddingInWorldUnits,

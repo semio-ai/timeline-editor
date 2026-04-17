@@ -14,7 +14,6 @@ import { IconArrowsHorizontal, IconClock, IconSelector } from "@tabler/icons-rea
 import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../../hooks";
 import type { AnimationData, AnimationActions } from "../../store-types";
-import { computeTrackExtent } from "../../functions/compute-animation-extent";
 import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
 
 const ZOOM_PRESETS = [
@@ -49,7 +48,6 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
     })),
   );
   const updatePlayerViewport = usePlayerStore((state) => state.updatePlayerViewport);
-  const tracks = useAnimationStore(useShallow((state: AnimationData) => state.tracks));
   const timeDisplay = useAnimationStore(
     useShallow((state: AnimationData) => state.timeDisplay),
   );
@@ -88,21 +86,11 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
   );
 
   const handleFitToContent = useCallback(() => {
-    const allTracks = Object.values(tracks);
-    if (allTracks.length === 0) return;
-
-    const extent = computeTrackExtent(allTracks);
-    let minStamp = 0;
-    for (const track of allTracks) {
-      for (const point of track.points) {
-        if (point.stamp < minStamp) minStamp = point.stamp;
-      }
-    }
-
-    const contentWidth = Math.max(extent - minStamp, 1000);
-    const padding = contentWidth * 0.1;
-    updatePlayerViewport(minStamp - padding, extent + padding);
-  }, [tracks, updatePlayerViewport]);
+    // Match the fixed camera's viewport: [0, duration].
+    // The camera frustum padding is applied by calculatePaddedFrustum,
+    // keeping the fit consistent with the global HUD views.
+    updatePlayerViewport(0, Math.max(duration, 1000));
+  }, [duration, updatePlayerViewport]);
 
   return (
     <div className="responsive variant-responsive-persistent-outline hidden gap-0.5 rounded-sm p-0.5 @[600px]:flex">
