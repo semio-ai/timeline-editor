@@ -53,14 +53,16 @@ export function updateInstancedTrackSources(
       });
 
       const instancedTrackSources: Record<string, SourceRow> = {};
+      const globalLeafData: SourceRowData[] = [];
 
-      // Walk the full source tree (entity → instance → groups → tracks)
-      // The tree already has entity/instance groups when appropriate.
-      flattenSources(globalSourceTree, activeAnimationId, selectedTrackLookup, instancedTrackSources);
+      // Walk the full source tree (entity → instance → groups → tracks).
+      // Leaf data is also accumulated into globalLeafData for the global aggregate row.
+      flattenSources(globalSourceTree, activeAnimationId, selectedTrackLookup, instancedTrackSources, globalLeafData);
 
-      // Preserve the global row (managed by update-consolidated-source-row)
-      const existingGlobal = get().instancedTrackSources?.global;
-      // Also preserve any filtered global rows (managed by update-view-filtered-global-rows)
+      // The global row aggregates all leaf track data — used by the timeline canvas renderer.
+      instancedTrackSources["global"] = { id: "global", data: globalLeafData };
+
+      // Preserve any filtered global rows (managed by update-view-filtered-global-rows)
       const existingFiltered: Record<string, SourceRow> = {};
       const current = get().instancedTrackSources ?? {};
       Object.entries(current).forEach(([key, row]) => {
@@ -73,7 +75,6 @@ export function updateInstancedTrackSources(
         instancedTrackSources: {
           ...instancedTrackSources,
           ...existingFiltered,
-          ...(existingGlobal ? { global: existingGlobal } : {}),
         },
       });
     },
@@ -113,6 +114,7 @@ function flattenSources(
   activeAnimationId: string | null,
   selectedTrackLookup: Set<string>,
   output: Record<string, SourceRow>,
+  globalLeafData: SourceRowData[],
   depth = 0,
   parentId?: string,
 ): void {
@@ -126,7 +128,7 @@ function flattenSources(
 
       // Recursively flatten children
       const childOutput: Record<string, SourceRow> = {};
-      flattenSources(group.children, activeAnimationId, selectedTrackLookup, childOutput, depth + 1, group.id);
+      flattenSources(group.children, activeAnimationId, selectedTrackLookup, childOutput, globalLeafData, depth + 1, group.id);
 
       // All groups (composite, entity, instance) produce rows with
       // aggregate child data typed as "group".
@@ -189,6 +191,9 @@ function flattenSources(
         isGroup: false,
         parentId,
       };
+
+      // Accumulate leaf data for the global aggregate row
+      globalLeafData.push(output[track.id].data[0]);
     }
   });
 }

@@ -79,7 +79,6 @@ import {
   updatePlayerLoop,
   updateOverallDuration,
   updateInstancedTrackSources,
-  updateConsolidatedSourceRow,
   updateViewFilteredGlobalRows,
   updateGlobalSources,
   updateSourceRowIds,
@@ -710,7 +709,6 @@ export const AnimationSlice = (
         updateTrackMuting,
         updateGlobalSources,
         updateSourceRowIds,
-        updateConsolidatedSourceRow,
         updateViewFilteredGlobalRows,
         updateActiveEntityContext,
       ].map((fn) => fn(api, set, get));
