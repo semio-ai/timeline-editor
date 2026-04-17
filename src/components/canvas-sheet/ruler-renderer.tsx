@@ -167,16 +167,14 @@ export const RulerRenderer = memo(function RulerRenderer({
       if (labelKey === prevLabelKeyRef.current) return;
       prevLabelKeyRef.current = labelKey;
 
-      // Label decimation: compute skip frequency based on label width,
-      // then only generate labels where the absolute tick index is divisible
-      // by the skip. This keeps labels anchored to the same ticks regardless
-      // of viewport position (no shifting during pan).
-      const totalVisible = lastTick - firstTick + 1;
+      // Label decimation: compute skip frequency from the zoom level (pixels per major tick)
+      // and estimated label width. Using zoom level instead of visible tick count ensures
+      // stability — small pans don't change drawFrequency and labels don't flicker.
       const sampleStamp = strip(Math.round((firstTick + lastTick) / 2) * majorMs);
       const sampleLabel = stampToVisualTime(sampleStamp, duration, framerate, timeDisplay, altPressed);
       const labelWidthPx = sampleLabel.length * APPROX_CHAR_WIDTH + LABEL_PADDING_PX;
-      const maxLabels = Math.max(1, Math.floor(pxWidth / labelWidthPx));
-      const drawFrequency = Math.max(1, Math.ceil(totalVisible / maxLabels));
+      const pxPerMajorTick = majorMs * pixelsPerMs;
+      const drawFrequency = Math.max(1, Math.ceil(labelWidthPx / pxPerMajorTick));
 
       const decimatedTicks: RulerTick[] = [];
       for (let i = firstTick; i <= lastTick; i++) {
