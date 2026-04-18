@@ -96,6 +96,115 @@ import { GROUP_TYPES } from "./constants";
 
 enableMapSet();
 
+/**
+ * Hit-test keypoints against the current box-select bounds and return the
+ * resulting selection keypoints map based on the box mode.
+ */
+function computeBoxSelectHitTest(
+  state: AnimationData,
+  box: BoxSelectState,
+): Map<string, Set<string>> {
+  const { layout } = box;
+  const view = state.editorViews[layout.viewId];
+  const trackRender = view?.trackRender ?? TrackRender.Key;
+  const isTimeline = box.origin === "timeline";
+
+  const minStamp = Math.min(box.startStamp, box.currentStamp);
+  const maxStamp = Math.max(box.startStamp, box.currentStamp);
+  const minY = Math.min(box.startY, box.currentY);
+  const maxY = Math.max(box.startY, box.currentY);
+
+  // Layout for Y hit-testing
+  const worldHeight = layout.cameraTop - layout.cameraBottom;
+  const trackWorldHeight = (layout.trackHeightPx / layout.canvasHeight) * worldHeight;
+  const offsetWorld = (layout.topOffsetPx / layout.canvasHeight) * worldHeight;
+  const scrollWorld = (state.scrollOffset / layout.canvasHeight) * worldHeight;
+  const firstRowCenterY = layout.cameraTop - offsetWorld - trackWorldHeight / 2 + scrollWorld;
+
+  const rowIds = isTimeline
+    ? ["global"]
+    : (state.sourceRowIdsByView[layout.viewId]?.flat ?? state.sourceRowIds.flat);
+
+  // Collect hit keypoints
+  const hits: { trackId: string; keypointId: string }[] = [];
+
+  rowIds.forEach((rowId, idx) => {
+    const sourceRow = state.instancedTrackSources[rowId];
+    if (!sourceRow) return;
+
+    if (!isTimeline && trackRender !== TrackRender.Spline) {
+      const rowCenterY = firstRowCenterY - trackWorldHeight * idx;
+      const rowTop = rowCenterY + trackWorldHeight / 2;
+      const rowBottom = rowCenterY - trackWorldHeight / 2;
+      if (rowBottom > maxY || rowTop < minY) return;
+    }
+
+    const computed = state.derivedSnapshot?.rows?.[rowId]?.computed;
+    if (!computed) return;
+
+    computed.virtualFrames.forEach((frame) => {
+      const stamp = frame.stamp;
+      if (stamp < minStamp || stamp > maxStamp) return;
+
+      frame.points.forEach((point) => {
+        if (point.selectable === false) return;
+        if (
+          point.layerBand !== LayerBand.ForegroundSelected &&
+          point.layerBand !== LayerBand.ForegroundUnselected
+        ) return;
+        if (state.selectionState.instanceId && point.instanceId !== state.selectionState.instanceId) return;
+
+        hits.push({ trackId: point.trackId, keypointId: point.id });
+      });
+    });
+  });
+
+  // Apply selection mode against the initial snapshot
+  const initial = box.initialKeypoints;
+
+  if (box.mode === "replace") {
+    const result = new Map<string, Set<string>>();
+    hits.forEach(({ trackId, keypointId }) => {
+      const existing = result.get(trackId) ?? new Set<string>();
+      existing.add(keypointId);
+      result.set(trackId, existing);
+    });
+    return result;
+  }
+
+  if (box.mode === "add") {
+    const result = new Map<string, Set<string>>();
+    initial.forEach((ids, trackId) => result.set(trackId, new Set(ids)));
+    hits.forEach(({ trackId, keypointId }) => {
+      const existing = result.get(trackId) ?? new Set<string>();
+      existing.add(keypointId);
+      result.set(trackId, existing);
+    });
+    return result;
+  }
+
+  // Toggle: start from initial, toggle each hit
+  const result = new Map<string, Set<string>>();
+  initial.forEach((ids, trackId) => result.set(trackId, new Set(ids)));
+  const hitSet = new Set(hits.map((h) => `${h.trackId}:${h.keypointId}`));
+  hits.forEach(({ trackId, keypointId }) => {
+    const key = `${trackId}:${keypointId}`;
+    if (!hitSet.has(key)) return; // dedup
+    hitSet.delete(key);
+    const wasSelected = initial.get(trackId)?.has(keypointId) ?? false;
+    const existing = result.get(trackId) ?? new Set<string>();
+    if (wasSelected) {
+      existing.delete(keypointId);
+      if (existing.size === 0) result.delete(trackId);
+      else result.set(trackId, existing);
+    } else {
+      existing.add(keypointId);
+      result.set(trackId, existing);
+    }
+  });
+  return result;
+}
+
 const applyTrackValue = (
   state: AnimationData,
   trackKey: string,
@@ -882,146 +991,47 @@ export const AnimationSlice = (
       );
     },
     startBoxSelect: (boxState: BoxSelectState) => {
-      set({ boxSelectState: boxState });
+      // Snapshot the current selection for toggle mode
+      const currentKeypoints = get().selectionState.keypoints;
+      const initialKeypoints = new Map<string, Set<string>>();
+      currentKeypoints.forEach((ids, trackId) => {
+        initialKeypoints.set(trackId, new Set(ids));
+      });
+      set({ boxSelectState: { ...boxState, initialKeypoints } });
     },
     updateBoxSelect: (currentStamp: number, currentY: number) => {
-      const current = get().boxSelectState;
-      if (!current) return;
-      set({
-        boxSelectState: { ...current, currentStamp, currentY },
-      });
-    },
-    cancelBoxSelect: () => {
-      set({ boxSelectState: null });
-    },
-    commitBoxSelect: (params: {
-      viewId: string;
-      canvasHeight: number;
-      cameraTop: number;
-      cameraBottom: number;
-      topOffsetPx: number;
-      bottomOffsetPx: number;
-      trackHeightPx: number;
-    }) => {
       const state = get();
       const box = state.boxSelectState;
       if (!box) return;
 
-      const { viewId, canvasHeight, cameraTop, cameraBottom, topOffsetPx, bottomOffsetPx, trackHeightPx } = params;
-      const view = state.editorViews[viewId];
-      const trackRender = view?.trackRender ?? TrackRender.Key;
-      const isTimeline = box.origin === "timeline";
-
-      // Box bounds in world-space stamps
-      const minStamp = Math.min(box.startStamp, box.currentStamp);
-      const maxStamp = Math.max(box.startStamp, box.currentStamp);
-
-      // Compute layout for Y hit-testing (non-spline, tracks origin)
-      const worldHeight = cameraTop - cameraBottom;
-      const trackWorldHeight = (trackHeightPx / canvasHeight) * worldHeight;
-      const offsetWorld = (topOffsetPx / canvasHeight) * worldHeight;
-      const scrollWorld = (state.scrollOffset / canvasHeight) * worldHeight;
-      const firstRowCenterY = cameraTop - offsetWorld - trackWorldHeight / 2 + scrollWorld;
-
-      const minY = Math.min(box.startY, box.currentY);
-      const maxY = Math.max(box.startY, box.currentY);
-
-      // Determine which source row IDs to iterate
-      const rowIds = isTimeline
-        ? ["global"]
-        : (state.sourceRowIdsByView[viewId]?.flat ?? state.sourceRowIds.flat);
-
-      // Collect keypoints that fall within the box
-      const hitKeypoints: { trackId: string; keypointId: string }[] = [];
-
-      rowIds.forEach((rowId, idx) => {
-        const sourceRow = state.instancedTrackSources[rowId];
-        if (!sourceRow) return;
-
-        // For tracks origin (non-spline): check Y overlap with this row's band
-        if (!isTimeline && trackRender !== TrackRender.Spline) {
-          const rowCenterY = firstRowCenterY - trackWorldHeight * idx;
-          const rowTop = rowCenterY + trackWorldHeight / 2;
-          const rowBottom = rowCenterY - trackWorldHeight / 2;
-          // No Y overlap → skip this row
-          if (rowBottom > maxY || rowTop < minY) return;
-        }
-
-        // Get the row's computed data from the derived snapshot
-        const computed = state.derivedSnapshot?.rows?.[rowId]?.computed;
-        if (!computed) return;
-
-        // Walk virtual frames and check stamp range
-        computed.virtualFrames.forEach((frame) => {
-          frame.points.forEach((point) => {
-            // Only foreground, selectable points
-            if (point.selectable === false) return;
-            if (
-              point.layerBand !== LayerBand.ForegroundSelected &&
-              point.layerBand !== LayerBand.ForegroundUnselected
-            ) return;
-
-            // Check if the point's instance matches the selection instance
-            if (state.selectionState.instanceId && point.instanceId !== state.selectionState.instanceId) return;
-
-            // X hit-test: check stamp is within box range
-            // The frame stamp is in local space; for the global row it's already in world space
-            const stamp = frame.stamp;
-            if (stamp < minStamp || stamp > maxStamp) return;
-
-            // For spline mode: Y hit-test would use the point's interpolated value
-            // (deferred — spline hit-test needs vertical bounds and axis scaling)
-
-            hitKeypoints.push({ trackId: point.trackId, keypointId: point.id });
-          });
-        });
-      });
-
-      // Apply selection based on mode
-      const selection = { ...state.selectionState };
-      const newKeypoints = new Map(
-        box.mode === "replace" ? [] : selection.keypoints,
-      );
-
-      if (box.mode === "toggle") {
-        // Toggle: add if absent, remove if present
-        hitKeypoints.forEach(({ trackId, keypointId }) => {
-          const existing = newKeypoints.get(trackId);
-          if (existing?.has(keypointId)) {
-            const next = new Set(existing);
-            next.delete(keypointId);
-            if (next.size === 0) {
-              newKeypoints.delete(trackId);
-            } else {
-              newKeypoints.set(trackId, next);
-            }
-          } else {
-            const next = new Set(existing ?? []);
-            next.add(keypointId);
-            newKeypoints.set(trackId, next);
-          }
-        });
-      } else {
-        // Replace or add: merge hit keypoints into the map
-        hitKeypoints.forEach(({ trackId, keypointId }) => {
-          const existing = newKeypoints.get(trackId) ?? new Set<string>();
-          const next = new Set(existing);
-          next.add(keypointId);
-          newKeypoints.set(trackId, next);
-        });
-      }
-
-      // Update reference anchor based on mode
-      const reference = box.mode === "replace" ? null : selection.reference;
+      const updatedBox = { ...box, currentStamp, currentY };
+      const newSelection = computeBoxSelectHitTest(state, updatedBox);
 
       set({
+        boxSelectState: updatedBox,
         selectionState: {
-          ...selection,
-          keypoints: newKeypoints,
-          reference,
+          ...state.selectionState,
+          keypoints: newSelection,
+          reference: box.mode === "replace" ? null : state.selectionState.reference,
         },
-        boxSelectState: null,
       });
+    },
+    cancelBoxSelect: () => {
+      const state = get();
+      const box = state.boxSelectState;
+      if (!box) return;
+      // Restore the initial selection from before the drag
+      set({
+        boxSelectState: null,
+        selectionState: {
+          ...state.selectionState,
+          keypoints: box.initialKeypoints,
+        },
+      });
+    },
+    commitBoxSelect: () => {
+      // Selection is already live-updated — just clear the box state
+      set({ boxSelectState: null });
     },
     setScrollOffset: (offset: number) => {
       set({ scrollOffset: offset });

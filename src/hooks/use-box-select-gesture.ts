@@ -115,6 +115,8 @@ export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGesturePa
         if (!activated) {
           if (Math.sqrt(dx * dx + dy * dy) < ACTIVATION_THRESHOLD_PX) return;
           activated = true;
+          const cam = cameraRef.current;
+          const isOrtho = isOrthographicCamera(cam);
           actionsRef.current.startBoxSelect({
             origin,
             startStamp: downState.worldX,
@@ -122,6 +124,16 @@ export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGesturePa
             currentStamp: currentX,
             currentY,
             mode: downState.mode,
+            initialKeypoints: new Map(), // populated by the action
+            layout: {
+              viewId: paramsRef.current.viewId,
+              canvasHeight: sizeRef.current.height,
+              cameraTop: isOrtho ? cam.top : 0,
+              cameraBottom: isOrtho ? cam.bottom : 0,
+              topOffsetPx: paramsRef.current.topOffsetPx ?? 36,
+              bottomOffsetPx: paramsRef.current.bottomOffsetPx ?? 108,
+              trackHeightPx: paramsRef.current.trackHeightPx ?? 36,
+            },
           });
         } else {
           actionsRef.current.updateBoxSelect(currentX, currentY);
@@ -134,17 +146,7 @@ export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGesturePa
         moveHandler = null;
         upHandler = null;
         if (activated) {
-          const cam = cameraRef.current;
-          const isOrtho = isOrthographicCamera(cam);
-          actionsRef.current.commitBoxSelect({
-            viewId: paramsRef.current.viewId,
-            canvasHeight: sizeRef.current.height,
-            cameraTop: isOrtho ? cam.top : 0,
-            cameraBottom: isOrtho ? cam.bottom : 0,
-            topOffsetPx: paramsRef.current.topOffsetPx ?? 36,
-            bottomOffsetPx: paramsRef.current.bottomOffsetPx ?? 108,
-            trackHeightPx: paramsRef.current.trackHeightPx ?? 36,
-          });
+          actionsRef.current.commitBoxSelect();
         }
         downState = null;
         activated = false;
@@ -228,6 +230,8 @@ export function useHudBoxSelectGesture(origin: BoxSelectState["origin"], viewId:
         if (!activated) {
           if (Math.sqrt(dx * dx + dy * dy) < ACTIVATION_THRESHOLD_PX) return;
           activated = true;
+          const cam = cameraRef.current;
+          const isOrtho = isOrthographicCamera(cam);
           actionsRef.current.startBoxSelect({
             origin,
             startStamp: startWorld[0],
@@ -235,6 +239,16 @@ export function useHudBoxSelectGesture(origin: BoxSelectState["origin"], viewId:
             currentStamp: currentX,
             currentY,
             mode,
+            initialKeypoints: new Map(),
+            layout: {
+              viewId,
+              canvasHeight: sizeRef.current.height,
+              cameraTop: isOrtho ? cam.top : 0,
+              cameraBottom: isOrtho ? cam.bottom : 0,
+              topOffsetPx: 36,
+              bottomOffsetPx: 108,
+              trackHeightPx: 36,
+            },
           });
         } else {
           actionsRef.current.updateBoxSelect(currentX, currentY);
@@ -245,17 +259,7 @@ export function useHudBoxSelectGesture(origin: BoxSelectState["origin"], viewId:
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         if (activated) {
-          const cam = cameraRef.current;
-          const isOrtho = isOrthographicCamera(cam);
-          actionsRef.current.commitBoxSelect({
-            viewId,
-            canvasHeight: sizeRef.current.height,
-            cameraTop: isOrtho ? cam.top : 0,
-            cameraBottom: isOrtho ? cam.bottom : 0,
-            topOffsetPx: 36,
-            bottomOffsetPx: 108,
-            trackHeightPx: 36,
-          });
+          actionsRef.current.commitBoxSelect();
         }
       };
 

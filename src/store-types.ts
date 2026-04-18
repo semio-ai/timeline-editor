@@ -95,6 +95,19 @@ export interface BoxSelectState {
   currentY: number;
   /** Selection mode determined by modifier keys at drag start. */
   mode: "replace" | "add" | "toggle";
+  /** Snapshot of the selection keypoints at drag start — used for toggle mode
+   *  so incremental updates compute the diff against the original state. */
+  initialKeypoints: Map<string, Set<string>>;
+  /** Layout params captured at activation, used for Y hit-testing on each update. */
+  layout: {
+    viewId: string;
+    canvasHeight: number;
+    cameraTop: number;
+    cameraBottom: number;
+    topOffsetPx: number;
+    bottomOffsetPx: number;
+    trackHeightPx: number;
+  };
 }
 
 export interface AnimationPreferencesPatch {
@@ -336,33 +349,17 @@ export interface AnimationActions {
   startBoxSelect: (state: BoxSelectState) => void;
   /**
    * Update the current position of an active box-select gesture.
+   * Performs hit-testing and updates selectionState live during the drag.
    */
   updateBoxSelect: (currentStamp: number, currentY: number) => void;
   /**
-   * Cancel an active box-select gesture without modifying the selection.
+   * Cancel an active box-select gesture, restoring the initial selection.
    */
   cancelBoxSelect: () => void;
   /**
-   * Commit the current box-select: hit-test keypoints within the box bounds,
-   * update selectionState based on mode (replace/add/toggle), then clear boxSelectState.
-   *
-   * @param viewId - The active editor view ID (for trackRender and verticalAxis settings).
-   * @param canvasHeight - Canvas height in pixels (for scroll → world conversion).
-   * @param cameraTop - Camera top bound in world units.
-   * @param cameraBottom - Camera bottom bound in world units.
-   * @param topOffsetPx - Top HUD offset in pixels.
-   * @param bottomOffsetPx - Bottom HUD offset in pixels.
-   * @param trackHeightPx - Track row height in pixels.
+   * Commit the current box-select: finalize the selection and clear boxSelectState.
    */
-  commitBoxSelect: (params: {
-    viewId: string;
-    canvasHeight: number;
-    cameraTop: number;
-    cameraBottom: number;
-    topOffsetPx: number;
-    bottomOffsetPx: number;
-    trackHeightPx: number;
-  }) => void;
+  commitBoxSelect: () => void;
   /**
    * Set the vertical scroll offset (in pixels) for the track list and canvas.
    */
