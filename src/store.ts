@@ -893,6 +893,9 @@ export const AnimationSlice = (
     cancelBoxSelect: () => {
       set({ boxSelectState: null });
     },
+    setScrollOffset: (offset: number) => {
+      set({ scrollOffset: offset });
+    },
     addPreview: (preview: Preview) => {
       set((state: AnimationData) => ({
         previews: [...state.previews, preview],

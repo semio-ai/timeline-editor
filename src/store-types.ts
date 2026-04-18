@@ -220,6 +220,13 @@ export interface AnimationData {
   tracksRevision?: number;
 
   /**
+   * Vertical scroll offset for the track list and canvas, in pixels.
+   * Written by PanZoomControls during scroll gestures; read by TracksRenderer
+   * and TrackList for synchronized positioning.
+   */
+  scrollOffset: number;
+
+  /**
    * Currently active entity ID in the editor. Null when none selected.
    * Replaces `activeEntity` in the studio store for animation-scoped concerns.
    */
@@ -335,6 +342,10 @@ export interface AnimationActions {
    * Cancel an active box-select gesture without modifying the selection.
    */
   cancelBoxSelect: () => void;
+  /**
+   * Set the vertical scroll offset (in pixels) for the track list and canvas.
+   */
+  setScrollOffset: (offset: number) => void;
   /**
    * Update the expanded and hidden state of a source group globally.
    * @param groupId - The ID of the source group to update.

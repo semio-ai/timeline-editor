@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { useContext, memo, useEffect, useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
 import { Search, Size, useTheme, TooltipProvider, TooltipContext } from "@semio/ui";
 import { AnimationContext } from "../context";
@@ -246,8 +245,6 @@ function InnerSheet({
     viewIds,
   ]);
 
-  const scrollY = useMotionValue(0);
-
   const setTrackFilter = useCallback(
     (value: string) => {
       updateView(resolvedViewId, { trackFilter: value });
@@ -432,7 +429,6 @@ function InnerSheet({
                 >
                   <CanvasSheet
                     viewId={resolvedViewId}
-                    scrollValue={scrollY}
                     theme={resolvedTheme}
                     rowIdLookup={filteredRowLookup}
                     fonts={fonts}
@@ -444,7 +440,6 @@ function InnerSheet({
                 {/* Track List with color-coded tracks */}
                 <TrackList
                   height={height - MIN_SHEET_HEIGHT}
-                  scrollY={scrollY}
                   rowIdLookup={filteredRowLookup}
                 />
 

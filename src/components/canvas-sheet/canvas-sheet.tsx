@@ -3,7 +3,6 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
-import { MotionValue } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
 import { TrackRender } from "../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
@@ -21,7 +20,6 @@ import { TimelineRenderer } from "./timeline-renderer";
 
 export interface CanvasSheetProps {
   viewId: string;
-  scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
   rowIdLookup?: VisibleSourceRowIds;
   fonts?: {
@@ -32,7 +30,6 @@ export interface CanvasSheetProps {
 
 export const CanvasSheet = memo(function CanvasSheet({
   viewId,
-  scrollValue,
   theme = Theme.Light,
   rowIdLookup,
   fonts = {},
@@ -80,7 +77,6 @@ export const CanvasSheet = memo(function CanvasSheet({
       >
         <CanvasContent
           viewId={viewId}
-          scrollValue={scrollValue}
           theme={theme}
           rowIdLookup={rowIdLookup}
           fonts={fonts}
@@ -92,7 +88,6 @@ export const CanvasSheet = memo(function CanvasSheet({
 
 interface CanvasContentProps {
   viewId: string;
-  scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
   rowIdLookup?: VisibleSourceRowIds;
   fonts?: {
@@ -104,7 +99,6 @@ interface CanvasContentProps {
 const CanvasContent = memo(function CanvasContent({
   viewId,
   theme,
-  scrollValue,
   rowIdLookup,
   fonts = {},
 }: CanvasContentProps) {
@@ -145,7 +139,6 @@ const CanvasContent = memo(function CanvasContent({
       <color attach="background" args={theme === Theme.Dark ? [0, 0, 0] : [1, 1, 1]} />
       <ambientLight intensity={1} />
       <PanZoomControls
-        scrollValue={scrollValue}
         trackRegion={{ top: topOffsetPx, bottom: bottomOffsetPx }}
         contentHeightPx={totalContentHeightPx}
         trackRender={trackRender}
@@ -154,7 +147,6 @@ const CanvasContent = memo(function CanvasContent({
       <MotionCanvasProvider label="MainCamera">
         <TracksRenderer
           viewId={viewId}
-          scrollValue={scrollValue}
           topOffsetPx={topOffsetPx}
           bottomOffsetPx={bottomOffsetPx}
           trackHeight={trackHeight}

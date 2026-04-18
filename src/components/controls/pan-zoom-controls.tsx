@@ -3,7 +3,6 @@ import { useThree } from "@react-three/fiber";
 import { OrthographicCamera, Vector2 } from "three";
 import { usePlayerStore, isOrthographicCamera } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
-import { MotionValue } from "motion";
 import { useGesture } from "@use-gesture/react";
 import {
   calculatePaddedFrustum,
@@ -11,6 +10,7 @@ import {
   setFrustumFromDataViewport,
 } from "../../viewport-utils";
 import { TrackRender } from "../../types";
+import { useAnimationStore } from "../../hooks";
 
 export interface PanZoomControlsProps {
   enabled?: boolean;
@@ -24,7 +24,6 @@ export interface PanZoomControlsProps {
   onStart?: () => void;
   onEnd?: () => void;
   bounds?: [number, number];
-  scrollValue?: MotionValue<number>;
   trackRegion?: { top: number; bottom: number };
   contentHeightPx?: number;
   trackRender?: TrackRender;
@@ -39,7 +38,6 @@ interface PanZoomControlsRef {
   minZoom: number;
   maxZoom: number;
   bounds?: [number, number];
-  scrollValue?: MotionValue<number>;
   trackRegion?: { top: number; bottom: number };
   contentHeightPx?: number;
   getFrustum: () => { left: number; right: number; top: number; bottom: number };
@@ -60,7 +58,6 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       onStart,
       onEnd,
       bounds,
-      scrollValue,
       trackRegion,
       contentHeightPx,
       trackRender,
@@ -68,6 +65,10 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
     ref,
   ) => {
     const { camera, gl, size } = useThree();
+    const scrollOffset = useAnimationStore(useShallow((state) => state.scrollOffset));
+    const setScrollOffset = useAnimationStore(useShallow((state) => state.setScrollOffset));
+    const scrollRef = useRef({ offset: scrollOffset, set: setScrollOffset });
+    scrollRef.current = { offset: scrollOffset, set: setScrollOffset };
     const initialCameraWidth = useRef(0);
     const viewport = usePlayerStore(
       useShallow((state) => state.player.viewport as [number, number]),
@@ -89,7 +90,6 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       minZoom,
       maxZoom,
       bounds,
-      scrollValue,
       trackRegion,
       contentHeightPx,
       trackRender,
@@ -106,7 +106,6 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
         minZoom,
         maxZoom,
         bounds,
-        scrollValue,
         trackRegion,
         contentHeightPx,
         trackRender,
@@ -120,7 +119,6 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       minZoom,
       maxZoom,
       bounds,
-      scrollValue,
       trackRegion,
       contentHeightPx,
       trackRender,
@@ -279,13 +277,12 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
     // Handle vertical scrolling in track region
     const handleTrackScroll = (event: { deltaY: number; clientY: number }) => {
       const {
-        scrollValue: scrollVal,
         trackRegion: trackReg,
         contentHeightPx: contentHeight,
       } = settingsRef.current;
       const rect = gl.domElement?.getBoundingClientRect();
 
-      if (!scrollVal || !trackReg || typeof contentHeight !== "number" || !rect) {
+      if (!trackReg || typeof contentHeight !== "number" || !rect) {
         return false;
       }
 
@@ -301,10 +298,10 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
 
         if (scrollMax === 0) return true; // Handled but no scroll needed
 
-        const prev = scrollVal.get();
+        const prev = scrollRef.current.offset;
         let next = prev + event.deltaY;
         next = Math.max(scrollMin, Math.min(scrollMax, next));
-        scrollVal.set(next);
+        scrollRef.current.set(next);
 
         return true; // Event was handled
       }
@@ -470,7 +467,6 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
           minZoom: settingsRef.current.minZoom,
           maxZoom: settingsRef.current.maxZoom,
           bounds: settingsRef.current.bounds,
-          scrollValue: settingsRef.current.scrollValue,
           trackRegion: settingsRef.current.trackRegion,
           contentHeightPx: settingsRef.current.contentHeightPx,
           getFrustum: () => {

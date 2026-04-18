@@ -1,13 +1,14 @@
 import { useThree, useFrame } from "@react-three/fiber";
-import { useRef, useMemo, useCallback, memo, useEffect } from "react";
+import { useContext, useRef, useMemo, useCallback, memo, useEffect } from "react";
 import { useShallow } from "zustand/shallow";
-import { MotionValue, useMotionValueEvent } from "motion/react";
+import { useMotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
 import { isOrthographicCamera } from "@semio/utils";
 import { useOrthoCameraSetup, usePlaybackGestures, useBoxSelectGesture, useAnimationStore } from "../../hooks";
 import { TrackRender, type VisibleSourceRowIds } from "../../types";
 import { AnimationData } from "../../store-types";
+import { AnimationContext } from "../../context";
 import { ThemeMode } from "../../functions";
 import { normalizeVisibleSourceRowIds } from "../../functions/filter-visible-source-row-ids";
 import { ROW_DEPTH_EPSILON, Z } from "../../constants";
@@ -24,7 +25,6 @@ import { useMotionCanvas } from "./shared/motion-canvas-context";
 interface TracksRendererProps {
   viewId: string;
   trackHeight?: number;
-  scrollValue?: MotionValue<number>;
   topOffsetPx?: number;
   bottomOffsetPx?: number;
   theme?: ThemeMode;
@@ -34,7 +34,6 @@ interface TracksRendererProps {
 export const TracksRenderer = memo(function TracksRenderer({
   viewId,
   trackHeight = 36,
-  scrollValue,
   topOffsetPx = 32,
   bottomOffsetPx = 108,
   theme = Theme.Light,
@@ -42,6 +41,10 @@ export const TracksRenderer = memo(function TracksRenderer({
 }: TracksRendererProps) {
   const { size, camera } = useThree();
   const { size: motionSize } = useMotionCanvas();
+  const animationStore = useContext(AnimationContext);
+  // Local MotionValue mirroring store scroll — updated in useFrame for
+  // consumers that need a MotionValue (e.g. DataRenderer scrollOffset).
+  const scrollMotion = useMotionValue(0);
 
   const sourceRowLookup = useAnimationStore(
     useShallow(
@@ -120,7 +123,7 @@ export const TracksRenderer = memo(function TracksRenderer({
   useFrame(() => {
     if (!groupRef.current) return;
 
-    const currentScrollPx = scrollValue?.get() ?? 0;
+    const currentScrollPx = animationStore?.getState().scrollOffset ?? 0;
     const scrollChanged = Math.abs(currentScrollPx - lastScrollValueRef.current) > 0.1;
     const positionChanged =
       Math.abs(y - lastPositionRef.current.y) > 0.001 ||
@@ -129,19 +132,15 @@ export const TracksRenderer = memo(function TracksRenderer({
 
     // Only update position if scroll, calculated position, or trackRender mode changed
     if (scrollChanged || positionChanged || trackRenderChanged) {
-      if (scrollValue && trackRender !== TrackRender.Spline) {
+      if (trackRender !== TrackRender.Spline) {
         const scrollWorld = (currentScrollPx / size.height) * worldHeight;
         groupRef.current.position.y = y + scrollWorld;
-      } else if (scrollValue && trackRender === TrackRender.Spline) {
-        // For spline mode, keep y position fixed and handle z-axis positioning
-        groupRef.current.position.y = y;
-      } else if (trackRender !== TrackRender.Spline) {
-        // No scroll value, position at base y
-        groupRef.current.position.y = y;
       } else {
-        // Spline mode without scroll, position at center
         groupRef.current.position.y = y;
       }
+
+      // Sync the local MotionValue for consumers (e.g. ViolationRenderer)
+      scrollMotion.set(currentScrollPx);
 
       lastScrollValueRef.current = currentScrollPx;
       lastPositionRef.current = { y: groupRef.current.position.y, z: groupRef.current.position.z };
@@ -193,7 +192,7 @@ export const TracksRenderer = memo(function TracksRenderer({
             viewId={viewId}
             yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
             theme={theme}
-            scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
+            scrollOffset={trackRender !== TrackRender.Spline ? scrollMotion : undefined}
           />
         ))}
         {trackRender === TrackRender.Spline && (

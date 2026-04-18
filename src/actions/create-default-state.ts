@@ -57,5 +57,6 @@ export const createDefaultState = (): AnimationData => {
     entityStates: {},
     activeEntityContext: null,
     boxSelectState: null,
+    scrollOffset: 0,
   };
 };
