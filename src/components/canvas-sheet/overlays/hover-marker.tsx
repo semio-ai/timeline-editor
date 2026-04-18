@@ -2,7 +2,7 @@ import { Theme } from "@semio/ui";
 import { useRef, memo } from "react";
 import * as THREE from "three";
 import { useMotionValueEvent } from "motion/react";
-import { useAnimationStore, useHoverSpring, useInvariantScale } from "../../../hooks";
+import { useAnimationStore, useHoverSpring, useInvariantScaleX } from "../../../hooks";
 import { Z } from "../../../constants";
 
 export interface HoverMarkerProps {
@@ -21,7 +21,7 @@ export const HoverMarker = memo(function HoverMarker({
 
   const isDragging = useAnimationStore((state) => state.dragState !== undefined);
 
-  const scaleX = useInvariantScale();
+  const scaleX = useInvariantScaleX();
   const hoverSpring = useHoverSpring();
 
   useMotionValueEvent(scaleX, "change", (s) => {

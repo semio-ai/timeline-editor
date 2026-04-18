@@ -26,7 +26,7 @@ import {
   toViewVector,
 } from "../../functions/handle-pairing";
 import { useDragGestures } from "../../hooks/use-drag-gestures";
-import { useAnimationStore, useInvariantScale } from "../../hooks";
+import { useAnimationStore, useInvariantScaleX } from "../../hooks";
 import { ROW_DEPTH_EPSILON } from "../../constants";
 import { computeRenderScale } from "./utils/render-scale";
 import { getLayerZ } from "./utils/layers";
@@ -730,7 +730,7 @@ const HandleDot = memo(function HandleDot({
     },
   });
 
-  const invariantScale = useInvariantScale();
+  const invariantScale = useInvariantScaleX();
   const dragScale = 1 + dragWeight * 0.3;
   const hoverScale = hovered ? 1.1 : 1;
   const isPaired = pairing === TransitionPairing.Paired;

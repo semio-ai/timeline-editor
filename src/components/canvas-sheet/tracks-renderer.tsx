@@ -62,10 +62,19 @@ export const TracksRenderer = memo(function TracksRenderer({
     trackRender === TrackRender.Spline ? sourceRowLookup.spline : sourceRowLookup.flat;
 
   const availableHeight = size.height - topOffsetPx - bottomOffsetPx;
+  // Dynamic overlay height: tracks camera span in spline mode for extending overlays
+  const overlayHeightRef = useRef(availableHeight);
 
-  useOrthoCameraSetup(camera as THREE.OrthographicCamera);
+  // Only use pixel-locked camera setup for non-spline modes.
+  // Spline mode manages camera.top/bottom via PanZoomControls + useFrame.
+  useOrthoCameraSetup(
+    trackRender !== TrackRender.Spline ? (camera as THREE.OrthographicCamera) : undefined,
+  );
 
   const groupRef = useRef<THREE.Group>(null);
+  const overlayGroupRef = useRef<THREE.Group>(null);
+  const overlayBgMesh1Ref = useRef<THREE.Mesh>(null);
+  const overlayBgMesh2Ref = useRef<THREE.Mesh>(null);
   const lastCalculatedSizeRef = useRef({ width: 0, height: 0 });
   const lastTrackRenderRef = useRef<TrackRender>(trackRender);
   const cachedPositionRef = useRef({ y: 0, trackWorldHeight: 0, worldHeight: 1 });
@@ -146,6 +155,22 @@ export const TracksRenderer = memo(function TracksRenderer({
       lastPositionRef.current = { y: groupRef.current.position.y, z: groupRef.current.position.z };
       lastFrameTrackRenderRef.current = trackRender;
     }
+
+    // In spline mode, keep overlay group centered on camera and update overlay sizes
+    if (trackRender === TrackRender.Spline && isOrthographicCamera(camera) && overlayGroupRef.current) {
+      const camCenterY = (camera.top + camera.bottom) / 2;
+      const camHeight = camera.top - camera.bottom;
+      overlayGroupRef.current.position.y = camCenterY;
+      overlayHeightRef.current = camHeight;
+
+      // Scale the entire overlay group Y so all children (tick marks, markers,
+      // backgrounds) stretch to fill the camera's vertical span.
+      if (availableHeight > 0) {
+        overlayGroupRef.current.scale.y = camHeight / availableHeight;
+      }
+    } else {
+      overlayHeightRef.current = availableHeight;
+    }
   });
 
   // Calculate the center Y position of the track area
@@ -166,19 +191,42 @@ export const TracksRenderer = memo(function TracksRenderer({
   const playbackGestures = usePlaybackGestures();
   useBoxSelectGesture("tracks", { viewId, topOffsetPx, bottomOffsetPx, trackHeightPx: trackHeight });
 
+
+  // Camera Y management: pixel-locked for non-spline.
+  // In spline mode, PanZoomControls manages camera.top/bottom directly.
+  // Only reset to pixel height when not in spline mode or when canvas resizes.
+  const lastCanvasHeightRef = useRef(motionSize.height.get());
+
   useMotionValueEvent(motionSize.height, "change", (height) => {
     if (!isOrthographicCamera(camera)) return;
-    camera.top = height / 2;
-    camera.bottom = -height / 2;
-    camera.updateProjectionMatrix();
+    const prevHeight = lastCanvasHeightRef.current;
+    lastCanvasHeightRef.current = height;
+
+    if (trackRender === TrackRender.Spline) {
+      // Spline mode: scale the existing camera Y proportionally on canvas resize
+      if (prevHeight > 0 && prevHeight !== height) {
+        const ratio = height / prevHeight;
+        const center = (camera.top + camera.bottom) / 2;
+        const span = (camera.top - camera.bottom) * ratio;
+        camera.top = center + span / 2;
+        camera.bottom = center - span / 2;
+        camera.updateProjectionMatrix();
+      }
+    } else {
+      camera.top = height / 2;
+      camera.bottom = -height / 2;
+      camera.updateProjectionMatrix();
+    }
   });
 
   useEffect(() => {
     if (!isOrthographicCamera(camera)) return;
-    camera.top = motionSize.height.get() / 2;
-    camera.bottom = -motionSize.height.get() / 2;
-    camera.updateProjectionMatrix();
-  });
+    if (trackRender !== TrackRender.Spline) {
+      camera.top = motionSize.height.get() / 2;
+      camera.bottom = -motionSize.height.get() / 2;
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, trackRender]);
 
   return (
     <>
@@ -207,8 +255,8 @@ export const TracksRenderer = memo(function TracksRenderer({
       </group>
 
       {/* Render the hover markers and add a gesture detector */}
-      <group position={[0, trackAreaCenterY, 0]}>
-        <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]}>
+      <group ref={overlayGroupRef as any} position={[0, trackAreaCenterY, 0]}>
+        <mesh ref={overlayBgMesh1Ref as any} position={[0.5, 0, Z.ForegroundBackgroundBoundary]}>
           <planeGeometry args={[1.1, availableHeight]} />
           <meshBasicMaterial
             color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
@@ -216,7 +264,7 @@ export const TracksRenderer = memo(function TracksRenderer({
             opacity={0.4}
           />
         </mesh>
-        <mesh position={[0.5, 0, Z.SelectedUnselectedBoundary]}>
+        <mesh ref={overlayBgMesh2Ref as any} position={[0.5, 0, Z.SelectedUnselectedBoundary]}>
           <planeGeometry args={[1.1, availableHeight]} />
           <meshBasicMaterial
             color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}

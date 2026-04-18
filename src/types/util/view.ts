@@ -15,4 +15,10 @@ export interface View {
   hiddenSourceTrackIds?: string[];
   /** Transient track search/filter text for this view. */
   trackFilter?: string;
+  /**
+   * Vertical viewport for spline mode, in value-space units.
+   * Determines the camera's vertical frustum. When undefined, the viewport
+   * is auto-fit to the data bounds (with padding).
+   */
+  verticalViewport?: { top: number; bottom: number };
 }

@@ -11,7 +11,8 @@ import { RenderMarker, TrackRender, LayerBand, VerticalAxisRange } from "../../t
 import {
   useAnimationStore,
   useColors,
-  useInvariantScale,
+  useInvariantScaleX,
+  useInvariantScaleY,
   useAltKeyPressed,
   useDragGestures,
 } from "../../hooks";
@@ -377,7 +378,8 @@ export const DataPoint = memo(function DataPoint({
     bgScale.set(isSelected ? BG_MULTIPLIER * 1.1 : BG_MULTIPLIER);
   }, [isSelected, bgScale]);
 
-  const scaleX = useInvariantScale();
+  const scaleX = useInvariantScaleX();
+  const scaleY = useInvariantScaleY();
 
   // Update the fill color when it changes
   useMotionValueEvent(fillColor, "change", (c) => {
@@ -405,19 +407,25 @@ export const DataPoint = memo(function DataPoint({
     }
   });
 
-  // Update the scale to be invariant to zoom level
+  // Update the scale to be invariant to zoom level (both X and Y axes)
   useMotionValueEvent(scaleX, "change", (s) => {
     if (instanceRefFg.current && instanceRefBg.current) {
       instanceRefFg.current.scale.x = s;
-      instanceRefBg.current.scale.x = s * bgScale.get(); // Background is slightly larger
-      instanceRefBg.current.scale.z = bgScale.get();
+      instanceRefBg.current.scale.x = s * bgScale.get();
+    }
+  });
+
+  useMotionValueEvent(scaleY, "change", (sy) => {
+    if (instanceRefFg.current && instanceRefBg.current) {
+      instanceRefFg.current.scale.z = sy;
+      instanceRefBg.current.scale.z = bgScale.get() * sy;
     }
   });
 
   useMotionValueEvent(bgScale, "change", (s) => {
     if (instanceRefBg.current) {
-      instanceRefBg.current.scale.x = scaleX.get() * s; // Background is slightly larger
-      instanceRefBg.current.scale.z = s;
+      instanceRefBg.current.scale.x = scaleX.get() * s;
+      instanceRefBg.current.scale.z = s * scaleY.get();
     }
   });
 
@@ -626,7 +634,7 @@ export const DataPoint = memo(function DataPoint({
             ref={instanceRefFg}
             position={[renderStamp, resolvedYPosition, fillDepth]}
             rotation={[Math.PI / 2, 0, 0]}
-            scale={[scaleX.get(), 1, 1]}
+            scale={[scaleX.get(), 1, scaleY.get()]}
             userData={{ selectionRole: "marker", markerId, sourceRowId }}
             // eslint-dissable-next-line
             color={fillColor.get()}
@@ -636,7 +644,7 @@ export const DataPoint = memo(function DataPoint({
             ref={instanceRefBg}
             position={[renderStamp, resolvedYPosition, backplateDepth]}
             rotation={[Math.PI / 2, 0, 0]}
-            scale={[scaleX.get() * bgScale.get(), 1, bgScale.get()]}
+            scale={[scaleX.get() * bgScale.get(), 1, bgScale.get() * scaleY.get()]}
             userData={{ selectionRole: "marker", markerId, sourceRowId }}
             // eslint-dissable-next-line
             color={backdropColor.get()}

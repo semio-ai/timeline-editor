@@ -419,6 +419,10 @@ export interface AnimationActions {
    */
   removeView: (viewId: string) => void;
   /**
+   * Set the vertical viewport for a view (spline mode). Pass undefined to auto-fit.
+   */
+  setVerticalViewport: (viewId: string, viewport: { top: number; bottom: number } | undefined) => void;
+  /**
    * Insert a keypoint at the given world (player) stamp for a specific instance.
    * Computes the local stamp using instance transforms and derives value via the derived snapshot interpolator when available.
    */

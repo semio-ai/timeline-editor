@@ -21,7 +21,7 @@ import {
   usePlayheadSpring,
   useAnimationStore,
   useAltKeyPressed,
-  useInvariantScale,
+  useInvariantScaleX,
   useTween,
   useDragGestures,
 } from "../../../hooks";
@@ -83,7 +83,7 @@ export const PlayheadCart = memo(function PlayheadCart({
   const dragMeshRef = useRef<THREE.Mesh>(null);
 
   const cartWidthSpring = useCartWidthSpring();
-  const invariantScale = useInvariantScale();
+  const invariantScale = useInvariantScaleX();
   const {
     position: playheadSpring,
     offset,

@@ -13,7 +13,7 @@ import {
 import { shallow } from "zustand/shallow";
 import { useFrame } from "@react-three/fiber";
 import { isOrthographicCamera } from "@semio/utils";
-import { useInvariantScale, useAnimationStore, usePlayerSubscription } from "../../../hooks";
+import { useInvariantScaleX, useAnimationStore, usePlayerSubscription } from "../../../hooks";
 import { AnimationData } from "../../../store-types";
 import { SemanticTime } from "../../../types";
 import { TIMELINE_PADDING, Z } from "../../../constants";
@@ -59,7 +59,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
   );
 
   // Get invariant scale for zoom-independent sizing
-  const invariantScale: MotionValue<number> = useInvariantScale();
+  const invariantScale: MotionValue<number> = useInvariantScaleX();
 
   const anyPreview = useAnimationStore(
     useShallow((state: AnimationData) =>

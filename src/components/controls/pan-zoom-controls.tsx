@@ -1,4 +1,4 @@
-import { useEffect, useRef, forwardRef, memo } from "react";
+import { useContext, useEffect, useRef, forwardRef, memo } from "react";
 import { useThree } from "@react-three/fiber";
 import { OrthographicCamera, Vector2 } from "three";
 import { usePlayerStore, isOrthographicCamera } from "@semio/utils";
@@ -11,6 +11,7 @@ import {
 } from "../../viewport-utils";
 import { TrackRender } from "../../types";
 import { useAnimationStore } from "../../hooks";
+import { AnimationContext } from "../../context";
 
 export interface PanZoomControlsProps {
   enabled?: boolean;
@@ -65,6 +66,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
     ref,
   ) => {
     const { camera, gl, size } = useThree();
+    const animationStore = useContext(AnimationContext);
     const scrollOffset = useAnimationStore(useShallow((state) => state.scrollOffset));
     const setScrollOffset = useAnimationStore(useShallow((state) => state.setScrollOffset));
     const scrollRef = useRef({ offset: scrollOffset, set: setScrollOffset });
@@ -322,53 +324,87 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
 
           onStart?.();
 
-          // Check for vertical scroll in track region (no modifier keys)
-          if (!ctrlKey && !metaKey && !shiftKey && absDeltaY > absDeltaX && absDeltaY > threshold) {
-            if (settingsRef.current.trackRender !== TrackRender.Spline) {
-              const handled = handleTrackScroll({
-                deltaY,
-                clientY: event.clientY,
-              });
+          const isSpline = settingsRef.current.trackRender === TrackRender.Spline;
+          const isVerticalDominant = absDeltaY >= absDeltaX && absDeltaY > threshold;
+          const isHorizontalDominant = absDeltaX > absDeltaY && absDeltaX > threshold;
+          const hasCtrl = ctrlKey || metaKey;
 
-              if (handled) {
-                event.preventDefault();
-                onChange?.();
-                onEnd?.();
-                return;
+          // --- Scroll: No modifier, vertical dominant ---
+          // Vertical scroll/pan (track list in non-spline, camera Y pan in spline)
+          if (!hasCtrl && !shiftKey && isVerticalDominant) {
+            if (isSpline) {
+              if (isOrthographicCamera(camera)) {
+                const frustumHeight = camera.top - camera.bottom;
+                const worldDeltaY = (deltaY / size.height) * frustumHeight;
+                camera.top -= worldDeltaY;
+                camera.bottom -= worldDeltaY;
+                camera.updateProjectionMatrix();
               }
+            } else {
+              handleTrackScroll({ deltaY, clientY: event.clientY });
             }
+            event.preventDefault();
+            onChange?.();
+            onEnd?.();
+            return;
+          }
+
+          // --- Scroll + Shift: Horizontal pan ---
+          if (!hasCtrl && shiftKey && isVerticalDominant) {
+            if (settingsRef.current.enablePan) {
+              panCamera(deltaY);
+            }
+            event.preventDefault();
+            onChange?.();
+            onEnd?.();
+            return;
+          }
+
+          // --- Scroll: No modifier, horizontal dominant ---
+          // Horizontal pan
+          if (!hasCtrl && !shiftKey && isHorizontalDominant) {
+            if (settingsRef.current.enablePan) {
+              panCamera(deltaX);
+            }
+            event.preventDefault();
+            onChange?.();
+            onEnd?.();
+            return;
           }
 
           event.preventDefault();
 
-          // Zoom: Ctrl/Cmd + vertical scroll
-          if ((ctrlKey || metaKey) && absDeltaY > absDeltaX && absDeltaY > threshold) {
-            if (settingsRef.current.enableZoom) {
-              const baseZoomFactor = deltaY > 0 ? 0.9 : 1.1;
-              const zoomFactor = 1 + (baseZoomFactor - 1) * settingsRef.current.zoomSpeed;
+          // --- Ctrl/Cmd + Scroll: Zoom ---
+          if (hasCtrl && settingsRef.current.enableZoom) {
+            const dominantDelta = isVerticalDominant ? deltaY : deltaX;
+            if (Math.abs(dominantDelta) <= threshold) {
+              onChange?.();
+              onEnd?.();
+              return;
+            }
+
+            const baseZoomFactor = dominantDelta > 0 ? 0.9 : 1.1;
+            const zoomFactor = 1 + (baseZoomFactor - 1) * settingsRef.current.zoomSpeed;
+
+            if (shiftKey) {
+              // Ctrl + Shift + Scroll: Horizontal zoom
+              const center = new Vector2(event.clientX, event.clientY);
+              zoomCameraHorizontal(zoomFactor, center);
+            } else if (isSpline && isOrthographicCamera(camera)) {
+              // Ctrl + Scroll (no Shift): Vertical zoom (spline only)
+              const rect = gl.domElement.getBoundingClientRect();
+              const relativeY = (event.clientY - rect.top) / rect.height;
+              const frustumHeight = camera.top - camera.bottom;
+              const targetY = camera.top - relativeY * frustumHeight;
+              const newHeight = frustumHeight / zoomFactor;
+              camera.top = targetY + newHeight * relativeY;
+              camera.bottom = targetY - newHeight * (1 - relativeY);
+              camera.updateProjectionMatrix();
+            } else {
+              // Ctrl + Scroll in non-spline: Horizontal zoom (no vertical axis)
               const center = new Vector2(event.clientX, event.clientY);
               zoomCameraHorizontal(zoomFactor, center);
             }
-          }
-          // Pan: Shift + vertical scroll (converts to horizontal pan)
-          else if (
-            shiftKey &&
-            !ctrlKey &&
-            !metaKey &&
-            settingsRef.current.enablePan &&
-            absDeltaY > absDeltaX &&
-            absDeltaY > threshold
-          ) {
-            // Convert vertical scroll to horizontal pan
-            panCamera(deltaY);
-          }
-          // Pan: horizontal scroll
-          else if (
-            settingsRef.current.enablePan &&
-            absDeltaX > absDeltaY &&
-            absDeltaX > threshold
-          ) {
-            panCamera(deltaX);
           }
 
           onChange?.();
@@ -383,10 +419,45 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
 
           event.preventDefault();
 
-          // Use offset with proper scaling - scale is ratio from initial pinch distance
+          const isSpline = settingsRef.current.trackRender === TrackRender.Spline;
           const scaleFactor = 1 + (scale - 1) * settingsRef.current.zoomSpeed * 0.5;
-          const center = new Vector2(origin[0], origin[1]);
-          zoomCameraHorizontal(scaleFactor, center);
+
+          // Determine zoom axis from touch finger positions (if available)
+          const nativeEvent = event as TouchEvent;
+          const touches = nativeEvent?.touches;
+          let zoomAxis: "horizontal" | "vertical" | "uniform" = "uniform";
+
+          if (touches?.length === 2) {
+            // Touch device: finger angle determines axis
+            const dx = Math.abs(touches[1].clientX - touches[0].clientX);
+            const dy = Math.abs(touches[1].clientY - touches[0].clientY);
+            zoomAxis = dx > dy ? "horizontal" : "vertical";
+          }
+
+          // Non-spline: no vertical axis, force horizontal
+          if (!isSpline && zoomAxis === "vertical") {
+            zoomAxis = "horizontal";
+          }
+          if (!isSpline && zoomAxis === "uniform") {
+            zoomAxis = "horizontal";
+          }
+
+          // Apply zoom to the determined axis/axes
+          if (zoomAxis === "horizontal" || zoomAxis === "uniform") {
+            const center = new Vector2(origin[0], origin[1]);
+            zoomCameraHorizontal(scaleFactor, center);
+          }
+
+          if ((zoomAxis === "vertical" || zoomAxis === "uniform") && isSpline && isOrthographicCamera(camera)) {
+            const rect = gl.domElement.getBoundingClientRect();
+            const relativeY = (origin[1] - rect.top) / rect.height;
+            const frustumHeight = camera.top - camera.bottom;
+            const targetY = camera.top - relativeY * frustumHeight;
+            const newHeight = frustumHeight / scaleFactor;
+            camera.top = targetY + newHeight * relativeY;
+            camera.bottom = targetY - newHeight * (1 - relativeY);
+            camera.updateProjectionMatrix();
+          }
 
           onChange?.();
 

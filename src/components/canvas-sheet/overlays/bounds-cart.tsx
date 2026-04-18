@@ -11,7 +11,7 @@ import { shallow } from "zustand/shallow";
 import { DynamicRoundedRect } from "../shared/rounded-rectangle-geometry";
 import { useTriangleCaretGeometry } from "../shared/triangle-caret";
 import {
-  useInvariantScale,
+  useInvariantScaleX,
   useAnimationStore,
   useDragGestures,
   useAltKeyPressed,
@@ -107,7 +107,7 @@ export const BoundsCart = memo(function BoundsCart({
   );
 
   // Get invariant scale for zoom-independent sizing
-  const invariantScale = useInvariantScale();
+  const invariantScale = useInvariantScaleX();
 
   // Player and animation store
   const { framerate, addPreview, removePreview, previewLeft, previewRight } = useAnimationStore(

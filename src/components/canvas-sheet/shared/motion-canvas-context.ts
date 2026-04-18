@@ -12,7 +12,8 @@ export interface MotionCanvasState {
     left: MotionValue<number>;
     right: MotionValue<number>;
   };
-  invariantScale: MotionValue<number>;
+  invariantScaleX: MotionValue<number>;
+  invariantScaleY: MotionValue<number>;
 }
 
 export const MotionCanvasContext = createContext<MotionCanvasState | null>(null);

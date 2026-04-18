@@ -592,6 +592,15 @@ export const AnimationSlice = (
         }),
       );
     },
+    setVerticalViewport: (viewId: string, viewport: { top: number; bottom: number } | undefined) => {
+      set(
+        produce((state: AnimationData) => {
+          const view = state.editorViews[viewId];
+          if (!view) return;
+          view.verticalViewport = viewport;
+        }),
+      );
+    },
     addAnimation: (animation: StoredAnimation) => {
       set(
         produce((state: AnimationData): void => {
