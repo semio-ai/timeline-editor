@@ -121,9 +121,12 @@ function computeBoxSelectHitTest(
   const scrollWorld = (state.scrollOffset / layout.canvasHeight) * worldHeight;
   const firstRowCenterY = layout.cameraTop - offsetWorld - trackWorldHeight / 2 + scrollWorld;
 
+  const viewRowIds = state.sourceRowIdsByView[layout.viewId] ?? state.sourceRowIds;
   const rowIds = isTimeline
     ? ["global"]
-    : (state.sourceRowIdsByView[layout.viewId]?.flat ?? state.sourceRowIds.flat);
+    : trackRender === TrackRender.Spline
+      ? viewRowIds.spline
+      : viewRowIds.flat;
 
   // Collect hit keypoints
   const hits: { trackId: string; keypointId: string }[] = [];
@@ -158,24 +161,36 @@ function computeBoxSelectHitTest(
         // Y hit-test: check the keypoint's visual center, not the row band
         if (!isTimeline) {
           if (trackRender === TrackRender.Spline) {
-            // Spline: use the keypoint's numeric value mapped to world Y
-            // The vertical bounds and scale come from the row's computed data
-            const vBounds = computed.verticalBounds;
-            if (vBounds) {
-              const vMin = vBounds.min;
-              const vMax = vBounds.max;
-              const vSpan = vMax - vMin;
-              if (vSpan > 0 && typeof point.value === "number") {
-                // Map value to the available height (centered in the tracks area)
-                const bottomOffsetWorld = (layout.bottomOffsetPx / layout.canvasHeight) * worldHeight;
-                const availableTop = layout.cameraTop - offsetWorld;
-                const availableBottom = layout.cameraBottom + bottomOffsetWorld;
-                const availableHeight = availableTop - availableBottom;
-                const centerY = (availableTop + availableBottom) / 2;
-                const normalizedValue = (point.value as number - vMin) / vSpan;
-                const pointY = centerY - availableHeight / 2 + normalizedValue * availableHeight;
-                if (pointY < minY || pointY > maxY) return;
-              }
+            // Spline: map the keypoint's value to world Y using the same
+            // axis range as the rendering (per-view scale/offset).
+            if (typeof point.value === "number") {
+              const viewAxis = computed.verticalAxisByView?.[layout.viewId];
+              const domainMin = viewAxis?.min ?? computed.verticalBounds.min;
+              const domainMax = viewAxis?.max ?? computed.verticalBounds.max;
+              const domainSpan = domainMax - domainMin;
+              if (domainSpan <= 0) return;
+
+              const visualScale = viewAxis?.visualScale ?? 1;
+              const visualOffset = viewAxis?.visualOffset ?? 0;
+
+              const bottomOffsetWorld = (layout.bottomOffsetPx / layout.canvasHeight) * worldHeight;
+              const availableTop = layout.cameraTop - offsetWorld;
+              const availableBottom = layout.cameraBottom + bottomOffsetWorld;
+              const availableHeight = availableTop - availableBottom;
+              const splineCenterY = (availableTop + availableBottom) / 2;
+
+              // Match the rendering's linearScale: [domainMin, domainMax] → [-halfSpan + visualOffset, halfSpan + visualOffset]
+              const span = Math.max(availableHeight * visualScale, 1);
+              const halfSpan = span / 2;
+              const rangeMin = -halfSpan + visualOffset;
+              const rangeMax = halfSpan + visualOffset;
+              const t = (point.value as number - domainMin) / domainSpan;
+              const localY = rangeMin + t * (rangeMax - rangeMin);
+              const pointY = splineCenterY + localY;
+
+              if (pointY < minY || pointY > maxY) return;
+            } else {
+              return; // Non-numeric values can't be positioned in spline view
             }
           } else {
             // Key/Preview/Transition: center Y is the row center
