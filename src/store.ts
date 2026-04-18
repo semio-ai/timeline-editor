@@ -13,6 +13,7 @@ import {
   Preview,
   SourceRow,
   TrackRender,
+  LayerBand,
   Namespace,
   DragUpdateInput,
   DragStartInput,
@@ -892,6 +893,135 @@ export const AnimationSlice = (
     },
     cancelBoxSelect: () => {
       set({ boxSelectState: null });
+    },
+    commitBoxSelect: (params: {
+      viewId: string;
+      canvasHeight: number;
+      cameraTop: number;
+      cameraBottom: number;
+      topOffsetPx: number;
+      bottomOffsetPx: number;
+      trackHeightPx: number;
+    }) => {
+      const state = get();
+      const box = state.boxSelectState;
+      if (!box) return;
+
+      const { viewId, canvasHeight, cameraTop, cameraBottom, topOffsetPx, bottomOffsetPx, trackHeightPx } = params;
+      const view = state.editorViews[viewId];
+      const trackRender = view?.trackRender ?? TrackRender.Key;
+      const isTimeline = box.origin === "timeline";
+
+      // Box bounds in world-space stamps
+      const minStamp = Math.min(box.startStamp, box.currentStamp);
+      const maxStamp = Math.max(box.startStamp, box.currentStamp);
+
+      // Compute layout for Y hit-testing (non-spline, tracks origin)
+      const worldHeight = cameraTop - cameraBottom;
+      const trackWorldHeight = (trackHeightPx / canvasHeight) * worldHeight;
+      const offsetWorld = (topOffsetPx / canvasHeight) * worldHeight;
+      const scrollWorld = (state.scrollOffset / canvasHeight) * worldHeight;
+      const firstRowCenterY = cameraTop - offsetWorld - trackWorldHeight / 2 + scrollWorld;
+
+      const minY = Math.min(box.startY, box.currentY);
+      const maxY = Math.max(box.startY, box.currentY);
+
+      // Determine which source row IDs to iterate
+      const rowIds = isTimeline
+        ? ["global"]
+        : (state.sourceRowIdsByView[viewId]?.flat ?? state.sourceRowIds.flat);
+
+      // Collect keypoints that fall within the box
+      const hitKeypoints: { trackId: string; keypointId: string }[] = [];
+
+      rowIds.forEach((rowId, idx) => {
+        const sourceRow = state.instancedTrackSources[rowId];
+        if (!sourceRow) return;
+
+        // For tracks origin (non-spline): check Y overlap with this row's band
+        if (!isTimeline && trackRender !== TrackRender.Spline) {
+          const rowCenterY = firstRowCenterY - trackWorldHeight * idx;
+          const rowTop = rowCenterY + trackWorldHeight / 2;
+          const rowBottom = rowCenterY - trackWorldHeight / 2;
+          // No Y overlap → skip this row
+          if (rowBottom > maxY || rowTop < minY) return;
+        }
+
+        // Get the row's computed data from the derived snapshot
+        const computed = state.derivedSnapshot?.rows?.[rowId]?.computed;
+        if (!computed) return;
+
+        // Walk virtual frames and check stamp range
+        computed.virtualFrames.forEach((frame) => {
+          frame.points.forEach((point) => {
+            // Only foreground, selectable points
+            if (point.selectable === false) return;
+            if (
+              point.layerBand !== LayerBand.ForegroundSelected &&
+              point.layerBand !== LayerBand.ForegroundUnselected
+            ) return;
+
+            // Check if the point's instance matches the selection instance
+            if (state.selectionState.instanceId && point.instanceId !== state.selectionState.instanceId) return;
+
+            // X hit-test: check stamp is within box range
+            // The frame stamp is in local space; for the global row it's already in world space
+            const stamp = frame.stamp;
+            if (stamp < minStamp || stamp > maxStamp) return;
+
+            // For spline mode: Y hit-test would use the point's interpolated value
+            // (deferred — spline hit-test needs vertical bounds and axis scaling)
+
+            hitKeypoints.push({ trackId: point.trackId, keypointId: point.id });
+          });
+        });
+      });
+
+      // Apply selection based on mode
+      const selection = { ...state.selectionState };
+      const newKeypoints = new Map(
+        box.mode === "replace" ? [] : selection.keypoints,
+      );
+
+      if (box.mode === "toggle") {
+        // Toggle: add if absent, remove if present
+        hitKeypoints.forEach(({ trackId, keypointId }) => {
+          const existing = newKeypoints.get(trackId);
+          if (existing?.has(keypointId)) {
+            const next = new Set(existing);
+            next.delete(keypointId);
+            if (next.size === 0) {
+              newKeypoints.delete(trackId);
+            } else {
+              newKeypoints.set(trackId, next);
+            }
+          } else {
+            const next = new Set(existing ?? []);
+            next.add(keypointId);
+            newKeypoints.set(trackId, next);
+          }
+        });
+      } else {
+        // Replace or add: merge hit keypoints into the map
+        hitKeypoints.forEach(({ trackId, keypointId }) => {
+          const existing = newKeypoints.get(trackId) ?? new Set<string>();
+          const next = new Set(existing);
+          next.add(keypointId);
+          newKeypoints.set(trackId, next);
+        });
+      }
+
+      // Update reference anchor based on mode
+      const reference = box.mode === "replace" ? null : selection.reference;
+
+      set({
+        selectionState: {
+          ...selection,
+          keypoints: newKeypoints,
+          reference,
+        },
+        boxSelectState: null,
+      });
     },
     setScrollOffset: (offset: number) => {
       set({ scrollOffset: offset });

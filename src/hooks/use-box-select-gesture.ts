@@ -20,19 +20,28 @@ const ACTIVATION_THRESHOLD_PX = 3;
  *
  * Should be called ONCE in the TracksRenderer.
  */
-export function useBoxSelectGesture(origin: "tracks") {
-  const { camera, gl } = useThree();
+export interface BoxSelectGestureParams {
+  viewId: string;
+  topOffsetPx?: number;
+  bottomOffsetPx?: number;
+  trackHeightPx?: number;
+}
 
-  const actionsRef = useRef<Pick<AnimationActions, "startBoxSelect" | "updateBoxSelect" | "cancelBoxSelect">>({
+export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGestureParams) {
+  const { camera, gl, size } = useThree();
+
+  const actionsRef = useRef<Pick<AnimationActions, "startBoxSelect" | "updateBoxSelect" | "cancelBoxSelect" | "commitBoxSelect">>({
     startBoxSelect: () => {},
     updateBoxSelect: () => {},
     cancelBoxSelect: () => {},
+    commitBoxSelect: () => {},
   });
   const actions = useAnimationStore(
     useShallow((state: AnimationActions) => ({
       startBoxSelect: state.startBoxSelect,
       updateBoxSelect: state.updateBoxSelect,
       cancelBoxSelect: state.cancelBoxSelect,
+      commitBoxSelect: state.commitBoxSelect,
     })),
   );
   actionsRef.current = actions;
@@ -43,6 +52,10 @@ export function useBoxSelectGesture(origin: "tracks") {
 
   const cameraRef = useRef(camera);
   cameraRef.current = camera;
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
 
   const boxSelectActiveRef = useRef(false);
   const boxSelectActive = useAnimationStore(
@@ -121,8 +134,17 @@ export function useBoxSelectGesture(origin: "tracks") {
         moveHandler = null;
         upHandler = null;
         if (activated) {
-          // TODO: commitBoxSelect
-          actionsRef.current.cancelBoxSelect();
+          const cam = cameraRef.current;
+          const isOrtho = isOrthographicCamera(cam);
+          actionsRef.current.commitBoxSelect({
+            viewId: paramsRef.current.viewId,
+            canvasHeight: sizeRef.current.height,
+            cameraTop: isOrtho ? cam.top : 0,
+            cameraBottom: isOrtho ? cam.bottom : 0,
+            topOffsetPx: paramsRef.current.topOffsetPx ?? 36,
+            bottomOffsetPx: paramsRef.current.bottomOffsetPx ?? 108,
+            trackHeightPx: paramsRef.current.trackHeightPx ?? 36,
+          });
         }
         downState = null;
         activated = false;
@@ -150,14 +172,15 @@ export function useBoxSelectGesture(origin: "tracks") {
  *
  * @param origin - Which HUD area ("timeline").
  */
-export function useHudBoxSelectGesture(origin: BoxSelectState["origin"]) {
-  const { camera, gl } = useThree();
+export function useHudBoxSelectGesture(origin: BoxSelectState["origin"], viewId: string) {
+  const { camera, gl, size } = useThree();
 
-  const { startBoxSelect, updateBoxSelect, cancelBoxSelect } = useAnimationStore(
+  const { startBoxSelect, updateBoxSelect, cancelBoxSelect, commitBoxSelect } = useAnimationStore(
     useShallow((state: AnimationActions) => ({
       startBoxSelect: state.startBoxSelect,
       updateBoxSelect: state.updateBoxSelect,
       cancelBoxSelect: state.cancelBoxSelect,
+      commitBoxSelect: state.commitBoxSelect,
     })),
   );
 
@@ -167,8 +190,10 @@ export function useHudBoxSelectGesture(origin: BoxSelectState["origin"]) {
   cameraRef.current = camera;
   const canvasRef = useRef(gl.domElement);
   canvasRef.current = gl.domElement;
-  const actionsRef = useRef({ startBoxSelect, updateBoxSelect, cancelBoxSelect });
-  actionsRef.current = { startBoxSelect, updateBoxSelect, cancelBoxSelect };
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
+  const actionsRef = useRef({ startBoxSelect, updateBoxSelect, cancelBoxSelect, commitBoxSelect });
+  actionsRef.current = { startBoxSelect, updateBoxSelect, cancelBoxSelect, commitBoxSelect };
 
   const screenToWorld = useCallback(
     (clientX: number, clientY: number): [number, number] => {
@@ -220,7 +245,17 @@ export function useHudBoxSelectGesture(origin: BoxSelectState["origin"]) {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         if (activated) {
-          actionsRef.current.cancelBoxSelect();
+          const cam = cameraRef.current;
+          const isOrtho = isOrthographicCamera(cam);
+          actionsRef.current.commitBoxSelect({
+            viewId,
+            canvasHeight: sizeRef.current.height,
+            cameraTop: isOrtho ? cam.top : 0,
+            cameraBottom: isOrtho ? cam.bottom : 0,
+            topOffsetPx: 36,
+            bottomOffsetPx: 108,
+            trackHeightPx: 36,
+          });
         }
       };
 

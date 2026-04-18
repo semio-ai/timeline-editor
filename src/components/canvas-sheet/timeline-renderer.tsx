@@ -25,7 +25,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
 }: TimelineRendererProps) {
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
-  const boxSelectPointerDown = useHudBoxSelectGesture("timeline");
+  const boxSelectPointerDown = useHudBoxSelectGesture("timeline", viewId);
   const sourceRowId = useAnimationStore(
     useShallow((state) => {
       const filteredRowId = buildFilteredGlobalRowId(viewId);

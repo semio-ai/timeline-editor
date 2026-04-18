@@ -343,6 +343,27 @@ export interface AnimationActions {
    */
   cancelBoxSelect: () => void;
   /**
+   * Commit the current box-select: hit-test keypoints within the box bounds,
+   * update selectionState based on mode (replace/add/toggle), then clear boxSelectState.
+   *
+   * @param viewId - The active editor view ID (for trackRender and verticalAxis settings).
+   * @param canvasHeight - Canvas height in pixels (for scroll → world conversion).
+   * @param cameraTop - Camera top bound in world units.
+   * @param cameraBottom - Camera bottom bound in world units.
+   * @param topOffsetPx - Top HUD offset in pixels.
+   * @param bottomOffsetPx - Bottom HUD offset in pixels.
+   * @param trackHeightPx - Track row height in pixels.
+   */
+  commitBoxSelect: (params: {
+    viewId: string;
+    canvasHeight: number;
+    cameraTop: number;
+    cameraBottom: number;
+    topOffsetPx: number;
+    bottomOffsetPx: number;
+    trackHeightPx: number;
+  }) => void;
+  /**
    * Set the vertical scroll offset (in pixels) for the track list and canvas.
    */
   setScrollOffset: (offset: number) => void;

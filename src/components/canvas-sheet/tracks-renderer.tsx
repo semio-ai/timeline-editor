@@ -164,7 +164,7 @@ export const TracksRenderer = memo(function TracksRenderer({
 
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
-  useBoxSelectGesture("tracks");
+  useBoxSelectGesture("tracks", { viewId, topOffsetPx, bottomOffsetPx, trackHeightPx: trackHeight });
 
   useMotionValueEvent(motionSize.height, "change", (height) => {
     if (!isOrthographicCamera(camera)) return;
