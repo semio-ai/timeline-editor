@@ -78,6 +78,25 @@ export interface ActiveEntityContext {
   instanceIds: string[];
 }
 
+/**
+ * Transient state for an in-progress box-select (marquee) gesture.
+ * Lives separate from SelectionState — selection is only updated on commit.
+ */
+export interface BoxSelectState {
+  /** Where the gesture originated — determines which canvas area owns the interaction. */
+  origin: "tracks" | "timeline";
+  /** World-space stamp where the drag started. */
+  startStamp: number;
+  /** Y position where the drag started (world units). */
+  startY: number;
+  /** Current world-space stamp during drag. */
+  currentStamp: number;
+  /** Current Y position during drag (world units). */
+  currentY: number;
+  /** Selection mode determined by modifier keys at drag start. */
+  mode: "replace" | "add" | "toggle";
+}
+
 export interface AnimationPreferencesPatch {
   hoverDashedLine?: boolean;
   dataPreviews?: boolean;
@@ -219,6 +238,12 @@ export interface AnimationData {
    * activeEntityId, entityStates, and namespaces.
    */
   activeEntityContext: ActiveEntityContext | null;
+
+  /**
+   * Transient box-select (marquee) gesture state. Null when no box-select is active.
+   * Separate from selectionState — selection is only updated when the gesture commits.
+   */
+  boxSelectState: BoxSelectState | null;
 }
 
 /**
@@ -298,6 +323,18 @@ export interface AnimationActions {
    * Replaces selection with all tracks in range, each with empty keypoint set.
    */
   rangeSelectTracks: (fromRowId: string, toRowId: string) => void;
+  /**
+   * Start a box-select gesture. Called when pointer movement exceeds the activation threshold.
+   */
+  startBoxSelect: (state: BoxSelectState) => void;
+  /**
+   * Update the current position of an active box-select gesture.
+   */
+  updateBoxSelect: (currentStamp: number, currentY: number) => void;
+  /**
+   * Cancel an active box-select gesture without modifying the selection.
+   */
+  cancelBoxSelect: () => void;
   /**
    * Update the expanded and hidden state of a source group globally.
    * @param groupId - The ID of the source group to update.

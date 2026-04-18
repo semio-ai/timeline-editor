@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Theme } from "@semio/ui";
 import { ThreeEvent } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
-import { useAnimationStore, usePlaybackGestures } from "../../hooks";
+import { useAnimationStore, usePlaybackGestures, useHudBoxSelectGesture } from "../../hooks";
 import { TrackRender } from "../../types";
 import { Z } from "../../constants";
 import { buildFilteredGlobalRowId } from "../../functions";
@@ -10,6 +10,7 @@ import { DataRenderer } from "./data-renderer";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
+import { BoxSelectOverlay } from "./overlays/box-select-overlay";
 import { BoundsOverlay } from "./overlays/bounds-overlay";
 import { TickBackground } from "./overlays/tick-background";
 
@@ -24,6 +25,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
 }: TimelineRendererProps) {
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
+  const boxSelectPointerDown = useHudBoxSelectGesture("timeline");
   const sourceRowId = useAnimationStore(
     useShallow((state) => {
       const filteredRowId = buildFilteredGlobalRowId(viewId);
@@ -57,6 +59,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
       <HoverMarker height={36} theme={theme} />
       <PlayheadMarker height={36} theme={theme} />
       <BoundsOverlay height={36} theme={theme} />
+      <BoxSelectOverlay origin="timeline" fixedHeight={36} />
       <DataRenderer
         height={36}
         sourceRowId={sourceRowId}
@@ -71,6 +74,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
         z={-0.5}
         pointerEvents={{
           ...playbackGestures,
+          onPointerDown: boxSelectPointerDown,
           onPointerOver: (e: ThreeEvent<MouseEvent>) => e.stopPropagation(),
         }}
       />

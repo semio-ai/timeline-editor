@@ -5,7 +5,7 @@ import { MotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
 import { Theme } from "@semio/ui";
 import { isOrthographicCamera } from "@semio/utils";
-import { useOrthoCameraSetup, usePlaybackGestures, useAnimationStore } from "../../hooks";
+import { useOrthoCameraSetup, usePlaybackGestures, useBoxSelectGesture, useAnimationStore } from "../../hooks";
 import { TrackRender, type VisibleSourceRowIds } from "../../types";
 import { AnimationData } from "../../store-types";
 import { ThemeMode } from "../../functions";
@@ -18,6 +18,7 @@ import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
 import { BoundsOverlay } from "./overlays/bounds-overlay";
 import { TickBackground } from "./overlays/tick-background";
+import { BoxSelectOverlay } from "./overlays/box-select-overlay";
 import { useMotionCanvas } from "./shared/motion-canvas-context";
 
 interface TracksRendererProps {
@@ -164,6 +165,7 @@ export const TracksRenderer = memo(function TracksRenderer({
 
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
+  useBoxSelectGesture("tracks");
 
   useMotionValueEvent(motionSize.height, "change", (height) => {
     if (!isOrthographicCamera(camera)) return;
@@ -228,6 +230,7 @@ export const TracksRenderer = memo(function TracksRenderer({
         <HoverMarker height={availableHeight} theme={theme} />
         <PlayheadMarker height={availableHeight} theme={theme} />
         <BoundsOverlay height={availableHeight} theme={theme} />
+        <BoxSelectOverlay origin="tracks" parentYOffset={trackAreaCenterY} />
 
         <FrustumBackground
           height={availableHeight}

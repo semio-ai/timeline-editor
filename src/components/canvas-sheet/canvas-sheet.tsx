@@ -120,12 +120,16 @@ const CanvasContent = memo(function CanvasContent({
   const trackRender = useAnimationStore(
     useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),
   );
+  const boxSelectActive = useAnimationStore(
+    useShallow((state: AnimationData) => state.boxSelectState !== null),
+  );
 
   // TrackList region offsets
   // When we allow nested/composite tracks these will need to be dynamic
   const topOffsetPx = 36;
   const bottomOffsetPx = 108;
   const trackHeight = 36;
+
 
   const size = useThree((t) => t.size);
   const flatRowCount = resolvedRowIdLookup.flat.length;
@@ -145,6 +149,7 @@ const CanvasContent = memo(function CanvasContent({
         trackRegion={{ top: topOffsetPx, bottom: bottomOffsetPx }}
         contentHeightPx={totalContentHeightPx}
         trackRender={trackRender}
+        enabled={!boxSelectActive}
       />
       <MotionCanvasProvider label="MainCamera">
         <TracksRenderer

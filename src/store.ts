@@ -34,6 +34,7 @@ import {
   TransitionPatch,
   EditorViewState,
   EntityAnimationState,
+  BoxSelectState,
 } from "./store-types";
 import {
   createKeypoint,
@@ -878,6 +879,19 @@ export const AnimationSlice = (
           state.selectionState.keypoints = newKeypoints;
         }),
       );
+    },
+    startBoxSelect: (boxState: BoxSelectState) => {
+      set({ boxSelectState: boxState });
+    },
+    updateBoxSelect: (currentStamp: number, currentY: number) => {
+      const current = get().boxSelectState;
+      if (!current) return;
+      set({
+        boxSelectState: { ...current, currentStamp, currentY },
+      });
+    },
+    cancelBoxSelect: () => {
+      set({ boxSelectState: null });
     },
     addPreview: (preview: Preview) => {
       set((state: AnimationData) => ({

@@ -1,4 +1,5 @@
 export * from "./use-alt-key-pressed";
+export * from "./use-box-select-gesture";
 export * from "./use-animation-store";
 export * from "./use-colors";
 export * from "./use-diagonal-material";

@@ -56,5 +56,6 @@ export const createDefaultState = (): AnimationData => {
     activeEntityId: null,
     entityStates: {},
     activeEntityContext: null,
+    boxSelectState: null,
   };
 };

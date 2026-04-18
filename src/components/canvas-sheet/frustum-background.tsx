@@ -37,24 +37,23 @@ export const FrustumBackground = memo(function FrustumBackground({
 
   const clearSelection = useAnimationStore(useShallow((state) => state.clearSelection));
   const dragState = useAnimationStore(useShallow((state) => state.dragState));
+  const boxSelectState = useAnimationStore(useShallow((state) => state.boxSelectState));
 
   // Track if we just finished dragging to prevent clearing selection on drag end
   const justFinishedDraggingRef = useRef(false);
 
   useEffect(() => {
-    // If dragState becomes undefined (drag ended), mark that we just finished dragging
-    if (!dragState && justFinishedDraggingRef.current) {
-      // Clear the flag after a short delay to allow the click event to be ignored
+    // If dragState/boxSelectState becomes undefined (gesture ended), mark that we just finished
+    if (!dragState && !boxSelectState && justFinishedDraggingRef.current) {
       const timer = setTimeout(() => {
         justFinishedDraggingRef.current = false;
       }, 100);
       return () => clearTimeout(timer);
     }
-    // If dragState is active, mark that we're dragging
-    if (dragState) {
+    if (dragState || boxSelectState) {
       justFinishedDraggingRef.current = true;
     }
-  }, [dragState]);
+  }, [dragState, boxSelectState]);
 
   // Use useFrame to position/scale the background to fill the camera frustum.
   // This runs once per frame and is more efficient than motion value listeners.
