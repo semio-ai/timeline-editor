@@ -132,11 +132,12 @@ function computeBoxSelectHitTest(
     const sourceRow = state.instancedTrackSources[rowId];
     if (!sourceRow) return;
 
+    // Compute this row's center Y for non-spline modes
+    let rowCenterY = 0;
     if (!isTimeline && trackRender !== TrackRender.Spline) {
-      const rowCenterY = firstRowCenterY - trackWorldHeight * idx;
-      const rowTop = rowCenterY + trackWorldHeight / 2;
-      const rowBottom = rowCenterY - trackWorldHeight / 2;
-      if (rowBottom > maxY || rowTop < minY) return;
+      rowCenterY = firstRowCenterY - trackWorldHeight * idx;
+      // Quick reject: if the row center is far outside the box, skip
+      if (rowCenterY > maxY + trackWorldHeight / 2 || rowCenterY < minY - trackWorldHeight / 2) return;
     }
 
     const computed = state.derivedSnapshot?.rows?.[rowId]?.computed;
@@ -153,6 +154,34 @@ function computeBoxSelectHitTest(
           point.layerBand !== LayerBand.ForegroundUnselected
         ) return;
         if (state.selectionState.instanceId && point.instanceId !== state.selectionState.instanceId) return;
+
+        // Y hit-test: check the keypoint's visual center, not the row band
+        if (!isTimeline) {
+          if (trackRender === TrackRender.Spline) {
+            // Spline: use the keypoint's numeric value mapped to world Y
+            // The vertical bounds and scale come from the row's computed data
+            const vBounds = computed.verticalBounds;
+            if (vBounds) {
+              const vMin = vBounds.min;
+              const vMax = vBounds.max;
+              const vSpan = vMax - vMin;
+              if (vSpan > 0 && typeof point.value === "number") {
+                // Map value to the available height (centered in the tracks area)
+                const bottomOffsetWorld = (layout.bottomOffsetPx / layout.canvasHeight) * worldHeight;
+                const availableTop = layout.cameraTop - offsetWorld;
+                const availableBottom = layout.cameraBottom + bottomOffsetWorld;
+                const availableHeight = availableTop - availableBottom;
+                const centerY = (availableTop + availableBottom) / 2;
+                const normalizedValue = (point.value as number - vMin) / vSpan;
+                const pointY = centerY - availableHeight / 2 + normalizedValue * availableHeight;
+                if (pointY < minY || pointY > maxY) return;
+              }
+            }
+          } else {
+            // Key/Preview/Transition: center Y is the row center
+            if (rowCenterY < minY || rowCenterY > maxY) return;
+          }
+        }
 
         hits.push({ trackId: point.trackId, keypointId: point.id });
       });
@@ -1007,14 +1036,33 @@ export const AnimationSlice = (
       const updatedBox = { ...box, currentStamp, currentY };
       const newSelection = computeBoxSelectHitTest(state, updatedBox);
 
-      set({
-        boxSelectState: updatedBox,
-        selectionState: {
-          ...state.selectionState,
-          keypoints: newSelection,
-          reference: box.mode === "replace" ? null : state.selectionState.reference,
-        },
-      });
+      // Only update selectionState if the hit results actually changed
+      const currentKeypoints = state.selectionState.keypoints;
+      let selectionChanged = newSelection.size !== currentKeypoints.size;
+      if (!selectionChanged) {
+        for (const [trackId, ids] of newSelection) {
+          const existing = currentKeypoints.get(trackId);
+          if (!existing || existing.size !== ids.size) { selectionChanged = true; break; }
+          for (const id of ids) {
+            if (!existing.has(id)) { selectionChanged = true; break; }
+          }
+          if (selectionChanged) break;
+        }
+      }
+
+      if (selectionChanged) {
+        set({
+          boxSelectState: updatedBox,
+          selectionState: {
+            ...state.selectionState,
+            keypoints: newSelection,
+            reference: box.mode === "replace" ? null : state.selectionState.reference,
+          },
+        });
+      } else {
+        // Just update box position for the overlay, no selection churn
+        set({ boxSelectState: updatedBox });
+      }
     },
     cancelBoxSelect: () => {
       const state = get();
