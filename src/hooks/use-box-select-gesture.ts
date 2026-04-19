@@ -115,8 +115,6 @@ export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGesturePa
         if (!activated) {
           if (Math.sqrt(dx * dx + dy * dy) < ACTIVATION_THRESHOLD_PX) return;
           activated = true;
-          const cam = cameraRef.current;
-          const isOrtho = isOrthographicCamera(cam);
           actionsRef.current.startBoxSelect({
             origin,
             startStamp: downState.worldX,
@@ -128,8 +126,6 @@ export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGesturePa
             layout: {
               viewId: paramsRef.current.viewId,
               canvasHeight: sizeRef.current.height,
-              cameraTop: isOrtho ? cam.top : 0,
-              cameraBottom: isOrtho ? cam.bottom : 0,
               topOffsetPx: paramsRef.current.topOffsetPx ?? 36,
               bottomOffsetPx: paramsRef.current.bottomOffsetPx ?? 108,
               trackHeightPx: paramsRef.current.trackHeightPx ?? 36,
@@ -230,8 +226,6 @@ export function useHudBoxSelectGesture(origin: BoxSelectState["origin"], viewId:
         if (!activated) {
           if (Math.sqrt(dx * dx + dy * dy) < ACTIVATION_THRESHOLD_PX) return;
           activated = true;
-          const cam = cameraRef.current;
-          const isOrtho = isOrthographicCamera(cam);
           actionsRef.current.startBoxSelect({
             origin,
             startStamp: startWorld[0],
@@ -243,8 +237,6 @@ export function useHudBoxSelectGesture(origin: BoxSelectState["origin"], viewId:
             layout: {
               viewId,
               canvasHeight: sizeRef.current.height,
-              cameraTop: isOrtho ? cam.top : 0,
-              cameraBottom: isOrtho ? cam.bottom : 0,
               topOffsetPx: 36,
               bottomOffsetPx: 108,
               trackHeightPx: 36,

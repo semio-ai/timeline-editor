@@ -102,8 +102,6 @@ export interface BoxSelectState {
   layout: {
     viewId: string;
     canvasHeight: number;
-    cameraTop: number;
-    cameraBottom: number;
     topOffsetPx: number;
     bottomOffsetPx: number;
     trackHeightPx: number;
@@ -238,6 +236,11 @@ export interface AnimationData {
    * and TrackList for synchronized positioning.
    */
   scrollOffset: number;
+  /**
+   * Monotonically increasing counter. Bumped by the toolbar's "Fit to Content"
+   * action; TracksRenderer watches it to reset the vertical camera in spline mode.
+   */
+  verticalFitCounter: number;
 
   /**
    * Currently active entity ID in the editor. Null when none selected.
@@ -364,6 +367,10 @@ export interface AnimationActions {
    * Set the vertical scroll offset (in pixels) for the track list and canvas.
    */
   setScrollOffset: (offset: number) => void;
+  /**
+   * Bump the vertical fit counter to trigger a camera Y reset in spline mode.
+   */
+  requestVerticalFit: () => void;
   /**
    * Update the expanded and hidden state of a source group globally.
    * @param groupId - The ID of the source group to update.

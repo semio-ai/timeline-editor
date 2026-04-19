@@ -62,8 +62,6 @@ export const TracksRenderer = memo(function TracksRenderer({
     trackRender === TrackRender.Spline ? sourceRowLookup.spline : sourceRowLookup.flat;
 
   const availableHeight = size.height - topOffsetPx - bottomOffsetPx;
-  // Dynamic overlay height: tracks camera span in spline mode for extending overlays
-  const overlayHeightRef = useRef(availableHeight);
 
   // Only use pixel-locked camera setup for non-spline modes.
   // Spline mode manages camera.top/bottom via PanZoomControls + useFrame.
@@ -73,8 +71,6 @@ export const TracksRenderer = memo(function TracksRenderer({
 
   const groupRef = useRef<THREE.Group>(null);
   const overlayGroupRef = useRef<THREE.Group>(null);
-  const overlayBgMesh1Ref = useRef<THREE.Mesh>(null);
-  const overlayBgMesh2Ref = useRef<THREE.Mesh>(null);
   const lastCalculatedSizeRef = useRef({ width: 0, height: 0 });
   const lastTrackRenderRef = useRef<TrackRender>(trackRender);
   const cachedPositionRef = useRef({ y: 0, trackWorldHeight: 0, worldHeight: 1 });
@@ -161,15 +157,12 @@ export const TracksRenderer = memo(function TracksRenderer({
       const camCenterY = (camera.top + camera.bottom) / 2;
       const camHeight = camera.top - camera.bottom;
       overlayGroupRef.current.position.y = camCenterY;
-      overlayHeightRef.current = camHeight;
 
       // Scale the entire overlay group Y so all children (tick marks, markers,
       // backgrounds) stretch to fill the camera's vertical span.
       if (availableHeight > 0) {
         overlayGroupRef.current.scale.y = camHeight / availableHeight;
       }
-    } else {
-      overlayHeightRef.current = availableHeight;
     }
   });
 
@@ -228,6 +221,19 @@ export const TracksRenderer = memo(function TracksRenderer({
     }
   }, [camera, trackRender]);
 
+  // Reset vertical camera when "Fit to Content" is requested in spline mode
+  const verticalFitCounter = useAnimationStore(
+    useShallow((state: AnimationData) => state.verticalFitCounter),
+  );
+  useEffect(() => {
+    if (verticalFitCounter === 0) return; // skip initial
+    if (!isOrthographicCamera(camera)) return;
+    const h = motionSize.height.get();
+    camera.top = h / 2;
+    camera.bottom = -h / 2;
+    camera.updateProjectionMatrix();
+  }, [verticalFitCounter, camera]);
+
   return (
     <>
       <group ref={groupRef as any}>
@@ -256,7 +262,7 @@ export const TracksRenderer = memo(function TracksRenderer({
 
       {/* Render the hover markers and add a gesture detector */}
       <group ref={overlayGroupRef as any} position={[0, trackAreaCenterY, 0]}>
-        <mesh ref={overlayBgMesh1Ref as any} position={[0.5, 0, Z.ForegroundBackgroundBoundary]}>
+        <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]}>
           <planeGeometry args={[1.1, availableHeight]} />
           <meshBasicMaterial
             color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
@@ -264,7 +270,7 @@ export const TracksRenderer = memo(function TracksRenderer({
             opacity={0.4}
           />
         </mesh>
-        <mesh ref={overlayBgMesh2Ref as any} position={[0.5, 0, Z.SelectedUnselectedBoundary]}>
+        <mesh position={[0.5, 0, Z.SelectedUnselectedBoundary]}>
           <planeGeometry args={[1.1, availableHeight]} />
           <meshBasicMaterial
             color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
@@ -277,7 +283,7 @@ export const TracksRenderer = memo(function TracksRenderer({
         <HoverMarker height={availableHeight} theme={theme} />
         <PlayheadMarker height={availableHeight} theme={theme} />
         <BoundsOverlay height={availableHeight} theme={theme} />
-        <BoxSelectOverlay origin="tracks" parentYOffset={trackAreaCenterY} />
+        <BoxSelectOverlay origin="tracks" />
 
         <FrustumBackground
           height={availableHeight}

@@ -114,12 +114,14 @@ function computeBoxSelectHitTest(
   const minY = Math.min(box.startY, box.currentY);
   const maxY = Math.max(box.startY, box.currentY);
 
-  // Layout for Y hit-testing
-  const worldHeight = layout.cameraTop - layout.cameraBottom;
-  const trackWorldHeight = (layout.trackHeightPx / layout.canvasHeight) * worldHeight;
-  const offsetWorld = (layout.topOffsetPx / layout.canvasHeight) * worldHeight;
-  const scrollWorld = (state.scrollOffset / layout.canvasHeight) * worldHeight;
-  const firstRowCenterY = layout.cameraTop - offsetWorld - trackWorldHeight / 2 + scrollWorld;
+  // Layout for Y hit-testing (pixel-based, matching the renderer's 1:1 pixel-to-world)
+  const canvasHeight = layout.canvasHeight;
+  const trackWorldHeight = layout.trackHeightPx;
+  const firstRowCenterY =
+    canvasHeight / 2 - layout.topOffsetPx - trackWorldHeight / 2 + state.scrollOffset;
+  // Spline layout: group Y and available height are stable pixel-based values
+  const availableHeightPx = canvasHeight - layout.topOffsetPx - layout.bottomOffsetPx;
+  const splineGroupY = (layout.bottomOffsetPx - layout.topOffsetPx) / 2;
 
   const viewRowIds = state.sourceRowIdsByView[layout.viewId] ?? state.sourceRowIds;
   const rowIds = isTimeline
@@ -161,37 +163,26 @@ function computeBoxSelectHitTest(
         // Y hit-test: check the keypoint's visual center, not the row band
         if (!isTimeline) {
           if (trackRender === TrackRender.Spline) {
-            // Spline: map the keypoint's value to world Y using the same
-            // axis range as the rendering (per-view scale/offset).
-            if (typeof point.value === "number") {
-              const viewAxis = computed.verticalAxisByView?.[layout.viewId];
-              const domainMin = viewAxis?.min ?? computed.verticalBounds.min;
-              const domainMax = viewAxis?.max ?? computed.verticalBounds.max;
-              const domainSpan = domainMax - domainMin;
-              if (domainSpan <= 0) return;
+            // Spline: keypoint world Y is stable regardless of camera zoom.
+            // The renderer positions the group at (bottomOffsetPx - topOffsetPx) / 2
+            // and uses pixel-based availableHeight for the linearScale range.
+            if (typeof point.value !== "number") return;
 
-              const visualScale = viewAxis?.visualScale ?? 1;
-              const visualOffset = viewAxis?.visualOffset ?? 0;
+            const viewAxis = computed.verticalAxisByView?.[layout.viewId];
+            const domainMin = viewAxis?.min ?? computed.verticalBounds.min;
+            const domainMax = viewAxis?.max ?? computed.verticalBounds.max;
+            const domainSpan = domainMax - domainMin;
+            if (domainSpan <= 0) return;
 
-              const bottomOffsetWorld = (layout.bottomOffsetPx / layout.canvasHeight) * worldHeight;
-              const availableTop = layout.cameraTop - offsetWorld;
-              const availableBottom = layout.cameraBottom + bottomOffsetWorld;
-              const availableHeight = availableTop - availableBottom;
-              const splineCenterY = (availableTop + availableBottom) / 2;
+            const visualScale = viewAxis?.visualScale ?? 1;
+            const visualOffset = viewAxis?.visualOffset ?? 0;
+            const span = Math.max(availableHeightPx * visualScale, 1);
+            const halfSpan = span / 2;
+            const t = (point.value as number - domainMin) / domainSpan;
+            const localY = -halfSpan + visualOffset + t * span;
+            const pointY = splineGroupY + localY;
 
-              // Match the rendering's linearScale: [domainMin, domainMax] → [-halfSpan + visualOffset, halfSpan + visualOffset]
-              const span = Math.max(availableHeight * visualScale, 1);
-              const halfSpan = span / 2;
-              const rangeMin = -halfSpan + visualOffset;
-              const rangeMax = halfSpan + visualOffset;
-              const t = (point.value as number - domainMin) / domainSpan;
-              const localY = rangeMin + t * (rangeMax - rangeMin);
-              const pointY = splineCenterY + localY;
-
-              if (pointY < minY || pointY > maxY) return;
-            } else {
-              return; // Non-numeric values can't be positioned in spline view
-            }
+            if (pointY < minY || pointY > maxY) return;
           } else {
             // Key/Preview/Transition: center Y is the row center
             if (rowCenterY < minY || rowCenterY > maxY) return;
@@ -1107,6 +1098,9 @@ export const AnimationSlice = (
     },
     setScrollOffset: (offset: number) => {
       set({ scrollOffset: offset });
+    },
+    requestVerticalFit: () => {
+      set((state: AnimationData) => ({ verticalFitCounter: state.verticalFitCounter + 1 }));
     },
     addPreview: (preview: Preview) => {
       set((state: AnimationData) => ({

@@ -26,7 +26,7 @@ import {
   toViewVector,
 } from "../../functions/handle-pairing";
 import { useDragGestures } from "../../hooks/use-drag-gestures";
-import { useAnimationStore, useInvariantScaleX } from "../../hooks";
+import { useAnimationStore, useInvariantScaleX, useInvariantScaleY } from "../../hooks";
 import { ROW_DEPTH_EPSILON } from "../../constants";
 import { computeRenderScale } from "./utils/render-scale";
 import { getLayerZ } from "./utils/layers";
@@ -731,41 +731,43 @@ const HandleDot = memo(function HandleDot({
   });
 
   const invariantScale = useInvariantScaleX();
+  const invariantScaleYVal = useInvariantScaleY();
   const dragScale = 1 + dragWeight * 0.3;
   const hoverScale = hovered ? 1.1 : 1;
   const isPaired = pairing === TransitionPairing.Paired;
   const geometrySegments = isPaired ? 24 : 4;
   const typeScaling = isPaired ? 1 : 1.2;
 
-  useMotionValueEvent(invariantScale, "change", (iscale) => {
-    // calculate the new mesh scales and apply it to the meshes
-    const newScaleX = Math.max(iscale * radiusPx * hoverScale * dragScale * typeScaling);
-    const newScaleY = Math.max(radiusPx * hoverScale * dragScale * typeScaling);
+  const markerScale = radiusPx * hoverScale * dragScale * typeScaling;
 
+  useMotionValueEvent(invariantScale, "change", (iscale) => {
     if (scaleRef.current) {
-      scaleRef.current.scale.set(newScaleX, newScaleY, 1);
+      scaleRef.current.scale.x = Math.max(iscale * markerScale);
+    }
+  });
+
+  useMotionValueEvent(invariantScaleYVal, "change", (iscaleY) => {
+    if (scaleRef.current) {
+      scaleRef.current.scale.y = Math.max(iscaleY * markerScale);
     }
   });
 
   useLayoutEffect(() => {
-    const iscale = invariantScale.get();
-    const newScaleX = Math.max(iscale * radiusPx * hoverScale * dragScale * typeScaling);
-    const newScaleY = Math.max(radiusPx * hoverScale * dragScale * typeScaling);
-
     if (scaleRef.current) {
-      scaleRef.current.scale.set(newScaleX, newScaleY, 1);
+      scaleRef.current.scale.x = Math.max(invariantScale.get() * markerScale);
+      scaleRef.current.scale.y = Math.max(invariantScaleYVal.get() * markerScale);
     }
-  }, [invariantScale, radiusPx, hoverScale, dragScale, typeScaling]);
+  }, [invariantScale, invariantScaleYVal, markerScale]);
 
   const clamped = Math.max(0, Math.min(1, appearance));
 
   const baseRadiusX = useMemo<number>(
-    () => Math.max(invariantScale.get() * radiusPx * hoverScale * dragScale * typeScaling, 0.002),
-    [invariantScale, radiusPx, hoverScale, dragScale, typeScaling],
+    () => Math.max(invariantScale.get() * markerScale, 0.002),
+    [invariantScale, markerScale],
   );
   const baseRadiusY = useMemo<number>(
-    () => Math.max(radiusPx * hoverScale * dragScale * typeScaling, 0.002),
-    [radiusPx, hoverScale, dragScale, typeScaling],
+    () => Math.max(invariantScaleYVal.get() * markerScale, 0.002),
+    [invariantScaleYVal, markerScale],
   );
 
   const rotation: [number, number, number] = [0, 0, isPaired ? 0 : orientation];

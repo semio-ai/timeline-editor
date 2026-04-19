@@ -17,8 +17,6 @@ const FIXED_HEIGHT_MARGIN_PX = 3;
 interface BoxSelectOverlayProps {
   /** Which origin this overlay renders for. Only shows when boxSelectState.origin matches. */
   origin?: BoxSelectState["origin"];
-  /** Y offset of the parent group in world space, subtracted from stored coordinates. */
-  parentYOffset?: number;
   /** When set, the overlay fills this fixed height (in world units) minus margins.
    *  Used for the timeline where Y doesn't discriminate between tracks. */
   fixedHeight?: number;
@@ -83,7 +81,6 @@ function buildRoundedRectPoints(
  */
 export const BoxSelectOverlay = memo(function BoxSelectOverlay({
   origin,
-  parentYOffset = 0,
   fixedHeight,
 }: BoxSelectOverlayProps) {
   const fillRef = useRef<THREE.Mesh>(null);
@@ -125,6 +122,11 @@ export const BoxSelectOverlay = memo(function BoxSelectOverlay({
     const left = Math.min(box.startStamp, box.currentStamp);
     const right = Math.max(box.startStamp, box.currentStamp);
 
+    // Read parent group transform once for world-to-local conversion and corner radius
+    const parent = fillRef.current?.parent;
+    const groupPosY = parent?.position.y ?? 0;
+    const groupScaleY = parent?.scale.y ?? 1;
+
     let cy: number;
     let h: number;
     if (fixedHeight !== undefined) {
@@ -133,10 +135,12 @@ export const BoxSelectOverlay = memo(function BoxSelectOverlay({
       cy = 0;
       h = fixedHeight - marginWorld * 2;
     } else {
-      const top = Math.max(box.startY, box.currentY) - parentYOffset;
-      const bottom = Math.min(box.startY, box.currentY) - parentYOffset;
-      cy = (top + bottom) / 2;
-      h = top - bottom;
+      // Convert world Y to local coordinates using the parent group's transform.
+      // In spline mode the overlay group's position and scale are set dynamically.
+      const topLocal = (Math.max(box.startY, box.currentY) - groupPosY) / groupScaleY;
+      const bottomLocal = (Math.min(box.startY, box.currentY) - groupPosY) / groupScaleY;
+      cy = (topLocal + bottomLocal) / 2;
+      h = topLocal - bottomLocal;
     }
 
     const cx = (left + right) / 2;
@@ -148,11 +152,11 @@ export const BoxSelectOverlay = memo(function BoxSelectOverlay({
       return;
     }
 
-    // Convert pixel corner radius to world units (may differ for X and Y axes)
+    // Convert pixel corner radius to local units (accounting for parent group scale)
     const frustumWidth = camera.right - camera.left;
     const frustumHeight = camera.top - camera.bottom;
     const rx = (CORNER_RADIUS_PX / size.width) * frustumWidth;
-    const ry = (CORNER_RADIUS_PX / size.height) * frustumHeight;
+    const ry = (CORNER_RADIUS_PX / size.height) * frustumHeight / groupScaleY;
 
     const hw = w / 2;
     const hh = h / 2;

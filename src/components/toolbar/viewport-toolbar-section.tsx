@@ -14,6 +14,7 @@ import { IconArrowsHorizontal, IconClock, IconSelector } from "@tabler/icons-rea
 import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../../hooks";
 import type { AnimationData, AnimationActions } from "../../store-types";
+import { TrackRender } from "../../types";
 import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
 
 const ZOOM_PRESETS = [
@@ -40,7 +41,11 @@ const TIME_DISPLAY_SHORT: Record<string, string> = {
   [TimeDisplay.Milliseconds]: "ms",
 };
 
-export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
+export const ViewportToolbarSection = memo(function ViewportToolbarSection({
+  viewId,
+}: {
+  viewId: string;
+}) {
   const { viewport, duration } = usePlayerStore(
     useShallow((state) => ({
       viewport: state.player.viewport,
@@ -85,12 +90,23 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
     [duration, viewport, updatePlayerViewport],
   );
 
+  const trackRender = useAnimationStore(
+    useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),
+  );
+  const requestVerticalFit = useAnimationStore(
+    useShallow((state: AnimationActions) => state.requestVerticalFit),
+  );
+
   const handleFitToContent = useCallback(() => {
     // Match the fixed camera's viewport: [0, duration].
     // The camera frustum padding is applied by calculatePaddedFrustum,
     // keeping the fit consistent with the global HUD views.
     updatePlayerViewport(0, Math.max(duration, 1000));
-  }, [duration, updatePlayerViewport]);
+    // In spline mode, also reset the vertical camera to pixel-locked default
+    if (trackRender === TrackRender.Spline) {
+      requestVerticalFit();
+    }
+  }, [duration, updatePlayerViewport, trackRender, requestVerticalFit]);
 
   return (
     <div className="responsive variant-responsive-persistent-outline hidden gap-0.5 rounded-sm p-0.5 @[600px]:flex">
