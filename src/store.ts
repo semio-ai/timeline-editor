@@ -1223,6 +1223,12 @@ export const AnimationSlice = (
     startDrag: (input: DragStartInput) => {
       set(
         produce((state: AnimationData): void => {
+          // Cancel any in-progress box-select — keypoint drag takes priority.
+          // Restore the selection snapshot from before the box-select started.
+          if (state.boxSelectState) {
+            state.selectionState.keypoints = state.boxSelectState.initialKeypoints;
+            state.boxSelectState = null;
+          }
           startDrag(state, input);
         }),
       );
@@ -1230,6 +1236,10 @@ export const AnimationSlice = (
     startValueDrag: (input: ValueDragStartInput) => {
       set(
         produce((state: AnimationData): void => {
+          if (state.boxSelectState) {
+            state.selectionState.keypoints = state.boxSelectState.initialKeypoints;
+            state.boxSelectState = null;
+          }
           startValueDrag(state, input);
         }),
       );
@@ -1237,6 +1247,10 @@ export const AnimationSlice = (
     startHandleDrag: (input: HandleDragStartInput) => {
       set(
         produce((state: AnimationData): void => {
+          if (state.boxSelectState) {
+            state.selectionState.keypoints = state.boxSelectState.initialKeypoints;
+            state.boxSelectState = null;
+          }
           startHandleDrag(state, input);
         }),
       );

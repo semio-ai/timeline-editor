@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useContext, useEffect, useRef } from "react";
 import { useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import { isOrthographicCamera } from "@semio/utils";
 import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "./use-animation-store";
+import { AnimationContext } from "../context";
 import type { AnimationActions, AnimationData, BoxSelectState } from "../store-types";
 
 /** Minimum pointer movement (in screen pixels) before activating box-select. */
@@ -63,6 +64,11 @@ export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGesturePa
   );
   boxSelectActiveRef.current = boxSelectActive;
 
+  // Imperative store access for synchronous dragState checks in DOM event handlers.
+  // React-subscribed refs would be stale (updated on re-render, not on store change).
+  const storeRef = useRef(useContext(AnimationContext));
+  const isDragActive = () => storeRef.current?.getState().dragState !== undefined;
+
   useEffect(() => {
     const canvas = gl.domElement;
 
@@ -114,6 +120,11 @@ export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGesturePa
 
         if (!activated) {
           if (Math.sqrt(dx * dx + dy * dy) < ACTIVATION_THRESHOLD_PX) return;
+          // If a keypoint drag claimed the pointer, yield to it
+          if (isDragActive()) {
+            downState = null;
+            return;
+          }
           activated = true;
           actionsRef.current.startBoxSelect({
             origin,
@@ -132,6 +143,12 @@ export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGesturePa
             },
           });
         } else {
+          // Stop updating if a keypoint drag took over
+          if (isDragActive()) {
+            activated = false;
+            downState = null;
+            return;
+          }
           actionsRef.current.updateBoxSelect(currentX, currentY);
         }
       };
