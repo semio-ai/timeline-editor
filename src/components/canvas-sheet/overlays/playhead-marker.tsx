@@ -81,6 +81,7 @@ export const PlayheadMarker = memo(function PlayheadMarker({
       ref={markerRef as any}
       scale={[scaleX.get(), 1, 1]}
       position={[playheadSpring.get(), 0, Z.PlayheadCart]}
+      raycast={() => {}}
     >
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial toneMapped={false} color={cartColor.get()} />

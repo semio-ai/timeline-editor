@@ -121,7 +121,7 @@ export const TickBackground = memo(function TickBackground({
   });
 
   return (
-    <mesh ref={meshRef} position={[0, 0, Z.Ticks]}>
+    <mesh ref={meshRef} position={[0, 0, Z.Ticks]} raycast={() => {}}>
       <planeGeometry args={[1, height]} />
       <shaderMaterial
         ref={materialRef}

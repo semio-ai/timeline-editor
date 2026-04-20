@@ -29,11 +29,7 @@ export function updateInstancedTrackSources(
       selectedKeypoints: state.selectionState.keypoints,
       tracksRevision: state.tracksRevision ?? 0,
     }),
-    ({
-      globalSourceTree,
-      activeAnimationId,
-      selectedKeypoints,
-    }) => {
+    ({ globalSourceTree, activeAnimationId, selectedKeypoints }) => {
       if (!globalSourceTree || globalSourceTree.length === 0) return;
 
       // Build a set of selected track keys for quick lookup.
@@ -57,10 +53,16 @@ export function updateInstancedTrackSources(
 
       // Walk the full source tree (entity → instance → groups → tracks).
       // Leaf data is also accumulated into globalLeafData for the global aggregate row.
-      flattenSources(globalSourceTree, activeAnimationId, selectedTrackLookup, instancedTrackSources, globalLeafData);
+      flattenSources(
+        globalSourceTree,
+        activeAnimationId,
+        selectedTrackLookup,
+        instancedTrackSources,
+        globalLeafData,
+      );
 
       // The global row aggregates all leaf track data — used by the timeline canvas renderer.
-      instancedTrackSources["global"] = { id: "global", data: globalLeafData };
+      instancedTrackSources.global = { id: "global", data: globalLeafData };
 
       // Preserve any filtered global rows (managed by update-view-filtered-global-rows)
       const existingFiltered: Record<string, SourceRow> = {};
@@ -92,7 +94,10 @@ export function updateInstancedTrackSources(
 
         return (
           current.activeAnimationId === previous.activeAnimationId &&
-          isEqual(selectionSignature(current.selectedKeypoints), selectionSignature(previous.selectedKeypoints)) &&
+          isEqual(
+            selectionSignature(current.selectedKeypoints),
+            selectionSignature(previous.selectedKeypoints),
+          ) &&
           current.globalSourceTree === previous.globalSourceTree &&
           current.tracksRevision === previous.tracksRevision
         );
@@ -128,7 +133,15 @@ function flattenSources(
 
       // Recursively flatten children
       const childOutput: Record<string, SourceRow> = {};
-      flattenSources(group.children, activeAnimationId, selectedTrackLookup, childOutput, globalLeafData, depth + 1, group.id);
+      flattenSources(
+        group.children,
+        activeAnimationId,
+        selectedTrackLookup,
+        childOutput,
+        globalLeafData,
+        depth + 1,
+        group.id,
+      );
 
       // All groups (composite, entity, instance) produce rows with
       // aggregate child data typed as "group".
@@ -156,8 +169,7 @@ function flattenSources(
       const trackKey = track.id; // format: "ns/inst/trackId"
       const foreground = Boolean(activeAnimationId) && track.instanceId === activeAnimationId;
       const isSelected =
-        foreground &&
-        (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));
+        foreground && (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));
 
       const locked = track.locked ?? false;
       let layerBand = LayerBand.Background;

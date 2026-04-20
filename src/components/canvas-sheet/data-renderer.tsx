@@ -488,6 +488,7 @@ export const DataRenderer = memo(function DataRenderer({
               measureFromBottom={measureFromBottom}
               layer={transitionLayer}
               xTransform={xTransform}
+              sourceRowId={sourceRowId}
             />
           )}
         </>

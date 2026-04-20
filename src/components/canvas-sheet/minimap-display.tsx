@@ -4,7 +4,7 @@ import { cubicBezier, MotionValue, useMotionValueEvent } from "motion/react";
 import { PlayerData, usePlayerStore, isOrthographicCamera } from "@semio/utils";
 import { useCursor } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Theme } from "@semio/ui";
+import { Theme, useCanvasContextMenu } from "@semio/ui";
 import {
   usePlayerSubscription,
   useTween,
@@ -12,6 +12,7 @@ import {
   useViewportDragGestures,
 } from "../../hooks";
 import { Z } from "../../constants";
+import { buildMinimapMenuItems } from "./context-menus";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
@@ -62,6 +63,10 @@ export const MinimapDisplay = memo(function MinimapDisplay({
 
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
+
+  const { onContextMenu } = useCanvasContextMenu({
+    items: buildMinimapMenuItems,
+  });
 
   // Determine if component is active
   const isActive = hovered || dragging !== null;
@@ -289,7 +294,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
         height={height}
         visibility="transparent"
         z={Z.Minimap - 1}
-        pointerEvents={playbackGestures}
+        pointerEvents={{ ...playbackGestures, onContextMenu }}
       />
 
       <TickBackground height={height} theme={theme} opacity={0.1} />

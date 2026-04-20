@@ -43,7 +43,6 @@ export const CanvasSheet = memo(function CanvasSheet({
   const { left: initialLeft, right: initialRight } = calculatePaddedFrustum(
     initialViewport,
     estimatedCanvasWidth,
-    false, // Dynamic camera follows viewport
   );
 
   const [ready, setReady] = useState(false);
@@ -52,9 +51,13 @@ export const CanvasSheet = memo(function CanvasSheet({
   return (
     <TooltipHost className="h-full w-full">
       <Canvas
-         
         // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
-        style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0, transition: "opacity 0.2s ease-in" }}
+        style={{
+          width: "100%",
+          height: "100%",
+          opacity: ready ? 1 : 0,
+          transition: "opacity 0.2s ease-in",
+        }}
         flat
         orthographic
         onCreated={handleCreated}
@@ -75,12 +78,7 @@ export const CanvasSheet = memo(function CanvasSheet({
           antialias: true,
         }}
       >
-        <CanvasContent
-          viewId={viewId}
-          theme={theme}
-          rowIdLookup={rowIdLookup}
-          fonts={fonts}
-        />
+        <CanvasContent viewId={viewId} theme={theme} rowIdLookup={rowIdLookup} fonts={fonts} />
       </Canvas>
     </TooltipHost>
   );
@@ -123,7 +121,6 @@ const CanvasContent = memo(function CanvasContent({
   const topOffsetPx = 36;
   const bottomOffsetPx = 108;
   const trackHeight = 36;
-
 
   const size = useThree((t) => t.size);
   const flatRowCount = resolvedRowIdLookup.flat.length;

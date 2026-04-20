@@ -47,7 +47,7 @@ export const HoverMarker = memo(function HoverMarker({
   }
 
   return (
-    <mesh ref={markerRef as any} scale={[scaleX.get(), 1, 1]} position={[0, 0, Z.PlayheadCart]}>
+    <mesh ref={markerRef as any} scale={[scaleX.get(), 1, 1]} position={[0, 0, Z.PlayheadCart]} raycast={() => {}}>
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial color={color} toneMapped={false} transparent opacity={0} />
     </mesh>

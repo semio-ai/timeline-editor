@@ -1,6 +1,6 @@
 import { memo, useState, useEffect } from "react";
 import { useShallow } from "zustand/shallow";
-import { Theme, useTooltipAnchor, useTooltipTrigger } from "@semio/ui";
+import { Theme, useTooltipAnchor } from "@semio/ui";
 import { MotionValue, useSpring } from "motion/react";
 import { useAnimationStore, useColors, useDiagonalMaterial } from "../../hooks";
 import { LayerBand, Violation, ViolationSet } from "../../types";
@@ -20,6 +20,7 @@ const ViolationSegment = memo(function ViolationSegment({
   layer = LayerBand.Background,
   globalOpacityMV,
   xTransform,
+  sourceRowId,
 }: {
   segment: {
     id: string;
@@ -36,16 +37,20 @@ const ViolationSegment = memo(function ViolationSegment({
   layer?: LayerBand;
   globalOpacityMV?: MotionValue<number>;
   xTransform?: (stamp: number) => number;
+  sourceRowId: string;
 }) {
   const [hovered, setHovered] = useState(false);
 
-  // Generate tooltip ID
-  const tooltipId = `violation-segment-${segment.id}`;
+  // Unique per source row + segment, so the same violation in different rows gets separate anchors
+  const tooltipId = `violation-${sourceRowId}-${segment.id}`;
 
-  // 3D Tooltip setup
+  // 3D overlay setup — click to reveal violation details.
+  // Group all violations together so overlapping segments (e.g. tracks vs timeline)
+  // only show the highest-priority one.
   const {
     ref: meshRef,
-    anchorId,
+    anchorId: _anchorId,
+    onClick: toggleViolation,
     onPointerMove,
     onPointerLeave,
   } = useTooltipAnchor({
@@ -53,9 +58,11 @@ const ViolationSegment = memo(function ViolationSegment({
     content: <ViolationPanel segment={segment} violations={violations} />,
     side: "top",
     axis: trackY ? "both" : "x",
+    mode: "click",
+    group: `violation-${segment.id}`,
+    priority:
+      layer === LayerBand.ForegroundSelected ? 2 : layer === LayerBand.ForegroundUnselected ? 1 : 0,
   });
-
-  const { show, hide } = useTooltipTrigger(anchorId, { showDelay: 200 });
 
   // Get all track IDs involved in this segment
   const trackIds = Array.from(
@@ -72,7 +79,7 @@ const ViolationSegment = memo(function ViolationSegment({
   // Create diagonal material using the hook with theme-aware properties
   const diagonalMaterial = useDiagonalMaterial({
     color,
-    opacity: LAYER_TO_OPACITY[layer] + (hovered ? 0.2 : 0),
+    opacity: LAYER_TO_OPACITY[layer] + (hovered ? 0.2 : 0.0),
     baselineOpacity: LAYER_TO_BASELINE_OPACITY[layer],
     stripeWidth: 8.0,
     stripeSpacing: 16.0,
@@ -97,24 +104,18 @@ const ViolationSegment = memo(function ViolationSegment({
       ref={meshRef as any}
       position={[x, y, Z.Violations]}
       material={diagonalMaterial as any}
-      onPointerOver={(e) => {
-        console.log(
-          "violation",
-          segment.violations.map((id) => violations[id]),
-        );
-        setHovered(true);
-        onPointerMove?.(e);
-        show();
+      onClick={(e) => {
+        e.stopPropagation();
+        toggleViolation?.(e);
       }}
-      onPointerOut={(_e) => {
-        // e.stopPropagation();
+      onPointerOver={() => setHovered(true)}
+      onPointerOut={() => {
         setHovered(false);
-        hide();
         onPointerLeave?.();
       }}
       onPointerMove={onPointerMove}
     >
-      <boxGeometry args={[width, height, 0]} />
+      <planeGeometry args={[width, height]} />
     </mesh>
   );
 });
@@ -128,6 +129,8 @@ export interface ViolationRendererProps {
   trackY?: boolean;
   layer?: LayerBand;
   xTransform?: (stamp: number) => number;
+  /** Source row ID that owns this renderer — used to generate unique overlay anchor IDs. */
+  sourceRowId: string;
 }
 
 export const ViolationRenderer = memo(function ViolationRenderer({
@@ -139,6 +142,7 @@ export const ViolationRenderer = memo(function ViolationRenderer({
   trackY = false,
   layer = LayerBand.Background,
   xTransform,
+  sourceRowId,
 }: ViolationRendererProps) {
   const activeAnimationId = useAnimationStore(
     useShallow((state) => state.selectionState.instanceId),
@@ -167,22 +171,25 @@ export const ViolationRenderer = memo(function ViolationRenderer({
           layer={layer}
           globalOpacityMV={globalOpacityMV}
           xTransform={xTransform}
+          sourceRowId={sourceRowId}
         />
       ))}
     </>
   );
 });
 
+// Stripe opacity — the diagonal lines themselves
 const LAYER_TO_OPACITY: Record<LayerBand, number> = {
-  [LayerBand.Background]: 0.25,
-  [LayerBand.ForegroundLocked]: 0.35,
-  [LayerBand.ForegroundUnselected]: 0.5,
-  [LayerBand.ForegroundSelected]: 0.75,
+  [LayerBand.Background]: 0.18,
+  [LayerBand.ForegroundLocked]: 0.25,
+  [LayerBand.ForegroundUnselected]: 0.35,
+  [LayerBand.ForegroundSelected]: 0.5,
 };
 
+// Fill opacity — the tinted area between stripes (used directly, not multiplied)
 const LAYER_TO_BASELINE_OPACITY: Record<LayerBand, number> = {
-  [LayerBand.Background]: 0.15,
-  [LayerBand.ForegroundLocked]: 0.17,
-  [LayerBand.ForegroundUnselected]: 0.2,
-  [LayerBand.ForegroundSelected]: 0.25,
+  [LayerBand.Background]: 0.06,
+  [LayerBand.ForegroundLocked]: 0.08,
+  [LayerBand.ForegroundUnselected]: 0.1,
+  [LayerBand.ForegroundSelected]: 0.15,
 };

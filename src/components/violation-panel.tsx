@@ -88,7 +88,10 @@ function ViolationDescription({
         {violationType === ViolationType.Velocity && <span>Velocity Limit</span>}
         {violationType === ViolationType.Rate && <span>Rate Limit</span>}
       </div>
-      <div key={`${violation.id}-description`} className="col-span-2 text-sm text-wrap">
+      <div
+        key={`${violation.id}-description`}
+        className="col-span-2 text-sm text-wrap dark:text-neutral-100 text-neutral-900"
+      >
         {!onlyTrack && (
           <>
             <span style={{ color }}>{name}</span>

@@ -3,7 +3,7 @@ import { useContext, useRef, useMemo, useCallback, memo, useEffect } from "react
 import { useShallow } from "zustand/shallow";
 import { useMotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
-import { Theme } from "@semio/ui";
+import { Theme, useCanvasContextMenu } from "@semio/ui";
 import { isOrthographicCamera } from "@semio/utils";
 import { useOrthoCameraSetup, usePlaybackGestures, useBoxSelectGesture, useAnimationStore } from "../../hooks";
 import { TrackRender, type VisibleSourceRowIds } from "../../types";
@@ -21,6 +21,7 @@ import { BoundsOverlay } from "./overlays/bounds-overlay";
 import { TickBackground } from "./overlays/tick-background";
 import { BoxSelectOverlay } from "./overlays/box-select-overlay";
 import { useMotionCanvas } from "./shared/motion-canvas-context";
+import { buildTrackMenuItems } from "./context-menus";
 
 interface TracksRendererProps {
   viewId: string;
@@ -184,6 +185,9 @@ export const TracksRenderer = memo(function TracksRenderer({
   const playbackGestures = usePlaybackGestures();
   useBoxSelectGesture("tracks", { viewId, topOffsetPx, bottomOffsetPx, trackHeightPx: trackHeight });
 
+  const { onContextMenu } = useCanvasContextMenu({
+    items: buildTrackMenuItems,
+  });
 
   // Camera Y management: pixel-locked for non-spline.
   // In spline mode, PanZoomControls manages camera.top/bottom directly.
@@ -214,12 +218,16 @@ export const TracksRenderer = memo(function TracksRenderer({
 
   useEffect(() => {
     if (!isOrthographicCamera(camera)) return;
-    if (trackRender !== TrackRender.Spline) {
-      camera.top = motionSize.height.get() / 2;
-      camera.bottom = -motionSize.height.get() / 2;
+    // Initialize camera Y to pixel-locked bounds for all modes.
+    // In spline mode, PanZoomControls may later adjust top/bottom via gestures,
+    // but the initial state must be valid.
+    const h = motionSize.height.get();
+    if (h > 0) {
+      camera.top = h / 2;
+      camera.bottom = -h / 2;
       camera.updateProjectionMatrix();
     }
-  }, [camera, trackRender]);
+  }, [camera, trackRender, motionSize.height]);
 
   // Reset vertical camera when "Fit to Content" is requested in spline mode
   const verticalFitCounter = useAnimationStore(
@@ -232,7 +240,7 @@ export const TracksRenderer = memo(function TracksRenderer({
     camera.top = h / 2;
     camera.bottom = -h / 2;
     camera.updateProjectionMatrix();
-  }, [verticalFitCounter, camera]);
+  }, [verticalFitCounter, camera, motionSize.height]);
 
   return (
     <>
@@ -262,7 +270,7 @@ export const TracksRenderer = memo(function TracksRenderer({
 
       {/* Render the hover markers and add a gesture detector */}
       <group ref={overlayGroupRef as any} position={[0, trackAreaCenterY, 0]}>
-        <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]}>
+        <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]} raycast={() => {}}>
           <planeGeometry args={[1.1, availableHeight]} />
           <meshBasicMaterial
             color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
@@ -270,7 +278,7 @@ export const TracksRenderer = memo(function TracksRenderer({
             opacity={0.4}
           />
         </mesh>
-        <mesh position={[0.5, 0, Z.SelectedUnselectedBoundary]}>
+        <mesh position={[0.5, 0, Z.SelectedUnselectedBoundary]} raycast={() => {}}>
           <planeGeometry args={[1.1, availableHeight]} />
           <meshBasicMaterial
             color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
@@ -289,7 +297,7 @@ export const TracksRenderer = memo(function TracksRenderer({
           height={availableHeight}
           visibility="transparent"
           z={-trackWorldHeight * sourceRowIds.length - 0.1}
-          pointerEvents={playbackGestures}
+          pointerEvents={{ ...playbackGestures, onContextMenu }}
         />
       </group>
     </>

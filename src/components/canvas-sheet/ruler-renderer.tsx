@@ -3,7 +3,7 @@ import { strip } from "number-precision";
 import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { stampToVisualTime, Theme } from "@semio/ui";
+import { stampToVisualTime, Theme, useCanvasContextMenu } from "@semio/ui";
 import { usePlayerStore, isOrthographicCamera } from "@semio/utils";
 import {
   useAnimationStore,
@@ -13,6 +13,7 @@ import {
 import type { AnimationData } from "../../store-types";
 import { computeTickIntervals } from "../../functions/compute-tick-interval";
 import { Z } from "../../constants";
+import { buildRulerMenuItems } from "./context-menus";
 import { TrackText } from "./shared/track-text";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadCart } from "./overlays/playhead-cart";
@@ -132,9 +133,19 @@ export const RulerRenderer = memo(function RulerRenderer({
     useShallow((state: AnimationData) => state.framerate as number),
   );
   const timeDisplay = useAnimationStore(useShallow((state: AnimationData) => state.timeDisplay));
+  const setTimeDisplay = useAnimationStore(useShallow((state) => state.setTimeDisplay));
   const altPressed = useAltKeyPressed();
 
   const playbackGestures = usePlaybackGestures();
+
+  const rulerMenuItems = useCallback(
+    (ctx: Parameters<typeof buildRulerMenuItems>[0]) =>
+      buildRulerMenuItems(ctx, timeDisplay, setTimeDisplay),
+    [timeDisplay, setTimeDisplay],
+  );
+  const { onContextMenu } = useCanvasContextMenu({
+    items: rulerMenuItems,
+  });
 
   // Label state — updated from useFrame only when the visible label set changes.
   // This prevents React re-render churn during continuous pan/zoom.
@@ -225,7 +236,7 @@ export const RulerRenderer = memo(function RulerRenderer({
         height={hudHeightWorld}
         visibility="transparent"
         z={-0.5}
-        pointerEvents={playbackGestures}
+        pointerEvents={{ ...playbackGestures, onContextMenu }}
       />
 
       <HoverMarker height={hudHeightWorld} theme={theme} />

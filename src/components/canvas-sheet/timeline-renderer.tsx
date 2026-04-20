@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Theme } from "@semio/ui";
+import { Theme, useCanvasContextMenu } from "@semio/ui";
 import { ThreeEvent } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import { useAnimationStore, usePlaybackGestures, useHudBoxSelectGesture } from "../../hooks";
@@ -13,6 +13,7 @@ import { FrustumBackground } from "./frustum-background";
 import { BoxSelectOverlay } from "./overlays/box-select-overlay";
 import { BoundsOverlay } from "./overlays/bounds-overlay";
 import { TickBackground } from "./overlays/tick-background";
+import { buildTrackMenuItems } from "./context-menus";
 
 export interface TimelineRendererProps {
   theme?: Theme.Light | Theme.Dark;
@@ -26,6 +27,10 @@ export const TimelineRenderer = memo(function TimelineRenderer({
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
   const boxSelectPointerDown = useHudBoxSelectGesture("timeline", viewId);
+
+  const { onContextMenu } = useCanvasContextMenu({
+    items: buildTrackMenuItems,
+  });
   const sourceRowId = useAnimationStore(
     useShallow((state) => {
       const filteredRowId = buildFilteredGlobalRowId(viewId);
@@ -35,11 +40,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
 
   return (
     <>
-      <mesh
-        position={[0.5, 0, Z.ForegroundBackgroundBoundary]}
-        onClick={(e: ThreeEvent<MouseEvent>) => e.stopPropagation()}
-        onPointerUp={(e: ThreeEvent<MouseEvent>) => e.stopPropagation()}
-      >
+      <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]} raycast={() => {}}>
         <planeGeometry args={[1.1, 36]} />
         <meshBasicMaterial
           color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
@@ -47,7 +48,7 @@ export const TimelineRenderer = memo(function TimelineRenderer({
           opacity={0.4}
         />
       </mesh>
-      <mesh position={[0.5, 0, Z.SelectedUnselectedBoundary]}>
+      <mesh position={[0.5, 0, Z.SelectedUnselectedBoundary]} raycast={() => {}}>
         <planeGeometry args={[1.1, 36]} />
         <meshBasicMaterial
           color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
@@ -71,11 +72,12 @@ export const TimelineRenderer = memo(function TimelineRenderer({
       <FrustumBackground
         height={36}
         visibility="transparent"
-        z={-0.5}
+        z={Z.Violations - 1}
         pointerEvents={{
           ...playbackGestures,
           onPointerDown: boxSelectPointerDown,
           onPointerOver: (e: ThreeEvent<MouseEvent>) => e.stopPropagation(),
+          onContextMenu,
         }}
       />
     </>

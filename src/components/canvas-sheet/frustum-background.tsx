@@ -108,7 +108,12 @@ export const FrustumBackground = memo(function FrustumBackground({
         onHoverChange?.(false);
         pointerEvents.onPointerOut?.();
       }}
+      onPointerUp={(e) => e.stopPropagation()}
       onClick={(e) => {
+        // FrustumBackground is the catch-all — always stop propagation to prevent
+        // clicks from leaking between HUD portals and the main canvas.
+        e.stopPropagation();
+
         // Don't handle clicks that ended a drag
         if (justFinishedDraggingRef.current) {
           pointerEvents.onClick?.(e);
@@ -117,7 +122,6 @@ export const FrustumBackground = memo(function FrustumBackground({
         // Delegate track selection to caller if provided
         if (onTrackClick) {
           onTrackClick({ ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey });
-          e.stopPropagation();
         } else if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
           clearSelection();
         }

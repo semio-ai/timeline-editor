@@ -1,7 +1,6 @@
 import { MouseEventHandler, type ReactNode, useCallback } from "react";
 import { Play } from "@solar-icons/react-perf/Bold";
-import { SkipNext, SkipPrevious } from "@solar-icons/react-perf/LineDuotone";
-import { Button } from "@semio/ui";
+import { Button, PlayerEndBounds } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import type { AnimationActions, AnimationData } from "../store-types";
 import { SemanticTime } from "../types";
@@ -85,8 +84,8 @@ export function SkipButton({
 const ICONS: Record<SemanticTime, ReactNode> = {
   [SemanticTime.Forward]: <Play className="rotate-0" size="10px" />,
   [SemanticTime.Backward]: <Play className="rotate-180" size="10px" />,
-  [SemanticTime.BoundsStart]: <SkipPrevious size="14px" />,
-  [SemanticTime.BoundsEnd]: <SkipNext size="14px" />,
+  [SemanticTime.BoundsStart]: <PlayerEndBounds size="12px" className="-scale-100" />,
+  [SemanticTime.BoundsEnd]: <PlayerEndBounds size="12px" />,
   [SemanticTime.Duration]: <Play size="10px" />,
   [SemanticTime.Current]: <Play size="10px" />,
   [SemanticTime.Hover]: <Play size="10px" />,

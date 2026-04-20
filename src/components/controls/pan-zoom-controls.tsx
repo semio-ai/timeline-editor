@@ -9,6 +9,7 @@ import {
   getDataViewportFromFrustum,
   setFrustumFromDataViewport,
 } from "../../viewport-utils";
+import { useTooltipStore } from "@semio/ui";
 import { TrackRender } from "../../types";
 import { useAnimationStore } from "../../hooks";
 
@@ -359,6 +360,8 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       {
         onWheel: ({ event, delta, ctrlKey, metaKey, shiftKey }) => {
           if (!settingsRef.current.enabled) return;
+          // Block gestures while an interactive overlay (context menu, popover) is open
+          if (useTooltipStore.getState().hasInteractiveOverlay()) return;
 
           const [deltaX, deltaY] = delta;
           const absDeltaX = Math.abs(deltaX);
@@ -451,6 +454,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
         },
         onPinch: ({ origin, first, last, offset: [scale], event }) => {
           if (!settingsRef.current.enabled || !settingsRef.current.enableZoom) return;
+          if (useTooltipStore.getState().hasInteractiveOverlay()) return;
 
           if (first) {
             onStart?.();

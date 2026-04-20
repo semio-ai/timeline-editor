@@ -40,8 +40,9 @@ export enum Z {
   ForegroundBackgroundBoundary = -10,
   BackgroundData = -20,
 
-  // Violations are rendered in front of ticks and background, but behind data.
-  Violations = -300,
+  // Violations are rendered behind foreground data but in front of the background boundary.
+  // Must be above decorative overlay meshes to receive click events via raycasting.
+  Violations = -15,
   // Ticks are rendered in front of the background, but behind violations and data.
   Ticks = -600,
   // Backgrounds are rendered at the very back.

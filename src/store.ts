@@ -142,7 +142,8 @@ function computeBoxSelectHitTest(
     if (!isTimeline && trackRender !== TrackRender.Spline) {
       rowCenterY = firstRowCenterY - trackWorldHeight * idx;
       // Quick reject: if the row center is far outside the box, skip
-      if (rowCenterY > maxY + trackWorldHeight / 2 || rowCenterY < minY - trackWorldHeight / 2) return;
+      if (rowCenterY > maxY + trackWorldHeight / 2 || rowCenterY < minY - trackWorldHeight / 2)
+        return;
     }
 
     const computed = state.derivedSnapshot?.rows?.[rowId]?.computed;
@@ -157,8 +158,10 @@ function computeBoxSelectHitTest(
         if (
           point.layerBand !== LayerBand.ForegroundSelected &&
           point.layerBand !== LayerBand.ForegroundUnselected
-        ) return;
-        if (state.selectionState.instanceId && point.instanceId !== state.selectionState.instanceId) return;
+        )
+          return;
+        if (state.selectionState.instanceId && point.instanceId !== state.selectionState.instanceId)
+          return;
 
         // Y hit-test: check the keypoint's visual center, not the row band
         if (!isTimeline) {
@@ -178,7 +181,7 @@ function computeBoxSelectHitTest(
             const visualOffset = viewAxis?.visualOffset ?? 0;
             const span = Math.max(availableHeightPx * visualScale, 1);
             const halfSpan = span / 2;
-            const t = (point.value as number - domainMin) / domainSpan;
+            const t = ((point.value as number) - domainMin) / domainSpan;
             const localY = -halfSpan + visualOffset + t * span;
             const pointY = splineGroupY + localY;
 
@@ -583,7 +586,10 @@ export const AnimationSlice = (
         }),
       );
     },
-    setVerticalViewport: (viewId: string, viewport: { top: number; bottom: number } | undefined) => {
+    setVerticalViewport: (
+      viewId: string,
+      viewport: { top: number; bottom: number } | undefined,
+    ) => {
       set(
         produce((state: AnimationData) => {
           const view = state.editorViews[viewId];
@@ -685,7 +691,9 @@ export const AnimationSlice = (
       const sourceRows = get().instancedTrackSources;
       const lockedTrackIds = new Set<string>();
       Object.values(sourceRows).forEach((row) =>
-        row.data.forEach((d) => { if (d.locked) lockedTrackIds.add(d.trackId); }),
+        row.data.forEach((d) => {
+          if (d.locked) lockedTrackIds.add(d.trackId);
+        }),
       );
       const unlocked = keypoints.filter((k) => !lockedTrackIds.has(k.trackId));
       if (unlocked.length === 0) return;
@@ -837,8 +845,8 @@ export const AnimationSlice = (
     insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => {
       // Check if track is locked via source row data
       const sourceRows = get().instancedTrackSources;
-      const isLocked = Object.values(sourceRows).some(
-        (row) => row.data.some((d) => d.trackId === trackId && d.locked),
+      const isLocked = Object.values(sourceRows).some((row) =>
+        row.data.some((d) => d.trackId === trackId && d.locked),
       );
       if (isLocked) return;
       set(
@@ -939,11 +947,7 @@ export const AnimationSlice = (
         };
       });
     },
-    setEntityControlMode: (
-      entityId: string,
-      mode: "direct" | "animation",
-      instanceId?: string,
-    ) => {
+    setEntityControlMode: (entityId: string, mode: "direct" | "animation", instanceId?: string) => {
       const currentEntityState = get().entityStates[entityId];
       const resolvedInstanceId = mode === "animation" ? (instanceId ?? null) : null;
       if (
@@ -1057,9 +1061,15 @@ export const AnimationSlice = (
       if (!selectionChanged) {
         for (const [trackId, ids] of newSelection) {
           const existing = currentKeypoints.get(trackId);
-          if (!existing || existing.size !== ids.size) { selectionChanged = true; break; }
+          if (!existing || existing.size !== ids.size) {
+            selectionChanged = true;
+            break;
+          }
           for (const id of ids) {
-            if (!existing.has(id)) { selectionChanged = true; break; }
+            if (!existing.has(id)) {
+              selectionChanged = true;
+              break;
+            }
           }
           if (selectionChanged) break;
         }
@@ -1181,7 +1191,9 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           const updates: Record<string, { visible?: boolean }> = {};
-          ids.forEach((id) => { updates[id] = { visible }; });
+          ids.forEach((id) => {
+            updates[id] = { visible };
+          });
           state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
         }),
       );
@@ -1191,7 +1203,9 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           const updates: Record<string, { locked?: boolean }> = {};
-          ids.forEach((id) => { updates[id] = { locked }; });
+          ids.forEach((id) => {
+            updates[id] = { locked };
+          });
           state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
         }),
       );

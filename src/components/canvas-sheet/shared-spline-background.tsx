@@ -68,6 +68,7 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
         yOffset={scrollOffset}
         trackY
         xTransform={xTransform}
+        sourceRowId={sourceRowId}
       />
 
       {/* Render a background for the Active region, and the General Background */}

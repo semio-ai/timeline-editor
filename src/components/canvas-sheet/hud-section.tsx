@@ -35,11 +35,7 @@ export const HudSection = memo(function HudSection({
   return (
     <Hud renderPriority={renderPriority}>
       <MotionCanvasProvider label={label ?? `Hud-${renderPriority.toString()}`}>
-        <group
-          onWheel={(e) => e.stopPropagation()}
-          onPointerUp={(e: ThreeEvent<MouseEvent>) => e.stopPropagation()}
-          onClick={(e: ThreeEvent<MouseEvent>) => e.stopPropagation()}
-        >
+        <group onWheel={(e) => e.stopPropagation()}>
           {/* Specialized Camera for HUDs */}
           <HudCamera
             fixedCamera={fixedCamera}

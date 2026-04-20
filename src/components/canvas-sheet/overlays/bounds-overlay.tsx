@@ -149,6 +149,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
         ref={leftOverlayRef as any}
         position={[0, 0, Z.OutOfBoundsOverlay]}
         scale={[1, 1, 1]}
+        raycast={() => {}}
       >
         <planeGeometry args={[1, height]} />
         <meshBasicMaterial
@@ -163,6 +164,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
         ref={rightOverlayRef as any}
         position={[0, 0, Z.OutOfBoundsOverlay]}
         scale={[1, 1, 1]}
+        raycast={() => {}}
       >
         <planeGeometry args={[1, height]} />
         <meshBasicMaterial
@@ -177,6 +179,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
         ref={fillRef as any}
         position={[(leftSpring.get() + rightSpring.get()) / 2, 0, Z.InBoundsOverlay]}
         scale={[Math.abs(rightSpring.get() - leftSpring.get()), 1, 1]}
+        raycast={() => {}}
       >
         <planeGeometry args={[1, height]} />
         <meshBasicMaterial
@@ -187,7 +190,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
         />
       </mesh>
       {/* Left boundary line */}
-      <mesh ref={markerLeftRef as any} position={[leftSpring.get(), 0, Z.InBoundsOverlay]}>
+      <mesh ref={markerLeftRef as any} position={[leftSpring.get(), 0, Z.InBoundsOverlay]} raycast={() => {}}>
         <planeGeometry args={[1.5, height]} />
         <meshBasicMaterial
           toneMapped={false}
@@ -197,7 +200,7 @@ export const BoundsOverlay = memo(function BoundsOverlay({
         />
       </mesh>
       {/* Right boundary line */}
-      <mesh ref={markerRightRef as any} position={[rightSpring.get(), 0, Z.InBoundsOverlay]}>
+      <mesh ref={markerRightRef as any} position={[rightSpring.get(), 0, Z.InBoundsOverlay]} raycast={() => {}}>
         <planeGeometry args={[1.5, height]} />
         <meshBasicMaterial
           toneMapped={false}

@@ -4,9 +4,10 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import { isOrthographicCamera } from "@semio/utils";
 import { usePlayerStore } from "@semio/utils";
-import { useAnimationStore } from "./use-animation-store";
-import { AnimationContext } from "../context";
+import { useTooltipStore } from "@semio/ui";
 import type { AnimationActions, AnimationData, BoxSelectState } from "../store-types";
+import { AnimationContext } from "../context";
+import { useAnimationStore } from "./use-animation-store";
 
 /** Minimum pointer movement (in screen pixels) before activating box-select. */
 const ACTIVATION_THRESHOLD_PX = 3;
@@ -31,7 +32,12 @@ export interface BoxSelectGestureParams {
 export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGestureParams) {
   const { camera, gl, size } = useThree();
 
-  const actionsRef = useRef<Pick<AnimationActions, "startBoxSelect" | "updateBoxSelect" | "cancelBoxSelect" | "commitBoxSelect">>({
+  const actionsRef = useRef<
+    Pick<
+      AnimationActions,
+      "startBoxSelect" | "updateBoxSelect" | "cancelBoxSelect" | "commitBoxSelect"
+    >
+  >({
     startBoxSelect: () => {},
     updateBoxSelect: () => {},
     cancelBoxSelect: () => {},
@@ -89,10 +95,7 @@ export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGesturePa
       const rect = canvas.getBoundingClientRect();
       const nx = (clientX - rect.left) / rect.width;
       const ny = (clientY - rect.top) / rect.height;
-      return [
-        cam.left + nx * (cam.right - cam.left),
-        cam.top - ny * (cam.top - cam.bottom),
-      ];
+      return [cam.left + nx * (cam.right - cam.left), cam.top - ny * (cam.top - cam.bottom)];
     }
 
     function onPointerDown(e: PointerEvent) {
@@ -100,6 +103,8 @@ export function useBoxSelectGesture(origin: "tracks", params: BoxSelectGesturePa
       if (e.button !== 0) return;
       // If the timeline HUD already started a box-select, don't interfere
       if (boxSelectActiveRef.current) return;
+      // Don't start selection when an interactive overlay (context menu, popover) is open
+      if (useTooltipStore.getState().hasInteractiveOverlay()) return;
 
       const [worldX, worldY] = screenToWorld(e.clientX, e.clientY);
 
@@ -210,20 +215,14 @@ export function useHudBoxSelectGesture(origin: BoxSelectState["origin"], viewId:
   const actionsRef = useRef({ startBoxSelect, updateBoxSelect, cancelBoxSelect, commitBoxSelect });
   actionsRef.current = { startBoxSelect, updateBoxSelect, cancelBoxSelect, commitBoxSelect };
 
-  const screenToWorld = useCallback(
-    (clientX: number, clientY: number): [number, number] => {
-      const cam = cameraRef.current;
-      if (!isOrthographicCamera(cam)) return [0, 0];
-      const rect = canvasRef.current.getBoundingClientRect();
-      const nx = (clientX - rect.left) / rect.width;
-      const ny = (clientY - rect.top) / rect.height;
-      return [
-        cam.left + nx * (cam.right - cam.left),
-        cam.top - ny * (cam.top - cam.bottom),
-      ];
-    },
-    [],
-  );
+  const screenToWorld = useCallback((clientX: number, clientY: number): [number, number] => {
+    const cam = cameraRef.current;
+    if (!isOrthographicCamera(cam)) return [0, 0];
+    const rect = canvasRef.current.getBoundingClientRect();
+    const nx = (clientX - rect.left) / rect.width;
+    const ny = (clientY - rect.top) / rect.height;
+    return [cam.left + nx * (cam.right - cam.left), cam.top - ny * (cam.top - cam.bottom)];
+  }, []);
 
   const onPointerDown = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
@@ -232,7 +231,11 @@ export function useHudBoxSelectGesture(origin: BoxSelectState["origin"], viewId:
 
       const startWorld: [number, number] = [e.point.x, e.point.y];
       const startScreen: [number, number] = [e.clientX, e.clientY];
-      const mode: BoxSelectState["mode"] = e.shiftKey ? "add" : e.ctrlKey || e.metaKey ? "toggle" : "replace";
+      const mode: BoxSelectState["mode"] = e.shiftKey
+        ? "add"
+        : e.ctrlKey || e.metaKey
+          ? "toggle"
+          : "replace";
       let activated = false;
 
       const onMove = (me: PointerEvent) => {
@@ -275,7 +278,7 @@ export function useHudBoxSelectGesture(origin: BoxSelectState["origin"], viewId:
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [playing, origin, screenToWorld],
+    [playing, origin, viewId, screenToWorld],
   );
 
   return onPointerDown;
