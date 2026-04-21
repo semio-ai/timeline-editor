@@ -296,7 +296,7 @@ export const TracksRenderer = memo(function TracksRenderer({
         <FrustumBackground
           height={availableHeight}
           visibility="transparent"
-          z={-trackWorldHeight * sourceRowIds.length - 0.1}
+          z={Z.Background - 1}
           pointerEvents={{ ...playbackGestures, onPointerDown: boxSelectPointerDown, onContextMenu }}
         />
       </group>
