@@ -18,13 +18,11 @@ export interface DataViewport {
  *
  * @param dataViewport - The data viewport bounds [left, right]
  * @param canvasWidth - Canvas width in pixels
- * @param isFixed - Whether this is a fixed camera (global view) or dynamic camera
  * @returns Camera frustum bounds with padding
  */
 export function calculatePaddedFrustum(
   dataViewport: [number, number],
   canvasWidth: number,
-  isFixed = false,
 ): { left: number; right: number } {
   const [dataLeft, dataRight] = dataViewport;
   const dataWidth = dataRight - dataLeft;

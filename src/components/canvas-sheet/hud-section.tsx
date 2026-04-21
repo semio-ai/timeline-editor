@@ -162,7 +162,7 @@ const HudCamera = memo(function HudCamera({
       } else {
         dataViewport = usePlayerStore.getState().player.viewport as [number, number];
       }
-      const { left, right } = calculatePaddedFrustum(dataViewport, width, fixedCameraRef.current);
+      const { left, right } = calculatePaddedFrustum(dataViewport, width);
       camera.left = left;
       camera.right = right;
       camera.updateProjectionMatrix();
@@ -200,7 +200,7 @@ const HudCamera = memo(function HudCamera({
     } else {
       dataViewport = usePlayerStore.getState().player.viewport as [number, number];
     }
-    const { left, right } = calculatePaddedFrustum(dataViewport, width, fixedCameraRef.current);
+    const { left, right } = calculatePaddedFrustum(dataViewport, width);
     camera.left = left;
     camera.right = right;
     camera.updateProjectionMatrix();

@@ -3,13 +3,13 @@ import { useThree } from "@react-three/fiber";
 import { OrthographicCamera, Vector2 } from "three";
 import { usePlayerStore, isOrthographicCamera } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
+import { useTooltipStore } from "@semio/ui";
 import { useGesture } from "@use-gesture/react";
 import {
   calculatePaddedFrustum,
   getDataViewportFromFrustum,
   setFrustumFromDataViewport,
 } from "../../viewport-utils";
-import { useTooltipStore } from "@semio/ui";
 import { TrackRender } from "../../types";
 import { useAnimationStore } from "../../hooks";
 
@@ -133,7 +133,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       }
 
       const applyViewport = (vp: [number, number]) => {
-        const { left, right } = calculatePaddedFrustum(vp, size.width, false);
+        const { left, right } = calculatePaddedFrustum(vp, size.width);
         camera.left = left;
         camera.right = right;
         camera.updateProjectionMatrix();
@@ -141,10 +141,8 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
         if (initialCameraWidth.current <= 0) {
           initialCameraWidth.current = vp[1] - vp[0];
         }
-        // Capture initial camera height for vertical zoom limits
-        if (initialCameraHeight.current <= 0) {
-          initialCameraHeight.current = camera.top - camera.bottom;
-        }
+        // Note: initialCameraHeight is captured lazily in effectiveVerticalFactor
+        // because this effect runs before TracksRenderer initializes camera Y.
       };
 
       // Subscribe to player store viewport changes
@@ -348,6 +346,12 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
     const effectiveVerticalFactor = (requestedFactor: number): number => {
       if (!(camera instanceof OrthographicCamera)) return requestedFactor;
       const currentHeight = camera.top - camera.bottom;
+      // Lazily capture initial camera height on first use — the player viewport
+      // effect runs before TracksRenderer initializes camera Y, so we can't
+      // rely on capturing it there. Use canvas pixel height as the baseline.
+      if (initialCameraHeight.current <= 1) {
+        initialCameraHeight.current = size.height > 0 ? size.height : currentHeight;
+      }
       if (initialCameraHeight.current <= 0 || currentHeight <= 0) return requestedFactor;
       const minHeight = initialCameraHeight.current / settingsRef.current.maxZoom;
       const maxHeight = initialCameraHeight.current / settingsRef.current.minZoom;
