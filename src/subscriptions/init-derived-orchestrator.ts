@@ -205,6 +205,9 @@ export function initDerivedOrchestrator(
     { fireImmediately: true, equalityFn: shallow },
   );
 
+  // Track whether a playback value update is already queued to avoid stacking
+  let playbackUpdatePending = false;
+
   const unsubscribePlayer = usePlayerStore.subscribe(
     (state: PlayerData) => ({
       stamp: state.player.stamp,
@@ -217,14 +220,23 @@ export function initDerivedOrchestrator(
         return;
       }
 
-      const { values, velocities } = computeValueAndVelocityMaps(
-        latestSnapshot,
-        usePlayerStore.getState(),
-      );
-      const valuesState = useValuesStore.getState();
-      useValuesStore.setState({
-        values: mergeValueMaps(valuesState.values, values),
-        velocities: mergeValueMaps(valuesState.velocities, velocities),
+      // Defer the values store write to break the synchronous cascade:
+      // updatePlayer setState → this subscriber → valuesStore setState
+      // Without deferral, React 19 hits max-update-depth during playback.
+      if (playbackUpdatePending) return;
+      playbackUpdatePending = true;
+      queueMicrotask(() => {
+        playbackUpdatePending = false;
+        if (!latestSnapshot) return;
+        const { values, velocities } = computeValueAndVelocityMaps(
+          latestSnapshot,
+          usePlayerStore.getState(),
+        );
+        const valuesState = useValuesStore.getState();
+        useValuesStore.setState({
+          values: mergeValueMaps(valuesState.values, values),
+          velocities: mergeValueMaps(valuesState.velocities, velocities),
+        });
       });
     },
     { fireImmediately: true, equalityFn: shallow },
