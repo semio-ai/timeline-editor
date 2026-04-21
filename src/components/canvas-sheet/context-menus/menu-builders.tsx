@@ -1,20 +1,57 @@
 import { ReactNode } from "react";
 import { NestedSeparator, type CanvasContextMenuContext, TimeDisplay } from "@semio/ui";
+import { usePlayerStore } from "@semio/utils";
+import type { AnimationData, AnimationActions } from "../../../store-types";
+import { TrackRender } from "../../../types";
 import { AnimationActionsSection } from "./animation-actions";
 import { SelectionActionsSection } from "./selection-actions";
 import { EditActionsSection } from "./edit-actions";
 import { AxisSettingsSection } from "./axis-settings";
 import { ZoomActionsSection } from "./zoom-actions";
 
+type AnimationStore = AnimationData & AnimationActions;
+
+/**
+ * Reads current animation store state imperatively.
+ * Used by menu builders which are called at right-click time (inside the context tree)
+ * to capture state before the content is portaled outside the tree.
+ */
+function getAnimationState(store: any): AnimationStore {
+  return store.getState();
+}
+
 /** Context menu items for the tracks area and timeline. */
-export function buildTrackMenuItems(ctx: CanvasContextMenuContext): ReactNode {
+export function buildTrackMenuItems(
+  ctx: CanvasContextMenuContext,
+  animationStore: any,
+): ReactNode {
+  const state = getAnimationState(animationStore);
+  const hasSelection = state.selectionState.keypoints.size > 0;
+
+  const handleDelete = () => {
+    const s = getAnimationState(animationStore);
+    const toDelete: { trackId: string; keypointId: string }[] = [];
+    s.selectionState.keypoints.forEach((keypointIds: Set<string>, trackId: string) => {
+      keypointIds.forEach((keypointId: string) => {
+        toDelete.push({ trackId, keypointId });
+      });
+    });
+    if (toDelete.length > 0) {
+      s.removeKeypoints(toDelete);
+    }
+  };
+
+  const handleDeselectAll = () => {
+    getAnimationState(animationStore).clearSelection();
+  };
+
   return (
     <>
       <AnimationActionsSection ctx={ctx} />
       <NestedSeparator />
-      <SelectionActionsSection />
+      <SelectionActionsSection hasSelection={hasSelection} onDeselectAll={handleDeselectAll} />
       <NestedSeparator />
-      <EditActionsSection ctx={ctx} />
+      <EditActionsSection ctx={ctx} hasSelection={hasSelection} onDelete={handleDelete} />
     </>
   );
 }
@@ -35,12 +72,27 @@ export function buildRulerMenuItems(
 }
 
 /** Context menu items for the minimap. */
-export function buildMinimapMenuItems(ctx: CanvasContextMenuContext): ReactNode {
+export function buildMinimapMenuItems(
+  ctx: CanvasContextMenuContext,
+  animationStore: any,
+): ReactNode {
+  const handleFitToViewport = () => {
+    const s = getAnimationState(animationStore);
+    usePlayerStore.getState().updatePlayerViewport(0, Math.max(s.duration, 1000));
+    const viewIds = Object.keys(s.editorViews);
+    const hasSpline = viewIds.some(
+      (id) => s.editorViews[id]?.trackRender === TrackRender.Spline,
+    );
+    if (hasSpline) {
+      s.requestVerticalFit();
+    }
+  };
+
   return (
     <>
       <AnimationActionsSection ctx={ctx} />
       <NestedSeparator />
-      <ZoomActionsSection />
+      <ZoomActionsSection onFitToViewport={handleFitToViewport} />
     </>
   );
 }

@@ -267,6 +267,12 @@ export interface AnimationData {
    * Separate from selectionState — selection is only updated when the gesture commits.
    */
   boxSelectState: BoxSelectState | null;
+  /**
+   * True when a box-select pointerdown has been received but the gesture hasn't
+   * ended yet. Prevents multiple R3F scenes (HUD + main) from both starting
+   * box-select on the same pointer event.
+   */
+  boxSelectPending: boolean;
 }
 
 /**
@@ -367,6 +373,11 @@ export interface AnimationActions {
    * Set the vertical scroll offset (in pixels) for the track list and canvas.
    */
   setScrollOffset: (offset: number) => void;
+  /**
+   * Set whether a box-select gesture is pending (pointerdown received, awaiting threshold).
+   * Prevents multiple R3F scenes from starting box-select on the same pointer event.
+   */
+  setBoxSelectPending: (pending: boolean) => void;
   /**
    * Bump the vertical fit counter to trigger a camera Y reset in spline mode.
    */

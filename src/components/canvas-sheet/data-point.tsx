@@ -514,6 +514,8 @@ export const DataPoint = memo(function DataPoint({
   const handlePointerDown = useCallback(
     (event: PointerGestureEvent) => {
       event.stopPropagation();
+      // Only start drag tracking for left-click; right-click opens context menu
+      if (event.button !== 0) return;
       dragDidMoveRef.current = false;
       dragStartPointerRef.current = null;
       dragAnchorStampRef.current = null;

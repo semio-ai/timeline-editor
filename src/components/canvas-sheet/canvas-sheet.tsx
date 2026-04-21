@@ -2,7 +2,7 @@ import { memo, useMemo, useState, useCallback } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
-import { Theme, TooltipHost } from "@semio/ui";
+import { Theme, TooltipHost, KeybindingProvider } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import { TrackRender } from "../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
@@ -10,6 +10,7 @@ import { calculatePaddedFrustum } from "../../viewport-utils";
 import { AnimationData } from "../../store-types";
 import { useAnimationStore } from "../../hooks";
 import type { VisibleSourceRowIds } from "../../types";
+import { animationKeybindings } from "../../keybindings";
 import { normalizeVisibleSourceRowIds } from "../../functions/filter-visible-source-row-ids";
 import { MotionCanvasProvider } from "./shared/motion-canvas-provider";
 import { HudSection } from "./hud-section";
@@ -49,6 +50,7 @@ export const CanvasSheet = memo(function CanvasSheet({
   const handleCreated = useCallback(() => setReady(true), []);
 
   return (
+    <KeybindingProvider value={animationKeybindings}>
     <TooltipHost className="h-full w-full">
       <Canvas
         // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
@@ -81,6 +83,7 @@ export const CanvasSheet = memo(function CanvasSheet({
         <CanvasContent viewId={viewId} theme={theme} rowIdLookup={rowIdLookup} fonts={fonts} />
       </Canvas>
     </TooltipHost>
+    </KeybindingProvider>
   );
 });
 

@@ -1,11 +1,12 @@
-import { memo } from "react";
+import { memo, useContext } from "react";
 import { Theme, useCanvasContextMenu } from "@semio/ui";
 import { ThreeEvent } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
-import { useAnimationStore, usePlaybackGestures, useHudBoxSelectGesture } from "../../hooks";
+import { useAnimationStore, usePlaybackGestures, useBoxSelectGesture } from "../../hooks";
 import { TrackRender } from "../../types";
 import { Z } from "../../constants";
 import { buildFilteredGlobalRowId } from "../../functions";
+import { AnimationContext } from "../../context";
 import { DataRenderer } from "./data-renderer";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
@@ -26,10 +27,11 @@ export const TimelineRenderer = memo(function TimelineRenderer({
 }: TimelineRendererProps) {
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
-  const boxSelectPointerDown = useHudBoxSelectGesture("timeline", viewId);
+  const boxSelectPointerDown = useBoxSelectGesture("timeline", { viewId });
+  const animationStore = useContext(AnimationContext);
 
   const { onContextMenu } = useCanvasContextMenu({
-    items: buildTrackMenuItems,
+    items: (ctx) => buildTrackMenuItems(ctx, animationStore),
   });
   const sourceRowId = useAnimationStore(
     useShallow((state) => {

@@ -183,10 +183,10 @@ export const TracksRenderer = memo(function TracksRenderer({
 
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
-  useBoxSelectGesture("tracks", { viewId, topOffsetPx, bottomOffsetPx, trackHeightPx: trackHeight });
+  const boxSelectPointerDown = useBoxSelectGesture("tracks", { viewId, topOffsetPx, bottomOffsetPx, trackHeightPx: trackHeight });
 
   const { onContextMenu } = useCanvasContextMenu({
-    items: buildTrackMenuItems,
+    items: (ctx) => buildTrackMenuItems(ctx, animationStore),
   });
 
   // Camera Y management: pixel-locked for non-spline.
@@ -297,7 +297,7 @@ export const TracksRenderer = memo(function TracksRenderer({
           height={availableHeight}
           visibility="transparent"
           z={-trackWorldHeight * sourceRowIds.length - 0.1}
-          pointerEvents={{ ...playbackGestures, onContextMenu }}
+          pointerEvents={{ ...playbackGestures, onPointerDown: boxSelectPointerDown, onContextMenu }}
         />
       </group>
     </>

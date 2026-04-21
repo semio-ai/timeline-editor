@@ -1109,6 +1109,9 @@ export const AnimationSlice = (
     setScrollOffset: (offset: number) => {
       set({ scrollOffset: offset });
     },
+    setBoxSelectPending: (pending: boolean) => {
+      set({ boxSelectPending: pending });
+    },
     requestVerticalFit: () => {
       set((state: AnimationData) => ({ verticalFitCounter: state.verticalFitCounter + 1 }));
     },

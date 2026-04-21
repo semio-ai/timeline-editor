@@ -30,6 +30,7 @@ export * from "./utils/track-key";
 export { SIDEBAR_WIDTH } from "./constants/layout";
 
 export * from "./functions";
+export * from "./keybindings";
 export * from "./test-fixtures";
 
 // Re-export values store from @semio/utils for convenience

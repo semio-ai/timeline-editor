@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, useEffect, memo, useCallback } from "react";
+import { useRef, useMemo, useState, useEffect, memo, useCallback, useContext } from "react";
 import * as THREE from "three";
 import { cubicBezier, MotionValue, useMotionValueEvent } from "motion/react";
 import { PlayerData, usePlayerStore, isOrthographicCamera } from "@semio/utils";
@@ -12,6 +12,7 @@ import {
   useViewportDragGestures,
 } from "../../hooks";
 import { Z } from "../../constants";
+import { AnimationContext } from "../../context";
 import { buildMinimapMenuItems } from "./context-menus";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
@@ -63,9 +64,10 @@ export const MinimapDisplay = memo(function MinimapDisplay({
 
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
+  const animationStore = useContext(AnimationContext);
 
   const { onContextMenu } = useCanvasContextMenu({
-    items: buildMinimapMenuItems,
+    items: (ctx) => buildMinimapMenuItems(ctx, animationStore),
   });
 
   // Determine if component is active
