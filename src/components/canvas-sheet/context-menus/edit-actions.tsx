@@ -14,37 +14,48 @@ import { AnimationAction } from "../../../keybindings";
  * Shared "Edit Actions" section for canvas context menus.
  * Provides Cut, Copy, Paste, Delete.
  *
- * Since context menu content renders in a Radix portal outside the animation
- * context tree, store state must be passed as props rather than read via hooks.
+ * Store state and callbacks are passed as props since context menu content
+ * renders in a Radix portal outside the animation context tree.
  */
 export function EditActionsSection({
-  ctx: _ctx,
+  ctx,
   hasSelection,
+  hasClipboard,
+  onCut,
+  onCopy,
+  onPaste,
   onDelete,
 }: {
   ctx: CanvasContextMenuContext;
   hasSelection: boolean;
+  hasClipboard: boolean;
+  onCut: () => void;
+  onCopy: () => void;
+  onPaste: (worldStamp: number) => void;
   onDelete: () => void;
 }): ReactNode {
   return (
     <>
       <NestedLabel>Edit</NestedLabel>
       <NestedItem
-        disabled
+        disabled={!hasSelection}
+        onClick={onCut}
         left={<Scissors size="18px" className={ICON_CLASS_NAME} />}
         right={<KeybindingHint action={AnimationAction.Cut} />}
       >
         Cut
       </NestedItem>
       <NestedItem
-        disabled
+        disabled={!hasSelection}
+        onClick={onCopy}
         left={<Copy size="18px" className={ICON_CLASS_NAME} />}
         right={<KeybindingHint action={AnimationAction.Copy} />}
       >
         Copy
       </NestedItem>
       <NestedItem
-        disabled
+        disabled={!hasClipboard}
+        onClick={() => onPaste(ctx.worldPosition[0])}
         left={<Clipboard size="18px" className={ICON_CLASS_NAME} />}
         right={<KeybindingHint action={AnimationAction.Paste} />}
       >

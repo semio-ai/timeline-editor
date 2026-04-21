@@ -925,6 +925,193 @@ export const AnimationSlice = (
     clearSelection: () => {
       set((state: AnimationData) => clearSelectionAction(state));
     },
+    copySelection: () => {
+      const state = get();
+      const { keypoints: selectedMap, instanceId } = state.selectionState;
+      if (selectedMap.size === 0) return;
+
+      // Look up instance timing for world-stamp conversion
+      let timescale = 1;
+      let offset = 0;
+      if (instanceId) {
+        for (const namespace of Object.values(state.namespaces)) {
+          const instance = namespace.animationInstances[instanceId];
+          if (instance) {
+            timescale = instance.settings.timescale ?? 1;
+            if (!Number.isFinite(timescale) || timescale === 0) timescale = 1;
+            offset = instance.settings.offset ?? 0;
+            if (!Number.isFinite(offset)) offset = 0;
+            break;
+          }
+        }
+      }
+
+      // Collect keypoints and convert to world-time stamps
+      const trackEntries: { key: string; worldStamps: { stamp: number; value: any; transitions: any }[] }[] = [];
+      let minWorldStamp = Infinity;
+
+      const sortedTrackKeys = Array.from(selectedMap.keys()).sort();
+      for (const trackKey of sortedTrackKeys) {
+        const keypointIds = selectedMap.get(trackKey);
+        if (!keypointIds || keypointIds.size === 0) continue;
+        const track = state.tracks[trackKey];
+        if (!track) continue;
+
+        const collected: { stamp: number; value: any; transitions: any }[] = [];
+        for (const point of track.points) {
+          if (!keypointIds.has(point.id)) continue;
+          const worldStamp = computeWorldStamp(point.stamp, timescale, offset);
+          if (worldStamp < minWorldStamp) minWorldStamp = worldStamp;
+          collected.push({
+            stamp: worldStamp,
+            value: point.value,
+            transitions: point.transitions ? structuredClone(point.transitions) : undefined,
+          });
+        }
+        if (collected.length > 0) {
+          trackEntries.push({ key: trackKey, worldStamps: collected });
+        }
+      }
+
+      if (trackEntries.length === 0) return;
+
+      // Convert to offset-from-anchor format
+      const clipboardTracks = trackEntries.map((entry, idx) => ({
+        sourceTrackKey: entry.key,
+        trackIndex: idx,
+        keypoints: entry.worldStamps.map((kp) => ({
+          stampOffset: kp.stamp - minWorldStamp,
+          value: kp.value,
+          transitions: kp.transitions,
+        })),
+      }));
+
+      set({ clipboard: { tracks: clipboardTracks, instanceId } });
+    },
+    cutSelection: () => {
+      // Copy then delete in one batch
+      const state = get();
+      // First copy
+      get().copySelection();
+      // Then delete (re-read state after copy)
+      set(
+        produce((draft: AnimationData): void => {
+          const selected = state.selectionState.keypoints;
+          selected.forEach((keypointIds, trackId) => {
+            keypointIds.forEach((keypointId) => {
+              removeKeypoint(draft, trackId, keypointId);
+            });
+          });
+          draft.selectionState = {
+            ...draft.selectionState,
+            keypoints: new Map(),
+            reference: null,
+          };
+        }),
+      );
+    },
+    pasteAtStamp: (worldStamp: number) => {
+      set(
+        produce((state: AnimationData): void => {
+          const clipboard = state.clipboard;
+          if (!clipboard || clipboard.tracks.length === 0) return;
+
+          // Determine if we're pasting to selected tracks (cross-track) or source tracks
+          const selectedTrackKeys = Array.from(state.selectionState.keypoints.keys()).sort();
+          const useCrossTrackPaste = selectedTrackKeys.length > 0;
+
+          // Look up instance timing for the target
+          const { instanceId } = state.selectionState;
+          let timescale = 1;
+          let offset = 0;
+          if (instanceId) {
+            for (const namespace of Object.values(state.namespaces)) {
+              const instance = namespace.animationInstances[instanceId];
+              if (instance) {
+                timescale = instance.settings.timescale ?? 1;
+                if (!Number.isFinite(timescale) || timescale === 0) timescale = 1;
+                offset = instance.settings.offset ?? 0;
+                if (!Number.isFinite(offset)) offset = 0;
+                break;
+              }
+            }
+          }
+
+          const newSelection = new Map<string, Set<string>>();
+
+          for (const clipTrack of clipboard.tracks) {
+            // Resolve target track
+            let targetTrackKey: string;
+            if (useCrossTrackPaste) {
+              // Map by index: clipboard trackIndex → selected track at same index
+              if (clipTrack.trackIndex >= selectedTrackKeys.length) continue;
+              targetTrackKey = selectedTrackKeys[clipTrack.trackIndex];
+            } else {
+              targetTrackKey = clipTrack.sourceTrackKey;
+            }
+
+            const track = state.tracks[targetTrackKey];
+            if (!track) continue;
+
+            const trackSelection = new Set<string>();
+
+            for (const clipKp of clipTrack.keypoints) {
+              const targetWorldStamp = worldStamp + clipKp.stampOffset;
+              const localStamp = computeLocalStamp(targetWorldStamp, timescale, offset);
+
+              // Remove existing keypoints within 1ms of paste stamp (replace behavior)
+              track.points = track.points.filter(
+                (p) => Math.abs(p.stamp - localStamp) > 1,
+              );
+
+              // Create new keypoint
+              const newId = crypto.randomUUID();
+              track.points.push({
+                id: newId,
+                stamp: localStamp,
+                value: clipKp.value,
+                transitions: clipKp.transitions ?? undefined,
+              });
+              trackSelection.add(newId);
+            }
+
+            // Re-sort by stamp
+            track.points.sort((a, b) => a.stamp - b.stamp);
+
+            if (trackSelection.size > 0) {
+              newSelection.set(targetTrackKey, trackSelection);
+            }
+          }
+
+          // Select the newly pasted keypoints
+          if (newSelection.size > 0) {
+            state.selectionState = {
+              ...state.selectionState,
+              keypoints: newSelection,
+              reference: null,
+            };
+          }
+        }),
+      );
+    },
+    deleteSelection: () => {
+      set(
+        produce((state: AnimationData): void => {
+          const selected = state.selectionState.keypoints;
+          if (selected.size === 0) return;
+          selected.forEach((keypointIds, trackId) => {
+            keypointIds.forEach((keypointId) => {
+              removeKeypoint(state, trackId, keypointId);
+            });
+          });
+          state.selectionState = {
+            ...state.selectionState,
+            keypoints: new Map(),
+            reference: null,
+          };
+        }),
+      );
+    },
     focusSelectionInstance: (instanceId: string) => {
       set(() => ({ selectionState: createEmptySelectionState(instanceId) }));
     },

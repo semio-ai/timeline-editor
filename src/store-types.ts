@@ -19,10 +19,11 @@ import type {
   VisibleSourceRowIds,
   Namespace,
   DerivedSnapshot,
+  TransitionInfo,
 } from "./types";
 import { StandardTransitionType, TransitionDirective, TransitionPairing } from "./types";
 import type { SelectionState } from "./types/util/selection-state";
-import type { SimpleKeypoint, SimpleTrack } from "./types/data/simple-track";
+import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "./types/data/simple-track";
 
 export { TransitionDirective };
 
@@ -106,6 +107,34 @@ export interface BoxSelectState {
     bottomOffsetPx: number;
     trackHeightPx: number;
   };
+}
+
+/** A single keypoint stored in the clipboard, with world-time offset from anchor. */
+export interface ClipboardKeypointEntry {
+  /** World-time ms offset from the anchor keypoint (earliest = 0). */
+  stampOffset: number;
+  /** Exact value — no rescaling or clamping. */
+  value: SimpleRawValue;
+  /** Full transition/handle data. */
+  transitions?: TransitionInfo;
+}
+
+/** A track's keypoints in the clipboard. */
+export interface ClipboardTrackEntry {
+  /** Composite track key (namespace/instance/track) for same-instance paste. */
+  sourceTrackKey: string;
+  /** Relative ordering (0 = first track in clipboard) for cross-track paste. */
+  trackIndex: number;
+  /** Keypoints with stamps as world-time offsets from anchor. */
+  keypoints: ClipboardKeypointEntry[];
+}
+
+/** Internal clipboard state for cut/copy/paste. */
+export interface ClipboardState {
+  /** Tracks and their keypoints. */
+  tracks: ClipboardTrackEntry[];
+  /** Instance ID at copy time (for same-instance detection). */
+  instanceId: string | null;
 }
 
 export interface AnimationPreferencesPatch {
@@ -273,6 +302,10 @@ export interface AnimationData {
    * box-select on the same pointer event.
    */
   boxSelectPending: boolean;
+  /**
+   * Internal clipboard for cut/copy/paste. Null when empty.
+   */
+  clipboard: ClipboardState | null;
 }
 
 /**
@@ -308,6 +341,14 @@ export interface AnimationActions {
    *
    */
   clearSelection: () => void;
+  /** Copy selected keypoints to the internal clipboard. No-op if selection is empty. */
+  copySelection: () => void;
+  /** Copy selected keypoints to clipboard and delete them (single undo frame). */
+  cutSelection: () => void;
+  /** Paste clipboard keypoints at the given world-space stamp. No-op if clipboard is empty. */
+  pasteAtStamp: (worldStamp: number) => void;
+  /** Delete all selected keypoints (respects locked tracks). Clears selection. */
+  deleteSelection: () => void;
   /**
    * Force-focus a particular animation instance by clearing the current selection (keypoints +
    * reference) and seeding the selection state with the provided instance id.

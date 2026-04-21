@@ -27,23 +27,13 @@ export function buildTrackMenuItems(
 ): ReactNode {
   const state = getAnimationState(animationStore);
   const hasSelection = state.selectionState.keypoints.size > 0;
+  const hasClipboard = state.clipboard !== null;
 
-  const handleDelete = () => {
-    const s = getAnimationState(animationStore);
-    const toDelete: { trackId: string; keypointId: string }[] = [];
-    s.selectionState.keypoints.forEach((keypointIds: Set<string>, trackId: string) => {
-      keypointIds.forEach((keypointId: string) => {
-        toDelete.push({ trackId, keypointId });
-      });
-    });
-    if (toDelete.length > 0) {
-      s.removeKeypoints(toDelete);
-    }
-  };
-
-  const handleDeselectAll = () => {
-    getAnimationState(animationStore).clearSelection();
-  };
+  const handleCopy = () => getAnimationState(animationStore).copySelection();
+  const handleCut = () => getAnimationState(animationStore).cutSelection();
+  const handlePaste = (worldStamp: number) => getAnimationState(animationStore).pasteAtStamp(worldStamp);
+  const handleDelete = () => getAnimationState(animationStore).deleteSelection();
+  const handleDeselectAll = () => getAnimationState(animationStore).clearSelection();
 
   return (
     <>
@@ -51,7 +41,15 @@ export function buildTrackMenuItems(
       <NestedSeparator />
       <SelectionActionsSection hasSelection={hasSelection} onDeselectAll={handleDeselectAll} />
       <NestedSeparator />
-      <EditActionsSection ctx={ctx} hasSelection={hasSelection} onDelete={handleDelete} />
+      <EditActionsSection
+        ctx={ctx}
+        hasSelection={hasSelection}
+        hasClipboard={hasClipboard}
+        onCut={handleCut}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+        onDelete={handleDelete}
+      />
     </>
   );
 }
