@@ -350,6 +350,12 @@ export interface AnimationActions {
   /** Delete all selected keypoints (respects locked tracks). Clears selection. */
   deleteSelection: () => void;
   /**
+   * Select all keypoints in the currently targeted tracks. If tracks are selected
+   * (entries in keypoints map), selects all keypoints in those tracks. If no tracks
+   * are selected, selects all keypoints across all tracks in the active instance.
+   */
+  selectAll: () => void;
+  /**
    * Force-focus a particular animation instance by clearing the current selection (keypoints +
    * reference) and seeding the selection state with the provided instance id.
    */

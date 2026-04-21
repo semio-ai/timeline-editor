@@ -34,13 +34,14 @@ export function buildTrackMenuItems(
   const handleCut = () => getAnimationState(animationStore).cutSelection();
   const handlePaste = (worldStamp: number) => getAnimationState(animationStore).pasteAtStamp(worldStamp);
   const handleDelete = () => getAnimationState(animationStore).deleteSelection();
+  const handleSelectAll = () => getAnimationState(animationStore).selectAll();
   const handleDeselectAll = () => getAnimationState(animationStore).clearSelection();
 
   return (
     <>
       <AnimationActionsSection ctx={ctx} />
       <NestedSeparator />
-      <SelectionActionsSection hasSelection={hasSelection} onDeselectAll={handleDeselectAll} />
+      <SelectionActionsSection hasSelection={hasSelection} onSelectAll={handleSelectAll} onDeselectAll={handleDeselectAll} />
       <NestedSeparator />
       <EditActionsSection
         ctx={ctx}

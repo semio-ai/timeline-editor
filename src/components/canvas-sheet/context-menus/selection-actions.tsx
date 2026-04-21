@@ -11,16 +11,18 @@ import { AnimationAction } from "../../../keybindings";
  */
 export function SelectionActionsSection({
   hasSelection,
+  onSelectAll,
   onDeselectAll,
 }: {
   hasSelection: boolean;
+  onSelectAll: () => void;
   onDeselectAll: () => void;
 }): ReactNode {
   return (
     <>
       <NestedLabel>Selection</NestedLabel>
       <NestedItem
-        disabled
+        onClick={onSelectAll}
         left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
         right={<KeybindingHint action={AnimationAction.SelectAll} />}
       >

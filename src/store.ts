@@ -1112,6 +1112,39 @@ export const AnimationSlice = (
         }),
       );
     },
+    selectAll: () => {
+      set(
+        produce((state: AnimationData): void => {
+          const { keypoints: selectedTracks, instanceId } = state.selectionState;
+          const newKeypoints = new Map<string, Set<string>>();
+
+          if (selectedTracks.size > 0) {
+            // Tracks are selected — fill each with all its keypoint IDs
+            selectedTracks.forEach((_ids, trackKey) => {
+              const track = state.tracks[trackKey];
+              if (track) {
+                newKeypoints.set(trackKey, new Set(track.points.map((p) => p.id)));
+              }
+            });
+          } else {
+            // No tracks selected — select all keypoints in all tracks that belong
+            // to the active instance
+            for (const [trackKey, track] of Object.entries(state.tracks)) {
+              // Check if this track belongs to the active instance by looking
+              // at instancedTrackSources for a matching row
+              const belongsToInstance = !instanceId || Object.values(state.instancedTrackSources).some(
+                (row) => row.data.some((d) => d.trackId === trackKey && d.instanceId === instanceId),
+              );
+              if (belongsToInstance && track.points.length > 0) {
+                newKeypoints.set(trackKey, new Set(track.points.map((p) => p.id)));
+              }
+            }
+          }
+
+          state.selectionState.keypoints = newKeypoints;
+        }),
+      );
+    },
     focusSelectionInstance: (instanceId: string) => {
       set(() => ({ selectionState: createEmptySelectionState(instanceId) }));
     },
