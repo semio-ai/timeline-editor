@@ -1,10 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, memo, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, memo, useState, useCallback, useContext } from "react";
 import { useShallow } from "zustand/shallow";
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { Instance, Line, PositionMesh, useCursor } from "@react-three/drei";
 import * as THREE from "three";
 import { RawValue, usePlayerStore, closestFrame } from "@semio/utils";
-import { Theme } from "@semio/ui";
+import { Theme, useCanvasContextMenu } from "@semio/ui";
 import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
 import type { MotionValue } from "motion";
 import { RenderMarker, TrackRender, LayerBand, VerticalAxisRange } from "../../types";
@@ -23,6 +23,8 @@ import {
   LAYER_BAND_PRIORITY,
   DEFAULT_COLOR,
 } from "../../constants";
+import { AnimationContext } from "../../context";
+import { buildKeyMenuItems } from "./context-menus";
 
 const BG_MULTIPLIER = 1.2;
 type PointerGestureEvent = ThreeEvent<MouseEvent>;
@@ -368,6 +370,12 @@ export const DataPoint = memo(function DataPoint({
 
   useCursor(isHovered, "pointer", "auto", gl.domElement);
 
+  // Key-specific context menu
+  const animationStore = useContext(AnimationContext);
+  const { onContextMenu: keyContextMenu } = useCanvasContextMenu({
+    items: (ctx) => buildKeyMenuItems(ctx, animationStore),
+  });
+
   const bgScale = useSpring(isSelected ? BG_MULTIPLIER * 1.1 : BG_MULTIPLIER, {
     stiffness: 300,
     damping: 20,
@@ -637,6 +645,7 @@ export const DataPoint = memo(function DataPoint({
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
       onClick={handleClick}
+      onContextMenu={keyContextMenu}
     >
       {shouldShowHexagon && (
         <>

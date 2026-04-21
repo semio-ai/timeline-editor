@@ -6,6 +6,7 @@ import { TrackRender } from "../../../types";
 import { AnimationActionsSection } from "./animation-actions";
 import { SelectionActionsSection } from "./selection-actions";
 import { EditActionsSection } from "./edit-actions";
+import { KeyContextMenu } from "./key-actions";
 import { AxisSettingsSection } from "./axis-settings";
 import { ZoomActionsSection } from "./zoom-actions";
 
@@ -92,5 +93,30 @@ export function buildMinimapMenuItems(
       <NestedSeparator />
       <ZoomActionsSection onFitToViewport={handleFitToViewport} />
     </>
+  );
+}
+
+/** Context menu items for right-clicking a specific keypoint. */
+export function buildKeyMenuItems(
+  ctx: CanvasContextMenuContext,
+  animationStore: any,
+): ReactNode {
+  const state = getAnimationState(animationStore);
+  const hasClipboard = state.clipboard !== null;
+
+  const handleCopy = () => getAnimationState(animationStore).copySelection();
+  const handleCut = () => getAnimationState(animationStore).cutSelection();
+  const handlePaste = (worldStamp: number) => getAnimationState(animationStore).pasteAtStamp(worldStamp);
+  const handleDelete = () => getAnimationState(animationStore).deleteSelection();
+
+  return (
+    <KeyContextMenu
+      ctx={ctx}
+      hasClipboard={hasClipboard}
+      onCut={handleCut}
+      onCopy={handleCopy}
+      onPaste={handlePaste}
+      onDelete={handleDelete}
+    />
   );
 }
