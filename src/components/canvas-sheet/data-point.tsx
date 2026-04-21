@@ -539,6 +539,14 @@ export const DataPoint = memo(function DataPoint({
       dragHandlers.onPointerUp?.(event);
       // Handle selection here so drag gestures don't swallow clicks or fall through to row handlers.
       event.stopPropagation();
+      // Right-click: only select if the clicked key isn't already in the selection
+      // (preserves multi-selection when right-clicking a selected key)
+      if (event.button !== 0) {
+        if (!isSelected && selectionPoints.length > 0) {
+          clickMarker(selectionPoints, sourceRowId, markerId, false, false);
+        }
+        return;
+      }
       if (didDrag) return;
       if (playing) return;
       if (points.length === 0 || selectionPoints.length === 0) return;
@@ -551,7 +559,7 @@ export const DataPoint = memo(function DataPoint({
         event.metaKey || event.ctrlKey,
       );
     },
-    [clickMarker, dragHandlers, markerId, playing, points.length, selectionPoints, sourceRowId],
+    [clickMarker, dragHandlers, isSelected, markerId, playing, points.length, selectionPoints, sourceRowId],
   );
 
   const handlePointerCancel = useCallback(
