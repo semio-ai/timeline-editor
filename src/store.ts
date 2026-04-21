@@ -1112,26 +1112,30 @@ export const AnimationSlice = (
         }),
       );
     },
-    selectAll: () => {
+    selectAll: (trackKeys?: string[]) => {
       set(
         produce((state: AnimationData): void => {
           const { keypoints: selectedTracks, instanceId } = state.selectionState;
           const newKeypoints = new Map<string, Set<string>>();
 
-          if (selectedTracks.size > 0) {
-            // Tracks are selected — fill each with all its keypoint IDs
-            selectedTracks.forEach((_ids, trackKey) => {
+          // Determine which tracks to target:
+          // 1. Explicit trackKeys parameter (from context menu knowing the clicked track)
+          // 2. Tracks currently in the selection
+          // 3. All tracks in the active instance
+          const targetKeys = trackKeys
+            ?? (selectedTracks.size > 0 ? Array.from(selectedTracks.keys()) : undefined);
+
+          if (targetKeys) {
+            for (const trackKey of targetKeys) {
               const track = state.tracks[trackKey];
-              if (track) {
+              if (track && track.points.length > 0) {
                 newKeypoints.set(trackKey, new Set(track.points.map((p) => p.id)));
               }
-            });
+            }
           } else {
-            // No tracks selected — select all keypoints in all tracks that belong
+            // No tracks targeted — select all keypoints in all tracks that belong
             // to the active instance
             for (const [trackKey, track] of Object.entries(state.tracks)) {
-              // Check if this track belongs to the active instance by looking
-              // at instancedTrackSources for a matching row
               const belongsToInstance = !instanceId || Object.values(state.instancedTrackSources).some(
                 (row) => row.data.some((d) => d.trackId === trackKey && d.instanceId === instanceId),
               );

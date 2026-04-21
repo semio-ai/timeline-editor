@@ -370,10 +370,14 @@ export const DataPoint = memo(function DataPoint({
 
   useCursor(isHovered, "pointer", "auto", gl.domElement);
 
-  // Key-specific context menu
+  // Key-specific context menu — pass this marker's track IDs for "Select All in Track"
   const animationStore = useContext(AnimationContext);
+  const markerTrackKeys = useMemo(
+    () => [...new Set(points.map((p) => p.trackId))],
+    [points],
+  );
   const { onContextMenu: keyContextMenu } = useCanvasContextMenu({
-    items: (ctx) => buildKeyMenuItems(ctx, animationStore),
+    items: (ctx) => buildKeyMenuItems(ctx, animationStore, markerTrackKeys),
   });
 
   const bgScale = useSpring(isSelected ? BG_MULTIPLIER * 1.1 : BG_MULTIPLIER, {

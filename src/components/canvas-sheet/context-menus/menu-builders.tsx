@@ -101,10 +101,14 @@ export function buildMinimapMenuItems(
 export function buildKeyMenuItems(
   ctx: CanvasContextMenuContext,
   animationStore: any,
+  /** Track keys that the right-clicked keypoint belongs to. Used for "Select All in Track". */
+  trackKeys?: string[],
 ): ReactNode {
   const state = getAnimationState(animationStore);
   const hasClipboard = state.clipboard !== null;
 
+  const handleSelectAll = () => getAnimationState(animationStore).selectAll(trackKeys);
+  const handleDeselectAll = () => getAnimationState(animationStore).clearSelection();
   const handleCopy = () => getAnimationState(animationStore).copySelection();
   const handleCut = () => getAnimationState(animationStore).cutSelection();
   const handlePaste = (worldStamp: number) => getAnimationState(animationStore).pasteAtStamp(worldStamp);
@@ -114,6 +118,8 @@ export function buildKeyMenuItems(
     <KeyContextMenu
       ctx={ctx}
       hasClipboard={hasClipboard}
+      onSelectAll={handleSelectAll}
+      onDeselectAll={handleDeselectAll}
       onCut={handleCut}
       onCopy={handleCopy}
       onPaste={handlePaste}

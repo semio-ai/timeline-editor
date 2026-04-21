@@ -5,6 +5,8 @@ import {
   NestedLabel,
   NestedSeparator,
   KeybindingHint,
+  SelectCursor,
+  SelectClose,
   type CanvasContextMenuContext,
 } from "@semio/ui";
 import { TrashBinTrash, Copy, Clipboard } from "@solar-icons/react-perf/LineDuotone";
@@ -20,6 +22,8 @@ import { AnimationActionsSection } from "./animation-actions";
 export function KeyContextMenu({
   ctx,
   hasClipboard,
+  onSelectAll,
+  onDeselectAll,
   onCut,
   onCopy,
   onPaste,
@@ -27,6 +31,8 @@ export function KeyContextMenu({
 }: {
   ctx: CanvasContextMenuContext;
   hasClipboard: boolean;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
   onCut: () => void;
   onCopy: () => void;
   onPaste: (worldStamp: number) => void;
@@ -35,6 +41,22 @@ export function KeyContextMenu({
   return (
     <>
       <AnimationActionsSection ctx={ctx} />
+      <NestedSeparator />
+      <NestedLabel>Selection</NestedLabel>
+      <NestedItem
+        onClick={onSelectAll}
+        left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
+        right={<KeybindingHint action={AnimationAction.SelectAll} />}
+      >
+        Select All in Track
+      </NestedItem>
+      <NestedItem
+        onClick={onDeselectAll}
+        left={<SelectClose size="18px" className={ICON_CLASS_NAME} />}
+        right={<KeybindingHint action={AnimationAction.DeselectAll} />}
+      >
+        Deselect All
+      </NestedItem>
       <NestedSeparator />
       <NestedLabel>Edit</NestedLabel>
       <NestedItem
