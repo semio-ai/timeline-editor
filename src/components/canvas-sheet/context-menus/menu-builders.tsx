@@ -25,6 +25,8 @@ function getAnimationState(store: any): AnimationStore {
 export function buildTrackMenuItems(
   ctx: CanvasContextMenuContext,
   animationStore: any,
+  /** Optional explicit track keys for targeted Select All (from per-row context menu). */
+  trackKeys?: string[],
 ): ReactNode {
   const state = getAnimationState(animationStore);
   const hasSelection = state.selectionState.keypoints.size > 0;
@@ -34,7 +36,7 @@ export function buildTrackMenuItems(
   const handleCut = () => getAnimationState(animationStore).cutSelection();
   const handlePaste = (worldStamp: number) => getAnimationState(animationStore).pasteAtStamp(worldStamp);
   const handleDelete = () => getAnimationState(animationStore).deleteSelection();
-  const handleSelectAll = () => getAnimationState(animationStore).selectAll();
+  const handleSelectAll = () => getAnimationState(animationStore).selectAll(trackKeys);
   const handleDeselectAll = () => getAnimationState(animationStore).clearSelection();
 
   return (

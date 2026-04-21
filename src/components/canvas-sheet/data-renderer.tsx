@@ -8,8 +8,9 @@ import {
   useEffect,
   useLayoutEffect,
 } from "react";
+import { useContext } from "react";
 import { useShallow } from "zustand/shallow";
-import { Theme } from "@semio/ui";
+import { Theme, useCanvasContextMenu } from "@semio/ui";
 import { MotionValue } from "motion";
 import { animate, useMotionValue, useMotionValueEvent, useSpring } from "motion/react";
 import { Instances } from "@react-three/drei";
@@ -28,11 +29,13 @@ import {
 } from "../../types";
 import { AnimationData, AnimationActions } from "../../store-types";
 import { DEFAULT_COLOR, RENDER_MORPH_SPRING, Z } from "../../constants";
+import { AnimationContext } from "../../context";
 import { DataPoint } from "./data-point";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 import { TransitionSegment } from "./transition-segment";
 import { BezierHandles } from "./bezier-handles";
+import { buildTrackMenuItems } from "./context-menus";
 
 const HANDLE_REVEAL_DELAY_MS = 120;
 
@@ -192,6 +195,13 @@ export const DataRenderer = memo(function DataRenderer({
     () => (sourceRow ? uniq(sourceRow.data.map((s) => s.trackId)) : []),
     [sourceRow],
   );
+
+  // Per-row context menu — passes this row's trackIds for targeted Select All
+  const animationStore = useContext(AnimationContext);
+  const { onContextMenu: rowContextMenu } = useCanvasContextMenu({
+    items: (ctx) => buildTrackMenuItems(ctx, animationStore, trackIds),
+  });
+
   const rowMuted = useMemo(() => {
     if (!sourceRow || sourceRow.data.length === 0) return false;
     return sourceRow.data.every((entry) => entry.muted ?? false);
@@ -512,6 +522,7 @@ export const DataRenderer = memo(function DataRenderer({
           }}
           emphasis={emphasis}
           theme={theme}
+          pointerEvents={{ onContextMenu: rowContextMenu }}
         />
       )}
     </group>
