@@ -167,7 +167,7 @@ export function TrackControlMenuContent({
 
       {/* --- Track Properties --- */}
       <NestedSeparator />
-      <NestedLabel>Track</NestedLabel>
+      <NestedLabel>{isGroup ? "Group" : "Track"}</NestedLabel>
       {color && (
         <NestedColorPicker
           disabled={!isSingleTrack || playing}

@@ -11,6 +11,7 @@ import {
   type AnimatableGroupControlProps,
   type AnimatableLeafControlProps,
 } from "./animatable-control";
+import { TrackMenuProvider } from "./track-menu-context";
 
 export interface AnimatableControlListProps {
   animatableIds?: string[];
@@ -267,6 +268,7 @@ export function AnimatableControlList({
   const hasRows = controlRows.length > 0;
 
   return (
+    <TrackMenuProvider>
     <div className={clsx("flex h-full w-full flex-col", className)}>
       <div className={clsx("flex flex-col gap-0", listClassName)}>
         {hasRows && (
@@ -362,6 +364,7 @@ export function AnimatableControlList({
         )}
       </div>
     </div>
+    </TrackMenuProvider>
   );
 }
 

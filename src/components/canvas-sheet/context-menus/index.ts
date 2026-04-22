@@ -1,4 +1,5 @@
 export { AnimationActionsSection } from "./animation-actions";
+export { AnimatableLeafMenuContent, AnimatableGroupMenuContent } from "./animatable-control-menu";
 export { SelectionActionsSection } from "./selection-actions";
 export { EditActionsSection } from "./edit-actions";
 export { AxisSettingsSection } from "./axis-settings";

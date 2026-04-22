@@ -9,24 +9,33 @@ import {
   TextField,
   ToggleSquare,
   Dropdown,
+  ContextMenu,
   Variant,
   Button,
-  NestedLabel,
-  NestedColorPicker,
   Tooltip,
   ICON_CLASS_NAME,
+  KeybindingProvider,
+  useKeybindingMap,
 } from "@semio/ui";
 import type { AnimatableValue, RawValue } from "@semio/utils";
 import { toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/utils";
 import { useAnimationStore, useColors, useKeyControlState } from "../hooks";
+import { AnimationActions, AnimationData } from "../store-types";
 import { SourceRow, SourceRowData } from "../types";
+import { buildTrackKey } from "../utils/track-key";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
 import { COMPLEX_TYPES, DEFAULT_COLOR } from "../constants";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
-import { ControlRow, ControlStrip, GroupToggle } from "./controls";
+import { ControlRow, ControlStrip, GroupToggle, TrackPropertiesStrip } from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
 import { KeyStrip } from "./key-strip";
+import {
+  AnimatableLeafMenuContent,
+  AnimatableGroupMenuContent,
+  TrackControlMenuContent,
+} from "./canvas-sheet/context-menus";
+import { useTrackMenuState } from "./track-menu-context";
 
 export type AnimatableControlMode = "track" | "track-missing" | "direct";
 
@@ -180,6 +189,39 @@ function AnimatableLeafControl({
     return animatable?.name ?? "";
   }, [animatable?.group?.axis, animatable?.name, label]);
 
+  const editorDisabled = disabled || running;
+  const addTrackAction = useMemo(() => {
+    if (editorDisabled || resolvedMode !== "track-missing") return undefined;
+    return onAddTrack ?? (canAutoCreateTrack ? handleAddTrack : undefined);
+  }, [editorDisabled, resolvedMode, onAddTrack, canAutoCreateTrack, handleAddTrack]);
+
+  const handleChangeColor = useCallback(
+    (v: string) => {
+      if (!animatable) return;
+      updateAnimatable(animatableId, {
+        pub: {
+          ...(animatable.pub ?? { public: true, output: "none" }),
+          color: v,
+        },
+      });
+    },
+    [animatable, animatableId, updateAnimatable],
+  );
+
+  const leafMenuContent = useMemo(
+    () => (
+      <AnimatableLeafMenuContent
+        color={color}
+        disabled={editorDisabled}
+        onChangeColor={handleChangeColor}
+        onAddTrack={addTrackAction}
+      />
+    ),
+    [color, editorDisabled, handleChangeColor, addTrackAction],
+  );
+
+  const { menuOpen, setMenuOpen } = useTrackMenuState();
+
   if (!animatable) {
     return <div className="h-9 w-full animate-pulse rounded bg-neutral-700/30" />;
   }
@@ -194,13 +236,13 @@ function AnimatableLeafControl({
     );
   }
 
-  const editorDisabled = disabled || running;
-  let addTrackAction: (() => void) | undefined;
-  if (!editorDisabled && resolvedMode === "track-missing") {
-    addTrackAction = onAddTrack ?? (canAutoCreateTrack ? handleAddTrack : undefined);
-  }
-
   return (
+    <ContextMenu
+      content={leafMenuContent}
+      disabled={menuOpen}
+      onOpenChange={setMenuOpen}
+    >
+    <div className="relative w-full">
     <ControlRow
       className="pr-0.5"
       treeIcon={
@@ -254,8 +296,9 @@ function AnimatableLeafControl({
       }
       options={
         <Dropdown
-          disabled={editorDisabled}
-          variant={Variant.Info}
+          disabled={editorDisabled || menuOpen}
+          onOpenChange={setMenuOpen}
+          side="right"
           trigger={
             <span>
               <Button
@@ -267,27 +310,12 @@ function AnimatableLeafControl({
             </span>
           }
         >
-          <NestedLabel>Control Settings</NestedLabel>
-          <NestedColorPicker
-            variant={Variant.Info}
-            value={color}
-            disabled={editorDisabled}
-            onChange={(v) => {
-              if (!animatable) return;
-              updateAnimatable(animatableId, {
-                pub: {
-                  ...(animatable.pub ?? {
-                    public: true,
-                    output: "none",
-                  }),
-                  color: v,
-                },
-              });
-            }}
-          />
+          {leafMenuContent}
         </Dropdown>
       }
     />
+    </div>
+    </ContextMenu>
   );
 }
 
@@ -315,8 +343,10 @@ function AnimatableGroupControl({
     tracks,
     animatables,
     selectionInstanceId,
+    selectedKeypoints,
+    hasClipboard,
   } = useAnimationStore(
-    useShallow((state) => ({
+    useShallow((state: AnimationData) => ({
       sourceRow: sourceRowId ? state.instancedTrackSources[sourceRowId] : undefined,
       emphasisRowId: state.emphasisRowId,
       namespaces: state.namespaces,
@@ -324,32 +354,59 @@ function AnimatableGroupControl({
       tracks: state.tracks,
       animatables: state.animatables,
       selectionInstanceId: state.selectionState.instanceId,
+      selectedKeypoints: state.selectionState.keypoints,
+      hasClipboard: state.clipboard !== null,
     })),
   );
   const emphasis = sourceRowId ? emphasisRowId === sourceRowId : false;
 
   // --- Consolidated store actions ---
-  const { setEmphasis, selectTrack, toggleTrackInSelection, rangeSelectTracks, createTrack } =
-    useAnimationStore(
-      useShallow((state) => ({
-        setEmphasis: state.setEmphasis,
-        selectTrack: state.selectTrack,
-        toggleTrackInSelection: state.toggleTrackInSelection,
-        rangeSelectTracks: state.rangeSelectTracks,
-        createTrack: state.createTrack,
-      })),
-    );
+  const {
+    setEmphasis,
+    selectTrack,
+    toggleTrackInSelection,
+    rangeSelectTracks,
+    createTrack,
+    setTracksVisible,
+    setTracksMuted,
+    setTracksLocked,
+    copySelection,
+    cutSelection,
+    pasteAtStamp,
+    deleteSelection,
+    selectAllInTracks,
+    clearSelection,
+  } = useAnimationStore(
+    useShallow((state: AnimationActions) => ({
+      setEmphasis: state.setEmphasis,
+      selectTrack: state.selectTrack,
+      toggleTrackInSelection: state.toggleTrackInSelection,
+      rangeSelectTracks: state.rangeSelectTracks,
+      createTrack: state.createTrack,
+      setTracksVisible: state.setTracksVisible,
+      setTracksMuted: state.setTracksMuted,
+      setTracksLocked: state.setTracksLocked,
+      copySelection: state.copySelection,
+      cutSelection: state.cutSelection,
+      pasteAtStamp: state.pasteAtStamp,
+      deleteSelection: state.deleteSelection,
+      selectAllInTracks: state.selectAllInTracks,
+      clearSelection: state.clearSelection,
+    })),
+  );
 
   const fallbackSourceRow = useMemo<SourceRow>(
     () => sourceRow ?? { id: `group-fallback-${groupId}`, data: [] },
     [groupId, sourceRow],
   );
 
-  const { keyState, currentFrame, missingEntries, targetPoints } =
-    useKeyControlState(fallbackSourceRow);
+  const {
+    keyState, currentFrame, missingEntries, targetPoints,
+    prevEnabled, nextEnabled, onPrev, onNext,
+  } = useKeyControlState(fallbackSourceRow);
 
   const { removeKeypoints, insertKeypointAtWorldStamp } = useAnimationStore(
-    useShallow((state) => ({
+    useShallow((state: AnimationActions) => ({
       removeKeypoints: state.removeKeypoints,
       insertKeypointAtWorldStamp: state.insertKeypointAtWorldStamp,
     })),
@@ -444,7 +501,119 @@ function AnimatableGroupControl({
     return `${resolvedColor}00`;
   }, [isGroupSelected, emphasis, resolvedColor]);
 
+  // Track property state for groups with tracks
+  const rowVisible = useMemo<boolean | "partial">(() => {
+    if (!sourceRow || sourceRow.data.length === 0) return true;
+    const allV = sourceRow.data.every((d) => d.visible !== false);
+    const noneV = sourceRow.data.every((d) => d.visible === false);
+    return allV ? true : noneV ? false : "partial";
+  }, [sourceRow]);
+  const rowMuted = useMemo<boolean>(() => {
+    if (!sourceRow || sourceRow.data.length === 0) return false;
+    return sourceRow.data.every((entry) => entry.muted ?? false);
+  }, [sourceRow]);
+  const rowLocked = useMemo<boolean | "partial">(() => {
+    if (!sourceRow || sourceRow.data.length === 0) return false;
+    const allL = sourceRow.data.every((d) => d.locked === true);
+    const noneL = sourceRow.data.every((d) => d.locked !== true);
+    return allL ? true : noneL ? false : "partial";
+  }, [sourceRow]);
+  const sourceIds = useMemo(
+    () => sourceRow ? uniq(sourceRow.data.map((d) => `${d.namespaceId}/${d.instanceId}/${d.trackId}`)) : [],
+    [sourceRow],
+  );
+  const handleToggleVisible = useCallback(() => {
+    if (sourceIds.length === 0) return;
+    const next = rowVisible === "partial" ? true : rowVisible === true ? false : true;
+    setTracksVisible(sourceIds, next);
+  }, [sourceIds, rowVisible, setTracksVisible]);
+  const handleToggleMuted = useCallback(() => {
+    if (sourceIds.length === 0) return;
+    setTracksMuted(sourceIds, !rowMuted);
+  }, [sourceIds, rowMuted, setTracksMuted]);
+  const handleToggleLocked = useCallback(() => {
+    if (sourceIds.length === 0) return;
+    const next = rowLocked === "partial" ? true : rowLocked === true ? false : true;
+    setTracksLocked(sourceIds, next);
+  }, [sourceIds, rowLocked, setTracksLocked]);
+
+  const handleAddKeyframe = useCallback(() => {
+    if (running || allReadonly) return;
+    const targets = missingEntries;
+    targets.forEach((datum) => {
+      insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
+    });
+  }, [running, allReadonly, missingEntries, insertKeypointAtWorldStamp, playerStamp]);
+
+  const handleRemoveKeyframe = useCallback(() => {
+    if (running || allReadonly || !currentFrame) return;
+    const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
+    removeKeypoints(points.map((p) => ({ trackId: p.trackId, keypointId: p.id })));
+  }, [running, allReadonly, currentFrame, targetPoints, removeKeypoints]);
+
+  const handlePaste = useCallback(() => {
+    pasteAtStamp(playerStamp);
+  }, [pasteAtStamp, playerStamp]);
+
+  const keybindingMap = useKeybindingMap();
+  const { menuOpen, setMenuOpen } = useTrackMenuState();
+
+  const groupMenuContent = useMemo(() => {
+    if (hasTrackGroup && sourceRow) {
+      return (
+        <KeybindingProvider value={keybindingMap}>
+          <TrackControlMenuContent
+            playing={running}
+            allReadonly={allReadonly}
+            trackIds={groupTrackIds}
+            isGroup
+            sourceRowId={sourceRow.id}
+            visible={rowVisible}
+            muted={rowMuted}
+            locked={rowLocked}
+            onToggleVisible={handleToggleVisible}
+            onToggleMuted={handleToggleMuted}
+            onToggleLocked={handleToggleLocked}
+            keyState={keyState}
+            onAddKeyframe={handleAddKeyframe}
+            onRemoveKeyframe={handleRemoveKeyframe}
+            prevEnabled={prevEnabled}
+            nextEnabled={nextEnabled}
+            onPrev={onPrev}
+            onNext={onNext}
+            hasSelection={selectedKeypoints.size > 0}
+            trackKeys={groupTrackIds}
+            onSelectAllInTrack={() => selectAllInTracks(groupTrackIds)}
+            onDeselectAll={clearSelection}
+            hasClipboard={hasClipboard}
+            onCut={cutSelection}
+            onCopy={copySelection}
+            onPaste={handlePaste}
+            onDelete={deleteSelection}
+          />
+        </KeybindingProvider>
+      );
+    }
+    return (
+      <AnimatableGroupMenuContent
+        disabled={disabled || running}
+        onAddTracks={canAdd ? (onAddTrack ?? handleAddTracks) : undefined}
+      />
+    );
+  }, [
+    hasTrackGroup, sourceRow, running, allReadonly, groupTrackIds, rowVisible, rowMuted, rowLocked,
+    handleToggleVisible, handleToggleMuted, handleToggleLocked, keyState, handleAddKeyframe,
+    handleRemoveKeyframe, prevEnabled, nextEnabled, onPrev, onNext, selectedKeypoints,
+    selectAllInTracks, clearSelection, hasClipboard, cutSelection, copySelection, handlePaste,
+    deleteSelection, keybindingMap, disabled, canAdd, onAddTrack, handleAddTracks,
+  ]);
+
   return (
+    <ContextMenu
+      content={groupMenuContent}
+      disabled={menuOpen}
+      onOpenChange={setMenuOpen}
+    >
     <div
       className="relative w-full"
       onMouseEnter={() => sourceRowId && setEmphasis(sourceRowId)}
@@ -509,21 +678,11 @@ function AnimatableGroupControl({
               color={resolvedColor}
               disabled={disabled || running || allReadonly}
               onHexClick={() => {
-                if (disabled || running || allReadonly) return;
-                if (keyState === "full" && currentFrame) {
-                  const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-                  const removals = points.map((p) => ({
-                    trackId: p.trackId,
-                    keypointId: p.id,
-                  }));
-                  removeKeypoints(removals);
-                  return;
+                if (keyState === "full") {
+                  handleRemoveKeyframe();
+                } else {
+                  handleAddKeyframe();
                 }
-
-                const targets = missingEntries;
-                targets.forEach((datum) => {
-                  insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
-                });
               }}
             />
           ) : (
@@ -542,8 +701,9 @@ function AnimatableGroupControl({
         }
         options={
           <Dropdown
-            disabled
-            variant={Variant.Info}
+            disabled={disabled || running || menuOpen}
+            onOpenChange={setMenuOpen}
+            side="right"
             trigger={
               <span>
                 <Button
@@ -555,12 +715,12 @@ function AnimatableGroupControl({
               </span>
             }
           >
-            <NestedLabel>Control Settings</NestedLabel>
-            {/* No content currently. May add more. Dropdown disabled */}
+            {groupMenuContent}
           </Dropdown>
         }
       />
     </div>
+    </ContextMenu>
   );
 }
 
