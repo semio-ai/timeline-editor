@@ -109,7 +109,64 @@ export function TrackControlMenuContent({
 
   return (
     <>
+      {/* --- Edit --- */}
+      <NestedLabel>Edit</NestedLabel>
+      <NestedItem
+        disabled={!hasSelection}
+        onClick={onCut}
+        left={<Scissors size="18px" className={ICON_CLASS_NAME} />}
+        right={<KeybindingHint action={AnimationAction.Cut} />}
+      >
+        Cut
+      </NestedItem>
+      <NestedItem
+        disabled={!hasSelection}
+        onClick={onCopy}
+        left={<Copy size="18px" className={ICON_CLASS_NAME} />}
+        right={<KeybindingHint action={AnimationAction.Copy} />}
+      >
+        Copy
+      </NestedItem>
+      <NestedItem
+        disabled={!hasClipboard}
+        onClick={onPaste}
+        left={<Clipboard size="18px" className={ICON_CLASS_NAME} />}
+        right={<KeybindingHint action={AnimationAction.Paste} />}
+      >
+        Paste
+      </NestedItem>
+      <NestedItem
+        disabled={!hasSelection}
+        onClick={onDelete}
+        left={<TrashBinTrash size="18px" className={ICON_CLASS_NAME} />}
+        right={<KeybindingHint action={AnimationAction.Delete} />}
+      >
+        Delete
+      </NestedItem>
+
+      {/* --- Selection --- */}
+      <NestedSeparator />
+      <NestedLabel>Selection</NestedLabel>
+      {trackKeys && onSelectAllInTrack && (
+        <NestedItem
+          onClick={onSelectAllInTrack}
+          left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
+          right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
+        >
+          {isGroup ? "Select All in Group" : "Select All in Track"}
+        </NestedItem>
+      )}
+      <NestedItem
+        disabled={!hasSelection}
+        onClick={onDeselectAll}
+        left={<SelectClose size="18px" className={ICON_CLASS_NAME} />}
+        right={<KeybindingHint action={AnimationAction.DeselectAll} />}
+      >
+        Deselect All
+      </NestedItem>
+
       {/* --- Track Properties --- */}
+      <NestedSeparator />
       <NestedLabel>Track</NestedLabel>
       {color && (
         <NestedColorPicker
@@ -200,63 +257,6 @@ export function TrackControlMenuContent({
         left={<IconPlayerSkipForward size="18px" className={ICON_CLASS_NAME} />}
       >
         Next Keyframe
-      </NestedItem>
-
-      {/* --- Selection --- */}
-      <NestedSeparator />
-      <NestedLabel>Selection</NestedLabel>
-      {trackKeys && onSelectAllInTrack && (
-        <NestedItem
-          onClick={onSelectAllInTrack}
-          left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
-          right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
-        >
-          {isGroup ? "Select All in Group" : "Select All in Track"}
-        </NestedItem>
-      )}
-      <NestedItem
-        disabled={!hasSelection}
-        onClick={onDeselectAll}
-        left={<SelectClose size="18px" className={ICON_CLASS_NAME} />}
-        right={<KeybindingHint action={AnimationAction.DeselectAll} />}
-      >
-        Deselect All
-      </NestedItem>
-
-      {/* --- Edit --- */}
-      <NestedSeparator />
-      <NestedLabel>Edit</NestedLabel>
-      <NestedItem
-        disabled={!hasSelection}
-        onClick={onCut}
-        left={<Scissors size="18px" className={ICON_CLASS_NAME} />}
-        right={<KeybindingHint action={AnimationAction.Cut} />}
-      >
-        Cut
-      </NestedItem>
-      <NestedItem
-        disabled={!hasSelection}
-        onClick={onCopy}
-        left={<Copy size="18px" className={ICON_CLASS_NAME} />}
-        right={<KeybindingHint action={AnimationAction.Copy} />}
-      >
-        Copy
-      </NestedItem>
-      <NestedItem
-        disabled={!hasClipboard}
-        onClick={onPaste}
-        left={<Clipboard size="18px" className={ICON_CLASS_NAME} />}
-        right={<KeybindingHint action={AnimationAction.Paste} />}
-      >
-        Paste
-      </NestedItem>
-      <NestedItem
-        disabled={!hasSelection}
-        onClick={onDelete}
-        left={<TrashBinTrash size="18px" className={ICON_CLASS_NAME} />}
-        right={<KeybindingHint action={AnimationAction.Delete} />}
-      >
-        Delete
       </NestedItem>
     </>
   );

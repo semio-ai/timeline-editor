@@ -44,16 +44,6 @@ export function buildTrackMenuItems(
 
   return (
     <>
-      <AnimationActionsSection ctx={ctx} />
-      <NestedSeparator />
-      <SelectionActionsSection
-        hasSelection={hasSelection}
-        hasTrackContext={!!trackKeys}
-        onSelectAll={handleSelectAll}
-        onSelectAllInTrack={handleSelectAllInTrack}
-        onDeselectAll={handleDeselectAll}
-      />
-      <NestedSeparator />
       <EditActionsSection
         ctx={ctx}
         hasSelection={hasSelection}
@@ -63,6 +53,16 @@ export function buildTrackMenuItems(
         onPaste={handlePaste}
         onDelete={handleDelete}
       />
+      <NestedSeparator />
+      <SelectionActionsSection
+        hasSelection={hasSelection}
+        hasTrackContext={!!trackKeys}
+        onSelectAll={handleSelectAll}
+        onSelectAllInTrack={handleSelectAllInTrack}
+        onDeselectAll={handleDeselectAll}
+      />
+      <NestedSeparator />
+      <AnimationActionsSection ctx={ctx} />
     </>
   );
 }

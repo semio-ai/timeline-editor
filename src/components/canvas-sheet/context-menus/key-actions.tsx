@@ -41,31 +41,6 @@ export function KeyContextMenu({
 }): ReactNode {
   return (
     <>
-      <AnimationActionsSection ctx={ctx} />
-      <NestedSeparator />
-      <NestedLabel>Selection</NestedLabel>
-      <NestedItem
-        onClick={onSelectAll}
-        left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
-        right={<KeybindingHint action={AnimationAction.SelectAll} />}
-      >
-        Select All
-      </NestedItem>
-      <NestedItem
-        onClick={onSelectAllInTrack}
-        left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
-        right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
-      >
-        Select All in Track
-      </NestedItem>
-      <NestedItem
-        onClick={onDeselectAll}
-        left={<SelectClose size="18px" className={ICON_CLASS_NAME} />}
-        right={<KeybindingHint action={AnimationAction.DeselectAll} />}
-      >
-        Deselect All
-      </NestedItem>
-      <NestedSeparator />
       <NestedLabel>Edit</NestedLabel>
       <NestedItem
         onClick={onCut}
@@ -96,6 +71,31 @@ export function KeyContextMenu({
       >
         Delete
       </NestedItem>
+      <NestedSeparator />
+      <NestedLabel>Selection</NestedLabel>
+      <NestedItem
+        onClick={onSelectAll}
+        left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
+        right={<KeybindingHint action={AnimationAction.SelectAll} />}
+      >
+        Select All
+      </NestedItem>
+      <NestedItem
+        onClick={onSelectAllInTrack}
+        left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
+        right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
+      >
+        Select All in Track
+      </NestedItem>
+      <NestedItem
+        onClick={onDeselectAll}
+        left={<SelectClose size="18px" className={ICON_CLASS_NAME} />}
+        right={<KeybindingHint action={AnimationAction.DeselectAll} />}
+      >
+        Deselect All
+      </NestedItem>
+      <NestedSeparator />
+      <AnimationActionsSection ctx={ctx} />
     </>
   );
 }
