@@ -1,7 +1,7 @@
 import { memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Eye, Speaker, Lock, ToggleSquare, Size } from "@semio/ui";
-import { Settings } from "@solar-icons/react-perf/LineDuotone";
+import { Eye, Speaker, Lock, ToggleSquare, Size, IconKey } from "@semio/ui";
+import { Settings } from "@solar-icons/react-perf/Linear";
 import { useAnimationStore } from "../hooks";
 import { collectSourceTracks } from "../functions/source-utils";
 import type { AnimationActions, AnimationData } from "../store-types";
@@ -48,7 +48,12 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
     const ids = tracks.map((t) => t.id);
 
     if (ids.length === 0) {
-      return { allIds: ids, visibleState: false as const, mutedState: false as const, lockedState: false as const };
+      return {
+        allIds: ids,
+        visibleState: false as const,
+        mutedState: false as const,
+        lockedState: false as const,
+      };
     }
 
     const allVisible = tracks.every((t) => t.visible !== false);
@@ -80,17 +85,19 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
           setPreferences({ controlStripMode: isProperties ? "keySkip" : "properties" })
         }
       >
-        <Settings className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        {isProperties ? (
+          <Settings className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        ) : (
+          <IconKey fillOpacity={0} className="block h-4/5 w-4/5 shrink-0" />
+        )}
       </ToggleSquare>
 
       {/* Global visibility */}
       <ToggleSquare
         sizing="inner"
         size={Size.Xs}
-        label={
-          visibleState === true ? "All visible" : visibleState === false ? "All hidden" : "Some hidden"
-        }
-        value={visibleState === "partial" ? "partial" : !visibleState}
+        label={visibleState === true ? "Hide all" : "Show all"}
+        value={visibleState === "partial" ? "partial" : visibleState}
         disabled={!hasAnyTracks}
         onChange={() => {
           const next = visibleState === "partial" ? true : visibleState === true ? false : true;
@@ -104,10 +111,8 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
       <ToggleSquare
         sizing="inner"
         size={Size.Xs}
-        label={
-          mutedState === true ? "All muted" : mutedState === false ? "All unmuted" : "Some muted"
-        }
-        value={mutedState === "partial" ? "partial" : (mutedState ?? false)}
+        label={mutedState === true ? "Unmute all" : "Mute all"}
+        value={mutedState === "partial" ? "partial" : !(mutedState ?? false)}
         disabled={!hasAnyTracks}
         onChange={() => {
           const next = mutedState === "partial" ? true : !mutedState;
@@ -121,10 +126,8 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
       <ToggleSquare
         sizing="inner"
         size={Size.Xs}
-        label={
-          lockedState === true ? "All locked" : lockedState === false ? "All unlocked" : "Some locked"
-        }
-        value={lockedState === "partial" ? "partial" : (lockedState ?? false)}
+        label={lockedState === true ? "Unlock all" : "Lock all"}
+        value={lockedState === "partial" ? "partial" : !(lockedState ?? false)}
         disabled={!hasAnyTracks}
         onChange={() => {
           const next = lockedState === "partial" ? true : !lockedState;

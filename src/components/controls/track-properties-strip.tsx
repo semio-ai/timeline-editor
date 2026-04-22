@@ -4,6 +4,8 @@ import { Eye, EyeOff, Speaker, SpeakerOff, Lock, LockOff, ToggleSquare, Size } f
 export interface TrackPropertiesStripProps {
   color?: string;
   disabled?: boolean;
+  /** Whether this row is a group (affects tooltip phrasing). */
+  isGroup?: boolean;
   /** true = all visible, false = all hidden, "partial" = mixed */
   visible?: boolean | "partial";
   /** true = all muted, false = all unmuted, "partial" = mixed */
@@ -23,6 +25,7 @@ export interface TrackPropertiesStripProps {
 export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
   color,
   disabled = false,
+  isGroup = false,
   visible = true,
   muted = false,
   locked = false,
@@ -30,14 +33,15 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
   onToggleMuted,
   onToggleLocked,
 }: TrackPropertiesStripProps) {
+  const suffix = isGroup ? " All" : "";
   return (
     <>
       <ToggleSquare
         sizing="inner"
         size={Size.Xs}
         color={color}
-        label={visible === true ? "Visible" : visible === false ? "Hidden" : "Partially visible"}
-        value={visible === "partial" ? "partial" : !visible}
+        label={`${visible === true ? "Hide" : "Show"}${suffix}`}
+        value={visible === "partial" ? "partial" : visible}
         disabled={disabled || !onToggleVisible}
         onChange={() => onToggleVisible?.()}
       >
@@ -52,8 +56,8 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         sizing="inner"
         size={Size.Xs}
         color={color}
-        label={muted === true ? "Muted" : muted === false ? "Unmuted" : "Partially muted"}
-        value={muted === "partial" ? "partial" : (muted ?? false)}
+        label={`${muted ? "Unmute" : "Mute"}${suffix}`}
+        value={muted === "partial" ? "partial" : !muted}
         disabled={disabled || !onToggleMuted}
         onChange={() => onToggleMuted?.()}
       >
@@ -68,8 +72,8 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         sizing="inner"
         size={Size.Xs}
         color={color}
-        label={locked === true ? "Locked" : locked === false ? "Unlocked" : "Partially locked"}
-        value={locked === "partial" ? "partial" : (locked ?? false)}
+        label={`${locked === true ? "Unlock" : "Lock"}${suffix}`}
+        value={locked === "partial" ? "partial" : !locked}
         disabled={disabled || !onToggleLocked}
         onChange={() => onToggleLocked?.()}
       >

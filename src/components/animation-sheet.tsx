@@ -3,8 +3,10 @@ import { useContext, memo, useEffect, useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { Search, Size, useTheme, TooltipProvider, TooltipContext } from "@semio/ui";
+import { KeybindingProvider } from "@semio/ui";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
+import { animationKeybindings } from "../keybindings";
 import { TrackRender, VerticalAxis } from "../types";
 import {
   useAnimationStore,
@@ -353,6 +355,7 @@ function InnerSheet({
   const expanded = height > MIN_SHEET_HEIGHT;
 
   return (
+    <KeybindingProvider value={animationKeybindings}>
     <ColorContextProvider>
       <NameContextProvider>
         <TrackAnimatableContextProvider>
@@ -496,5 +499,6 @@ function InnerSheet({
         </TrackAnimatableContextProvider>
       </NameContextProvider>
     </ColorContextProvider>
+    </KeybindingProvider>
   );
 }
