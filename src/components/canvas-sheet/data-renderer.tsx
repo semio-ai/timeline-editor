@@ -249,9 +249,9 @@ export const DataRenderer = memo(function DataRenderer({
   }, [xTransform]);
   const renderMarkers = computedData?.render?.markers ?? [];
   const renderHandles = useMemo(() => {
-    const allHandles = computedData?.render?.handles ?? [];
-    if (handleVisibility !== "key-selection" || allHandles.length === 0) return allHandles;
-    return allHandles.filter((handle) => {
+    const handles = computedData?.render?.handles ?? [];
+    if (handleVisibility !== "key-selection" || handles.length === 0) return handles;
+    return handles.filter((handle) => {
       const trackSelection = selectionState.keypoints.get(handle.trackId);
       return trackSelection?.has(handle.keypointId) ?? false;
     });
