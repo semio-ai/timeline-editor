@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
 import { IconDotsVertical } from "@tabler/icons-react";
@@ -221,6 +221,7 @@ function AnimatableLeafControl({
   );
 
   const { menuOpen, setMenuOpen } = useTrackMenuState();
+  const [hovered, setHovered] = useState(false);
 
   if (!animatable) {
     return <div className="h-9 w-full animate-pulse rounded bg-neutral-700/30" />;
@@ -242,7 +243,15 @@ function AnimatableLeafControl({
       disabled={menuOpen}
       onOpenChange={setMenuOpen}
     >
-    <div className="relative w-full">
+    <div
+      className="relative w-full"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+    <div
+      className="pointer-events-none absolute inset-0 -right-2 transition-colors duration-150 ease-out"
+      style={{ backgroundColor: hovered ? `${resolvedColor}26` : `${resolvedColor}00` }}
+    />
     <ControlRow
       className="pr-0.5"
       treeIcon={

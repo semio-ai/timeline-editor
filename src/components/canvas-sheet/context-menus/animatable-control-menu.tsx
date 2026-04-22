@@ -7,7 +7,7 @@ import {
   NestedColorPicker,
 } from "@semio/ui";
 import { Palette2 } from "@solar-icons/react-perf/LineDuotone";
-import { IconPlaylistAdd } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
 
 export interface AnimatableLeafMenuProps {
   color: string;
@@ -44,7 +44,7 @@ export function AnimatableLeafMenuContent({
           <NestedItem
             disabled={disabled}
             onClick={onAddTrack}
-            left={<IconPlaylistAdd size="18px" className={ICON_CLASS_NAME} />}
+            left={<IconPlus size="18px" className={ICON_CLASS_NAME} />}
           >
             Add Track
           </NestedItem>
@@ -74,7 +74,7 @@ export function AnimatableGroupMenuContent({
       <NestedItem
         disabled={disabled || !onAddTracks}
         onClick={onAddTracks}
-        left={<IconPlaylistAdd size="18px" className={ICON_CLASS_NAME} />}
+        left={<IconPlus size="18px" className={ICON_CLASS_NAME} />}
       >
         Add All Tracks
       </NestedItem>
