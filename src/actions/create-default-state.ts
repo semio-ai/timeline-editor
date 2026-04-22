@@ -27,9 +27,8 @@ export const createDefaultState = (): AnimationData => {
     selectionState: createEmptySelectionState(),
     emphasisRowId: null,
     preferences: {
-      hoverDashedLine: false,
-      dataPreviews: true,
       controlStripMode: "keySkip",
+      handleVisibility: "track-selection",
       newKeyDefaults: {
         transitions: {
           in: TransitionDirective.InferredAutoClamped,

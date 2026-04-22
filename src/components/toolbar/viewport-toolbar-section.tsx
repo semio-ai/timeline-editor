@@ -15,6 +15,7 @@ import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../../hooks";
 import type { AnimationData, AnimationActions } from "../../store-types";
 import { TrackRender } from "../../types";
+import { SettingsPopover } from "./settings-popover";
 import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
 
 const ZOOM_PRESETS = [
@@ -171,6 +172,9 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection({
         className="rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
         onClick={handleFitToContent}
       />
+
+      {/* Settings */}
+      <SettingsPopover />
     </div>
   );
 });

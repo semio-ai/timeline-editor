@@ -166,6 +166,9 @@ export const DataRenderer = memo(function DataRenderer({
     useShallow((state: StoreState) => state.derivedSnapshot?.renderSampleCache),
   );
   const selectionState = useAnimationStore(useShallow((state: StoreState) => state.selectionState));
+  const handleVisibility = useAnimationStore(
+    useShallow((state: StoreState) => state.preferences.handleVisibility ?? "track-selection"),
+  );
   const hasActiveDrag = useAnimationStore(
     useShallow((state: StoreState) => Boolean(state.dragState)),
   );
@@ -245,7 +248,14 @@ export const DataRenderer = memo(function DataRenderer({
     return Number.isFinite(scaled) && scaled !== 0 ? scaled : 1;
   }, [xTransform]);
   const renderMarkers = computedData?.render?.markers ?? [];
-  const renderHandles = computedData?.render?.handles ?? [];
+  const allHandles = computedData?.render?.handles ?? [];
+  const renderHandles = useMemo(() => {
+    if (handleVisibility !== "key-selection" || allHandles.length === 0) return allHandles;
+    return allHandles.filter((handle) => {
+      const trackSelection = selectionState.keypoints.get(handle.trackId);
+      return trackSelection?.has(handle.keypointId) ?? false;
+    });
+  }, [allHandles, handleVisibility, selectionState.keypoints]);
   const isGroupRow = sourceRow ? (sourceRow.isGroup || sourceRow.data.length > 1) : false;
   const transitionLayer: LayerBand = useMemo(() => {
     // Group/aggregate rows render behind individual track rows to avoid
@@ -313,10 +323,16 @@ export const DataRenderer = memo(function DataRenderer({
       (entry) => entry.instanceId === selectionState.instanceId,
     );
     if (!instanceMatchesRow) return false;
-    return sourceRow.data.some(
+    const rowTrackHasKeys = sourceRow.data.some(
       (entry) => (selectionState.keypoints.get(entry.trackId)?.size ?? 0) > 0,
     );
-  }, [selectionState, sourceRow]);
+    if (!rowTrackHasKeys) return false;
+    if (handleVisibility === "single-track") {
+      // Only show handles when exactly one track has selection globally
+      return selectionState.keypoints.size === 1;
+    }
+    return true;
+  }, [selectionState, sourceRow, handleVisibility]);
 
   const [handlesDelayReady, setHandlesDelayReady] = useState(false);
   const handlesAppearanceMV = useSpring(0, { stiffness: 700, damping: 40 });
@@ -376,10 +392,33 @@ export const DataRenderer = memo(function DataRenderer({
   const canRenderHandles = trackRender === TrackRender.Spline && !keyForced;
   const rowHandlesEligible = canRenderHandles && rowHasSelection;
 
+  // In key-selection mode, track the visible handle IDs so the appearance
+  // animation re-triggers when the selection fully changes (e.g. clicking a
+  // different key), but NOT when it's merely extended (e.g. shift-clicking
+  // to add keys to the selection).
+  const handleIdSet = useMemo(() => {
+    if (handleVisibility !== "key-selection" || renderHandles.length === 0) return null;
+    return new Set(renderHandles.map((h) => h.id));
+  }, [handleVisibility, renderHandles]);
+  const prevHandleIdSetRef = useRef(handleIdSet);
+
   useEffect(() => {
     const target = rowHandlesEligible && handlesDelayReady ? 1 : 0;
+    const prev = prevHandleIdSetRef.current;
+    const curr = handleIdSet;
+    prevHandleIdSetRef.current = curr;
+    // Replay the reveal only when the visible set fully replaced (no overlap
+    // with the previous set), not when keys were added to an existing selection.
+    if (prev && curr && prev.size > 0 && curr.size > 0 && target === 1) {
+      const hasOverlap = Array.from(curr).some((id) => prev.has(id));
+      if (!hasOverlap) {
+        handlesAppearanceMV.jump(0);
+        requestAnimationFrame(() => handlesAppearanceMV.set(1));
+        return;
+      }
+    }
     handlesAppearanceMV.set(target);
-  }, [handlesAppearanceMV, handlesDelayReady, rowHandlesEligible]);
+  }, [handlesAppearanceMV, handlesDelayReady, rowHandlesEligible, handleIdSet]);
 
   const axisRange = useMemo(() => {
     if (!computedData) {

@@ -670,9 +670,8 @@ export function createTestAnimationStore(options?: {
 
     // Preferences
     preferences: {
-      hoverDashedLine: true,
-      dataPreviews: true,
       controlStripMode: "keySkip" as const,
+      handleVisibility: "track-selection" as const,
       newKeyDefaults: {
         transitions: {
           in: StandardTransitionType.Cubic,
@@ -708,9 +707,8 @@ export function createMinimalAnimationStore(): AnimationStore {
     timeDisplay: TimeDisplay.Frames,
     expanded: true,
     preferences: {
-      hoverDashedLine: true,
-      dataPreviews: true,
       controlStripMode: "keySkip" as const,
+      handleVisibility: "track-selection" as const,
       newKeyDefaults: {
         transitions: {
           in: StandardTransitionType.Cubic,

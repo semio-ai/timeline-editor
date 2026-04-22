@@ -137,10 +137,17 @@ export interface ClipboardState {
   instanceId: string | null;
 }
 
+/**
+ * Controls when bezier handles are visible in spline mode.
+ * - "track-selection": Handles show on all keys in any track that has a selection.
+ * - "single-track": Handles show only when exactly one track is selected.
+ * - "key-selection": Handles show only on individually selected keys.
+ */
+export type HandleVisibility = "track-selection" | "single-track" | "key-selection";
+
 export interface AnimationPreferencesPatch {
-  hoverDashedLine?: boolean;
-  dataPreviews?: boolean;
   controlStripMode?: "keySkip" | "properties";
+  handleVisibility?: HandleVisibility;
   newKeyDefaults?: {
     transitions?: Partial<NewKeyTransitionPreferences>;
   };
@@ -206,8 +213,6 @@ export interface AnimationData {
    * Some configurable preferences.
    */
   preferences: {
-    hoverDashedLine: boolean;
-    dataPreviews: boolean;
     newKeyDefaults: NewKeyPreferences;
     /**
      * Which controls appear in the right-side strip of each track row.
@@ -215,8 +220,9 @@ export interface AnimationData {
      * - "properties": Visibility, mute, lock toggles
      */
     controlStripMode: "keySkip" | "properties";
+    /** Controls when bezier handles are visible in spline mode. */
+    handleVisibility: HandleVisibility;
   };
-  // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   animatables: Record<string, AnimatableValue>;
 
   /**
@@ -484,7 +490,10 @@ export interface AnimationActions {
   /**
    * Set the vertical viewport for a view (spline mode). Pass undefined to auto-fit.
    */
-  setVerticalViewport: (viewId: string, viewport: { top: number; bottom: number } | undefined) => void;
+  setVerticalViewport: (
+    viewId: string,
+    viewport: { top: number; bottom: number } | undefined,
+  ) => void;
   /**
    * Insert a keypoint at the given world (player) stamp for a specific instance.
    * Computes the local stamp using instance transforms and derives value via the derived snapshot interpolator when available.

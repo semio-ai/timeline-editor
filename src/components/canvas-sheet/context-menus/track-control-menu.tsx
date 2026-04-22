@@ -116,6 +116,7 @@ export function TrackControlMenuContent({
           disabled={!isSingleTrack || playing}
           value={color}
           onChange={(v) => onChangeColor?.(v)}
+          label="Change Color"
           left={<Palette2 size="18px" className={ICON_CLASS_NAME} />}
         />
       )}
@@ -131,7 +132,8 @@ export function TrackControlMenuContent({
           )
         }
       >
-        {visible === true ? "Hide" : "Show"}{isGroup ? " All" : ""}
+        {visible === true ? "Hide" : "Show"}
+        {isGroup ? " All" : ""}
       </NestedItem>
       <NestedItem
         closeOnSelect={false}
@@ -145,7 +147,8 @@ export function TrackControlMenuContent({
           )
         }
       >
-        {muted ? "Unmute" : "Mute"}{isGroup ? " All" : ""}
+        {muted ? "Unmute" : "Mute"}
+        {isGroup ? " All" : ""}
       </NestedItem>
       <NestedItem
         closeOnSelect={false}
@@ -159,7 +162,8 @@ export function TrackControlMenuContent({
           )
         }
       >
-        {locked === true ? "Unlock" : "Lock"}{isGroup ? " All" : ""}
+        {locked === true ? "Unlock" : "Lock"}
+        {isGroup ? " All" : ""}
       </NestedItem>
 
       {/* --- Keys --- */}
