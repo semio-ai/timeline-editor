@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useGesture } from "@use-gesture/react";
 import { useThree } from "@react-three/fiber";
 import { isOrthographicCamera } from "@semio/utils";
@@ -64,6 +64,11 @@ export const useDragGestures = ({
 }: DragGestureOptions): DragGestureHandlers => {
   const { camera, size } = useThree();
 
+  // Track whether a drag is actively in progress. While active, the gesture
+  // must stay enabled even if `disabled` flips due to a mid-drag re-render
+  // (e.g. store update → derived recompute → interaction prop briefly undefined).
+  const draggingRef = useRef(false);
+
   // Convert screen movement to timeline position in ms (unbounded)
   const getTimelinePositionFromMovement = useCallback(
     (movement: number, initial: number): number => {
@@ -109,23 +114,15 @@ export const useDragGestures = ({
   // Use @use-gesture/react for drag handling
   const bind = useGesture(
     {
-      onDragStart: ({ event }) => {
-        if (disabled) return;
-
-        // Get initial position from the event
-        const initialPosition = getTimelinePositionFromEvent(event);
-        onDragStart?.(initialPosition);
-
-        // Stop propagation to prevent conflicts
-        event?.stopPropagation?.();
-      },
       onDrag: ({ movement: [mx, my], first, memo, event, altKey, shiftKey, metaKey }) => {
-        if (disabled) return;
+        if (disabled && !draggingRef.current) return;
 
-        // On first drag frame, store the initial position
+        // On first drag frame, capture initial position and notify consumer
         if (first) {
+          draggingRef.current = true;
           const initialPosition = getTimelinePositionFromEvent(event);
           onDragStart?.(initialPosition);
+          event?.stopPropagation?.();
           return initialPosition;
         }
 
@@ -165,6 +162,7 @@ export const useDragGestures = ({
         return initialPosition;
       },
       onDragEnd: ({ movement: [mx], memo, event }) => {
+        draggingRef.current = false;
         if (disabled) return;
 
         // Calculate final position
@@ -178,7 +176,9 @@ export const useDragGestures = ({
       },
     },
     {
-      enabled: !disabled,
+      // Keep gesture enabled while a drag is in progress, even if `disabled`
+      // briefly flips due to a mid-drag re-render cascade.
+      enabled: !disabled || draggingRef.current,
       eventOptions: { passive: false, capture: false },
       ...(dragOptions ? { drag: dragOptions } : {}),
     },

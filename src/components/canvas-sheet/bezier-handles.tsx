@@ -735,7 +735,10 @@ const HandleDot = memo(function HandleDot({
   const dragScale = 1 + dragWeight * 0.3;
   const hoverScale = hovered ? 1.1 : 1;
   const isPaired = pairing === TransitionPairing.Paired;
-  const geometrySegments = isPaired ? 24 : 4;
+  // Always use the same segment count to prevent geometry recreation mid-drag.
+  // Changing args on circleGeometry causes R3F to recreate the mesh, which
+  // breaks pointer capture and kills the @use-gesture drag.
+  const geometrySegments = 24;
   const typeScaling = isPaired ? 1 : 1.2;
 
   const markerScale = radiusPx * hoverScale * dragScale * typeScaling;
@@ -826,6 +829,7 @@ const HandleDot = memo(function HandleDot({
             position={[0, 0, ROW_DEPTH_EPSILON * 0.5]}
             rotation={rotation}
             scale={[0.65, 0.65, 1]}
+            raycast={() => {}}
           >
             <circleGeometry args={[1, geometrySegments]} />
             <meshBasicMaterial
