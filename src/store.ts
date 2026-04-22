@@ -1112,39 +1112,33 @@ export const AnimationSlice = (
         }),
       );
     },
-    selectAll: (trackKeys?: string[]) => {
+    selectAll: () => {
       set(
         produce((state: AnimationData): void => {
-          const { keypoints: selectedTracks, instanceId } = state.selectionState;
+          const { instanceId } = state.selectionState;
           const newKeypoints = new Map<string, Set<string>>();
-
-          // Determine which tracks to target:
-          // 1. Explicit trackKeys parameter (from context menu knowing the clicked track)
-          // 2. Tracks currently in the selection
-          // 3. All tracks in the active instance
-          const targetKeys = trackKeys
-            ?? (selectedTracks.size > 0 ? Array.from(selectedTracks.keys()) : undefined);
-
-          if (targetKeys) {
-            for (const trackKey of targetKeys) {
-              const track = state.tracks[trackKey];
-              if (track && track.points.length > 0) {
-                newKeypoints.set(trackKey, new Set(track.points.map((p) => p.id)));
-              }
-            }
-          } else {
-            // No tracks targeted — select all keypoints in all tracks that belong
-            // to the active instance
-            for (const [trackKey, track] of Object.entries(state.tracks)) {
-              const belongsToInstance = !instanceId || Object.values(state.instancedTrackSources).some(
-                (row) => row.data.some((d) => d.trackId === trackKey && d.instanceId === instanceId),
-              );
-              if (belongsToInstance && track.points.length > 0) {
-                newKeypoints.set(trackKey, new Set(track.points.map((p) => p.id)));
-              }
+          for (const [trackKey, track] of Object.entries(state.tracks)) {
+            const belongsToInstance = !instanceId || Object.values(state.instancedTrackSources).some(
+              (row) => row.data.some((d) => d.trackId === trackKey && d.instanceId === instanceId),
+            );
+            if (belongsToInstance && track.points.length > 0) {
+              newKeypoints.set(trackKey, new Set(track.points.map((p) => p.id)));
             }
           }
-
+          state.selectionState.keypoints = newKeypoints;
+        }),
+      );
+    },
+    selectAllInTracks: (trackKeys: string[]) => {
+      set(
+        produce((state: AnimationData): void => {
+          const newKeypoints = new Map<string, Set<string>>();
+          for (const trackKey of trackKeys) {
+            const track = state.tracks[trackKey];
+            if (track && track.points.length > 0) {
+              newKeypoints.set(trackKey, new Set(track.points.map((p) => p.id)));
+            }
+          }
           state.selectionState.keypoints = newKeypoints;
         }),
       );

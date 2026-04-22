@@ -4,18 +4,19 @@ import { AnimationAction } from "../../../keybindings";
 
 /**
  * Shared "Selection Actions" section for canvas context menus.
- * Provides Select All and Deselect All.
- *
- * Store state is passed as props since context menu content renders
- * in a Radix portal outside the animation context tree.
  */
 export function SelectionActionsSection({
   hasSelection,
+  hasTrackContext,
   onSelectAll,
+  onSelectAllInTrack,
   onDeselectAll,
 }: {
   hasSelection: boolean;
+  /** Whether a specific track context is available for "Select All in Track". */
+  hasTrackContext: boolean;
   onSelectAll: () => void;
+  onSelectAllInTrack?: () => void;
   onDeselectAll: () => void;
 }): ReactNode {
   return (
@@ -28,6 +29,15 @@ export function SelectionActionsSection({
       >
         Select All
       </NestedItem>
+      {hasTrackContext && onSelectAllInTrack && (
+        <NestedItem
+          onClick={onSelectAllInTrack}
+          left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
+          right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
+        >
+          Select All in Track
+        </NestedItem>
+      )}
       <NestedItem
         disabled={!hasSelection}
         onClick={onDeselectAll}

@@ -36,14 +36,23 @@ export function buildTrackMenuItems(
   const handleCut = () => getAnimationState(animationStore).cutSelection();
   const handlePaste = (worldStamp: number) => getAnimationState(animationStore).pasteAtStamp(worldStamp);
   const handleDelete = () => getAnimationState(animationStore).deleteSelection();
-  const handleSelectAll = () => getAnimationState(animationStore).selectAll(trackKeys);
+  const handleSelectAll = () => getAnimationState(animationStore).selectAll();
+  const handleSelectAllInTrack = trackKeys
+    ? () => getAnimationState(animationStore).selectAllInTracks(trackKeys)
+    : undefined;
   const handleDeselectAll = () => getAnimationState(animationStore).clearSelection();
 
   return (
     <>
       <AnimationActionsSection ctx={ctx} />
       <NestedSeparator />
-      <SelectionActionsSection hasSelection={hasSelection} onSelectAll={handleSelectAll} onDeselectAll={handleDeselectAll} />
+      <SelectionActionsSection
+        hasSelection={hasSelection}
+        hasTrackContext={!!trackKeys}
+        onSelectAll={handleSelectAll}
+        onSelectAllInTrack={handleSelectAllInTrack}
+        onDeselectAll={handleDeselectAll}
+      />
       <NestedSeparator />
       <EditActionsSection
         ctx={ctx}
@@ -109,7 +118,10 @@ export function buildKeyMenuItems(
   const state = getAnimationState(animationStore);
   const hasClipboard = state.clipboard !== null;
 
-  const handleSelectAll = () => getAnimationState(animationStore).selectAll(trackKeys);
+  const handleSelectAll = () => getAnimationState(animationStore).selectAll();
+  const handleSelectAllInTrack = trackKeys
+    ? () => getAnimationState(animationStore).selectAllInTracks(trackKeys)
+    : () => getAnimationState(animationStore).selectAll();
   const handleDeselectAll = () => getAnimationState(animationStore).clearSelection();
   const handleCopy = () => getAnimationState(animationStore).copySelection();
   const handleCut = () => getAnimationState(animationStore).cutSelection();
@@ -121,6 +133,7 @@ export function buildKeyMenuItems(
       ctx={ctx}
       hasClipboard={hasClipboard}
       onSelectAll={handleSelectAll}
+      onSelectAllInTrack={handleSelectAllInTrack}
       onDeselectAll={handleDeselectAll}
       onCut={handleCut}
       onCopy={handleCopy}

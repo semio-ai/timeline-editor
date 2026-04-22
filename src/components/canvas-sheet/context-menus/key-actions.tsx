@@ -16,13 +16,13 @@ import { AnimationActionsSection } from "./animation-actions";
 
 /**
  * Context menu for right-clicking a specific keypoint.
- * Unlike the track-area menu, this always enables cut/copy/delete
- * because the clicked key is the implicit target.
+ * Always enables cut/copy/delete since the clicked key is the implicit target.
  */
 export function KeyContextMenu({
   ctx,
   hasClipboard,
   onSelectAll,
+  onSelectAllInTrack,
   onDeselectAll,
   onCut,
   onCopy,
@@ -32,6 +32,7 @@ export function KeyContextMenu({
   ctx: CanvasContextMenuContext;
   hasClipboard: boolean;
   onSelectAll: () => void;
+  onSelectAllInTrack: () => void;
   onDeselectAll: () => void;
   onCut: () => void;
   onCopy: () => void;
@@ -47,6 +48,13 @@ export function KeyContextMenu({
         onClick={onSelectAll}
         left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
         right={<KeybindingHint action={AnimationAction.SelectAll} />}
+      >
+        Select All
+      </NestedItem>
+      <NestedItem
+        onClick={onSelectAllInTrack}
+        left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
+        right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
       >
         Select All in Track
       </NestedItem>

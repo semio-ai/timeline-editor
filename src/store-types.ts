@@ -349,13 +349,10 @@ export interface AnimationActions {
   pasteAtStamp: (worldStamp: number) => void;
   /** Delete all selected keypoints (respects locked tracks). Clears selection. */
   deleteSelection: () => void;
-  /**
-   * Select all keypoints in the targeted tracks.
-   * @param trackKeys Optional explicit track keys to target. If provided, selects all
-   *   keypoints in those tracks. Otherwise falls back to tracks in the current selection,
-   *   or all tracks in the active instance if nothing is selected.
-   */
-  selectAll: (trackKeys?: string[]) => void;
+  /** Select all keypoints across all tracks in the active instance. */
+  selectAll: () => void;
+  /** Select all keypoints in the specified tracks. */
+  selectAllInTracks: (trackKeys: string[]) => void;
   /**
    * Force-focus a particular animation instance by clearing the current selection (keypoints +
    * reference) and seeding the selection state with the provided instance id.
