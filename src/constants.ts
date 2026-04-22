@@ -38,6 +38,7 @@ export enum Z {
   SelectedUnselectedBoundary = 10,
   ForegroundDataUnselected = 0,
   ForegroundBackgroundBoundary = -10,
+  ForegroundDataLocked = -19,
   BackgroundData = -20,
 
   // Violations are rendered behind foreground data but in front of the background boundary.
@@ -53,9 +54,27 @@ export enum Z {
 
 // These will no longer be needed when we support nested properties in the animatable values.
 export const COMPLEX_TYPES = new Set(["vector2", "vector3", "euler", "rgb", "hsl"]);
-export const GROUP_TYPES = new Set(["vector2", "vector3", "euler", "rgb", "hsl", "group", "entity", "instance"]);
+export const GROUP_TYPES = new Set([
+  "vector2",
+  "vector3",
+  "euler",
+  "rgb",
+  "hsl",
+  "group",
+  "entity",
+  "instance",
+]);
 
-export { SLOT_SIZE, SLOT_GAP, SLOT_COUNT, LEFT_COLUMN_GRID, EDITOR_COLUMN_WIDTH, CONTROL_AREA_4_WIDTH, CONTROL_AREA_3_WIDTH, SIDEBAR_WIDTH } from "./constants/layout";
+export {
+  SLOT_SIZE,
+  SLOT_GAP,
+  SLOT_COUNT,
+  LEFT_COLUMN_GRID,
+  EDITOR_COLUMN_WIDTH,
+  CONTROL_AREA_4_WIDTH,
+  CONTROL_AREA_3_WIDTH,
+  SIDEBAR_WIDTH,
+} from "./constants/layout";
 
 export const TYPE_FIELDS: Record<string, string[]> = {
   vector2: ["x", "y"],
