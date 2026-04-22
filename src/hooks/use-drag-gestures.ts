@@ -136,12 +136,17 @@ export const useDragGestures = ({
         // Horizontal callback (legacy)
         onDrag?.(position, altKey);
 
-        // Vertical normalized delta for 2D consumers
+        // Vertical normalized delta for 2D consumers.
+        // Account for camera vertical zoom: each screen pixel covers
+        // (camera.top - camera.bottom) / viewport.height world units.
         if (typeof onDrag2D === "function") {
-          const normalizedValueDelta =
-            typeof my === "number" && typeof pixelRangeY === "number" && pixelRangeY > 0
-              ? -(my / pixelRangeY)
-              : 0;
+          let normalizedValueDelta = 0;
+          if (typeof my === "number" && typeof pixelRangeY === "number" && pixelRangeY > 0) {
+            const scaleY = isOrthographicCamera(camera)
+              ? (camera.top - camera.bottom) / size.height
+              : 1;
+            normalizedValueDelta = -(my * scaleY) / pixelRangeY;
+          }
           onDrag2D({
             x: position,
             normalizedValueDelta,
