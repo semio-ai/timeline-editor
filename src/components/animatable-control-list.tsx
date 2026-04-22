@@ -203,7 +203,10 @@ export function AnimatableControlList({
 
     groups.forEach((group) => {
       const childIds = group.items.map((item) => item.id);
-      const groupKey = childIds.slice().sort().join("|");
+      const groupKey = childIds
+        .slice()
+        .sort((left, right) => left.localeCompare(right))
+        .join("|");
       const sourceRowId =
         groupRowIdByChildKey.get(groupKey) ??
         groupRowIdByGroupId.get(group.id) ??

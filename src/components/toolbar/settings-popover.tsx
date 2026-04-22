@@ -62,7 +62,9 @@ export const SettingsPopover = memo(function SettingsPopover() {
 
         {/* Handle Visibility */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-neutral-800 dark:text-neutral-200">Handle Visibility</label>
+          <div className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
+            Handle Visibility
+          </div>
           <Select
             size={Size.Sm}
             value={handleVisibility}
@@ -76,7 +78,9 @@ export const SettingsPopover = memo(function SettingsPopover() {
 
         {/* Control Strip Mode */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-neutral-800 dark:text-neutral-200">Track Controls</label>
+          <div className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
+            Track Controls
+          </div>
           <Select
             size={Size.Sm}
             value={controlStripMode}

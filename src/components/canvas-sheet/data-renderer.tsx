@@ -248,14 +248,14 @@ export const DataRenderer = memo(function DataRenderer({
     return Number.isFinite(scaled) && scaled !== 0 ? scaled : 1;
   }, [xTransform]);
   const renderMarkers = computedData?.render?.markers ?? [];
-  const allHandles = computedData?.render?.handles ?? [];
   const renderHandles = useMemo(() => {
+    const allHandles = computedData?.render?.handles ?? [];
     if (handleVisibility !== "key-selection" || allHandles.length === 0) return allHandles;
     return allHandles.filter((handle) => {
       const trackSelection = selectionState.keypoints.get(handle.trackId);
       return trackSelection?.has(handle.keypointId) ?? false;
     });
-  }, [allHandles, handleVisibility, selectionState.keypoints]);
+  }, [computedData?.render?.handles, handleVisibility, selectionState.keypoints]);
   const isGroupRow = sourceRow ? (sourceRow.isGroup || sourceRow.data.length > 1) : false;
   const transitionLayer: LayerBand = useMemo(() => {
     // Group/aggregate rows render behind individual track rows to avoid
