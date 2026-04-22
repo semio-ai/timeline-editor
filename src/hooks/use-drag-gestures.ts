@@ -76,6 +76,11 @@ export const useDragGestures = ({
   // (e.g. store update → derived recompute → interaction prop briefly undefined).
   const draggingRef = useRef(false);
 
+  // Shift+drag axis constraint: lock to the major axis once movement exceeds
+  // a threshold, then zero out the minor axis for the rest of the drag.
+  const axisLockRef = useRef<"x" | "y" | null>(null);
+  const AXIS_LOCK_THRESHOLD_PX = 5;
+
   // Convert screen movement to timeline position in ms (unbounded)
   const getTimelinePositionFromMovement = useCallback(
     (movement: number, initial: number): number => {
@@ -137,11 +142,32 @@ export const useDragGestures = ({
         // On first drag frame, capture initial position and notify consumer
         if (first) {
           draggingRef.current = true;
+          axisLockRef.current = null;
           edgeScroll?.start();
           const initialPosition = getTimelinePositionFromEvent(event);
           onDragStart?.(initialPosition);
           event?.stopPropagation?.();
           return initialPosition;
+        }
+
+        // Shift+drag: constrain to the major axis once movement is significant.
+        let effectiveMx = mx;
+        let effectiveMy = my;
+        if (shiftKey) {
+          if (!axisLockRef.current) {
+            const absMx = Math.abs(mx);
+            const absMy = Math.abs(my);
+            if (absMx > AXIS_LOCK_THRESHOLD_PX || absMy > AXIS_LOCK_THRESHOLD_PX) {
+              axisLockRef.current = absMx >= absMy ? "x" : "y";
+            }
+          }
+          if (axisLockRef.current === "x") {
+            effectiveMy = 0;
+          } else if (axisLockRef.current === "y") {
+            effectiveMx = 0;
+          }
+        } else {
+          axisLockRef.current = null;
         }
 
         // Calculate position based on movement from initial.
@@ -150,7 +176,7 @@ export const useDragGestures = ({
         // different world position. shiftX accumulates the world-space delta.
         const initialPosition = memo as number;
         const edgeShift = edgeScroll?.shiftX.current ?? 0;
-        const position = getTimelinePositionFromMovement(mx, initialPosition) + edgeShift;
+        const position = getTimelinePositionFromMovement(effectiveMx, initialPosition) + edgeShift;
 
         // Horizontal callback (legacy)
         onDrag?.(position, altKey);
@@ -160,17 +186,17 @@ export const useDragGestures = ({
         // (camera.top - camera.bottom) / viewport.height world units.
         if (typeof onDrag2D === "function") {
           let normalizedValueDelta = 0;
-          if (typeof my === "number" && typeof pixelRangeY === "number" && pixelRangeY > 0) {
+          if (typeof effectiveMy === "number" && typeof pixelRangeY === "number" && pixelRangeY > 0) {
             const scaleY = isOrthographicCamera(camera)
               ? (camera.top - camera.bottom) / size.height
               : 1;
-            normalizedValueDelta = -(my * scaleY) / pixelRangeY;
+            normalizedValueDelta = -(effectiveMy * scaleY) / pixelRangeY;
           }
           onDrag2D({
             x: position,
             normalizedValueDelta,
-            movementX: mx,
-            movementY: my,
+            movementX: effectiveMx,
+            movementY: effectiveMy,
             alt: Boolean(altKey),
             shift: Boolean(shiftKey),
             meta: Boolean(metaKey),
