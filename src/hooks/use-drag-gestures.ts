@@ -3,6 +3,7 @@ import { useGesture } from "@use-gesture/react";
 import { useThree } from "@react-three/fiber";
 import { isOrthographicCamera } from "@semio/utils";
 import { getDataViewportFromFrustum } from "../viewport-utils";
+import type { EdgeScrollHandle } from "./use-edge-scroll";
 
 type GestureConfig = Parameters<typeof useGesture>[1];
 type DragConfig = GestureConfig & {
@@ -37,6 +38,11 @@ export interface DragGestureOptions {
     shift: boolean;
     meta: boolean;
   }) => void;
+  /**
+   * Optional edge-scroll handle for auto-scrolling the viewport when the
+   * pointer approaches the canvas edge during a drag.
+   */
+  edgeScroll?: EdgeScrollHandle;
 }
 
 export interface DragGestureHandlers {
@@ -61,6 +67,7 @@ export const useDragGestures = ({
   onDragEnd,
   pixelRangeY,
   onDrag2D,
+  edgeScroll,
 }: DragGestureOptions): DragGestureHandlers => {
   const { camera, size } = useThree();
 
@@ -117,18 +124,33 @@ export const useDragGestures = ({
       onDrag: ({ movement: [mx, my], first, memo, event, altKey, shiftKey, metaKey }) => {
         if (disabled && !draggingRef.current) return;
 
+        // Feed pointer position to edge-scroll engine on every frame
+        if (edgeScroll && event) {
+          const e = event as any;
+          const clientX = e.nativeEvent?.clientX ?? e.clientX;
+          const clientY = e.nativeEvent?.clientY ?? e.clientY;
+          if (typeof clientX === "number" && typeof clientY === "number") {
+            edgeScroll.updatePointer(clientX, clientY);
+          }
+        }
+
         // On first drag frame, capture initial position and notify consumer
         if (first) {
           draggingRef.current = true;
+          edgeScroll?.start();
           const initialPosition = getTimelinePositionFromEvent(event);
           onDragStart?.(initialPosition);
           event?.stopPropagation?.();
           return initialPosition;
         }
 
-        // Calculate position based on movement from initial
+        // Calculate position based on movement from initial.
+        // Compensate for any viewport shift from edge-scrolling: the camera
+        // moved under the pointer, so the same pixel movement maps to a
+        // different world position. shiftX accumulates the world-space delta.
         const initialPosition = memo as number;
-        const position = getTimelinePositionFromMovement(mx, initialPosition);
+        const edgeShift = edgeScroll?.shiftX.current ?? 0;
+        const position = getTimelinePositionFromMovement(mx, initialPosition) + edgeShift;
 
         // Horizontal callback (legacy)
         onDrag?.(position, altKey);
@@ -162,12 +184,14 @@ export const useDragGestures = ({
         return initialPosition;
       },
       onDragEnd: ({ movement: [mx], memo, event }) => {
+        const edgeShift = edgeScroll?.shiftX.current ?? 0;
         draggingRef.current = false;
+        edgeScroll?.stop();
         if (disabled) return;
 
-        // Calculate final position
+        // Calculate final position (with edge-scroll compensation)
         const initialPosition = memo as number;
-        const finalPosition = getTimelinePositionFromMovement(mx, initialPosition);
+        const finalPosition = getTimelinePositionFromMovement(mx, initialPosition) + edgeShift;
 
         onDragEnd?.(finalPosition);
 

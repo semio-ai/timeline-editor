@@ -4,6 +4,7 @@ export * from "./use-animation-store";
 export * from "./use-colors";
 export * from "./use-diagonal-material";
 export * from "./use-drag-gestures";
+export * from "./use-edge-scroll";
 export * from "./use-hover-spring";
 export * from "./use-invariant-scale";
 export * from "./use-key-control-state";

@@ -5,9 +5,11 @@ import { useShallow } from "zustand/shallow";
 import { isOrthographicCamera } from "@semio/utils";
 import { usePlayerStore } from "@semio/utils";
 import { useTooltipStore } from "@semio/ui";
-import type { AnimationActions, BoxSelectState } from "../store-types";
+import type { AnimationActions, AnimationData, BoxSelectState } from "../store-types";
+import { TrackRender } from "../types";
 import { AnimationContext } from "../context";
 import { useAnimationStore } from "./use-animation-store";
+import { useEdgeScroll } from "./use-edge-scroll";
 
 /** Minimum pointer movement (in screen pixels) before activating box-select. */
 const ACTIVATION_THRESHOLD_PX = 3;
@@ -27,6 +29,10 @@ export interface BoxSelectGestureParams {
  * Uses the R3F intersection point for world coordinates.
  * Subsequent move/up tracked via window-level listeners.
  *
+ * When the pointer approaches the edge of the data area during a box-select
+ * drag, the viewport auto-scrolls in that direction at a speed proportional
+ * to the distance from the edge.
+ *
  * Interactive meshes (data points, carts, handles) call `stopPropagation()`
  * on their `onPointerDown`, preventing the event from reaching the box-select
  * surface — this is the coordination mechanism. No DOM-level listeners needed.
@@ -38,15 +44,26 @@ export function useBoxSelectGesture(
   const { camera, gl, size } = useThree();
   const animationStore = useContext(AnimationContext);
 
-  const { startBoxSelect, updateBoxSelect, commitBoxSelect, setBoxSelectPending } =
-    useAnimationStore(
-      useShallow((state: AnimationActions) => ({
-        startBoxSelect: state.startBoxSelect,
-        updateBoxSelect: state.updateBoxSelect,
-        commitBoxSelect: state.commitBoxSelect,
-        setBoxSelectPending: state.setBoxSelectPending,
-      })),
-    );
+  const {
+    startBoxSelect,
+    updateBoxSelect,
+    commitBoxSelect,
+    setBoxSelectPending,
+  } = useAnimationStore(
+    useShallow((state: AnimationActions) => ({
+      startBoxSelect: state.startBoxSelect,
+      updateBoxSelect: state.updateBoxSelect,
+      commitBoxSelect: state.commitBoxSelect,
+      setBoxSelectPending: state.setBoxSelectPending,
+    })),
+  );
+
+  const trackRender = useAnimationStore(
+    useShallow((state: AnimationData) => {
+      const viewId = params.viewId;
+      return state.editorViews[viewId]?.trackRender ?? TrackRender.Key;
+    }),
+  );
 
   const playing = usePlayerStore(useShallow((state) => state.player.running));
 
@@ -61,6 +78,8 @@ export function useBoxSelectGesture(
   const actionsRef = useRef({ startBoxSelect, updateBoxSelect, commitBoxSelect, setBoxSelectPending });
   actionsRef.current = { startBoxSelect, updateBoxSelect, commitBoxSelect, setBoxSelectPending };
 
+  const lastPointerRef = useRef<{ clientX: number; clientY: number }>({ clientX: 0, clientY: 0 });
+
   const screenToWorld = useCallback((clientX: number, clientY: number): [number, number] => {
     const cam = cameraRef.current;
     if (!isOrthographicCamera(cam)) return [0, 0];
@@ -70,18 +89,29 @@ export function useBoxSelectGesture(
     return [cam.left + nx * (cam.right - cam.left), cam.top - ny * (cam.top - cam.bottom)];
   }, []);
 
+  // Edge-scrolling: updates box-select with shifted pointer after each scroll frame
+  const edgeScroll = useEdgeScroll(
+    {
+      topOffsetPx: params.topOffsetPx,
+      bottomOffsetPx: params.bottomOffsetPx,
+      trackHeightPx: params.trackHeightPx,
+    },
+    trackRender,
+    () => {
+      const p = lastPointerRef.current;
+      const [worldX, worldY] = screenToWorld(p.clientX, p.clientY);
+      actionsRef.current.updateBoxSelect(worldX, worldY);
+    },
+  );
+
   const onPointerDown = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
       if (playing) return;
       if (e.button !== 0) return;
-      // If another scene's box-select already claimed this pointer, skip.
       if (animationStore?.getState().boxSelectPending) return;
-      // Don't start selection when an interactive overlay is open
       if (useTooltipStore.getState().hasInteractiveOverlay()) return;
-      // Claim so other scenes (HUD/main) don't also start box-select
       actionsRef.current.setBoxSelectPending(true);
 
-      // Use R3F intersection point for world coordinates
       const startWorld: [number, number] = [e.point.x, e.point.y];
       const startScreen: [number, number] = [e.clientX, e.clientY];
       const mode: BoxSelectState["mode"] = e.shiftKey
@@ -95,6 +125,8 @@ export function useBoxSelectGesture(
         const dx = me.clientX - startScreen[0];
         const dy = me.clientY - startScreen[1];
         const [currentX, currentY] = screenToWorld(me.clientX, me.clientY);
+
+        lastPointerRef.current = { clientX: me.clientX, clientY: me.clientY };
 
         if (!activated) {
           if (Math.sqrt(dx * dx + dy * dy) < ACTIVATION_THRESHOLD_PX) return;
@@ -115,14 +147,20 @@ export function useBoxSelectGesture(
               trackHeightPx: paramsRef.current.trackHeightPx ?? 36,
             },
           });
+          edgeScroll.start();
         } else {
           actionsRef.current.updateBoxSelect(currentX, currentY);
+        }
+
+        if (activated) {
+          edgeScroll.updatePointer(me.clientX, me.clientY);
         }
       };
 
       const onUp = () => {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
+        edgeScroll.stop();
         actionsRef.current.setBoxSelectPending(false);
         if (activated) {
           actionsRef.current.commitBoxSelect();
@@ -132,7 +170,7 @@ export function useBoxSelectGesture(
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [playing, origin, screenToWorld, animationStore],
+    [playing, origin, screenToWorld, animationStore, edgeScroll],
   );
 
   return onPointerDown;
