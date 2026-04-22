@@ -37,6 +37,7 @@ import { DataIcon } from "./data-icon";
 import { ControlRow, GroupToggle, TrackPropertiesStrip } from "./controls";
 import { TrackControlMenuContent } from "./canvas-sheet/context-menus";
 import { TreeIconColumn } from "./controls/tree-connector";
+import { useTrackMenuState } from "./track-menu-context";
 
 export interface TrackControlProps {
   sourceRow: SourceRow;
@@ -342,8 +343,15 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     (state: AnimationData) => state.selectionState.reference?.rowId ?? null,
   );
 
+  // Shared across all track controls: disable menu triggers while any menu is open.
+  const { menuOpen, setMenuOpen } = useTrackMenuState();
+
   return (
-    <ContextMenu content={<KeybindingProvider value={keybindingMap}>{menuContent}</KeybindingProvider>}>
+    <ContextMenu
+      content={<KeybindingProvider value={keybindingMap}>{menuContent}</KeybindingProvider>}
+      disabled={menuOpen}
+      onOpenChange={setMenuOpen}
+    >
       <div
         className="relative w-full"
         onMouseEnter={() => setEmphasis(sourceRow.id)}
@@ -528,22 +536,19 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
           }
           options={
             <Dropdown
-              disabled={playing}
+              disabled={playing || menuOpen}
+              onOpenChange={setMenuOpen}
               side="right"
               trigger={
-                <span>
-                  <Button
-                    size={Size.Xs}
-                    className="flex items-center justify-center"
-                    visuals="inverted"
-                    leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
-                  />
-                </span>
+                <Button
+                  size={Size.Xs}
+                  className="flex items-center justify-center"
+                  visuals="inverted"
+                  leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                />
               }
             >
-              <KeybindingProvider value={keybindingMap}>
-                {menuContent}
-              </KeybindingProvider>
+              <KeybindingProvider value={keybindingMap}>{menuContent}</KeybindingProvider>
             </Dropdown>
           }
         />

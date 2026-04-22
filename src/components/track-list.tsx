@@ -11,6 +11,7 @@ import { SIDEBAR_WIDTH } from "../constants";
 import { normalizeVisibleSourceRowIds } from "../functions/filter-visible-source-row-ids";
 import { computeAncestorIsLast } from "../functions/compute-ancestor-is-last";
 import { TrackControl } from "./track-control";
+import { TrackMenuProvider } from "./track-menu-context";
 
 export interface TrackListProps {
   height?: number;
@@ -57,6 +58,7 @@ export function TrackList({ height = 240, rowIdLookup }: TrackListProps): ReactN
   }, [scrollOffset, scrollMotion]);
 
   return (
+    <TrackMenuProvider>
     <div
       style={{ width: SIDEBAR_WIDTH }}
       className={clsx(
@@ -108,5 +110,6 @@ export function TrackList({ height = 240, rowIdLookup }: TrackListProps): ReactN
         </ScrollArea>
       </div>
     </div>
+    </TrackMenuProvider>
   );
 }
