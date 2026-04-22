@@ -790,14 +790,14 @@ const HandleDot = memo(function HandleDot({
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
-        setDragging(true);
-        dragSpring.set(1);
+        // Don't set drag state here — let onDragStart handle it after the
+        // gesture system recognizes the drag. Premature state changes cause
+        // a re-render cascade that interrupts the gesture.
         handleDragHandlers.onPointerDown?.(e);
       }}
       onPointerUp={(e) => {
         e.stopPropagation();
-        setDragging(false);
-        dragSpring.set(0);
+        // Don't clear drag state here — let onDragEnd handle it.
         handleDragHandlers.onPointerUp?.(e);
       }}
       onPointerCancel={(e) => {
