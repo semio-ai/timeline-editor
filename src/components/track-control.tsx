@@ -3,7 +3,6 @@ import {
   Button,
   ContextMenu,
   StaticIcon,
-  Variant,
   Size,
   Dropdown,
   TextField,
@@ -323,6 +322,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       copySelection,
       handlePaste,
       deleteSelection,
+      isGroup,
     ],
   );
 

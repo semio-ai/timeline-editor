@@ -14,7 +14,6 @@ import {
   KeybindingHint,
   SelectClose,
   SelectCursor,
-  Variant,
   IconKey,
 } from "@semio/ui";
 import { TrashBinTrash, Copy, Clipboard, Palette2 } from "@solar-icons/react-perf/LineDuotone";

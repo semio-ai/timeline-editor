@@ -16,13 +16,15 @@ export function TrackMenuProvider({ children }: { children: ReactNode }) {
   // Use a ref + state combo: the ref tracks the count of open menus (to handle
   // overlapping open/close callbacks), and the state drives re-renders.
   const openCountRef = useRef(0);
-  const [menuOpen, setMenuOpenState] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const setMenuOpen = useCallback((open: boolean) => {
     openCountRef.current = Math.max(0, openCountRef.current + (open ? 1 : -1));
     const next = openCountRef.current > 0;
-    setMenuOpenState((prev) => (prev !== next ? next : prev));
+    setIsOpen((prev) => (prev !== next ? next : prev));
   }, []);
+
+  const menuOpen = isOpen;
 
   const value = useMemo(() => ({ menuOpen, setMenuOpen }), [menuOpen, setMenuOpen]);
 

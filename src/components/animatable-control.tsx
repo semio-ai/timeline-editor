@@ -10,7 +10,6 @@ import {
   ToggleSquare,
   Dropdown,
   ContextMenu,
-  Variant,
   Button,
   Tooltip,
   ICON_CLASS_NAME,
@@ -22,12 +21,11 @@ import { toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/uti
 import { useAnimationStore, useColors, useKeyControlState } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { SourceRow, SourceRowData } from "../types";
-import { buildTrackKey } from "../utils/track-key";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
 import { COMPLEX_TYPES, DEFAULT_COLOR } from "../constants";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
-import { ControlRow, ControlStrip, GroupToggle, TrackPropertiesStrip } from "./controls";
+import { ControlRow, ControlStrip, GroupToggle } from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
 import { KeyStrip } from "./key-strip";
 import {
