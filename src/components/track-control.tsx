@@ -297,6 +297,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       playing,
       allReadonly,
       trackIds,
+      isGroup,
       sourceRow.id,
       trueColor,
       rowVisible,
@@ -322,7 +323,6 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       copySelection,
       handlePaste,
       deleteSelection,
-      isGroup,
     ],
   );
 
