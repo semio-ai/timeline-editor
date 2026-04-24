@@ -1,6 +1,16 @@
 import { memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Eye, Speaker, Lock, ToggleSquare, Size, IconKey } from "@semio/ui";
+import {
+  Eye,
+  EyeOff,
+  Speaker,
+  SpeakerOff,
+  Lock,
+  LockOff,
+  ToggleSquare,
+  Size,
+  IconKey,
+} from "@semio/ui";
 import { Settings } from "@solar-icons/react-perf/Linear";
 import { useAnimationStore } from "../hooks";
 import { collectSourceTracks } from "../functions/source-utils";
@@ -104,7 +114,11 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
           setTracksVisible(allIds, next);
         }}
       >
-        <Eye className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        {visibleState === false ? (
+          <EyeOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        ) : (
+          <Eye className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        )}
       </ToggleSquare>
 
       {/* Global mute */}
@@ -119,7 +133,11 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
           setTracksMuted(allIds, next);
         }}
       >
-        <Speaker className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        {mutedState === true ? (
+          <SpeakerOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        ) : (
+          <Speaker className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        )}
       </ToggleSquare>
 
       {/* Global lock */}
@@ -134,7 +152,11 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
           setTracksLocked(allIds, next);
         }}
       >
-        <Lock className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        {lockedState === true ? (
+          <Lock className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        ) : (
+          <LockOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        )}
       </ToggleSquare>
     </>
   );
