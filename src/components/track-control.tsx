@@ -8,8 +8,6 @@ import {
   TextField,
   Tooltip,
   ICON_CLASS_NAME,
-  KeybindingProvider,
-  useKeybindingMap,
 } from "@semio/ui";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
@@ -20,7 +18,7 @@ import { type SourceRow } from "../types";
 import {
   useAnimationStore,
   useColors,
-  useKeyControlState,
+  useControlMenu,
   useLocalGlobalTransformLookup,
   useNames,
 } from "../hooks";
@@ -34,9 +32,7 @@ import { KeyStrip } from "./key-strip";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
 import { ControlRow, GroupToggle, TrackPropertiesStrip } from "./controls";
-import { TrackControlMenuContent } from "./canvas-sheet/context-menus";
 import { TreeIconColumn } from "./controls/tree-connector";
-import { useTrackMenuState } from "./track-menu-context";
 
 export interface TrackControlProps {
   sourceRow: SourceRow;
@@ -52,27 +48,17 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   const allReadonly = sourceRow.data.every((d) => !d.editable);
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
 
-  // Read visible/locked from source row data (derived from globalSourceTree).
-  // For groups, data entries are copies of children — compute aggregate state.
-  const allVisible = sourceRow.data.every((d) => d.visible !== false);
-  const noneVisible = sourceRow.data.every((d) => d.visible === false);
-  const rowVisible: boolean | "partial" = allVisible ? true : noneVisible ? false : "partial";
-
-  const allLocked = sourceRow.data.every((d) => d.locked === true);
-  const noneLocked = sourceRow.data.every((d) => d.locked !== true);
-  const rowLocked: boolean | "partial" = allLocked ? true : noneLocked ? false : "partial";
-
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
   const playerStamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
 
-  // --- Consolidated store data ---
+  // Row-level store reads that the control itself (vs the menu) needs for
+  // rendering, selection background, and active-instance focus.
   const {
     storeControlStripMode,
     animatables,
     selectionInstanceId,
     selectedKeypoints,
     emphasisRowId,
-    hasClipboard,
   } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       storeControlStripMode: state.preferences.controlStripMode,
@@ -80,58 +66,33 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       selectionInstanceId: state.selectionState.instanceId,
       selectedKeypoints: state.selectionState.keypoints,
       emphasisRowId: state.emphasisRowId,
-      hasClipboard: state.clipboard !== null,
     })),
   );
   const controlStripMode = controlStripOverride ?? storeControlStripMode;
   const emphasis = emphasisRowId === sourceRow.id;
 
-  // --- Consolidated store actions ---
+  // Store actions used outside the menu (selection, navigation, metadata edits).
   const {
-    updateControlColor,
-    setTracksMuted,
-    setTracksVisible,
-    setTracksLocked,
     focusSelectionInstance,
     setEmphasis,
     selectTrack,
     toggleTrackInSelection,
     rangeSelectTracks,
     updateKeypoints,
-    removeKeypoints,
     updateSource,
     updateTrack,
     updateTrackGroupName,
-    insertKeypointAtWorldStamp,
-    copySelection,
-    cutSelection,
-    pasteAtStamp,
-    deleteSelection,
-    selectAllInTracks,
-    clearSelection,
   } = useAnimationStore(
     useShallow((state: AnimationActions) => ({
-      updateControlColor: state.updateControlColor,
-      setTracksMuted: state.setTracksMuted,
-      setTracksVisible: state.setTracksVisible,
-      setTracksLocked: state.setTracksLocked,
       focusSelectionInstance: state.focusSelectionInstance,
       setEmphasis: state.setEmphasis,
       selectTrack: state.selectTrack,
       toggleTrackInSelection: state.toggleTrackInSelection,
       rangeSelectTracks: state.rangeSelectTracks,
       updateKeypoints: state.updateKeypoints,
-      removeKeypoints: state.removeKeypoints,
       updateSource: state.updateSource,
       updateTrack: state.updateTrack,
       updateTrackGroupName: state.updateTrackGroupName,
-      insertKeypointAtWorldStamp: state.insertKeypointAtWorldStamp,
-      copySelection: state.copySelection,
-      cutSelection: state.cutSelection,
-      pasteAtStamp: state.pasteAtStamp,
-      deleteSelection: state.deleteSelection,
-      selectAllInTracks: state.selectAllInTracks,
-      clearSelection: state.clearSelection,
     })),
   );
 
@@ -148,18 +109,6 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   );
 
   const valuesRef = useValuesRef();
-  const trackMuted = useMemo(() => {
-    if (trackIds.length !== 1) return false;
-    const [entry] = sourceRow.data;
-    return entry?.muted ?? false;
-  }, [sourceRow.data, trackIds.length]);
-  const rowMuted: boolean | "partial" = useMemo(() => {
-    if (sourceRow.data.length === 0) return false;
-    const allMuted = sourceRow.data.every((entry) => entry.muted ?? false);
-    const noneMuted = sourceRow.data.every((entry) => !(entry.muted ?? false));
-    return allMuted ? true : noneMuted ? false : "partial";
-  }, [sourceRow.data]);
-
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
 
   // Compute unique instance for this row (must be exactly one)
@@ -169,17 +118,6 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     );
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow.data]);
-
-  const {
-    keyState,
-    currentFrame,
-    missingEntries,
-    targetPoints,
-    prevEnabled,
-    nextEnabled,
-    onPrev,
-    onNext,
-  } = useKeyControlState(sourceRow);
 
   // Row is active if it has no unique instance mapping OR it matches the selected instance
   const isActive = useMemo(
@@ -201,130 +139,33 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   );
 
   const trueColor = useColors(trackIds);
-  const color = isActive && !rowMuted ? trueColor : DEFAULT_COLOR;
   const resolvedName = useNames(trackIds);
   const groupName = sourceRow.name ?? resolvedName;
   const name = isGroup ? groupName : resolvedName;
 
-  // Build track keys for "Select All in Track"
-  // Raw track IDs for store actions like selectAllInTracks (store.tracks is keyed by trackId)
-  const trackKeys = useMemo(() => uniq(sourceRow.data.map((d) => d.trackId)), [sourceRow.data]);
+  // Shared aggregate state, callbacks, and menu assembly.
+  const {
+    menuContent,
+    menuOpen,
+    setMenuOpen,
+    rowVisible,
+    rowMuted,
+    rowLocked,
+    handleToggleVisible,
+    handleToggleMuted,
+    handleToggleLocked,
+    handleAddKeyframe,
+    handleRemoveKeyframe,
+    keyState,
+  } = useControlMenu({
+    sourceRow,
+    trackIds,
+    isGroup,
+    allReadonly,
+    color: trueColor,
+  });
 
-  // Toggle helpers using namespaced source IDs
-  const sourceIds = useMemo(
-    () => uniq(sourceRow.data.map((d) => `${d.namespaceId}/${d.instanceId}/${d.trackId}`)),
-    [sourceRow.data],
-  );
-
-  const handleToggleVisible = useCallback(() => {
-    if (sourceIds.length === 0) return;
-    const next = rowVisible === "partial" ? true : rowVisible === true ? false : true;
-    setTracksVisible(sourceIds, next);
-  }, [sourceIds, rowVisible, setTracksVisible]);
-
-  const handleToggleMuted = useCallback(() => {
-    if (sourceIds.length === 0) return;
-    const next = rowMuted === "partial" ? true : !rowMuted;
-    setTracksMuted(sourceIds, next);
-  }, [sourceIds, rowMuted, setTracksMuted]);
-
-  const handleToggleLocked = useCallback(() => {
-    if (sourceIds.length === 0) return;
-    const next = rowLocked === "partial" ? true : rowLocked === true ? false : true;
-    setTracksLocked(sourceIds, next);
-  }, [sourceIds, rowLocked, setTracksLocked]);
-
-  const handleAddKeyframe = useCallback(() => {
-    if (playing) return;
-    const targets = keyState === "partial" ? missingEntries : sourceRow.data;
-    targets.forEach((datum) => {
-      insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
-    });
-  }, [playing, keyState, missingEntries, sourceRow.data, insertKeypointAtWorldStamp, playerStamp]);
-
-  const handleRemoveKeyframe = useCallback(() => {
-    if (playing || !currentFrame) return;
-    const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-    const removals = points.map((p) => ({ trackId: p.trackId, keypointId: p.id }));
-    removeKeypoints(removals);
-  }, [playing, currentFrame, targetPoints, removeKeypoints]);
-
-  const handlePaste = useCallback(() => {
-    pasteAtStamp(playerStamp);
-  }, [pasteAtStamp, playerStamp]);
-
-  // Capture keybinding map so it can be re-provided inside Radix portals
-  // (which escape the React context tree).
-  const keybindingMap = useKeybindingMap();
-
-  const menuContent = useMemo(
-    () => (
-      <TrackControlMenuContent
-        playing={playing}
-        allReadonly={allReadonly}
-        trackIds={trackIds}
-        isGroup={isGroup}
-        sourceRowId={sourceRow.id}
-        color={trueColor}
-        visible={rowVisible}
-        muted={trackMuted}
-        locked={rowLocked}
-        onChangeColor={(v) => {
-          if (trackIds[0]) updateControlColor(trackIds[0], v);
-        }}
-        onToggleVisible={handleToggleVisible}
-        onToggleMuted={handleToggleMuted}
-        onToggleLocked={handleToggleLocked}
-        keyState={keyState}
-        onAddKeyframe={handleAddKeyframe}
-        onRemoveKeyframe={handleRemoveKeyframe}
-        prevEnabled={prevEnabled}
-        nextEnabled={nextEnabled}
-        onPrev={onPrev}
-        onNext={onNext}
-        hasSelection={selectedKeypoints.size > 0}
-        trackKeys={trackKeys}
-        onSelectAllInTrack={() => selectAllInTracks(trackKeys)}
-        onDeselectAll={clearSelection}
-        hasClipboard={hasClipboard}
-        onCut={cutSelection}
-        onCopy={copySelection}
-        onPaste={handlePaste}
-        onDelete={deleteSelection}
-      />
-    ),
-    [
-      playing,
-      allReadonly,
-      trackIds,
-      isGroup,
-      sourceRow.id,
-      trueColor,
-      rowVisible,
-      trackMuted,
-      rowLocked,
-      updateControlColor,
-      handleToggleVisible,
-      handleToggleMuted,
-      handleToggleLocked,
-      keyState,
-      handleAddKeyframe,
-      handleRemoveKeyframe,
-      prevEnabled,
-      nextEnabled,
-      onPrev,
-      onNext,
-      selectedKeypoints,
-      trackKeys,
-      selectAllInTracks,
-      clearSelection,
-      hasClipboard,
-      cutSelection,
-      copySelection,
-      handlePaste,
-      deleteSelection,
-    ],
-  );
+  const color = isActive && !rowMuted ? trueColor : DEFAULT_COLOR;
 
   const iconCode = isGroup ? "group" : (sourceRow.data[0].iconCode ?? "none");
 
@@ -343,12 +184,9 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     (state: AnimationData) => state.selectionState.reference?.rowId ?? null,
   );
 
-  // Shared across all track controls: disable menu triggers while any menu is open.
-  const { menuOpen, setMenuOpen } = useTrackMenuState();
-
   return (
     <ContextMenu
-      content={<KeybindingProvider value={keybindingMap}>{menuContent}</KeybindingProvider>}
+      content={menuContent}
       disabled={menuOpen}
       onOpenChange={setMenuOpen}
     >
@@ -548,7 +386,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
                 />
               }
             >
-              <KeybindingProvider value={keybindingMap}>{menuContent}</KeybindingProvider>
+              {menuContent}
             </Dropdown>
           }
         />

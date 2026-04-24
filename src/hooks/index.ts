@@ -2,6 +2,7 @@ export * from "./use-alt-key-pressed";
 export * from "./use-box-select-gesture";
 export * from "./use-animation-store";
 export * from "./use-colors";
+export * from "./use-control-menu";
 export * from "./use-diagonal-material";
 export * from "./use-drag-gestures";
 export * from "./use-edge-scroll";

@@ -13,12 +13,10 @@ import {
   Button,
   Tooltip,
   ICON_CLASS_NAME,
-  KeybindingProvider,
-  useKeybindingMap,
 } from "@semio/ui";
 import type { AnimatableValue, RawValue } from "@semio/utils";
 import { toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/utils";
-import { useAnimationStore, useColors, useKeyControlState } from "../hooks";
+import { useAnimationStore, useColors, useControlMenu } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { SourceRow, SourceRowData } from "../types";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
@@ -31,7 +29,6 @@ import { KeyStrip } from "./key-strip";
 import {
   AnimatableLeafMenuContent,
   AnimatableGroupMenuContent,
-  TrackControlMenuContent,
 } from "./canvas-sheet/context-menus";
 import { useTrackMenuState } from "./track-menu-context";
 
@@ -341,7 +338,7 @@ function AnimatableGroupControl({
 }: AnimatableGroupControlProps) {
   const running = usePlayerStore(useShallow((state) => state.player.running));
 
-  // --- Consolidated store data ---
+  // Store reads the group control needs for rendering, not for the menu.
   const {
     sourceRow,
     emphasisRowId,
@@ -350,8 +347,6 @@ function AnimatableGroupControl({
     tracks,
     animatables,
     selectionInstanceId,
-    selectedKeypoints,
-    hasClipboard,
   } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       sourceRow: sourceRowId ? state.instancedTrackSources[sourceRowId] : undefined,
@@ -361,68 +356,38 @@ function AnimatableGroupControl({
       tracks: state.tracks,
       animatables: state.animatables,
       selectionInstanceId: state.selectionState.instanceId,
-      selectedKeypoints: state.selectionState.keypoints,
-      hasClipboard: state.clipboard !== null,
     })),
   );
   const emphasis = sourceRowId ? emphasisRowId === sourceRowId : false;
 
-  // --- Consolidated store actions ---
-  const {
-    setEmphasis,
-    selectTrack,
-    toggleTrackInSelection,
-    rangeSelectTracks,
-    createTrack,
-    setTracksVisible,
-    setTracksMuted,
-    setTracksLocked,
-    copySelection,
-    cutSelection,
-    pasteAtStamp,
-    deleteSelection,
-    selectAllInTracks,
-    clearSelection,
-  } = useAnimationStore(
-    useShallow((state: AnimationActions) => ({
-      setEmphasis: state.setEmphasis,
-      selectTrack: state.selectTrack,
-      toggleTrackInSelection: state.toggleTrackInSelection,
-      rangeSelectTracks: state.rangeSelectTracks,
-      createTrack: state.createTrack,
-      setTracksVisible: state.setTracksVisible,
-      setTracksMuted: state.setTracksMuted,
-      setTracksLocked: state.setTracksLocked,
-      copySelection: state.copySelection,
-      cutSelection: state.cutSelection,
-      pasteAtStamp: state.pasteAtStamp,
-      deleteSelection: state.deleteSelection,
-      selectAllInTracks: state.selectAllInTracks,
-      clearSelection: state.clearSelection,
-    })),
-  );
+  // Store actions for selection, track creation, and emphasis.
+  const { setEmphasis, selectTrack, toggleTrackInSelection, rangeSelectTracks, createTrack } =
+    useAnimationStore(
+      useShallow((state: AnimationActions) => ({
+        setEmphasis: state.setEmphasis,
+        selectTrack: state.selectTrack,
+        toggleTrackInSelection: state.toggleTrackInSelection,
+        rangeSelectTracks: state.rangeSelectTracks,
+        createTrack: state.createTrack,
+      })),
+    );
 
+  // When no backing track group exists, synthesize an empty row so shared
+  // hooks (e.g. useControlMenu, useKeyControlState) can run unconditionally —
+  // hooks must be called the same way on every render.
   const fallbackSourceRow = useMemo<SourceRow>(
     () => sourceRow ?? { id: `group-fallback-${groupId}`, data: [] },
     [groupId, sourceRow],
   );
 
-  const {
-    keyState, currentFrame, missingEntries, targetPoints,
-    prevEnabled, nextEnabled, onPrev, onNext,
-  } = useKeyControlState(fallbackSourceRow);
-
-  const { removeKeypoints, insertKeypointAtWorldStamp } = useAnimationStore(
-    useShallow((state: AnimationActions) => ({
-      removeKeypoints: state.removeKeypoints,
-      insertKeypointAtWorldStamp: state.insertKeypointAtWorldStamp,
-    })),
-  );
-
-  const playerStamp = usePlayerStore((state) => state.player.stamp);
-
   const hasTrackGroup = Boolean(sourceRow && sourceRow.data.length > 0);
   const allReadonly = sourceRow?.data.every((datum) => !datum.editable) ?? false;
+
+  // Per-row selection state — group checks if any child trackIds are in keypoints
+  const groupTrackIds = useMemo(
+    () => (sourceRow ? uniq(sourceRow.data.map((d) => d.trackId)) : []),
+    [sourceRow],
+  );
 
   const activeAnimationId = useMemo(() => {
     if (!selectionInstanceId) return undefined;
@@ -489,11 +454,6 @@ function AnimatableGroupControl({
     centerIcon = derivedAddable ? "plus" : "key";
   }
 
-  // Per-row selection state — group checks if any child trackIds are in keypoints
-  const groupTrackIds = useMemo(
-    () => (sourceRow ? uniq(sourceRow.data.map((d) => d.trackId)) : []),
-    [sourceRow],
-  );
   const isGroupSelected = useAnimationStore((state) =>
     groupTrackIds.some((id) => state.selectionState.keypoints.has(id)),
   );
@@ -508,112 +468,28 @@ function AnimatableGroupControl({
     return `${resolvedColor}00`;
   }, [isGroupSelected, emphasis, resolvedColor]);
 
-  // Track property state for groups with tracks
-  const rowVisible = useMemo<boolean | "partial">(() => {
-    if (!sourceRow || sourceRow.data.length === 0) return true;
-    const allV = sourceRow.data.every((d) => d.visible !== false);
-    const noneV = sourceRow.data.every((d) => d.visible === false);
-    return allV ? true : noneV ? false : "partial";
-  }, [sourceRow]);
-  const rowMuted = useMemo<boolean>(() => {
-    if (!sourceRow || sourceRow.data.length === 0) return false;
-    return sourceRow.data.every((entry) => entry.muted ?? false);
-  }, [sourceRow]);
-  const rowLocked = useMemo<boolean | "partial">(() => {
-    if (!sourceRow || sourceRow.data.length === 0) return false;
-    const allL = sourceRow.data.every((d) => d.locked === true);
-    const noneL = sourceRow.data.every((d) => d.locked !== true);
-    return allL ? true : noneL ? false : "partial";
-  }, [sourceRow]);
-  const sourceIds = useMemo(
-    () => sourceRow ? uniq(sourceRow.data.map((d) => `${d.namespaceId}/${d.instanceId}/${d.trackId}`)) : [],
-    [sourceRow],
-  );
-  const handleToggleVisible = useCallback(() => {
-    if (sourceIds.length === 0) return;
-    const next = rowVisible === "partial" ? true : rowVisible === true ? false : true;
-    setTracksVisible(sourceIds, next);
-  }, [sourceIds, rowVisible, setTracksVisible]);
-  const handleToggleMuted = useCallback(() => {
-    if (sourceIds.length === 0) return;
-    setTracksMuted(sourceIds, !rowMuted);
-  }, [sourceIds, rowMuted, setTracksMuted]);
-  const handleToggleLocked = useCallback(() => {
-    if (sourceIds.length === 0) return;
-    const next = rowLocked === "partial" ? true : rowLocked === true ? false : true;
-    setTracksLocked(sourceIds, next);
-  }, [sourceIds, rowLocked, setTracksLocked]);
-
-  const handleAddKeyframe = useCallback(() => {
-    if (running || allReadonly) return;
-    const targets = missingEntries;
-    targets.forEach((datum) => {
-      insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
-    });
-  }, [running, allReadonly, missingEntries, insertKeypointAtWorldStamp, playerStamp]);
-
-  const handleRemoveKeyframe = useCallback(() => {
-    if (running || allReadonly || !currentFrame) return;
-    const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-    removeKeypoints(points.map((p) => ({ trackId: p.trackId, keypointId: p.id })));
-  }, [running, allReadonly, currentFrame, targetPoints, removeKeypoints]);
-
-  const handlePaste = useCallback(() => {
-    pasteAtStamp(playerStamp);
-  }, [pasteAtStamp, playerStamp]);
-
-  const keybindingMap = useKeybindingMap();
-  const { menuOpen, setMenuOpen } = useTrackMenuState();
+  // Shared aggregate state, callbacks, and menu assembly. Runs unconditionally
+  // against the fallback row so the hook's internal hook order stays stable.
+  // We use its outputs only when `hasTrackGroup` is true; otherwise we render
+  // the AnimatableGroupMenuContent for the "Add All Tracks" affordance.
+  const controlMenu = useControlMenu({
+    sourceRow: fallbackSourceRow,
+    trackIds: groupTrackIds,
+    isGroup: true,
+    allReadonly,
+  });
 
   const groupMenuContent = useMemo(() => {
-    if (hasTrackGroup && sourceRow) {
-      return (
-        <KeybindingProvider value={keybindingMap}>
-          <TrackControlMenuContent
-            playing={running}
-            allReadonly={allReadonly}
-            trackIds={groupTrackIds}
-            isGroup
-            sourceRowId={sourceRow.id}
-            visible={rowVisible}
-            muted={rowMuted}
-            locked={rowLocked}
-            onToggleVisible={handleToggleVisible}
-            onToggleMuted={handleToggleMuted}
-            onToggleLocked={handleToggleLocked}
-            keyState={keyState}
-            onAddKeyframe={handleAddKeyframe}
-            onRemoveKeyframe={handleRemoveKeyframe}
-            prevEnabled={prevEnabled}
-            nextEnabled={nextEnabled}
-            onPrev={onPrev}
-            onNext={onNext}
-            hasSelection={selectedKeypoints.size > 0}
-            trackKeys={groupTrackIds}
-            onSelectAllInTrack={() => selectAllInTracks(groupTrackIds)}
-            onDeselectAll={clearSelection}
-            hasClipboard={hasClipboard}
-            onCut={cutSelection}
-            onCopy={copySelection}
-            onPaste={handlePaste}
-            onDelete={deleteSelection}
-          />
-        </KeybindingProvider>
-      );
-    }
+    if (hasTrackGroup) return controlMenu.menuContent;
     return (
       <AnimatableGroupMenuContent
         disabled={disabled || running}
         onAddTracks={canAdd ? (onAddTrack ?? handleAddTracks) : undefined}
       />
     );
-  }, [
-    hasTrackGroup, sourceRow, running, allReadonly, groupTrackIds, rowVisible, rowMuted, rowLocked,
-    handleToggleVisible, handleToggleMuted, handleToggleLocked, keyState, handleAddKeyframe,
-    handleRemoveKeyframe, prevEnabled, nextEnabled, onPrev, onNext, selectedKeypoints,
-    selectAllInTracks, clearSelection, hasClipboard, cutSelection, copySelection, handlePaste,
-    deleteSelection, keybindingMap, disabled, canAdd, onAddTrack, handleAddTracks,
-  ]);
+  }, [hasTrackGroup, controlMenu.menuContent, disabled, running, canAdd, onAddTrack, handleAddTracks]);
+
+  const { menuOpen, setMenuOpen } = controlMenu;
 
   return (
     <ContextMenu
@@ -685,10 +561,10 @@ function AnimatableGroupControl({
               color={resolvedColor}
               disabled={disabled || running || allReadonly}
               onHexClick={() => {
-                if (keyState === "full") {
-                  handleRemoveKeyframe();
+                if (controlMenu.keyState === "full") {
+                  controlMenu.handleRemoveKeyframe();
                 } else {
-                  handleAddKeyframe();
+                  controlMenu.handleAddKeyframe();
                 }
               }}
             />
