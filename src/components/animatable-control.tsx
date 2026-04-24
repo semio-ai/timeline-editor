@@ -16,7 +16,13 @@ import {
 } from "@semio/ui";
 import type { AnimatableValue, RawValue } from "@semio/utils";
 import { toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/utils";
-import { useAnimationStore, useColors, useControlMenu, useRowBackground } from "../hooks";
+import {
+  useActiveAnimationId,
+  useAnimationStore,
+  useColors,
+  useControlMenu,
+  useRowBackground,
+} from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { SourceRow, SourceRowData } from "../types";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
@@ -114,12 +120,10 @@ function AnimatableLeafControl({
     useShallow((state) => (sourceRowId ? state.instancedTrackSources[sourceRowId] : undefined)),
   );
   const updateAnimatable = useAnimationStore(useShallow((state) => state.updateAnimatable));
-  const { namespaces, animations, tracks, selectionInstanceId, createTrack } = useAnimationStore(
+  const { animations, tracks, createTrack } = useAnimationStore(
     useShallow((state) => ({
-      namespaces: state.namespaces,
       animations: state.animations,
       tracks: state.tracks,
-      selectionInstanceId: state.selectionState.instanceId,
       createTrack: state.createTrack,
     })),
   );
@@ -138,14 +142,7 @@ function AnimatableLeafControl({
     return storedValue ?? animatable.default;
   }, [animatable, storedValue]);
 
-  const activeAnimationId = useMemo(() => {
-    if (!selectionInstanceId) return undefined;
-    for (const namespace of Object.values(namespaces)) {
-      const instance = namespace.animationInstances[selectionInstanceId];
-      if (instance) return instance.animationId;
-    }
-    return undefined;
-  }, [namespaces, selectionInstanceId]);
+  const activeAnimationId = useActiveAnimationId();
 
   const hasTrackInActiveAnimation = useMemo(() => {
     if (!activeAnimationId) return false;
@@ -339,25 +336,16 @@ function AnimatableGroupControl({
   const running = usePlayerStore(useShallow((state) => state.player.running));
 
   // Store reads the group control needs for rendering, not for the menu.
-  const {
-    sourceRow,
-    emphasisRowId,
-    namespaces,
-    animations,
-    tracks,
-    animatables,
-    selectionInstanceId,
-  } = useAnimationStore(
+  const { sourceRow, emphasisRowId, animations, tracks, animatables } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       sourceRow: sourceRowId ? state.instancedTrackSources[sourceRowId] : undefined,
       emphasisRowId: state.emphasisRowId,
-      namespaces: state.namespaces,
       animations: state.animations,
       tracks: state.tracks,
       animatables: state.animatables,
-      selectionInstanceId: state.selectionState.instanceId,
     })),
   );
+  const activeAnimationId = useActiveAnimationId();
   const emphasis = sourceRowId ? emphasisRowId === sourceRowId : false;
 
   // Store actions for selection, track creation, and emphasis.
@@ -388,15 +376,6 @@ function AnimatableGroupControl({
     () => (sourceRow ? uniq(sourceRow.data.map((d) => d.trackId)) : []),
     [sourceRow],
   );
-
-  const activeAnimationId = useMemo(() => {
-    if (!selectionInstanceId) return undefined;
-    for (const namespace of Object.values(namespaces)) {
-      const instance = namespace.animationInstances[selectionInstanceId];
-      if (instance) return instance.animationId;
-    }
-    return undefined;
-  }, [namespaces, selectionInstanceId]);
 
   const existingAnimatableIds = useMemo(() => {
     if (!activeAnimationId) return new Set<string>();

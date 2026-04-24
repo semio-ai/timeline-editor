@@ -184,7 +184,6 @@ function mergeSourceState(next: Source[], previous?: Source[]): Source[] {
         : undefined;
     return {
       ...track,
-      hidden: false,
       muted: previousTrack?.muted ?? track.muted,
       visible: previousTrack?.visible ?? track.visible,
       locked: previousTrack?.locked ?? track.locked,

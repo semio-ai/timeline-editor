@@ -36,7 +36,6 @@ export function computeDefaultSourcesFromInstance(
               trackId: child,
               animatableId: child,
               type: "number",
-              hidden: false,
               muted: false,
               visible: true,
               locked: false,
@@ -56,7 +55,6 @@ export function computeDefaultSourcesFromInstance(
             muted: track.settings?.muted ?? false,
             visible: true,
             locked: false,
-            hidden: false,
           };
           return sourceTrack;
         }
@@ -115,7 +113,6 @@ export function computeDefaultSourcesFromInstance(
           muted: child.track.settings?.muted ?? false,
           visible: true,
           locked: false,
-          hidden: false,
         };
       });
 
@@ -166,7 +163,6 @@ export function computeDefaultSourcesFromInstance(
         muted: child.track.settings?.muted ?? false,
         visible: true,
         locked: false,
-        hidden: false,
       });
     }
   });

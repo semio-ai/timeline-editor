@@ -155,20 +155,17 @@ export const AnimationSlice = (
 ) => {
   return {
     ...createDefaultState(),
-    updateSource: (groupId: string, expanded?: boolean, hidden?: boolean) => {
-      void hidden;
+    updateSource: (groupId: string, expanded?: boolean) => {
       set(
         produce((state: AnimationData) => {
-          // Group expansion is global; track visibility is managed per-view.
           const updates = { [groupId]: { expanded } };
           state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
         }),
       );
     },
-    updateSources: (updates: Record<string, { expanded?: boolean; hidden?: boolean }>) => {
+    updateSources: (updates: Record<string, { expanded?: boolean }>) => {
       set(
         produce((state: AnimationData) => {
-          // Global source updates only carry expansion; hidden is now view-specific.
           const expansionUpdates: Record<string, { expanded?: boolean }> = {};
           Object.entries(updates).forEach(([id, update]) => {
             if (update.expanded !== undefined) {

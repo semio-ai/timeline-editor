@@ -7,7 +7,7 @@ import type { SourceRow } from "../types";
  * line is drawn at depth N only if the ancestor at depth N is NOT the
  * last child (there are more siblings below).
  *
- * @param rows - Ordered list of visible source rows (from sourceRowIds.flat)
+ * @param rowIds - Ordered list of visible source rows (from sourceRowIds.flat)
  * @param rowLookup - Lookup from row ID to SourceRow
  * @returns Map from row ID to ancestorIsLast boolean array (length = row.depth)
  */
@@ -17,43 +17,27 @@ export function computeAncestorIsLast(
 ): Map<string, boolean[]> {
   const result = new Map<string, boolean[]>();
 
-  // Build parent→children index and collect parent chains
-  const parentChains = new Map<string, string[]>(); // rowId → [root, ..., parent]
-
   for (const rowId of rowIds) {
     const row = rowLookup[rowId];
     if (!row) continue;
 
     const depth = row.depth ?? 0;
     if (depth === 0) {
-      parentChains.set(rowId, []);
+      result.set(rowId, []);
       continue;
     }
 
-    // Walk up the parent chain
-    const chain: string[] = [];
+    // Walk up the parent chain, collecting isLastChild flags as we go.
+    // Flags are pushed in leaf-to-root order, then reversed once so the
+    // returned array is root-to-parent (the order renderers index into).
+    const ancestors: boolean[] = [];
     let currentId: string | undefined = row.parentId;
     while (currentId) {
-      chain.unshift(currentId);
-      const parent = rowLookup[currentId];
-      currentId = parent?.parentId;
-    }
-    parentChains.set(rowId, chain);
-  }
-
-  // For each row, build the ancestorIsLast array from its parent chain
-  for (const rowId of rowIds) {
-    const row = rowLookup[rowId];
-    if (!row) continue;
-
-    const chain = parentChains.get(rowId) ?? [];
-    const ancestors: boolean[] = [];
-
-    for (const ancestorId of chain) {
-      const ancestor = rowLookup[ancestorId];
+      const ancestor = rowLookup[currentId];
       ancestors.push(ancestor?.isLastChild ?? false);
+      currentId = ancestor?.parentId;
     }
-
+    ancestors.reverse();
     result.set(rowId, ancestors);
   }
 

@@ -61,8 +61,6 @@ export interface SourceTrack extends SourceBase {
   animatableId: string;
   /** Scalar value type stored by the track. */
   type: "string" | "number" | "boolean";
-  /** Whether this track is hidden in the UI. */
-  hidden: boolean;
   /** Whether this track is muted from playback. */
   muted: boolean;
   /** Whether this track's keypoints/splines render in the canvas. Default: true. */

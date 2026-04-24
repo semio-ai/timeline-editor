@@ -436,7 +436,6 @@ export const DataRenderer = memo(function DataRenderer({
     [axisRange.max, axisRange.min],
   );
 
-  if (!sourceRow) return null;
   if (!sourceRow || !computedData) return null;
 
   const isForegroundLayer =
@@ -454,13 +453,7 @@ export const DataRenderer = memo(function DataRenderer({
   );
 
   return (
-    <group
-      position={[0, yOffset, baseZ]}
-      onClick={() => console.log("clicked row", JSON.stringify(computedData?.selection))} // Reserved no-op; marker/segment clicks stopPropagation and handle selection
-      onDoubleClick={() => {
-        console.log("clicked row", JSON.stringify(computedData?.selection));
-      }}
-    >
+    <group position={[0, yOffset, baseZ]}>
       {shouldRenderTrackSwitchOverlay && trackRender !== TrackRender.Spline && (
         <TrackSwitchOverlay
           height={height}

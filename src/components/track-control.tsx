@@ -253,7 +253,6 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
                 if (playing) return;
                 if (!val) return;
                 if (isGroup) {
-                  updateSource(sourceRow.id, sourceRow.expanded, undefined);
                   updateTrackGroupName(trackIds, val);
                 } else {
                   updateTrack({ id: sourceRow.data[0]?.trackId, name: val });

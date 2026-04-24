@@ -2,7 +2,6 @@ import { GROUP_TYPES } from "../constants";
 import { Source, SourceGroup, SourceTrack } from "../types";
 
 interface SourceUpdate {
-  hidden?: boolean;
   expanded?: boolean;
   muted?: boolean;
   visible?: boolean;

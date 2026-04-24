@@ -55,10 +55,6 @@ describe("view-specific visibility", () => {
 
     expect(hasTrackInA).toBe(false);
     expect(hasTrackInB).toBe(true);
-
-    const refreshedTrack = collectSourceTracks(state.globalSourceTree)
-      .find((track) => track.id === targetTrack.id);
-    expect(refreshedTrack?.hidden).toBe(false);
   });
 
   it("hides all descendant tracks when a group id is toggled", async () => {

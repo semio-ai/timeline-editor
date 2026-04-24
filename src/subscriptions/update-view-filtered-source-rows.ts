@@ -87,11 +87,14 @@ export function updateViewFilteredSourceRows(
       Object.entries(sourceRows).forEach(([rowId, row]) => {
         if (isFilteredSourceRowId(rowId)) return;
 
+        // Pre-compute each entry's track key once so we don't rebuild it per view.
+        const entryKeys = row.data.map((entry) =>
+          buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId),
+        );
+
         viewContexts.forEach(({ viewId, visibleTrackKeys }) => {
-          const filteredData = row.data.filter((entry) =>
-            visibleTrackKeys.has(
-              buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId),
-            ),
+          const filteredData = row.data.filter((_, index) =>
+            visibleTrackKeys.has(entryKeys[index]),
           );
           if (filteredData.length === 0) return;
           if (filteredData.length === row.data.length) return;

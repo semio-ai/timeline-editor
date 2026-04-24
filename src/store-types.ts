@@ -437,16 +437,15 @@ export interface AnimationActions {
    * Update the expanded and hidden state of a source group globally.
    * @param groupId - The ID of the source group to update.
    * @param expanded - Whether the group is expanded or collapsed.
-   * @param hidden - Whether the group is hidden or visible.
    * Note: This affects all views since sources are now globally managed.
    */
-  updateSource: (groupId: string, expanded?: boolean, hidden?: boolean) => void;
+  updateSource: (groupId: string, expanded?: boolean) => void;
   /**
-   * Update multiple source groups' expanded and hidden states globally at once.
-   * @param groupStates - A record mapping group IDs to their expanded and hidden states.
+   * Update multiple source groups' expanded state globally at once.
+   * @param groupStates - A record mapping group IDs to their expanded state.
    * Note: This affects all views since sources are now globally managed.
    */
-  updateSources: (groupStates: Record<string, { expanded?: boolean; hidden?: boolean }>) => void;
+  updateSources: (groupStates: Record<string, { expanded?: boolean }>) => void;
   /**
    * Update per-view track visibility state.
    * `hidden` applies to leaf source track ids; group ids will be expanded to their descendant tracks.

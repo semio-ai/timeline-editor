@@ -6,7 +6,6 @@ import type {
 } from "../store-types";
 import { TrackRender, VerticalAxis } from "../types";
 import { View } from "../types/util/view";
-import { collectLegacyHiddenTrackIds } from "./track-flags";
 
 /**
  * Reorder a view-id list so that:
@@ -38,16 +37,12 @@ export function addView(
   view: Partial<View> & { id: string },
 ): void {
   set((state: AnimationData) => {
-    const legacyHiddenIds =
-      Object.keys(state.editorViews).length === 0
-        ? collectLegacyHiddenTrackIds(state.globalSourceTree)
-        : [];
     const defaultView: View = {
       id: view.id,
       name: view.name,
       trackRender: view.trackRender ?? TrackRender.Key,
       verticalAxis: view.verticalAxis ?? VerticalAxis.Normalized,
-      hiddenSourceTrackIds: view.hiddenSourceTrackIds ?? legacyHiddenIds,
+      hiddenSourceTrackIds: view.hiddenSourceTrackIds ?? [],
       trackFilter: view.trackFilter ?? "",
     };
     const nextViews = {

@@ -13,22 +13,6 @@ import type {
 import type { Source, SourceGroup } from "../types";
 
 /**
- * Collect track ids that are flagged hidden via the legacy global tree —
- * used as a one-time migration source when seeding the first editor view.
- */
-export function collectLegacyHiddenTrackIds(
-  globalSourceTree: AnimationData["globalSourceTree"],
-): string[] {
-  const hiddenIds = new Set<string>();
-  collectSourceTracks(globalSourceTree).forEach((track) => {
-    if (track.hidden) {
-      hiddenIds.add(track.id);
-    }
-  });
-  return Array.from(hiddenIds);
-}
-
-/**
  * For a given source row id, resolve every leaf track id underneath it.
  * Used by the per-view visibility toggle so checking "hide" on a group
  * collapses to hiding all of its descendant tracks for that view.
