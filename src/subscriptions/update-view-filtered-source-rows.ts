@@ -39,8 +39,10 @@ export function updateViewFilteredSourceRows(
       sourceRowIdsByView: state.sourceRowIdsByView,
       tracks: state.tracks,
       animatables: state.animatables,
-      // Surrogate signal: a fresh `global` row identity indicates that
-      // `updateInstancedTrackSources` rebuilt the row table.
+      // Load-bearing: a fresh `global` row identity signals that
+      // `updateInstancedTrackSources` rebuilt the row table, which is our
+      // cue to regenerate filtered twins. The value isn't read below — it
+      // exists purely to trigger re-fires. Do not remove as "unused."
       instancedTrackSourcesToken: state.instancedTrackSources.global,
     }),
     ({ editorViews, sourceRowIds, sourceRowIdsByView, tracks, animatables }) => {
