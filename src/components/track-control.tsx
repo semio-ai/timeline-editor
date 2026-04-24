@@ -372,6 +372,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
                   className="flex items-center justify-center"
                   visuals="inverted"
                   leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                  data-testid="track-row-options"
                 />
               }
             >
