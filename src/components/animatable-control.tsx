@@ -16,7 +16,7 @@ import {
 } from "@semio/ui";
 import type { AnimatableValue, RawValue } from "@semio/utils";
 import { toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/utils";
-import { useAnimationStore, useColors, useControlMenu } from "../hooks";
+import { useAnimationStore, useColors, useControlMenu, useRowBackground } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { SourceRow, SourceRowData } from "../types";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
@@ -454,6 +454,9 @@ function AnimatableGroupControl({
     centerIcon = derivedAddable ? "plus" : "key";
   }
 
+  // "Group is in the selection" (any child track has an entry in the selection
+  // map) — drives the left-edge indicator bar on the row. Distinct from the
+  // per-key selection tier used by the row background.
   const isGroupSelected = useAnimationStore((state) =>
     groupTrackIds.some((id) => state.selectionState.keypoints.has(id)),
   );
@@ -462,11 +465,14 @@ function AnimatableGroupControl({
     (state) => state.selectionState.reference?.rowId ?? null,
   );
 
-  const groupBackground = useMemo(() => {
-    if (isGroupSelected) return `${resolvedColor}40`;
-    if (emphasis) return `${resolvedColor}26`;
-    return `${resolvedColor}00`;
-  }, [isGroupSelected, emphasis, resolvedColor]);
+  // Use the shared row-background logic so the group row tints identically to
+  // track-list group rows (three-tier: keys-selected > track-in-selection >
+  // emphasis, with DEFAULT_COLOR for inactive/playing).
+  const groupBackground = useRowBackground({
+    sourceRow: fallbackSourceRow,
+    emphasis,
+    forceDefaultColor: disabled || running,
+  });
 
   // Shared aggregate state, callbacks, and menu assembly. Runs unconditionally
   // against the fallback row so the hook's internal hook order stays stable.

@@ -21,6 +21,7 @@ import {
   useControlMenu,
   useLocalGlobalTransformLookup,
   useNames,
+  useRowBackground,
 } from "../hooks";
 import { useValuesRef } from "../hooks/use-values-ref";
 import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
@@ -96,15 +97,10 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     })),
   );
 
-  // --- Per-row selection state ---
-  // Track is "selected" if any of its trackIds exist as keys in the keypoints Map.
-  // hasSelectedKeys further distinguishes whether specific keypoints are also selected.
+  // Drives the left-edge color bar on the row when the track is part of
+  // any selection (distinct from the per-key background tint).
   const isTrackInSelection = useMemo(
     () => trackIds.some((id) => selectedKeypoints.has(id)),
-    [trackIds, selectedKeypoints],
-  );
-  const hasSelectedKeys = useMemo(
-    () => trackIds.some((id) => (selectedKeypoints.get(id)?.size ?? 0) > 0),
     [trackIds, selectedKeypoints],
   );
 
@@ -169,15 +165,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
 
   const iconCode = isGroup ? "group" : (sourceRow.data[0].iconCode ?? "none");
 
-  // Full-row background: keys-selected (25%) > track-selected (20%) > hover (15%) > none
-  // Inactive rows use DEFAULT_COLOR; active rows use their track color.
-  const rowBackground = useMemo(() => {
-    const bgColor = isActive ? trueColor : DEFAULT_COLOR;
-    if (hasSelectedKeys) return `${bgColor}40`;
-    if (isTrackInSelection) return `${bgColor}33`;
-    if (emphasis) return `${bgColor}26`;
-    return `${bgColor}00`;
-  }, [isActive, hasSelectedKeys, emphasis, trueColor, isTrackInSelection]);
+  const rowBackground = useRowBackground({ sourceRow, emphasis });
 
   // Reference row ID for shift+click range selection
   const referenceRowId = useAnimationStore(
