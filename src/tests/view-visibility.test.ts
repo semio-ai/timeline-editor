@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { collectSourceTracks } from "../functions/source-utils";
-import { buildFilteredGlobalRowId } from "../functions/view-filtered-global-row";
+import { buildFilteredSourceRowId } from "../functions/view-filtered-source-row";
 import { createTestAnimationStore } from "../test-fixtures/animation-store-factory";
 import { buildTrackKey } from "../utils/track-key";
 import { flushMicrotasks } from "./utils/flush-microtasks";
@@ -36,15 +36,20 @@ describe("view-specific visibility", () => {
     expect(state.sourceRowIdsByView["view-b"]?.spline).toContain(rowId);
     expect(state.sourceRowIds.spline).toContain(rowId);
 
-    const filteredA = state.instancedTrackSources[buildFilteredGlobalRowId("view-a")];
-    const filteredB = state.instancedTrackSources[buildFilteredGlobalRowId("view-b")];
-    expect(filteredA).toBeDefined();
-    expect(filteredB).toBeDefined();
-    if (!filteredA || !filteredB) return;
-    const hasTrackInA = filteredA.data.some(
+    // Consumers resolve the effective view source by falling back from the
+    // per-view filtered twin to the base row. A twin is only emitted when it
+    // actually differs from the base row, so view-b (nothing hidden) has no
+    // twin and resolves directly to the global row.
+    const resolveViewSource = (viewId: string) =>
+      state.instancedTrackSources[buildFilteredSourceRowId(viewId, "global")] ??
+      state.instancedTrackSources.global;
+
+    const viewASource = resolveViewSource("view-a");
+    const viewBSource = resolveViewSource("view-b");
+    const hasTrackInA = viewASource.data.some(
       (entry) => buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId) === trackKey,
     );
-    const hasTrackInB = filteredB.data.some(
+    const hasTrackInB = viewBSource.data.some(
       (entry) => buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId) === trackKey,
     );
 

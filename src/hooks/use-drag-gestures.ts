@@ -41,6 +41,12 @@ export interface DragGestureOptions {
   /**
    * Optional edge-scroll handle for auto-scrolling the viewport when the
    * pointer approaches the canvas edge during a drag.
+   *
+   * TODO(animation-usability): only box-select currently passes this. Keypoint
+   * drags (`data-point.tsx`) and bezier-handle drags (`bezier-handles.tsx`)
+   * intentionally skip it for now — re-enabling requires UX validation that
+   * the auto-scroll feels right when the cursor is dragging a value rather
+   * than sweeping a selection rectangle.
    */
   edgeScroll?: EdgeScrollHandle;
 }

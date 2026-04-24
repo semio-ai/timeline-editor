@@ -5,40 +5,12 @@ import { KeybindingProvider, useKeybindingMap } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
 import { TrackControlMenuContent } from "../components/canvas-sheet/context-menus";
 import { useTrackMenuState } from "../components/track-menu-context";
+import { computeAggregate, nextToggleValue } from "../functions/three-way-aggregate";
+import type { AggregateState } from "../functions/three-way-aggregate";
 import type { AnimationActions, AnimationData } from "../store-types";
 import type { SourceRow } from "../types";
 import { useAnimationStore } from "./use-animation-store";
 import { useKeyControlState } from "./use-key-control-state";
-
-/**
- * Aggregate visible/locked state for a source row. Maps to the three-way
- * toggle semantics used consistently across strips and menus:
- *   - `true`: all child entries are on
- *   - `false`: all child entries are off
- *   - `"partial"`: mixed
- */
-type AggregateState = boolean | "partial";
-
-function computeAggregate<T extends { visible?: boolean; locked?: boolean; muted?: boolean }>(
-  data: T[],
-  getValue: (d: T) => boolean,
-): AggregateState {
-  if (data.length === 0) return false;
-  const allOn = data.every((d) => getValue(d));
-  const noneOn = data.every((d) => !getValue(d));
-  return allOn ? true : noneOn ? false : "partial";
-}
-
-/**
- * Compute the next value for a three-way toggle. A `"partial"` state always
- * resolves to "turn everything on" — matches the convention in
- * `TrackFilterToggles` and the per-row toggle strip so clicking a mixed-state
- * control always moves toward a consistent "all-on" result.
- */
-function nextToggleValue(current: AggregateState): boolean {
-  if (current === "partial") return true;
-  return !current;
-}
 
 export interface UseControlMenuParams {
   /** The source row this menu acts on. Caller supplies a fallback if no live row exists. */

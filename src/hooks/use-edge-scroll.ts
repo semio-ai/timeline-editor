@@ -6,6 +6,13 @@ import { TrackRender } from "../types";
 import { AnimationContext } from "../context";
 import { getDataViewportFromFrustum, setFrustumFromDataViewport } from "../viewport-utils";
 
+// Tuning: chosen by feel, not derived from any UX research. Adjust together —
+// the feel comes from the *ratio* between zone width and max speed (pixels of
+// pointer travel per second of scroll), not the absolute values. Keep
+// horizontal speed in world-units (ms) so 1× timeline zoom matches a sensible
+// pointer cadence; vertical speed is in CSS pixels because the non-spline
+// path scrolls a pixel-aligned row list.
+
 /** Width of the edge zone (in pixels) where scrolling activates. */
 const EDGE_ZONE_PX = 40;
 

@@ -15,7 +15,7 @@ import {
 import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
 import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
 import { getInstanceSources } from "../functions/source-tree-utils";
-import { buildFilteredGlobalRowId } from "../functions/view-filtered-global-row";
+import { buildFilteredSourceRowId } from "../functions/view-filtered-source-row";
 import { AnimationActions, AnimationData } from "../store-types";
 import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
 import type { SourceRow } from "../types";
@@ -29,7 +29,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
     useAnimationStore(
       useShallow((state: AnimationData) => ({
         source:
-          state.instancedTrackSources[buildFilteredGlobalRowId(viewId)] ??
+          state.instancedTrackSources[buildFilteredSourceRowId(viewId, "global")] ??
           state.instancedTrackSources.global,
         namespaces: state.namespaces,
         animations: state.animations,

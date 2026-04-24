@@ -1,11 +1,9 @@
 import { memo, useContext } from "react";
 import { Theme, useCanvasContextMenu } from "@semio/ui";
 import { ThreeEvent } from "@react-three/fiber";
-import { useShallow } from "zustand/shallow";
-import { useAnimationStore, usePlaybackGestures, useBoxSelectGesture } from "../../hooks";
+import { usePlaybackGestures, useBoxSelectGesture } from "../../hooks";
 import { TrackRender } from "../../types";
 import { Z } from "../../constants";
-import { buildFilteredGlobalRowId } from "../../functions";
 import { AnimationContext } from "../../context";
 import { DataRenderer } from "./data-renderer";
 import { HoverMarker } from "./overlays/hover-marker";
@@ -33,12 +31,6 @@ export const TimelineRenderer = memo(function TimelineRenderer({
   const { onContextMenu } = useCanvasContextMenu({
     items: (ctx) => buildTrackMenuItems(ctx, animationStore),
   });
-  const sourceRowId = useAnimationStore(
-    useShallow((state) => {
-      const filteredRowId = buildFilteredGlobalRowId(viewId);
-      return state.instancedTrackSources[filteredRowId] ? filteredRowId : "global";
-    }),
-  );
 
   return (
     <>
@@ -65,7 +57,8 @@ export const TimelineRenderer = memo(function TimelineRenderer({
       <BoxSelectOverlay origin="timeline" fixedHeight={36} />
       <DataRenderer
         height={36}
-        sourceRowId={sourceRowId}
+        sourceRowId="global"
+        viewId={viewId}
         theme={theme}
         measureFromBottom
         showBackground={false}

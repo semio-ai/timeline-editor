@@ -7,6 +7,7 @@ import type {
 } from "../store-types";
 import { LayerBand, Source, SourceGroup, SourceRow, SourceRowData, SourceTrack } from "../types";
 import { GROUP_TYPES } from "../constants";
+import { isFilteredSourceRowId } from "../functions/view-filtered-source-row";
 
 /**
  * Derives the flat `instancedTrackSources` dictionary from the canonical
@@ -30,7 +31,14 @@ export function updateInstancedTrackSources(
       tracksRevision: state.tracksRevision ?? 0,
     }),
     ({ globalSourceTree, activeAnimationId, selectedKeypoints }) => {
-      if (!globalSourceTree || globalSourceTree.length === 0) return;
+      // When the tree is missing or empty, fall through to write an empty
+      // instancedTrackSources (preserving filtered entries from the other
+      // subscription). Early-returning here would leave stale rows in place
+      // whenever the tree transitions from populated to empty — e.g. when
+      // the last track is removed or the active animation changes to one
+      // with no tracks. flattenSources on an empty input array is a no-op,
+      // so the downstream write produces `{ global: { id, data: [] } }`.
+      const sources = globalSourceTree ?? [];
 
       // Build a set of selected track keys for quick lookup.
       // Registers multiple key formats for flexible matching:
@@ -54,7 +62,7 @@ export function updateInstancedTrackSources(
       // Walk the full source tree (entity → instance → groups → tracks).
       // Leaf data is also accumulated into globalLeafData for the global aggregate row.
       flattenSources(
-        globalSourceTree,
+        sources,
         activeAnimationId,
         selectedTrackLookup,
         instancedTrackSources,
@@ -64,11 +72,11 @@ export function updateInstancedTrackSources(
       // The global row aggregates all leaf track data — used by the timeline canvas renderer.
       instancedTrackSources.global = { id: "global", data: globalLeafData };
 
-      // Preserve any filtered global rows (managed by update-view-filtered-global-rows)
+      // Preserve any per-view filtered twins (managed by update-view-filtered-source-rows)
       const existingFiltered: Record<string, SourceRow> = {};
       const current = get().instancedTrackSources ?? {};
       Object.entries(current).forEach(([key, row]) => {
-        if (key.startsWith("filtered:")) {
+        if (isFilteredSourceRowId(key)) {
           existingFiltered[key] = row;
         }
       });

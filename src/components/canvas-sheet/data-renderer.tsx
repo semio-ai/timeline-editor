@@ -20,6 +20,11 @@ import { uniq } from "lodash";
 import { isOrthographicCamera } from "@semio/utils";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import {
+  buildFilteredSourceRowId,
+  filterHandlesByVisibility,
+  shouldRowShowHandles,
+} from "../../functions";
+import {
   LayerBand,
   SelectionFrame,
   SourceRow,
@@ -157,7 +162,14 @@ export const DataRenderer = memo(function DataRenderer({
 }: DataRendererProps) {
   type StoreState = AnimationData & AnimationActions;
   const sourceRow = useAnimationStore(
-    useShallow((state: StoreState) => state.instancedTrackSources[sourceRowId]),
+    useShallow((state: StoreState) => {
+      if (viewId) {
+        const filteredId = buildFilteredSourceRowId(viewId, sourceRowId);
+        const filtered = state.instancedTrackSources[filteredId];
+        if (filtered) return filtered;
+      }
+      return state.instancedTrackSources[sourceRowId];
+    }),
   );
   const computedData = useAnimationStore(
     useShallow((state: StoreState) => state.derivedSnapshot?.rows?.[sourceRowId]?.computed),
@@ -248,14 +260,15 @@ export const DataRenderer = memo(function DataRenderer({
     return Number.isFinite(scaled) && scaled !== 0 ? scaled : 1;
   }, [xTransform]);
   const renderMarkers = computedData?.render?.markers ?? [];
-  const renderHandles = useMemo(() => {
-    const handles = computedData?.render?.handles ?? [];
-    if (handleVisibility !== "key-selection" || handles.length === 0) return handles;
-    return handles.filter((handle) => {
-      const trackSelection = selectionState.keypoints.get(handle.trackId);
-      return trackSelection?.has(handle.keypointId) ?? false;
-    });
-  }, [computedData?.render?.handles, handleVisibility, selectionState.keypoints]);
+  const renderHandles = useMemo(
+    () =>
+      filterHandlesByVisibility(
+        computedData?.render?.handles ?? [],
+        handleVisibility,
+        selectionState.keypoints,
+      ),
+    [computedData?.render?.handles, handleVisibility, selectionState.keypoints],
+  );
   const isGroupRow = sourceRow ? (sourceRow.isGroup || sourceRow.data.length > 1) : false;
   const transitionLayer: LayerBand = useMemo(() => {
     // Group/aggregate rows render behind individual track rows to avoid
@@ -317,22 +330,10 @@ export const DataRenderer = memo(function DataRenderer({
   }, [sourceRow]);
   const renderMode = keyForced ? TrackRender.Key : trackRender;
 
-  const rowHasSelection = useMemo(() => {
-    if (!sourceRow || !selectionState?.instanceId) return false;
-    const instanceMatchesRow = sourceRow.data.some(
-      (entry) => entry.instanceId === selectionState.instanceId,
-    );
-    if (!instanceMatchesRow) return false;
-    const rowTrackHasKeys = sourceRow.data.some(
-      (entry) => (selectionState.keypoints.get(entry.trackId)?.size ?? 0) > 0,
-    );
-    if (!rowTrackHasKeys) return false;
-    if (handleVisibility === "single-track") {
-      // Only show handles when exactly one track has selection globally
-      return selectionState.keypoints.size === 1;
-    }
-    return true;
-  }, [selectionState, sourceRow, handleVisibility]);
+  const rowHasSelection = useMemo(
+    () => shouldRowShowHandles(sourceRow, handleVisibility, selectionState),
+    [selectionState, sourceRow, handleVisibility],
+  );
 
   const [handlesDelayReady, setHandlesDelayReady] = useState(false);
   const handlesAppearanceMV = useSpring(0, { stiffness: 700, damping: 40 });

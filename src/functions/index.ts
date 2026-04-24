@@ -35,5 +35,7 @@ export * from "./infer-auto-handles";
 export * from "./source-utils";
 export * from "./source-tree-utils";
 export * from "./filter-visible-source-row-ids";
-export * from "./view-filtered-global-row";
+export * from "./view-filtered-source-row";
 export * from "./drag-diff-ops";
+export * from "./handle-visibility";
+export * from "./three-way-aggregate";

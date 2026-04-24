@@ -241,6 +241,13 @@ export function TrackControlMenuContent({
       </NestedItem>
 
       {/* --- Navigate --- */}
+      {/*
+        TODO(animation-usability): wire a "Remove Track" item here for non-group
+        rows. Blocked on the broader track-removal flow (deciding what happens
+        to dependent state — selection, derived snapshot, view filters — when a
+        track disappears mid-edit). The store action exists (`removeTrack`); the
+        UI is intentionally absent until that flow is settled.
+      */}
       <NestedSeparator />
       <NestedLabel>Navigate</NestedLabel>
       <NestedItem

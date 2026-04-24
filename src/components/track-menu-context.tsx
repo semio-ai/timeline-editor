@@ -13,8 +13,13 @@ const TrackMenuContext = createContext<TrackMenuState>({
 });
 
 export function TrackMenuProvider({ children }: { children: ReactNode }) {
-  // Use a ref + state combo: the ref tracks the count of open menus (to handle
-  // overlapping open/close callbacks), and the state drives re-renders.
+  // Ref + state combo: the ref counts open menus, the state drives re-renders.
+  // Why a counter rather than a boolean: when one menu opens via a click that
+  // also closes another (e.g. clicking the dropdown trigger of row B while
+  // row A's context menu is open), Radix fires close→open in rapid succession
+  // and the order of those callbacks is not guaranteed. A counter makes the
+  // outcome order-independent — `menuOpen` only flips to false once every
+  // open menu has reported its close.
   const openCountRef = useRef(0);
   const [isOpen, setIsOpen] = useState(false);
 

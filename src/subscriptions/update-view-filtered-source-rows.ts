@@ -13,12 +13,21 @@ import {
   normalizeVisibleSourceRowIds,
 } from "../functions/filter-visible-source-row-ids";
 import {
-  buildFilteredGlobalRowId,
-  isFilteredGlobalRowId,
-} from "../functions/view-filtered-global-row";
+  buildFilteredSourceRowId,
+  isFilteredSourceRowId,
+} from "../functions/view-filtered-source-row";
 import { buildTrackKey } from "../utils/track-key";
 
-export function updateViewFilteredGlobalRows(
+/**
+ * Emits per-view filtered twins of every non-filtered row in
+ * `instancedTrackSources`. A twin at id `filtered:<viewId>:<rowId>` holds the
+ * subset of that row's `.data` whose tracks pass the view's visibility +
+ * `trackFilter`. Consumers that render view-aware aggregates (global row,
+ * group rows) resolve through the twin first and fall back to the base row
+ * when no twin exists — so a twin is only emitted when it actually differs
+ * from the base row. Twins with no surviving entries are dropped entirely.
+ */
+export function updateViewFilteredSourceRows(
   api: AnimationApi,
   set: AnimationStoreSetter,
   get: AnimationStoreGetter,
@@ -30,15 +39,20 @@ export function updateViewFilteredGlobalRows(
       sourceRowIdsByView: state.sourceRowIdsByView,
       tracks: state.tracks,
       animatables: state.animatables,
-      globalRow: state.instancedTrackSources.global,
+      // Surrogate signal: a fresh `global` row identity indicates that
+      // `updateInstancedTrackSources` rebuilt the row table.
+      instancedTrackSourcesToken: state.instancedTrackSources.global,
     }),
-    ({ editorViews, sourceRowIds, sourceRowIdsByView, tracks, animatables, globalRow }) => {
+    ({ editorViews, sourceRowIds, sourceRowIdsByView, tracks, animatables }) => {
       const state = get();
       const sourceRows = state.instancedTrackSources;
       const normalizedRowLookup = normalizeVisibleSourceRowIds(sourceRowIds);
-      const baseGlobal: SourceRow = globalRow ?? { id: "global", data: [] };
 
-      const filteredRows: Record<string, SourceRow> = {};
+      interface ViewContext {
+        viewId: string;
+        visibleTrackKeys: Set<string>;
+      }
+      const viewContexts: ViewContext[] = [];
 
       Object.values(editorViews).forEach((view) => {
         const viewRowLookup = normalizeVisibleSourceRowIds(
@@ -60,21 +74,38 @@ export function updateViewFilteredGlobalRows(
           const row = sourceRows[rowId];
           if (!row) return;
           row.data.forEach((entry) => {
-            visibleTrackKeys.add(buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId));
+            visibleTrackKeys.add(
+              buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId),
+            );
           });
         });
-
-        const filteredRowId = buildFilteredGlobalRowId(view.id);
-        filteredRows[filteredRowId] = {
-          ...baseGlobal,
-          id: filteredRowId,
-          data: baseGlobal.data.filter((entry) =>
-            visibleTrackKeys.has(buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId)),
-          ),
-        };
+        viewContexts.push({ viewId: view.id, visibleTrackKeys });
       });
 
-      const currentFilteredIds = Object.keys(sourceRows).filter(isFilteredGlobalRowId);
+      const filteredRows: Record<string, SourceRow> = {};
+
+      Object.entries(sourceRows).forEach(([rowId, row]) => {
+        if (isFilteredSourceRowId(rowId)) return;
+
+        viewContexts.forEach(({ viewId, visibleTrackKeys }) => {
+          const filteredData = row.data.filter((entry) =>
+            visibleTrackKeys.has(
+              buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId),
+            ),
+          );
+          if (filteredData.length === 0) return;
+          if (filteredData.length === row.data.length) return;
+
+          const filteredRowId = buildFilteredSourceRowId(viewId, rowId);
+          filteredRows[filteredRowId] = {
+            ...row,
+            id: filteredRowId,
+            data: filteredData,
+          };
+        });
+      });
+
+      const currentFilteredIds = Object.keys(sourceRows).filter(isFilteredSourceRowId);
       const nextFilteredIds = Object.keys(filteredRows);
       const filteredRowsChanged =
         currentFilteredIds.length !== nextFilteredIds.length ||
@@ -87,7 +118,7 @@ export function updateViewFilteredGlobalRows(
 
       const nextSourceRows: Record<string, SourceRow> = {};
       Object.entries(sourceRows).forEach(([rowId, row]) => {
-        if (isFilteredGlobalRowId(rowId)) return;
+        if (isFilteredSourceRowId(rowId)) return;
         nextSourceRows[rowId] = row;
       });
       Object.assign(nextSourceRows, filteredRows);

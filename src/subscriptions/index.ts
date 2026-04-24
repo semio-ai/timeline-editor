@@ -3,7 +3,7 @@ export { updateInstancedTrackSources } from "./update-instanced-track-sources";
 export { updateOverallDuration } from "./update-overall-duration";
 export { updatePlayerLoop } from "./update-player-loop";
 
-export { updateViewFilteredGlobalRows } from "./update-view-filtered-global-rows";
+export { updateViewFilteredSourceRows } from "./update-view-filtered-source-rows";
 export { updateGlobalSources } from "./update-global-sources";
 export { updateSourceRowIds } from "./update-source-row-ids";
 export { updateTrackMuting } from "./update-track-muting";

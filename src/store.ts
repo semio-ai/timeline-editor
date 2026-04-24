@@ -83,7 +83,7 @@ import {
   updatePlayerLoop,
   updateOverallDuration,
   updateInstancedTrackSources,
-  updateViewFilteredGlobalRows,
+  updateViewFilteredSourceRows,
   updateGlobalSources,
   updateSourceRowIds,
   updateTrackMuting,
@@ -889,7 +889,7 @@ export const AnimationSlice = (
         updateTrackMuting,
         updateGlobalSources,
         updateSourceRowIds,
-        updateViewFilteredGlobalRows,
+        updateViewFilteredSourceRows,
         updateActiveEntityContext,
       ].map((fn) => fn(api, set, get));
 
@@ -992,7 +992,12 @@ export const AnimationSlice = (
 
       if (trackEntries.length === 0) return;
 
-      // Convert to offset-from-anchor format
+      // Convert to offset-from-anchor format. Stamps are stored relative to
+      // the earliest selected keypoint across all tracks, so paste can be
+      // anchored to an arbitrary playhead position without losing the inter-
+      // keypoint spacing or the relative ordering across tracks. World-time
+      // is used (not local) so a paste into an instance with a different
+      // timescale/offset still preserves the *real-time* shape of the copy.
       const clipboardTracks = trackEntries.map((entry, idx) => ({
         sourceTrackKey: entry.key,
         trackIndex: idx,
@@ -1043,6 +1048,12 @@ export const AnimationSlice = (
 
           for (const clipTrack of clipboard.tracks) {
             // Resolve target track
+            // TODO(animation-usability): cross-instance paste — map by
+            // animatable path/id rather than positional index so a copy from
+            // instance A's "scale" lands on instance B's "scale" when the
+            // selection contains an arbitrary set of tracks. The current
+            // index mapping silently writes to the wrong animatable when the
+            // selection ordering doesn't line up with the clipboard.
             let targetTrackKey: string;
             if (useCrossTrackPaste) {
               // Map by index: clipboard trackIndex → selected track at same index
