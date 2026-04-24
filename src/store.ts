@@ -75,7 +75,9 @@ import {
   computeWorldStamp,
   collectSourceTracks,
   findSourceTrackById,
+  applyTrackDiffOpsToTrack,
 } from "./functions";
+import type { TrackDiffOp } from "./types/util/diff";
 import { resolveAnimationDuration } from "./functions/compute-animation-extent";
 import {
   updatePlayerLoop,
@@ -95,6 +97,21 @@ import { parseTrackKey } from "./utils/track-key";
 import { GROUP_TYPES } from "./constants";
 
 enableMapSet();
+
+/**
+ * Collects the set of track IDs that are currently locked (read-only),
+ * based on source-row metadata. Used to filter out locked tracks from
+ * any edit operation before it reaches the diff pipeline.
+ */
+function getLockedTrackIds(sourceRows: Record<string, SourceRow>): Set<string> {
+  const locked = new Set<string>();
+  Object.values(sourceRows).forEach((row) =>
+    row.data.forEach((d) => {
+      if (d.locked) locked.add(d.trackId);
+    }),
+  );
+  return locked;
+}
 
 /**
  * Hit-test keypoints against the current box-select bounds and return the
@@ -989,32 +1006,17 @@ export const AnimationSlice = (
       set({ clipboard: { tracks: clipboardTracks, instanceId } });
     },
     cutSelection: () => {
-      // Copy then delete in one batch
-      const state = get();
-      // First copy
+      // Copy then delete. Delete respects locked tracks.
       get().copySelection();
-      // Then delete (re-read state after copy)
-      set(
-        produce((draft: AnimationData): void => {
-          const selected = state.selectionState.keypoints;
-          selected.forEach((keypointIds, trackId) => {
-            keypointIds.forEach((keypointId) => {
-              removeKeypoint(draft, trackId, keypointId);
-            });
-          });
-          draft.selectionState = {
-            ...draft.selectionState,
-            keypoints: new Map(),
-            reference: null,
-          };
-        }),
-      );
+      get().deleteSelection();
     },
     pasteAtStamp: (worldStamp: number) => {
       set(
         produce((state: AnimationData): void => {
           const clipboard = state.clipboard;
           if (!clipboard || clipboard.tracks.length === 0) return;
+
+          const lockedTrackIds = getLockedTrackIds(get().instancedTrackSources);
 
           // Determine if we're pasting to selected tracks (cross-track) or source tracks
           const selectedTrackKeys = Array.from(state.selectionState.keypoints.keys()).sort();
@@ -1050,32 +1052,43 @@ export const AnimationSlice = (
               targetTrackKey = clipTrack.sourceTrackKey;
             }
 
+            // Skip locked tracks — no edits allowed
+            if (lockedTrackIds.has(targetTrackKey)) continue;
+
             const track = state.tracks[targetTrackKey];
             if (!track) continue;
 
+            // Build diff ops: delete coincident points, then insert new ones.
+            const diffs: TrackDiffOp[] = [];
             const trackSelection = new Set<string>();
 
             for (const clipKp of clipTrack.keypoints) {
               const targetWorldStamp = worldStamp + clipKp.stampOffset;
               const localStamp = computeLocalStamp(targetWorldStamp, timescale, offset);
 
-              // Remove existing keypoints within 1ms of paste stamp (replace behavior)
-              track.points = track.points.filter(
-                (p) => Math.abs(p.stamp - localStamp) > 1,
-              );
+              // Delete existing keypoints within 1ms of paste stamp (replace behavior)
+              track.points.forEach((p) => {
+                if (Math.abs(p.stamp - localStamp) <= 1) {
+                  diffs.push({ type: "deleteKeypoint", trackId: targetTrackKey, keypointId: p.id });
+                }
+              });
 
-              // Create new keypoint
               const newId = crypto.randomUUID();
-              track.points.push({
-                id: newId,
-                stamp: localStamp,
-                value: clipKp.value,
-                transitions: clipKp.transitions ?? undefined,
+              diffs.push({
+                type: "insertKeypoint",
+                trackId: targetTrackKey,
+                keypoint: {
+                  id: newId,
+                  stamp: localStamp,
+                  value: clipKp.value,
+                  transitions: clipKp.transitions ?? undefined,
+                },
               });
               trackSelection.add(newId);
             }
 
-            // Re-sort by stamp
+            applyTrackDiffOpsToTrack(track, diffs);
+            // Re-sort by stamp after insertions
             track.points.sort((a, b) => a.stamp - b.stamp);
 
             if (trackSelection.size > 0) {
@@ -1095,18 +1108,40 @@ export const AnimationSlice = (
       );
     },
     deleteSelection: () => {
+      const lockedTrackIds = getLockedTrackIds(get().instancedTrackSources);
       set(
         produce((state: AnimationData): void => {
           const selected = state.selectionState.keypoints;
           if (selected.size === 0) return;
+
+          // Group deletes by track so we can apply as a single diff batch per track
+          const diffsByTrack = new Map<string, TrackDiffOp[]>();
           selected.forEach((keypointIds, trackId) => {
+            if (lockedTrackIds.has(trackId)) return;
+            const list: TrackDiffOp[] = [];
             keypointIds.forEach((keypointId) => {
-              removeKeypoint(state, trackId, keypointId);
+              list.push({ type: "deleteKeypoint", trackId, keypointId });
             });
+            if (list.length > 0) diffsByTrack.set(trackId, list);
+          });
+
+          diffsByTrack.forEach((diffs, trackId) => {
+            const track = state.tracks[trackId];
+            if (!track) return;
+            applyTrackDiffOpsToTrack(track, diffs);
+          });
+
+          // Clear selection for tracks whose keypoints were removed; preserve
+          // selection entries for locked tracks (their keypoints still exist).
+          const nextSelection = new Map<string, Set<string>>();
+          selected.forEach((keypointIds, trackId) => {
+            if (lockedTrackIds.has(trackId)) {
+              nextSelection.set(trackId, new Set(keypointIds));
+            }
           });
           state.selectionState = {
             ...state.selectionState,
-            keypoints: new Map(),
+            keypoints: nextSelection,
             reference: null,
           };
         }),

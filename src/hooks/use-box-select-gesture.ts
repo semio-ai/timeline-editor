@@ -19,6 +19,9 @@ export interface BoxSelectGestureParams {
   topOffsetPx?: number;
   bottomOffsetPx?: number;
   trackHeightPx?: number;
+  /** Number of visible rows after filtering. Required for correct vertical
+   * scroll bounds when a filter is active — raw sourceRowIds overcounts. */
+  contentRowCount?: number;
 }
 
 /**
@@ -95,6 +98,7 @@ export function useBoxSelectGesture(
       topOffsetPx: params.topOffsetPx,
       bottomOffsetPx: params.bottomOffsetPx,
       trackHeightPx: params.trackHeightPx,
+      contentRowCount: params.contentRowCount,
     },
     trackRender,
     () => {

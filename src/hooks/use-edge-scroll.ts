@@ -22,6 +22,12 @@ export interface EdgeScrollConfig {
   bottomOffsetPx?: number;
   /** Per-row height in pixels (for non-spline scroll bounds). */
   trackHeightPx?: number;
+  /**
+   * Number of visible (post-filter) rows. Used to compute the vertical
+   * scroll bound so scrolling stops at the end of the rendered content,
+   * not the end of the unfiltered source list.
+   */
+  contentRowCount?: number;
   /** Whether to enable horizontal edge-scrolling. Default true. */
   horizontal?: boolean;
   /** Whether to enable vertical edge-scrolling. Default true. */
@@ -174,12 +180,16 @@ export function useEdgeScroll(
             const topOff = cfg.topOffsetPx ?? 36;
             const bottomOff = cfg.bottomOffsetPx ?? 108;
             const trackH = cfg.trackHeightPx ?? 36;
-            const flatRowCount = store.sourceRowIds
-              ? (Array.isArray(store.sourceRowIds)
+            // Prefer the caller-provided filtered row count; fall back to the
+            // unfiltered store list only if not supplied (legacy callers).
+            const rowCount =
+              cfg.contentRowCount ??
+              (store.sourceRowIds
+                ? Array.isArray(store.sourceRowIds)
                   ? store.sourceRowIds.length
-                  : store.sourceRowIds.flat.length)
-              : 0;
-            const contentHeight = flatRowCount * trackH;
+                  : store.sourceRowIds.flat.length
+                : 0);
+            const contentHeight = rowCount * trackH;
             const visibleHeight = height - topOff - bottomOff;
             const maxScroll = Math.max(0, contentHeight - visibleHeight);
             const next = Math.max(0, Math.min(maxScroll, currentOffset + deltaY));

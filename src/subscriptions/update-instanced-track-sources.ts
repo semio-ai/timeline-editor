@@ -113,6 +113,10 @@ export function updateInstancedTrackSources(
  *
  * The `activeAnimationId` is used to determine foreground status per-leaf
  * (each leaf track knows its instanceId, compared against the active one).
+ *
+ * Returns the leaf data accumulated under the processed sources so that
+ * ancestor group rows can aggregate only unique leaves (not descendant
+ * group rows), preventing duplicate counting in nested group hierarchies.
  */
 function flattenSources(
   sources: Source[],
@@ -122,8 +126,9 @@ function flattenSources(
   globalLeafData: SourceRowData[],
   depth = 0,
   parentId?: string,
-): void {
+): SourceRowData[] {
   const count = sources.length;
+  const localLeafData: SourceRowData[] = [];
 
   sources.forEach((source, index) => {
     const isLastChild = index === count - 1;
@@ -131,9 +136,11 @@ function flattenSources(
     if (GROUP_TYPES.has(source.type)) {
       const group = source as SourceGroup;
 
-      // Recursively flatten children
+      // Recursively flatten children. The returned array is the flat list of
+      // LEAF data under this group (excluding nested group aggregate rows),
+      // so we can roll it up without duplicates.
       const childOutput: Record<string, SourceRow> = {};
-      flattenSources(
+      const descendantLeafData = flattenSources(
         group.children,
         activeAnimationId,
         selectedTrackLookup,
@@ -145,9 +152,10 @@ function flattenSources(
 
       // All groups (composite, entity, instance) produce rows with
       // aggregate child data typed as "group".
-      const childData: SourceRowData[] = Object.values(childOutput)
-        .flatMap((row) => row.data)
-        .map((data) => ({ ...data, type: "group" as const }));
+      const childData: SourceRowData[] = descendantLeafData.map((data) => ({
+        ...data,
+        type: "group" as const,
+      }));
 
       if (childData.length > 0) {
         output[group.id] = {
@@ -163,6 +171,9 @@ function flattenSources(
 
         // Add all child rows to output
         Object.assign(output, childOutput);
+
+        // Propagate these leaves up to our caller
+        localLeafData.push(...descendantLeafData);
       }
     } else {
       const track = source as SourceTrack;
@@ -204,8 +215,13 @@ function flattenSources(
         parentId,
       };
 
-      // Accumulate leaf data for the global aggregate row
-      globalLeafData.push(output[track.id].data[0]);
+      // Accumulate leaf data for both the global aggregate row and the
+      // local rollup used by ancestor groups.
+      const leafData = output[track.id].data[0];
+      globalLeafData.push(leafData);
+      localLeafData.push(leafData);
     }
   });
+
+  return localLeafData;
 }

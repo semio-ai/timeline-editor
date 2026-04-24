@@ -183,7 +183,13 @@ export const TracksRenderer = memo(function TracksRenderer({
 
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
-  const boxSelectPointerDown = useBoxSelectGesture("tracks", { viewId, topOffsetPx, bottomOffsetPx, trackHeightPx: trackHeight });
+  const boxSelectPointerDown = useBoxSelectGesture("tracks", {
+    viewId,
+    topOffsetPx,
+    bottomOffsetPx,
+    trackHeightPx: trackHeight,
+    contentRowCount: sourceRowLookup.flat.length,
+  });
 
   const { onContextMenu } = useCanvasContextMenu({
     items: (ctx) => buildTrackMenuItems(ctx, animationStore),

@@ -36,3 +36,4 @@ export * from "./source-utils";
 export * from "./source-tree-utils";
 export * from "./filter-visible-source-row-ids";
 export * from "./view-filtered-global-row";
+export * from "./drag-diff-ops";
