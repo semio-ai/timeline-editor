@@ -36,7 +36,14 @@ export function shouldRowShowHandles(
   );
   if (!rowTrackHasKeys) return false;
   if (visibility === "single-track") {
-    return selection.keypoints.size === 1;
+    // Count only tracks that actually have selected keypoints — toggleTrackInSelection
+    // and rangeSelectTracks store empty Sets for tracks added without key-level
+    // selection, which would otherwise inflate this count and suppress handles.
+    let tracksWithKeys = 0;
+    selection.keypoints.forEach((keypointIds) => {
+      if (keypointIds.size > 0) tracksWithKeys += 1;
+    });
+    return tracksWithKeys === 1;
   }
   return true;
 }

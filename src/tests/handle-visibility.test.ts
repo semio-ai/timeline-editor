@@ -97,6 +97,22 @@ describe("shouldRowShowHandles", () => {
     ).toBe(false);
   });
 
+  it("single-track: ignores tracks added to the selection map with no keys", () => {
+    // toggleTrackInSelection / rangeSelectTracks add empty Set entries for tracks
+    // toggled in without key-level selection. Those entries must not count toward
+    // the single-track check.
+    const oneTrackPlusEmpty = new Map([
+      ["scale", new Set(["k0"])],
+      ["opacity", new Set<string>()],
+    ]);
+    expect(
+      shouldRowShowHandles(sourceRow, "single-track", {
+        instanceId: "inst-a",
+        keypoints: oneTrackPlusEmpty,
+      }),
+    ).toBe(true);
+  });
+
   it("key-selection: row gating matches track-selection (per-handle filtering happens elsewhere)", () => {
     const sel = {
       instanceId: "inst-a",
