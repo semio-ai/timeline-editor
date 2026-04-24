@@ -12,7 +12,12 @@ interface SourceBase {
   namespaceId: string;
   /** Instance id for the animation instance. */
   instanceId: string;
-  /** Whether this source is read-only in the UI. */
+  /**
+   * Whether this source is read-only because the loaded animation document
+   * does not grant the current user edit permission. Document-driven and
+   * not user-toggleable. See `SourceTrack.locked` for the user-toggle
+   * counterpart.
+   */
   readonly?: boolean;
 }
 
@@ -124,8 +129,16 @@ export interface SourceRowData {
   muted?: boolean;
   /** Whether this entry's keypoints/splines render in the canvas. */
   visible?: boolean;
-  /** Whether this entry is locked from editing. */
+  /** Whether this entry is locked from editing by the user (toggleable). */
   locked?: boolean;
+  /**
+   * Whether this entry is read-only because the source document does not
+   * grant the current user edit permission. Distinct from `locked`: a user
+   * can toggle `locked` on or off, but `readonly` is permission-driven and
+   * cannot be cleared from the UI. Both flags surface as the same visual
+   * "locked" affordance and both block authoring edits.
+   */
+  readonly?: boolean;
   /** Track id for this entry. */
   trackId: string;
   /** Animatable id for this entry. */

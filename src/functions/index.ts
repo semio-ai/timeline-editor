@@ -39,3 +39,4 @@ export * from "./view-filtered-source-row";
 export * from "./drag-diff-ops";
 export * from "./handle-visibility";
 export * from "./three-way-aggregate";
+export * from "./track-editability";

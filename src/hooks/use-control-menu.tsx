@@ -38,8 +38,14 @@ export interface UseControlMenuResult {
   rowVisible: AggregateState;
   /** Three-way muted state. */
   rowMuted: AggregateState;
-  /** Three-way locked state. */
+  /** Three-way user-toggle locked state. */
   rowLocked: AggregateState;
+  /**
+   * Three-way document-permission readonly state. Distinct from `rowLocked`
+   * — visible to the UI as the same lock affordance, but disables the
+   * Lock/Unlock toggle since readonly cannot be cleared from the editor.
+   */
+  rowReadonly: AggregateState;
 
   /** Toggle handlers — shared with property strips so the strip and menu
    *  act identically. */
@@ -133,6 +139,14 @@ export function useControlMenu({
     () => computeAggregate(sourceRow.data, (d) => d.locked === true),
     [sourceRow.data],
   );
+  // Document-permission readonly is distinct from user-toggle locked. It
+  // produces the same visual lock affordance, but the Lock toggle must be
+  // disabled when readonly so the user can't appear to clear an enforced
+  // permission lock.
+  const rowReadonly = useMemo<AggregateState>(
+    () => computeAggregate(sourceRow.data, (d) => d.readonly === true),
+    [sourceRow.data],
+  );
 
   // Namespaced source IDs (`namespace/instance/trackId`) for bulk set-* actions.
   const sourceIds = useMemo(
@@ -157,8 +171,12 @@ export function useControlMenu({
 
   const handleToggleLocked = useCallback(() => {
     if (sourceIds.length === 0) return;
+    // Document-readonly tracks cannot be unlocked via the user toggle.
+    // The store action also filters readonly ids defensively, but bailing
+    // here keeps the no-op from re-rendering the row unnecessarily.
+    if (rowReadonly === true) return;
     setTracksLocked(sourceIds, nextToggleValue(rowLocked));
-  }, [sourceIds, rowLocked, setTracksLocked]);
+  }, [sourceIds, rowLocked, rowReadonly, setTracksLocked]);
 
   const handleChangeColor = useCallback(
     (v: string) => {
@@ -221,6 +239,7 @@ export function useControlMenu({
           visible={rowVisible}
           muted={rowMuted === true}
           locked={rowLocked}
+          readonly={rowReadonly === true}
           onChangeColor={handleChangeColor}
           onToggleVisible={handleToggleVisible}
           onToggleMuted={handleToggleMuted}
@@ -255,6 +274,7 @@ export function useControlMenu({
       rowVisible,
       rowMuted,
       rowLocked,
+      rowReadonly,
       handleChangeColor,
       handleToggleVisible,
       handleToggleMuted,
@@ -285,6 +305,7 @@ export function useControlMenu({
     rowVisible,
     rowMuted,
     rowLocked,
+    rowReadonly,
     handleToggleVisible,
     handleToggleMuted,
     handleToggleLocked,

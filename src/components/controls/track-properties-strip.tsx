@@ -12,6 +12,12 @@ export interface TrackPropertiesStripProps {
   muted?: boolean | "partial";
   /** true = all locked, false = all unlocked, "partial" = mixed */
   locked?: boolean | "partial";
+  /**
+   * true when every track in the row is read-only by document permission.
+   * Renders the lock toggle as locked (regardless of `locked`) and disables
+   * it so the user can't appear to clear an enforced permission lock.
+   */
+  readonly?: boolean;
   onToggleVisible?: () => void;
   onToggleMuted?: () => void;
   onToggleLocked?: () => void;
@@ -29,6 +35,7 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
   visible = true,
   muted = false,
   locked = false,
+  readonly = false,
   onToggleVisible,
   onToggleMuted,
   onToggleLocked,
@@ -72,12 +79,20 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         sizing="inner"
         size={Size.Xs}
         color={color}
-        label={`${locked === true ? "Unlock" : "Lock"}${suffix}`}
-        value={locked === "partial" ? "partial" : !locked}
-        disabled={disabled || !onToggleLocked}
+        label={
+          readonly
+            ? "Locked (document permissions)"
+            : `${locked === true ? "Unlock" : "Lock"}${suffix}`
+        }
+        // `value` semantics: `false` renders as "off" (unlocked toggle).
+        // Readonly forces "on" so the lock icon shows even when no user
+        // lock is set; partial collapses to "partial" only when user locks
+        // are mixed and there's no readonly enforcement.
+        value={readonly ? false : locked === "partial" ? "partial" : !locked}
+        disabled={disabled || readonly || !onToggleLocked}
         onChange={() => onToggleLocked?.()}
       >
-        {locked === true ? (
+        {locked === true || readonly ? (
           <Lock className="block h-4/5 w-4/5 shrink-0" size="100%" />
         ) : (
           <LockOff className="block h-4/5 w-4/5 shrink-0" size="100%" />

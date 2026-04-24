@@ -187,6 +187,7 @@ function mergeSourceState(next: Source[], previous?: Source[]): Source[] {
       muted: previousTrack?.muted ?? track.muted,
       visible: previousTrack?.visible ?? track.visible,
       locked: previousTrack?.locked ?? track.locked,
+      readonly: previousTrack?.readonly ?? track.readonly,
     };
   });
 }

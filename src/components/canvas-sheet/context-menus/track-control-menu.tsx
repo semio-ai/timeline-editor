@@ -38,6 +38,12 @@ export interface TrackControlMenuProps {
   visible: boolean | "partial";
   muted: boolean;
   locked: boolean | "partial";
+  /**
+   * Whether the row is read-only by document permission. When true the
+   * Lock toggle is disabled (the row already renders as locked) so the
+   * user can't appear to clear an enforced permission lock.
+   */
+  readonly?: boolean;
   onChangeColor?: (color: string) => void;
   onToggleVisible?: () => void;
   onToggleMuted?: () => void;
@@ -82,6 +88,7 @@ export function TrackControlMenuContent({
   visible,
   muted,
   locked,
+  readonly = false,
   onChangeColor,
   onToggleVisible,
   onToggleMuted,
@@ -208,18 +215,25 @@ export function TrackControlMenuContent({
       </NestedItem>
       <NestedItem
         closeOnSelect={false}
-        disabled={playing}
+        disabled={playing || readonly}
         onClick={onToggleLocked}
         left={
-          locked === true ? (
+          // Document-readonly always reads as locked visually; user-toggle
+          // locked uses the same icon. The icon flips to unlock-form only
+          // when the user can actually clear it.
+          locked === true || readonly ? (
             <LockOff size="18px" className={ICON_CLASS_NAME} />
           ) : (
             <Lock size="18px" className={ICON_CLASS_NAME} />
           )
         }
       >
-        {locked === true ? "Unlock" : "Lock"}
-        {isGroup ? " All" : ""}
+        {readonly
+          ? "Locked (document permissions)"
+          : locked === true
+            ? "Unlock"
+            : "Lock"}
+        {!readonly && isGroup ? " All" : ""}
       </NestedItem>
 
       {/* --- Keys --- */}

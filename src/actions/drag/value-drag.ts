@@ -303,6 +303,16 @@ const seedSelection = (
 export function startValueDrag(state: AnimationData, input: ValueDragStartInput): void {
   state.dragState = undefined;
 
+  // Permission/lock gate: refuse to start a value drag on a non-editable
+  // track. Drag updates/commits inherit the gate by virtue of `dragState`
+  // being undefined when the start was rejected.
+  const isNonEditable = Object.values(state.instancedTrackSources).some((row) =>
+    row.data.some((d) => d.trackId === input.trackId && (d.locked || d.readonly)),
+  );
+  if (isNonEditable) {
+    return;
+  }
+
   const track = state.tracks[input.trackId];
   if (!track) {
     return;

@@ -202,7 +202,11 @@ function flattenSources(
         id: track.id,
         data: [
           {
-            selectable: foreground && !(track.locked ?? false),
+            // `selectable` and `editable` both honor permission-driven readonly
+            // and user-toggle locked. The two flags also flow through to row
+            // data so the UI can distinguish them (e.g. disable the Lock
+            // toggle when readonly is true).
+            selectable: foreground && !(track.locked ?? false) && !track.readonly,
             editable: !track.readonly && !(track.locked ?? false),
             layerBand,
             animationId: track.animationId,
@@ -212,6 +216,7 @@ function flattenSources(
             muted: track.muted ?? false,
             visible: track.visible ?? true,
             locked: track.locked ?? false,
+            readonly: track.readonly ?? false,
             trackId: track.trackId,
             animatableId: track.animatableId,
             iconCode: track.iconCode,

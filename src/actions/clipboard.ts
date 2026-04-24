@@ -3,29 +3,14 @@ import {
   applyTrackDiffOpsToTrack,
   computeLocalStamp,
   computeWorldStamp,
+  getNonEditableTrackIds,
 } from "../functions";
 import type {
   AnimationData,
   AnimationStoreGetter,
   AnimationStoreSetter,
 } from "../store-types";
-import type { SourceRow } from "../types";
 import type { TrackDiffOp } from "../types/util/diff";
-
-/**
- * Set of track IDs currently flagged as locked across all source rows.
- * Used to filter out locked tracks from any edit operation before it reaches
- * the diff pipeline.
- */
-function getLockedTrackIds(sourceRows: Record<string, SourceRow>): Set<string> {
-  const locked = new Set<string>();
-  Object.values(sourceRows).forEach((row) =>
-    row.data.forEach((d) => {
-      if (d.locked) locked.add(d.trackId);
-    }),
-  );
-  return locked;
-}
 
 interface InstanceTiming {
   timescale: number;
@@ -121,7 +106,7 @@ export function pasteAtStamp(
   get: AnimationStoreGetter,
   worldStamp: number,
 ): void {
-  const lockedTrackIds = getLockedTrackIds(get().instancedTrackSources);
+  const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
   set(
     produce((state: AnimationData): void => {
       const clipboard = state.clipboard;
@@ -153,8 +138,9 @@ export function pasteAtStamp(
           targetTrackKey = clipTrack.sourceTrackKey;
         }
 
-        // Skip locked tracks — no edits allowed
-        if (lockedTrackIds.has(targetTrackKey)) continue;
+        // Skip non-editable tracks (user-locked or document-readonly) —
+        // no edits allowed.
+        if (nonEditableIds.has(targetTrackKey)) continue;
 
         const track = state.tracks[targetTrackKey];
         if (!track) continue;
@@ -210,7 +196,7 @@ export function pasteAtStamp(
 }
 
 export function deleteSelection(set: AnimationStoreSetter, get: AnimationStoreGetter): void {
-  const lockedTrackIds = getLockedTrackIds(get().instancedTrackSources);
+  const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
   set(
     produce((state: AnimationData): void => {
       const selected = state.selectionState.keypoints;
@@ -219,7 +205,7 @@ export function deleteSelection(set: AnimationStoreSetter, get: AnimationStoreGe
       // Group deletes by track so we can apply as a single diff batch per track
       const diffsByTrack = new Map<string, TrackDiffOp[]>();
       selected.forEach((keypointIds, trackId) => {
-        if (lockedTrackIds.has(trackId)) return;
+        if (nonEditableIds.has(trackId)) return;
         const list: TrackDiffOp[] = [];
         keypointIds.forEach((keypointId) => {
           list.push({ type: "deleteKeypoint", trackId, keypointId });
@@ -234,10 +220,11 @@ export function deleteSelection(set: AnimationStoreSetter, get: AnimationStoreGe
       });
 
       // Clear selection for tracks whose keypoints were removed; preserve
-      // selection entries for locked tracks (their keypoints still exist).
+      // selection entries for non-editable tracks (locked or readonly —
+      // their keypoints still exist and may be re-selected after unlock).
       const nextSelection = new Map<string, Set<string>>();
       selected.forEach((keypointIds, trackId) => {
-        if (lockedTrackIds.has(trackId)) {
+        if (nonEditableIds.has(trackId)) {
           nextSelection.set(trackId, new Set(keypointIds));
         }
       });

@@ -7,6 +7,7 @@ import {
 import { GROUP_TYPES } from "../constants";
 import type {
   AnimationData,
+  AnimationStoreGetter,
   AnimationPreferencesPatch,
   AnimationStoreSetter,
 } from "../store-types";
@@ -135,12 +136,86 @@ export function setTracksVisible(
   );
 }
 
+/**
+ * Set the document-permission `readonly` flag on a list of source ids.
+ * Distinct from `setTracksLocked`: callers are studio-side load paths
+ * propagating the current user's edit permission, not the user toggling a
+ * lock from the UI.
+ *
+ * Idempotent: skips the `set()` entirely when every requested id already
+ * carries the desired flag value. Critical for the studio-side reactive
+ * wiring, which subscribes to `globalSourceTree` and would otherwise loop
+ * infinitely (subscription fires → action writes a new tree → subscription
+ * fires again).
+ */
+export function setSourcesReadonly(
+  set: AnimationStoreSetter,
+  get: AnimationStoreGetter,
+  sourceIds: string | string[],
+  readonly: boolean,
+): void {
+  const ids = Array.isArray(sourceIds) ? sourceIds : [sourceIds];
+  if (ids.length === 0) return;
+
+  const currentById = new Map<string, boolean>();
+  collectSourceTracks(get().globalSourceTree).forEach((track) => {
+    if (ids.includes(track.id)) {
+      currentById.set(track.id, track.readonly === true);
+    }
+  });
+  // Only operate on ids that exist in the tree AND whose current value
+  // differs from the requested value. If none, do not write.
+  const idsToUpdate = ids.filter((id) => {
+    const current = currentById.get(id);
+    return current !== undefined && current !== readonly;
+  });
+  if (idsToUpdate.length === 0) return;
+
+  set(
+    produce((state: AnimationData): void => {
+      const updates: Record<string, { readonly?: boolean }> = {};
+      idsToUpdate.forEach((id) => {
+        updates[id] = { readonly };
+      });
+      state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
+    }),
+  );
+}
+
+/**
+ * Mark every track belonging to a given animation as readonly (or clear it).
+ * Used by studio-side wiring when an asset's permissions change so the
+ * editor reflects the new edit-capability without needing to know about
+ * individual track ids. Idempotent via `setSourcesReadonly`.
+ */
+export function setAnimationReadonly(
+  set: AnimationStoreSetter,
+  get: AnimationStoreGetter,
+  animationId: string,
+  readonly: boolean,
+): void {
+  const tracks = collectSourceTracks(get().globalSourceTree);
+  const ids = tracks.filter((track) => track.animationId === animationId).map((track) => track.id);
+  if (ids.length === 0) return;
+  setSourcesReadonly(set, get, ids, readonly);
+}
+
 export function setTracksLocked(
   set: AnimationStoreSetter,
+  get: AnimationStoreGetter,
   sourceIds: string | string[],
   locked: boolean,
 ): void {
-  const ids = Array.isArray(sourceIds) ? sourceIds : [sourceIds];
+  // Refuse to change the user-toggle lock on permission-locked tracks. The
+  // visual effect is identical (both render as locked), but readonly cannot
+  // be cleared from the editor — only by changing document permissions.
+  const requested = Array.isArray(sourceIds) ? sourceIds : [sourceIds];
+  const tracks = collectSourceTracks(get().globalSourceTree);
+  const readonlyIds = new Set(
+    tracks.filter((track) => track.readonly === true).map((track) => track.id),
+  );
+  const ids = requested.filter((id) => !readonlyIds.has(id));
+  if (ids.length === 0) return;
   set(
     produce((state: AnimationData): void => {
       const updates: Record<string, { locked?: boolean }> = {};

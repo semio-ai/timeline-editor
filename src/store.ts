@@ -58,6 +58,8 @@ import {
   setTracksMuted as setTracksMutedAction,
   setTracksVisible as setTracksVisibleAction,
   setTracksLocked as setTracksLockedAction,
+  setSourcesReadonly as setSourcesReadonlyAction,
+  setAnimationReadonly as setAnimationReadonlyAction,
   setPreferences as setPreferencesAction,
   addView as addViewAction,
   replaceEditorViews as replaceEditorViewsAction,
@@ -103,6 +105,7 @@ import {
 import {
   computeStoredAnimation,
   computeUpdatedSources,
+  getNonEditableTrackIds,
 } from "./functions";
 import {
   updatePlayerLoop,
@@ -252,6 +255,8 @@ export const AnimationSlice = (
       );
     },
     updateKeypoint: (trackId: string, keypoint: Partial<SimpleKeypoint>, canMerge?: boolean) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      if (nonEditableIds.has(trackId)) return;
       set(
         produce((state: AnimationData): void => {
           updateKeypoint(state, trackId, keypoint, canMerge);
@@ -262,9 +267,12 @@ export const AnimationSlice = (
       keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[],
       canMerge?: boolean,
     ) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const writable = keypoints.filter(({ trackId }) => !nonEditableIds.has(trackId));
+      if (writable.length === 0) return;
       set(
         produce((state: AnimationData): void => {
-          keypoints.forEach(({ trackId, keypoint }) => {
+          writable.forEach(({ trackId, keypoint }) => {
             updateKeypoint(state, trackId, keypoint, canMerge);
           });
         }),
@@ -306,6 +314,16 @@ export const AnimationSlice = (
       );
     },
     updateSelectedKeyTransitions: (patch: TransitionPatch) => {
+      // Permission/lock gate: skip if every selected track is non-editable.
+      // The action operates over `selectionState.keypoints`; we leave the
+      // per-track pruning to the action itself by short-circuiting when
+      // nothing is editable, and by relying on `selectable: false` on
+      // non-editable rows preventing those keypoints from being selected
+      // in the first place.
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const selected = get().selectionState.keypoints;
+      const anyEditable = Array.from(selected.keys()).some((id) => !nonEditableIds.has(id));
+      if (!anyEditable) return;
       set(
         produce((state: AnimationData): void => {
           updateSelectedKeyTransitionsAction(state, patch);
@@ -320,6 +338,8 @@ export const AnimationSlice = (
       );
     },
     createKeypoint: (trackId: string, point: Partial<SimpleKeypoint>) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      if (nonEditableIds.has(trackId)) return;
       set(
         produce((state: AnimationData): void => {
           createKeypoint(state, trackId, point);
@@ -327,15 +347,22 @@ export const AnimationSlice = (
       );
     },
     createKeypoints: (keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[]) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const writable = keypoints.filter(({ trackId }) => !nonEditableIds.has(trackId));
+      if (writable.length === 0) return;
       set(
         produce((state: AnimationData): void => {
-          keypoints.forEach(({ trackId, keypoint }) => {
+          writable.forEach(({ trackId, keypoint }) => {
             createKeypoint(state, trackId, keypoint);
           });
         }),
       );
     },
     updateTrack: (track: Partial<SimpleTrack>) => {
+      if (track.id) {
+        const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+        if (nonEditableIds.has(track.id)) return;
+      }
       set(
         produce((state: AnimationData) => {
           updateTrack(state, track);
@@ -346,10 +373,13 @@ export const AnimationSlice = (
       );
     },
     updateTrackGroupName: (trackIds: string[], name: string) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const writable = trackIds.filter((id) => !nonEditableIds.has(id));
+      if (writable.length === 0) return;
       set(
         produce((state: AnimationData) => {
           const nextTracks = { ...state.tracks };
-          trackIds.forEach((id) => {
+          writable.forEach((id) => {
             const existing = nextTracks[id];
             if (existing) {
               nextTracks[id] = { ...existing, groupName: name };
@@ -361,6 +391,8 @@ export const AnimationSlice = (
       );
     },
     removeKeypoint: (trackId: string, keypointId: string) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      if (nonEditableIds.has(trackId)) return;
       set(
         produce((state: AnimationData): void => {
           removeKeypoint(state, trackId, keypointId);
@@ -368,19 +400,12 @@ export const AnimationSlice = (
       );
     },
     removeKeypoints: (keypoints: { trackId: string; keypointId: string }[]) => {
-      // Filter out locked tracks
-      const sourceRows = get().instancedTrackSources;
-      const lockedTrackIds = new Set<string>();
-      Object.values(sourceRows).forEach((row) =>
-        row.data.forEach((d) => {
-          if (d.locked) lockedTrackIds.add(d.trackId);
-        }),
-      );
-      const unlocked = keypoints.filter((k) => !lockedTrackIds.has(k.trackId));
-      if (unlocked.length === 0) return;
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const writable = keypoints.filter((k) => !nonEditableIds.has(k.trackId));
+      if (writable.length === 0) return;
       set(
         produce((state: AnimationData): void => {
-          unlocked.forEach(({ trackId, keypointId }) => {
+          writable.forEach(({ trackId, keypointId }) => {
             removeKeypoint(state, trackId, keypointId);
           });
         }),
@@ -438,12 +463,8 @@ export const AnimationSlice = (
       );
     },
     insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => {
-      // Check if track is locked via source row data
-      const sourceRows = get().instancedTrackSources;
-      const isLocked = Object.values(sourceRows).some((row) =>
-        row.data.some((d) => d.trackId === trackId && d.locked),
-      );
-      if (isLocked) return;
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      if (nonEditableIds.has(trackId)) return;
       set(
         produce((state: AnimationData) => {
           insertKeyAtWorldStampAction(state, trackId, worldStamp, instanceId);
@@ -570,7 +591,11 @@ export const AnimationSlice = (
     setTracksVisible: (sourceIds: string | string[], visible: boolean) =>
       setTracksVisibleAction(set, sourceIds, visible),
     setTracksLocked: (sourceIds: string | string[], locked: boolean) =>
-      setTracksLockedAction(set, sourceIds, locked),
+      setTracksLockedAction(set, get, sourceIds, locked),
+    setSourcesReadonly: (sourceIds: string | string[], readonly: boolean) =>
+      setSourcesReadonlyAction(set, get, sourceIds, readonly),
+    setAnimationReadonly: (animationId: string, readonly: boolean) =>
+      setAnimationReadonlyAction(set, get, animationId, readonly),
     setPreferences: (preferences: AnimationPreferencesPatch) =>
       setPreferencesAction(set, preferences),
 

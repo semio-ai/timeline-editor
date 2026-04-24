@@ -688,11 +688,30 @@ export interface AnimationActions {
    */
   setTracksVisible: (sourceIds: string | string[], visible: boolean) => void;
   /**
-   * Set the locked state of source track(s). Prevents editing.
+   * Set the user-toggle locked state of source track(s). Prevents editing.
+   * No-op for tracks whose `readonly` (document-permission) flag is true —
+   * permission-locked tracks remain locked regardless of this call.
    * @param sourceIds - Source track id(s) to update.
    * @param locked - Whether the track is locked from editing.
    */
   setTracksLocked: (sourceIds: string | string[], locked: boolean) => void;
+  /**
+   * Set the document-permission `readonly` flag on source track(s). Used by
+   * studio-side load paths to reflect the current user's edit permission;
+   * unlike `setTracksLocked`, this is not user-toggleable from the editor.
+   * @param sourceIds - Source track id(s) to update.
+   * @param readonly - Whether the track is read-only by document permission.
+   */
+  setSourcesReadonly: (sourceIds: string | string[], readonly: boolean) => void;
+  /**
+   * Mark every track belonging to a given animation as readonly (or clear
+   * the flag). Convenience over `setSourcesReadonly` for permission flips
+   * coming from a per-asset subscription that doesn't know about
+   * individual track ids.
+   * @param animationId - Animation whose tracks should be flagged.
+   * @param readonly - Whether the tracks are read-only by document permission.
+   */
+  setAnimationReadonly: (animationId: string, readonly: boolean) => void;
   /**
    * Set animatables in bulk, replacing existing animatables.
    * @param animatables - Record of animatable ID to AnimatableValue

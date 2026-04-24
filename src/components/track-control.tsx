@@ -147,6 +147,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     rowVisible,
     rowMuted,
     rowLocked,
+    rowReadonly,
     handleToggleVisible,
     handleToggleMuted,
     handleToggleLocked,
@@ -340,6 +341,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
                 visible={rowVisible}
                 muted={rowMuted}
                 locked={rowLocked}
+                readonly={rowReadonly === true}
                 onToggleVisible={handleToggleVisible}
                 onToggleMuted={handleToggleMuted}
                 onToggleLocked={handleToggleLocked}

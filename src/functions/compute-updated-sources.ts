@@ -6,6 +6,7 @@ interface SourceUpdate {
   muted?: boolean;
   visible?: boolean;
   locked?: boolean;
+  readonly?: boolean;
 }
 
 export function computeUpdatedSources(
@@ -32,6 +33,7 @@ export function computeUpdatedSources(
         muted: update.muted !== undefined ? update.muted : sourceTrack.muted,
         visible: update.visible !== undefined ? update.visible : sourceTrack.visible,
         locked: update.locked !== undefined ? update.locked : sourceTrack.locked,
+        readonly: update.readonly !== undefined ? update.readonly : sourceTrack.readonly,
       };
     }
   });
