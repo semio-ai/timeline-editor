@@ -348,7 +348,12 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
               />
             ) : (
               <KeyStrip
-                disabled={allReadonly || playing}
+                // `disabled` blanks the whole strip during playback;
+                // `authoringDisabled` only blanks the center hex when the
+                // row is non-editable (readonly or user-locked) so prev/
+                // next navigation remains usable for inspection.
+                disabled={playing}
+                authoringDisabled={allReadonly}
                 source={sourceRow}
                 color={color}
                 onHexClick={() => {

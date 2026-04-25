@@ -46,6 +46,17 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
     [source],
   );
 
+  // Aggregate non-editable state across every leaf in the global source —
+  // when *every* track is readonly or user-locked, the global hex (which
+  // would add/remove keys across all tracks) becomes a no-op and should
+  // be visually disabled. Navigation (prev/next) stays available.
+  const allNonEditable = useMemo(
+    () =>
+      fallbackSource.data.length > 0 &&
+      fallbackSource.data.every((entry) => entry.editable === false),
+    [fallbackSource],
+  );
+
   const color = useColors(
     fallbackSource.data.length > 0 ? uniq(fallbackSource.data.map((s) => s.trackId)) : [],
   );
@@ -159,7 +170,12 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       <KeyStrip
         source={fallbackSource}
         color={color}
+        // `disabled` blanks the strip during playback / before content
+        // resolves; `authoringDisabled` only blanks the center hex when
+        // every leaf is non-editable, so navigation stays available for
+        // viewers inspecting a fully-readonly project.
         disabled={controlsDisabled}
+        authoringDisabled={allNonEditable}
         onHexClick={() => {
           if (controlsDisabled) return;
           if (keyState === "full" && currentFrame) {

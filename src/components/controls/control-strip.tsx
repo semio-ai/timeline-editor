@@ -8,7 +8,18 @@ export type ControlStripCenterIcon = "key" | "plus";
 
 export interface ControlStripProps {
   color?: string;
+  /**
+   * Disables every button in the strip — both navigation (prev/next) and
+   * the authoring center button. Use for blanket states like "playing".
+   */
   disabled?: boolean;
+  /**
+   * Disables only the center (authoring) button. Use when navigation
+   * should remain available but mutations are blocked — e.g. all rows
+   * are readonly or user-locked. Prev/next navigation is read-only and
+   * stays enabled in that case.
+   */
+  authoringDisabled?: boolean;
   prevEnabled?: boolean;
   nextEnabled?: boolean;
   prevVisible?: boolean;
@@ -33,6 +44,7 @@ export interface ControlStripProps {
 export function ControlStrip({
   color = "#737373",
   disabled = false,
+  authoringDisabled = false,
   prevEnabled = false,
   nextEnabled = false,
   prevVisible = true,
@@ -55,7 +67,7 @@ export function ControlStrip({
 }: ControlStripProps) {
   const prevDisabled = disabled || !prevEnabled || !onPrev;
   const nextDisabled = disabled || !nextEnabled || !onNext;
-  const centerDisabled = disabled || !onCenter;
+  const centerDisabled = disabled || authoringDisabled || !onCenter;
 
   const defaultCenterContent =
     centerIcon === "plus" ? (
