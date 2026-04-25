@@ -191,8 +191,14 @@ function flattenSources(
         foreground && (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));
 
       const locked = track.locked ?? false;
+      const readonly = track.readonly ?? false;
+      // Both user-toggle `locked` and document-permission `readonly`
+      // produce the same visual affordance (the foreground-locked
+      // overlay), since to the user the track is non-editable for the
+      // same reason — only the *cause* (and toggle availability) differs.
+      const nonEditable = locked || readonly;
       let layerBand = LayerBand.Background;
-      if (foreground && locked) {
+      if (foreground && nonEditable) {
         layerBand = LayerBand.ForegroundLocked;
       } else if (foreground) {
         layerBand = isSelected ? LayerBand.ForegroundSelected : LayerBand.ForegroundUnselected;
