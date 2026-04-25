@@ -314,12 +314,11 @@ export const AnimationSlice = (
       );
     },
     updateSelectedKeyTransitions: (patch: TransitionPatch) => {
-      // Permission/lock gate: skip if every selected track is non-editable.
-      // The action operates over `selectionState.keypoints`; we leave the
-      // per-track pruning to the action itself by short-circuiting when
-      // nothing is editable, and by relying on `selectable: false` on
-      // non-editable rows preventing those keypoints from being selected
-      // in the first place.
+      // Coarse short-circuit: when every selected track is non-editable
+      // there's nothing to do, so skip the produce entirely. The action
+      // itself filters per-context on `nonEditableIds` so mixed
+      // selections (some readonly, some writable — possible when
+      // permissions change mid-session) only mutate the writable ones.
       const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
       const selected = get().selectionState.keypoints;
       const anyEditable = Array.from(selected.keys()).some((id) => !nonEditableIds.has(id));

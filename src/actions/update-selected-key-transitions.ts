@@ -6,6 +6,7 @@ import {
   resolveNextSelectionTransitions,
   type SelectedKeyContext,
 } from "../functions/key-transition-ui-utils";
+import { getNonEditableTrackIds } from "../functions/track-editability";
 import { updateKeypoint } from "./update-keypoint";
 
 const DEFAULT_NEW_KEY_TRANSITIONS = {
@@ -45,7 +46,16 @@ export function updateSelectedKeyTransitions(state: AnimationData, patch: Transi
   const selectedKeyContexts = resolveSelectedKeyContexts(state);
   if (selectedKeyContexts.length === 0) return;
 
+  // Defense in depth against mixed selections that contain readonly /
+  // user-locked keypoints. The slice wrapper only short-circuits when
+  // *every* selected track is non-editable; the per-context filter here
+  // ensures readonly keypoints are skipped even when the selection is
+  // mixed (e.g. permissions changed mid-session leaving readonly entries
+  // in `selectionState`).
+  const { nonEditableIds } = getNonEditableTrackIds(state.instancedTrackSources);
+
   selectedKeyContexts.forEach((context) => {
+    if (nonEditableIds.has(context.trackId)) return;
     const nextTransitions = resolveNextSelectionTransitions(context, patch);
     updateKeypoint(
       state,
