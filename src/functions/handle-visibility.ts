@@ -1,4 +1,4 @@
-import type { HandleVisibility } from "../store-types";
+import { HandleVisibility } from "../store-types";
 import type { RenderHandle, SourceRow } from "../types";
 
 /**
@@ -14,11 +14,11 @@ export interface HandleVisibilitySelection {
  * Whether the row is eligible to render bezier handles given the
  * preference and current selection.
  *
- * - "track-selection" (default): show handles whenever any track on this row
+ * - TrackSelection (default): show handles whenever any track on this row
  *   has selected keypoints in the active instance.
- * - "single-track": same, but only when exactly one track in the entire
+ * - SingleTrack: same, but only when exactly one track in the entire
  *   selection has keypoints — selecting two tracks suppresses handles.
- * - "key-selection": same gating as track-selection at the row level —
+ * - KeySelection: same gating as TrackSelection at the row level —
  *   per-handle filtering is applied separately by `filterHandlesByVisibility`.
  */
 export function shouldRowShowHandles(
@@ -35,7 +35,7 @@ export function shouldRowShowHandles(
     (entry) => (selection.keypoints.get(entry.trackId)?.size ?? 0) > 0,
   );
   if (!rowTrackHasKeys) return false;
-  if (visibility === "single-track") {
+  if (visibility === HandleVisibility.SingleTrack) {
     // Count only tracks that actually have selected keypoints — toggleTrackInSelection
     // and rangeSelectTracks store empty Sets for tracks added without key-level
     // selection, which would otherwise inflate this count and suppress handles.
@@ -49,7 +49,7 @@ export function shouldRowShowHandles(
 }
 
 /**
- * Filter the row's handle list when the preference is "key-selection".
+ * Filter the row's handle list when the preference is HandleVisibility.KeySelection.
  * In every other mode the input list is returned unchanged.
  */
 export function filterHandlesByVisibility(
@@ -57,7 +57,7 @@ export function filterHandlesByVisibility(
   visibility: HandleVisibility,
   selectedKeypoints: Map<string, Set<string>>,
 ): RenderHandle[] {
-  if (visibility !== "key-selection" || handles.length === 0) return handles;
+  if (visibility !== HandleVisibility.KeySelection || handles.length === 0) return handles;
   return handles.filter((handle) => {
     const trackSelection = selectedKeypoints.get(handle.trackId);
     return trackSelection?.has(handle.keypointId) ?? false;

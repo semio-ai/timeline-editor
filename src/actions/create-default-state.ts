@@ -1,5 +1,10 @@
 import { TimeDisplay } from "@semio/ui";
-import { AnimationData } from "../store-types";
+import {
+  AnimationData,
+  ControlStripMode,
+  HandleVisibility,
+  ViolationVisibility,
+} from "../store-types";
 import { createEmptySelectionState } from "../functions/selection-state-manager";
 import { TransitionDirective, TransitionPairing } from "../types";
 // import { createDefaultAnimation } from "./create-default-animation";
@@ -27,8 +32,9 @@ export const createDefaultState = (): AnimationData => {
     selectionState: createEmptySelectionState(),
     emphasisRowId: null,
     preferences: {
-      controlStripMode: "keySkip",
-      handleVisibility: "track-selection",
+      controlStripMode: ControlStripMode.KeySkip,
+      handleVisibility: HandleVisibility.TrackSelection,
+      violationVisibility: ViolationVisibility.Visible,
       newKeyDefaults: {
         transitions: {
           in: TransitionDirective.InferredAutoClamped,

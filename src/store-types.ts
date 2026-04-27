@@ -139,15 +139,42 @@ export interface ClipboardState {
 
 /**
  * Controls when bezier handles are visible in spline mode.
- * - "track-selection": Handles show on all keys in any track that has a selection.
- * - "single-track": Handles show only when exactly one track is selected.
- * - "key-selection": Handles show only on individually selected keys.
+ * - TrackSelection: Handles show on all keys in any track that has a selection.
+ * - SingleTrack: Handles show only when exactly one track is selected.
+ * - KeySelection: Handles show only on individually selected keys.
  */
-export type HandleVisibility = "track-selection" | "single-track" | "key-selection";
+export enum HandleVisibility {
+  TrackSelection = "track-selection",
+  SingleTrack = "single-track",
+  KeySelection = "key-selection",
+}
+
+/**
+ * Controls when violation overlays are rendered.
+ * - Visible: Violations show on every track.
+ * - Selection: Violations show only on tracks with selected keypoints.
+ * - Hidden: Violations are not rendered.
+ */
+export enum ViolationVisibility {
+  Visible = "visible",
+  Selection = "selection",
+  Hidden = "hidden",
+}
+
+/**
+ * Controls which controls appear in the right-side strip of each track row.
+ * - KeySkip: Skip-back, keypoint add/remove, skip-forward (default).
+ * - Properties: Visibility, mute, lock toggles.
+ */
+export enum ControlStripMode {
+  KeySkip = "keySkip",
+  Properties = "properties",
+}
 
 export interface AnimationPreferencesPatch {
-  controlStripMode?: "keySkip" | "properties";
+  controlStripMode?: ControlStripMode;
   handleVisibility?: HandleVisibility;
+  violationVisibility?: ViolationVisibility;
   newKeyDefaults?: {
     transitions?: Partial<NewKeyTransitionPreferences>;
   };
@@ -214,14 +241,12 @@ export interface AnimationData {
    */
   preferences: {
     newKeyDefaults: NewKeyPreferences;
-    /**
-     * Which controls appear in the right-side strip of each track row.
-     * - "keySkip": Skip-back, keypoint add/remove, skip-forward (default)
-     * - "properties": Visibility, mute, lock toggles
-     */
-    controlStripMode: "keySkip" | "properties";
+    /** Which controls appear in the right-side strip of each track row. */
+    controlStripMode: ControlStripMode;
     /** Controls when bezier handles are visible in spline mode. */
     handleVisibility: HandleVisibility;
+    /** Controls when violation overlays are rendered. */
+    violationVisibility: ViolationVisibility;
   };
   animatables: Record<string, AnimatableValue>;
 

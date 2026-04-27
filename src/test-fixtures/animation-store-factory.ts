@@ -7,6 +7,7 @@ import {
   StoredAnimation,
   StandardTransitionType,
 } from "../types";
+import { ControlStripMode, HandleVisibility, ViolationVisibility } from "../store-types";
 import { createAnimationStore, type AnimationStore } from "../store";
 import { migrateAnimationData } from "../functions/migrate-animation-data";
 import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
@@ -670,8 +671,9 @@ export function createTestAnimationStore(options?: {
 
     // Preferences
     preferences: {
-      controlStripMode: "keySkip" as const,
-      handleVisibility: "track-selection" as const,
+      controlStripMode: ControlStripMode.KeySkip,
+      handleVisibility: HandleVisibility.TrackSelection,
+      violationVisibility: ViolationVisibility.Visible,
       newKeyDefaults: {
         transitions: {
           in: StandardTransitionType.Cubic,
@@ -707,8 +709,9 @@ export function createMinimalAnimationStore(): AnimationStore {
     timeDisplay: TimeDisplay.Frames,
     expanded: true,
     preferences: {
-      controlStripMode: "keySkip" as const,
-      handleVisibility: "track-selection" as const,
+      controlStripMode: ControlStripMode.KeySkip,
+      handleVisibility: HandleVisibility.TrackSelection,
+      violationVisibility: ViolationVisibility.Visible,
       newKeyDefaults: {
         transitions: {
           in: StandardTransitionType.Cubic,

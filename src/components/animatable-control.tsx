@@ -23,7 +23,7 @@ import {
   useControlMenu,
   useRowBackground,
 } from "../hooks";
-import { AnimationActions, AnimationData } from "../store-types";
+import { AnimationActions, AnimationData, ControlStripMode } from "../store-types";
 import { SourceRow, SourceRowData } from "../types";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
 import { COMPLEX_TYPES, DEFAULT_COLOR } from "../constants";
@@ -224,7 +224,7 @@ function AnimatableLeafControl({
       <TrackControl
         sourceRow={sourceRow}
         depthOverride={depth}
-        controlStripOverride="keySkip"
+        controlStripOverride={ControlStripMode.KeySkip}
       />
     );
   }

@@ -14,6 +14,7 @@ import {
 import { Settings } from "@solar-icons/react-perf/Linear";
 import { useAnimationStore } from "../hooks";
 import { collectSourceTracks } from "../functions/source-utils";
+import { ControlStripMode } from "../store-types";
 import type { AnimationActions, AnimationData } from "../store-types";
 
 /**
@@ -50,7 +51,7 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
     useShallow((state: AnimationActions) => state.setTracksLocked),
   );
 
-  const isProperties = controlStripMode === "properties";
+  const isProperties = controlStripMode === ControlStripMode.Properties;
 
   // Collect all leaf tracks and compute aggregate states
   const { allIds, visibleState, mutedState, lockedState } = useMemo(() => {
@@ -92,7 +93,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         label={isProperties ? "Show key controls" : "Show track properties"}
         value={isProperties}
         onChange={() =>
-          setPreferences({ controlStripMode: isProperties ? "keySkip" : "properties" })
+          setPreferences({
+            controlStripMode: isProperties ? ControlStripMode.KeySkip : ControlStripMode.Properties,
+          })
         }
       >
         {isProperties ? (

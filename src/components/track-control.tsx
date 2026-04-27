@@ -25,7 +25,7 @@ import {
 } from "../hooks";
 import { useValuesRef } from "../hooks/use-values-ref";
 import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
-import { AnimationActions, AnimationData } from "../store-types";
+import { AnimationActions, AnimationData, ControlStripMode } from "../store-types";
 import type { SimpleRawValue } from "../types/data/simple-track";
 import { buildTrackKey } from "../utils/track-key";
 import { getSemanticLabelForIconCode } from "../functions";
@@ -40,8 +40,8 @@ export interface TrackControlProps {
   ancestorIsLast?: boolean[];
   /** Override the depth from sourceRow (used when rendered inside AnimatableControlList). */
   depthOverride?: number;
-  /** Override the control strip mode (e.g., force "keySkip" in the animatable control list). */
-  controlStripOverride?: "keySkip" | "properties";
+  /** Override the control strip mode (e.g., force KeySkip in the animatable control list). */
+  controlStripOverride?: ControlStripMode;
 }
 
 function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: TrackControlProps) {
@@ -333,7 +333,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
             ) : undefined
           }
           controls={
-            controlStripMode === "properties" ? (
+            controlStripMode === ControlStripMode.Properties ? (
               <TrackPropertiesStrip
                 color={color}
                 disabled={playing}

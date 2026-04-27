@@ -8,15 +8,34 @@ import { useColors, useNames } from "../hooks";
 export interface ViolationPanelProps {
   segment: ViolationSegment;
   violations: Record<string, Violation>;
+  /**
+   * When provided, only violations whose trackId is in this set are surfaced
+   * in the panel (header tracks, count, and the per-violation grid). Used by
+   * the "Selected tracks only" violation visibility mode so a group-row
+   * popover doesn't list violations from non-selected children.
+   */
+  selectedTrackIds?: ReadonlySet<string>;
 }
 
-export function ViolationPanel({ segment, violations }: ViolationPanelProps) {
+export function ViolationPanel({
+  segment,
+  violations,
+  selectedTrackIds,
+}: ViolationPanelProps) {
+  const displayedViolationIds = useMemo(() => {
+    if (!selectedTrackIds) return segment.violations;
+    return segment.violations.filter((vid) => {
+      const trackId = violations[vid]?.trackId;
+      return trackId !== undefined && selectedTrackIds.has(trackId);
+    });
+  }, [segment, violations, selectedTrackIds]);
+
   const uniqueTracks: string[] = useMemo(() => {
-    return uniq(segment.violations.map((violationId) => violations[violationId].trackId));
-  }, [segment, violations]);
+    return uniq(displayedViolationIds.map((violationId) => violations[violationId].trackId));
+  }, [displayedViolationIds, violations]);
 
   const defaultViolations: Violation[] = [];
-  const collapsedViolations = segment.violations.reduce((list, v) => {
+  const collapsedViolations = displayedViolationIds.reduce((list, v) => {
     const violation = violations[v];
     if (!violation) return list;
     const existing = list.find(
@@ -45,7 +64,7 @@ export function ViolationPanel({ segment, violations }: ViolationPanelProps) {
           {name}
         </div>
         <div className="min-w-6 text-center text-black" style={{ backgroundColor: color }}>
-          {segment.violations.length}
+          {displayedViolationIds.length}
         </div>
       </div>
 

@@ -32,7 +32,12 @@ import {
   VerticalAxis,
   VerticalAxisRange,
 } from "../../types";
-import { AnimationData, AnimationActions } from "../../store-types";
+import {
+  AnimationData,
+  AnimationActions,
+  HandleVisibility,
+  ViolationVisibility,
+} from "../../store-types";
 import { DEFAULT_COLOR, RENDER_MORPH_SPRING, Z } from "../../constants";
 import { AnimationContext } from "../../context";
 import { DataPoint } from "./data-point";
@@ -179,7 +184,21 @@ export const DataRenderer = memo(function DataRenderer({
   );
   const selectionState = useAnimationStore(useShallow((state: StoreState) => state.selectionState));
   const handleVisibility = useAnimationStore(
-    useShallow((state: StoreState) => state.preferences.handleVisibility ?? "track-selection"),
+    useShallow(
+      (state: StoreState) => state.preferences.handleVisibility ?? HandleVisibility.TrackSelection,
+    ),
+  );
+  const violationVisibility = useAnimationStore(
+    useShallow(
+      (state: StoreState) => state.preferences.violationVisibility ?? ViolationVisibility.Visible,
+    ),
+  );
+  const violationSelectedTrackIds = useMemo<ReadonlySet<string> | undefined>(
+    () =>
+      violationVisibility === ViolationVisibility.Selection
+        ? new Set(selectionState.keypoints.keys())
+        : undefined,
+    [violationVisibility, selectionState.keypoints],
   );
   const hasActiveDrag = useAnimationStore(
     useShallow((state: StoreState) => Boolean(state.dragState)),
@@ -398,7 +417,7 @@ export const DataRenderer = memo(function DataRenderer({
   // different key), but NOT when it's merely extended (e.g. shift-clicking
   // to add keys to the selection).
   const handleIdSet = useMemo(() => {
-    if (handleVisibility !== "key-selection" || renderHandles.length === 0) return null;
+    if (handleVisibility !== HandleVisibility.KeySelection || renderHandles.length === 0) return null;
     return new Set(renderHandles.map((h) => h.id));
   }, [handleVisibility, renderHandles]);
   const prevHandleIdSetRef = useRef(handleIdSet);
@@ -522,7 +541,7 @@ export const DataRenderer = memo(function DataRenderer({
           )}
 
           {/* Render violations */}
-          {trackRender !== TrackRender.Spline && (
+          {trackRender !== TrackRender.Spline && violationVisibility !== ViolationVisibility.Hidden && (
             <ViolationRenderer
               violationSet={computedData.violationSet}
               theme={theme}
@@ -532,6 +551,7 @@ export const DataRenderer = memo(function DataRenderer({
               layer={transitionLayer}
               xTransform={xTransform}
               sourceRowId={sourceRowId}
+              selectedTrackIds={violationSelectedTrackIds}
             />
           )}
         </>

@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from "react";
+import { memo, useState, useEffect, useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme, useTooltipAnchor } from "@semio/ui";
 import { MotionValue, useSpring } from "motion/react";
@@ -21,6 +21,7 @@ const ViolationSegment = memo(function ViolationSegment({
   globalOpacityMV,
   xTransform,
   sourceRowId,
+  selectedTrackIds,
 }: {
   segment: {
     id: string;
@@ -38,11 +39,25 @@ const ViolationSegment = memo(function ViolationSegment({
   globalOpacityMV?: MotionValue<number>;
   xTransform?: (stamp: number) => number;
   sourceRowId: string;
+  selectedTrackIds?: ReadonlySet<string>;
 }) {
   const [hovered, setHovered] = useState(false);
 
   // Unique per source row + segment, so the same violation in different rows gets separate anchors
   const tooltipId = `violation-${sourceRowId}-${segment.id}`;
+
+  // Memoize panel JSX so unrelated re-renders (hover toggles) don't churn
+  // useTooltipAnchor's content-update effect.
+  const tooltipContent = useMemo(
+    () => (
+      <ViolationPanel
+        segment={segment}
+        violations={violations}
+        selectedTrackIds={selectedTrackIds}
+      />
+    ),
+    [segment, violations, selectedTrackIds],
+  );
 
   // 3D overlay setup — click to reveal violation details.
   // Group all violations together so overlapping segments (e.g. tracks vs timeline)
@@ -55,7 +70,7 @@ const ViolationSegment = memo(function ViolationSegment({
     onPointerLeave,
   } = useTooltipAnchor({
     id: tooltipId,
-    content: <ViolationPanel segment={segment} violations={violations} />,
+    content: tooltipContent,
     side: "top",
     axis: trackY ? "both" : "x",
     mode: "click",
@@ -64,15 +79,23 @@ const ViolationSegment = memo(function ViolationSegment({
       layer === LayerBand.ForegroundSelected ? 2 : layer === LayerBand.ForegroundUnselected ? 1 : 0,
   });
 
-  // Get all track IDs involved in this segment
-  const trackIds = Array.from(
-    new Set(
-      segment.violations
-        // We will want to filter to only show colors for violations in color if they
-        // belong to the active animation in the future.
-        .filter((id) => violations[id].instanceId === activeAnimationId)
-        .map((id) => violations[id].trackId as string),
-    ),
+  // Get all track IDs involved in this segment. In Selection mode the
+  // surfaced color matches the popover — restricted to the selected tracks
+  // so the stripe and the popover header agree.
+  const trackIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          segment.violations
+            .filter((id) => violations[id].instanceId === activeAnimationId)
+            .filter(
+              (id) =>
+                !selectedTrackIds || selectedTrackIds.has(violations[id].trackId as string),
+            )
+            .map((id) => violations[id].trackId as string),
+        ),
+      ),
+    [segment.violations, violations, activeAnimationId, selectedTrackIds],
   );
   const color = useColors(trackIds);
 
@@ -131,6 +154,12 @@ export interface ViolationRendererProps {
   xTransform?: (stamp: number) => number;
   /** Source row ID that owns this renderer — used to generate unique overlay anchor IDs. */
   sourceRowId: string;
+  /**
+   * When provided, only segments whose violations involve at least one of
+   * these tracks are rendered. An empty set renders nothing. Leave undefined
+   * to render every segment.
+   */
+  selectedTrackIds?: ReadonlySet<string>;
 }
 
 export const ViolationRenderer = memo(function ViolationRenderer({
@@ -143,6 +172,7 @@ export const ViolationRenderer = memo(function ViolationRenderer({
   layer = LayerBand.Background,
   xTransform,
   sourceRowId,
+  selectedTrackIds,
 }: ViolationRendererProps) {
   const activeAnimationId = useAnimationStore(
     useShallow((state) => state.selectionState.instanceId),
@@ -155,9 +185,19 @@ export const ViolationRenderer = memo(function ViolationRenderer({
     return () => clearTimeout(t);
   }, [globalOpacityMV]);
 
+  const visibleSegments = useMemo(() => {
+    if (!selectedTrackIds) return violationSet.segments;
+    return violationSet.segments.filter((segment) =>
+      segment.violations.some((vid) => {
+        const trackId = violationSet.violations[vid]?.trackId;
+        return trackId !== undefined && selectedTrackIds.has(trackId);
+      }),
+    );
+  }, [violationSet, selectedTrackIds]);
+
   return (
     <>
-      {violationSet.segments.map((segment) => (
+      {visibleSegments.map((segment) => (
         <ViolationSegment
           key={segment.id}
           segment={segment}
@@ -172,6 +212,7 @@ export const ViolationRenderer = memo(function ViolationRenderer({
           globalOpacityMV={globalOpacityMV}
           xTransform={xTransform}
           sourceRowId={sourceRowId}
+          selectedTrackIds={selectedTrackIds}
         />
       ))}
     </>

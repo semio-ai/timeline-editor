@@ -25,7 +25,7 @@ export interface TrackPropertiesStripProps {
 
 /**
  * Visibility / Mute / Lock toggle strip for track rows.
- * Shown when controlStripMode is "properties".
+ * Shown when controlStripMode is ControlStripMode.Properties.
  * Uses ToggleSquare for consistent toggle button styling.
  */
 export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
