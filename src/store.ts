@@ -232,6 +232,11 @@ export const AnimationSlice = (
       );
     },
     removeAnimatable: (id: string) => {
+      // TODO: also clear matching dotKey entries (and trackKeys for tracks
+      // referencing this animatable) from useValuesStore. Orphaned entries are
+      // currently inert (readers query by current animatable IDs) but
+      // accumulate until project reload. See useValuesStore JSDoc lifecycle
+      // section.
       set(
         produce((state: AnimationData): void => {
           if (!(id in state.animatables)) return;
