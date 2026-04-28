@@ -1,5 +1,4 @@
 import { shallow } from "zustand/shallow";
-import { isEqual } from "lodash";
 import type {
   AnimationApi,
   AnimationData,
@@ -133,23 +132,13 @@ export function updateGlobalSources(
       });
     },
     {
-      equalityFn: (current, previous) => {
-        const allCurrentTracks = new Set(
-          Object.values(current.animations).flatMap((a) => a.tracks),
-        );
-        const allPreviousTracks = new Set(
-          Object.values(previous.animations).flatMap((a) => a.tracks),
-        );
-        const currentAnimationIds = new Set(Object.keys(current.animations));
-        const previousAnimationIds = new Set(Object.keys(previous.animations));
-
-        return (
-          isEqual(allCurrentTracks, allPreviousTracks) &&
-          isEqual(currentAnimationIds, previousAnimationIds) &&
-          shallow(current.namespaces, previous.namespaces) &&
-          shallow(current.animatables, previous.animatables)
-        );
-      },
+      // Re-derive whenever any input ref changes. The previous custom equality
+      // checked only the SET of track IDs, missing changes to track contents
+      // (animatable assignments, group membership, settings). On a server-side
+      // animation push that preserved track IDs, the tree stayed stale and
+      // downstream consumers operated on a tree that no longer reflected the
+      // current track structure.
+      equalityFn: shallow,
       fireImmediately: true,
     },
   );
