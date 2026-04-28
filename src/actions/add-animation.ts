@@ -49,10 +49,5 @@ export function addAnimation(state: AnimationData, animationData: StoredAnimatio
       },
     };
     state.tracks = { ...state.tracks, ...tracks } as Record<string, SimpleTrack>;
-    // Mirror the user-edit paths in `AnimationSlice` (e.g. updateTrack,
-    // createTrack) — any mutation of `state.tracks` must bump tracksRevision so
-    // `updateInstancedTrackSources` re-derives. Server-pushed asset updates
-    // historically skipped this, leaving the instanced source map stale.
-    state.tracksRevision = (state.tracksRevision ?? 0) + 1;
   }
 }

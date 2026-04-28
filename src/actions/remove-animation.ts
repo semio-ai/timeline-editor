@@ -16,18 +16,12 @@ export function removeAnimation(state: AnimationData, animationId: string, remov
   if (animationId in state.animations) {
     const { [animationId]: animation, ...newAnimations } = state.animations;
     state.animations = newAnimations;
-    let mutatedTracks = false;
     // Remove the tracks for that animation
     animation.tracks.forEach((trackId) => {
       if (removeTracks) {
         console.log("removing track", trackId);
         state.tracks = omit(state.tracks, [trackId]);
-        mutatedTracks = true;
       }
     });
-    // See add-animation.ts for the tracksRevision rationale.
-    if (mutatedTracks) {
-      state.tracksRevision = (state.tracksRevision ?? 0) + 1;
-    }
   }
 }
