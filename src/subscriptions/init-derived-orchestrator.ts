@@ -161,6 +161,22 @@ export function initDerivedOrchestrator(
     sourceRowIdsByView: currentState.sourceRowIdsByView,
   };
 
+  // [diag-bridge] DEBUG: assign a sequence label to each Map ref we see, so the
+  // logs can show whether the same ref is being passed around or new refs flow
+  // through.
+  const refLabels = new WeakMap<object, string>();
+  let refCounter = 0;
+  const trackRefIdLabel = (obj: object | undefined): string => {
+    if (!obj) return "<undef>";
+    let label = refLabels.get(obj);
+    if (!label) {
+      refCounter += 1;
+      label = `r${refCounter}`;
+      refLabels.set(obj, label);
+    }
+    return label;
+  };
+
   const maybeApplyDerived = (inputs: DerivedInputs) => {
     const versionHint = (latestSnapshot?.version ?? currentState.derivedSnapshot?.version ?? 0) + 1;
     const result = computeDerivedState(inputs, versionHint, usePlayerStore.getState());
@@ -173,6 +189,18 @@ export function initDerivedOrchestrator(
       rowCount: Object.keys(result.snapshot.rows).length,
     }));
 
+    // [diag-bridge] DEBUG: trace orchestrator outputs.
+     
+    console.log("[diag-bridge] orchestrator maybeApplyDerived", {
+      tracksRefId: trackRefIdLabel(inputs.tracks),
+      instancedRefId: trackRefIdLabel(inputs.instancedTrackSources),
+      stamp: usePlayerStore.getState().player.stamp,
+      snapshotTrackCount: Object.keys(result.snapshot.tracks).length,
+      resultValueCount: result.values.size,
+      resultVelocityCount: result.velocities.size,
+      resultValuesPreview: Array.from(result.values.entries()).slice(0, 4),
+    });
+
     // Write stable derived data to the main animation store
     set({
       derivedSnapshot: result.snapshot,
@@ -180,9 +208,18 @@ export function initDerivedOrchestrator(
 
     // Write transient values/velocities to the dedicated values store
     const valuesState = useValuesStore.getState();
+    const beforeValuesRef = valuesState.values;
     useValuesStore.setState({
       values: mergeValueMaps(valuesState.values, result.values),
       velocities: mergeValueMaps(valuesState.velocities, result.velocities),
+    });
+    const afterValuesRef = useValuesStore.getState().values;
+     
+    console.log("[diag-bridge] orchestrator wrote useValuesStore", {
+      beforeRefId: trackRefIdLabel(beforeValuesRef),
+      afterRefId: trackRefIdLabel(afterValuesRef),
+      valuesRefChanged: beforeValuesRef !== afterValuesRef,
+      newValuesCount: afterValuesRef.size,
     });
   };
 
@@ -200,6 +237,14 @@ export function initDerivedOrchestrator(
       sourceRowIdsByView: state.sourceRowIdsByView,
     }),
     (inputs) => {
+      // [diag-bridge] DEBUG: trace orchestrator store-sub firing.
+       
+      console.log("[diag-bridge] orchestrator STORE sub fired", {
+        tracksRefId: trackRefIdLabel(inputs.tracks),
+        instancedRefId: trackRefIdLabel(inputs.instancedTrackSources),
+        animationsRefId: trackRefIdLabel(inputs.animations),
+        namespacesRefId: trackRefIdLabel(inputs.namespaces),
+      });
       maybeApplyDerived(inputs);
     },
     { fireImmediately: true, equalityFn: shallow },
