@@ -115,6 +115,12 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   // which renders in the locked layer). Rows without a unique instance
   // (mixed aggregates) are treated as active so they aren't grayed out.
   const isActive = !uniqueInstanceId || predicates.isActiveDriverForOwningEntity;
+  // "Is the row's instance currently the editable one" — focused entity AND
+  // active driver. Used to gate the click-to-activate handler so a click on
+  // a row that ISN'T the editable one (different entity OR different
+  // instance) switches focus / activates that instance.
+  const isFocusedEntityActive =
+    predicates.isFocusedEntity && predicates.isActiveDriverForOwningEntity;
   // Left-edge selection bar: row has at least one selected track within
   // the current selection scope. The shared helper handles the scope gate.
   const isTrackInSelection = predicates.isInSelection;
@@ -182,14 +188,19 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
         onMouseEnter={() => setEmphasis(sourceRow.id)}
         onMouseLeave={() => setEmphasis(null)}
         onPointerDown={(e) => {
-          // Any interaction with an inactive row switches the active instance
-          // as a side effect — without blocking the interaction itself.
-          if (!isActive && uniqueInstanceId) {
+          // Any interaction with a row that ISN'T currently the editable
+          // one switches focus / activates that instance as a side effect.
+          // Covers: clicking a non-active instance of the focused entity,
+          // AND clicking any row of a non-focused entity. focusSelectionInstance
+          // is idempotent when the click would land on the already-editable row.
+          if (!isFocusedEntityActive && uniqueInstanceId) {
             handleActivate();
           }
           // Track selection: plain click selects, Ctrl/Cmd toggles, Shift range-selects.
-          // Only on active instance rows — skip if this click also activates.
-          if (isActive) {
+          // Only fires when the row is already the focused entity's active
+          // instance — otherwise the click above is purely a focus/activate
+          // gesture and selection is intentionally cleared by focusSelectionInstance.
+          if (isFocusedEntityActive) {
             if (e.ctrlKey || e.metaKey) {
               toggleTrackInSelection(sourceRow.id, trackIds);
             } else if (e.shiftKey && referenceRowId) {

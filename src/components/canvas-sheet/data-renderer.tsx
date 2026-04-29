@@ -351,9 +351,21 @@ export const DataRenderer = memo(function DataRenderer({
       owningEntityId ? (state.entityStates[owningEntityId]?.activeInstanceId ?? null) : null,
     ),
   );
+  const activeEntityId = useAnimationStore(
+    useShallow((state: StoreState) => state.activeEntityId),
+  );
 
-  const shouldRenderTrackSwitchOverlay =
-    Boolean(uniqueInstanceId) && activeInstanceForOwningEntity !== uniqueInstanceId;
+  // Render the click-to-switch overlay whenever clicking would switch
+  // focus or activate a different instance — i.e. anywhere the row
+  // ISN'T currently the editable one. Covers: non-active instances of
+  // any entity (overlay sits on greyed-out rows), AND the active rows of
+  // non-focused entities (so clicking Larry's active row when Ted is
+  // focused fires focusSelectionInstance and switches focus to Larry).
+  const isFocusedEntityActive =
+    Boolean(uniqueInstanceId) &&
+    owningEntityId === activeEntityId &&
+    activeInstanceForOwningEntity === uniqueInstanceId;
+  const shouldRenderTrackSwitchOverlay = Boolean(uniqueInstanceId) && !isFocusedEntityActive;
 
   const handleTrackSwitch = useCallback(
     (event?: { stopPropagation?: () => void }) => {
