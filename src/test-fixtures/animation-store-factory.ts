@@ -688,6 +688,7 @@ export function createTestAnimationStore(options?: {
   const setAnimatables = store.getState().setAnimatables;
   const setAnimations = store.getState().setAnimations;
   const setEntityControlMode = store.getState().setEntityControlMode;
+  const setActiveEntity = store.getState().setActiveEntity;
   const focusSelectionInstance = store.getState().focusSelectionInstance;
 
   // Set animatables and namespaces first
@@ -704,6 +705,17 @@ export function createTestAnimationStore(options?: {
     const entityId = namespaceId.split("@")[0];
     setEntityControlMode(entityId, "animation", activeInstance);
   });
+
+  // Focus on the entity that owns `activeInstance`. The "actually
+  // editable" foreground layer requires isFocusedEntity match — without
+  // this, every test track would render in the locked layer and
+  // selection-driven assertions would silently mismatch.
+  const owningNamespaceId = Object.entries(namespaces).find(([, namespace]) =>
+    Object.keys(namespace.animationInstances).includes(activeInstance),
+  )?.[0];
+  if (owningNamespaceId) {
+    setActiveEntity(owningNamespaceId.split("@")[0]);
+  }
 
   focusSelectionInstance(activeInstance);
 
@@ -738,6 +750,7 @@ export function createMinimalAnimationStore(): AnimationStore {
   const setAnimations = store.getState().setAnimations;
   const setNamespaces = store.getState().setNamespaces;
   const setEntityControlMode = store.getState().setEntityControlMode;
+  const setActiveEntity = store.getState().setActiveEntity;
   const focusSelectionInstance = store.getState().focusSelectionInstance;
 
   const { animations: migratedAnimations, animatables: migratedAnimatables } = migrateAnimationSet(
@@ -774,6 +787,7 @@ export function createMinimalAnimationStore(): AnimationStore {
     },
   });
   setEntityControlMode("default", "animation", "main");
+  setActiveEntity("default");
   focusSelectionInstance("main");
 
   return store;

@@ -32,10 +32,22 @@ export function updateInstancedTrackSources(
       // — the latter can drift from the active driver during playback per
       // focusSelectionInstance's partial playback gate.
       entityStates: state.entityStates,
+      // Currently focused entity for editing. Only the focused entity's
+      // active instance is "actually editable"; other entities' active
+      // instances render in the locked layer (visible color, but not
+      // interactive from this focus).
+      activeEntityId: state.activeEntityId,
+      selectionInstanceId: state.selectionState.instanceId,
       selectedKeypoints: state.selectionState.keypoints,
       tracksRevision: state.tracksRevision ?? 0,
     }),
-    ({ globalSourceTree, entityStates, selectedKeypoints }) => {
+    ({
+      globalSourceTree,
+      entityStates,
+      activeEntityId,
+      selectionInstanceId,
+      selectedKeypoints,
+    }) => {
       // When the tree is missing or empty, fall through to write an empty
       // instancedTrackSources (preserving filtered entries from the other
       // subscription). Early-returning here would leave stale rows in place
@@ -69,6 +81,8 @@ export function updateInstancedTrackSources(
       flattenSources(
         sources,
         entityStates,
+        activeEntityId,
+        selectionInstanceId,
         selectedTrackLookup,
         instancedTrackSources,
         globalLeafData,
@@ -95,14 +109,16 @@ export function updateInstancedTrackSources(
     },
     {
       equalityFn: (current, previous) => {
-        // Re-derive when tree, selection, or any entity's active instance changes.
-        // This equality function runs on every main-store set, including
-        // playback ticks that don't touch any of these fields — keep the
-        // common case (stable references) cheap by short-circuiting before
-        // any allocation.
+        // Re-derive when tree, selection, focus, or any entity's active
+        // instance changes. This equality function runs on every main-store
+        // set, including playback ticks that don't touch any of these fields
+        // — keep the common case (stable references) cheap by
+        // short-circuiting before any allocation.
         if (
           current.globalSourceTree === previous.globalSourceTree &&
           current.entityStates === previous.entityStates &&
+          current.activeEntityId === previous.activeEntityId &&
+          current.selectionInstanceId === previous.selectionInstanceId &&
           current.selectedKeypoints === previous.selectedKeypoints &&
           current.tracksRevision === previous.tracksRevision
         ) {
@@ -134,6 +150,8 @@ export function updateInstancedTrackSources(
             selectionSignature(previous.selectedKeypoints),
           ) &&
           current.globalSourceTree === previous.globalSourceTree &&
+          current.activeEntityId === previous.activeEntityId &&
+          current.selectionInstanceId === previous.selectionInstanceId &&
           current.tracksRevision === previous.tracksRevision
         );
       },
@@ -146,10 +164,17 @@ export function updateInstancedTrackSources(
  * Recursively flatten a Source[] tree into a Record<string, SourceRow>,
  * decorating each node with rendering-specific data (layerBand, selectable, etc.).
  *
- * `entityStates` provides the per-entity active animation instance — the
- * rig-driving instance for each entity. A leaf track is considered
- * "foreground" when its instance matches its owning entity's active
- * instance (looked up via `track.namespaceId.split("@")[0]`).
+ * Three orthogonal axes determine layerBand for a leaf track:
+ *  1. `isActiveForOwningEntity`: track is in its entity's currently-driving
+ *     instance (read from `entityStates`, same source the bridge consults).
+ *  2. `isFocusedEntity`: track's owning entity is the editor's currently
+ *     focused entity (`activeEntityId`). Only the focused entity's active
+ *     instance is "actually editable" — other entities' active instances
+ *     render in the locked layer.
+ *  3. `isSelectionScope`: track's instance matches `selectionInstanceId`
+ *     (the editor's keypoint selection scope, which can drift from the
+ *     focused entity's active instance during playback per the partial
+ *     playback gate).
  *
  * Returns the leaf data accumulated under the processed sources so that
  * ancestor group rows can aggregate only unique leaves (not descendant
@@ -158,6 +183,8 @@ export function updateInstancedTrackSources(
 function flattenSources(
   sources: Source[],
   entityStates: AnimationData["entityStates"],
+  activeEntityId: AnimationData["activeEntityId"],
+  selectionInstanceId: AnimationData["selectionState"]["instanceId"],
   selectedTrackLookup: Set<string>,
   output: Record<string, SourceRow>,
   globalLeafData: SourceRowData[],
@@ -180,6 +207,8 @@ function flattenSources(
       const descendantLeafData = flattenSources(
         group.children,
         entityStates,
+        activeEntityId,
+        selectionInstanceId,
         selectedTrackLookup,
         childOutput,
         globalLeafData,
@@ -216,16 +245,22 @@ function flattenSources(
       const track = source as SourceTrack;
       const trackKey = track.id; // format: "ns/inst/trackId"
       // Owning entity is encoded in the namespaceId (`entityId@...`).
-      // Foreground = this track is in its owning entity's currently-driving
-      // instance (the same source the values bridge consults). Click-to-
-      // focus on a non-active instance updates selection but not the
-      // entity's active instance during playback (per the playback gate),
-      // so the canvas color stays put — matching what's actually playing.
       const owningEntityId = track.namespaceId.split("@")[0];
       const entityActiveInstanceId = entityStates[owningEntityId]?.activeInstanceId ?? null;
-      const foreground = entityActiveInstanceId !== null && track.instanceId === entityActiveInstanceId;
+      const isActiveForOwningEntity =
+        entityActiveInstanceId !== null && track.instanceId === entityActiveInstanceId;
+      const isFocusedEntity = activeEntityId !== null && owningEntityId === activeEntityId;
+      // Selection scope follows the editor's selectionState.instanceId.
+      // Selection only "applies" to a track when the track is in the focused
+      // entity AND in the current selection scope — without this guard, a
+      // shared trackId across entities (e.g. the same animation bound to
+      // multiple entities) would highlight identically-named tracks in every
+      // entity when the user selects in one.
+      const isSelectionScope = track.instanceId === selectionInstanceId;
       const isSelected =
-        foreground && (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));
+        isFocusedEntity &&
+        isSelectionScope &&
+        (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));
 
       const locked = track.locked ?? false;
       const readonly = track.readonly ?? false;
@@ -234,22 +269,31 @@ function flattenSources(
       // overlay), since to the user the track is non-editable for the
       // same reason — only the *cause* (and toggle availability) differs.
       const nonEditable = locked || readonly;
+
+      // The "actually editable" track is the focused entity's active
+      // instance, in scope, not locked. Anything else that's still a
+      // rig-driving track for ITS entity (other entities' active animations,
+      // or the focused entity's active when selection drifted away during
+      // playback) renders in the locked layer — visible color, but not
+      // editable from this focus.
+      const isEditableNow =
+        isFocusedEntity && isActiveForOwningEntity && !nonEditable && isSelectionScope;
+
       let layerBand = LayerBand.Background;
-      if (foreground && nonEditable) {
-        layerBand = LayerBand.ForegroundLocked;
-      } else if (foreground) {
+      if (isEditableNow) {
         layerBand = isSelected ? LayerBand.ForegroundSelected : LayerBand.ForegroundUnselected;
+      } else if (isActiveForOwningEntity) {
+        layerBand = LayerBand.ForegroundLocked;
       }
 
       output[track.id] = {
         id: track.id,
         data: [
           {
-            // `selectable` and `editable` both honor permission-driven readonly
-            // and user-toggle locked. The two flags also flow through to row
-            // data so the UI can distinguish them (e.g. disable the Lock
-            // toggle when readonly is true).
-            selectable: foreground && !(track.locked ?? false) && !track.readonly,
+            // Selectable: only the focused entity's active instance is
+            // interactively selectable. `editable` remains the per-track
+            // mutability flag, independent of focus.
+            selectable: isFocusedEntity && isActiveForOwningEntity && !nonEditable,
             editable: !track.readonly && !(track.locked ?? false),
             layerBand,
             animationId: track.animationId,

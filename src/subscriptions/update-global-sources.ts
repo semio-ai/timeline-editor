@@ -58,16 +58,28 @@ export function updateGlobalSources(
         }
       }
 
-      // Step 2: Build the full tree with entity/instance wrapping
+      // Step 2: Build the full tree with entity/instance wrapping.
+      //
+      // Hierarchy depth is decided GLOBALLY rather than per-entity so all
+      // entities render at the same depth. If any single entity has more
+      // than one animation instance, the instance wrapper is shown for
+      // every entity (even those with one instance) so the tree is
+      // consistently structured. Same logic for the entity wrapper: shown
+      // for all when there's more than one entity. Without this, an entity
+      // with one instance would skip a level while a sibling with two
+      // would not, producing visually mismatched depths.
       const totalNamespaces = namespaceEntries.length;
       const showEntityLevel = totalNamespaces > 1;
+      const maxInstancesPerNamespace = namespaceEntries.reduce(
+        (max, [, namespace]) => Math.max(max, Object.keys(namespace.animationInstances).length),
+        0,
+      );
+      const showInstanceLevel = maxInstancesPerNamespace > 1;
 
       const globalSourceTree: Source[] = [];
 
       for (const [namespaceId, namespace] of namespaceEntries) {
         const instanceEntries = Object.values(namespace.animationInstances);
-        const totalInstances = instanceEntries.length;
-        const showInstanceLevel = totalInstances > 1;
 
         // Collect instance-level groups (or direct sources if no instance grouping)
         const namespaceSources: Source[] = [];
