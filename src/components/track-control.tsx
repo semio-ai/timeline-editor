@@ -57,14 +57,12 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   const {
     storeControlStripMode,
     animatables,
-    selectionInstanceId,
     selectedKeypoints,
     emphasisRowId,
   } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       storeControlStripMode: state.preferences.controlStripMode,
       animatables: state.animatables,
-      selectionInstanceId: state.selectionState.instanceId,
       selectedKeypoints: state.selectionState.keypoints,
       emphasisRowId: state.emphasisRowId,
     })),
@@ -115,10 +113,28 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow.data]);
 
-  // Row is active if it has no unique instance mapping OR it matches the selected instance
+  // The owning entity's currently-driving instance — the same source the
+  // values bridge consults. Used for visual "is this the active animation"
+  // cues so they stay correct during playback (when selectionState.instanceId
+  // can drift from the rig-driving instance per the playback-gate's partial
+  // behavior in focusSelectionInstance) and for non-focused entities (whose
+  // rows otherwise never matched selectionInstanceId at all).
+  const activeInstanceForOwningEntity = useAnimationStore(
+    useShallow((state: AnimationData) => {
+      if (!uniqueInstanceId) return null;
+      for (const namespaceId of Object.keys(state.namespaces)) {
+        if (state.namespaces[namespaceId].animationInstances?.[uniqueInstanceId]) {
+          const entityId = namespaceId.split("@")[0];
+          return state.entityStates[entityId]?.activeInstanceId ?? null;
+        }
+      }
+      return null;
+    }),
+  );
+
   const isActive = useMemo(
-    () => !uniqueInstanceId || selectionInstanceId === uniqueInstanceId,
-    [uniqueInstanceId, selectionInstanceId],
+    () => !uniqueInstanceId || activeInstanceForOwningEntity === uniqueInstanceId,
+    [uniqueInstanceId, activeInstanceForOwningEntity],
   );
 
   const handleActivate = useCallback(() => {

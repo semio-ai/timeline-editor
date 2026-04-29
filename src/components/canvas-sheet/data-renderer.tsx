@@ -331,8 +331,26 @@ export const DataRenderer = memo(function DataRenderer({
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow]);
 
+  // Owning entity's currently-driving instance — same source the values
+  // bridge consults. Used so that "is this row's instance the active one"
+  // visuals follow the rig's actual driver, not editor selection focus
+  // (which can drift during playback per focusSelectionInstance's partial
+  // playback gate).
+  const activeInstanceForOwningEntity = useAnimationStore(
+    useShallow((state: StoreState) => {
+      if (!uniqueInstanceId) return null;
+      for (const namespaceId of Object.keys(state.namespaces)) {
+        if (state.namespaces[namespaceId].animationInstances?.[uniqueInstanceId]) {
+          const entityId = namespaceId.split("@")[0];
+          return state.entityStates[entityId]?.activeInstanceId ?? null;
+        }
+      }
+      return null;
+    }),
+  );
+
   const shouldRenderTrackSwitchOverlay =
-    Boolean(uniqueInstanceId) && selectionState.instanceId !== uniqueInstanceId;
+    Boolean(uniqueInstanceId) && activeInstanceForOwningEntity !== uniqueInstanceId;
 
   const handleTrackSwitch = useCallback(
     (event?: { stopPropagation?: () => void }) => {
@@ -486,7 +504,7 @@ export const DataRenderer = memo(function DataRenderer({
           <DataPointsRenderer
             sourceRow={sourceRow}
             selectionFrames={computedData.selection ?? []}
-            activeInstanceId={selectionState.instanceId}
+            activeInstanceId={activeInstanceForOwningEntity}
             xTransform={xTransform}
             verticalBounds={effectiveVerticalBounds}
             verticalAxisRange={axisRange}
