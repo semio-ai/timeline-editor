@@ -1,5 +1,6 @@
 import { produce } from "immer";
 import { uniq } from "lodash";
+import { usePlayerStore } from "@semio/utils";
 import { createEmptySelectionState } from "../functions/selection-state-manager";
 import type {
   AnimationData,
@@ -44,6 +45,13 @@ export function selectAllInTracks(set: AnimationStoreSetter, trackKeys: string[]
 }
 
 export function focusSelectionInstance(set: AnimationStoreSetter, instanceId: string): void {
+  // Partial guard during playback: keep the editor's selection focus
+  // updating so users can still inspect a different instance's keypoints,
+  // but skip the entityStates mutation that would mid-frame retarget the
+  // bridge. Same rule as setEntityControlMode — the entity↔active-instance
+  // pairing must not change during playback.
+  const isPlaying = Boolean(usePlayerStore.getState().player?.running);
+
   set((state: AnimationData) => {
     // Find the entity that owns this animation instance so the persisted
     // per-entity active-instance can be updated alongside the selection focus.
@@ -64,7 +72,7 @@ export function focusSelectionInstance(set: AnimationStoreSetter, instanceId: st
       selectionState: createEmptySelectionState(instanceId),
     };
 
-    if (owningEntityId) {
+    if (owningEntityId && !isPlaying) {
       const currentEntityState = state.entityStates[owningEntityId];
       if (
         currentEntityState?.controlMode === "animation" &&
@@ -115,6 +123,11 @@ export function setEntityControlMode(
   mode: "direct" | "animation",
   instanceId?: string,
 ): void {
+  // Guard: don't swap which animation instance drives an entity during
+  // playback. See setEntityControlModeAction in the studio package for the
+  // same rule applied to the project-doc writer.
+  if (usePlayerStore.getState().player?.running) return;
+
   const currentEntityState = get().entityStates[entityId];
   const resolvedInstanceId = mode === "animation" ? (instanceId ?? null) : null;
   if (
