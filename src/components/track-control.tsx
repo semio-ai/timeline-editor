@@ -113,23 +113,26 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow.data]);
 
-  // The owning entity's currently-driving instance — the same source the
-  // values bridge consults. Used for visual "is this the active animation"
-  // cues so they stay correct during playback (when selectionState.instanceId
-  // can drift from the rig-driving instance per the playback-gate's partial
-  // behavior in focusSelectionInstance) and for non-focused entities (whose
-  // rows otherwise never matched selectionInstanceId at all).
+  // Owning entity is encoded in the row's namespaceId (`entityId@...`).
+  // Compute it locally so the store selector stays O(1) — walking
+  // `state.namespaces` per row × per state change was a real perf
+  // regression at scale.
+  const owningEntityId = useMemo(() => {
+    const ns = sourceRow.data.find((d) => d.namespaceId)?.namespaceId;
+    return ns ? ns.split("@")[0] : undefined;
+  }, [sourceRow.data]);
+
+  // The owning entity's currently-driving instance — same source the
+  // values bridge consults. Used for visual "is this the active
+  // animation" cues so they stay correct during playback (when
+  // selectionState.instanceId can drift from the rig-driving instance per
+  // the playback-gate's partial behavior in focusSelectionInstance) and
+  // for non-focused entities (whose rows otherwise never matched
+  // selectionInstanceId at all).
   const activeInstanceForOwningEntity = useAnimationStore(
-    useShallow((state: AnimationData) => {
-      if (!uniqueInstanceId) return null;
-      for (const namespaceId of Object.keys(state.namespaces)) {
-        if (state.namespaces[namespaceId].animationInstances?.[uniqueInstanceId]) {
-          const entityId = namespaceId.split("@")[0];
-          return state.entityStates[entityId]?.activeInstanceId ?? null;
-        }
-      }
-      return null;
-    }),
+    useShallow((state: AnimationData) =>
+      owningEntityId ? (state.entityStates[owningEntityId]?.activeInstanceId ?? null) : null,
+    ),
   );
 
   const isActive = useMemo(

@@ -331,22 +331,25 @@ export const DataRenderer = memo(function DataRenderer({
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow]);
 
+  // Owning entity is encoded in the row's namespaceId (`entityId@...`).
+  // Compute it locally so the store selector stays O(1) — walking
+  // `state.namespaces` per row × per state change was a real perf
+  // regression at scale.
+  const owningEntityId = useMemo(() => {
+    if (!sourceRow) return undefined;
+    const ns = sourceRow.data.find((d) => d.namespaceId)?.namespaceId;
+    return ns ? ns.split("@")[0] : undefined;
+  }, [sourceRow]);
+
   // Owning entity's currently-driving instance — same source the values
   // bridge consults. Used so that "is this row's instance the active one"
   // visuals follow the rig's actual driver, not editor selection focus
   // (which can drift during playback per focusSelectionInstance's partial
   // playback gate).
   const activeInstanceForOwningEntity = useAnimationStore(
-    useShallow((state: StoreState) => {
-      if (!uniqueInstanceId) return null;
-      for (const namespaceId of Object.keys(state.namespaces)) {
-        if (state.namespaces[namespaceId].animationInstances?.[uniqueInstanceId]) {
-          const entityId = namespaceId.split("@")[0];
-          return state.entityStates[entityId]?.activeInstanceId ?? null;
-        }
-      }
-      return null;
-    }),
+    useShallow((state: StoreState) =>
+      owningEntityId ? (state.entityStates[owningEntityId]?.activeInstanceId ?? null) : null,
+    ),
   );
 
   const shouldRenderTrackSwitchOverlay =
