@@ -58,12 +58,16 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     storeControlStripMode,
     animatables,
     selectedKeypoints,
+    selectionInstanceId,
+    activeEntityId,
     emphasisRowId,
   } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       storeControlStripMode: state.preferences.controlStripMode,
       animatables: state.animatables,
       selectedKeypoints: state.selectionState.keypoints,
+      selectionInstanceId: state.selectionState.instanceId,
+      activeEntityId: state.activeEntityId,
       emphasisRowId: state.emphasisRowId,
     })),
   );
@@ -95,13 +99,6 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     })),
   );
 
-  // Drives the left-edge color bar on the row when the track is part of
-  // any selection (distinct from the per-key background tint).
-  const isTrackInSelection = useMemo(
-    () => trackIds.some((id) => selectedKeypoints.has(id)),
-    [trackIds, selectedKeypoints],
-  );
-
   const valuesRef = useValuesRef();
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
 
@@ -121,6 +118,30 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     const ns = sourceRow.data.find((d) => d.namespaceId)?.namespaceId;
     return ns ? ns.split("@")[0] : undefined;
   }, [sourceRow.data]);
+
+  // Drives the left-edge color bar on the row when the track is part of
+  // any selection (distinct from the per-key background tint). Selection
+  // is keyed by trackId only (not full namespace path), so without
+  // gating by entity scope, a shared trackId across entities (e.g. the
+  // same animation bound to multiple entities) would highlight every
+  // matching row regardless of which entity the user actually selected
+  // in. Match the layerBand "isSelected" rule from
+  // update-instanced-track-sources: only count selection when the row's
+  // owning entity is focused AND the row's instance is the current
+  // selection scope.
+  const isTrackInSelection = useMemo(() => {
+    if (!owningEntityId || activeEntityId === null) return false;
+    if (owningEntityId !== activeEntityId) return false;
+    if (uniqueInstanceId && uniqueInstanceId !== selectionInstanceId) return false;
+    return trackIds.some((id) => selectedKeypoints.has(id));
+  }, [
+    trackIds,
+    selectedKeypoints,
+    owningEntityId,
+    activeEntityId,
+    uniqueInstanceId,
+    selectionInstanceId,
+  ]);
 
   // The owning entity's currently-driving instance — same source the
   // values bridge consults. Used for visual "is this the active
