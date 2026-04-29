@@ -157,6 +157,19 @@ export const AnimationSheet = memo(function AnimationSheet({
   const needsAnimationContext = !skipAnimationContext && !animationCtx;
   const needsTooltipContext = !skipTooltipContext && !tooltipCtx;
 
+  // The default animation store no longer auto-inits its subscriptions
+  // at module load — that caused duplicate subscriptions when an app
+  // also created its own animation store (e.g. the studio's composite
+  // store), which compounded into a React 19 max-depth cascade on every
+  // player tick. Standalone usage that falls back to the default store
+  // initializes here on mount and cleans up on unmount. The store's
+  // `initAnimationSubscriptions` is idempotent (clears any existing
+  // cleanup before re-initing), so StrictMode double-mount is safe.
+  useEffect(() => {
+    if (!needsAnimationContext) return;
+    return useDefaultAnimationStore.getState().initAnimationSubscriptions();
+  }, [needsAnimationContext]);
+
   let content = <AnimationSheetCore {...props} />;
 
   // Wrap with animation context if needed

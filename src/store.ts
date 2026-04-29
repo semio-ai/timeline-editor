@@ -695,7 +695,13 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
   })),
 );
 
-useDefaultAnimationStore.getState().initAnimationSubscriptions();
+// Subscriptions on `useDefaultAnimationStore` are now opt-in. Module-load
+// auto-init was causing two `update-player-loop` subscriptions on the
+// shared `usePlayerStore` (one for this default store, one for the
+// studio's composite store), which compounded into a React 19 max-depth
+// cascade on every player tick. Standalone consumers that fall back to
+// `useDefaultAnimationStore` (currently only `AnimationSheet`) call
+// `initAnimationSubscriptions()` themselves on mount.
 
 export function createAnimationStore(initial?: Partial<AnimationData>): AnimationStore {
   const store = create<AnimationData & AnimationActions>()(
