@@ -687,12 +687,24 @@ export function createTestAnimationStore(options?: {
   const setNamespaces = store.getState().setNamespaces;
   const setAnimatables = store.getState().setAnimatables;
   const setAnimations = store.getState().setAnimations;
+  const setEntityControlMode = store.getState().setEntityControlMode;
   const focusSelectionInstance = store.getState().focusSelectionInstance;
 
   // Set animatables and namespaces first
   setAnimatables(migratedAnimatables);
   setAnimations(migratedAnimations);
   setNamespaces(namespaces);
+
+  // Seed entityStates so canvas/track-list "active instance" derivations
+  // (which read from entityStates, not from selectionState.instanceId)
+  // see the fixture's intended active instance for each namespace's
+  // owning entity. The namespaceId IS the entityId in these fixtures
+  // (no "@" suffix).
+  Object.keys(namespaces).forEach((namespaceId) => {
+    const entityId = namespaceId.split("@")[0];
+    setEntityControlMode(entityId, "animation", activeInstance);
+  });
+
   focusSelectionInstance(activeInstance);
 
   return store;
@@ -725,6 +737,7 @@ export function createMinimalAnimationStore(): AnimationStore {
   const setAnimatables = store.getState().setAnimatables;
   const setAnimations = store.getState().setAnimations;
   const setNamespaces = store.getState().setNamespaces;
+  const setEntityControlMode = store.getState().setEntityControlMode;
   const focusSelectionInstance = store.getState().focusSelectionInstance;
 
   const { animations: migratedAnimations, animatables: migratedAnimatables } = migrateAnimationSet(
@@ -760,6 +773,7 @@ export function createMinimalAnimationStore(): AnimationStore {
       },
     },
   });
+  setEntityControlMode("default", "animation", "main");
   focusSelectionInstance("main");
 
   return store;

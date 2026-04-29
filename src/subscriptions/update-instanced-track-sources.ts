@@ -26,11 +26,16 @@ export function updateInstancedTrackSources(
   return api.subscribe(
     (state: AnimationData) => ({
       globalSourceTree: state.globalSourceTree,
-      activeAnimationId: state.selectionState.instanceId,
+      // Per-entity active instances (the rig-driving instance for each
+      // entity). Drives foreground/background coloring so the canvas
+      // matches what's actually playing back, not editor selection focus
+      // — the latter can drift from the active driver during playback per
+      // focusSelectionInstance's partial playback gate.
+      entityStates: state.entityStates,
       selectedKeypoints: state.selectionState.keypoints,
       tracksRevision: state.tracksRevision ?? 0,
     }),
-    ({ globalSourceTree, activeAnimationId, selectedKeypoints }) => {
+    ({ globalSourceTree, entityStates, selectedKeypoints }) => {
       // When the tree is missing or empty, fall through to write an empty
       // instancedTrackSources (preserving filtered entries from the other
       // subscription). Early-returning here would leave stale rows in place
@@ -63,7 +68,7 @@ export function updateInstancedTrackSources(
       // Leaf data is also accumulated into globalLeafData for the global aggregate row.
       flattenSources(
         sources,
-        activeAnimationId,
+        entityStates,
         selectedTrackLookup,
         instancedTrackSources,
         globalLeafData,
@@ -90,7 +95,7 @@ export function updateInstancedTrackSources(
     },
     {
       equalityFn: (current, previous) => {
-        // Re-derive when tree, selection, or active instance changes
+        // Re-derive when tree, selection, or any entity's active instance changes
 
         const selectionSignature = (selection: AnimationData["selectionState"]["keypoints"]) =>
           Array.from(selection.entries())
@@ -100,8 +105,18 @@ export function updateInstancedTrackSources(
             }))
             .sort((left, right) => left.trackKey.localeCompare(right.trackKey));
 
+        // Compare entityStates by content (not reference) — only the
+        // `activeInstanceId` per entity matters for layerBand derivation.
+        const entityStatesSignature = (states: AnimationData["entityStates"]) =>
+          Object.entries(states)
+            .map(([entityId, state]) => `${entityId}:${state.activeInstanceId ?? ""}`)
+            .sort();
+
         return (
-          current.activeAnimationId === previous.activeAnimationId &&
+          isEqual(
+            entityStatesSignature(current.entityStates),
+            entityStatesSignature(previous.entityStates),
+          ) &&
           isEqual(
             selectionSignature(current.selectedKeypoints),
             selectionSignature(previous.selectedKeypoints),
@@ -119,8 +134,10 @@ export function updateInstancedTrackSources(
  * Recursively flatten a Source[] tree into a Record<string, SourceRow>,
  * decorating each node with rendering-specific data (layerBand, selectable, etc.).
  *
- * The `activeAnimationId` is used to determine foreground status per-leaf
- * (each leaf track knows its instanceId, compared against the active one).
+ * `entityStates` provides the per-entity active animation instance — the
+ * rig-driving instance for each entity. A leaf track is considered
+ * "foreground" when its instance matches its owning entity's active
+ * instance (looked up via `track.namespaceId.split("@")[0]`).
  *
  * Returns the leaf data accumulated under the processed sources so that
  * ancestor group rows can aggregate only unique leaves (not descendant
@@ -128,7 +145,7 @@ export function updateInstancedTrackSources(
  */
 function flattenSources(
   sources: Source[],
-  activeAnimationId: string | null,
+  entityStates: AnimationData["entityStates"],
   selectedTrackLookup: Set<string>,
   output: Record<string, SourceRow>,
   globalLeafData: SourceRowData[],
@@ -150,7 +167,7 @@ function flattenSources(
       const childOutput: Record<string, SourceRow> = {};
       const descendantLeafData = flattenSources(
         group.children,
-        activeAnimationId,
+        entityStates,
         selectedTrackLookup,
         childOutput,
         globalLeafData,
@@ -186,7 +203,15 @@ function flattenSources(
     } else {
       const track = source as SourceTrack;
       const trackKey = track.id; // format: "ns/inst/trackId"
-      const foreground = Boolean(activeAnimationId) && track.instanceId === activeAnimationId;
+      // Owning entity is encoded in the namespaceId (`entityId@...`).
+      // Foreground = this track is in its owning entity's currently-driving
+      // instance (the same source the values bridge consults). Click-to-
+      // focus on a non-active instance updates selection but not the
+      // entity's active instance during playback (per the playback gate),
+      // so the canvas color stays put — matching what's actually playing.
+      const owningEntityId = track.namespaceId.split("@")[0];
+      const entityActiveInstanceId = entityStates[owningEntityId]?.activeInstanceId ?? null;
+      const foreground = entityActiveInstanceId !== null && track.instanceId === entityActiveInstanceId;
       const isSelected =
         foreground && (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));
 
