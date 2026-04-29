@@ -7,6 +7,7 @@ import type {
 } from "../store-types";
 import { LayerBand, Source, SourceGroup, SourceRow, SourceRowData, SourceTrack } from "../types";
 import { GROUP_TYPES } from "../constants";
+import { computeRowEditPredicates } from "../functions/row-edit-state";
 import { isFilteredSourceRowId } from "../functions/view-filtered-source-row";
 
 /**
@@ -83,6 +84,7 @@ export function updateInstancedTrackSources(
         entityStates,
         activeEntityId,
         selectionInstanceId,
+        selectedKeypoints,
         selectedTrackLookup,
         instancedTrackSources,
         globalLeafData,
@@ -164,17 +166,12 @@ export function updateInstancedTrackSources(
  * Recursively flatten a Source[] tree into a Record<string, SourceRow>,
  * decorating each node with rendering-specific data (layerBand, selectable, etc.).
  *
- * Three orthogonal axes determine layerBand for a leaf track:
- *  1. `isActiveForOwningEntity`: track is in its entity's currently-driving
- *     instance (read from `entityStates`, same source the bridge consults).
- *  2. `isFocusedEntity`: track's owning entity is the editor's currently
- *     focused entity (`activeEntityId`). Only the focused entity's active
- *     instance is "actually editable" — other entities' active instances
- *     render in the locked layer.
- *  3. `isSelectionScope`: track's instance matches `selectionInstanceId`
- *     (the editor's keypoint selection scope, which can drift from the
- *     focused entity's active instance during playback per the partial
- *     playback gate).
+ * Per-leaf predicates are computed by the shared {@link computeRowEditPredicates}
+ * helper — same source of truth used by the sidebar (`track-control`) and
+ * the row background tint (`use-row-background`). The compound-name
+ * highlighting (e.g. selecting `position.x` also marks the parent
+ * `position`) is layered on top via the precomputed `selectedTrackLookup`
+ * Set, which already contains the trackId, its tail, and its dot-base.
  *
  * Returns the leaf data accumulated under the processed sources so that
  * ancestor group rows can aggregate only unique leaves (not descendant
@@ -185,6 +182,7 @@ function flattenSources(
   entityStates: AnimationData["entityStates"],
   activeEntityId: AnimationData["activeEntityId"],
   selectionInstanceId: AnimationData["selectionState"]["instanceId"],
+  selectedKeypoints: AnimationData["selectionState"]["keypoints"],
   selectedTrackLookup: Set<string>,
   output: Record<string, SourceRow>,
   globalLeafData: SourceRowData[],
@@ -209,6 +207,7 @@ function flattenSources(
         entityStates,
         activeEntityId,
         selectionInstanceId,
+        selectedKeypoints,
         selectedTrackLookup,
         childOutput,
         globalLeafData,
@@ -244,27 +243,7 @@ function flattenSources(
     } else {
       const track = source as SourceTrack;
       const trackKey = track.id; // format: "ns/inst/trackId"
-      // Owning entity is encoded in the namespaceId (`entityId@...`).
       const owningEntityId = track.namespaceId.split("@")[0];
-      const entityActiveInstanceId = entityStates[owningEntityId]?.activeInstanceId ?? null;
-      const isActiveForOwningEntity =
-        entityActiveInstanceId !== null && track.instanceId === entityActiveInstanceId;
-      const isFocusedEntity = activeEntityId !== null && owningEntityId === activeEntityId;
-      // Selection scope follows the editor's selectionState.instanceId.
-      // Selection only "applies" to a track when the track is in the
-      // current selection scope — without this guard, a shared trackId
-      // across entities (e.g. the same animation bound to multiple
-      // entities) would highlight identically-named tracks in every
-      // entity when the user selects in one. Per-entity instance ids are
-      // unique even when the underlying animation is shared, so the
-      // instance-scope check alone is sufficient and doesn't depend on
-      // which entity is focused (focus and selection scope are
-      // intentionally decoupled per the focusSelectionInstance contract).
-      const isSelectionScope = track.instanceId === selectionInstanceId;
-      const isSelected =
-        isSelectionScope &&
-        (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));
-
       const locked = track.locked ?? false;
       const readonly = track.readonly ?? false;
       // Both user-toggle `locked` and document-permission `readonly`
@@ -273,19 +252,33 @@ function flattenSources(
       // same reason — only the *cause* (and toggle availability) differs.
       const nonEditable = locked || readonly;
 
-      // The "actually editable" track is the focused entity's active
-      // instance, in scope, not locked. Anything else that's still a
-      // rig-driving track for ITS entity (other entities' active animations,
-      // or the focused entity's active when selection drifted away during
-      // playback) renders in the locked layer — visible color, but not
-      // editable from this focus.
-      const isEditableNow =
-        isFocusedEntity && isActiveForOwningEntity && !nonEditable && isSelectionScope;
+      // Single source of truth for row edit/visibility predicates. Same
+      // helper drives the sidebar widget (track-control), the row tint
+      // (use-row-background), and this canvas-side layerBand decision —
+      // no more parallel re-derivations to keep in sync.
+      const predicates = computeRowEditPredicates({
+        owningEntityId,
+        rowInstanceId: track.instanceId,
+        trackIds: [track.trackId],
+        nonEditable,
+        activeEntityId,
+        entityStates,
+        selectionInstanceId,
+        selectedKeypoints,
+      });
+
+      // Compound-name fallback (e.g. selecting `position.x` also flags
+      // `position`) and full-trackKey form aren't carried by the helper's
+      // trackId-only check, so OR them in here on top of the helper's
+      // scope gate.
+      const isSelected =
+        predicates.isInSelection ||
+        (predicates.isInSelectionScope && selectedTrackLookup.has(trackKey));
 
       let layerBand = LayerBand.Background;
-      if (isEditableNow) {
+      if (predicates.isCurrentlyEdited) {
         layerBand = isSelected ? LayerBand.ForegroundSelected : LayerBand.ForegroundUnselected;
-      } else if (isActiveForOwningEntity) {
+      } else if (predicates.isActiveDriverForOwningEntity) {
         layerBand = LayerBand.ForegroundLocked;
       }
 
@@ -296,7 +289,10 @@ function flattenSources(
             // Selectable: only the focused entity's active instance is
             // interactively selectable. `editable` remains the per-track
             // mutability flag, independent of focus.
-            selectable: isFocusedEntity && isActiveForOwningEntity && !nonEditable,
+            selectable:
+              predicates.isFocusedEntity &&
+              predicates.isActiveDriverForOwningEntity &&
+              !nonEditable,
             editable: !track.readonly && !(track.locked ?? false),
             layerBand,
             animationId: track.animationId,

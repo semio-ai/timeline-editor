@@ -22,6 +22,7 @@ import {
   useLocalGlobalTransformLookup,
   useNames,
   useRowBackground,
+  useRowEditState,
 } from "../hooks";
 import { useValuesRef } from "../hooks/use-values-ref";
 import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
@@ -57,15 +58,11 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   const {
     storeControlStripMode,
     animatables,
-    selectedKeypoints,
-    selectionInstanceId,
     emphasisRowId,
   } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       storeControlStripMode: state.preferences.controlStripMode,
       animatables: state.animatables,
-      selectedKeypoints: state.selectionState.keypoints,
-      selectionInstanceId: state.selectionState.instanceId,
       emphasisRowId: state.emphasisRowId,
     })),
   );
@@ -108,46 +105,19 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow.data]);
 
-  // Owning entity is encoded in the row's namespaceId (`entityId@...`).
-  // Compute it locally so the store selector stays O(1) — walking
-  // `state.namespaces` per row × per state change was a real perf
-  // regression at scale.
-  const owningEntityId = useMemo(() => {
-    const ns = sourceRow.data.find((d) => d.namespaceId)?.namespaceId;
-    return ns ? ns.split("@")[0] : undefined;
-  }, [sourceRow.data]);
-
-  // Drives the left-edge color bar on the row when the track is part of
-  // any selection (distinct from the per-key background tint). Selection
-  // is keyed by trackId only (not full namespace path), so without
-  // gating by instance scope a shared trackId across entities (e.g. the
-  // same animation bound to multiple entities) would highlight every
-  // matching row. The per-entity instance ids are unique even when the
-  // animation is shared, so requiring `uniqueInstanceId === selectionInstanceId`
-  // is sufficient — and importantly, doesn't depend on which entity is
-  // currently focused (focus and selection scope are decoupled by design).
-  const isTrackInSelection = useMemo(() => {
-    if (uniqueInstanceId && uniqueInstanceId !== selectionInstanceId) return false;
-    return trackIds.some((id) => selectedKeypoints.has(id));
-  }, [trackIds, selectedKeypoints, uniqueInstanceId, selectionInstanceId]);
-
-  // The owning entity's currently-driving instance — same source the
-  // values bridge consults. Used for visual "is this the active
-  // animation" cues so they stay correct during playback (when
-  // selectionState.instanceId can drift from the rig-driving instance per
-  // the playback-gate's partial behavior in focusSelectionInstance) and
-  // for non-focused entities (whose rows otherwise never matched
-  // selectionInstanceId at all).
-  const activeInstanceForOwningEntity = useAnimationStore(
-    useShallow((state: AnimationData) =>
-      owningEntityId ? (state.entityStates[owningEntityId]?.activeInstanceId ?? null) : null,
-    ),
-  );
-
-  const isActive = useMemo(
-    () => !uniqueInstanceId || activeInstanceForOwningEntity === uniqueInstanceId,
-    [uniqueInstanceId, activeInstanceForOwningEntity],
-  );
+  // Single source of truth for "is this row active / selected / editable".
+  // Same predicates feed the canvas layerBand (update-instanced-track-sources)
+  // and the row tint (use-row-background) — keeps every visual surface in
+  // lockstep. See `functions/row-edit-state.ts` for the contract.
+  const predicates = useRowEditState(sourceRow);
+  // Active driver for the row's owning entity → row icon shows in color
+  // (covers focused entity's active AND other entities' active animations,
+  // which renders in the locked layer). Rows without a unique instance
+  // (mixed aggregates) are treated as active so they aren't grayed out.
+  const isActive = !uniqueInstanceId || predicates.isActiveDriverForOwningEntity;
+  // Left-edge selection bar: row has at least one selected track within
+  // the current selection scope. The shared helper handles the scope gate.
+  const isTrackInSelection = predicates.isInSelection;
 
   const handleActivate = useCallback(() => {
     if (uniqueInstanceId) {

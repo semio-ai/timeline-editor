@@ -87,29 +87,45 @@ describe("selection actions playback gate", () => {
   });
 
   describe("focusSelectionInstance", () => {
-    it("updates selection focus AND the entity active instance when stopped", () => {
+    it("updates the entity's active instance AND mirrors selection scope when stopped", () => {
       store.getState().focusSelectionInstance(INSTANCE_IDS.ALPHA_EXCLUSIVE);
 
-      expect(store.getState().selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_EXCLUSIVE);
       expect(store.getState().entityStates[entityId]?.activeInstanceId).toBe(
         INSTANCE_IDS.ALPHA_EXCLUSIVE,
       );
+      // Unified contract: selectionState.instanceId is a strict mirror of
+      // entityStates[activeEntityId].activeInstanceId.
+      expect(store.getState().selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_EXCLUSIVE);
     });
 
-    // Partial gate: selection focus must still update during playback so users
-    // can inspect a non-active instance's keypoints. Only the side-effect
-    // mutation of entityStates is suppressed.
-    it("updates selection focus but leaves entity active instance unchanged when running", () => {
+    it("switches the focused entity to the clicked instance's owning entity", () => {
+      // Pre: focused entity is the same as ALPHA's owning entity (set by
+      // fixture). After clicking ALPHA_EXCLUSIVE the focused entity remains
+      // ALPHA's owning entity, but the ID lookup proves the writer set it.
+      store.getState().focusSelectionInstance(INSTANCE_IDS.ALPHA_EXCLUSIVE);
+      expect(store.getState().activeEntityId).toBe(entityId);
+    });
+
+    it("during playback: leaves entityStates pairing unchanged (gated)", () => {
       const beforeActive = store.getState().entityStates[entityId]?.activeInstanceId;
 
       withPlayerRunning(true, () => {
         store.getState().focusSelectionInstance(INSTANCE_IDS.ALPHA_EXCLUSIVE);
       });
 
-      // Selection focus DID update — the user can look at the other instance.
-      expect(store.getState().selectionState.instanceId).toBe(INSTANCE_IDS.ALPHA_EXCLUSIVE);
-      // entityStates DID NOT — the rig keeps following the old instance.
+      // Pairing didn't change — the rig keeps following the old instance.
       expect(store.getState().entityStates[entityId]?.activeInstanceId).toBe(beforeActive);
+      // selectionState mirrors entityStates, so it also didn't move.
+      expect(store.getState().selectionState.instanceId).toBe(beforeActive);
+    });
+
+    it("during playback: still switches focused entity (allowed mid-playback)", () => {
+      withPlayerRunning(true, () => {
+        store.getState().focusSelectionInstance(INSTANCE_IDS.ALPHA_EXCLUSIVE);
+      });
+      // Entity focus follows clicks even during playback, per the
+      // user's design rule that entity switching is allowed mid-playback.
+      expect(store.getState().activeEntityId).toBe(entityId);
     });
   });
 });
