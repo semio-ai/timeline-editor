@@ -110,7 +110,21 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   }
 
   return (
-    <Instances key={instancesKey} limit={Math.max(instanceCount, 1024)} range={instanceCount}>
+    <Instances
+      key={instancesKey}
+      limit={Math.max(instanceCount, 1024)}
+      range={instanceCount}
+      // three.js' InstancedMesh frustum-culls based on the SHARED
+      // geometry's bounding sphere (radius ~5 around the model origin),
+      // not the world-space spread of individual instance positions. With
+      // keypoints scattered along the timeline, panning the camera past
+      // x=0 makes that small bounding sphere leave the frustum and the
+      // entire mesh — every keypoint hexagon — disappears. Disabling
+      // frustum culling on the mesh is the canonical fix; per-instance
+      // count is bounded by the visible track set so the perf cost of
+      // skipping culling is negligible here.
+      frustumCulled={false}
+    >
       {/* Shared geometry and material for all instances */}
       <cylinderGeometry args={[5, 5, 1, 6]} />
       <meshBasicMaterial toneMapped={false} />
