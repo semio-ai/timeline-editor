@@ -1,9 +1,5 @@
 import { produce } from "immer";
-import {
-  collectSourceTracks,
-  computeUpdatedSources,
-  findSourceTrackById,
-} from "../functions";
+import { collectSourceTracks, computeUpdatedSources } from "../functions";
 import { GROUP_TYPES } from "../constants";
 import type {
   AnimationData,
@@ -94,26 +90,12 @@ export function setTracksMuted(
       ids.forEach((sourceId) => {
         updates[sourceId] = { muted };
       });
-
-      // When unmuting, enforce one-unmuted-per-animatable constraint:
-      // mute other tracks that share the same animatable in the same namespace.
-      if (!muted) {
-        ids.forEach((sourceId) => {
-          const targetTrack = findSourceTrackById(state.globalSourceTree, sourceId);
-          if (targetTrack) {
-            const { namespaceId, animatableId } = targetTrack;
-            if (animatableId) {
-              collectSourceTracks(state.globalSourceTree).forEach((track) => {
-                if (ids.includes(track.id)) return;
-                if (track.namespaceId !== namespaceId) return;
-                if (track.animatableId !== animatableId) return;
-                updates[track.id] = { muted: true };
-              });
-            }
-          }
-        });
-      }
-
+      // Mute is purely the user's per-track toggle now. The "at most one
+      // track per animatable can drive the rig" rule is enforced
+      // structurally by the values bridge filtering on the entity's active
+      // animation instance — see resolveBridgeEntries in
+      // values-bridge-subscription.ts. Tracks in non-active instances do
+      // not need to be muted; they simply do not bridge.
       state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
     }),
   );
