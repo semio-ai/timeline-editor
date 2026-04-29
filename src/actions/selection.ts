@@ -44,7 +44,44 @@ export function selectAllInTracks(set: AnimationStoreSetter, trackKeys: string[]
 }
 
 export function focusSelectionInstance(set: AnimationStoreSetter, instanceId: string): void {
-  set(() => ({ selectionState: createEmptySelectionState(instanceId) }));
+  set((state: AnimationData) => {
+    // Find the entity that owns this animation instance so the persisted
+    // per-entity active-instance can be updated alongside the selection focus.
+    // Without this sync, the controls sidebar's active-animation dropdown
+    // (which reads `entityStates[id].activeInstanceId` via
+    // `activeEntityContext`) goes stale when the user activates a different
+    // instance via a track row click or canvas interaction — the timeline
+    // updates but the dropdown doesn't.
+    let owningEntityId: string | null = null;
+    for (const namespaceId of Object.keys(state.namespaces)) {
+      if (state.namespaces[namespaceId].animationInstances?.[instanceId]) {
+        owningEntityId = namespaceId.split("@")[0];
+        break;
+      }
+    }
+
+    const result: Partial<AnimationData> = {
+      selectionState: createEmptySelectionState(instanceId),
+    };
+
+    if (owningEntityId) {
+      const currentEntityState = state.entityStates[owningEntityId];
+      if (
+        currentEntityState?.controlMode === "animation" &&
+        currentEntityState.activeInstanceId !== instanceId
+      ) {
+        result.entityStates = {
+          ...state.entityStates,
+          [owningEntityId]: {
+            ...currentEntityState,
+            activeInstanceId: instanceId,
+          },
+        };
+      }
+    }
+
+    return result;
+  });
 }
 
 export function setActiveEntity(
