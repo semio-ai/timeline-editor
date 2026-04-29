@@ -114,7 +114,6 @@ import {
   updateViewFilteredSourceRows,
   updateGlobalSources,
   updateSourceRowIds,
-  updateTrackMuting,
   initDerivedOrchestrator,
   updateActiveEntityContext,
 } from "./subscriptions";
@@ -489,7 +488,6 @@ export const AnimationSlice = (
         updateOverallDuration,
         initDerivedOrchestrator,
         updateInstancedTrackSources,
-        updateTrackMuting,
         updateGlobalSources,
         updateSourceRowIds,
         updateViewFilteredSourceRows,
