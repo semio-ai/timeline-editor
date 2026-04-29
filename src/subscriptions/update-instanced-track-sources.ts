@@ -95,7 +95,19 @@ export function updateInstancedTrackSources(
     },
     {
       equalityFn: (current, previous) => {
-        // Re-derive when tree, selection, or any entity's active instance changes
+        // Re-derive when tree, selection, or any entity's active instance changes.
+        // This equality function runs on every main-store set, including
+        // playback ticks that don't touch any of these fields — keep the
+        // common case (stable references) cheap by short-circuiting before
+        // any allocation.
+        if (
+          current.globalSourceTree === previous.globalSourceTree &&
+          current.entityStates === previous.entityStates &&
+          current.selectedKeypoints === previous.selectedKeypoints &&
+          current.tracksRevision === previous.tracksRevision
+        ) {
+          return true;
+        }
 
         const selectionSignature = (selection: AnimationData["selectionState"]["keypoints"]) =>
           Array.from(selection.entries())
