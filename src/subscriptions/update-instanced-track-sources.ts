@@ -251,14 +251,17 @@ function flattenSources(
         entityActiveInstanceId !== null && track.instanceId === entityActiveInstanceId;
       const isFocusedEntity = activeEntityId !== null && owningEntityId === activeEntityId;
       // Selection scope follows the editor's selectionState.instanceId.
-      // Selection only "applies" to a track when the track is in the focused
-      // entity AND in the current selection scope — without this guard, a
-      // shared trackId across entities (e.g. the same animation bound to
-      // multiple entities) would highlight identically-named tracks in every
-      // entity when the user selects in one.
+      // Selection only "applies" to a track when the track is in the
+      // current selection scope — without this guard, a shared trackId
+      // across entities (e.g. the same animation bound to multiple
+      // entities) would highlight identically-named tracks in every
+      // entity when the user selects in one. Per-entity instance ids are
+      // unique even when the underlying animation is shared, so the
+      // instance-scope check alone is sufficient and doesn't depend on
+      // which entity is focused (focus and selection scope are
+      // intentionally decoupled per the focusSelectionInstance contract).
       const isSelectionScope = track.instanceId === selectionInstanceId;
       const isSelected =
-        isFocusedEntity &&
         isSelectionScope &&
         (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));
 
