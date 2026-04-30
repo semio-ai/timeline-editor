@@ -51,7 +51,6 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
 
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
-  const playerStamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
 
   // Row-level store reads that the control itself (vs the menu) needs for
   // rendering, selection background, and active-instance focus.
@@ -281,6 +280,10 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
                 playing={playing}
                 emphasis={emphasis}
                 handleValueChange={(change) => {
+                  // Read stamp at handler-fire time so this row doesn't have
+                  // to re-render every 25ms playback tick just to keep the
+                  // closure's stamp fresh.
+                  const playerStamp = usePlayerStore.getState().player.stamp;
                   const datumAnimatablePairs = sourceRow.data.map((datum) => ({
                     datum,
                     animatableId: datum.animatableId,
