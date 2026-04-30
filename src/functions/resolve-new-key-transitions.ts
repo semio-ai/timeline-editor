@@ -156,8 +156,7 @@ export function findInsertionNeighbors(
 ): { prevPoint: SimpleKeypoint | undefined; nextPoint: SimpleKeypoint | undefined } {
   let prevPoint: SimpleKeypoint | undefined;
   let nextPoint: SimpleKeypoint | undefined;
-  for (let i = 0; i < sortedPoints.length; i += 1) {
-    const point = sortedPoints[i];
+  for (const point of sortedPoints) {
     if (point.stamp <= stamp) {
       prevPoint = point;
     } else {
