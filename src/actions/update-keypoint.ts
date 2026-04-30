@@ -2,6 +2,11 @@ import { usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import { Keypoint } from "../types";
 import { computeTrackInterpolator } from "../functions";
+import {
+  findInsertionNeighbors,
+  resolveNewKeyTransitionPreferences,
+  resolveNewKeyTransitions,
+} from "../functions/resolve-new-key-transitions";
 import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
 
 export interface KeypointDelta<T extends SimpleRawValue>
@@ -72,12 +77,21 @@ export function updateKeypoint(
       // By definition, this overrides the `matchSlopeWhenInserting` field because the new slope will always be 0.
       const defaultValue = state.animatables[track.animatableId]?.default;
       if (defaultValue !== undefined) {
-        const newPoint: SimpleKeypoint = {
+        const seedPoint: SimpleKeypoint = {
           id: crypto.randomUUID(),
           stamp: usePlayerStore.getState().player.stamp,
           value: defaultValue as SimpleRawValue,
+          transitions: resolveNewKeyTransitions({
+            prevPoint: undefined,
+            nextPoint: undefined,
+            anchor: {
+              stamp: usePlayerStore.getState().player.stamp,
+              value: defaultValue as SimpleRawValue,
+            },
+            defaults: resolveNewKeyTransitionPreferences(state),
+          }),
         };
-        track.points.push(newPoint);
+        track.points.push(seedPoint);
       }
     } else {
       // We need to insert a new point somewhere in the track.
@@ -113,6 +127,24 @@ export function updateKeypoint(
       }
     } else if (keypoint.value !== undefined) {
       newPoint.value = keypoint.value;
+    }
+
+    // Honor caller-provided transitions when present, otherwise fall back to
+    // the user's configured new-key defaults computed against the current
+    // neighborhood. Without this, slider-driven keypoint creation
+    // (setValueAction) and hex-strip "add key" (updateKeypoints) would
+    // silently skip the user's transition preference and render as cubic.
+    if (keypoint.transitions) {
+      newPoint.transitions = keypoint.transitions;
+    } else {
+      const sortedPoints = track.points.slice().sort((a, b) => a.stamp - b.stamp);
+      const { prevPoint, nextPoint } = findInsertionNeighbors(sortedPoints, newPoint.stamp);
+      newPoint.transitions = resolveNewKeyTransitions({
+        prevPoint,
+        nextPoint,
+        anchor: { stamp: newPoint.stamp, value: newPoint.value },
+        defaults: resolveNewKeyTransitionPreferences(state),
+      });
     }
 
     const index = points.findIndex((point) => point.stamp > newPoint.stamp);

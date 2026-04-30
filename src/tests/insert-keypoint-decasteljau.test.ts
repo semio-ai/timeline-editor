@@ -207,6 +207,102 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
     expect(inserted?.transitions?.out).toBe(TransitionDirective.InferredAutoClamped);
   });
 
+  it("applies the configured default to BOTH sides when inserted at the end of a track", async () => {
+    // Regression: previously the missing-neighbor side was left undefined,
+    // which the toolbar normalizer rendered as cubic — silently dropping the
+    // user's chosen default for the trailing handle. Both sides should now
+    // carry the user's preference even when no nextPoint exists.
+    const store = createMinimalAnimationStore();
+    store.getState().setPreferences({
+      newKeyDefaults: {
+        transitions: {
+          in: TransitionDirective.InferredAutoClamped,
+          out: TransitionDirective.InferredAutoClamped,
+        },
+      },
+    });
+
+    const state0 = store.getState();
+    const trackId = Object.keys(state0.tracks)[0];
+    const { instanceId, timescale, offset } = resolveSingleNamespaceAndInstance(state0);
+    const sortedBefore = state0.tracks[trackId].points.slice().sort((a, b) => a.stamp - b.stamp);
+    const lastStamp = sortedBefore[sortedBefore.length - 1].stamp;
+    const insertLocal = lastStamp + 0.1;
+    const worldStamp = computeWorldStamp(insertLocal, timescale, offset);
+
+    store.getState().insertKeypointAtWorldStamp(trackId, worldStamp, instanceId);
+    await flushMicrotasks();
+
+    const inserted = store
+      .getState()
+      .tracks[trackId].points.find((point) => Math.abs(point.stamp - insertLocal) < 1e-6);
+    expect(inserted).toBeTruthy();
+    expect(inserted?.transitions?.in).toBe(TransitionDirective.InferredAutoClamped);
+    expect(inserted?.transitions?.out).toBe(TransitionDirective.InferredAutoClamped);
+  });
+
+  it("applies the configured default to BOTH sides when inserted at the start of a track", async () => {
+    // Mirror of the end-insertion regression: prepend should also carry
+    // both `in` and `out` from preferences even though there's no prevPoint.
+    const store = createMinimalAnimationStore();
+    store.getState().setPreferences({
+      newKeyDefaults: {
+        transitions: {
+          in: TransitionDirective.InferredAutoClamped,
+          out: TransitionDirective.InferredAutoClamped,
+        },
+      },
+    });
+
+    const state0 = store.getState();
+    const trackId = Object.keys(state0.tracks)[0];
+    const { instanceId, timescale, offset } = resolveSingleNamespaceAndInstance(state0);
+    const sortedBefore = state0.tracks[trackId].points.slice().sort((a, b) => a.stamp - b.stamp);
+    const firstStamp = sortedBefore[0].stamp;
+    const insertLocal = firstStamp - 0.1;
+    const worldStamp = computeWorldStamp(insertLocal, timescale, offset);
+
+    store.getState().insertKeypointAtWorldStamp(trackId, worldStamp, instanceId);
+    await flushMicrotasks();
+
+    const inserted = store
+      .getState()
+      .tracks[trackId].points.find((point) => Math.abs(point.stamp - insertLocal) < 1e-6);
+    expect(inserted).toBeTruthy();
+    expect(inserted?.transitions?.in).toBe(TransitionDirective.InferredAutoClamped);
+    expect(inserted?.transitions?.out).toBe(TransitionDirective.InferredAutoClamped);
+  });
+
+  it("updateKeypoint inserts a new keypoint with the configured transition defaults", async () => {
+    // Regression: slider-driven keypoint creation (setValueAction →
+    // updateKeypoint) used to skip the default-application path entirely,
+    // leaving transitions undefined and rendering as cubic.
+    const store = createMinimalAnimationStore();
+    store.getState().setPreferences({
+      newKeyDefaults: {
+        transitions: {
+          in: TransitionDirective.InferredAutoClamped,
+          out: TransitionDirective.InferredAutoClamped,
+        },
+      },
+    });
+
+    const state0 = store.getState();
+    const trackId = Object.keys(state0.tracks)[0];
+    const sortedBefore = state0.tracks[trackId].points.slice().sort((a, b) => a.stamp - b.stamp);
+    const newStamp = (sortedBefore[0].stamp + sortedBefore[1].stamp) / 2;
+
+    store.getState().updateKeypoint(trackId, { stamp: newStamp, value: 0.5 });
+    await flushMicrotasks();
+
+    const inserted = store
+      .getState()
+      .tracks[trackId].points.find((point) => Math.abs(point.stamp - newStamp) < 1e-6);
+    expect(inserted).toBeTruthy();
+    expect(inserted?.transitions?.in).toBe(TransitionDirective.InferredAutoClamped);
+    expect(inserted?.transitions?.out).toBe(TransitionDirective.InferredAutoClamped);
+  });
+
   it("uses inferred handles for explicit defaults when split insertion is unavailable", async () => {
     const store = createMinimalAnimationStore();
     store.getState().setPreferences({

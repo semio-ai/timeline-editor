@@ -1,11 +1,13 @@
 import { computeLocalStamp } from "../functions/compute-instance-time";
-import { type AnimationData, TransitionDirective, type TransitionPreference } from "../store-types";
-import { StandardTransitionType, TransitionPairing } from "../types";
+import { type AnimationData, TransitionDirective } from "../store-types";
 import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "../types/data/simple-track";
 import { buildTrackKey } from "../utils/track-key";
 import { insertKeypointWithDeCasteljau } from "../functions/insert-keypoint-with-decasteljau";
-import { resolveTransitionDelta } from "../functions/get-world-control-points";
-import { inferAutoHandleDeltas } from "../functions/infer-auto-handles";
+import {
+  findInsertionNeighbors,
+  resolveNewKeyTransitionPreferences,
+  resolveNewKeyTransitions,
+} from "../functions/resolve-new-key-transitions";
 
 /**
  * Inserts a keypoint at a given world stamp for a specific instance.
@@ -70,22 +72,16 @@ export function insertKeypointAtWorldStamp(
   }
 
   const sortedPoints = track.points.slice().sort((a, b) => a.stamp - b.stamp);
-  const insertIndex = findInsertIndex(sortedPoints, clampedStamp);
-  const prevPoint =
-    insertIndex === -1 ? sortedPoints[sortedPoints.length - 1] : sortedPoints[insertIndex - 1];
-  const nextPoint = insertIndex === -1 ? undefined : sortedPoints[insertIndex];
+  const { prevPoint, nextPoint } = findInsertionNeighbors(sortedPoints, clampedStamp);
 
   const newPoint: SimpleKeypoint = {
     id: crypto.randomUUID(),
     stamp: clampedStamp,
     value,
-    transitions: resolveDefaultTransitions({
+    transitions: resolveNewKeyTransitions({
       prevPoint,
       nextPoint,
-      anchor: {
-        stamp: clampedStamp,
-        value,
-      },
+      anchor: { stamp: clampedStamp, value },
       defaults: preferences,
     }),
   };
@@ -152,21 +148,6 @@ function resolveInterpolatedOrDefaultValue(
   return defaultValue;
 }
 
-function resolveNewKeyTransitionPreferences(state: AnimationData): {
-  in: TransitionPreference;
-  out: TransitionPreference;
-  pairing: TransitionPairing;
-} {
-  const defaults = state.preferences?.newKeyDefaults?.transitions;
-
-  return {
-    in: defaults?.in ?? StandardTransitionType.Cubic,
-    out: defaults?.out ?? StandardTransitionType.Cubic,
-    pairing: defaults?.pairing ?? TransitionPairing.Paired,
-  };
-}
-
-
 function findInsertIndex(points: SimpleKeypoint[], stamp: number): number {
   if (!points.length) return 0;
   // Find first point with greater stamp. Insert before that.
@@ -178,142 +159,3 @@ function findInsertIndex(points: SimpleKeypoint[], stamp: number): number {
   return -1; // append
 }
 
-function resolveDefaultTransitions(params: {
-  prevPoint: SimpleKeypoint | undefined;
-  nextPoint: SimpleKeypoint | undefined;
-  anchor: { stamp: number; value: SimpleRawValue };
-  defaults: {
-    in: TransitionPreference;
-    out: TransitionPreference;
-    pairing: TransitionPairing;
-  };
-}): SimpleKeypoint["transitions"] | undefined {
-  const { prevPoint, nextPoint, anchor, defaults } = params;
-  if (!prevPoint && !nextPoint) {
-    return undefined;
-  }
-
-  const transitions: NonNullable<SimpleKeypoint["transitions"]> = {
-    pairing: defaults.pairing,
-  };
-
-  if (prevPoint) {
-    transitions.in = resolveTransitionPreference({
-      preference: defaults.in,
-      side: "in",
-      prevPoint,
-      nextPoint,
-      anchor,
-    });
-  }
-  if (nextPoint) {
-    transitions.out = resolveTransitionPreference({
-      preference: defaults.out,
-      side: "out",
-      prevPoint,
-      nextPoint,
-      anchor,
-    });
-  }
-
-  return transitions;
-}
-
-function resolveTransitionPreference(params: {
-  preference: TransitionPreference;
-  side: "in" | "out";
-  prevPoint: SimpleKeypoint | undefined;
-  nextPoint: SimpleKeypoint | undefined;
-  anchor: { stamp: number; value: SimpleRawValue };
-}): NonNullable<SimpleKeypoint["transitions"]>["in"] {
-  const { preference, side, prevPoint, nextPoint, anchor } = params;
-
-  if (preference === TransitionDirective.InferredAutoClamped) {
-    return preference;
-  }
-
-  if (preference !== TransitionDirective.ExplicitHandles) {
-    return preference;
-  }
-
-  const inferred = resolveInferredExplicitHandle({
-    side,
-    prevPoint,
-    nextPoint,
-    anchor,
-  });
-  if (inferred) {
-    return inferred;
-  }
-
-  const explicit = resolveCubicExplicitHandle({
-    side,
-    prevPoint,
-    nextPoint,
-    anchor,
-  });
-  return explicit ?? StandardTransitionType.Cubic;
-}
-
-function resolveCubicExplicitHandle(params: {
-  side: "in" | "out";
-  prevPoint: SimpleKeypoint | undefined;
-  nextPoint: SimpleKeypoint | undefined;
-  anchor: { stamp: number; value: SimpleRawValue };
-}): { x: number; y: number } | undefined {
-  const { side, prevPoint, nextPoint, anchor } = params;
-  if (typeof anchor.value !== "number") {
-    return undefined;
-  }
-
-  if (side === "in") {
-    if (!prevPoint || typeof prevPoint.value !== "number") return undefined;
-    return resolveTransitionDelta(
-      "in",
-      prevPoint.stamp,
-      anchor.stamp,
-      prevPoint.value,
-      anchor.value,
-      StandardTransitionType.Cubic,
-    );
-  }
-
-  if (!nextPoint || typeof nextPoint.value !== "number") return undefined;
-  return resolveTransitionDelta(
-    "out",
-    anchor.stamp,
-    nextPoint.stamp,
-    anchor.value,
-    nextPoint.value,
-    StandardTransitionType.Cubic,
-  );
-}
-
-function resolveInferredExplicitHandle(params: {
-  side: "in" | "out";
-  prevPoint: SimpleKeypoint | undefined;
-  nextPoint: SimpleKeypoint | undefined;
-  anchor: { stamp: number; value: SimpleRawValue };
-}): { x: number; y: number } | undefined {
-  const { side, prevPoint, nextPoint, anchor } = params;
-  if (typeof anchor.value !== "number") {
-    return undefined;
-  }
-  if (!prevPoint || !nextPoint) {
-    return undefined;
-  }
-  if (typeof prevPoint.value !== "number" || typeof nextPoint.value !== "number") {
-    return undefined;
-  }
-
-  const inferred = inferAutoHandleDeltas({
-    prev: { stamp: prevPoint.stamp, value: prevPoint.value },
-    anchor: { stamp: anchor.stamp, value: anchor.value },
-    next: { stamp: nextPoint.stamp, value: nextPoint.value },
-  });
-  if (!inferred) {
-    return undefined;
-  }
-
-  return side === "in" ? inferred.in : inferred.out;
-}
