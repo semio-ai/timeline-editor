@@ -52,6 +52,7 @@ export const createDefaultState = (): AnimationData => {
     activeEditorViewId: undefined,
     instancedTrackSources: {},
     globalSourceTree: [],
+    readonlyAnimations: {},
     sourceRowIds: {
       flat: [],
       spline: [],

@@ -291,6 +291,17 @@ export interface AnimationData {
   tracksRevision?: number;
 
   /**
+   * Animation-level readonly map, written by studio-side wiring when an
+   * asset's permissions deny edit. Distinct from the per-track `readonly`
+   * flag in `globalSourceTree`: the per-track flag only marks tracks that
+   * actually exist, but mutations like `createTrack` (where the new track
+   * doesn't exist yet) and the "Add Track" button on empty animations
+   * need an animation-wide signal. Both flags are kept in lockstep by
+   * `setAnimationReadonly`.
+   */
+  readonlyAnimations: Record<string, boolean>;
+
+  /**
    * Vertical scroll offset for the track list and canvas, in pixels.
    * Written by PanZoomControls during scroll gestures; read by TracksRenderer
    * and TrackList for synchronized positioning.

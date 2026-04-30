@@ -168,7 +168,17 @@ export function setSourcesReadonly(
  * Mark every track belonging to a given animation as readonly (or clear it).
  * Used by studio-side wiring when an asset's permissions change so the
  * editor reflects the new edit-capability without needing to know about
- * individual track ids. Idempotent via `setSourcesReadonly`.
+ * individual track ids.
+ *
+ * Maintains both:
+ *   - per-track `readonly` flags on existing tracks in `globalSourceTree`
+ *     (used by per-track edit gates in `getNonEditableTrackIds`)
+ *   - the animation-level `readonlyAnimations` map (used by gates that
+ *     operate on the animation as a whole — `createTrack` for the case
+ *     where the new track doesn't exist yet, and the "Add Track" button
+ *     on empty animations that have no per-track flag to consult)
+ *
+ * Both branches are idempotent.
  */
 export function setAnimationReadonly(
   set: AnimationStoreSetter,
@@ -178,8 +188,21 @@ export function setAnimationReadonly(
 ): void {
   const tracks = collectSourceTracks(get().globalSourceTree);
   const ids = tracks.filter((track) => track.animationId === animationId).map((track) => track.id);
-  if (ids.length === 0) return;
-  setSourcesReadonly(set, get, ids, readonly);
+  if (ids.length > 0) {
+    setSourcesReadonly(set, get, ids, readonly);
+  }
+
+  const current = get().readonlyAnimations[animationId] === true;
+  if (current === readonly) return;
+  set(
+    produce((state: AnimationData): void => {
+      if (readonly) {
+        state.readonlyAnimations[animationId] = true;
+      } else {
+        delete state.readonlyAnimations[animationId];
+      }
+    }),
+  );
 }
 
 export function setTracksLocked(

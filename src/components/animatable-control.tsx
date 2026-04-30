@@ -144,6 +144,12 @@ function AnimatableLeafControl({
 
   const activeAnimationId = useActiveAnimationId();
 
+  const isActiveAnimationReadonly = useAnimationStore(
+    useShallow((state) =>
+      activeAnimationId ? Boolean(state.readonlyAnimations[activeAnimationId]) : false,
+    ),
+  );
+
   const hasTrackInActiveAnimation = useMemo(() => {
     if (!activeAnimationId) return false;
     const animation = animations[activeAnimationId];
@@ -155,7 +161,8 @@ function AnimatableLeafControl({
     Boolean(activeAnimationId) &&
     Boolean(animatable) &&
     !COMPLEX_TYPES.has(animatable?.type ?? "number") &&
-    !hasTrackInActiveAnimation;
+    !hasTrackInActiveAnimation &&
+    !isActiveAnimationReadonly;
 
   const handleAddTrack = useCallback(() => {
     if (!canAutoCreateTrack || !activeAnimationId || !animatable) return;
@@ -346,6 +353,11 @@ function AnimatableGroupControl({
     })),
   );
   const activeAnimationId = useActiveAnimationId();
+  const isActiveAnimationReadonly = useAnimationStore(
+    useShallow((state) =>
+      activeAnimationId ? Boolean(state.readonlyAnimations[activeAnimationId]) : false,
+    ),
+  );
   const emphasis = sourceRowId ? emphasisRowId === sourceRowId : false;
 
   // Store actions for selection, track creation, and emphasis.
@@ -399,7 +411,11 @@ function AnimatableGroupControl({
   const derivedAddable =
     typeof addable === "boolean" ? addable : missingChildAnimatableIds.length > 0;
   const canAutoCreate =
-    Boolean(activeAnimationId) && missingChildAnimatableIds.length > 0 && !disabled && !running;
+    Boolean(activeAnimationId) &&
+    missingChildAnimatableIds.length > 0 &&
+    !disabled &&
+    !running &&
+    !isActiveAnimationReadonly;
 
   const handleAddTracks = useCallback(() => {
     if (!canAutoCreate || !activeAnimationId) return;
