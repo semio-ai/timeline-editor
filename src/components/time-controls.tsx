@@ -45,7 +45,7 @@ export function TimeControls(): ReactNode {
             playPlayer();
           }
         }}
-        leftIcon={running ? <Pause size="18px" /> : <Play size="18px" />}
+        leftIcon={running ? <Pause size="14px" /> : <Play size="14px" />}
         visuals="inverted"
       />
       <SkipButton semanticTime={SemanticTime.BoundsEnd} />

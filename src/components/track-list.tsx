@@ -86,11 +86,11 @@ export function TrackList({ height = 240, rowIdLookup }: TrackListProps): ReactN
       >
         <ScrollArea
           orientation="vertical"
-          className="w-full pr-1"
+          className="w-full"
           style={{ maxHeight: height }}
           motionScrollY={scrollMotion}
         >
-          <div className="w-full pr-1">
+          <div className="w-full">
             <AnimatePresence>
               {sourceRows.map((sourceRow) => (
                 <motion.div

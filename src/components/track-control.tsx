@@ -212,7 +212,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       >
         {/* Full-row track-colored background tint — always rendered for CSS transition */}
         <div
-          className="pointer-events-none absolute inset-0 -right-2 transition-colors duration-150 ease-out"
+          className="pointer-events-none absolute inset-0 transition-colors duration-150 ease-out"
           style={{ backgroundColor: rowBackground }}
         />
         <ControlRow

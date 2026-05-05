@@ -26,14 +26,18 @@ export interface ControlRowProps {
 /**
  * A single row in the track list.
  *
- * Uses the shared 7-column grid from LEFT_COLUMN_GRID:
- *   [target 3px] [treeIcon auto] [label 1fr] [editor auto] [slotA] [slotB] [slotC] [slotD]
+ * Uses the shared 8-column grid from LEFT_COLUMN_GRID, with a 3px target
+ * indicator column prepended:
+ *   [target 3px] [treeIcon auto] [label 1fr] [editor 120px]
+ *   [slotA] [slotB] [slotC] [slotD] [scrollbar gutter]
  *
- * The target indicator is outside the grid (absolute-positioned).
- * The treeIcon maps to column 1 (auto).
- * For leaf rows: label in column 2 (1fr), editor in column 3 (auto).
- * For group rows: label spans columns 2-3.
- * Slots A-D are the rightmost 4 columns (16px each with 4px gap).
+ * The treeIcon maps to column 2 (auto, depth-dependent).
+ * For leaf rows: label in column 3 (1fr), editor in column 4 (120px).
+ * For group rows: label spans columns 3-4.
+ * Slots A-D are columns 5-8 (16px each with 4px gap).
+ * The trailing gutter is intentionally left empty so the vertical scrollbar
+ * (Radix overlay) can sit there without overlapping any control. See
+ * `SCROLLBAR_GUTTER` in `constants/layout.ts`.
  */
 export function ControlRow({
   target,

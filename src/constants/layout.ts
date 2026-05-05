@@ -2,16 +2,23 @@
  * Shared layout constants for the animation editor's left column.
  *
  * All rows in the left column (filter, track list, bottom sections) share
- * a 7-column grid structure:
+ * a structure ending with a fixed-width scrollbar gutter so the visible
+ * scrollbar (Radix overlay; ~10px wide) doesn't sit on top of any control:
  *
- *   [intrinsic] [flex] [fixed] [slotA] [slotB] [slotC] [slotD]
- *      auto       1fr    auto   16px    16px    16px    16px
+ *   [intrinsic] [flex] [fixed] [slotA] [slotB] [slotC] [slotD] [gutter]
+ *      auto       1fr    auto   16px    16px    16px    16px    12px
  *
  * Different row types span these columns differently:
- * - Filter row:   col 1-3 span (search) | A (mode) | B (eye) | C (speaker) | D (lock)
- * - Track leaf:   col 1 (tree) | col 2 (label) | col 3 (slider) | A (⋮) | B-D (strip)
- * - Track group:  col 1 (tree) | col 2-3 span (label) | A (⋮) | B-D (strip)
- * - Bottom rows:  col 1-A span (content) | B | C | D
+ * - Filter row:   col 1-3 span (search) | A (mode) | B (eye) | C (speaker) | D (lock) | gutter
+ * - Track leaf:   col 1 (tree) | col 2 (label) | col 3 (slider) | A (⋮) | B-D (strip) | gutter
+ * - Track group:  col 1 (tree) | col 2-3 span (label) | A (⋮) | B-D (strip) | gutter
+ * - Bottom rows:  col 1-A span (content) | B | C | D | gutter
+ *
+ * The gutter is left empty by every row (no item placed in it). It exists
+ * purely to reserve space inside the row's grid for the vertical scrollbar
+ * that appears on hover, so row backgrounds / hover tints can extend flush
+ * to the panel edge while the scrollbar overlays the gutter rather than
+ * overlapping any interactive element.
  */
 
 /**
@@ -40,11 +47,20 @@ export const SLOT_COUNT = 4;
 export const EDITOR_COLUMN_WIDTH = 120;
 
 /**
+ * Width reserved at the row's right edge for the vertical scrollbar overlay.
+ * Sized to clear Radix's `w-2.5` (10px) scrollbar with a couple of px to
+ * spare. Applied as a trailing column in every left-column row grid (and
+ * in the matching animation-sheet rows) so row backgrounds can extend
+ * flush to the panel edge without the scrollbar overlapping any control.
+ */
+export const SCROLLBAR_GUTTER = 12;
+
+/**
  * Grid template columns for the left column.
  * Used by the outer grid and matched by inner track row grids.
  */
 export const LEFT_COLUMN_GRID =
-  `auto 1fr ${EDITOR_COLUMN_WIDTH}px ${SLOT_SIZE}px ${SLOT_SIZE}px ${SLOT_SIZE}px ${SLOT_SIZE}px`;
+  `auto 1fr ${EDITOR_COLUMN_WIDTH}px ${SLOT_SIZE}px ${SLOT_SIZE}px ${SLOT_SIZE}px ${SLOT_SIZE}px ${SCROLLBAR_GUTTER}px`;
 
 /**
  * Total width of the 4-slot control area (including gaps and padding).

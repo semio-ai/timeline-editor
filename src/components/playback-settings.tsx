@@ -79,7 +79,7 @@ export function PlaybackSettings() {
         <ArrowRight
           size="100%"
           className={clsx(
-            "block h-4/5 w-4/5 shrink-0",
+            "block w-3.5 h-3.5 shrink-0",
             "transition-75 ease-in-out",
             direction === PlayerDirection.Reverse ? "-scale-100" : "scale-100",
           )}
@@ -92,7 +92,7 @@ export function PlaybackSettings() {
         value={looping}
         onChange={setLooping}
       >
-        <Repeat className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        <Repeat className="block w-3.5 h-3.5 shrink-0" size="100%" />
       </ToggleSquare>
       <ToggleSquare
         sizing="inner"
@@ -101,7 +101,7 @@ export function PlaybackSettings() {
         value={bounce}
         onChange={setBounce}
       >
-        <Bounce className="block h-4/5 w-4/5 shrink-0" size="100%" />
+        <Bounce className="block w-3.5 h-3.5 shrink-0" size="100%" />
       </ToggleSquare>
     </>
   );

@@ -71,9 +71,9 @@ export function ControlStrip({
 
   const defaultCenterContent =
     centerIcon === "plus" ? (
-      <IconPlus size="18px" />
+      <IconPlus size="16px" />
     ) : (
-      <IconKey size="18px" dashed={centerDashed} fillOpacity={centerFilled ? 1 : 0} />
+      <IconKey size="16px" dashed={centerDashed} fillOpacity={centerFilled ? 1 : 0} />
     );
 
   return (

@@ -248,7 +248,7 @@ function AnimatableLeafControl({
       onMouseLeave={() => setHovered(false)}
     >
     <div
-      className="pointer-events-none absolute inset-0 -right-2 transition-colors duration-150 ease-out"
+      className="pointer-events-none absolute inset-0 transition-colors duration-150 ease-out"
       style={{ backgroundColor: hovered ? `${resolvedColor}26` : `${resolvedColor}00` }}
     />
     <ControlRow
@@ -514,7 +514,7 @@ function AnimatableGroupControl({
       }}
     >
       <div
-        className="pointer-events-none absolute inset-0 -right-2 transition-colors duration-150 ease-out"
+        className="pointer-events-none absolute inset-0 transition-colors duration-150 ease-out"
         style={{ backgroundColor: groupBackground }}
       />
       <ControlRow

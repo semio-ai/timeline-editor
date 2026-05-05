@@ -53,9 +53,9 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         onChange={() => onToggleVisible?.()}
       >
         {visible === false ? (
-          <EyeOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <EyeOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
         ) : (
-          <Eye className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <Eye className="block w-3.5 h-3.5 shrink-0" size="100%" />
         )}
       </ToggleSquare>
 
@@ -69,9 +69,9 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         onChange={() => onToggleMuted?.()}
       >
         {muted === true ? (
-          <SpeakerOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <SpeakerOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
         ) : (
-          <Speaker className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <Speaker className="block w-3.5 h-3.5 shrink-0" size="100%" />
         )}
       </ToggleSquare>
 
@@ -93,9 +93,9 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         onChange={() => onToggleLocked?.()}
       >
         {locked === true || readonly ? (
-          <Lock className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <Lock className="block w-3.5 h-3.5 shrink-0" size="100%" />
         ) : (
-          <LockOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <LockOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
         )}
       </ToggleSquare>
     </>
