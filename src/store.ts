@@ -114,7 +114,6 @@ import {
   updateViewFilteredSourceRows,
   updateGlobalSources,
   updateSourceRowIds,
-  updateTrackMuting,
   initDerivedOrchestrator,
   updateActiveEntityContext,
 } from "./subscriptions";
@@ -232,6 +231,11 @@ export const AnimationSlice = (
       );
     },
     removeAnimatable: (id: string) => {
+      // TODO: also clear matching dotKey entries (and trackKeys for tracks
+      // referencing this animatable) from useValuesStore. Orphaned entries are
+      // currently inert (readers query by current animatable IDs) but
+      // accumulate until project reload. See useValuesStore JSDoc lifecycle
+      // section.
       set(
         produce((state: AnimationData): void => {
           if (!(id in state.animatables)) return;
@@ -411,6 +415,21 @@ export const AnimationSlice = (
       );
     },
     createTrack: (track: Partial<SimpleTrack>, animatableId: string, animationId: string) => {
+      // Document-permission gate at the action level so any caller (UI,
+      // future programmatic paths) can't silently mutate a readonly
+      // animation. The new track doesn't exist yet, so the per-track
+      // `nonEditableIds` check used by keypoint actions can't apply
+      // here — consult the animation-level map maintained by
+      // `setAnimationReadonly`.
+      if (get().readonlyAnimations[animationId]) {
+        // Surfaces caller bugs: hitting this branch means a UI gate
+        // failed to disable the action. Telemetry will replace this with
+        // a structured event when the PostHog wiring lands.
+        console.warn(
+          `[animation] createTrack blocked: animation ${animationId} is readonly (animatable=${animatableId})`,
+        );
+        return;
+      }
       set(
         produce((state: AnimationData): void => {
           createTrack(state, animatableId, animationId, track);
@@ -427,6 +446,23 @@ export const AnimationSlice = (
       );
     },
     removeTrack: (trackId: string, animationId: string) => {
+      // Gate on both the per-track readonly flag (the track itself was
+      // marked non-editable) AND the animation-level map (the parent
+      // animation is fully readonly — covers the empty-animation race
+      // where the per-track flag hasn't propagated yet).
+      if (get().readonlyAnimations[animationId]) {
+        console.warn(
+          `[animation] removeTrack blocked: animation ${animationId} is readonly (track=${trackId})`,
+        );
+        return;
+      }
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      if (nonEditableIds.has(trackId)) {
+        console.warn(
+          `[animation] removeTrack blocked: track ${trackId} is non-editable (locked or readonly)`,
+        );
+        return;
+      }
       set(
         produce((state: AnimationData) => {
           removeTrack(state, animationId, trackId);
@@ -484,7 +520,6 @@ export const AnimationSlice = (
         updateOverallDuration,
         initDerivedOrchestrator,
         updateInstancedTrackSources,
-        updateTrackMuting,
         updateGlobalSources,
         updateSourceRowIds,
         updateViewFilteredSourceRows,
@@ -692,7 +727,13 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
   })),
 );
 
-useDefaultAnimationStore.getState().initAnimationSubscriptions();
+// Subscriptions on `useDefaultAnimationStore` are now opt-in. Module-load
+// auto-init was causing two `update-player-loop` subscriptions on the
+// shared `usePlayerStore` (one for this default store, one for the
+// studio's composite store), which compounded into a React 19 max-depth
+// cascade on every player tick. Standalone consumers that fall back to
+// `useDefaultAnimationStore` (currently only `AnimationSheet`) call
+// `initAnimationSubscriptions()` themselves on mount.
 
 export function createAnimationStore(initial?: Partial<AnimationData>): AnimationStore {
   const store = create<AnimationData & AnimationActions>()(

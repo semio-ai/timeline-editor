@@ -14,6 +14,7 @@ import {
 import { Settings } from "@solar-icons/react-perf/Linear";
 import { useAnimationStore } from "../hooks";
 import { collectSourceTracks } from "../functions/source-utils";
+import { ControlStripMode } from "../store-types";
 import type { AnimationActions, AnimationData } from "../store-types";
 
 /**
@@ -50,7 +51,7 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
     useShallow((state: AnimationActions) => state.setTracksLocked),
   );
 
-  const isProperties = controlStripMode === "properties";
+  const isProperties = controlStripMode === ControlStripMode.Properties;
 
   // Collect all leaf tracks and compute aggregate states
   const { allIds, visibleState, mutedState, lockedState } = useMemo(() => {
@@ -92,13 +93,15 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         label={isProperties ? "Show key controls" : "Show track properties"}
         value={isProperties}
         onChange={() =>
-          setPreferences({ controlStripMode: isProperties ? "keySkip" : "properties" })
+          setPreferences({
+            controlStripMode: isProperties ? ControlStripMode.KeySkip : ControlStripMode.Properties,
+          })
         }
       >
         {isProperties ? (
-          <Settings className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <Settings className="block w-3.5 h-3.5 shrink-0" size="100%" />
         ) : (
-          <IconKey fillOpacity={0} className="block h-4/5 w-4/5 shrink-0" />
+          <IconKey fillOpacity={0} className="block w-3.5 h-3.5 shrink-0" />
         )}
       </ToggleSquare>
 
@@ -115,9 +118,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         }}
       >
         {visibleState === false ? (
-          <EyeOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <EyeOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
         ) : (
-          <Eye className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <Eye className="block w-3.5 h-3.5 shrink-0" size="100%" />
         )}
       </ToggleSquare>
 
@@ -134,9 +137,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         }}
       >
         {mutedState === true ? (
-          <SpeakerOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <SpeakerOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
         ) : (
-          <Speaker className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <Speaker className="block w-3.5 h-3.5 shrink-0" size="100%" />
         )}
       </ToggleSquare>
 
@@ -153,9 +156,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         }}
       >
         {lockedState === true ? (
-          <Lock className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <Lock className="block w-3.5 h-3.5 shrink-0" size="100%" />
         ) : (
-          <LockOff className="block h-4/5 w-4/5 shrink-0" size="100%" />
+          <LockOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
         )}
       </ToggleSquare>
     </>

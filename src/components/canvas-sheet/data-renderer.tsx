@@ -32,7 +32,12 @@ import {
   VerticalAxis,
   VerticalAxisRange,
 } from "../../types";
-import { AnimationData, AnimationActions } from "../../store-types";
+import {
+  AnimationData,
+  AnimationActions,
+  HandleVisibility,
+  ViolationVisibility,
+} from "../../store-types";
 import { DEFAULT_COLOR, RENDER_MORPH_SPRING, Z } from "../../constants";
 import { AnimationContext } from "../../context";
 import { DataPoint } from "./data-point";
@@ -105,7 +110,21 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   }
 
   return (
-    <Instances key={instancesKey} limit={Math.max(instanceCount, 1024)} range={instanceCount}>
+    <Instances
+      key={instancesKey}
+      limit={Math.max(instanceCount, 1024)}
+      range={instanceCount}
+      // three.js' InstancedMesh frustum-culls based on the SHARED
+      // geometry's bounding sphere (radius ~5 around the model origin),
+      // not the world-space spread of individual instance positions. With
+      // keypoints scattered along the timeline, panning the camera past
+      // x=0 makes that small bounding sphere leave the frustum and the
+      // entire mesh — every keypoint hexagon — disappears. Disabling
+      // frustum culling on the mesh is the canonical fix; per-instance
+      // count is bounded by the visible track set so the perf cost of
+      // skipping culling is negligible here.
+      frustumCulled={false}
+    >
       {/* Shared geometry and material for all instances */}
       <cylinderGeometry args={[5, 5, 1, 6]} />
       <meshBasicMaterial toneMapped={false} />
@@ -179,7 +198,21 @@ export const DataRenderer = memo(function DataRenderer({
   );
   const selectionState = useAnimationStore(useShallow((state: StoreState) => state.selectionState));
   const handleVisibility = useAnimationStore(
-    useShallow((state: StoreState) => state.preferences.handleVisibility ?? "track-selection"),
+    useShallow(
+      (state: StoreState) => state.preferences.handleVisibility ?? HandleVisibility.TrackSelection,
+    ),
+  );
+  const violationVisibility = useAnimationStore(
+    useShallow(
+      (state: StoreState) => state.preferences.violationVisibility ?? ViolationVisibility.Visible,
+    ),
+  );
+  const violationSelectedTrackIds = useMemo<ReadonlySet<string> | undefined>(
+    () =>
+      violationVisibility === ViolationVisibility.Selection
+        ? new Set(selectionState.keypoints.keys())
+        : undefined,
+    [violationVisibility, selectionState.keypoints],
   );
   const hasActiveDrag = useAnimationStore(
     useShallow((state: StoreState) => Boolean(state.dragState)),
@@ -312,8 +345,41 @@ export const DataRenderer = memo(function DataRenderer({
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow]);
 
-  const shouldRenderTrackSwitchOverlay =
-    Boolean(uniqueInstanceId) && selectionState.instanceId !== uniqueInstanceId;
+  // Owning entity is encoded in the row's namespaceId (`entityId@...`).
+  // Compute it locally so the store selector stays O(1) — walking
+  // `state.namespaces` per row × per state change was a real perf
+  // regression at scale.
+  const owningEntityId = useMemo(() => {
+    if (!sourceRow) return undefined;
+    const ns = sourceRow.data.find((d) => d.namespaceId)?.namespaceId;
+    return ns ? ns.split("@")[0] : undefined;
+  }, [sourceRow]);
+
+  // Owning entity's currently-driving instance — same source the values
+  // bridge consults. Used so that "is this row's instance the active one"
+  // visuals follow the rig's actual driver, not editor selection focus
+  // (which can drift during playback per focusSelectionInstance's partial
+  // playback gate).
+  const activeInstanceForOwningEntity = useAnimationStore(
+    useShallow((state: StoreState) =>
+      owningEntityId ? (state.entityStates[owningEntityId]?.activeInstanceId ?? null) : null,
+    ),
+  );
+  const activeEntityId = useAnimationStore(
+    useShallow((state: StoreState) => state.activeEntityId),
+  );
+
+  // Render the click-to-switch overlay whenever clicking would switch
+  // focus or activate a different instance — i.e. anywhere the row
+  // ISN'T currently the editable one. Covers: non-active instances of
+  // any entity (overlay sits on greyed-out rows), AND the active rows of
+  // non-focused entities (so clicking Larry's active row when Ted is
+  // focused fires focusSelectionInstance and switches focus to Larry).
+  const isFocusedEntityActive =
+    Boolean(uniqueInstanceId) &&
+    owningEntityId === activeEntityId &&
+    activeInstanceForOwningEntity === uniqueInstanceId;
+  const shouldRenderTrackSwitchOverlay = Boolean(uniqueInstanceId) && !isFocusedEntityActive;
 
   const handleTrackSwitch = useCallback(
     (event?: { stopPropagation?: () => void }) => {
@@ -398,7 +464,7 @@ export const DataRenderer = memo(function DataRenderer({
   // different key), but NOT when it's merely extended (e.g. shift-clicking
   // to add keys to the selection).
   const handleIdSet = useMemo(() => {
-    if (handleVisibility !== "key-selection" || renderHandles.length === 0) return null;
+    if (handleVisibility !== HandleVisibility.KeySelection || renderHandles.length === 0) return null;
     return new Set(renderHandles.map((h) => h.id));
   }, [handleVisibility, renderHandles]);
   const prevHandleIdSetRef = useRef(handleIdSet);
@@ -467,7 +533,7 @@ export const DataRenderer = memo(function DataRenderer({
           <DataPointsRenderer
             sourceRow={sourceRow}
             selectionFrames={computedData.selection ?? []}
-            activeInstanceId={selectionState.instanceId}
+            activeInstanceId={activeInstanceForOwningEntity}
             xTransform={xTransform}
             verticalBounds={effectiveVerticalBounds}
             verticalAxisRange={axisRange}
@@ -522,7 +588,7 @@ export const DataRenderer = memo(function DataRenderer({
           )}
 
           {/* Render violations */}
-          {trackRender !== TrackRender.Spline && (
+          {trackRender !== TrackRender.Spline && violationVisibility !== ViolationVisibility.Hidden && (
             <ViolationRenderer
               violationSet={computedData.violationSet}
               theme={theme}
@@ -532,6 +598,7 @@ export const DataRenderer = memo(function DataRenderer({
               layer={transitionLayer}
               xTransform={xTransform}
               sourceRowId={sourceRowId}
+              selectedTrackIds={violationSelectedTrackIds}
             />
           )}
         </>

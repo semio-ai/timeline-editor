@@ -23,7 +23,7 @@ import {
   useControlMenu,
   useRowBackground,
 } from "../hooks";
-import { AnimationActions, AnimationData } from "../store-types";
+import { AnimationActions, AnimationData, ControlStripMode } from "../store-types";
 import { SourceRow, SourceRowData } from "../types";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
 import { COMPLEX_TYPES, DEFAULT_COLOR } from "../constants";
@@ -144,6 +144,12 @@ function AnimatableLeafControl({
 
   const activeAnimationId = useActiveAnimationId();
 
+  const isActiveAnimationReadonly = useAnimationStore(
+    useShallow((state) =>
+      activeAnimationId ? Boolean(state.readonlyAnimations[activeAnimationId]) : false,
+    ),
+  );
+
   const hasTrackInActiveAnimation = useMemo(() => {
     if (!activeAnimationId) return false;
     const animation = animations[activeAnimationId];
@@ -155,7 +161,8 @@ function AnimatableLeafControl({
     Boolean(activeAnimationId) &&
     Boolean(animatable) &&
     !COMPLEX_TYPES.has(animatable?.type ?? "number") &&
-    !hasTrackInActiveAnimation;
+    !hasTrackInActiveAnimation &&
+    !isActiveAnimationReadonly;
 
   const handleAddTrack = useCallback(() => {
     if (!canAutoCreateTrack || !activeAnimationId || !animatable) return;
@@ -224,7 +231,7 @@ function AnimatableLeafControl({
       <TrackControl
         sourceRow={sourceRow}
         depthOverride={depth}
-        controlStripOverride="keySkip"
+        controlStripOverride={ControlStripMode.KeySkip}
       />
     );
   }
@@ -241,7 +248,7 @@ function AnimatableLeafControl({
       onMouseLeave={() => setHovered(false)}
     >
     <div
-      className="pointer-events-none absolute inset-0 -right-2 transition-colors duration-150 ease-out"
+      className="pointer-events-none absolute inset-0 transition-colors duration-150 ease-out"
       style={{ backgroundColor: hovered ? `${resolvedColor}26` : `${resolvedColor}00` }}
     />
     <ControlRow
@@ -346,6 +353,11 @@ function AnimatableGroupControl({
     })),
   );
   const activeAnimationId = useActiveAnimationId();
+  const isActiveAnimationReadonly = useAnimationStore(
+    useShallow((state) =>
+      activeAnimationId ? Boolean(state.readonlyAnimations[activeAnimationId]) : false,
+    ),
+  );
   const emphasis = sourceRowId ? emphasisRowId === sourceRowId : false;
 
   // Store actions for selection, track creation, and emphasis.
@@ -399,7 +411,11 @@ function AnimatableGroupControl({
   const derivedAddable =
     typeof addable === "boolean" ? addable : missingChildAnimatableIds.length > 0;
   const canAutoCreate =
-    Boolean(activeAnimationId) && missingChildAnimatableIds.length > 0 && !disabled && !running;
+    Boolean(activeAnimationId) &&
+    missingChildAnimatableIds.length > 0 &&
+    !disabled &&
+    !running &&
+    !isActiveAnimationReadonly;
 
   const handleAddTracks = useCallback(() => {
     if (!canAutoCreate || !activeAnimationId) return;
@@ -498,7 +514,7 @@ function AnimatableGroupControl({
       }}
     >
       <div
-        className="pointer-events-none absolute inset-0 -right-2 transition-colors duration-150 ease-out"
+        className="pointer-events-none absolute inset-0 transition-colors duration-150 ease-out"
         style={{ backgroundColor: groupBackground }}
       />
       <ControlRow

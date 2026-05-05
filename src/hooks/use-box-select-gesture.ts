@@ -92,13 +92,18 @@ export function useBoxSelectGesture(
     return [cam.left + nx * (cam.right - cam.left), cam.top - ny * (cam.top - cam.bottom)];
   }, []);
 
-  // Edge-scrolling: updates box-select with shifted pointer after each scroll frame
+  // Edge-scrolling: updates box-select with shifted pointer after each scroll frame.
+  // The timeline HUD is a single global aggregate row with no vertical content
+  // to scroll, so vertical edge-scroll is disabled there — otherwise the bottom
+  // edge zone of the data area extends into the HUD and triggers spurious
+  // camera pans (Spline) or main-list scrolls (non-Spline).
   const edgeScroll = useEdgeScroll(
     {
       topOffsetPx: params.topOffsetPx,
       bottomOffsetPx: params.bottomOffsetPx,
       trackHeightPx: params.trackHeightPx,
       contentRowCount: params.contentRowCount,
+      vertical: origin !== "timeline",
     },
     trackRender,
     () => {

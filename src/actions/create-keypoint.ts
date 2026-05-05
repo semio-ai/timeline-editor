@@ -1,5 +1,10 @@
 import { usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
+import {
+  findInsertionNeighbors,
+  resolveNewKeyTransitionPreferences,
+  resolveNewKeyTransitions,
+} from "../functions/resolve-new-key-transitions";
 import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
 
 /**
@@ -34,11 +39,26 @@ export function createKeypoint(
   } else {
     const fallbackValue: SimpleRawValue =
       point.value ?? (typeof track.points[0]?.value !== "undefined" ? track.points[0].value : 0);
+    const stamp = point.stamp ?? usePlayerStore.getState().player.stamp;
+    // Honor caller-provided transitions (e.g. clipboard paste with full
+    // keypoint shape); otherwise apply the user's configured new-key
+    // defaults so all keypoint-creation paths agree on what "new key"
+    // means.
+    const transitions =
+      point.transitions ??
+      resolveNewKeyTransitions({
+        ...findInsertionNeighbors(
+          track.points.slice().sort((a, b) => a.stamp - b.stamp),
+          stamp,
+        ),
+        anchor: { stamp, value: fallbackValue },
+        defaults: resolveNewKeyTransitionPreferences(state),
+      });
     const newPoint: SimpleKeypoint = {
       id,
-      stamp: point.stamp ?? usePlayerStore.getState().player.stamp,
+      stamp,
       value: fallbackValue,
-      transitions: point.transitions,
+      transitions,
     };
     track.points = [...track.points, newPoint].toSorted((a, b) => a.stamp - b.stamp);
     return newPoint;

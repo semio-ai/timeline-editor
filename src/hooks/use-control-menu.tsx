@@ -9,6 +9,7 @@ import { computeAggregate, nextToggleValue } from "../functions/three-way-aggreg
 import type { AggregateState } from "../functions/three-way-aggregate";
 import type { AnimationActions, AnimationData } from "../store-types";
 import type { SourceRow } from "../types";
+import { useActiveAnimationId } from "./use-active-animation-id";
 import { useAnimationStore } from "./use-animation-store";
 import { useKeyControlState } from "./use-key-control-state";
 
@@ -108,6 +109,7 @@ export function useControlMenu({
     selectAllInTracks,
     clearSelection,
     removeKeypoints,
+    removeTrack,
     insertKeypointAtWorldStamp,
   } = useAnimationStore(
     useShallow((state: AnimationActions) => ({
@@ -122,9 +124,12 @@ export function useControlMenu({
       selectAllInTracks: state.selectAllInTracks,
       clearSelection: state.clearSelection,
       removeKeypoints: state.removeKeypoints,
+      removeTrack: state.removeTrack,
       insertKeypointAtWorldStamp: state.insertKeypointAtWorldStamp,
     })),
   );
+
+  const activeAnimationId = useActiveAnimationId();
 
   // ── Aggregate row state (visible / muted / locked) ────────────────────
   const rowVisible = useMemo<AggregateState>(
@@ -214,6 +219,18 @@ export function useControlMenu({
     selectAllInTracks(trackKeysForSelect);
   }, [selectAllInTracks, trackKeysForSelect]);
 
+  // Group rows back several tracks; remove each. The store action no-ops when
+  // the trackId is not a member of `activeAnimationId`, so a row whose tracks
+  // belong to a different animation is safe even though we use the active id
+  // here. Returned `undefined` when no animation is active so the menu can
+  // disable the item rather than silently no-op.
+  const handleRemoveTrack = useCallback(() => {
+    if (playing || allReadonly || !activeAnimationId) return;
+    trackKeysForSelect.forEach((trackId) => {
+      removeTrack(trackId, activeAnimationId);
+    });
+  }, [playing, allReadonly, activeAnimationId, trackKeysForSelect, removeTrack]);
+
   // ── Shared menu-exclusion + keybinding context ───────────────────────
   // Radix portals escape the React context tree, so we capture the map and
   // re-provide it inside the rendered menu content.
@@ -244,6 +261,7 @@ export function useControlMenu({
           onToggleVisible={handleToggleVisible}
           onToggleMuted={handleToggleMuted}
           onToggleLocked={handleToggleLocked}
+          onRemoveTrack={activeAnimationId ? handleRemoveTrack : undefined}
           keyState={keyState}
           onAddKeyframe={handleAddKeyframe}
           onRemoveKeyframe={handleRemoveKeyframe}
@@ -279,6 +297,8 @@ export function useControlMenu({
       handleToggleVisible,
       handleToggleMuted,
       handleToggleLocked,
+      activeAnimationId,
+      handleRemoveTrack,
       keyState,
       handleAddKeyframe,
       handleRemoveKeyframe,

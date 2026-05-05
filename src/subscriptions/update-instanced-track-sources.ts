@@ -7,6 +7,7 @@ import type {
 } from "../store-types";
 import { LayerBand, Source, SourceGroup, SourceRow, SourceRowData, SourceTrack } from "../types";
 import { GROUP_TYPES } from "../constants";
+import { computeRowEditPredicates } from "../functions/row-edit-state";
 import { isFilteredSourceRowId } from "../functions/view-filtered-source-row";
 
 /**
@@ -26,11 +27,28 @@ export function updateInstancedTrackSources(
   return api.subscribe(
     (state: AnimationData) => ({
       globalSourceTree: state.globalSourceTree,
-      activeAnimationId: state.selectionState.instanceId,
+      // Per-entity active instances (the rig-driving instance for each
+      // entity). Drives foreground/background coloring so the canvas
+      // matches what's actually playing back, not editor selection focus
+      // — the latter can drift from the active driver during playback per
+      // focusSelectionInstance's partial playback gate.
+      entityStates: state.entityStates,
+      // Currently focused entity for editing. Only the focused entity's
+      // active instance is "actually editable"; other entities' active
+      // instances render in the locked layer (visible color, but not
+      // interactive from this focus).
+      activeEntityId: state.activeEntityId,
+      selectionInstanceId: state.selectionState.instanceId,
       selectedKeypoints: state.selectionState.keypoints,
       tracksRevision: state.tracksRevision ?? 0,
     }),
-    ({ globalSourceTree, activeAnimationId, selectedKeypoints }) => {
+    ({
+      globalSourceTree,
+      entityStates,
+      activeEntityId,
+      selectionInstanceId,
+      selectedKeypoints,
+    }) => {
       // When the tree is missing or empty, fall through to write an empty
       // instancedTrackSources (preserving filtered entries from the other
       // subscription). Early-returning here would leave stale rows in place
@@ -63,7 +81,10 @@ export function updateInstancedTrackSources(
       // Leaf data is also accumulated into globalLeafData for the global aggregate row.
       flattenSources(
         sources,
-        activeAnimationId,
+        entityStates,
+        activeEntityId,
+        selectionInstanceId,
+        selectedKeypoints,
         selectedTrackLookup,
         instancedTrackSources,
         globalLeafData,
@@ -90,7 +111,21 @@ export function updateInstancedTrackSources(
     },
     {
       equalityFn: (current, previous) => {
-        // Re-derive when tree, selection, or active instance changes
+        // Re-derive when tree, selection, focus, or any entity's active
+        // instance changes. This equality function runs on every main-store
+        // set, including playback ticks that don't touch any of these fields
+        // — keep the common case (stable references) cheap by
+        // short-circuiting before any allocation.
+        if (
+          current.globalSourceTree === previous.globalSourceTree &&
+          current.entityStates === previous.entityStates &&
+          current.activeEntityId === previous.activeEntityId &&
+          current.selectionInstanceId === previous.selectionInstanceId &&
+          current.selectedKeypoints === previous.selectedKeypoints &&
+          current.tracksRevision === previous.tracksRevision
+        ) {
+          return true;
+        }
 
         const selectionSignature = (selection: AnimationData["selectionState"]["keypoints"]) =>
           Array.from(selection.entries())
@@ -100,13 +135,25 @@ export function updateInstancedTrackSources(
             }))
             .sort((left, right) => left.trackKey.localeCompare(right.trackKey));
 
+        // Compare entityStates by content (not reference) — only the
+        // `activeInstanceId` per entity matters for layerBand derivation.
+        const entityStatesSignature = (states: AnimationData["entityStates"]) =>
+          Object.entries(states)
+            .map(([entityId, state]) => `${entityId}:${state.activeInstanceId ?? ""}`)
+            .sort();
+
         return (
-          current.activeAnimationId === previous.activeAnimationId &&
+          isEqual(
+            entityStatesSignature(current.entityStates),
+            entityStatesSignature(previous.entityStates),
+          ) &&
           isEqual(
             selectionSignature(current.selectedKeypoints),
             selectionSignature(previous.selectedKeypoints),
           ) &&
           current.globalSourceTree === previous.globalSourceTree &&
+          current.activeEntityId === previous.activeEntityId &&
+          current.selectionInstanceId === previous.selectionInstanceId &&
           current.tracksRevision === previous.tracksRevision
         );
       },
@@ -119,8 +166,12 @@ export function updateInstancedTrackSources(
  * Recursively flatten a Source[] tree into a Record<string, SourceRow>,
  * decorating each node with rendering-specific data (layerBand, selectable, etc.).
  *
- * The `activeAnimationId` is used to determine foreground status per-leaf
- * (each leaf track knows its instanceId, compared against the active one).
+ * Per-leaf predicates are computed by the shared {@link computeRowEditPredicates}
+ * helper — same source of truth used by the sidebar (`track-control`) and
+ * the row background tint (`use-row-background`). The compound-name
+ * highlighting (e.g. selecting `position.x` also marks the parent
+ * `position`) is layered on top via the precomputed `selectedTrackLookup`
+ * Set, which already contains the trackId, its tail, and its dot-base.
  *
  * Returns the leaf data accumulated under the processed sources so that
  * ancestor group rows can aggregate only unique leaves (not descendant
@@ -128,7 +179,10 @@ export function updateInstancedTrackSources(
  */
 function flattenSources(
   sources: Source[],
-  activeAnimationId: string | null,
+  entityStates: AnimationData["entityStates"],
+  activeEntityId: AnimationData["activeEntityId"],
+  selectionInstanceId: AnimationData["selectionState"]["instanceId"],
+  selectedKeypoints: AnimationData["selectionState"]["keypoints"],
   selectedTrackLookup: Set<string>,
   output: Record<string, SourceRow>,
   globalLeafData: SourceRowData[],
@@ -150,7 +204,10 @@ function flattenSources(
       const childOutput: Record<string, SourceRow> = {};
       const descendantLeafData = flattenSources(
         group.children,
-        activeAnimationId,
+        entityStates,
+        activeEntityId,
+        selectionInstanceId,
+        selectedKeypoints,
         selectedTrackLookup,
         childOutput,
         globalLeafData,
@@ -186,10 +243,7 @@ function flattenSources(
     } else {
       const track = source as SourceTrack;
       const trackKey = track.id; // format: "ns/inst/trackId"
-      const foreground = Boolean(activeAnimationId) && track.instanceId === activeAnimationId;
-      const isSelected =
-        foreground && (selectedTrackLookup.has(trackKey) || selectedTrackLookup.has(track.trackId));
-
+      const owningEntityId = track.namespaceId.split("@")[0];
       const locked = track.locked ?? false;
       const readonly = track.readonly ?? false;
       // Both user-toggle `locked` and document-permission `readonly`
@@ -197,22 +251,48 @@ function flattenSources(
       // overlay), since to the user the track is non-editable for the
       // same reason — only the *cause* (and toggle availability) differs.
       const nonEditable = locked || readonly;
+
+      // Single source of truth for row edit/visibility predicates. Same
+      // helper drives the sidebar widget (track-control), the row tint
+      // (use-row-background), and this canvas-side layerBand decision —
+      // no more parallel re-derivations to keep in sync.
+      const predicates = computeRowEditPredicates({
+        owningEntityId,
+        rowInstanceId: track.instanceId,
+        trackIds: [track.trackId],
+        nonEditable,
+        activeEntityId,
+        entityStates,
+        selectionInstanceId,
+        selectedKeypoints,
+      });
+
+      // Compound-name fallback (e.g. selecting `position.x` also flags
+      // `position`) and full-trackKey form aren't carried by the helper's
+      // trackId-only check, so OR them in here on top of the helper's
+      // scope gate.
+      const isSelected =
+        predicates.isInSelection ||
+        (predicates.isInSelectionScope && selectedTrackLookup.has(trackKey));
+
       let layerBand = LayerBand.Background;
-      if (foreground && nonEditable) {
-        layerBand = LayerBand.ForegroundLocked;
-      } else if (foreground) {
+      if (predicates.isCurrentlyEdited) {
         layerBand = isSelected ? LayerBand.ForegroundSelected : LayerBand.ForegroundUnselected;
+      } else if (predicates.isActiveDriverForOwningEntity) {
+        layerBand = LayerBand.ForegroundLocked;
       }
 
       output[track.id] = {
         id: track.id,
         data: [
           {
-            // `selectable` and `editable` both honor permission-driven readonly
-            // and user-toggle locked. The two flags also flow through to row
-            // data so the UI can distinguish them (e.g. disable the Lock
-            // toggle when readonly is true).
-            selectable: foreground && !(track.locked ?? false) && !track.readonly,
+            // Selectable: only the focused entity's active instance is
+            // interactively selectable. `editable` remains the per-track
+            // mutability flag, independent of focus.
+            selectable:
+              predicates.isFocusedEntity &&
+              predicates.isActiveDriverForOwningEntity &&
+              !nonEditable,
             editable: !track.readonly && !(track.locked ?? false),
             layerBand,
             animationId: track.animationId,

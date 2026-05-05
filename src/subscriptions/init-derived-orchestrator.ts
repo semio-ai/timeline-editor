@@ -205,7 +205,11 @@ export function initDerivedOrchestrator(
     { fireImmediately: true, equalityFn: shallow },
   );
 
-  // Track whether a playback value update is already queued to avoid stacking
+  // Coalesce per-tick player updates: if a values-store write is already
+  // queued, skip queueing another. The microtask defers the write past
+  // the synchronous useSyncExternalStore notification chain triggered by
+  // the player setState, which keeps the orchestrator out of React's
+  // commit cycle and avoids contributing to nested-update detection.
   let playbackUpdatePending = false;
 
   const unsubscribePlayer = usePlayerStore.subscribe(
@@ -219,10 +223,6 @@ export function initDerivedOrchestrator(
       if (!latestSnapshot) {
         return;
       }
-
-      // Defer the values store write to break the synchronous cascade:
-      // updatePlayer setState → this subscriber → valuesStore setState
-      // Without deferral, React 19 hits max-update-depth during playback.
       if (playbackUpdatePending) return;
       playbackUpdatePending = true;
       queueMicrotask(() => {

@@ -49,6 +49,12 @@ export interface TrackControlMenuProps {
   onToggleMuted?: () => void;
   onToggleLocked?: () => void;
 
+  /**
+   * Remove the track(s) backing this row. Omitted when no active animation
+   * is resolvable (so the action would be a no-op).
+   */
+  onRemoveTrack?: () => void;
+
   // --- Keyframe actions ---
   /** "none" | "partial" | "full" — whether a key exists at playhead. */
   keyState: "none" | "partial" | "full";
@@ -93,6 +99,7 @@ export function TrackControlMenuContent({
   onToggleVisible,
   onToggleMuted,
   onToggleLocked,
+  onRemoveTrack,
   keyState,
   onAddKeyframe,
   onRemoveKeyframe,
@@ -173,7 +180,7 @@ export function TrackControlMenuContent({
 
       {/* --- Track Properties --- */}
       <NestedSeparator />
-      <NestedLabel>{isGroup ? "Group" : "Track"}</NestedLabel>
+      <NestedLabel>{isGroup ? "Track Group" : "Track"}</NestedLabel>
       {color && (
         <NestedColorPicker
           disabled={!isSingleTrack || playing}
@@ -228,12 +235,15 @@ export function TrackControlMenuContent({
           )
         }
       >
-        {readonly
-          ? "Locked (document permissions)"
-          : locked === true
-            ? "Unlock"
-            : "Lock"}
+        {readonly ? "Locked (document permissions)" : locked === true ? "Unlock" : "Lock"}
         {!readonly && isGroup ? " All" : ""}
+      </NestedItem>
+      <NestedItem
+        disabled={playing || allReadonly || !onRemoveTrack}
+        onClick={onRemoveTrack}
+        left={<TrashBinTrash size="18px" className={ICON_CLASS_NAME} />}
+      >
+        {isGroup ? "Remove Group" : "Remove Track"}
       </NestedItem>
 
       {/* --- Keys --- */}
@@ -255,13 +265,6 @@ export function TrackControlMenuContent({
       </NestedItem>
 
       {/* --- Navigate --- */}
-      {/*
-        TODO(animation-usability): wire a "Remove Track" item here for non-group
-        rows. Blocked on the broader track-removal flow (deciding what happens
-        to dependent state — selection, derived snapshot, view filters — when a
-        track disappears mid-edit). The store action exists (`removeTrack`); the
-        UI is intentionally absent until that flow is settled.
-      */}
       <NestedSeparator />
       <NestedLabel>Navigate</NestedLabel>
       <NestedItem

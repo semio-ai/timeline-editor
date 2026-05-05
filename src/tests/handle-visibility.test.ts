@@ -3,6 +3,7 @@ import {
   filterHandlesByVisibility,
   shouldRowShowHandles,
 } from "../functions/handle-visibility";
+import { HandleVisibility } from "../store-types";
 import { TransitionHandleKind } from "../types";
 import type { RenderHandle, SourceRow, TrackKey } from "../types";
 
@@ -42,7 +43,7 @@ describe("shouldRowShowHandles", () => {
 
   it("returns false when there is no active selection instance", () => {
     expect(
-      shouldRowShowHandles(sourceRow, "track-selection", {
+      shouldRowShowHandles(sourceRow, HandleVisibility.TrackSelection, {
         instanceId: null,
         keypoints: new Map([["scale", new Set(["k0"])]]),
       }),
@@ -51,7 +52,7 @@ describe("shouldRowShowHandles", () => {
 
   it("returns false when the row has no track on the selection instance", () => {
     expect(
-      shouldRowShowHandles(sourceRow, "track-selection", {
+      shouldRowShowHandles(sourceRow, HandleVisibility.TrackSelection, {
         instanceId: "other-instance",
         keypoints: new Map([["scale", new Set(["k0"])]]),
       }),
@@ -60,7 +61,7 @@ describe("shouldRowShowHandles", () => {
 
   it("returns false when no track in the row has selected keys", () => {
     expect(
-      shouldRowShowHandles(sourceRow, "track-selection", {
+      shouldRowShowHandles(sourceRow, HandleVisibility.TrackSelection, {
         instanceId: "inst-a",
         keypoints: new Map([["unrelated", new Set(["k0"])]]),
       }),
@@ -69,7 +70,7 @@ describe("shouldRowShowHandles", () => {
 
   it("track-selection: shows handles when any track on the row has selected keys", () => {
     expect(
-      shouldRowShowHandles(sourceRow, "track-selection", {
+      shouldRowShowHandles(sourceRow, HandleVisibility.TrackSelection, {
         instanceId: "inst-a",
         keypoints: new Map([["scale", new Set(["k0"])]]),
       }),
@@ -84,13 +85,13 @@ describe("shouldRowShowHandles", () => {
     ]);
 
     expect(
-      shouldRowShowHandles(sourceRow, "single-track", {
+      shouldRowShowHandles(sourceRow, HandleVisibility.SingleTrack, {
         instanceId: "inst-a",
         keypoints: oneTrack,
       }),
     ).toBe(true);
     expect(
-      shouldRowShowHandles(sourceRow, "single-track", {
+      shouldRowShowHandles(sourceRow, HandleVisibility.SingleTrack, {
         instanceId: "inst-a",
         keypoints: twoTracks,
       }),
@@ -106,7 +107,7 @@ describe("shouldRowShowHandles", () => {
       ["opacity", new Set<string>()],
     ]);
     expect(
-      shouldRowShowHandles(sourceRow, "single-track", {
+      shouldRowShowHandles(sourceRow, HandleVisibility.SingleTrack, {
         instanceId: "inst-a",
         keypoints: oneTrackPlusEmpty,
       }),
@@ -118,12 +119,12 @@ describe("shouldRowShowHandles", () => {
       instanceId: "inst-a",
       keypoints: new Map([["scale", new Set(["k0"])]]),
     };
-    expect(shouldRowShowHandles(sourceRow, "key-selection", sel)).toBe(true);
+    expect(shouldRowShowHandles(sourceRow, HandleVisibility.KeySelection, sel)).toBe(true);
   });
 
   it("ignores tracks present in the selection map with no keys (empty Set)", () => {
     expect(
-      shouldRowShowHandles(sourceRow, "track-selection", {
+      shouldRowShowHandles(sourceRow, HandleVisibility.TrackSelection, {
         instanceId: "inst-a",
         keypoints: new Map([["scale", new Set<string>()]]),
       }),
@@ -140,20 +141,20 @@ describe("filterHandlesByVisibility", () => {
 
   it("returns the handle list unchanged for track-selection mode", () => {
     expect(
-      filterHandlesByVisibility(handles, "track-selection", new Map([["scale", new Set(["k0"])]])),
+      filterHandlesByVisibility(handles, HandleVisibility.TrackSelection, new Map([["scale", new Set(["k0"])]])),
     ).toBe(handles);
   });
 
   it("returns the handle list unchanged for single-track mode", () => {
     expect(
-      filterHandlesByVisibility(handles, "single-track", new Map([["scale", new Set(["k0"])]])),
+      filterHandlesByVisibility(handles, HandleVisibility.SingleTrack, new Map([["scale", new Set(["k0"])]])),
     ).toBe(handles);
   });
 
   it("key-selection: keeps only handles for individually selected keys on each track", () => {
     const filtered = filterHandlesByVisibility(
       handles,
-      "key-selection",
+      HandleVisibility.KeySelection,
       new Map([
         ["scale", new Set(["k0"])],
         ["opacity", new Set<string>()],
@@ -163,11 +164,11 @@ describe("filterHandlesByVisibility", () => {
   });
 
   it("key-selection with empty selection returns no handles", () => {
-    expect(filterHandlesByVisibility(handles, "key-selection", new Map())).toEqual([]);
+    expect(filterHandlesByVisibility(handles, HandleVisibility.KeySelection, new Map())).toEqual([]);
   });
 
   it("returns input unchanged when handle list is empty", () => {
     const empty: RenderHandle[] = [];
-    expect(filterHandlesByVisibility(empty, "key-selection", new Map())).toBe(empty);
+    expect(filterHandlesByVisibility(empty, HandleVisibility.KeySelection, new Map())).toBe(empty);
   });
 });

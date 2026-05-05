@@ -16,7 +16,13 @@ import {
   LocalGlobalTransformContextProvider,
 } from "../hooks";
 import { WithTooltipAndAnimationContextProps } from "../utils/context-providers";
-import { MIN_SHEET_HEIGHT, SLOT_SIZE, SLOT_GAP, SIDEBAR_WIDTH } from "../constants";
+import {
+  MIN_SHEET_HEIGHT,
+  SLOT_SIZE,
+  SLOT_GAP,
+  SIDEBAR_WIDTH,
+  SCROLLBAR_GUTTER,
+} from "../constants";
 import {
   filterVisibleSourceRowIds,
   matchesSourceRowQuery,
@@ -156,6 +162,19 @@ export const AnimationSheet = memo(function AnimationSheet({
   // Determine what contexts need to be provided
   const needsAnimationContext = !skipAnimationContext && !animationCtx;
   const needsTooltipContext = !skipTooltipContext && !tooltipCtx;
+
+  // The default animation store no longer auto-inits its subscriptions
+  // at module load — that caused duplicate subscriptions when an app
+  // also created its own animation store (e.g. the studio's composite
+  // store), which compounded into a React 19 max-depth cascade on every
+  // player tick. Standalone usage that falls back to the default store
+  // initializes here on mount and cleans up on unmount. The store's
+  // `initAnimationSubscriptions` is idempotent (clears any existing
+  // cleanup before re-initing), so StrictMode double-mount is safe.
+  useEffect(() => {
+    if (!needsAnimationContext) return;
+    return useDefaultAnimationStore.getState().initAnimationSubscriptions();
+  }, [needsAnimationContext]);
 
   let content = <AnimationSheetCore {...props} />;
 
@@ -400,13 +419,18 @@ function InnerSheet({
                   expanded={expanded}
                 />
 
-                {/* Track Filter - Row 2: uses the shared 7-column grid */}
+                {/* Track Filter - Row 2: uses the shared 7-column grid.
+                    Width and right padding mirror the track-list rows
+                    (SIDEBAR_WIDTH + ControlRow's `pr-0.5`) so the four
+                    toggle buttons align horizontally with the track list's
+                    options/strip slots and the bottom-section button rows. */}
                 <div
-                  className="h-9 items-center py-0.5 pl-1 pr-3"
+                  className="h-9 items-center py-0.5 pl-1 pr-0.5"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: `1fr 1fr auto repeat(4, ${String(SLOT_SIZE)}px)`,
+                    gridTemplateColumns: `1fr 1fr auto repeat(4, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
                     gap: `${String(SLOT_GAP)}px`,
+                    width: SIDEBAR_WIDTH,
                   }}
                 >
                   <div className="col-span-3 min-w-0">
@@ -448,10 +472,10 @@ function InnerSheet({
 
                 {/* Timeline Control - Row 4 */}
                 <div
-                  className="pl-1 pr-3"
+                  className="pl-1 pr-0.5"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
+                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
                     gap: `${String(SLOT_GAP)}px`,
                     alignItems: "center",
                     width: SIDEBAR_WIDTH,
@@ -464,10 +488,10 @@ function InnerSheet({
 
                 {/* Time Controls - Row 5 */}
                 <div
-                  className="pl-1 pr-3"
+                  className="pl-1 pr-0.5"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
+                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
                     gap: `${String(SLOT_GAP)}px`,
                     alignItems: "center",
                     width: SIDEBAR_WIDTH,
@@ -480,10 +504,10 @@ function InnerSheet({
 
                 {/* Playback Settings - Row 6 */}
                 <div
-                  className="pl-1 pr-3"
+                  className="pl-1 pr-0.5"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px)`,
+                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
                     gap: `${String(SLOT_GAP)}px`,
                     alignItems: "center",
                     width: SIDEBAR_WIDTH,

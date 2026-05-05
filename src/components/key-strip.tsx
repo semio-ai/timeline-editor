@@ -67,7 +67,7 @@ export function KeyStrip({
       onCenterLeave={() => setHovered(false)}
       centerDeemphasize={trackIds.length === 0}
       centerContent={
-        <IconKey size="18px" fillOpacity={fillOpacity} dashed={keyDashed} center={center} />
+        <IconKey size="16px" fillOpacity={fillOpacity} dashed={keyDashed} center={center} />
       }
       centerAltText={keyState !== "full" ? "Add Key" : "Remove Key"}
     />

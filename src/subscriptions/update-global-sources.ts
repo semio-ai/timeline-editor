@@ -1,5 +1,4 @@
 import { shallow } from "zustand/shallow";
-import { isEqual } from "lodash";
 import type {
   AnimationApi,
   AnimationData,
@@ -59,16 +58,28 @@ export function updateGlobalSources(
         }
       }
 
-      // Step 2: Build the full tree with entity/instance wrapping
+      // Step 2: Build the full tree with entity/instance wrapping.
+      //
+      // Hierarchy depth is decided GLOBALLY rather than per-entity so all
+      // entities render at the same depth. If any single entity has more
+      // than one animation instance, the instance wrapper is shown for
+      // every entity (even those with one instance) so the tree is
+      // consistently structured. Same logic for the entity wrapper: shown
+      // for all when there's more than one entity. Without this, an entity
+      // with one instance would skip a level while a sibling with two
+      // would not, producing visually mismatched depths.
       const totalNamespaces = namespaceEntries.length;
       const showEntityLevel = totalNamespaces > 1;
+      const maxInstancesPerNamespace = namespaceEntries.reduce(
+        (max, [, namespace]) => Math.max(max, Object.keys(namespace.animationInstances).length),
+        0,
+      );
+      const showInstanceLevel = maxInstancesPerNamespace > 1;
 
       const globalSourceTree: Source[] = [];
 
       for (const [namespaceId, namespace] of namespaceEntries) {
         const instanceEntries = Object.values(namespace.animationInstances);
-        const totalInstances = instanceEntries.length;
-        const showInstanceLevel = totalInstances > 1;
 
         // Collect instance-level groups (or direct sources if no instance grouping)
         const namespaceSources: Source[] = [];
@@ -133,23 +144,13 @@ export function updateGlobalSources(
       });
     },
     {
-      equalityFn: (current, previous) => {
-        const allCurrentTracks = new Set(
-          Object.values(current.animations).flatMap((a) => a.tracks),
-        );
-        const allPreviousTracks = new Set(
-          Object.values(previous.animations).flatMap((a) => a.tracks),
-        );
-        const currentAnimationIds = new Set(Object.keys(current.animations));
-        const previousAnimationIds = new Set(Object.keys(previous.animations));
-
-        return (
-          isEqual(allCurrentTracks, allPreviousTracks) &&
-          isEqual(currentAnimationIds, previousAnimationIds) &&
-          shallow(current.namespaces, previous.namespaces) &&
-          shallow(current.animatables, previous.animatables)
-        );
-      },
+      // Re-derive whenever any input ref changes. The previous custom equality
+      // checked only the SET of track IDs, missing changes to track contents
+      // (animatable assignments, group membership, settings). On a server-side
+      // animation push that preserved track IDs, the tree stayed stale and
+      // downstream consumers operated on a tree that no longer reflected the
+      // current track structure.
+      equalityFn: shallow,
       fireImmediately: true,
     },
   );

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { createEmptySelectionState } from "../functions/selection-state-manager";
 import { LayerBand } from "../types";
 import {
   createTestAnimationStore,
@@ -10,14 +9,22 @@ import {
 import { flushMicrotasks } from "./utils/flush-microtasks";
 
 describe("layer band active-instance sync", () => {
-  it("keeps rows in background when no selection instance is active", async () => {
+  // The canvas's foreground/background derivation reads the per-entity
+  // active animation instance from entityStates (the rig-driving
+  // instance). Selection focus alone does not change layerBand —
+  // clicking a non-active instance during playback updates selection but
+  // not entityStates, so the canvas color stays put.
+  it("rows fall to background when the entity has no active animation instance", async () => {
     const store = createTestAnimationStore();
     const rowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.SCALE}`;
+    const entityId = NAMESPACE_IDS.ALPHA;
 
     const initiallyActiveRow = store.getState().instancedTrackSources[rowId];
     expect(initiallyActiveRow?.data[0]?.layerBand).toBe(LayerBand.ForegroundUnselected);
 
-    store.setState({ selectionState: createEmptySelectionState(null) });
+    // Switch the entity to direct mode (no active instance). Foreground
+    // requires entityStates[entity].activeInstanceId === track.instanceId.
+    store.getState().setEntityControlMode(entityId, "direct");
     await flushMicrotasks();
 
     const inactiveRow = store.getState().instancedTrackSources[rowId];

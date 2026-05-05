@@ -22,10 +22,11 @@ import {
   useLocalGlobalTransformLookup,
   useNames,
   useRowBackground,
+  useRowEditState,
 } from "../hooks";
 import { useValuesRef } from "../hooks/use-values-ref";
 import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
-import { AnimationActions, AnimationData } from "../store-types";
+import { AnimationActions, AnimationData, ControlStripMode } from "../store-types";
 import type { SimpleRawValue } from "../types/data/simple-track";
 import { buildTrackKey } from "../utils/track-key";
 import { getSemanticLabelForIconCode } from "../functions";
@@ -40,8 +41,8 @@ export interface TrackControlProps {
   ancestorIsLast?: boolean[];
   /** Override the depth from sourceRow (used when rendered inside AnimatableControlList). */
   depthOverride?: number;
-  /** Override the control strip mode (e.g., force "keySkip" in the animatable control list). */
-  controlStripOverride?: "keySkip" | "properties";
+  /** Override the control strip mode (e.g., force KeySkip in the animatable control list). */
+  controlStripOverride?: ControlStripMode;
 }
 
 function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: TrackControlProps) {
@@ -50,22 +51,17 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
 
   const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
-  const playerStamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
 
   // Row-level store reads that the control itself (vs the menu) needs for
   // rendering, selection background, and active-instance focus.
   const {
     storeControlStripMode,
     animatables,
-    selectionInstanceId,
-    selectedKeypoints,
     emphasisRowId,
   } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       storeControlStripMode: state.preferences.controlStripMode,
       animatables: state.animatables,
-      selectionInstanceId: state.selectionState.instanceId,
-      selectedKeypoints: state.selectionState.keypoints,
       emphasisRowId: state.emphasisRowId,
     })),
   );
@@ -97,13 +93,6 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     })),
   );
 
-  // Drives the left-edge color bar on the row when the track is part of
-  // any selection (distinct from the per-key background tint).
-  const isTrackInSelection = useMemo(
-    () => trackIds.some((id) => selectedKeypoints.has(id)),
-    [trackIds, selectedKeypoints],
-  );
-
   const valuesRef = useValuesRef();
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
 
@@ -115,11 +104,25 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow.data]);
 
-  // Row is active if it has no unique instance mapping OR it matches the selected instance
-  const isActive = useMemo(
-    () => !uniqueInstanceId || selectionInstanceId === uniqueInstanceId,
-    [uniqueInstanceId, selectionInstanceId],
-  );
+  // Single source of truth for "is this row active / selected / editable".
+  // Same predicates feed the canvas layerBand (update-instanced-track-sources)
+  // and the row tint (use-row-background) — keeps every visual surface in
+  // lockstep. See `functions/row-edit-state.ts` for the contract.
+  const predicates = useRowEditState(sourceRow);
+  // Active driver for the row's owning entity → row icon shows in color
+  // (covers focused entity's active AND other entities' active animations,
+  // which renders in the locked layer). Rows without a unique instance
+  // (mixed aggregates) are treated as active so they aren't grayed out.
+  const isActive = !uniqueInstanceId || predicates.isActiveDriverForOwningEntity;
+  // "Is the row's instance currently the editable one" — focused entity AND
+  // active driver. Used to gate the click-to-activate handler so a click on
+  // a row that ISN'T the editable one (different entity OR different
+  // instance) switches focus / activates that instance.
+  const isFocusedEntityActive =
+    predicates.isFocusedEntity && predicates.isActiveDriverForOwningEntity;
+  // Left-edge selection bar: row has at least one selected track within
+  // the current selection scope. The shared helper handles the scope gate.
+  const isTrackInSelection = predicates.isInSelection;
 
   const handleActivate = useCallback(() => {
     if (uniqueInstanceId) {
@@ -184,14 +187,19 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
         onMouseEnter={() => setEmphasis(sourceRow.id)}
         onMouseLeave={() => setEmphasis(null)}
         onPointerDown={(e) => {
-          // Any interaction with an inactive row switches the active instance
-          // as a side effect — without blocking the interaction itself.
-          if (!isActive && uniqueInstanceId) {
+          // Any interaction with a row that ISN'T currently the editable
+          // one switches focus / activates that instance as a side effect.
+          // Covers: clicking a non-active instance of the focused entity,
+          // AND clicking any row of a non-focused entity. focusSelectionInstance
+          // is idempotent when the click would land on the already-editable row.
+          if (!isFocusedEntityActive && uniqueInstanceId) {
             handleActivate();
           }
           // Track selection: plain click selects, Ctrl/Cmd toggles, Shift range-selects.
-          // Only on active instance rows — skip if this click also activates.
-          if (isActive) {
+          // Only fires when the row is already the focused entity's active
+          // instance — otherwise the click above is purely a focus/activate
+          // gesture and selection is intentionally cleared by focusSelectionInstance.
+          if (isFocusedEntityActive) {
             if (e.ctrlKey || e.metaKey) {
               toggleTrackInSelection(sourceRow.id, trackIds);
             } else if (e.shiftKey && referenceRowId) {
@@ -204,7 +212,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       >
         {/* Full-row track-colored background tint — always rendered for CSS transition */}
         <div
-          className="pointer-events-none absolute inset-0 -right-2 transition-colors duration-150 ease-out"
+          className="pointer-events-none absolute inset-0 transition-colors duration-150 ease-out"
           style={{ backgroundColor: rowBackground }}
         />
         <ControlRow
@@ -272,6 +280,10 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
                 playing={playing}
                 emphasis={emphasis}
                 handleValueChange={(change) => {
+                  // Read stamp at handler-fire time so this row doesn't have
+                  // to re-render every 25ms playback tick just to keep the
+                  // closure's stamp fresh.
+                  const playerStamp = usePlayerStore.getState().player.stamp;
                   const datumAnimatablePairs = sourceRow.data.map((datum) => ({
                     datum,
                     animatableId: datum.animatableId,
@@ -333,7 +345,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
             ) : undefined
           }
           controls={
-            controlStripMode === "properties" ? (
+            controlStripMode === ControlStripMode.Properties ? (
               <TrackPropertiesStrip
                 color={color}
                 disabled={playing}

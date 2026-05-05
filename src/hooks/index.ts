@@ -17,6 +17,7 @@ export * from "./use-playback-gestures";
 export * from "./use-player-subscription";
 export * from "./use-playhead-spring";
 export * from "./use-row-background";
+export * from "./use-row-edit-state";
 export * from "./use-shift-key-pressed";
 export * from "./use-store-subscription";
 export * from "./use-track-animatables";

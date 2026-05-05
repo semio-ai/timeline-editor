@@ -7,6 +7,7 @@ import {
   StoredAnimation,
   StandardTransitionType,
 } from "../types";
+import { ControlStripMode, HandleVisibility, ViolationVisibility } from "../store-types";
 import { createAnimationStore, type AnimationStore } from "../store";
 import { migrateAnimationData } from "../functions/migrate-animation-data";
 import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
@@ -670,8 +671,9 @@ export function createTestAnimationStore(options?: {
 
     // Preferences
     preferences: {
-      controlStripMode: "keySkip" as const,
-      handleVisibility: "track-selection" as const,
+      controlStripMode: ControlStripMode.KeySkip,
+      handleVisibility: HandleVisibility.TrackSelection,
+      violationVisibility: ViolationVisibility.Visible,
       newKeyDefaults: {
         transitions: {
           in: StandardTransitionType.Cubic,
@@ -685,12 +687,36 @@ export function createTestAnimationStore(options?: {
   const setNamespaces = store.getState().setNamespaces;
   const setAnimatables = store.getState().setAnimatables;
   const setAnimations = store.getState().setAnimations;
+  const setEntityControlMode = store.getState().setEntityControlMode;
+  const setActiveEntity = store.getState().setActiveEntity;
   const focusSelectionInstance = store.getState().focusSelectionInstance;
 
   // Set animatables and namespaces first
   setAnimatables(migratedAnimatables);
   setAnimations(migratedAnimations);
   setNamespaces(namespaces);
+
+  // Seed entityStates so canvas/track-list "active instance" derivations
+  // (which read from entityStates, not from selectionState.instanceId)
+  // see the fixture's intended active instance for each namespace's
+  // owning entity. The namespaceId IS the entityId in these fixtures
+  // (no "@" suffix).
+  Object.keys(namespaces).forEach((namespaceId) => {
+    const entityId = namespaceId.split("@")[0];
+    setEntityControlMode(entityId, "animation", activeInstance);
+  });
+
+  // Focus on the entity that owns `activeInstance`. The "actually
+  // editable" foreground layer requires isFocusedEntity match — without
+  // this, every test track would render in the locked layer and
+  // selection-driven assertions would silently mismatch.
+  const owningNamespaceId = Object.entries(namespaces).find(([, namespace]) =>
+    Object.keys(namespace.animationInstances).includes(activeInstance),
+  )?.[0];
+  if (owningNamespaceId) {
+    setActiveEntity(owningNamespaceId.split("@")[0]);
+  }
+
   focusSelectionInstance(activeInstance);
 
   return store;
@@ -707,8 +733,9 @@ export function createMinimalAnimationStore(): AnimationStore {
     timeDisplay: TimeDisplay.Frames,
     expanded: true,
     preferences: {
-      controlStripMode: "keySkip" as const,
-      handleVisibility: "track-selection" as const,
+      controlStripMode: ControlStripMode.KeySkip,
+      handleVisibility: HandleVisibility.TrackSelection,
+      violationVisibility: ViolationVisibility.Visible,
       newKeyDefaults: {
         transitions: {
           in: StandardTransitionType.Cubic,
@@ -722,6 +749,8 @@ export function createMinimalAnimationStore(): AnimationStore {
   const setAnimatables = store.getState().setAnimatables;
   const setAnimations = store.getState().setAnimations;
   const setNamespaces = store.getState().setNamespaces;
+  const setEntityControlMode = store.getState().setEntityControlMode;
+  const setActiveEntity = store.getState().setActiveEntity;
   const focusSelectionInstance = store.getState().focusSelectionInstance;
 
   const { animations: migratedAnimations, animatables: migratedAnimatables } = migrateAnimationSet(
@@ -757,6 +786,8 @@ export function createMinimalAnimationStore(): AnimationStore {
       },
     },
   });
+  setEntityControlMode("default", "animation", "main");
+  setActiveEntity("default");
   focusSelectionInstance("main");
 
   return store;

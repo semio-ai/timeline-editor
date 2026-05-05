@@ -72,7 +72,6 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   );
 
   const running = usePlayerStore(useShallow((state) => state.player.running));
-  const stamp = usePlayerStore(useShallow((state) => state.player.stamp));
   const { keyState, currentFrame, missingEntries, targetPoints } =
     useKeyControlState(fallbackSource);
 
@@ -188,6 +187,10 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
             return;
           }
 
+          // Read stamp at click-fire time so this control doesn't have to
+          // re-render every 25ms playback tick just to keep the closure's
+          // stamp fresh.
+          const stamp = usePlayerStore.getState().player.stamp;
           const targets = keyState === "partial" ? missingEntries : fallbackSource.data;
           const updates: { trackId: string; keypoint: Partial<SimpleKeypoint> }[] = targets
             .map((datum) => {
