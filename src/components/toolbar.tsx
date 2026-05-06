@@ -20,7 +20,7 @@ export const Toolbar = memo(function Toolbar({ viewId }: ToolbarProps) {
     <ToolbarWrapper leftPadding={1}>
       <ViewToolbarSection viewId={viewId} />
       <KeyToolbarSection />
-      <ViewportToolbarSection />
+      <ViewportToolbarSection viewId={viewId} />
     </ToolbarWrapper>
   );
 });

@@ -38,10 +38,12 @@ export enum Z {
   SelectedUnselectedBoundary = 10,
   ForegroundDataUnselected = 0,
   ForegroundBackgroundBoundary = -10,
+  ForegroundDataLocked = -19,
   BackgroundData = -20,
 
-  // Violations are rendered in front of ticks and background, but behind data.
-  Violations = -300,
+  // Violations are rendered behind foreground data but in front of the background boundary.
+  // Must be above decorative overlay meshes to receive click events via raycasting.
+  Violations = -15,
   // Ticks are rendered in front of the background, but behind violations and data.
   Ticks = -600,
   // Backgrounds are rendered at the very back.
@@ -52,7 +54,28 @@ export enum Z {
 
 // These will no longer be needed when we support nested properties in the animatable values.
 export const COMPLEX_TYPES = new Set(["vector2", "vector3", "euler", "rgb", "hsl"]);
-export const GROUP_TYPES = new Set(["vector2", "vector3", "euler", "rgb", "hsl", "group"]);
+export const GROUP_TYPES = new Set([
+  "vector2",
+  "vector3",
+  "euler",
+  "rgb",
+  "hsl",
+  "group",
+  "entity",
+  "instance",
+]);
+
+export {
+  SLOT_SIZE,
+  SLOT_GAP,
+  SLOT_COUNT,
+  LEFT_COLUMN_GRID,
+  EDITOR_COLUMN_WIDTH,
+  SCROLLBAR_GUTTER,
+  CONTROL_AREA_4_WIDTH,
+  CONTROL_AREA_3_WIDTH,
+  SIDEBAR_WIDTH,
+} from "./constants/layout";
 
 export const TYPE_FIELDS: Record<string, string[]> = {
   vector2: ["x", "y"],
@@ -71,12 +94,14 @@ export const ROW_DEPTH_EPSILON = 0.01;
 
 export const LAYER_BAND_OFFSETS: Record<LayerBand, number> = {
   [LayerBand.Background]: Z.BackgroundData,
+  [LayerBand.ForegroundLocked]: Z.BackgroundData + 1,
   [LayerBand.ForegroundUnselected]: Z.ForegroundDataUnselected,
   [LayerBand.ForegroundSelected]: Z.ForegroundDataSelected,
 };
 
 export const LAYER_BAND_PRIORITY: Record<LayerBand, number> = {
   [LayerBand.Background]: 0,
-  [LayerBand.ForegroundUnselected]: 1,
-  [LayerBand.ForegroundSelected]: 2,
+  [LayerBand.ForegroundLocked]: 1,
+  [LayerBand.ForegroundUnselected]: 2,
+  [LayerBand.ForegroundSelected]: 3,
 };

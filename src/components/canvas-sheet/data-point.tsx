@@ -1,22 +1,30 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, memo, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, memo, useState, useCallback, useContext } from "react";
 import { useShallow } from "zustand/shallow";
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { Instance, Line, PositionMesh, useCursor } from "@react-three/drei";
 import * as THREE from "three";
 import { RawValue, usePlayerStore, closestFrame } from "@semio/utils";
-import { Theme } from "@semio/ui";
+import { Theme, useCanvasContextMenu } from "@semio/ui";
 import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
 import type { MotionValue } from "motion";
 import { RenderMarker, TrackRender, LayerBand, VerticalAxisRange } from "../../types";
 import {
   useAnimationStore,
   useColors,
-  useInvariantScale,
+  useInvariantScaleX,
+  useInvariantScaleY,
   useAltKeyPressed,
   useDragGestures,
 } from "../../hooks";
 import { computeOklabMix, createLinearScale } from "../../functions";
-import { ROW_DEPTH_EPSILON, LAYER_BAND_OFFSETS, LAYER_BAND_PRIORITY } from "../../constants";
+import {
+  ROW_DEPTH_EPSILON,
+  LAYER_BAND_OFFSETS,
+  LAYER_BAND_PRIORITY,
+  DEFAULT_COLOR,
+} from "../../constants";
+import { AnimationContext } from "../../context";
+import { buildKeyMenuItems } from "./context-menus";
 
 const BG_MULTIPLIER = 1.2;
 type PointerGestureEvent = ThreeEvent<MouseEvent>;
@@ -61,7 +69,13 @@ export const DataPoint = memo(function DataPoint({
   const effectiveSelectionFrame = data?.selectionFrame;
   const effectiveMarkers = useMemo(() => data?.markers ?? [], [data?.markers]);
   const selectionPoints = useMemo(
-    () => (effectiveSelectionFrame?.points ?? []).filter((point) => point.selectable ?? true),
+    () =>
+      (effectiveSelectionFrame?.points ?? []).filter(
+        (point) =>
+          (point.selectable ?? true) &&
+          point.layerBand !== LayerBand.ForegroundLocked &&
+          point.layerBand !== LayerBand.Background,
+      ),
     [effectiveSelectionFrame],
   );
   const markerLookup = useMemo(() => {
@@ -91,6 +105,7 @@ export const DataPoint = memo(function DataPoint({
           editable: marker.editable,
           selectable: marker.selectable,
           layerBand: marker.layerBand ?? LayerBand.Background,
+          muted: marker.muted ?? false,
           type: valueType,
           value: marker.value as RawValue,
         };
@@ -127,6 +142,7 @@ export const DataPoint = memo(function DataPoint({
   );
   const backgroundPoints = points.filter((d) => d.layerBand === LayerBand.Background);
 
+  const lockedForegroundPoints = points.filter((d) => d.layerBand === LayerBand.ForegroundLocked);
   const combinedForegroundPoints = useMemo(
     () => [...unselectedForegroundPoints, ...selectedForegroundPoints],
     [unselectedForegroundPoints, selectedForegroundPoints],
@@ -250,32 +266,74 @@ export const DataPoint = memo(function DataPoint({
   const hasUnselectedForegroundPoints = combinedForegroundPoints.length - selectedPoints.length > 0;
   const hasBackgroundPoints = backgroundPoints.length > 0;
 
+  // Color resolution: exclude muted points so their color doesn't bleed into group markers.
+  // Each tier (selected > unselected > locked > background) resolves color independently.
   const highestPriorityIds = useMemo(() => {
+    const unmutedSelected = selectedForegroundPoints.filter((p) => !p.muted);
+    if (unmutedSelected.length > 0) {
+      return unmutedSelected.map((point) => point.trackId);
+    }
+    const unmutedUnselected = unselectedForegroundPoints.filter((p) => !p.muted);
+    if (unmutedUnselected.length > 0) {
+      return unmutedUnselected.map((point) => point.trackId);
+    }
+    // All foreground points are muted — fall back to all IDs (colorOverride will grey them)
     if (selectedForegroundPoints.length > 0) {
       return selectedForegroundPoints.map((point) => point.trackId);
-    } else if (unselectedForegroundPoints.length > 0) {
+    }
+    if (unselectedForegroundPoints.length > 0) {
       return unselectedForegroundPoints.map((point) => point.trackId);
     }
     return [];
   }, [selectedForegroundPoints, unselectedForegroundPoints]);
 
-  const vertLineIds = useMemo(() => {
-    if (RENDERS_WITH_LINES.includes(trackRender)) {
-      return highestPriorityIds;
-    } else if (hasUnselectedForegroundPoints) {
-      return unselectedForegroundPoints.map((point) => point.trackId);
-    } else {
-      return [];
-    }
-  }, [trackRender, highestPriorityIds, hasUnselectedForegroundPoints, unselectedForegroundPoints]);
+  // Show line for: background points, locked foreground points, or non-Key render modes
+  const hasLockedForegroundPoints = lockedForegroundPoints.length > 0;
+  const shouldShowLineForKey =
+    trackRender === TrackRender.Key && (hasBackgroundPoints || hasLockedForegroundPoints);
 
-  // For TrackRender.Key: show line when there are any unselectable points
-  const shouldShowLineForKey = trackRender === TrackRender.Key && hasBackgroundPoints;
+  const lockedLineIds = useMemo(() => {
+    const unmuted = lockedForegroundPoints.filter((p) => !p.muted);
+    return unmuted.length > 0
+      ? unmuted.map((point) => point.trackId)
+      : lockedForegroundPoints.map((point) => point.trackId);
+  }, [lockedForegroundPoints]);
+
+  const allForegroundMuted = useMemo(() => {
+    const allFg = [...selectedForegroundPoints, ...unselectedForegroundPoints];
+    return allFg.length > 0 && allFg.every((p) => p.muted);
+  }, [selectedForegroundPoints, unselectedForegroundPoints]);
 
   const baseColorFromTracks = useColors(highestPriorityIds);
-  const lineColorFromTracks = useColors(vertLineIds);
-  const baseColor = colorOverride ?? baseColorFromTracks;
-  const lineColor = colorOverride ?? lineColorFromTracks;
+  const lockedLineColor = useColors(lockedLineIds);
+
+  const baseColor = colorOverride ?? (allForegroundMuted ? DEFAULT_COLOR : baseColorFromTracks);
+
+  // Line color resolution:
+  // - Preview/Transition modes: lines mirror the hexagon, use foreground color
+  // - Key mode with locked foreground points: use locked track color (grey if all muted)
+  // - Key mode with only background points: always grey (inactive instance)
+  const lineColor = useMemo(() => {
+    if (colorOverride) return colorOverride;
+    if (RENDERS_WITH_LINES.includes(trackRender)) {
+      // Preview/Transition: line mirrors hexagon color
+      return allForegroundMuted ? DEFAULT_COLOR : baseColorFromTracks;
+    }
+    if (hasLockedForegroundPoints) {
+      const allLockedMuted = lockedForegroundPoints.every((p) => p.muted);
+      return allLockedMuted ? DEFAULT_COLOR : lockedLineColor;
+    }
+    // Background points → always grey
+    return DEFAULT_COLOR;
+  }, [
+    colorOverride,
+    trackRender,
+    allForegroundMuted,
+    baseColorFromTracks,
+    hasLockedForegroundPoints,
+    lockedForegroundPoints,
+    lockedLineColor,
+  ]);
 
   const baseBackdropColor = useMemo(() => {
     return computeOklabMix(baseColor, theme === Theme.Dark ? "#202020" : "#EFEFEF", 0.7);
@@ -288,7 +346,7 @@ export const DataPoint = memo(function DataPoint({
   }, [baseColor, theme]);
 
   const showsLine = RENDERS_WITH_LINES.includes(trackRender) || shouldShowLineForKey;
-  // For key render, only show hexagon when there are foreground points; otherwise always show
+  // Show hexagon only for unlocked foreground points
   const shouldShowHexagon = combinedForegroundPoints.length > 0;
 
   const fillIndex = useMotionValue(getFillIndex(isHovered, isSelected, isReference));
@@ -312,6 +370,16 @@ export const DataPoint = memo(function DataPoint({
 
   useCursor(isHovered, "pointer", "auto", gl.domElement);
 
+  // Key-specific context menu — pass this marker's track IDs for "Select All in Track"
+  const animationStore = useContext(AnimationContext);
+  const markerTrackKeys = useMemo(
+    () => [...new Set(points.map((p) => p.trackId))],
+    [points],
+  );
+  const { onContextMenu: keyContextMenu } = useCanvasContextMenu({
+    items: (ctx) => buildKeyMenuItems(ctx, animationStore, markerTrackKeys),
+  });
+
   const bgScale = useSpring(isSelected ? BG_MULTIPLIER * 1.1 : BG_MULTIPLIER, {
     stiffness: 300,
     damping: 20,
@@ -322,7 +390,8 @@ export const DataPoint = memo(function DataPoint({
     bgScale.set(isSelected ? BG_MULTIPLIER * 1.1 : BG_MULTIPLIER);
   }, [isSelected, bgScale]);
 
-  const scaleX = useInvariantScale();
+  const scaleX = useInvariantScaleX();
+  const scaleY = useInvariantScaleY();
 
   // Update the fill color when it changes
   useMotionValueEvent(fillColor, "change", (c) => {
@@ -350,19 +419,25 @@ export const DataPoint = memo(function DataPoint({
     }
   });
 
-  // Update the scale to be invariant to zoom level
+  // Update the scale to be invariant to zoom level (both X and Y axes)
   useMotionValueEvent(scaleX, "change", (s) => {
     if (instanceRefFg.current && instanceRefBg.current) {
       instanceRefFg.current.scale.x = s;
-      instanceRefBg.current.scale.x = s * bgScale.get(); // Background is slightly larger
-      instanceRefBg.current.scale.z = bgScale.get();
+      instanceRefBg.current.scale.x = s * bgScale.get();
+    }
+  });
+
+  useMotionValueEvent(scaleY, "change", (sy) => {
+    if (instanceRefFg.current && instanceRefBg.current) {
+      instanceRefFg.current.scale.z = sy;
+      instanceRefBg.current.scale.z = bgScale.get() * sy;
     }
   });
 
   useMotionValueEvent(bgScale, "change", (s) => {
     if (instanceRefBg.current) {
-      instanceRefBg.current.scale.x = scaleX.get() * s; // Background is slightly larger
-      instanceRefBg.current.scale.z = s;
+      instanceRefBg.current.scale.x = scaleX.get() * s;
+      instanceRefBg.current.scale.z = s * scaleY.get();
     }
   });
 
@@ -451,6 +526,8 @@ export const DataPoint = memo(function DataPoint({
   const handlePointerDown = useCallback(
     (event: PointerGestureEvent) => {
       event.stopPropagation();
+      // Only start drag tracking for left-click; right-click opens context menu
+      if (event.button !== 0) return;
       dragDidMoveRef.current = false;
       dragStartPointerRef.current = null;
       dragAnchorStampRef.current = null;
@@ -474,6 +551,14 @@ export const DataPoint = memo(function DataPoint({
       dragHandlers.onPointerUp?.(event);
       // Handle selection here so drag gestures don't swallow clicks or fall through to row handlers.
       event.stopPropagation();
+      // Right-click: only select if the clicked key isn't already in the selection
+      // (preserves multi-selection when right-clicking a selected key)
+      if (event.button !== 0) {
+        if (!isSelected && selectionPoints.length > 0) {
+          clickMarker(selectionPoints, sourceRowId, markerId, false, false);
+        }
+        return;
+      }
       if (didDrag) return;
       if (playing) return;
       if (points.length === 0 || selectionPoints.length === 0) return;
@@ -486,7 +571,7 @@ export const DataPoint = memo(function DataPoint({
         event.metaKey || event.ctrlKey,
       );
     },
-    [clickMarker, dragHandlers, markerId, playing, points.length, selectionPoints, sourceRowId],
+    [clickMarker, dragHandlers, isSelected, markerId, playing, points.length, selectionPoints, sourceRowId],
   );
 
   const handlePointerCancel = useCallback(
@@ -541,9 +626,14 @@ export const DataPoint = memo(function DataPoint({
 
   const backplateDepth = foregroundZ - ROW_DEPTH_EPSILON * 0.2;
   const fillDepth = foregroundZ + ROW_DEPTH_EPSILON * 0.2;
-  const lineDepth = hasBackgroundPoints
-    ? LAYER_BAND_OFFSETS[LayerBand.Background] + ROW_DEPTH_EPSILON * 0.1
-    : foregroundZ - ROW_DEPTH_EPSILON * 0.1;
+  // Line depth: use the highest-priority band among the points that actually render as lines
+  // (locked foreground or background), not the hexagon band.
+  const lineBand = hasLockedForegroundPoints
+    ? LayerBand.ForegroundLocked
+    : hasBackgroundPoints
+      ? LayerBand.Background
+      : foregroundBand;
+  const lineDepth = LAYER_BAND_OFFSETS[lineBand] + ROW_DEPTH_EPSILON * 0.1;
   let resolvedYPosition = 0;
   if (trackRender === TrackRender.Spline) {
     resolvedYPosition = yPosition.get();
@@ -559,6 +649,7 @@ export const DataPoint = memo(function DataPoint({
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
       onClick={handleClick}
+      onContextMenu={keyContextMenu}
     >
       {shouldShowHexagon && (
         <>
@@ -566,7 +657,7 @@ export const DataPoint = memo(function DataPoint({
             ref={instanceRefFg}
             position={[renderStamp, resolvedYPosition, fillDepth]}
             rotation={[Math.PI / 2, 0, 0]}
-            scale={[scaleX.get(), 1, 1]}
+            scale={[scaleX.get(), 1, scaleY.get()]}
             userData={{ selectionRole: "marker", markerId, sourceRowId }}
             // eslint-dissable-next-line
             color={fillColor.get()}
@@ -576,7 +667,7 @@ export const DataPoint = memo(function DataPoint({
             ref={instanceRefBg}
             position={[renderStamp, resolvedYPosition, backplateDepth]}
             rotation={[Math.PI / 2, 0, 0]}
-            scale={[scaleX.get() * bgScale.get(), 1, bgScale.get()]}
+            scale={[scaleX.get() * bgScale.get(), 1, bgScale.get() * scaleY.get()]}
             userData={{ selectionRole: "marker", markerId, sourceRowId }}
             // eslint-dissable-next-line
             color={backdropColor.get()}

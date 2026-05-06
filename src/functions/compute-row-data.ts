@@ -55,8 +55,6 @@ const IDENTITY_TRANSFORM: AffineTransform2D = {
   offsetY: 0,
 };
 
-
-
 interface RowComputationContext {
   animations: Record<string, Animation>;
   namespaces: Record<string, Namespace>;
@@ -518,6 +516,7 @@ function buildRenderMarkers(frames: InstancedFrameInfo[]): RenderMarker[] {
         editable: point.editable,
         selectable: point.selectable,
         layerBand: point.layerBand,
+        muted: point.muted,
         stamp: frame.stamp,
         value: numericValue,
       });
@@ -547,6 +546,7 @@ function buildSelectionFrames(
         namespaceId: point.namespaceId,
         instanceId: point.instanceId,
         selectable: point.selectable,
+        layerBand: point.layerBand,
       }));
 
     if (points.length === 0) continue;

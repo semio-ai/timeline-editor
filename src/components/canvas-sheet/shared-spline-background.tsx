@@ -5,7 +5,7 @@ import { MotionValue } from "motion";
 import { uniq } from "lodash";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import { Z } from "../../constants";
-import { AnimationData } from "../../store-types";
+import { AnimationData, ViolationVisibility } from "../../store-types";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 
@@ -31,6 +31,22 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
   );
   const computedData = useAnimationStore(
     useShallow((state: AnimationData) => state.derivedSnapshot?.rows?.[sourceRowId]?.computed),
+  );
+  const violationVisibility = useAnimationStore(
+    useShallow(
+      (state: AnimationData) =>
+        state.preferences.violationVisibility ?? ViolationVisibility.Visible,
+    ),
+  );
+  const selectedKeypoints = useAnimationStore(
+    useShallow((state: AnimationData) => state.selectionState.keypoints),
+  );
+  const violationSelectedTrackIds = useMemo<ReadonlySet<string> | undefined>(
+    () =>
+      violationVisibility === ViolationVisibility.Selection
+        ? new Set(selectedKeypoints.keys())
+        : undefined,
+    [violationVisibility, selectedKeypoints],
   );
   const trackIds = uniq(sourceRow?.data.map((d) => d.trackId) || []);
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
@@ -61,14 +77,18 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
   return (
     <group position={[0, yOffset, baseZ]}>
       {/* Render violations */}
-      <ViolationRenderer
-        violationSet={computedData.violationSet}
-        theme={theme}
-        height={height - 1}
-        yOffset={scrollOffset}
-        trackY
-        xTransform={xTransform}
-      />
+      {violationVisibility !== ViolationVisibility.Hidden && (
+        <ViolationRenderer
+          violationSet={computedData.violationSet}
+          theme={theme}
+          height={height - 1}
+          yOffset={scrollOffset}
+          trackY
+          xTransform={xTransform}
+          sourceRowId={sourceRowId}
+          selectedTrackIds={violationSelectedTrackIds}
+        />
+      )}
 
       {/* Render a background for the Active region, and the General Background */}
       {trackIds.length > 0 && (

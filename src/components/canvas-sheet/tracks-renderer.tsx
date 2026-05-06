@@ -1,13 +1,14 @@
 import { useThree, useFrame } from "@react-three/fiber";
-import { useRef, useMemo, useCallback, memo, useEffect } from "react";
+import { useContext, useRef, useMemo, useCallback, memo, useEffect } from "react";
 import { useShallow } from "zustand/shallow";
-import { MotionValue, useMotionValueEvent } from "motion/react";
+import { useMotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
-import { Theme } from "@semio/ui";
+import { Theme, useCanvasContextMenu } from "@semio/ui";
 import { isOrthographicCamera } from "@semio/utils";
-import { useOrthoCameraSetup, usePlaybackGestures, useAnimationStore } from "../../hooks";
+import { useOrthoCameraSetup, usePlaybackGestures, useBoxSelectGesture, useAnimationStore } from "../../hooks";
 import { TrackRender, type VisibleSourceRowIds } from "../../types";
 import { AnimationData } from "../../store-types";
+import { AnimationContext } from "../../context";
 import { ThemeMode } from "../../functions";
 import { normalizeVisibleSourceRowIds } from "../../functions/filter-visible-source-row-ids";
 import { ROW_DEPTH_EPSILON, Z } from "../../constants";
@@ -18,16 +19,15 @@ import { PlayheadMarker } from "./overlays/playhead-marker";
 import { FrustumBackground } from "./frustum-background";
 import { BoundsOverlay } from "./overlays/bounds-overlay";
 import { TickBackground } from "./overlays/tick-background";
+import { BoxSelectOverlay } from "./overlays/box-select-overlay";
 import { useMotionCanvas } from "./shared/motion-canvas-context";
+import { buildTrackMenuItems } from "./context-menus";
 
 interface TracksRendererProps {
   viewId: string;
   trackHeight?: number;
-  scrollValue?: MotionValue<number>;
   topOffsetPx?: number;
   bottomOffsetPx?: number;
-  emphasis?: string[];
-  onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   theme?: ThemeMode;
   rowIdLookup?: VisibleSourceRowIds;
 }
@@ -35,16 +35,17 @@ interface TracksRendererProps {
 export const TracksRenderer = memo(function TracksRenderer({
   viewId,
   trackHeight = 36,
-  scrollValue,
   topOffsetPx = 32,
   bottomOffsetPx = 108,
-  emphasis = [],
-  onEmphasisChange = () => {},
   theme = Theme.Light,
   rowIdLookup,
 }: TracksRendererProps) {
   const { size, camera } = useThree();
   const { size: motionSize } = useMotionCanvas();
+  const animationStore = useContext(AnimationContext);
+  // Local MotionValue mirroring store scroll — updated in useFrame for
+  // consumers that need a MotionValue (e.g. DataRenderer scrollOffset).
+  const scrollMotion = useMotionValue(0);
 
   const sourceRowLookup = useAnimationStore(
     useShallow(
@@ -63,9 +64,14 @@ export const TracksRenderer = memo(function TracksRenderer({
 
   const availableHeight = size.height - topOffsetPx - bottomOffsetPx;
 
-  useOrthoCameraSetup(camera as THREE.OrthographicCamera);
+  // Only use pixel-locked camera setup for non-spline modes.
+  // Spline mode manages camera.top/bottom via PanZoomControls + useFrame.
+  useOrthoCameraSetup(
+    trackRender !== TrackRender.Spline ? (camera as THREE.OrthographicCamera) : undefined,
+  );
 
   const groupRef = useRef<THREE.Group>(null);
+  const overlayGroupRef = useRef<THREE.Group>(null);
   const lastCalculatedSizeRef = useRef({ width: 0, height: 0 });
   const lastTrackRenderRef = useRef<TrackRender>(trackRender);
   const cachedPositionRef = useRef({ y: 0, trackWorldHeight: 0, worldHeight: 1 });
@@ -123,7 +129,7 @@ export const TracksRenderer = memo(function TracksRenderer({
   useFrame(() => {
     if (!groupRef.current) return;
 
-    const currentScrollPx = scrollValue?.get() ?? 0;
+    const currentScrollPx = animationStore?.getState().scrollOffset ?? 0;
     const scrollChanged = Math.abs(currentScrollPx - lastScrollValueRef.current) > 0.1;
     const positionChanged =
       Math.abs(y - lastPositionRef.current.y) > 0.001 ||
@@ -132,23 +138,32 @@ export const TracksRenderer = memo(function TracksRenderer({
 
     // Only update position if scroll, calculated position, or trackRender mode changed
     if (scrollChanged || positionChanged || trackRenderChanged) {
-      if (scrollValue && trackRender !== TrackRender.Spline) {
+      if (trackRender !== TrackRender.Spline) {
         const scrollWorld = (currentScrollPx / size.height) * worldHeight;
         groupRef.current.position.y = y + scrollWorld;
-      } else if (scrollValue && trackRender === TrackRender.Spline) {
-        // For spline mode, keep y position fixed and handle z-axis positioning
-        groupRef.current.position.y = y;
-      } else if (trackRender !== TrackRender.Spline) {
-        // No scroll value, position at base y
-        groupRef.current.position.y = y;
       } else {
-        // Spline mode without scroll, position at center
         groupRef.current.position.y = y;
       }
+
+      // Sync the local MotionValue for consumers (e.g. ViolationRenderer)
+      scrollMotion.set(currentScrollPx);
 
       lastScrollValueRef.current = currentScrollPx;
       lastPositionRef.current = { y: groupRef.current.position.y, z: groupRef.current.position.z };
       lastFrameTrackRenderRef.current = trackRender;
+    }
+
+    // In spline mode, keep overlay group centered on camera and update overlay sizes
+    if (trackRender === TrackRender.Spline && isOrthographicCamera(camera) && overlayGroupRef.current) {
+      const camCenterY = (camera.top + camera.bottom) / 2;
+      const camHeight = camera.top - camera.bottom;
+      overlayGroupRef.current.position.y = camCenterY;
+
+      // Scale the entire overlay group Y so all children (tick marks, markers,
+      // backgrounds) stretch to fill the camera's vertical span.
+      if (availableHeight > 0) {
+        overlayGroupRef.current.scale.y = camHeight / availableHeight;
+      }
     }
   });
 
@@ -168,20 +183,70 @@ export const TracksRenderer = memo(function TracksRenderer({
 
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
+  const boxSelectPointerDown = useBoxSelectGesture("tracks", {
+    viewId,
+    topOffsetPx,
+    bottomOffsetPx,
+    trackHeightPx: trackHeight,
+    contentRowCount: sourceRowLookup.flat.length,
+  });
+
+  const { onContextMenu } = useCanvasContextMenu({
+    items: (ctx) => buildTrackMenuItems(ctx, animationStore),
+  });
+
+  // Camera Y management: pixel-locked for non-spline.
+  // In spline mode, PanZoomControls manages camera.top/bottom directly.
+  // Only reset to pixel height when not in spline mode or when canvas resizes.
+  const lastCanvasHeightRef = useRef(motionSize.height.get());
 
   useMotionValueEvent(motionSize.height, "change", (height) => {
     if (!isOrthographicCamera(camera)) return;
-    camera.top = height / 2;
-    camera.bottom = -height / 2;
-    camera.updateProjectionMatrix();
+    const prevHeight = lastCanvasHeightRef.current;
+    lastCanvasHeightRef.current = height;
+
+    if (trackRender === TrackRender.Spline) {
+      // Spline mode: scale the existing camera Y proportionally on canvas resize
+      if (prevHeight > 0 && prevHeight !== height) {
+        const ratio = height / prevHeight;
+        const center = (camera.top + camera.bottom) / 2;
+        const span = (camera.top - camera.bottom) * ratio;
+        camera.top = center + span / 2;
+        camera.bottom = center - span / 2;
+        camera.updateProjectionMatrix();
+      }
+    } else {
+      camera.top = height / 2;
+      camera.bottom = -height / 2;
+      camera.updateProjectionMatrix();
+    }
   });
 
   useEffect(() => {
     if (!isOrthographicCamera(camera)) return;
-    camera.top = motionSize.height.get() / 2;
-    camera.bottom = -motionSize.height.get() / 2;
+    // Initialize camera Y to pixel-locked bounds for all modes.
+    // In spline mode, PanZoomControls may later adjust top/bottom via gestures,
+    // but the initial state must be valid.
+    const h = motionSize.height.get();
+    if (h > 0) {
+      camera.top = h / 2;
+      camera.bottom = -h / 2;
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, trackRender, motionSize.height]);
+
+  // Reset vertical camera when "Fit to Content" is requested in spline mode
+  const verticalFitCounter = useAnimationStore(
+    useShallow((state: AnimationData) => state.verticalFitCounter),
+  );
+  useEffect(() => {
+    if (verticalFitCounter === 0) return; // skip initial
+    if (!isOrthographicCamera(camera)) return;
+    const h = motionSize.height.get();
+    camera.top = h / 2;
+    camera.bottom = -h / 2;
     camera.updateProjectionMatrix();
-  });
+  }, [verticalFitCounter, camera, motionSize.height]);
 
   return (
     <>
@@ -194,10 +259,8 @@ export const TracksRenderer = memo(function TracksRenderer({
             sourceRowId={sourceId}
             viewId={viewId}
             yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
-            emphasis={emphasis.includes(sourceId)}
-            onEmphasisChange={(v) => onEmphasisChange(sourceId, v ? "add" : "remove")}
             theme={theme}
-            scrollOffset={trackRender !== TrackRender.Spline ? scrollValue : undefined}
+            scrollOffset={trackRender !== TrackRender.Spline ? scrollMotion : undefined}
           />
         ))}
         {trackRender === TrackRender.Spline && (
@@ -212,8 +275,8 @@ export const TracksRenderer = memo(function TracksRenderer({
       </group>
 
       {/* Render the hover markers and add a gesture detector */}
-      <group position={[0, trackAreaCenterY, 0]}>
-        <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]}>
+      <group ref={overlayGroupRef as any} position={[0, trackAreaCenterY, 0]}>
+        <mesh position={[0.5, 0, Z.ForegroundBackgroundBoundary]} raycast={() => {}}>
           <planeGeometry args={[1.1, availableHeight]} />
           <meshBasicMaterial
             color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
@@ -221,7 +284,7 @@ export const TracksRenderer = memo(function TracksRenderer({
             opacity={0.4}
           />
         </mesh>
-        <mesh position={[0.5, 0, Z.SelectedUnselectedBoundary]}>
+        <mesh position={[0.5, 0, Z.SelectedUnselectedBoundary]} raycast={() => {}}>
           <planeGeometry args={[1.1, availableHeight]} />
           <meshBasicMaterial
             color={theme === Theme.Dark ? "#000000" : "#FFFFFF"}
@@ -234,12 +297,13 @@ export const TracksRenderer = memo(function TracksRenderer({
         <HoverMarker height={availableHeight} theme={theme} />
         <PlayheadMarker height={availableHeight} theme={theme} />
         <BoundsOverlay height={availableHeight} theme={theme} />
+        <BoxSelectOverlay origin="tracks" />
 
         <FrustumBackground
           height={availableHeight}
           visibility="transparent"
-          z={-trackWorldHeight * sourceRowIds.length - 0.1}
-          pointerEvents={playbackGestures}
+          z={Z.Background - 1}
+          pointerEvents={{ ...playbackGestures, onPointerDown: boxSelectPointerDown, onContextMenu }}
         />
       </group>
     </>

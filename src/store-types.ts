@@ -19,10 +19,11 @@ import type {
   VisibleSourceRowIds,
   Namespace,
   DerivedSnapshot,
+  TransitionInfo,
 } from "./types";
 import { StandardTransitionType, TransitionDirective, TransitionPairing } from "./types";
 import type { SelectionState } from "./types/util/selection-state";
-import type { SimpleKeypoint, SimpleTrack } from "./types/data/simple-track";
+import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "./types/data/simple-track";
 
 export { TransitionDirective };
 
@@ -49,9 +50,131 @@ export interface NewKeyPreferences {
   transitions: NewKeyTransitionPreferences;
 }
 
+/**
+ * Per-entity animation state: control mode and which instance is active.
+ * Populated from `projectDoc.configuration.entities` via a one-directional subscription.
+ */
+export interface EntityAnimationState {
+  /** Whether this entity is in "direct" or "animation" control mode. */
+  controlMode: "direct" | "animation";
+  /** The animation instance ID currently active for this entity. Null in direct mode. */
+  activeInstanceId: string | null;
+}
+
+/**
+ * Derived context for the active entity's animation state.
+ * Computed from animation store data only (activeEntityId, entityStates, namespaces).
+ * Studio-specific concerns (asset labels, scene animatables) are resolved by the consumer.
+ */
+export interface ActiveEntityContext {
+  /** Active entity ID. */
+  entityId: string;
+  /** Resolved namespace ID for value lookups (format: "entityId@instanceId"). */
+  namespaceId: string;
+  /** Control mode for the active entity. */
+  controlMode: "direct" | "animation";
+  /** Active animation instance ID, if in animation mode. */
+  activeInstanceId: string | null;
+  /** Available animation instance IDs for this entity (from the namespace). */
+  instanceIds: string[];
+}
+
+/**
+ * Transient state for an in-progress box-select (marquee) gesture.
+ * Lives separate from SelectionState — selection is only updated on commit.
+ */
+export interface BoxSelectState {
+  /** Where the gesture originated — determines which canvas area owns the interaction. */
+  origin: "tracks" | "timeline";
+  /** World-space stamp where the drag started. */
+  startStamp: number;
+  /** Y position where the drag started (world units). */
+  startY: number;
+  /** Current world-space stamp during drag. */
+  currentStamp: number;
+  /** Current Y position during drag (world units). */
+  currentY: number;
+  /** Selection mode determined by modifier keys at drag start. */
+  mode: "replace" | "add" | "toggle";
+  /** Snapshot of the selection keypoints at drag start — used for toggle mode
+   *  so incremental updates compute the diff against the original state. */
+  initialKeypoints: Map<string, Set<string>>;
+  /** Layout params captured at activation, used for Y hit-testing on each update. */
+  layout: {
+    viewId: string;
+    canvasHeight: number;
+    topOffsetPx: number;
+    bottomOffsetPx: number;
+    trackHeightPx: number;
+  };
+}
+
+/** A single keypoint stored in the clipboard, with world-time offset from anchor. */
+export interface ClipboardKeypointEntry {
+  /** World-time ms offset from the anchor keypoint (earliest = 0). */
+  stampOffset: number;
+  /** Exact value — no rescaling or clamping. */
+  value: SimpleRawValue;
+  /** Full transition/handle data. */
+  transitions?: TransitionInfo;
+}
+
+/** A track's keypoints in the clipboard. */
+export interface ClipboardTrackEntry {
+  /** Composite track key (namespace/instance/track) for same-instance paste. */
+  sourceTrackKey: string;
+  /** Relative ordering (0 = first track in clipboard) for cross-track paste. */
+  trackIndex: number;
+  /** Keypoints with stamps as world-time offsets from anchor. */
+  keypoints: ClipboardKeypointEntry[];
+}
+
+/** Internal clipboard state for cut/copy/paste. */
+export interface ClipboardState {
+  /** Tracks and their keypoints. */
+  tracks: ClipboardTrackEntry[];
+  /** Instance ID at copy time (for same-instance detection). */
+  instanceId: string | null;
+}
+
+/**
+ * Controls when bezier handles are visible in spline mode.
+ * - TrackSelection: Handles show on all keys in any track that has a selection.
+ * - SingleTrack: Handles show only when exactly one track is selected.
+ * - KeySelection: Handles show only on individually selected keys.
+ */
+export enum HandleVisibility {
+  TrackSelection = "track-selection",
+  SingleTrack = "single-track",
+  KeySelection = "key-selection",
+}
+
+/**
+ * Controls when violation overlays are rendered.
+ * - Visible: Violations show on every track.
+ * - Selection: Violations show only on tracks with selected keypoints.
+ * - Hidden: Violations are not rendered.
+ */
+export enum ViolationVisibility {
+  Visible = "visible",
+  Selection = "selection",
+  Hidden = "hidden",
+}
+
+/**
+ * Controls which controls appear in the right-side strip of each track row.
+ * - KeySkip: Skip-back, keypoint add/remove, skip-forward (default).
+ * - Properties: Visibility, mute, lock toggles.
+ */
+export enum ControlStripMode {
+  KeySkip = "keySkip",
+  Properties = "properties",
+}
+
 export interface AnimationPreferencesPatch {
-  hoverDashedLine?: boolean;
-  dataPreviews?: boolean;
+  controlStripMode?: ControlStripMode;
+  handleVisibility?: HandleVisibility;
+  violationVisibility?: ViolationVisibility;
   newKeyDefaults?: {
     transitions?: Partial<NewKeyTransitionPreferences>;
   };
@@ -108,14 +231,23 @@ export interface AnimationData {
   selectionState: SelectionState;
 
   /**
+   * Source row ID currently hovered/emphasized. Transient, single-row, no hierarchy.
+   * Drives track-colored background tint in the track list and canvas band opacity.
+   */
+  emphasisRowId: string | null;
+
+  /**
    * Some configurable preferences.
    */
   preferences: {
-    hoverDashedLine: boolean;
-    dataPreviews: boolean;
     newKeyDefaults: NewKeyPreferences;
+    /** Which controls appear in the right-side strip of each track row. */
+    controlStripMode: ControlStripMode;
+    /** Controls when bezier handles are visible in spline mode. */
+    handleVisibility: HandleVisibility;
+    /** Controls when violation overlays are rendered. */
+    violationVisibility: ViolationVisibility;
   };
-  // THE FOLLOWING ENTRIES SHOULD BE REMOVED FOLLOWING THE DEMO
   animatables: Record<string, AnimatableValue>;
 
   /**
@@ -139,9 +271,11 @@ export interface AnimationData {
    */
   instancedTrackSources: Record<string, SourceRow>;
   /**
-   * Global sources shared across all views (computed from namespaces/animations)
+   * Full hierarchical source tree (entity → instance → groups → tracks).
+   * Used by rendering pipeline, sourceRowIds, and derived snapshot.
+   * Entity/instance groups are included when multiple entities or instances exist.
    */
-  sourcesByAnimationInstance: Record<string, Source[]>;
+  globalSourceTree: Source[];
   /**
    * Global source row IDs shared across all views
    */
@@ -155,6 +289,65 @@ export interface AnimationData {
    * without diffing the entire track map.
    */
   tracksRevision?: number;
+
+  /**
+   * Animation-level readonly map, written by studio-side wiring when an
+   * asset's permissions deny edit. Distinct from the per-track `readonly`
+   * flag in `globalSourceTree`: the per-track flag only marks tracks that
+   * actually exist, but mutations like `createTrack` (where the new track
+   * doesn't exist yet) and the "Add Track" button on empty animations
+   * need an animation-wide signal. Both flags are kept in lockstep by
+   * `setAnimationReadonly`.
+   */
+  readonlyAnimations: Record<string, boolean>;
+
+  /**
+   * Vertical scroll offset for the track list and canvas, in pixels.
+   * Written by PanZoomControls during scroll gestures; read by TracksRenderer
+   * and TrackList for synchronized positioning.
+   */
+  scrollOffset: number;
+  /**
+   * Monotonically increasing counter. Bumped by the toolbar's "Fit to Content"
+   * action; TracksRenderer watches it to reset the vertical camera in spline mode.
+   */
+  verticalFitCounter: number;
+
+  /**
+   * Currently active entity ID in the editor. Null when none selected.
+   * Replaces `activeEntity` in the studio store for animation-scoped concerns.
+   */
+  activeEntityId: string | null;
+
+  /**
+   * Per-entity control mode and active instance configuration.
+   * Populated from projectDoc.configuration.entities via a one-directional subscription.
+   * Only contains entries for entities that participate in animation.
+   */
+  entityStates: Record<string, EntityAnimationState>;
+
+  /**
+   * Derived context for the active entity's animation state.
+   * Null when no entity is active. Computed by a store subscription from
+   * activeEntityId, entityStates, and namespaces.
+   */
+  activeEntityContext: ActiveEntityContext | null;
+
+  /**
+   * Transient box-select (marquee) gesture state. Null when no box-select is active.
+   * Separate from selectionState — selection is only updated when the gesture commits.
+   */
+  boxSelectState: BoxSelectState | null;
+  /**
+   * True when a box-select pointerdown has been received but the gesture hasn't
+   * ended yet. Prevents multiple R3F scenes (HUD + main) from both starting
+   * box-select on the same pointer event.
+   */
+  boxSelectPending: boolean;
+  /**
+   * Internal clipboard for cut/copy/paste. Null when empty.
+   */
+  clipboard: ClipboardState | null;
 }
 
 /**
@@ -190,25 +383,105 @@ export interface AnimationActions {
    *
    */
   clearSelection: () => void;
+  /** Copy selected keypoints to the internal clipboard. No-op if selection is empty. */
+  copySelection: () => void;
+  /** Copy selected keypoints to clipboard and delete them (single undo frame). */
+  cutSelection: () => void;
+  /** Paste clipboard keypoints at the given world-space stamp. No-op if clipboard is empty. */
+  pasteAtStamp: (worldStamp: number) => void;
+  /** Delete all selected keypoints (respects locked tracks). Clears selection. */
+  deleteSelection: () => void;
+  /** Select all keypoints across all tracks in the active instance. */
+  selectAll: () => void;
+  /** Select all keypoints in the specified tracks. */
+  selectAllInTracks: (trackKeys: string[]) => void;
   /**
    * Force-focus a particular animation instance by clearing the current selection (keypoints +
    * reference) and seeding the selection state with the provided instance id.
    */
   focusSelectionInstance: (instanceId: string) => void;
   /**
+   * Set the active entity. Derives the active instance from entityStates and updates
+   * selectionState.instanceId accordingly. All updates are atomic (single set() call).
+   */
+  setActiveEntity: (entityId: string | null) => void;
+  /**
+   * Set control mode for an entity. When switching to "animation", resolves the active instance.
+   * If this is the currently active entity, also updates selectionState.instanceId.
+   * Persisting to projectDoc is the caller's responsibility.
+   */
+  setEntityControlMode: (
+    entityId: string,
+    mode: "direct" | "animation",
+    instanceId?: string,
+  ) => void;
+  /**
+   * Bulk-initialize or update entityStates from external data (e.g. projectDoc subscription).
+   * Merges incoming entries; does not remove existing entries not in the patch.
+   */
+  setEntityStates: (states: Record<string, EntityAnimationState>) => void;
+  /**
+   * Set the currently emphasized (hovered) source row. Pass null to clear.
+   */
+  setEmphasis: (rowId: string | null) => void;
+  /**
+   * Select a track (replace selection with this track's trackIds, each with empty keypoint set).
+   * Sets the reference anchor for subsequent range operations.
+   */
+  selectTrack: (rowId: string, trackIds: string[]) => void;
+  /**
+   * Toggle a track in/out of the current selection (for Ctrl/Cmd+click).
+   * Adds trackIds with empty keypoint sets, or removes if all already present.
+   */
+  toggleTrackInSelection: (rowId: string, trackIds: string[]) => void;
+  /**
+   * Range-select tracks between reference and rowId in display order (for Shift+click).
+   * Replaces selection with all tracks in range, each with empty keypoint set.
+   */
+  rangeSelectTracks: (fromRowId: string, toRowId: string) => void;
+  /**
+   * Start a box-select gesture. Called when pointer movement exceeds the activation threshold.
+   */
+  startBoxSelect: (state: BoxSelectState) => void;
+  /**
+   * Update the current position of an active box-select gesture.
+   * Performs hit-testing and updates selectionState live during the drag.
+   */
+  updateBoxSelect: (currentStamp: number, currentY: number) => void;
+  /**
+   * Cancel an active box-select gesture, restoring the initial selection.
+   */
+  cancelBoxSelect: () => void;
+  /**
+   * Commit the current box-select: finalize the selection and clear boxSelectState.
+   */
+  commitBoxSelect: () => void;
+  /**
+   * Set the vertical scroll offset (in pixels) for the track list and canvas.
+   */
+  setScrollOffset: (offset: number) => void;
+  /**
+   * Set whether a box-select gesture is pending (pointerdown received, awaiting threshold).
+   * Prevents multiple R3F scenes from starting box-select on the same pointer event.
+   */
+  setBoxSelectPending: (pending: boolean) => void;
+  /**
+   * Bump the vertical fit counter to trigger a camera Y reset in spline mode.
+   */
+  requestVerticalFit: () => void;
+  /**
    * Update the expanded and hidden state of a source group globally.
    * @param groupId - The ID of the source group to update.
    * @param expanded - Whether the group is expanded or collapsed.
-   * @param hidden - Whether the group is hidden or visible.
    * Note: This affects all views since sources are now globally managed.
    */
-  updateSource: (groupId: string, expanded?: boolean, hidden?: boolean) => void;
+  updateSource: (groupId: string, expanded?: boolean) => void;
   /**
-   * Update multiple source groups' expanded and hidden states globally at once.
-   * @param groupStates - A record mapping group IDs to their expanded and hidden states.
+   * Update multiple source groups' expanded state globally at once.
+   * @param groupStates - A record mapping group IDs to their expanded state.
    * Note: This affects all views since sources are now globally managed.
    */
-  updateSources: (groupStates: Record<string, { expanded?: boolean; hidden?: boolean }>) => void;
+  updateSources: (groupStates: Record<string, { expanded?: boolean }>) => void;
   /**
    * Update per-view track visibility state.
    * `hidden` applies to leaf source track ids; group ids will be expanded to their descendant tracks.
@@ -249,6 +522,13 @@ export interface AnimationActions {
    * Removes a view
    */
   removeView: (viewId: string) => void;
+  /**
+   * Set the vertical viewport for a view (spline mode). Pass undefined to auto-fit.
+   */
+  setVerticalViewport: (
+    viewId: string,
+    viewport: { top: number; bottom: number } | undefined,
+  ) => void;
   /**
    * Insert a keypoint at the given world (player) stamp for a specific instance.
    * Computes the local stamp using instance transforms and derives value via the derived snapshot interpolator when available.
@@ -431,12 +711,47 @@ export interface AnimationActions {
    */
   updateControlColor: (controlId: string, color: string) => void;
   /**
-   * Set the muted state of a source track. When unmuting, conflicting tracks within the
-   * same namespace and animatable are muted.
+   * Set the muted state of a source track. Mute is the user's per-track
+   * toggle; the values bridge skips muted tracks within the entity's active
+   * animation instance. The "at most one track per animatable can drive the
+   * rig" rule is enforced structurally by the bridge filtering on the
+   * entity's active animation instance — non-active instances do not bridge
+   * regardless of mute state, so no cross-instance auto-mute happens here.
    * @param sourceId - Source track id (`namespaceId/instanceId/trackId`) to update.
    * @param muted - Whether the track is muted.
    */
-  setTrackMuted: (sourceId: string, muted: boolean) => void;
+  setTracksMuted: (sourceIds: string | string[], muted: boolean) => void;
+  /**
+   * Set the visible state of source track(s). Affects canvas rendering.
+   * @param sourceIds - Source track id(s) to update.
+   * @param visible - Whether the track's keypoints/splines render in the canvas.
+   */
+  setTracksVisible: (sourceIds: string | string[], visible: boolean) => void;
+  /**
+   * Set the user-toggle locked state of source track(s). Prevents editing.
+   * No-op for tracks whose `readonly` (document-permission) flag is true —
+   * permission-locked tracks remain locked regardless of this call.
+   * @param sourceIds - Source track id(s) to update.
+   * @param locked - Whether the track is locked from editing.
+   */
+  setTracksLocked: (sourceIds: string | string[], locked: boolean) => void;
+  /**
+   * Set the document-permission `readonly` flag on source track(s). Used by
+   * studio-side load paths to reflect the current user's edit permission;
+   * unlike `setTracksLocked`, this is not user-toggleable from the editor.
+   * @param sourceIds - Source track id(s) to update.
+   * @param readonly - Whether the track is read-only by document permission.
+   */
+  setSourcesReadonly: (sourceIds: string | string[], readonly: boolean) => void;
+  /**
+   * Mark every track belonging to a given animation as readonly (or clear
+   * the flag). Convenience over `setSourcesReadonly` for permission flips
+   * coming from a per-asset subscription that doesn't know about
+   * individual track ids.
+   * @param animationId - Animation whose tracks should be flagged.
+   * @param readonly - Whether the tracks are read-only by document permission.
+   */
+  setAnimationReadonly: (animationId: string, readonly: boolean) => void;
   /**
    * Set animatables in bulk, replacing existing animatables.
    * @param animatables - Record of animatable ID to AnimatableValue

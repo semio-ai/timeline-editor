@@ -15,6 +15,7 @@ interface FrustumBackgroundProps {
   y?: MotionValue<number>;
   z?: number;
   onHoverChange?: (hovered: boolean) => void;
+  onTrackClick?: (modifiers: { ctrl: boolean; shift: boolean }) => void;
   pointerEvents?: Record<string, any>;
   emphasis?: boolean;
   theme?: ThemeMode;
@@ -27,6 +28,7 @@ export const FrustumBackground = memo(function FrustumBackground({
   y = new MotionValue(0),
   z = -1,
   onHoverChange,
+  onTrackClick,
   pointerEvents = {},
   emphasis = false,
   theme = Theme.Light,
@@ -35,24 +37,23 @@ export const FrustumBackground = memo(function FrustumBackground({
 
   const clearSelection = useAnimationStore(useShallow((state) => state.clearSelection));
   const dragState = useAnimationStore(useShallow((state) => state.dragState));
+  const boxSelectState = useAnimationStore(useShallow((state) => state.boxSelectState));
 
   // Track if we just finished dragging to prevent clearing selection on drag end
   const justFinishedDraggingRef = useRef(false);
 
   useEffect(() => {
-    // If dragState becomes undefined (drag ended), mark that we just finished dragging
-    if (!dragState && justFinishedDraggingRef.current) {
-      // Clear the flag after a short delay to allow the click event to be ignored
+    // If dragState/boxSelectState becomes undefined (gesture ended), mark that we just finished
+    if (!dragState && !boxSelectState && justFinishedDraggingRef.current) {
       const timer = setTimeout(() => {
         justFinishedDraggingRef.current = false;
       }, 100);
       return () => clearTimeout(timer);
     }
-    // If dragState is active, mark that we're dragging
-    if (dragState) {
+    if (dragState || boxSelectState) {
       justFinishedDraggingRef.current = true;
     }
-  }, [dragState]);
+  }, [dragState, boxSelectState]);
 
   // Use useFrame to position/scale the background to fill the camera frustum.
   // This runs once per frame and is more efficient than motion value listeners.
@@ -107,9 +108,21 @@ export const FrustumBackground = memo(function FrustumBackground({
         onHoverChange?.(false);
         pointerEvents.onPointerOut?.();
       }}
+      onPointerUp={(e) => e.stopPropagation()}
       onClick={(e) => {
-        // Don't clear selection if we just finished dragging
-        if (!justFinishedDraggingRef.current) {
+        // FrustumBackground is the catch-all — always stop propagation to prevent
+        // clicks from leaking between HUD portals and the main canvas.
+        e.stopPropagation();
+
+        // Don't handle clicks that ended a drag
+        if (justFinishedDraggingRef.current) {
+          pointerEvents.onClick?.(e);
+          return;
+        }
+        // Delegate track selection to caller if provided
+        if (onTrackClick) {
+          onTrackClick({ ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey });
+        } else if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
           clearSelection();
         }
         pointerEvents.onClick?.(e);

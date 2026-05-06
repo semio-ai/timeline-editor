@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { collectSourceTracks } from "../functions/source-utils";
-import { buildFilteredGlobalRowId } from "../functions/view-filtered-global-row";
+import { buildFilteredSourceRowId } from "../functions/view-filtered-source-row";
 import { createTestAnimationStore } from "../test-fixtures/animation-store-factory";
 import { buildTrackKey } from "../utils/track-key";
 import { flushMicrotasks } from "./utils/flush-microtasks";
@@ -13,11 +13,9 @@ describe("view-specific visibility", () => {
     await flushMicrotasks();
 
     const seeded = store.getState();
-    const firstSourceSet = Object.values(seeded.sourcesByAnimationInstance).find(
-      (sources) => sources.length > 0,
-    );
-    expect(firstSourceSet).toBeDefined();
-    const targetTrack = firstSourceSet ? collectSourceTracks(firstSourceSet)[0] : undefined;
+    const allTracks = collectSourceTracks(seeded.globalSourceTree);
+    expect(allTracks.length).toBeGreaterThan(0);
+    const targetTrack = allTracks[0];
     expect(targetTrack).toBeDefined();
     if (!targetTrack) return;
 
@@ -38,25 +36,25 @@ describe("view-specific visibility", () => {
     expect(state.sourceRowIdsByView["view-b"]?.spline).toContain(rowId);
     expect(state.sourceRowIds.spline).toContain(rowId);
 
-    const filteredA = state.instancedTrackSources[buildFilteredGlobalRowId("view-a")];
-    const filteredB = state.instancedTrackSources[buildFilteredGlobalRowId("view-b")];
-    expect(filteredA).toBeDefined();
-    expect(filteredB).toBeDefined();
-    if (!filteredA || !filteredB) return;
-    const hasTrackInA = filteredA.data.some(
+    // Consumers resolve the effective view source by falling back from the
+    // per-view filtered twin to the base row. A twin is only emitted when it
+    // actually differs from the base row, so view-b (nothing hidden) has no
+    // twin and resolves directly to the global row.
+    const resolveViewSource = (viewId: string) =>
+      state.instancedTrackSources[buildFilteredSourceRowId(viewId, "global")] ??
+      state.instancedTrackSources.global;
+
+    const viewASource = resolveViewSource("view-a");
+    const viewBSource = resolveViewSource("view-b");
+    const hasTrackInA = viewASource.data.some(
       (entry) => buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId) === trackKey,
     );
-    const hasTrackInB = filteredB.data.some(
+    const hasTrackInB = viewBSource.data.some(
       (entry) => buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId) === trackKey,
     );
 
     expect(hasTrackInA).toBe(false);
     expect(hasTrackInB).toBe(true);
-
-    const refreshedTrack = Object.values(state.sourcesByAnimationInstance)
-      .flatMap((sources) => collectSourceTracks(sources))
-      .find((track) => track.id === targetTrack.id);
-    expect(refreshedTrack?.hidden).toBe(false);
   });
 
   it("hides all descendant tracks when a group id is toggled", async () => {
@@ -65,11 +63,7 @@ describe("view-specific visibility", () => {
     await flushMicrotasks();
 
     const seeded = store.getState();
-    const firstSourceSet = Object.values(seeded.sourcesByAnimationInstance).find(
-      (sources) => sources.length > 0,
-    );
-    expect(firstSourceSet).toBeDefined();
-    const group = firstSourceSet?.find((source) => "children" in source);
+    const group = seeded.globalSourceTree.find((source) => "children" in source);
     expect(group).toBeDefined();
     if (!group || !("children" in group)) return;
 

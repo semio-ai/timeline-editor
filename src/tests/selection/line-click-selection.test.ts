@@ -96,6 +96,13 @@ function findRowWithForeground(
   for (const [rowId, snapshotRow] of Object.entries(rows)) {
     if (excludeRows.has(rowId)) continue;
 
+    // Skip entity/instance organizational group rows — they aggregate
+    // all child tracks and would conflict with track-level exclusion.
+    const sourceRow = state.instancedTrackSources[rowId];
+    if (sourceRow?.isGroup && (rowId.startsWith("entity:") || rowId.startsWith("instance:"))) {
+      continue;
+    }
+
     const rowTrackIds = getRowTrackIds(store, rowId);
     let conflicts = false;
     rowTrackIds.forEach((trackId) => {

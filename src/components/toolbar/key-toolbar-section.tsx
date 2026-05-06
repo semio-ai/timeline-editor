@@ -41,8 +41,8 @@ import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
 
 const MIXED_VALUE = "__mixed__";
 const TRANSITION_ICON_CLASS = ICON_CLASS_NAME;
-const TRANSITION_TEXT_BUTTON_CLASS = "hidden @[500px]:flex";
-const TRANSITION_ICON_ONLY_BUTTON_CLASS = "flex @[500px]:hidden";
+const TRANSITION_TEXT_BUTTON_CLASS = "hidden @[750px]:flex";
+const TRANSITION_ICON_ONLY_BUTTON_CLASS = "flex @[750px]:hidden";
 type HandleIndicatorType = "diamond" | "circle" | "indeterminate";
 
 const TRANSITION_OPTIONS: { value: TransitionPreference; label: string; icon?: ReactNode }[] = [
@@ -342,7 +342,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
   );
 
   return (
-    <div className="hidden items-center sm:flex">
+    <div className="hidden items-center @[325px]:flex">
       <div
         className={clsx(
           "responsive custom-color variant-responsive-persistent-outline flex gap-0.5 rounded-sm p-0.5",

@@ -1,5 +1,10 @@
 import { TimeDisplay } from "@semio/ui";
-import { AnimationData } from "../store-types";
+import {
+  AnimationData,
+  ControlStripMode,
+  HandleVisibility,
+  ViolationVisibility,
+} from "../store-types";
 import { createEmptySelectionState } from "../functions/selection-state-manager";
 import { TransitionDirective, TransitionPairing } from "../types";
 // import { createDefaultAnimation } from "./create-default-animation";
@@ -25,9 +30,11 @@ export const createDefaultState = (): AnimationData => {
     playerInterval: undefined,
     previews: [],
     selectionState: createEmptySelectionState(),
+    emphasisRowId: null,
     preferences: {
-      hoverDashedLine: false,
-      dataPreviews: true,
+      controlStripMode: ControlStripMode.KeySkip,
+      handleVisibility: HandleVisibility.TrackSelection,
+      violationVisibility: ViolationVisibility.Visible,
       newKeyDefaults: {
         transitions: {
           in: TransitionDirective.InferredAutoClamped,
@@ -44,12 +51,21 @@ export const createDefaultState = (): AnimationData => {
     editorViewOrder: [],
     activeEditorViewId: undefined,
     instancedTrackSources: {},
-    sourcesByAnimationInstance: {},
+    globalSourceTree: [],
+    readonlyAnimations: {},
     sourceRowIds: {
       flat: [],
       spline: [],
     },
     sourceRowIdsByView: {},
     tracksRevision: 0,
+    activeEntityId: null,
+    entityStates: {},
+    activeEntityContext: null,
+    boxSelectState: null,
+    boxSelectPending: false,
+    clipboard: null,
+    scrollOffset: 0,
+    verticalFitCounter: 0,
   };
 };

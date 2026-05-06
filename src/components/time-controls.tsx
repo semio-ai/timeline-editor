@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
-import { clsx } from "clsx";
-import { Button, IconPlayerPlay2 } from "@semio/ui";
+import { Button } from "@semio/ui";
 import { usePlayerStore } from "@semio/utils";
-import { IconPlayerPauseFilled } from "@tabler/icons-react";
+import { Play, Pause } from "@solar-icons/react-perf/Bold";
 import { useShallow } from "zustand/react/shallow";
 import { useAnimationStore } from "../hooks";
 import { SemanticTime } from "../types";
@@ -22,28 +21,8 @@ export function TimeControls(): ReactNode {
   );
 
   return (
-    <div className="flex h-9 flex-1 flex-row items-center gap-1 pl-1">
-      <div
-        className={clsx("grid h-7 min-w-16 grid-cols-3 items-center justify-between rounded-xs")}
-      >
-        <SkipButton semanticTime={SemanticTime.BoundsStart} />
-        <Button
-          size="fit"
-          onClick={() => {
-            if (running) {
-              pausePlayer();
-            } else {
-              playPlayer();
-            }
-          }}
-          leftIcon={
-            running ? <IconPlayerPauseFilled size="18px" /> : <IconPlayerPlay2 size="18px" />
-          }
-          visuals="inverted"
-        />
-        <SkipButton semanticTime={SemanticTime.BoundsEnd} />
-      </div>
-      <div className="flex flex-1 flex-row items-center">
+    <>
+      <div className="flex w-full items-center">
         <TimeDisplay
           valueOverride={
             nonHoverPreviews.length === 1 &&
@@ -56,6 +35,20 @@ export function TimeControls(): ReactNode {
           }
         />
       </div>
-    </div>
+      <SkipButton semanticTime={SemanticTime.BoundsStart} />
+      <Button
+        size="fit"
+        onClick={() => {
+          if (running) {
+            pausePlayer();
+          } else {
+            playPlayer();
+          }
+        }}
+        leftIcon={running ? <Pause size="14px" /> : <Play size="14px" />}
+        visuals="inverted"
+      />
+      <SkipButton semanticTime={SemanticTime.BoundsEnd} />
+    </>
   );
 }

@@ -1,24 +1,18 @@
-import { RawValue, usePlayerStore, AnimatableValue, useValuesStore } from "@semio/utils";
+import { RawValue, AnimatableValue, useValuesStore } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
-import { mapValues } from "lodash";
 import { create } from "zustand";
 import {
   Track,
   StoredAnimation,
-  Source,
-  SourceGroup,
-  SemanticTime,
   Preview,
   SourceRow,
-  TrackRender,
   Namespace,
   DragUpdateInput,
   DragStartInput,
   ValueDragStartInput,
   ValueDragUpdateInput,
-  VerticalAxis,
   HandleDragStartInput,
   HandleDragUpdateInput,
   MarkerPoint,
@@ -33,6 +27,8 @@ import {
   AnimationApi,
   TransitionPatch,
   EditorViewState,
+  EntityAnimationState,
+  BoxSelectState,
 } from "./store-types";
 import {
   createKeypoint,
@@ -49,6 +45,49 @@ import {
   insertKeypointAtWorldStamp as insertKeyAtWorldStampAction,
   updateNewKeyTransitionDefaults as updateNewKeyTransitionDefaultsAction,
   updateSelectedKeyTransitions as updateSelectedKeyTransitionsAction,
+  copySelection as copySelectionAction,
+  cutSelection as cutSelectionAction,
+  pasteAtStamp as pasteAtStampAction,
+  deleteSelection as deleteSelectionAction,
+  startBoxSelect as startBoxSelectAction,
+  updateBoxSelect as updateBoxSelectAction,
+  cancelBoxSelect as cancelBoxSelectAction,
+  commitBoxSelect as commitBoxSelectAction,
+  setBoxSelectPending as setBoxSelectPendingAction,
+  updateViewTrackVisibility as updateViewTrackVisibilityAction,
+  setTracksMuted as setTracksMutedAction,
+  setTracksVisible as setTracksVisibleAction,
+  setTracksLocked as setTracksLockedAction,
+  setSourcesReadonly as setSourcesReadonlyAction,
+  setAnimationReadonly as setAnimationReadonlyAction,
+  setPreferences as setPreferencesAction,
+  addView as addViewAction,
+  replaceEditorViews as replaceEditorViewsAction,
+  setActiveEditorView as setActiveEditorViewAction,
+  updateView as updateViewAction,
+  removeView as removeViewAction,
+  setVerticalViewport as setVerticalViewportAction,
+  selectAll as selectAllAction,
+  selectAllInTracks as selectAllInTracksAction,
+  focusSelectionInstance as focusSelectionInstanceAction,
+  setActiveEntity as setActiveEntityAction,
+  setEntityControlMode as setEntityControlModeAction,
+  setEntityStates as setEntityStatesAction,
+  setEmphasis as setEmphasisAction,
+  selectTrack as selectTrackAction,
+  toggleTrackInSelection as toggleTrackInSelectionAction,
+  rangeSelectTracks as rangeSelectTracksAction,
+  skipToNextKeyframe as skipToNextKeyframeAction,
+  skipToPrevKeyframe as skipToPrevKeyframeAction,
+  skipToStart as skipToStartAction,
+  skipToEnd as skipToEndAction,
+  updateDuration as updateDurationAction,
+  updateAnimationDuration as updateAnimationDurationAction,
+  updateFramerate as updateFramerateAction,
+  addPreview as addPreviewAction,
+  removePreview as removePreviewAction,
+  updatePreview as updatePreviewAction,
+  updateHoverpointPreview as updateHoverpointPreviewAction,
 } from "./actions";
 import { clickMarkerAction, clearSelectionAction } from "./actions/click-marker";
 import {
@@ -65,31 +104,22 @@ import {
 } from "./actions/drag";
 import {
   computeStoredAnimation,
-  computeNextTime,
-  computePreviousTime,
   computeUpdatedSources,
-  computeLocalStamp,
-  computeWorldStamp,
-  collectSourceTracks,
-  findSourceTrackById,
+  getNonEditableTrackIds,
 } from "./functions";
-import { resolveAnimationDuration } from "./functions/compute-animation-extent";
 import {
   updatePlayerLoop,
   updateOverallDuration,
   updateInstancedTrackSources,
-  updateConsolidatedSourceRow,
-  updateViewFilteredGlobalRows,
+  updateViewFilteredSourceRows,
   updateGlobalSources,
   updateSourceRowIds,
-  updateTrackMuting,
   initDerivedOrchestrator,
+  updateActiveEntityContext,
 } from "./subscriptions";
 import { View } from "./types/util/view";
-import { createEmptySelectionState } from "./functions/selection-state-manager";
 import { clickLineAction } from "./actions/click-line";
 import { parseTrackKey } from "./utils/track-key";
-import { GROUP_TYPES } from "./constants";
 
 enableMapSet();
 
@@ -120,69 +150,6 @@ const applyTrackValue = (
   }
 };
 
-function collectLegacyHiddenTrackIds(
-  sourcesByAnimationInstance: AnimationData["sourcesByAnimationInstance"],
-): string[] {
-  const hiddenIds = new Set<string>();
-  Object.values(sourcesByAnimationInstance).forEach((sources) => {
-    collectSourceTracks(sources).forEach((track) => {
-      if (track.hidden) {
-        hiddenIds.add(track.id);
-      }
-    });
-  });
-  return Array.from(hiddenIds);
-}
-
-function resolveTrackIdsForVisibilityUpdate(
-  sourcesByAnimationInstance: AnimationData["sourcesByAnimationInstance"],
-  sourceId: string,
-): string[] {
-  const trackIds = new Set<string>();
-
-  const visit = (sources: Source[]): void => {
-    sources.forEach((source) => {
-      if (GROUP_TYPES.has(source.type)) {
-        const sourceGroup = source as SourceGroup;
-        if (source.id === sourceId) {
-          collectSourceTracks([source]).forEach((track) => {
-            trackIds.add(track.id);
-          });
-          return;
-        }
-        visit(sourceGroup.children);
-        return;
-      }
-      if (source.id === sourceId) {
-        trackIds.add(source.id);
-      }
-    });
-  };
-
-  Object.values(sourcesByAnimationInstance).forEach((sources) => {
-    visit(sources);
-  });
-
-  return Array.from(trackIds);
-}
-
-function normalizeEditorViewOrder(
-  viewOrder: string[],
-  editorViews: Record<string, View>,
-): string[] {
-  const ordered: string[] = [];
-  viewOrder.forEach((id) => {
-    if (!editorViews[id] || ordered.includes(id)) return;
-    ordered.push(id);
-  });
-  Object.keys(editorViews).forEach((id) => {
-    if (!ordered.includes(id)) {
-      ordered.push(id);
-    }
-  });
-  return ordered;
-}
-
 export const AnimationSlice = (
   set: AnimationStoreSetter,
   get: AnimationStoreGetter,
@@ -190,23 +157,17 @@ export const AnimationSlice = (
 ) => {
   return {
     ...createDefaultState(),
-    updateSource: (groupId: string, expanded?: boolean, hidden?: boolean) => {
-      void hidden;
+    updateSource: (groupId: string, expanded?: boolean) => {
       set(
         produce((state: AnimationData) => {
-          // Group expansion is global; track visibility is managed per-view.
           const updates = { [groupId]: { expanded } };
-          state.sourcesByAnimationInstance = mapValues(
-            state.sourcesByAnimationInstance,
-            (instanceSources) => computeUpdatedSources(instanceSources, updates),
-          );
+          state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
         }),
       );
     },
-    updateSources: (updates: Record<string, { expanded?: boolean; hidden?: boolean }>) => {
+    updateSources: (updates: Record<string, { expanded?: boolean }>) => {
       set(
         produce((state: AnimationData) => {
-          // Global source updates only carry expansion; hidden is now view-specific.
           const expansionUpdates: Record<string, { expanded?: boolean }> = {};
           Object.entries(updates).forEach(([id, update]) => {
             if (update.expanded !== undefined) {
@@ -216,42 +177,12 @@ export const AnimationSlice = (
           if (Object.keys(expansionUpdates).length === 0) {
             return;
           }
-          state.sourcesByAnimationInstance = mapValues(
-            state.sourcesByAnimationInstance,
-            (instanceSources) => computeUpdatedSources(instanceSources, expansionUpdates),
-          );
+          state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, expansionUpdates);
         }),
       );
     },
-    updateViewTrackVisibility: (viewId: string, updates: Record<string, { hidden?: boolean }>) => {
-      set(
-        produce((state: AnimationData) => {
-          const view = state.editorViews[viewId];
-          if (!view) return;
-
-          const hiddenSet = new Set(view.hiddenSourceTrackIds ?? []);
-          Object.entries(updates).forEach(([sourceId, update]) => {
-            if (update.hidden === undefined) return;
-            const resolvedTrackIds = resolveTrackIdsForVisibilityUpdate(
-              state.sourcesByAnimationInstance,
-              sourceId,
-            );
-            resolvedTrackIds.forEach((trackId) => {
-              if (update.hidden) {
-                hiddenSet.add(trackId);
-              } else {
-                hiddenSet.delete(trackId);
-              }
-            });
-          });
-
-          state.editorViews[viewId] = {
-            ...view,
-            hiddenSourceTrackIds: Array.from(hiddenSet),
-          };
-        }),
-      );
-    },
+    updateViewTrackVisibility: (viewId: string, updates: Record<string, { hidden?: boolean }>) =>
+      updateViewTrackVisibilityAction(set, viewId, updates),
     updateValues: (values: Map<string, RawValue | undefined>) => {
       useValuesStore.getState().updateValues(values);
     },
@@ -300,6 +231,11 @@ export const AnimationSlice = (
       );
     },
     removeAnimatable: (id: string) => {
+      // TODO: also clear matching dotKey entries (and trackKeys for tracks
+      // referencing this animatable) from useValuesStore. Orphaned entries are
+      // currently inert (readers query by current animatable IDs) but
+      // accumulate until project reload. See useValuesStore JSDoc lifecycle
+      // section.
       set(
         produce((state: AnimationData): void => {
           if (!(id in state.animatables)) return;
@@ -323,6 +259,8 @@ export const AnimationSlice = (
       );
     },
     updateKeypoint: (trackId: string, keypoint: Partial<SimpleKeypoint>, canMerge?: boolean) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      if (nonEditableIds.has(trackId)) return;
       set(
         produce((state: AnimationData): void => {
           updateKeypoint(state, trackId, keypoint, canMerge);
@@ -333,119 +271,26 @@ export const AnimationSlice = (
       keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[],
       canMerge?: boolean,
     ) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const writable = keypoints.filter(({ trackId }) => !nonEditableIds.has(trackId));
+      if (writable.length === 0) return;
       set(
         produce((state: AnimationData): void => {
-          keypoints.forEach(({ trackId, keypoint }) => {
+          writable.forEach(({ trackId, keypoint }) => {
             updateKeypoint(state, trackId, keypoint, canMerge);
           });
         }),
       );
     },
-    addView: (view: Partial<View> & { id: string }) => {
-      set((state: AnimationData) => {
-        const legacyHiddenIds =
-          Object.keys(state.editorViews).length === 0
-            ? collectLegacyHiddenTrackIds(state.sourcesByAnimationInstance)
-            : [];
-        const defaultView: View = {
-          id: view.id,
-          name: view.name,
-          trackRender: view.trackRender ?? TrackRender.Key,
-          verticalAxis: view.verticalAxis ?? VerticalAxis.Normalized,
-          hiddenSourceTrackIds: view.hiddenSourceTrackIds ?? legacyHiddenIds,
-          trackFilter: view.trackFilter ?? "",
-        };
-        const nextViews = {
-          ...state.editorViews,
-          [view.id]: { ...defaultView, ...view },
-        };
-        const nextOrder = normalizeEditorViewOrder(
-          state.editorViewOrder.includes(view.id)
-            ? state.editorViewOrder
-            : [...state.editorViewOrder, view.id],
-          nextViews,
-        );
-        return {
-          editorViews: nextViews,
-          editorViewOrder: nextOrder,
-          activeEditorViewId: state.activeEditorViewId ?? nextOrder[0],
-        };
-      });
-    },
-    replaceEditorViews: (next: EditorViewState) => {
-      set(
-        produce((state: AnimationData) => {
-          const nextViews: Record<string, View> = {};
-          next.views.forEach((view) => {
-            if (!view.id || nextViews[view.id]) return;
-            nextViews[view.id] = {
-              id: view.id,
-              name: view.name,
-              trackRender: view.trackRender ?? TrackRender.Key,
-              verticalAxis: view.verticalAxis ?? VerticalAxis.Normalized,
-              hiddenSourceTrackIds: [...(view.hiddenSourceTrackIds ?? [])],
-              trackFilter: view.trackFilter ?? "",
-            };
-          });
-          if (Object.keys(nextViews).length === 0) {
-            nextViews["view-1"] = {
-              id: "view-1",
-              name: "View 1",
-              trackRender: TrackRender.Key,
-              verticalAxis: VerticalAxis.Normalized,
-              hiddenSourceTrackIds: [],
-              trackFilter: "",
-            };
-          }
-          const nextOrder = normalizeEditorViewOrder(next.viewOrder, nextViews);
-          const nextActive =
-            next.activeViewId && nextOrder.includes(next.activeViewId)
-              ? next.activeViewId
-              : nextOrder[0];
-          state.editorViews = nextViews;
-          state.editorViewOrder = nextOrder;
-          state.activeEditorViewId = nextActive;
-        }),
-      );
-    },
-    setActiveEditorView: (viewId: string) => {
-      set(
-        produce((state: AnimationData) => {
-          if (!state.editorViews[viewId]) return;
-          state.activeEditorViewId = viewId;
-        }),
-      );
-    },
-    updateView: (viewId: string, view: Partial<View>) => {
-      set(
-        produce((state: AnimationData) => {
-          if (!state.editorViews[viewId]) return;
-          state.editorViews[viewId] = {
-            ...state.editorViews[viewId],
-            ...view,
-            hiddenSourceTrackIds:
-              view.hiddenSourceTrackIds ?? state.editorViews[viewId].hiddenSourceTrackIds,
-          };
-        }),
-      );
-    },
-    removeView: (viewId: string) => {
-      set(
-        produce((state: AnimationData) => {
-          if (!state.editorViews[viewId]) return;
-          if (Object.keys(state.editorViews).length <= 1) return;
-          const { [viewId]: _, ...rest } = state.editorViews;
-          state.editorViews = rest;
-          state.editorViewOrder = normalizeEditorViewOrder(
-            state.editorViewOrder.filter((id) => id !== viewId),
-            state.editorViews,
-          );
-          if (state.activeEditorViewId === viewId) {
-            state.activeEditorViewId = state.editorViewOrder[0];
-          }
-        }),
-      );
-    },
+    addView: (view: Partial<View> & { id: string }) => addViewAction(set, view),
+    replaceEditorViews: (next: EditorViewState) => replaceEditorViewsAction(set, next),
+    setActiveEditorView: (viewId: string) => setActiveEditorViewAction(set, viewId),
+    updateView: (viewId: string, view: Partial<View>) => updateViewAction(set, viewId, view),
+    removeView: (viewId: string) => removeViewAction(set, viewId),
+    setVerticalViewport: (
+      viewId: string,
+      viewport: { top: number; bottom: number } | undefined,
+    ) => setVerticalViewportAction(set, viewId, viewport),
     addAnimation: (animation: StoredAnimation) => {
       set(
         produce((state: AnimationData): void => {
@@ -473,6 +318,15 @@ export const AnimationSlice = (
       );
     },
     updateSelectedKeyTransitions: (patch: TransitionPatch) => {
+      // Coarse short-circuit: when every selected track is non-editable
+      // there's nothing to do, so skip the produce entirely. The action
+      // itself filters per-context on `nonEditableIds` so mixed
+      // selections (some readonly, some writable — possible when
+      // permissions change mid-session) only mutate the writable ones.
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const selected = get().selectionState.keypoints;
+      const anyEditable = Array.from(selected.keys()).some((id) => !nonEditableIds.has(id));
+      if (!anyEditable) return;
       set(
         produce((state: AnimationData): void => {
           updateSelectedKeyTransitionsAction(state, patch);
@@ -487,6 +341,8 @@ export const AnimationSlice = (
       );
     },
     createKeypoint: (trackId: string, point: Partial<SimpleKeypoint>) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      if (nonEditableIds.has(trackId)) return;
       set(
         produce((state: AnimationData): void => {
           createKeypoint(state, trackId, point);
@@ -494,15 +350,22 @@ export const AnimationSlice = (
       );
     },
     createKeypoints: (keypoints: { trackId: string; keypoint: Partial<SimpleKeypoint> }[]) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const writable = keypoints.filter(({ trackId }) => !nonEditableIds.has(trackId));
+      if (writable.length === 0) return;
       set(
         produce((state: AnimationData): void => {
-          keypoints.forEach(({ trackId, keypoint }) => {
+          writable.forEach(({ trackId, keypoint }) => {
             createKeypoint(state, trackId, keypoint);
           });
         }),
       );
     },
     updateTrack: (track: Partial<SimpleTrack>) => {
+      if (track.id) {
+        const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+        if (nonEditableIds.has(track.id)) return;
+      }
       set(
         produce((state: AnimationData) => {
           updateTrack(state, track);
@@ -513,10 +376,13 @@ export const AnimationSlice = (
       );
     },
     updateTrackGroupName: (trackIds: string[], name: string) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const writable = trackIds.filter((id) => !nonEditableIds.has(id));
+      if (writable.length === 0) return;
       set(
         produce((state: AnimationData) => {
           const nextTracks = { ...state.tracks };
-          trackIds.forEach((id) => {
+          writable.forEach((id) => {
             const existing = nextTracks[id];
             if (existing) {
               nextTracks[id] = { ...existing, groupName: name };
@@ -528,6 +394,8 @@ export const AnimationSlice = (
       );
     },
     removeKeypoint: (trackId: string, keypointId: string) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      if (nonEditableIds.has(trackId)) return;
       set(
         produce((state: AnimationData): void => {
           removeKeypoint(state, trackId, keypointId);
@@ -535,15 +403,33 @@ export const AnimationSlice = (
       );
     },
     removeKeypoints: (keypoints: { trackId: string; keypointId: string }[]) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const writable = keypoints.filter((k) => !nonEditableIds.has(k.trackId));
+      if (writable.length === 0) return;
       set(
         produce((state: AnimationData): void => {
-          keypoints.forEach(({ trackId, keypointId }) => {
+          writable.forEach(({ trackId, keypointId }) => {
             removeKeypoint(state, trackId, keypointId);
           });
         }),
       );
     },
     createTrack: (track: Partial<SimpleTrack>, animatableId: string, animationId: string) => {
+      // Document-permission gate at the action level so any caller (UI,
+      // future programmatic paths) can't silently mutate a readonly
+      // animation. The new track doesn't exist yet, so the per-track
+      // `nonEditableIds` check used by keypoint actions can't apply
+      // here — consult the animation-level map maintained by
+      // `setAnimationReadonly`.
+      if (get().readonlyAnimations[animationId]) {
+        // Surfaces caller bugs: hitting this branch means a UI gate
+        // failed to disable the action. Telemetry will replace this with
+        // a structured event when the PostHog wiring lands.
+        console.warn(
+          `[animation] createTrack blocked: animation ${animationId} is readonly (animatable=${animatableId})`,
+        );
+        return;
+      }
       set(
         produce((state: AnimationData): void => {
           createTrack(state, animatableId, animationId, track);
@@ -560,6 +446,23 @@ export const AnimationSlice = (
       );
     },
     removeTrack: (trackId: string, animationId: string) => {
+      // Gate on both the per-track readonly flag (the track itself was
+      // marked non-editable) AND the animation-level map (the parent
+      // animation is fully readonly — covers the empty-animation race
+      // where the per-track flag hasn't propagated yet).
+      if (get().readonlyAnimations[animationId]) {
+        console.warn(
+          `[animation] removeTrack blocked: animation ${animationId} is readonly (track=${trackId})`,
+        );
+        return;
+      }
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      if (nonEditableIds.has(trackId)) {
+        console.warn(
+          `[animation] removeTrack blocked: track ${trackId} is non-editable (locked or readonly)`,
+        );
+        return;
+      }
       set(
         produce((state: AnimationData) => {
           removeTrack(state, animationId, trackId);
@@ -567,102 +470,16 @@ export const AnimationSlice = (
         }),
       );
     },
-    // Skip to the next keyframe
-    skipToNextKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => {
-      const state = get();
-      const playerState = usePlayerStore.getState();
-      const sourceRowId = sourceRow.id;
-      const computedData = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
-      if (!computedData) return;
-
-      const instancedFrameData = computedData.virtualFrames;
-      const { localStamp, localBounds, toWorld } = resolveRowTimeContext(
-        state.namespaces,
-        sourceRow,
-        playerState.player.stamp,
-        playerState.player.bounds,
-      );
-      const nextLocalTime = computeNextTime(
-        instancedFrameData,
-        localStamp,
-        localBounds,
-        respectBounds ?? false,
-      );
-      if (nextLocalTime !== undefined) {
-        const nextWorldTime = toWorld ? toWorld(nextLocalTime) : nextLocalTime;
-        playerState.resetPlayer(nextWorldTime);
-      }
-    },
-    // Skip to the previous keyframe
-    skipToPrevKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => {
-      const state = get();
-      const playerState = usePlayerStore.getState();
-      const sourceRowId = sourceRow.id;
-      const computedData = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
-      if (!computedData) return;
-
-      const instancedFrameData = computedData.virtualFrames;
-      const { localStamp, localBounds, toWorld } = resolveRowTimeContext(
-        state.namespaces,
-        sourceRow,
-        playerState.player.stamp,
-        playerState.player.bounds,
-      );
-      const previousLocalTime = computePreviousTime(
-        instancedFrameData,
-        localStamp,
-        localBounds,
-        respectBounds ?? false,
-      );
-      if (previousLocalTime !== undefined) {
-        const previousWorldTime = toWorld ? toWorld(previousLocalTime) : previousLocalTime;
-        playerState.resetPlayer(previousWorldTime);
-      }
-    },
-    // Skip to the start of the current bounds
-    skipToStart: () => {
-      const playerState = usePlayerStore.getState();
-      playerState.resetPlayer(playerState.player.bounds[0]);
-    },
-    // Skip to the end of the current bounds
-    skipToEnd: () => {
-      const playerState = usePlayerStore.getState();
-      playerState.resetPlayer(playerState.player.bounds[1]);
-    },
-    // Set the duration of the animation
-    updateDuration: (duration: number) => {
-      const playerState = usePlayerStore.getState();
-      playerState.updateDuration(duration);
-      set({ duration });
-    },
-    updateAnimationDuration: (animationId: string, duration: number, rescale: boolean) => {
-      set(
-        produce((state: AnimationData) => {
-          const animation = state.animations[animationId];
-          if (!animation) return;
-
-          if (rescale) {
-            // Rescale stamps proportionally to maintain relative positions.
-            const oldExtent = resolveAnimationDuration(animation, state.tracks);
-            if (oldExtent > 0 && duration > 0) {
-              const scale = duration / oldExtent;
-              animation.tracks.forEach((trackId) => {
-                state.tracks[trackId].points = state.tracks[trackId].points.map((point) => ({
-                  ...point,
-                  stamp: point.stamp * scale,
-                }));
-              });
-            }
-          }
-          // Update the viewport extent hint
-          animation.defaultViewportExtent = duration;
-        }),
-      );
-    },
-    // Set the frame rate of the animation
-    updateFramerate: (framerate: number) => {
-      set({ framerate });
-    },
+    skipToNextKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) =>
+      skipToNextKeyframeAction(get, sourceRow, respectBounds),
+    skipToPrevKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) =>
+      skipToPrevKeyframeAction(get, sourceRow, respectBounds),
+    skipToStart: () => skipToStartAction(),
+    skipToEnd: () => skipToEndAction(),
+    updateDuration: (duration: number) => updateDurationAction(set, duration),
+    updateAnimationDuration: (animationId: string, duration: number, rescale: boolean) =>
+      updateAnimationDurationAction(set, animationId, duration, rescale),
+    updateFramerate: (framerate: number) => updateFramerateAction(set, framerate),
     setExpanded: (expanded: boolean) => {
       set({ expanded });
     },
@@ -681,6 +498,8 @@ export const AnimationSlice = (
       );
     },
     insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      if (nonEditableIds.has(trackId)) return;
       set(
         produce((state: AnimationData) => {
           insertKeyAtWorldStampAction(state, trackId, worldStamp, instanceId);
@@ -701,11 +520,10 @@ export const AnimationSlice = (
         updateOverallDuration,
         initDerivedOrchestrator,
         updateInstancedTrackSources,
-        updateTrackMuting,
         updateGlobalSources,
         updateSourceRowIds,
-        updateConsolidatedSourceRow,
-        updateViewFilteredGlobalRows,
+        updateViewFilteredSourceRows,
+        updateActiveEntityContext,
       ].map((fn) => fn(api, set, get));
 
       const cleanup = () => {
@@ -757,44 +575,44 @@ export const AnimationSlice = (
     clearSelection: () => {
       set((state: AnimationData) => clearSelectionAction(state));
     },
-    focusSelectionInstance: (instanceId: string) => {
-      set(() => ({ selectionState: createEmptySelectionState(instanceId) }));
+    copySelection: () => copySelectionAction(set, get),
+    cutSelection: () => cutSelectionAction(set, get),
+    pasteAtStamp: (worldStamp: number) => pasteAtStampAction(set, get, worldStamp),
+    deleteSelection: () => deleteSelectionAction(set, get),
+    selectAll: () => selectAllAction(set),
+    selectAllInTracks: (trackKeys: string[]) => selectAllInTracksAction(set, trackKeys),
+    focusSelectionInstance: (instanceId: string) =>
+      focusSelectionInstanceAction(set, instanceId),
+    setActiveEntity: (entityId: string | null) => setActiveEntityAction(set, get, entityId),
+    setEntityControlMode: (entityId: string, mode: "direct" | "animation", instanceId?: string) =>
+      setEntityControlModeAction(set, get, entityId, mode, instanceId),
+    setEntityStates: (states: Record<string, EntityAnimationState>) =>
+      setEntityStatesAction(set, states),
+    setEmphasis: (rowId: string | null) => setEmphasisAction(set, rowId),
+    selectTrack: (rowId: string, trackIds: string[]) =>
+      selectTrackAction(set, rowId, trackIds),
+    toggleTrackInSelection: (rowId: string, trackIds: string[]) =>
+      toggleTrackInSelectionAction(set, rowId, trackIds),
+    rangeSelectTracks: (fromRowId: string, toRowId: string) =>
+      rangeSelectTracksAction(set, fromRowId, toRowId),
+    startBoxSelect: (boxState: BoxSelectState) => startBoxSelectAction(set, get, boxState),
+    updateBoxSelect: (currentStamp: number, currentY: number) =>
+      updateBoxSelectAction(set, get, currentStamp, currentY),
+    cancelBoxSelect: () => cancelBoxSelectAction(set, get),
+    commitBoxSelect: () => commitBoxSelectAction(set),
+    setScrollOffset: (offset: number) => {
+      set({ scrollOffset: offset });
     },
-    addPreview: (preview: Preview) => {
-      set((state: AnimationData) => ({
-        previews: [...state.previews, preview],
-      }));
+    setBoxSelectPending: (pending: boolean) => setBoxSelectPendingAction(set, pending),
+    requestVerticalFit: () => {
+      set((state: AnimationData) => ({ verticalFitCounter: state.verticalFitCounter + 1 }));
     },
-    removePreview: (evaluator: (preview: Preview) => boolean) => {
-      set((state: AnimationData) => ({
-        previews: state.previews.filter((p) => !evaluator(p)),
-      }));
-    },
-    updatePreview: (evaluator: (preview: Preview) => boolean, preview: Partial<Preview>) => {
-      set((state: AnimationData) => ({
-        previews: state.previews.map((p) => (evaluator(p) ? { ...p, ...preview } : p)),
-      }));
-    },
-    updateHoverpointPreview: (value: number | null) => {
-      set((state: AnimationData) => {
-        if (value !== null) {
-          const currentIdx = state.previews.findIndex((p) => p.semanticTime === SemanticTime.Hover);
-          if (currentIdx < 0) {
-            return {
-              previews: [...state.previews, { semanticTime: SemanticTime.Hover, stamp: value }],
-            };
-          } else {
-            return {
-              previews: state.previews.map((p, idx) =>
-                idx === currentIdx ? { semanticTime: SemanticTime.Hover, stamp: value } : p,
-              ),
-            };
-          }
-        } else {
-          return { previews: state.previews.filter((p) => p.semanticTime !== SemanticTime.Hover) };
-        }
-      });
-    },
+    addPreview: (preview: Preview) => addPreviewAction(set, preview),
+    removePreview: (evaluator: (preview: Preview) => boolean) =>
+      removePreviewAction(set, evaluator),
+    updatePreview: (evaluator: (preview: Preview) => boolean, preview: Partial<Preview>) =>
+      updatePreviewAction(set, evaluator, preview),
+    updateHoverpointPreview: (value: number | null) => updateHoverpointPreviewAction(set, value),
     updateControlColor: (controlId: string, color: string) => {
       set(
         produce((state: AnimationData): void => {
@@ -802,72 +620,29 @@ export const AnimationSlice = (
         }),
       );
     },
-    setTrackMuted: (sourceId: string, muted: boolean) => {
-      set(
-        produce((state: AnimationData): void => {
-          const updates: Record<string, { muted?: boolean }> = {
-            [sourceId]: { muted },
-          };
-          if (!muted) {
-            let targetTrack: ReturnType<typeof findSourceTrackById> | undefined;
-            Object.values(state.sourcesByAnimationInstance).some((sources) => {
-              const found = findSourceTrackById(sources, sourceId);
-              if (found) {
-                targetTrack = found;
-                return true;
-              }
-              return false;
-            });
-
-            if (targetTrack) {
-              const { namespaceId, animatableId } = targetTrack;
-              if (animatableId) {
-                Object.values(state.sourcesByAnimationInstance).forEach((sources) => {
-                  collectSourceTracks(sources).forEach((track) => {
-                    if (track.id === sourceId) return;
-                    if (track.namespaceId !== namespaceId) return;
-                    if (track.animatableId !== animatableId) return;
-                    updates[track.id] = { muted: true };
-                  });
-                });
-              }
-            }
-          }
-
-          state.sourcesByAnimationInstance = mapValues(
-            state.sourcesByAnimationInstance,
-            (instanceSources) => computeUpdatedSources(instanceSources, updates),
-          );
-        }),
-      );
-    },
-    setPreferences: (preferences: AnimationPreferencesPatch) => {
-      set((state) => {
-        const mergedNewKeyDefaults = preferences.newKeyDefaults
-          ? {
-              ...state.preferences.newKeyDefaults,
-              ...preferences.newKeyDefaults,
-              transitions: {
-                ...state.preferences.newKeyDefaults.transitions,
-                ...preferences.newKeyDefaults.transitions,
-              },
-            }
-          : state.preferences.newKeyDefaults;
-
-        return {
-          preferences: {
-            ...state.preferences,
-            ...preferences,
-            newKeyDefaults: mergedNewKeyDefaults,
-          },
-        };
-      });
-    },
+    setTracksMuted: (sourceIds: string | string[], muted: boolean) =>
+      setTracksMutedAction(set, sourceIds, muted),
+    setTracksVisible: (sourceIds: string | string[], visible: boolean) =>
+      setTracksVisibleAction(set, sourceIds, visible),
+    setTracksLocked: (sourceIds: string | string[], locked: boolean) =>
+      setTracksLockedAction(set, get, sourceIds, locked),
+    setSourcesReadonly: (sourceIds: string | string[], readonly: boolean) =>
+      setSourcesReadonlyAction(set, get, sourceIds, readonly),
+    setAnimationReadonly: (animationId: string, readonly: boolean) =>
+      setAnimationReadonlyAction(set, get, animationId, readonly),
+    setPreferences: (preferences: AnimationPreferencesPatch) =>
+      setPreferencesAction(set, preferences),
 
     // Drag actions - ID-based with instance validation
     startDrag: (input: DragStartInput) => {
       set(
         produce((state: AnimationData): void => {
+          // Cancel any in-progress box-select — keypoint drag takes priority.
+          // Restore the selection snapshot from before the box-select started.
+          if (state.boxSelectState) {
+            state.selectionState.keypoints = state.boxSelectState.initialKeypoints;
+            state.boxSelectState = null;
+          }
           startDrag(state, input);
         }),
       );
@@ -875,6 +650,10 @@ export const AnimationSlice = (
     startValueDrag: (input: ValueDragStartInput) => {
       set(
         produce((state: AnimationData): void => {
+          if (state.boxSelectState) {
+            state.selectionState.keypoints = state.boxSelectState.initialKeypoints;
+            state.boxSelectState = null;
+          }
           startValueDrag(state, input);
         }),
       );
@@ -882,6 +661,10 @@ export const AnimationSlice = (
     startHandleDrag: (input: HandleDragStartInput) => {
       set(
         produce((state: AnimationData): void => {
+          if (state.boxSelectState) {
+            state.selectionState.keypoints = state.boxSelectState.initialKeypoints;
+            state.boxSelectState = null;
+          }
           startHandleDrag(state, input);
         }),
       );
@@ -944,69 +727,13 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
   })),
 );
 
-useDefaultAnimationStore.getState().initAnimationSubscriptions();
-
-function resolveRowTimeContext(
-  namespaces: Record<string, Namespace>,
-  sourceRow: SourceRow,
-  worldStamp: number,
-  worldBounds: [number, number],
-): {
-  localStamp: number;
-  localBounds: [number, number];
-  toWorld?: (stamp: number) => number;
-} {
-  const instanceId = resolveUniqueInstanceId(sourceRow);
-  if (!instanceId) {
-    return { localStamp: worldStamp, localBounds: worldBounds };
-  }
-
-  let settings: { timescale: number; offset: number } | undefined;
-  for (const namespace of Object.values(namespaces)) {
-    const instance = namespace.animationInstances[instanceId];
-    if (instance) {
-      const rawTimescale = instance.settings.timescale ?? 1;
-      const rawOffset = instance.settings.offset ?? 0;
-      const timescale = Number.isFinite(rawTimescale) && rawTimescale !== 0 ? rawTimescale : 1;
-      const offset = Number.isFinite(rawOffset) ? rawOffset : 0;
-      settings = {
-        timescale,
-        offset,
-      };
-      break;
-    }
-  }
-
-  if (!settings) {
-    return { localStamp: worldStamp, localBounds: worldBounds };
-  }
-
-  const toLocal = (stamp: number) => computeLocalStamp(stamp, settings.timescale, settings.offset);
-  const toWorld = (stamp: number) => computeWorldStamp(stamp, settings.timescale, settings.offset);
-  const localStamp = toLocal(worldStamp);
-  const localBounds = normalizeBounds([toLocal(worldBounds[0]), toLocal(worldBounds[1])]);
-
-  return { localStamp, localBounds, toWorld };
-}
-
-function resolveUniqueInstanceId(sourceRow: SourceRow): string | undefined {
-  let uniqueId: string | undefined;
-  for (const entry of sourceRow.data) {
-    if (!entry.instanceId) {
-      return undefined;
-    }
-    if (!uniqueId) {
-      uniqueId = entry.instanceId;
-    } else if (uniqueId !== entry.instanceId) {
-      return undefined;
-    }
-  }
-  return uniqueId;
-}
-
-function normalizeBounds(bounds: [number, number]): [number, number] {
-  return bounds[0] <= bounds[1] ? bounds : [bounds[1], bounds[0]];
-}
+// Subscriptions on `useDefaultAnimationStore` are now opt-in. Module-load
+// auto-init was causing two `update-player-loop` subscriptions on the
+// shared `usePlayerStore` (one for this default store, one for the
+// studio's composite store), which compounded into a React 19 max-depth
+// cascade on every player tick. Standalone consumers that fall back to
+// `useDefaultAnimationStore` (currently only `AnimationSheet`) call
+// `initAnimationSubscriptions()` themselves on mount.
 
 export function createAnimationStore(initial?: Partial<AnimationData>): AnimationStore {
   const store = create<AnimationData & AnimationActions>()(

@@ -14,7 +14,8 @@ import {
 } from "../hooks";
 import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
 import { computeVisibleSourceTracks } from "../functions/compute-visible-source-tracks";
-import { buildFilteredGlobalRowId } from "../functions/view-filtered-global-row";
+import { getInstanceSources } from "../functions/source-tree-utils";
+import { buildFilteredSourceRowId } from "../functions/view-filtered-source-row";
 import { AnimationActions, AnimationData } from "../store-types";
 import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
 import type { SourceRow } from "../types";
@@ -24,15 +25,15 @@ import { KeyStrip } from "./key-strip";
 import { DataIcon } from "./data-icon";
 
 export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
-  const { source, namespaces, animations, sourcesByAnimationInstance, viewData } =
+  const { source, namespaces, animations, globalSourceTree, viewData } =
     useAnimationStore(
       useShallow((state: AnimationData) => ({
         source:
-          state.instancedTrackSources[buildFilteredGlobalRowId(viewId)] ??
+          state.instancedTrackSources[buildFilteredSourceRowId(viewId, "global")] ??
           state.instancedTrackSources.global,
         namespaces: state.namespaces,
         animations: state.animations,
-        sourcesByAnimationInstance: state.sourcesByAnimationInstance,
+        globalSourceTree: state.globalSourceTree,
         viewData: state.editorViews[viewId],
       })),
     );
@@ -43,6 +44,17 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   const fallbackSource = useMemo<SourceRow>(
     () => source ?? { id: "global-fallback", data: [] },
     [source],
+  );
+
+  // Aggregate non-editable state across every leaf in the global source —
+  // when *every* track is readonly or user-locked, the global hex (which
+  // would add/remove keys across all tracks) becomes a no-op and should
+  // be visually disabled. Navigation (prev/next) stays available.
+  const allNonEditable = useMemo(
+    () =>
+      fallbackSource.data.length > 0 &&
+      fallbackSource.data.every((entry) => entry.editable === false),
+    [fallbackSource],
   );
 
   const color = useColors(
@@ -60,7 +72,6 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   );
 
   const running = usePlayerStore(useShallow((state) => state.player.running));
-  const stamp = usePlayerStore(useShallow((state) => state.player.stamp));
   const { keyState, currentFrame, missingEntries, targetPoints } =
     useKeyControlState(fallbackSource);
 
@@ -87,7 +98,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
             label: animations[instance.animationId]?.name || "Unnamed Instance",
             icon: <DataIcon iconCode="group" className={ICON_CLASS_NAME} />,
             children: computeTreeOptionsFromSources(
-              sourcesByAnimationInstance[instance.id],
+              getInstanceSources(globalSourceTree, instance.id),
               nameLookup,
             ),
           };
@@ -96,7 +107,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           namespaceOption.children!.push(instanceOption);
           // Add visible tracks to the values;
           const visibleTracks = computeVisibleSourceTracks(
-            sourcesByAnimationInstance[instance.id],
+            getInstanceSources(globalSourceTree, instance.id),
             {
               hiddenSourceTrackIds,
             },
@@ -108,11 +119,11 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       });
 
       return { treeOptions: options, treeValues: values };
-    }, [sourcesByAnimationInstance, namespaces, nameLookup, animations, viewData]);
+    }, [globalSourceTree, namespaces, nameLookup, animations, viewData]);
 
   const hasTrackOptions = useMemo(
-    () => Object.values(sourcesByAnimationInstance).some((sources) => sources?.length > 0),
-    [sourcesByAnimationInstance],
+    () => globalSourceTree.length > 0,
+    [globalSourceTree],
   );
   const hasView = Boolean(viewData);
   const controlsDisabled = !source || !hasTrackOptions || !hasView || running;
@@ -138,11 +149,32 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
   );
 
   return (
-    <div className="flex h-9 flex-1 flex-row items-center gap-1 pl-1">
+    <>
+      <div
+        className={clsx(
+          "w-full min-w-0 items-center",
+          controlsDisabled && "pointer-events-none opacity-50",
+        )}
+        aria-disabled={controlsDisabled}
+      >
+        <SelectTree
+          label={hasTrackOptions ? "Select Track" : "No tracks"}
+          variant={Variant.Default}
+          size={Size.Sm}
+          options={treeOptions}
+          value={treeValues}
+          onChange={handleChangeSelection}
+        />
+      </div>
       <KeyStrip
         source={fallbackSource}
         color={color}
+        // `disabled` blanks the strip during playback / before content
+        // resolves; `authoringDisabled` only blanks the center hex when
+        // every leaf is non-editable, so navigation stays available for
+        // viewers inspecting a fully-readonly project.
         disabled={controlsDisabled}
+        authoringDisabled={allNonEditable}
         onHexClick={() => {
           if (controlsDisabled) return;
           if (keyState === "full" && currentFrame) {
@@ -155,6 +187,10 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
             return;
           }
 
+          // Read stamp at click-fire time so this control doesn't have to
+          // re-render every 25ms playback tick just to keep the closure's
+          // stamp fresh.
+          const stamp = usePlayerStore.getState().player.stamp;
           const targets = keyState === "partial" ? missingEntries : fallbackSource.data;
           const updates: { trackId: string; keypoint: Partial<SimpleKeypoint> }[] = targets
             .map((datum) => {
@@ -180,22 +216,6 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           }
         }}
       />
-      <div
-        className={clsx(
-          "w-full min-w-0 items-center",
-          controlsDisabled && "pointer-events-none opacity-50",
-        )}
-        aria-disabled={controlsDisabled}
-      >
-        <SelectTree
-          label={hasTrackOptions ? "Select Track" : "No tracks"}
-          variant={Variant.Default}
-          size={Size.Sm}
-          options={treeOptions}
-          value={treeValues}
-          onChange={handleChangeSelection}
-        />
-      </div>
-    </div>
+    </>
   );
 }

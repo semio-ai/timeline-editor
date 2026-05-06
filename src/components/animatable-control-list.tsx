@@ -11,6 +11,7 @@ import {
   type AnimatableGroupControlProps,
   type AnimatableLeafControlProps,
 } from "./animatable-control";
+import { TrackMenuProvider } from "./track-menu-context";
 
 export interface AnimatableControlListProps {
   animatableIds?: string[];
@@ -39,11 +40,13 @@ type ControlRowData =
       sourceRowId?: string;
       expanded: boolean;
       addable: boolean;
+      depth: number;
     }
   | {
       kind: "animatable";
       animatableId: string;
       sourceRowId?: string;
+      depth: number;
     };
 
 interface GroupBucket {
@@ -200,7 +203,10 @@ export function AnimatableControlList({
 
     groups.forEach((group) => {
       const childIds = group.items.map((item) => item.id);
-      const groupKey = childIds.slice().sort().join("|");
+      const groupKey = childIds
+        .slice()
+        .sort((left, right) => left.localeCompare(right))
+        .join("|");
       const sourceRowId =
         groupRowIdByChildKey.get(groupKey) ??
         groupRowIdByGroupId.get(group.id) ??
@@ -215,6 +221,7 @@ export function AnimatableControlList({
         sourceRowId,
         expanded,
         addable,
+        depth: 0,
       });
 
       if (expanded) {
@@ -224,6 +231,7 @@ export function AnimatableControlList({
             kind: "animatable",
             animatableId,
             sourceRowId: innerSourceRowId,
+            depth: 1,
           });
         });
       }
@@ -235,6 +243,7 @@ export function AnimatableControlList({
         kind: "animatable",
         animatableId: animatable.id,
         sourceRowId,
+        depth: 0,
       });
     });
     return result;
@@ -262,6 +271,7 @@ export function AnimatableControlList({
   const hasRows = controlRows.length > 0;
 
   return (
+    <TrackMenuProvider>
     <div className={clsx("flex h-full w-full flex-col", className)}>
       <div className={clsx("flex flex-col gap-0", listClassName)}>
         {hasRows && (
@@ -309,6 +319,7 @@ export function AnimatableControlList({
                       sourceRowId={resolvedSourceRowId}
                       expanded={resolvedExpanded}
                       addable={resolvedAddable}
+                      depth={row.depth}
                       onToggle={(next) => {
                         handleToggle(row.groupId, next);
                         overrideOnToggle?.(next);
@@ -346,6 +357,7 @@ export function AnimatableControlList({
                     animatableId={row.animatableId}
                     sourceRowId={resolvedSourceRowId}
                     mode={resolvedMode}
+                    depth={row.depth}
                     {...leafProps}
                   />
                 </motion.div>
@@ -355,6 +367,7 @@ export function AnimatableControlList({
         )}
       </div>
     </div>
+    </TrackMenuProvider>
   );
 }
 

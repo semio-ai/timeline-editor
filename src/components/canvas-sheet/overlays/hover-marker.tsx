@@ -2,7 +2,7 @@ import { Theme } from "@semio/ui";
 import { useRef, memo } from "react";
 import * as THREE from "three";
 import { useMotionValueEvent } from "motion/react";
-import { useAnimationStore, useHoverSpring, useInvariantScale } from "../../../hooks";
+import { useAnimationStore, useHoverSpring, useInvariantScaleX } from "../../../hooks";
 import { Z } from "../../../constants";
 
 export interface HoverMarkerProps {
@@ -21,7 +21,7 @@ export const HoverMarker = memo(function HoverMarker({
 
   const isDragging = useAnimationStore((state) => state.dragState !== undefined);
 
-  const scaleX = useInvariantScale();
+  const scaleX = useInvariantScaleX();
   const hoverSpring = useHoverSpring();
 
   useMotionValueEvent(scaleX, "change", (s) => {
@@ -47,7 +47,7 @@ export const HoverMarker = memo(function HoverMarker({
   }
 
   return (
-    <mesh ref={markerRef as any} scale={[scaleX.get(), 1, 1]} position={[0, 0, Z.PlayheadCart]}>
+    <mesh ref={markerRef as any} scale={[scaleX.get(), 1, 1]} position={[0, 0, Z.PlayheadCart]} raycast={() => {}}>
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial color={color} toneMapped={false} transparent opacity={0} />
     </mesh>

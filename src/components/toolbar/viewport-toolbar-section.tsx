@@ -14,7 +14,8 @@ import { IconArrowsHorizontal, IconClock, IconSelector } from "@tabler/icons-rea
 import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../../hooks";
 import type { AnimationData, AnimationActions } from "../../store-types";
-import { computeTrackExtent } from "../../functions/compute-animation-extent";
+import { TrackRender } from "../../types";
+import { SettingsPopover } from "./settings-popover";
 import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
 
 const ZOOM_PRESETS = [
@@ -41,7 +42,11 @@ const TIME_DISPLAY_SHORT: Record<string, string> = {
   [TimeDisplay.Milliseconds]: "ms",
 };
 
-export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
+export const ViewportToolbarSection = memo(function ViewportToolbarSection({
+  viewId,
+}: {
+  viewId: string;
+}) {
   const { viewport, duration } = usePlayerStore(
     useShallow((state) => ({
       viewport: state.player.viewport,
@@ -49,7 +54,6 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
     })),
   );
   const updatePlayerViewport = usePlayerStore((state) => state.updatePlayerViewport);
-  const tracks = useAnimationStore(useShallow((state: AnimationData) => state.tracks));
   const timeDisplay = useAnimationStore(
     useShallow((state: AnimationData) => state.timeDisplay),
   );
@@ -87,25 +91,26 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
     [duration, viewport, updatePlayerViewport],
   );
 
+  const trackRender = useAnimationStore(
+    useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),
+  );
+  const requestVerticalFit = useAnimationStore(
+    useShallow((state: AnimationActions) => state.requestVerticalFit),
+  );
+
   const handleFitToContent = useCallback(() => {
-    const allTracks = Object.values(tracks);
-    if (allTracks.length === 0) return;
-
-    const extent = computeTrackExtent(allTracks);
-    let minStamp = 0;
-    for (const track of allTracks) {
-      for (const point of track.points) {
-        if (point.stamp < minStamp) minStamp = point.stamp;
-      }
+    // Match the fixed camera's viewport: [0, duration].
+    // The camera frustum padding is applied by calculatePaddedFrustum,
+    // keeping the fit consistent with the global HUD views.
+    updatePlayerViewport(0, Math.max(duration, 1000));
+    // In spline mode, also reset the vertical camera to pixel-locked default
+    if (trackRender === TrackRender.Spline) {
+      requestVerticalFit();
     }
-
-    const contentWidth = Math.max(extent - minStamp, 1000);
-    const padding = contentWidth * 0.1;
-    updatePlayerViewport(minStamp - padding, extent + padding);
-  }, [tracks, updatePlayerViewport]);
+  }, [duration, updatePlayerViewport, trackRender, requestVerticalFit]);
 
   return (
-    <div className="responsive variant-responsive-persistent-outline hidden gap-0.5 rounded-sm p-0.5 lg:flex">
+    <div className="responsive variant-responsive-persistent-outline hidden gap-0.5 rounded-sm p-0.5 @[600px]:flex">
       {/* Time display mode */}
       <Dropdown
         side="top"
@@ -167,6 +172,9 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
         className="rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
         onClick={handleFitToContent}
       />
+
+      {/* Settings */}
+      <SettingsPopover />
     </div>
   );
 });

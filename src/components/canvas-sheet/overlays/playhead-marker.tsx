@@ -3,7 +3,7 @@ import { useRef, memo, useEffect } from "react";
 import * as THREE from "three";
 import { useShallow } from "zustand/shallow";
 import { useMotionValueEvent, useSpring, useTransform } from "motion/react";
-import { usePlayheadSpring, useInvariantScale, useAnimationStore } from "../../../hooks";
+import { usePlayheadSpring, useInvariantScaleX, useAnimationStore } from "../../../hooks";
 import { SemanticTime } from "../../../types";
 import { AnimationData } from "../../../store-types";
 import { Z } from "../../../constants";
@@ -55,7 +55,7 @@ export const PlayheadMarker = memo(function PlayheadMarker({
 
   const cartColor = useTransform(cartBrightness, [0, 1], ["#000000", "#ffffff"]);
 
-  const scaleX = useInvariantScale();
+  const scaleX = useInvariantScaleX();
   const playheadSpring = usePlayheadSpring();
 
   useMotionValueEvent(scaleX, "change", (s) => {
@@ -81,6 +81,7 @@ export const PlayheadMarker = memo(function PlayheadMarker({
       ref={markerRef as any}
       scale={[scaleX.get(), 1, 1]}
       position={[playheadSpring.get(), 0, Z.PlayheadCart]}
+      raycast={() => {}}
     >
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial toneMapped={false} color={cartColor.get()} />

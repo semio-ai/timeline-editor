@@ -66,6 +66,7 @@ export function InnerTimeDisplay({
           display={timeDisplay}
           framerate={framerate}
           variant={Variant.Success}
+          className="w-full"
         />
       );
     case SemanticTime.BoundsEnd:
@@ -83,6 +84,7 @@ export function InnerTimeDisplay({
           display={timeDisplay}
           framerate={framerate}
           variant={Variant.Error}
+          className="w-full"
         />
       );
     case SemanticTime.Backward:
@@ -98,6 +100,7 @@ export function InnerTimeDisplay({
           display={timeDisplay}
           framerate={framerate}
           variant={Variant.Primary}
+          className="w-full"
         />
       );
     case SemanticTime.Forward:
@@ -113,6 +116,7 @@ export function InnerTimeDisplay({
           display={timeDisplay}
           framerate={framerate}
           variant={Variant.Primary}
+          className="w-full"
         />
       );
     case SemanticTime.Duration:
@@ -130,6 +134,7 @@ export function InnerTimeDisplay({
           display={timeDisplay}
           framerate={framerate}
           variant={Variant.Default}
+          className="w-full"
         />
       );
     case SemanticTime.Current:
@@ -145,6 +150,7 @@ export function InnerTimeDisplay({
           display={timeDisplay}
           framerate={framerate}
           variant={Variant.Default}
+          className="w-full"
         />
       );
   }

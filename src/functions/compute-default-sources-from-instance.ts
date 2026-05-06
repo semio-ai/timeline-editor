@@ -5,6 +5,8 @@ import type { TrackGroup } from "../types/data/track-group";
 import { getIconCode } from "./get-icon-code";
 import { groupDerivedTracks } from "./group-derived-tracks";
 
+const DEFAULT_SOURCE_TRACK_FLAGS = { visible: true, locked: false } as const;
+
 export function computeDefaultSourcesFromInstance(
   namespaceId: string,
   animationInstance: AnimationInstance,
@@ -36,8 +38,8 @@ export function computeDefaultSourcesFromInstance(
               trackId: child,
               animatableId: child,
               type: "number",
-              hidden: false,
               muted: false,
+              ...DEFAULT_SOURCE_TRACK_FLAGS,
             };
             return fallbackSource;
           }
@@ -52,7 +54,7 @@ export function computeDefaultSourcesFromInstance(
             type: (animatable?.type as "string" | "number" | "boolean") ?? "number",
             iconCode: animatable ? getIconCode(animatable.type, animatable.pub?.units) : undefined,
             muted: track.settings?.muted ?? false,
-            hidden: false,
+            ...DEFAULT_SOURCE_TRACK_FLAGS,
           };
           return sourceTrack;
         }
@@ -109,7 +111,7 @@ export function computeDefaultSourcesFromInstance(
             ? getIconCode(childAnimatable.type, childAnimatable.pub?.units)
             : undefined,
           muted: child.track.settings?.muted ?? false,
-          hidden: false,
+          ...DEFAULT_SOURCE_TRACK_FLAGS,
         };
       });
 
@@ -158,7 +160,7 @@ export function computeDefaultSourcesFromInstance(
         type: (animatable?.type as "string" | "number" | "boolean") ?? "number",
         iconCode: animatable ? getIconCode(animatable.type, animatable.pub?.units) : undefined,
         muted: child.track.settings?.muted ?? false,
-        hidden: false,
+        ...DEFAULT_SOURCE_TRACK_FLAGS,
       });
     }
   });

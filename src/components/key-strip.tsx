@@ -8,10 +8,27 @@ export interface KeyStripProps {
   color?: string;
   onHexClick?: () => void;
   source: SourceRow;
+  /**
+   * Blanket-disable every button in the strip. Use for states where even
+   * navigation should be off (e.g. `playing`).
+   */
   disabled?: boolean;
+  /**
+   * Disable only the center hex (add/remove key) — prev/next navigation
+   * remains usable. Pass `true` when the row's tracks are non-editable
+   * (readonly or user-locked) so viewers can still scrub between
+   * keypoints to inspect them but can't author edits.
+   */
+  authoringDisabled?: boolean;
 }
 
-export function KeyStrip({ color = "#737373", onHexClick, source, disabled }: KeyStripProps) {
+export function KeyStrip({
+  color = "#737373",
+  onHexClick,
+  source,
+  disabled,
+  authoringDisabled,
+}: KeyStripProps) {
   const {
     prevEnabled,
     nextEnabled,
@@ -36,6 +53,7 @@ export function KeyStrip({ color = "#737373", onHexClick, source, disabled }: Ke
     <ControlStrip
       color={color}
       disabled={disabled}
+      authoringDisabled={authoringDisabled}
       prevEnabled={prevEnabled}
       nextEnabled={nextEnabled}
       onPrev={onPrev}
@@ -49,7 +67,7 @@ export function KeyStrip({ color = "#737373", onHexClick, source, disabled }: Ke
       onCenterLeave={() => setHovered(false)}
       centerDeemphasize={trackIds.length === 0}
       centerContent={
-        <IconKey size="18px" fillOpacity={fillOpacity} dashed={keyDashed} center={center} />
+        <IconKey size="16px" fillOpacity={fillOpacity} dashed={keyDashed} center={center} />
       }
       centerAltText={keyState !== "full" ? "Add Key" : "Remove Key"}
     />

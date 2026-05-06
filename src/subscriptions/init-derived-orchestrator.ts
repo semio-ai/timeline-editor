@@ -58,6 +58,7 @@ function computeValueAndVelocityMaps(
   const multiplier = (_currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
 
   Object.entries(snapshot.tracks).forEach(([trackKey, track]) => {
+    if (track.metadata?.muted) return;
     const lookup = trackKey;
     const timescale = track.metadata?.timescale ?? 1;
     const offset = track.metadata?.offset ?? 0;
@@ -204,6 +205,13 @@ export function initDerivedOrchestrator(
     { fireImmediately: true, equalityFn: shallow },
   );
 
+  // Coalesce per-tick player updates: if a values-store write is already
+  // queued, skip queueing another. The microtask defers the write past
+  // the synchronous useSyncExternalStore notification chain triggered by
+  // the player setState, which keeps the orchestrator out of React's
+  // commit cycle and avoids contributing to nested-update detection.
+  let playbackUpdatePending = false;
+
   const unsubscribePlayer = usePlayerStore.subscribe(
     (state: PlayerData) => ({
       stamp: state.player.stamp,
@@ -215,15 +223,20 @@ export function initDerivedOrchestrator(
       if (!latestSnapshot) {
         return;
       }
-
-      const { values, velocities } = computeValueAndVelocityMaps(
-        latestSnapshot,
-        usePlayerStore.getState(),
-      );
-      const valuesState = useValuesStore.getState();
-      useValuesStore.setState({
-        values: mergeValueMaps(valuesState.values, values),
-        velocities: mergeValueMaps(valuesState.velocities, velocities),
+      if (playbackUpdatePending) return;
+      playbackUpdatePending = true;
+      queueMicrotask(() => {
+        playbackUpdatePending = false;
+        if (!latestSnapshot) return;
+        const { values, velocities } = computeValueAndVelocityMaps(
+          latestSnapshot,
+          usePlayerStore.getState(),
+        );
+        const valuesState = useValuesStore.getState();
+        useValuesStore.setState({
+          values: mergeValueMaps(valuesState.values, values),
+          velocities: mergeValueMaps(valuesState.velocities, velocities),
+        });
       });
     },
     { fireImmediately: true, equalityFn: shallow },

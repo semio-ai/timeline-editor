@@ -1,12 +1,21 @@
 import { MotionValue } from "motion/react";
 import { useMotionCanvas } from "../components/canvas-sheet/shared/motion-canvas-context";
 
-export function useInvariantScale(): MotionValue<number> {
-  // Create a motion value that represents an invariant scale
-  //
+export function useInvariantScaleX(): MotionValue<number> {
   const ctx = useMotionCanvas();
   if (!ctx) {
-    throw new Error("useInvariantScale must be used within a MotionCanvasProvider");
+    throw new Error("useInvariantScaleX must be used within a MotionCanvasProvider");
   }
-  return ctx.invariantScale;
+  return ctx.invariantScaleX;
 }
+
+export function useInvariantScaleY(): MotionValue<number> {
+  const ctx = useMotionCanvas();
+  if (!ctx) {
+    throw new Error("useInvariantScaleY must be used within a MotionCanvasProvider");
+  }
+  return ctx.invariantScaleY;
+}
+
+/** @deprecated Use useInvariantScaleX instead */
+export const useInvariantScale = useInvariantScaleX;

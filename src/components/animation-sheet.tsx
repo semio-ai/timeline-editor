@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useState, useEffect, useCallback, useMemo } from "react";
+import { useContext, memo, useEffect, useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useMotionValue } from "motion/react";
 import { clsx } from "clsx";
 import { Search, Size, useTheme, TooltipProvider, TooltipContext } from "@semio/ui";
+import { KeybindingProvider } from "@semio/ui";
 import { AnimationContext } from "../context";
 import { useDefaultAnimationStore } from "../store";
+import { animationKeybindings } from "../keybindings";
 import { TrackRender, VerticalAxis } from "../types";
 import {
   useAnimationStore,
@@ -15,7 +16,13 @@ import {
   LocalGlobalTransformContextProvider,
 } from "../hooks";
 import { WithTooltipAndAnimationContextProps } from "../utils/context-providers";
-import { MIN_SHEET_HEIGHT } from "../constants";
+import {
+  MIN_SHEET_HEIGHT,
+  SLOT_SIZE,
+  SLOT_GAP,
+  SIDEBAR_WIDTH,
+  SCROLLBAR_GUTTER,
+} from "../constants";
 import {
   filterVisibleSourceRowIds,
   matchesSourceRowQuery,
@@ -30,6 +37,7 @@ import { CanvasSheet } from "./canvas-sheet/canvas-sheet";
 import { Toolbar } from "./toolbar";
 import { ToolbarWrapper } from "./toolbar/toolbar-wrapper";
 import { WorkspaceToolbarSection } from "./toolbar/workspace-toolbar-section";
+import { TrackFilterToggles } from "./track-filter-toggles";
 
 const TRACK_MAIN_BG = "dark:bg-[#202020] bg-[#efefef]";
 
@@ -155,6 +163,19 @@ export const AnimationSheet = memo(function AnimationSheet({
   const needsAnimationContext = !skipAnimationContext && !animationCtx;
   const needsTooltipContext = !skipTooltipContext && !tooltipCtx;
 
+  // The default animation store no longer auto-inits its subscriptions
+  // at module load — that caused duplicate subscriptions when an app
+  // also created its own animation store (e.g. the studio's composite
+  // store), which compounded into a React 19 max-depth cascade on every
+  // player tick. Standalone usage that falls back to the default store
+  // initializes here on mount and cleans up on unmount. The store's
+  // `initAnimationSubscriptions` is idempotent (clears any existing
+  // cleanup before re-initing), so StrictMode double-mount is safe.
+  useEffect(() => {
+    if (!needsAnimationContext) return;
+    return useDefaultAnimationStore.getState().initAnimationSubscriptions();
+  }, [needsAnimationContext]);
+
   let content = <AnimationSheetCore {...props} />;
 
   // Wrap with animation context if needed
@@ -245,9 +266,6 @@ function InnerSheet({
     viewIds,
   ]);
 
-  const scrollY = useMotionValue(0);
-
-  const [emphasis, setEmphasis] = useState<string[]>([]);
   const setTrackFilter = useCallback(
     (value: string) => {
       updateView(resolvedViewId, { trackFilter: value });
@@ -353,22 +371,10 @@ function InnerSheet({
     [animatables, sourceRowLookup, sourceRows, trackFilter, tracks],
   );
 
-  const setEmphasisSmart = useCallback(
-    (id: string, opt: "add" | "remove") => {
-      setEmphasis((prev) => {
-        if (opt === "add") {
-          return [...prev, id];
-        } else {
-          return prev.filter((e) => e !== id);
-        }
-      });
-    },
-    [setEmphasis],
-  );
-
   const expanded = height > MIN_SHEET_HEIGHT;
 
   return (
+    <KeybindingProvider value={animationKeybindings}>
     <ColorContextProvider>
       <NameContextProvider>
         <TrackAnimatableContextProvider>
@@ -380,9 +386,10 @@ function InnerSheet({
                 style={{
                   height,
                   minHeight: MIN_SHEET_HEIGHT,
+                  gridTemplateColumns: `${SIDEBAR_WIDTH + 2}px 1fr`,
                 }}
                 className={clsx(
-                  "group/sheet grid w-full grid-cols-[317px_1fr] overflow-hidden pr-0.5 pb-0.5",
+                  "group/sheet grid w-full overflow-hidden pr-0.5 pb-0.5",
                   "grid-rows-[36px_36px_minmax(0,1fr)_36px_36px_36px]",
                 )}
               >
@@ -412,9 +419,21 @@ function InnerSheet({
                   expanded={expanded}
                 />
 
-                {/* Track Filter - Row 2 */}
-                <div className="flex h-9 items-center px-1.5 py-0.5">
-                  <div className="flex w-full">
+                {/* Track Filter - Row 2: uses the shared 7-column grid.
+                    Width and right padding mirror the track-list rows
+                    (SIDEBAR_WIDTH + ControlRow's `pr-0.5`) so the four
+                    toggle buttons align horizontally with the track list's
+                    options/strip slots and the bottom-section button rows. */}
+                <div
+                  className="h-9 items-center py-0.5 pl-1 pr-0.5"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `1fr 1fr auto repeat(4, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                    gap: `${String(SLOT_GAP)}px`,
+                    width: SIDEBAR_WIDTH,
+                  }}
+                >
+                  <div className="col-span-3 min-w-0">
                     <Search
                       size={Size.Sm}
                       value={trackFilter}
@@ -425,6 +444,7 @@ function InnerSheet({
                       wrapperClassName="w-full"
                     />
                   </div>
+                  <TrackFilterToggles />
                 </div>
 
                 {/* Canvas (spans all rows) */}
@@ -436,10 +456,7 @@ function InnerSheet({
                 >
                   <CanvasSheet
                     viewId={resolvedViewId}
-                    scrollValue={scrollY}
                     theme={resolvedTheme}
-                    emphasis={emphasis}
-                    onEmphasisChange={setEmphasisSmart}
                     rowIdLookup={filteredRowLookup}
                     fonts={fonts}
                   />
@@ -450,28 +467,52 @@ function InnerSheet({
                 {/* Track List with color-coded tracks */}
                 <TrackList
                   height={height - MIN_SHEET_HEIGHT}
-                  scrollY={scrollY}
-                  emphasis={emphasis}
-                  onEmphasisChange={setEmphasisSmart}
                   rowIdLookup={filteredRowLookup}
                 />
 
-                {/* Timeline Control - Row 3 */}
-                <div className="pr-2">
+                {/* Timeline Control - Row 4 */}
+                <div
+                  className="pl-1 pr-0.5"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                    gap: `${String(SLOT_GAP)}px`,
+                    alignItems: "center",
+                    width: SIDEBAR_WIDTH,
+                  }}
+                >
                   <TimelineControl viewId={resolvedViewId} />
                 </div>
 
-                {/* Timeline View - Row 3 */}
+                {/* Timeline View - Row 4 */}
 
-                {/* Time Controls - Row 4 */}
-                <div className="pr-2">
+                {/* Time Controls - Row 5 */}
+                <div
+                  className="pl-1 pr-0.5"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                    gap: `${String(SLOT_GAP)}px`,
+                    alignItems: "center",
+                    width: SIDEBAR_WIDTH,
+                  }}
+                >
                   <TimeControls />
                 </div>
 
-                {/* Minimap View - Row 4 */}
+                {/* Minimap View - Row 5 */}
 
-                {/* Playback Settings - Row 5 */}
-                <div className="pr-2">
+                {/* Playback Settings - Row 6 */}
+                <div
+                  className="pl-1 pr-0.5"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                    gap: `${String(SLOT_GAP)}px`,
+                    alignItems: "center",
+                    width: SIDEBAR_WIDTH,
+                  }}
+                >
                   <PlaybackSettings />
                 </div>
 
@@ -482,5 +523,6 @@ function InnerSheet({
         </TrackAnimatableContextProvider>
       </NameContextProvider>
     </ColorContextProvider>
+    </KeybindingProvider>
   );
 }

@@ -69,7 +69,7 @@ const fragmentShader = `
     float pattern = mod(diagonal, stripeSpacing);
     float stripeAlpha = step(pattern, stripeWidth);
 
-    float finalAlpha = mix(baselineOpacity * opacity, opacity, stripeAlpha) * globalOpacity;
+    float finalAlpha = mix(baselineOpacity, opacity, stripeAlpha) * globalOpacity;
 
     if (finalAlpha < 0.01) discard;
     gl_FragColor = vec4(color, finalAlpha);

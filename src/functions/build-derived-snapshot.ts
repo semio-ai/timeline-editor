@@ -110,6 +110,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
             duration: animDuration,
             timescale: instance.settings.timescale,
             offset: instance.settings.offset,
+            muted: track.settings?.muted,
           },
         };
 

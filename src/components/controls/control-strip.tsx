@@ -1,13 +1,25 @@
 import { type ReactNode } from "react";
 import { IconPlus } from "@tabler/icons-react";
-import { Button, IconKey, IconPlayerPlay, Tooltip } from "@semio/ui";
+import { Play } from "@solar-icons/react-perf/Bold";
+import { Button, IconKey, Tooltip } from "@semio/ui";
 import { DEFAULT_COLOR } from "../../constants";
 
 export type ControlStripCenterIcon = "key" | "plus";
 
 export interface ControlStripProps {
   color?: string;
+  /**
+   * Disables every button in the strip — both navigation (prev/next) and
+   * the authoring center button. Use for blanket states like "playing".
+   */
   disabled?: boolean;
+  /**
+   * Disables only the center (authoring) button. Use when navigation
+   * should remain available but mutations are blocked — e.g. all rows
+   * are readonly or user-locked. Prev/next navigation is read-only and
+   * stays enabled in that case.
+   */
+  authoringDisabled?: boolean;
   prevEnabled?: boolean;
   nextEnabled?: boolean;
   prevVisible?: boolean;
@@ -32,6 +44,7 @@ export interface ControlStripProps {
 export function ControlStrip({
   color = "#737373",
   disabled = false,
+  authoringDisabled = false,
   prevEnabled = false,
   nextEnabled = false,
   prevVisible = true,
@@ -54,17 +67,17 @@ export function ControlStrip({
 }: ControlStripProps) {
   const prevDisabled = disabled || !prevEnabled || !onPrev;
   const nextDisabled = disabled || !nextEnabled || !onNext;
-  const centerDisabled = disabled || !onCenter;
+  const centerDisabled = disabled || authoringDisabled || !onCenter;
 
   const defaultCenterContent =
     centerIcon === "plus" ? (
-      <IconPlus size="18px" />
+      <IconPlus size="16px" />
     ) : (
-      <IconKey size="18px" dashed={centerDashed} fillOpacity={centerFilled ? 1 : 0} />
+      <IconKey size="16px" dashed={centerDashed} fillOpacity={centerFilled ? 1 : 0} />
     );
 
   return (
-    <div className="grid h-7 min-w-16 grid-cols-3 items-center justify-between rounded-xs">
+    <>
       <Tooltip invert content="Previous Key" disabled={prevDisabled}>
         <Button
           size="fit"
@@ -73,7 +86,7 @@ export function ControlStrip({
           onClick={prevDisabled ? undefined : onPrev}
           onMouseEnter={prevDisabled ? undefined : onPrevEnter}
           onMouseLeave={prevDisabled ? undefined : onPrevLeave}
-          leftIcon={<IconPlayerPlay className="rotate-180" size="14px" />}
+          leftIcon={<Play className="rotate-180" size="10px" />}
           visuals="inverted"
           className={prevVisible ? undefined : "opacity-20"}
         />
@@ -100,12 +113,12 @@ export function ControlStrip({
           onClick={nextDisabled ? undefined : onNext}
           onMouseEnter={nextDisabled ? undefined : onNextEnter}
           onMouseLeave={nextDisabled ? undefined : onNextLeave}
-          leftIcon={<IconPlayerPlay size="14px" />}
+          leftIcon={<Play size="10px" />}
           visuals="inverted"
           className={nextVisible ? undefined : "opacity-20"}
         />
       </Tooltip>
-    </div>
+    </>
   );
 }
 

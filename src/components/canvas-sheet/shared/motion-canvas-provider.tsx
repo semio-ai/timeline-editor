@@ -15,7 +15,8 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
   const invalidate = useThree((state) => state.invalidate);
   const width = useMotionValue(1);
   const height = useMotionValue(1);
-  const invariantScale = useMotionValue(1);
+  const invariantScaleX = useMotionValue(1);
+  const invariantScaleY = useMotionValue(1);
   const frustumTop = useMotionValue(1);
   const frustumBottom = useMotionValue(-1);
   const frustumLeft = useMotionValue(-1);
@@ -25,7 +26,8 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
   const contextValue = useMemo(
     () => ({
       size: { width, height },
-      invariantScale,
+      invariantScaleX,
+      invariantScaleY,
       frustum: {
         top: frustumTop,
         bottom: frustumBottom,
@@ -33,7 +35,16 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
         right: frustumRight,
       },
     }),
-    [width, height, invariantScale, frustumTop, frustumBottom, frustumLeft, frustumRight],
+    [
+      width,
+      height,
+      invariantScaleX,
+      invariantScaleY,
+      frustumTop,
+      frustumBottom,
+      frustumLeft,
+      frustumRight,
+    ],
   ); // MotionValues are stable, so this will only create once
 
   // Update scale on each frame to maintain constant pixel size
@@ -49,7 +60,8 @@ export const MotionCanvasProvider = memo(function MotionCanvasProvider({
 
     if (!isOrthographicCamera(camera)) return;
     const scaleFactor = calculateScaleFactor(camera, size);
-    invariantScale.set(scaleFactor);
+    invariantScaleX.set(scaleFactor);
+    invariantScaleY.set(calculateScaleFactorY(camera, size));
     width.set(size.width);
     height.set(size.height);
     frustumTop.set(camera.top);
@@ -79,4 +91,10 @@ const calculateScaleFactor = (camera: THREE.OrthographicCamera, viewport: Size) 
   const baseWidth = viewport.width;
   const currentWidth = camera.right - camera.left;
   return currentWidth / baseWidth;
+};
+
+const calculateScaleFactorY = (camera: THREE.OrthographicCamera, viewport: Size) => {
+  const baseHeight = viewport.height;
+  const currentHeight = camera.top - camera.bottom;
+  return currentHeight / baseHeight;
 };

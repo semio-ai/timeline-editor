@@ -9,10 +9,20 @@ import type { AnimationData } from "../store-types";
  * @param trackId - The ID of the track to be removed.
  */
 export function removeTrack(state: AnimationData, animationId: string, trackId: string) {
-  state.animations[animationId].tracks = state.animations[animationId].tracks.filter(
-    (track) => track !== trackId,
-  );
+  // Bail if the track is not actually a member of this animation. Without
+  // this guard, calling with the wrong animationId would still strip the
+  // entry from `state.tracks` and orphan it from its real owner.
+  const animation = state.animations[animationId];
+  if (!animation || !animation.tracks.includes(trackId)) return;
+
+  animation.tracks = animation.tracks.filter((track) => track !== trackId);
   if (trackId in state.tracks) {
     state.tracks = omit(state.tracks, trackId);
+  }
+  // Drop selection entries for the removed track. `keypoints` is the
+  // authoritative selection store; leaving an entry under a deleted trackId
+  // would leak orphans into selection-driven actions (cut/copy/delete).
+  if (state.selectionState.keypoints.has(trackId)) {
+    state.selectionState.keypoints.delete(trackId);
   }
 }

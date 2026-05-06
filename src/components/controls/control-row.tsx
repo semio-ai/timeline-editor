@@ -1,27 +1,82 @@
 import type { ReactNode } from "react";
 import { clsx } from "clsx";
+import { SLOT_GAP, LEFT_COLUMN_GRID } from "../../constants/layout";
 
 export interface ControlRowProps {
-  left?: ReactNode;
-  mid?: ReactNode;
-  main?: ReactNode;
-  right?: ReactNode;
+  /** Left-edge target indicator (3px colored bar). */
+  target?: ReactNode;
+  /** Combined tree guide lines + icon (variable width based on depth). */
+  treeIcon?: ReactNode;
+  /** Track label — TextField for name editing. Used for groups and leaf tracks. */
+  label?: ReactNode;
+  /** Slider + value + unit for leaf tracks. Placed in the fixed-width column after the label. */
+  editor?: ReactNode;
+  /** Options dropdown (⋮ button) — occupies slot A (16px). */
+  options?: ReactNode;
+  /** Control strip — 3 buttons (key/skip or vis/mute/lock) — occupies slots B-D. */
+  controls?: ReactNode;
+  /** Whether this row is a group row (label spans both flex and fixed columns). */
+  isGroup?: boolean;
+  /** Additional CSS class for the outer container. */
   className?: string;
+  /** Background color tint for selected/hover states. */
+  backgroundClassName?: string;
 }
 
-const DEFAULT_RIGHT = <div className="mr-1 flex w-3 items-center justify-around" />;
-
-export function ControlRow({ left, mid, main, right, className }: ControlRowProps) {
+/**
+ * A single row in the track list.
+ *
+ * Uses the shared 8-column grid from LEFT_COLUMN_GRID, with a 3px target
+ * indicator column prepended:
+ *   [target 3px] [treeIcon auto] [label 1fr] [editor 120px]
+ *   [slotA] [slotB] [slotC] [slotD] [scrollbar gutter]
+ *
+ * The treeIcon maps to column 2 (auto, depth-dependent).
+ * For leaf rows: label in column 3 (1fr), editor in column 4 (120px).
+ * For group rows: label spans columns 3-4.
+ * Slots A-D are columns 5-8 (16px each with 4px gap).
+ * The trailing gutter is intentionally left empty so the vertical scrollbar
+ * (Radix overlay) can sit there without overlapping any control. See
+ * `SCROLLBAR_GUTTER` in `constants/layout.ts`.
+ */
+export function ControlRow({
+  target,
+  treeIcon,
+  label,
+  editor,
+  options,
+  controls,
+  isGroup = false,
+  className,
+  backgroundClassName,
+}: ControlRowProps) {
   return (
-    <div className={clsx("relative w-full", className)}>
-      {/* Mid column tracks a shared 28px icon slot so static icons and group toggles align visually. */}
-      <div className="grid h-9 w-full grid-cols-[79px_28px_minmax(0,1fr)_16px] items-center gap-2 pr-3 pl-1">
-        {left ?? <div className="h-7 min-w-16" />}
-        <div className="grid h-full w-7 place-items-center">
-          {mid ?? <div className="size-3" />}
-        </div>
-        {main ?? <div className="min-w-0 flex-1" />}
-        {right ?? DEFAULT_RIGHT}
+    <div className={clsx("relative w-full", backgroundClassName, className)}>
+      <div
+        className="h-9 w-full items-center"
+        style={{
+          display: "grid",
+          gridTemplateColumns: `3px ${LEFT_COLUMN_GRID}`,
+          gap: `${String(SLOT_GAP)}px`,
+          alignItems: "center",
+        }}
+      >
+        {/* Target indicator — col 0 (3px) */}
+        <div className="h-full">{target}</div>
+
+        {/* Tree guide lines + icon — col 1 (auto) */}
+        {treeIcon ?? <div />}
+
+        {/* Label — col 2 (1fr); for groups spans col 2-3 */}
+        <div className={clsx("min-w-0 truncate", isGroup && "col-span-2")}>{label ?? <div />}</div>
+
+        {/* Editor (slider/value) — col 3 (auto); hidden for groups (spanned by label) */}
+        {!isGroup && <div className="min-w-0">{editor ?? <div />}</div>}
+
+        {/* Slot A: options (⋮ dropdown) */}
+        <div className="flex items-center justify-center">{options}</div>
+        {/* Slots B-D: control strip (3 buttons rendered as fragment) */}
+        {controls}
       </div>
     </div>
   );

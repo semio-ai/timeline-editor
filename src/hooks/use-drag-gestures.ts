@@ -1,8 +1,9 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useGesture } from "@use-gesture/react";
 import { useThree } from "@react-three/fiber";
 import { isOrthographicCamera } from "@semio/utils";
 import { getDataViewportFromFrustum } from "../viewport-utils";
+import type { EdgeScrollHandle } from "./use-edge-scroll";
 
 type GestureConfig = Parameters<typeof useGesture>[1];
 type DragConfig = GestureConfig & {
@@ -37,6 +38,17 @@ export interface DragGestureOptions {
     shift: boolean;
     meta: boolean;
   }) => void;
+  /**
+   * Optional edge-scroll handle for auto-scrolling the viewport when the
+   * pointer approaches the canvas edge during a drag.
+   *
+   * TODO(animation-usability): only box-select currently passes this. Keypoint
+   * drags (`data-point.tsx`) and bezier-handle drags (`bezier-handles.tsx`)
+   * intentionally skip it for now — re-enabling requires UX validation that
+   * the auto-scroll feels right when the cursor is dragging a value rather
+   * than sweeping a selection rectangle.
+   */
+  edgeScroll?: EdgeScrollHandle;
 }
 
 export interface DragGestureHandlers {
@@ -61,8 +73,19 @@ export const useDragGestures = ({
   onDragEnd,
   pixelRangeY,
   onDrag2D,
+  edgeScroll,
 }: DragGestureOptions): DragGestureHandlers => {
   const { camera, size } = useThree();
+
+  // Track whether a drag is actively in progress. While active, the gesture
+  // must stay enabled even if `disabled` flips due to a mid-drag re-render
+  // (e.g. store update → derived recompute → interaction prop briefly undefined).
+  const draggingRef = useRef(false);
+
+  // Shift+drag axis constraint: lock to the major axis once movement exceeds
+  // a threshold, then zero out the minor axis for the rest of the drag.
+  const axisLockRef = useRef<"x" | "y" | null>(null);
+  const AXIS_LOCK_THRESHOLD_PX = 5;
 
   // Convert screen movement to timeline position in ms (unbounded)
   const getTimelinePositionFromMovement = useCallback(
@@ -109,44 +132,77 @@ export const useDragGestures = ({
   // Use @use-gesture/react for drag handling
   const bind = useGesture(
     {
-      onDragStart: ({ event }) => {
-        if (disabled) return;
-
-        // Get initial position from the event
-        const initialPosition = getTimelinePositionFromEvent(event);
-        onDragStart?.(initialPosition);
-
-        // Stop propagation to prevent conflicts
-        event?.stopPropagation?.();
-      },
       onDrag: ({ movement: [mx, my], first, memo, event, altKey, shiftKey, metaKey }) => {
-        if (disabled) return;
+        if (disabled && !draggingRef.current) return;
 
-        // On first drag frame, store the initial position
+        // Feed pointer position to edge-scroll engine on every frame
+        if (edgeScroll && event) {
+          const e = event as any;
+          const clientX = e.nativeEvent?.clientX ?? e.clientX;
+          const clientY = e.nativeEvent?.clientY ?? e.clientY;
+          if (typeof clientX === "number" && typeof clientY === "number") {
+            edgeScroll.updatePointer(clientX, clientY);
+          }
+        }
+
+        // On first drag frame, capture initial position and notify consumer
         if (first) {
+          draggingRef.current = true;
+          axisLockRef.current = null;
+          edgeScroll?.start();
           const initialPosition = getTimelinePositionFromEvent(event);
           onDragStart?.(initialPosition);
+          event?.stopPropagation?.();
           return initialPosition;
         }
 
-        // Calculate position based on movement from initial
+        // Shift+drag: constrain to the major axis once movement is significant.
+        let effectiveMx = mx;
+        let effectiveMy = my;
+        if (shiftKey) {
+          if (!axisLockRef.current) {
+            const absMx = Math.abs(mx);
+            const absMy = Math.abs(my);
+            if (absMx > AXIS_LOCK_THRESHOLD_PX || absMy > AXIS_LOCK_THRESHOLD_PX) {
+              axisLockRef.current = absMx >= absMy ? "x" : "y";
+            }
+          }
+          if (axisLockRef.current === "x") {
+            effectiveMy = 0;
+          } else if (axisLockRef.current === "y") {
+            effectiveMx = 0;
+          }
+        } else {
+          axisLockRef.current = null;
+        }
+
+        // Calculate position based on movement from initial.
+        // Compensate for any viewport shift from edge-scrolling: the camera
+        // moved under the pointer, so the same pixel movement maps to a
+        // different world position. shiftX accumulates the world-space delta.
         const initialPosition = memo as number;
-        const position = getTimelinePositionFromMovement(mx, initialPosition);
+        const edgeShift = edgeScroll?.shiftX.current ?? 0;
+        const position = getTimelinePositionFromMovement(effectiveMx, initialPosition) + edgeShift;
 
         // Horizontal callback (legacy)
         onDrag?.(position, altKey);
 
-        // Vertical normalized delta for 2D consumers
+        // Vertical normalized delta for 2D consumers.
+        // Account for camera vertical zoom: each screen pixel covers
+        // (camera.top - camera.bottom) / viewport.height world units.
         if (typeof onDrag2D === "function") {
-          const normalizedValueDelta =
-            typeof my === "number" && typeof pixelRangeY === "number" && pixelRangeY > 0
-              ? -(my / pixelRangeY)
-              : 0;
+          let normalizedValueDelta = 0;
+          if (typeof effectiveMy === "number" && typeof pixelRangeY === "number" && pixelRangeY > 0) {
+            const scaleY = isOrthographicCamera(camera)
+              ? (camera.top - camera.bottom) / size.height
+              : 1;
+            normalizedValueDelta = -(effectiveMy * scaleY) / pixelRangeY;
+          }
           onDrag2D({
             x: position,
             normalizedValueDelta,
-            movementX: mx,
-            movementY: my,
+            movementX: effectiveMx,
+            movementY: effectiveMy,
             alt: Boolean(altKey),
             shift: Boolean(shiftKey),
             meta: Boolean(metaKey),
@@ -160,11 +216,14 @@ export const useDragGestures = ({
         return initialPosition;
       },
       onDragEnd: ({ movement: [mx], memo, event }) => {
+        const edgeShift = edgeScroll?.shiftX.current ?? 0;
+        draggingRef.current = false;
+        edgeScroll?.stop();
         if (disabled) return;
 
-        // Calculate final position
+        // Calculate final position (with edge-scroll compensation)
         const initialPosition = memo as number;
-        const finalPosition = getTimelinePositionFromMovement(mx, initialPosition);
+        const finalPosition = getTimelinePositionFromMovement(mx, initialPosition) + edgeShift;
 
         onDragEnd?.(finalPosition);
 
@@ -173,7 +232,9 @@ export const useDragGestures = ({
       },
     },
     {
-      enabled: !disabled,
+      // Keep gesture enabled while a drag is in progress, even if `disabled`
+      // briefly flips due to a mid-drag re-render cascade.
+      enabled: !disabled || draggingRef.current,
       eventOptions: { passive: false, capture: false },
       ...(dragOptions ? { drag: dragOptions } : {}),
     },

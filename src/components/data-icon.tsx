@@ -1,5 +1,4 @@
 import {
-  IconAngle,
   IconChartScatter,
   IconChartScatter3d,
   IconFolder,
@@ -7,8 +6,9 @@ import {
   IconPalette,
   IconPercentage,
   IconRotate360,
-  IconRuler2,
 } from "@tabler/icons-react";
+import { Angle } from "@semio/ui";
+import { Ruler } from "@solar-icons/react-perf/LineDuotone";
 
 export function DataIcon({
   iconCode,
@@ -33,17 +33,17 @@ export function DataIcon({
     case "hsl":
       return <IconPalette className={className} size={size} {...props} />;
     case "rad":
-      return <IconAngle className={className} size={size} {...props} />;
+      return <Angle className={className} size="100%" {...props} />;
     case "deg":
-      return <IconAngle className={className} size={size} {...props} />;
+      return <Angle className={className} size="100%" {...props} />;
     case "m":
-      return <IconRuler2 className={className} size={size} {...props} />;
+      return <Ruler className={className} size="100%" {...props} />;
     case "mm":
-      return <IconRuler2 className={className} size={size} {...props} />;
+      return <Ruler className={className} size="100%" {...props} />;
     case "cm":
-      return <IconRuler2 className={className} size={size} {...props} />;
+      return <Ruler className={className} size="100%" {...props} />;
     case "km":
-      return <IconRuler2 className={className} size={size} {...props} />;
+      return <Ruler className={className} size="100%" {...props} />;
     case "%":
       return <IconPercentage className={className} size={size} {...props} />;
     default:

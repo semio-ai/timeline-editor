@@ -8,8 +8,9 @@ import {
   useEffect,
   useLayoutEffect,
 } from "react";
+import { useContext } from "react";
 import { useShallow } from "zustand/shallow";
-import { Theme } from "@semio/ui";
+import { Theme, useCanvasContextMenu } from "@semio/ui";
 import { MotionValue } from "motion";
 import { animate, useMotionValue, useMotionValueEvent, useSpring } from "motion/react";
 import { Instances } from "@react-three/drei";
@@ -19,6 +20,11 @@ import { uniq } from "lodash";
 import { isOrthographicCamera } from "@semio/utils";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import {
+  buildFilteredSourceRowId,
+  filterHandlesByVisibility,
+  shouldRowShowHandles,
+} from "../../functions";
+import {
   LayerBand,
   SelectionFrame,
   SourceRow,
@@ -26,13 +32,20 @@ import {
   VerticalAxis,
   VerticalAxisRange,
 } from "../../types";
-import { AnimationData, AnimationActions } from "../../store-types";
+import {
+  AnimationData,
+  AnimationActions,
+  HandleVisibility,
+  ViolationVisibility,
+} from "../../store-types";
 import { DEFAULT_COLOR, RENDER_MORPH_SPRING, Z } from "../../constants";
+import { AnimationContext } from "../../context";
 import { DataPoint } from "./data-point";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 import { TransitionSegment } from "./transition-segment";
 import { BezierHandles } from "./bezier-handles";
+import { buildTrackMenuItems } from "./context-menus";
 
 const HANDLE_REVEAL_DELAY_MS = 120;
 
@@ -76,11 +89,9 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
     // - That remount can interrupt pointer/drag continuity.
     //
     // So we freeze the "key count" at drag start and release it when drag ends.
-    if (holdCountDuringDrag) {
-      if (!wasHoldingRef.current) {
-        stableCountRef.current = instanceCount;
-      }
-    } else {
+    // When transitioning TO holding, do NOT update — the ref already has the
+    // pre-drag count from the last non-holding render.
+    if (!holdCountDuringDrag) {
       stableCountRef.current = instanceCount;
     }
     wasHoldingRef.current = holdCountDuringDrag;
@@ -99,7 +110,21 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
   }
 
   return (
-    <Instances key={instancesKey} limit={Math.max(instanceCount, 1024)} range={instanceCount}>
+    <Instances
+      key={instancesKey}
+      limit={Math.max(instanceCount, 1024)}
+      range={instanceCount}
+      // three.js' InstancedMesh frustum-culls based on the SHARED
+      // geometry's bounding sphere (radius ~5 around the model origin),
+      // not the world-space spread of individual instance positions. With
+      // keypoints scattered along the timeline, panning the camera past
+      // x=0 makes that small bounding sphere leave the frustum and the
+      // entire mesh — every keypoint hexagon — disappears. Disabling
+      // frustum culling on the mesh is the canonical fix; per-instance
+      // count is bounded by the visible track set so the perf cost of
+      // skipping culling is negligible here.
+      frustumCulled={false}
+    >
       {/* Shared geometry and material for all instances */}
       <cylinderGeometry args={[5, 5, 1, 6]} />
       <meshBasicMaterial toneMapped={false} />
@@ -127,8 +152,6 @@ const DataPointsRenderer = memo(function DataPointsRenderer({
 export interface DataRendererProps {
   sourceRowId: string;
   height?: number;
-  emphasis?: boolean;
-  onEmphasisChange?: (emphasis: boolean) => void;
   viewId?: string;
   yOffset?: number;
   baseZ?: number;
@@ -147,8 +170,6 @@ export interface DataRendererProps {
 export const DataRenderer = memo(function DataRenderer({
   sourceRowId,
   height = 36,
-  emphasis = false,
-  onEmphasisChange = () => {},
   viewId,
   yOffset = 0,
   baseZ = 0,
@@ -160,7 +181,14 @@ export const DataRenderer = memo(function DataRenderer({
 }: DataRendererProps) {
   type StoreState = AnimationData & AnimationActions;
   const sourceRow = useAnimationStore(
-    useShallow((state: StoreState) => state.instancedTrackSources[sourceRowId]),
+    useShallow((state: StoreState) => {
+      if (viewId) {
+        const filteredId = buildFilteredSourceRowId(viewId, sourceRowId);
+        const filtered = state.instancedTrackSources[filteredId];
+        if (filtered) return filtered;
+      }
+      return state.instancedTrackSources[sourceRowId];
+    }),
   );
   const computedData = useAnimationStore(
     useShallow((state: StoreState) => state.derivedSnapshot?.rows?.[sourceRowId]?.computed),
@@ -169,20 +197,66 @@ export const DataRenderer = memo(function DataRenderer({
     useShallow((state: StoreState) => state.derivedSnapshot?.renderSampleCache),
   );
   const selectionState = useAnimationStore(useShallow((state: StoreState) => state.selectionState));
+  const handleVisibility = useAnimationStore(
+    useShallow(
+      (state: StoreState) => state.preferences.handleVisibility ?? HandleVisibility.TrackSelection,
+    ),
+  );
+  const violationVisibility = useAnimationStore(
+    useShallow(
+      (state: StoreState) => state.preferences.violationVisibility ?? ViolationVisibility.Visible,
+    ),
+  );
+  const violationSelectedTrackIds = useMemo<ReadonlySet<string> | undefined>(
+    () =>
+      violationVisibility === ViolationVisibility.Selection
+        ? new Set(selectionState.keypoints.keys())
+        : undefined,
+    [violationVisibility, selectionState.keypoints],
+  );
   const hasActiveDrag = useAnimationStore(
     useShallow((state: StoreState) => Boolean(state.dragState)),
   );
   const focusSelectionInstance = useAnimationStore(
     useShallow((state: StoreState) => state.focusSelectionInstance),
   );
+  const emphasis = useAnimationStore(
+    useShallow((state: StoreState) => state.emphasisRowId === sourceRowId),
+  );
+  const setEmphasis = useAnimationStore(
+    useShallow((state: StoreState) => state.setEmphasis),
+  );
+  const selectTrack = useAnimationStore(
+    useShallow((state: StoreState) => state.selectTrack),
+  );
+  const toggleTrackInSelection = useAnimationStore(
+    useShallow((state: StoreState) => state.toggleTrackInSelection),
+  );
+  const rangeSelectTracks = useAnimationStore(
+    useShallow((state: StoreState) => state.rangeSelectTracks),
+  );
+  const referenceRowId = useAnimationStore(
+    (state: StoreState) => state.selectionState.reference?.rowId ?? null,
+  );
 
   const trackIds = useMemo(
     () => (sourceRow ? uniq(sourceRow.data.map((s) => s.trackId)) : []),
     [sourceRow],
   );
+
+  // Per-row context menu — passes this row's trackIds for targeted Select All
+  const animationStore = useContext(AnimationContext);
+  const { onContextMenu: rowContextMenu } = useCanvasContextMenu({
+    items: (ctx) => buildTrackMenuItems(ctx, animationStore, trackIds),
+  });
+
   const rowMuted = useMemo(() => {
     if (!sourceRow || sourceRow.data.length === 0) return false;
     return sourceRow.data.every((entry) => entry.muted ?? false);
+  }, [sourceRow]);
+  const rowVisible = useMemo(() => {
+    if (!sourceRow || sourceRow.data.length === 0) return true;
+    return sourceRow.data.some((entry) => entry.visible !== false);
   }, [sourceRow]);
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   const rowInstanceId = useMemo(() => {
@@ -219,8 +293,22 @@ export const DataRenderer = memo(function DataRenderer({
     return Number.isFinite(scaled) && scaled !== 0 ? scaled : 1;
   }, [xTransform]);
   const renderMarkers = computedData?.render?.markers ?? [];
-  const renderHandles = computedData?.render?.handles ?? [];
+  const renderHandles = useMemo(
+    () =>
+      filterHandlesByVisibility(
+        computedData?.render?.handles ?? [],
+        handleVisibility,
+        selectionState.keypoints,
+      ),
+    [computedData?.render?.handles, handleVisibility, selectionState.keypoints],
+  );
+  const isGroupRow = sourceRow ? (sourceRow.isGroup || sourceRow.data.length > 1) : false;
   const transitionLayer: LayerBand = useMemo(() => {
+    // Group/aggregate rows render behind individual track rows to avoid
+    // covering individual hexagons with group-level segments.
+    if (isGroupRow) {
+      return LayerBand.Background;
+    }
     const markers = computedData?.render?.markers ?? [];
     const allLayers = uniq(markers.map((marker) => marker.layerBand ?? LayerBand.Background));
     if (allLayers.length === 0) {
@@ -228,14 +316,16 @@ export const DataRenderer = memo(function DataRenderer({
     }
     if (allLayers.length === 1) {
       return allLayers[0];
-    } else if (allLayers.includes(LayerBand.ForegroundUnselected)) {
-      return LayerBand.ForegroundUnselected;
     } else if (allLayers.includes(LayerBand.ForegroundSelected)) {
       return LayerBand.ForegroundSelected;
+    } else if (allLayers.includes(LayerBand.ForegroundUnselected)) {
+      return LayerBand.ForegroundUnselected;
+    } else if (allLayers.includes(LayerBand.ForegroundLocked)) {
+      return LayerBand.ForegroundLocked;
     } else {
       return LayerBand.Background;
     }
-  }, [computedData?.render?.markers]);
+  }, [computedData?.render?.markers, isGroupRow]);
   const baseColor = useColors(trackIds);
   const color = rowMuted ? DEFAULT_COLOR : baseColor;
   const hoverCountRef = useRef(0);
@@ -255,8 +345,41 @@ export const DataRenderer = memo(function DataRenderer({
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow]);
 
-  const shouldRenderTrackSwitchOverlay =
-    Boolean(uniqueInstanceId) && selectionState.instanceId !== uniqueInstanceId;
+  // Owning entity is encoded in the row's namespaceId (`entityId@...`).
+  // Compute it locally so the store selector stays O(1) — walking
+  // `state.namespaces` per row × per state change was a real perf
+  // regression at scale.
+  const owningEntityId = useMemo(() => {
+    if (!sourceRow) return undefined;
+    const ns = sourceRow.data.find((d) => d.namespaceId)?.namespaceId;
+    return ns ? ns.split("@")[0] : undefined;
+  }, [sourceRow]);
+
+  // Owning entity's currently-driving instance — same source the values
+  // bridge consults. Used so that "is this row's instance the active one"
+  // visuals follow the rig's actual driver, not editor selection focus
+  // (which can drift during playback per focusSelectionInstance's partial
+  // playback gate).
+  const activeInstanceForOwningEntity = useAnimationStore(
+    useShallow((state: StoreState) =>
+      owningEntityId ? (state.entityStates[owningEntityId]?.activeInstanceId ?? null) : null,
+    ),
+  );
+  const activeEntityId = useAnimationStore(
+    useShallow((state: StoreState) => state.activeEntityId),
+  );
+
+  // Render the click-to-switch overlay whenever clicking would switch
+  // focus or activate a different instance — i.e. anywhere the row
+  // ISN'T currently the editable one. Covers: non-active instances of
+  // any entity (overlay sits on greyed-out rows), AND the active rows of
+  // non-focused entities (so clicking Larry's active row when Ted is
+  // focused fires focusSelectionInstance and switches focus to Larry).
+  const isFocusedEntityActive =
+    Boolean(uniqueInstanceId) &&
+    owningEntityId === activeEntityId &&
+    activeInstanceForOwningEntity === uniqueInstanceId;
+  const shouldRenderTrackSwitchOverlay = Boolean(uniqueInstanceId) && !isFocusedEntityActive;
 
   const handleTrackSwitch = useCallback(
     (event?: { stopPropagation?: () => void }) => {
@@ -273,16 +396,10 @@ export const DataRenderer = memo(function DataRenderer({
   }, [sourceRow]);
   const renderMode = keyForced ? TrackRender.Key : trackRender;
 
-  const rowHasSelection = useMemo(() => {
-    if (!sourceRow || !selectionState?.instanceId) return false;
-    const instanceMatchesRow = sourceRow.data.some(
-      (entry) => entry.instanceId === selectionState.instanceId,
-    );
-    if (!instanceMatchesRow) return false;
-    return sourceRow.data.some(
-      (entry) => (selectionState.keypoints.get(entry.trackId)?.size ?? 0) > 0,
-    );
-  }, [selectionState, sourceRow]);
+  const rowHasSelection = useMemo(
+    () => shouldRowShowHandles(sourceRow, handleVisibility, selectionState),
+    [selectionState, sourceRow, handleVisibility],
+  );
 
   const [handlesDelayReady, setHandlesDelayReady] = useState(false);
   const handlesAppearanceMV = useSpring(0, { stiffness: 700, damping: 40 });
@@ -342,10 +459,33 @@ export const DataRenderer = memo(function DataRenderer({
   const canRenderHandles = trackRender === TrackRender.Spline && !keyForced;
   const rowHandlesEligible = canRenderHandles && rowHasSelection;
 
+  // In key-selection mode, track the visible handle IDs so the appearance
+  // animation re-triggers when the selection fully changes (e.g. clicking a
+  // different key), but NOT when it's merely extended (e.g. shift-clicking
+  // to add keys to the selection).
+  const handleIdSet = useMemo(() => {
+    if (handleVisibility !== HandleVisibility.KeySelection || renderHandles.length === 0) return null;
+    return new Set(renderHandles.map((h) => h.id));
+  }, [handleVisibility, renderHandles]);
+  const prevHandleIdSetRef = useRef(handleIdSet);
+
   useEffect(() => {
     const target = rowHandlesEligible && handlesDelayReady ? 1 : 0;
+    const prev = prevHandleIdSetRef.current;
+    const curr = handleIdSet;
+    prevHandleIdSetRef.current = curr;
+    // Replay the reveal only when the visible set fully replaced (no overlap
+    // with the previous set), not when keys were added to an existing selection.
+    if (prev && curr && prev.size > 0 && curr.size > 0 && target === 1) {
+      const hasOverlap = Array.from(curr).some((id) => prev.has(id));
+      if (!hasOverlap) {
+        handlesAppearanceMV.jump(0);
+        requestAnimationFrame(() => handlesAppearanceMV.set(1));
+        return;
+      }
+    }
     handlesAppearanceMV.set(target);
-  }, [handlesAppearanceMV, handlesDelayReady, rowHandlesEligible]);
+  }, [handlesAppearanceMV, handlesDelayReady, rowHandlesEligible, handleIdSet]);
 
   const axisRange = useMemo(() => {
     if (!computedData) {
@@ -362,115 +502,127 @@ export const DataRenderer = memo(function DataRenderer({
     [axisRange.max, axisRange.min],
   );
 
-  if (!sourceRow) return null;
   if (!sourceRow || !computedData) return null;
 
-  const resolvedSegmentColor =
+  const isForegroundLayer =
     transitionLayer === LayerBand.ForegroundSelected ||
-    transitionLayer === LayerBand.ForegroundUnselected
-      ? color
-      : DEFAULT_COLOR;
+    transitionLayer === LayerBand.ForegroundUnselected ||
+    transitionLayer === LayerBand.ForegroundLocked;
+  const resolvedSegmentColor = isForegroundLayer ? color : DEFAULT_COLOR;
+  // For group rows, transitionLayer is forced to Background for Z-ordering,
+  // but the row still has foreground data. Use data-level check for color.
+  const hasForegroundData = sourceRow.data.some(
+    (d) =>
+      d.layerBand === LayerBand.ForegroundSelected ||
+      d.layerBand === LayerBand.ForegroundUnselected ||
+      d.layerBand === LayerBand.ForegroundLocked,
+  );
 
   return (
-    <group
-      position={[0, yOffset, baseZ]}
-      onClick={() => console.log("clicked row", JSON.stringify(computedData?.selection))} // Reserved no-op; marker/segment clicks stopPropagation and handle selection
-      onDoubleClick={() => {
-        console.log("clicked row", JSON.stringify(computedData?.selection));
-      }}
-    >
+    <group position={[0, yOffset, baseZ]}>
       {shouldRenderTrackSwitchOverlay && trackRender !== TrackRender.Spline && (
         <TrackSwitchOverlay
           height={height}
           onClick={handleTrackSwitch}
         />
       )}
-      {/* Render the hexagons/visuals for each keyed point */}
-      {/* Note: selection frames are passed as props for instancing; DataPoint subscribes to store data */}
-      <DataPointsRenderer
-        sourceRow={sourceRow}
-        selectionFrames={computedData.selection ?? []}
-        activeInstanceId={selectionState.instanceId}
-        xTransform={xTransform}
-        verticalBounds={effectiveVerticalBounds}
-        verticalAxisRange={axisRange}
-        theme={theme}
-        trackRender={renderMode}
-        renderMorphProgress={renderMorphProgress}
-        height={height - 1}
-        colorOverride={rowMuted ? DEFAULT_COLOR : undefined}
-        holdCountDuringDrag={hasActiveDrag}
-      />
+      {/* Data content — hidden when track is not visible (backdrop remains) */}
+      {rowVisible && (
+        <>
+          {/* Render the hexagons/visuals for each keyed point */}
+          <DataPointsRenderer
+            sourceRow={sourceRow}
+            selectionFrames={computedData.selection ?? []}
+            activeInstanceId={activeInstanceForOwningEntity}
+            xTransform={xTransform}
+            verticalBounds={effectiveVerticalBounds}
+            verticalAxisRange={axisRange}
+            theme={theme}
+            trackRender={renderMode}
+            renderMorphProgress={renderMorphProgress}
+            height={height - 1}
+            colorOverride={rowMuted ? DEFAULT_COLOR : undefined}
+            holdCountDuringDrag={hasActiveDrag}
+          />
 
-      {/* Render transition segments */}
-      {(computedData.render?.segments ?? []).map((segment) => {
-        return (
-          <Fragment key={segment.id}>
-            <TransitionSegment
-              trackRender={renderMode}
-              verticalAxis={verticalAxisSetting}
+          {/* Render transition segments */}
+          {(computedData.render?.segments ?? []).map((segment) => {
+            return (
+              <Fragment key={segment.id}>
+                <TransitionSegment
+                  trackRender={renderMode}
+                  verticalAxis={verticalAxisSetting}
+                  height={height - 1}
+                  verticalBounds={effectiveVerticalBounds}
+                  sourceRow={sourceRow}
+                  segment={segment}
+                  theme={theme}
+                  verticalAxisRange={axisRange}
+                  onHoverChange={handleSegmentHoverChange}
+                  isRowHovered={isRowHovered}
+                  color={resolvedSegmentColor}
+                  layer={transitionLayer}
+                  renderSampleCache={renderSampleCache}
+                  renderMorphProgress={renderMorphProgress}
+                />
+              </Fragment>
+            );
+          })}
+          {rowHandlesEligible && handlesDelayReady && renderHandles.length > 0 && (
+            <BezierHandles
+              handles={renderHandles}
+              markers={renderMarkers}
               height={height - 1}
               verticalBounds={effectiveVerticalBounds}
-              sourceRow={sourceRow}
-              segment={segment}
-              theme={theme}
               verticalAxisRange={axisRange}
-              onHoverChange={handleSegmentHoverChange}
-              isRowHovered={isRowHovered}
+              rowId={sourceRow.id}
               color={resolvedSegmentColor}
               layer={transitionLayer}
-              renderSampleCache={renderSampleCache}
-              renderMorphProgress={renderMorphProgress}
+              isHighlighted={isRowHovered}
+              appearance={handlesAppearance}
+              theme={theme}
+              xTransform={xTransform}
+              xInverse={xInverse}
+              xScale={xScale}
             />
-          </Fragment>
-        );
-      })}
-      {rowHandlesEligible && handlesDelayReady && renderHandles.length > 0 && (
-        <BezierHandles
-          handles={renderHandles}
-          markers={renderMarkers}
-          height={height - 1}
-          verticalBounds={effectiveVerticalBounds}
-          verticalAxisRange={axisRange}
-          rowId={sourceRow.id}
-          color={resolvedSegmentColor}
-          layer={transitionLayer}
-          isHighlighted={isRowHovered}
-          appearance={handlesAppearance}
-          theme={theme}
-          xTransform={xTransform}
-          xInverse={xInverse}
-          xScale={xScale}
-        />
-      )}
+          )}
 
-      {/* Render violations */}
-      {trackRender !== TrackRender.Spline && (
-        <ViolationRenderer
-          violationSet={computedData.violationSet}
-          theme={theme}
-          height={height - 1}
-          yOffset={scrollOffset}
-          measureFromBottom={measureFromBottom}
-          layer={transitionLayer}
-          xTransform={xTransform}
-        />
+          {/* Render violations */}
+          {trackRender !== TrackRender.Spline && violationVisibility !== ViolationVisibility.Hidden && (
+            <ViolationRenderer
+              violationSet={computedData.violationSet}
+              theme={theme}
+              height={height - 1}
+              yOffset={scrollOffset}
+              measureFromBottom={measureFromBottom}
+              layer={transitionLayer}
+              xTransform={xTransform}
+              sourceRowId={sourceRowId}
+              selectedTrackIds={violationSelectedTrackIds}
+            />
+          )}
+        </>
       )}
 
       {/* Render a background for the Active region, and the General Background */}
       {showBackground && trackIds.length > 0 && trackRender !== TrackRender.Spline && (
         <FrustumBackground
-          color={
-            transitionLayer === LayerBand.ForegroundSelected ||
-            transitionLayer === LayerBand.ForegroundUnselected
-              ? color
-              : DEFAULT_COLOR
-          }
+          color={hasForegroundData ? color : DEFAULT_COLOR}
           height={height - 1}
           z={Z.Background}
-          onHoverChange={onEmphasisChange}
+          onHoverChange={(hovered) => setEmphasis(hovered ? sourceRowId : null)}
+          onTrackClick={({ ctrl, shift }) => {
+            if (ctrl) {
+              toggleTrackInSelection(sourceRowId, trackIds);
+            } else if (shift && referenceRowId) {
+              rangeSelectTracks(referenceRowId, sourceRowId);
+            } else {
+              selectTrack(sourceRowId, trackIds);
+            }
+          }}
           emphasis={emphasis}
           theme={theme}
+          pointerEvents={{ onContextMenu: rowContextMenu }}
         />
       )}
     </group>

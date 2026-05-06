@@ -3,7 +3,6 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
-import { MotionValue } from "motion/react";
 import { usePlayerStore } from "@semio/utils";
 import { TrackRender } from "../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
@@ -11,6 +10,7 @@ import { calculatePaddedFrustum } from "../../viewport-utils";
 import { AnimationData } from "../../store-types";
 import { useAnimationStore } from "../../hooks";
 import type { VisibleSourceRowIds } from "../../types";
+
 import { normalizeVisibleSourceRowIds } from "../../functions/filter-visible-source-row-ids";
 import { MotionCanvasProvider } from "./shared/motion-canvas-provider";
 import { HudSection } from "./hud-section";
@@ -21,10 +21,7 @@ import { TimelineRenderer } from "./timeline-renderer";
 
 export interface CanvasSheetProps {
   viewId: string;
-  scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
-  emphasis: string[];
-  onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   rowIdLookup?: VisibleSourceRowIds;
   fonts?: {
     mono?: string; // Path to monospace font, falls back to system default
@@ -34,10 +31,7 @@ export interface CanvasSheetProps {
 
 export const CanvasSheet = memo(function CanvasSheet({
   viewId,
-  scrollValue,
   theme = Theme.Light,
-  emphasis = [],
-  onEmphasisChange = () => {},
   rowIdLookup,
   fonts = {},
 }: CanvasSheetProps) {
@@ -50,7 +44,6 @@ export const CanvasSheet = memo(function CanvasSheet({
   const { left: initialLeft, right: initialRight } = calculatePaddedFrustum(
     initialViewport,
     estimatedCanvasWidth,
-    false, // Dynamic camera follows viewport
   );
 
   const [ready, setReady] = useState(false);
@@ -59,9 +52,13 @@ export const CanvasSheet = memo(function CanvasSheet({
   return (
     <TooltipHost className="h-full w-full">
       <Canvas
-         
         // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
-        style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0, transition: "opacity 0.2s ease-in" }}
+        style={{
+          width: "100%",
+          height: "100%",
+          opacity: ready ? 1 : 0,
+          transition: "opacity 0.2s ease-in",
+        }}
         flat
         orthographic
         onCreated={handleCreated}
@@ -82,15 +79,7 @@ export const CanvasSheet = memo(function CanvasSheet({
           antialias: true,
         }}
       >
-        <CanvasContent
-          viewId={viewId}
-          scrollValue={scrollValue}
-          theme={theme}
-          emphasis={emphasis}
-          onEmphasisChange={onEmphasisChange}
-          rowIdLookup={rowIdLookup}
-          fonts={fonts}
-        />
+        <CanvasContent viewId={viewId} theme={theme} rowIdLookup={rowIdLookup} fonts={fonts} />
       </Canvas>
     </TooltipHost>
   );
@@ -98,10 +87,7 @@ export const CanvasSheet = memo(function CanvasSheet({
 
 interface CanvasContentProps {
   viewId: string;
-  scrollValue?: MotionValue<number>;
   theme?: Theme.Dark | Theme.Light;
-  emphasis: string[];
-  onEmphasisChange?: (id: string, opt: "add" | "remove") => void;
   rowIdLookup?: VisibleSourceRowIds;
   fonts?: {
     mono?: string; // Path to monospace font, falls back to system default
@@ -112,9 +98,6 @@ interface CanvasContentProps {
 const CanvasContent = memo(function CanvasContent({
   viewId,
   theme,
-  scrollValue,
-  emphasis = [],
-  onEmphasisChange = () => {},
   rowIdLookup,
   fonts = {},
 }: CanvasContentProps) {
@@ -129,6 +112,9 @@ const CanvasContent = memo(function CanvasContent({
   );
   const trackRender = useAnimationStore(
     useShallow((state: AnimationData) => state.editorViews[viewId]?.trackRender ?? TrackRender.Key),
+  );
+  const boxSelectActive = useAnimationStore(
+    useShallow((state: AnimationData) => state.boxSelectState !== null),
   );
 
   // TrackList region offsets
@@ -151,20 +137,17 @@ const CanvasContent = memo(function CanvasContent({
       <color attach="background" args={theme === Theme.Dark ? [0, 0, 0] : [1, 1, 1]} />
       <ambientLight intensity={1} />
       <PanZoomControls
-        scrollValue={scrollValue}
         trackRegion={{ top: topOffsetPx, bottom: bottomOffsetPx }}
         contentHeightPx={totalContentHeightPx}
         trackRender={trackRender}
+        enabled={!boxSelectActive}
       />
       <MotionCanvasProvider label="MainCamera">
         <TracksRenderer
           viewId={viewId}
-          scrollValue={scrollValue}
           topOffsetPx={topOffsetPx}
           bottomOffsetPx={bottomOffsetPx}
           trackHeight={trackHeight}
-          emphasis={emphasis}
-          onEmphasisChange={onEmphasisChange}
           rowIdLookup={resolvedRowIdLookup}
           theme={theme}
         />
