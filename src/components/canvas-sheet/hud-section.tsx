@@ -7,6 +7,7 @@ import { ThreeEvent, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { Z } from "../../constants";
 import { calculatePaddedFrustum } from "../../viewport-utils";
+import { viewportMotion } from "../../viewport-state";
 import { FrustumBackground } from "./frustum-background";
 import { MotionCanvasProvider } from "./shared/motion-canvas-provider";
 import { useMotionCanvas } from "./shared/motion-canvas-context";
@@ -150,7 +151,7 @@ const HudCamera = memo(function HudCamera({
   const sizeRef = useRef(size);
   sizeRef.current = size;
 
-  // Single effect for all player store subscriptions — stable callbacks
+  // Single effect for all viewport/duration subscriptions — stable callbacks
   useEffect(() => {
     const updateCam = () => {
       const width = sizeRef.current.width.get();
@@ -160,7 +161,7 @@ const HudCamera = memo(function HudCamera({
         const dur = usePlayerStore.getState().player.duration;
         dataViewport = [0, Math.max(dur, 1000)];
       } else {
-        dataViewport = usePlayerStore.getState().player.viewport as [number, number];
+        dataViewport = viewportMotion.get();
       }
       const { left, right } = calculatePaddedFrustum(dataViewport, width);
       camera.left = left;
@@ -171,22 +172,18 @@ const HudCamera = memo(function HudCamera({
     // Initial update
     updateCam();
 
-    // Subscribe to viewport and duration changes
-    const unsub1 = usePlayerStore.subscribe(
-      (state) => state.player.viewport,
-      () => {
-        // Dynamic cameras track the viewport; fixed cameras don't need to update
-        if (!fixedCameraRef.current) updateCam();
-      },
-    );
-    const unsub2 = usePlayerStore.subscribe(
+    // Dynamic cameras track the viewport MotionValue; fixed cameras only need duration
+    const unsubViewport = viewportMotion.on("change", () => {
+      if (!fixedCameraRef.current) updateCam();
+    });
+    const unsubDuration = usePlayerStore.subscribe(
       (state) => state.player.duration,
       () => updateCam(),
     );
 
     return () => {
-      unsub1();
-      unsub2();
+      unsubViewport();
+      unsubDuration();
     };
   }, [camera]);
 
@@ -198,7 +195,7 @@ const HudCamera = memo(function HudCamera({
       const dur = usePlayerStore.getState().player.duration;
       dataViewport = [0, Math.max(dur, 1000)];
     } else {
-      dataViewport = usePlayerStore.getState().player.viewport as [number, number];
+      dataViewport = viewportMotion.get();
     }
     const { left, right } = calculatePaddedFrustum(dataViewport, width);
     camera.left = left;

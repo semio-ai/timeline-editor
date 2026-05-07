@@ -116,6 +116,7 @@ import {
   updateSourceRowIds,
   initDerivedOrchestrator,
   updateActiveEntityContext,
+  viewportFollow,
 } from "./subscriptions";
 import { View } from "./types/util/view";
 import { clickLineAction } from "./actions/click-line";
@@ -517,6 +518,7 @@ export const AnimationSlice = (
       // Delay subscription initialization to prevent cascading updates during store creation
       const unsubs = [
         updatePlayerLoop,
+        viewportFollow,
         updateOverallDuration,
         initDerivedOrchestrator,
         updateInstancedTrackSources,

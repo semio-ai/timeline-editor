@@ -28,6 +28,7 @@ import {
 import { TIMELINE_PADDING, Z } from "../../../constants";
 import { AnimationData, AnimationActions } from "../../../store-types";
 import { SemanticTime } from "../../../types";
+import { centerViewportOnStamp } from "../../../viewport-state";
 import { useMotionCanvas } from "../shared/motion-canvas-context";
 
 const CONE_RADIUS = 4; // Radius of the cone for the vertical pointer
@@ -98,10 +99,9 @@ export const PlayheadCart = memo(function PlayheadCart({
   const { gl } = useThree();
 
   // Player and animation store actions
-  const { resetPlayer, seekPlayer, playing } = usePlayerStore(
+  const { resetPlayer, playing } = usePlayerStore(
     useShallow((state) => ({
       resetPlayer: state.resetPlayer,
-      seekPlayer: state.updatePlayerViewportCenter,
       playing: state.player.running,
     })),
   );
@@ -150,7 +150,7 @@ export const PlayheadCart = memo(function PlayheadCart({
       if (opacity.get() < 0.5) {
         // In arrow mode: center viewport on playhead position and skip drag
         arrowModeGestureRef.current = true;
-        seekPlayer();
+        centerViewportOnStamp();
         return;
       }
       arrowModeGestureRef.current = false;
@@ -293,12 +293,11 @@ export const PlayheadCart = memo(function PlayheadCart({
   // Double-click handler
   const handleDoubleClick = useCallback(
     (event: ThreeEvent<MouseEvent>) => {
-      console.log();
       if (playing) return;
-      seekPlayer();
+      centerViewportOnStamp();
       event.stopPropagation();
     },
-    [playing, seekPlayer],
+    [playing],
   );
 
   // Hover handlers

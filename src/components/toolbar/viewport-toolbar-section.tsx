@@ -13,6 +13,7 @@ import { useShallow } from "zustand/shallow";
 import { IconArrowsHorizontal, IconClock, IconSelector } from "@tabler/icons-react";
 import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../../hooks";
+import { setViewport, useViewport } from "../../viewport-state";
 import type { AnimationData, AnimationActions } from "../../store-types";
 import { TrackRender } from "../../types";
 import { SettingsPopover } from "./settings-popover";
@@ -47,13 +48,8 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection({
 }: {
   viewId: string;
 }) {
-  const { viewport, duration } = usePlayerStore(
-    useShallow((state) => ({
-      viewport: state.player.viewport,
-      duration: state.player.duration,
-    })),
-  );
-  const updatePlayerViewport = usePlayerStore((state) => state.updatePlayerViewport);
+  const viewport = useViewport();
+  const duration = usePlayerStore(useShallow((state) => state.player.duration));
   const timeDisplay = useAnimationStore(
     useShallow((state: AnimationData) => state.timeDisplay),
   );
@@ -86,9 +82,9 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection({
       if (duration <= 0) return;
       const newWidth = duration / factor;
       const center = (viewport[0] + viewport[1]) / 2;
-      updatePlayerViewport(center - newWidth / 2, center + newWidth / 2);
+      setViewport(center - newWidth / 2, center + newWidth / 2);
     },
-    [duration, viewport, updatePlayerViewport],
+    [duration, viewport],
   );
 
   const trackRender = useAnimationStore(
@@ -102,12 +98,12 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection({
     // Match the fixed camera's viewport: [0, duration].
     // The camera frustum padding is applied by calculatePaddedFrustum,
     // keeping the fit consistent with the global HUD views.
-    updatePlayerViewport(0, Math.max(duration, 1000));
+    setViewport(0, Math.max(duration, 1000));
     // In spline mode, also reset the vertical camera to pixel-locked default
     if (trackRender === TrackRender.Spline) {
       requestVerticalFit();
     }
-  }, [duration, updatePlayerViewport, trackRender, requestVerticalFit]);
+  }, [duration, trackRender, requestVerticalFit]);
 
   return (
     <div className="responsive variant-responsive-persistent-outline hidden gap-0.5 rounded-sm p-0.5 @[600px]:flex">

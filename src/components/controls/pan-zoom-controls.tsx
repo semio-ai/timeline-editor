@@ -1,7 +1,7 @@
 import { useEffect, useRef, forwardRef, memo } from "react";
 import { useThree } from "@react-three/fiber";
 import { OrthographicCamera, Vector2 } from "three";
-import { usePlayerStore, isOrthographicCamera } from "@semio/utils";
+import { isOrthographicCamera } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
 import { useTooltipStore } from "@semio/ui";
 import { useGesture } from "@use-gesture/react";
@@ -10,6 +10,7 @@ import {
   getDataViewportFromFrustum,
   setFrustumFromDataViewport,
 } from "../../viewport-utils";
+import { viewportMotion, setViewport } from "../../viewport-state";
 import { TrackRender } from "../../types";
 import { useAnimationStore } from "../../hooks";
 
@@ -72,15 +73,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
     scrollRef.current = { offset: scrollOffset, set: setScrollOffset };
     const initialCameraWidth = useRef(0);
     const initialCameraHeight = useRef(0);
-    const viewport = usePlayerStore(
-      useShallow((state) => state.player.viewport as [number, number]),
-    );
-    const updatePlayerViewport = usePlayerStore((state) => state.updatePlayerViewport);
-    const viewportRef = useRef<[number, number]>(viewport);
-
-    useEffect(() => {
-      viewportRef.current = viewport;
-    }, [viewport]);
+    const viewportRef = useRef<[number, number]>(viewportMotion.get());
 
     // Store current settings in refs for gesture handlers
     const settingsRef = useRef({
@@ -145,16 +138,13 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
         // because this effect runs before TracksRenderer initializes camera Y.
       };
 
-      // Subscribe to player store viewport changes
-      const unsubscribe = usePlayerStore.subscribe(
-        (state) => state.player.viewport,
-        (vp) => {
-          if (size.width > 0) {
-            viewportRef.current = vp;
-            applyViewport(vp);
-          }
-        },
-      );
+      // Subscribe to viewport MotionValue changes
+      const unsubscribe = viewportMotion.on("change", (vp) => {
+        if (size.width > 0) {
+          viewportRef.current = vp;
+          applyViewport(vp);
+        }
+      });
 
       // Initialize camera bounds
       applyViewport(viewportRef.current);
@@ -208,8 +198,8 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       camera.right = newFrustum.right;
       camera.updateProjectionMatrix();
 
-      // Notify player store
-      updatePlayerViewport(newDataLeft, newDataRight);
+      // Notify viewport store
+      setViewport(newDataLeft, newDataRight);
     };
 
     // Zoom camera function
@@ -274,8 +264,8 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       camera.right = newFrustum.right;
       camera.updateProjectionMatrix();
 
-      // Notify player store
-      updatePlayerViewport(newDataLeft, newDataRight);
+      // Notify viewport store
+      setViewport(newDataLeft, newDataRight);
     };
 
     // Zoom camera vertically around a pointer position (spline mode only)

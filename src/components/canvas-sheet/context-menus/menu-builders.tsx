@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
 import { NestedSeparator, type CanvasContextMenuContext, TimeDisplay } from "@semio/ui";
-import { usePlayerStore } from "@semio/utils";
 import type { AnimationData, AnimationActions } from "../../../store-types";
 import { TrackRender } from "../../../types";
+import { setViewport } from "../../../viewport-state";
 import { AnimationActionsSection } from "./animation-actions";
 import { SelectionActionsSection } from "./selection-actions";
 import { EditActionsSection } from "./edit-actions";
@@ -89,7 +89,7 @@ export function buildMinimapMenuItems(
 ): ReactNode {
   const handleFitToViewport = () => {
     const s = getAnimationState(animationStore);
-    usePlayerStore.getState().updatePlayerViewport(0, Math.max(s.duration, 1000));
+    setViewport(0, Math.max(s.duration, 1000));
     const viewIds = Object.keys(s.editorViews);
     const hasSpline = viewIds.some(
       (id) => s.editorViews[id]?.trackRender === TrackRender.Spline,

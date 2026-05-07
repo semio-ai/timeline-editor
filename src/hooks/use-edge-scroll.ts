@@ -1,10 +1,10 @@
 import { useCallback, useContext, useRef } from "react";
 import { useThree } from "@react-three/fiber";
 import { isOrthographicCamera } from "@semio/utils";
-import { usePlayerStore } from "@semio/utils";
 import { TrackRender } from "../types";
 import { AnimationContext } from "../context";
 import { getDataViewportFromFrustum, setFrustumFromDataViewport } from "../viewport-utils";
+import { setViewport } from "../viewport-state";
 
 // Tuning: chosen by feel, not derived from any UX research. Adjust together —
 // the feel comes from the *ratio* between zone width and max speed (pixels of
@@ -157,7 +157,7 @@ export function useEdgeScroll(
         );
         const newLeft = dataVp.left + deltaWorld;
         const newRight = dataVp.right + deltaWorld;
-        usePlayerStore.getState().updatePlayerViewport(newLeft, newRight);
+        setViewport(newLeft, newRight);
         const frustum = setFrustumFromDataViewport(
           { left: newLeft, right: newRight },
           Math.max(1, width),

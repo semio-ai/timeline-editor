@@ -2,6 +2,7 @@ export { updateInstancedTrackSources } from "./update-instanced-track-sources";
 
 export { updateOverallDuration } from "./update-overall-duration";
 export { updatePlayerLoop } from "./update-player-loop";
+export { viewportFollow } from "./viewport-follow";
 
 export { updateViewFilteredSourceRows } from "./update-view-filtered-source-rows";
 export { updateGlobalSources } from "./update-global-sources";

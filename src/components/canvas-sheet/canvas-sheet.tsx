@@ -3,10 +3,10 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
-import { usePlayerStore } from "@semio/utils";
 import { TrackRender } from "../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
 import { calculatePaddedFrustum } from "../../viewport-utils";
+import { viewportMotion } from "../../viewport-state";
 import { AnimationData } from "../../store-types";
 import { useAnimationStore } from "../../hooks";
 import type { VisibleSourceRowIds } from "../../types";
@@ -35,8 +35,10 @@ export const CanvasSheet = memo(function CanvasSheet({
   rowIdLookup,
   fonts = {},
 }: CanvasSheetProps) {
-  // Get initial viewport from player store to prevent camera bounds flash
-  const initialViewport = usePlayerStore(useShallow((state) => state.player.viewport));
+  // Get initial viewport from MotionValue to prevent camera bounds flash.
+  // Read once at mount; subsequent changes are applied imperatively by
+  // PanZoomControls subscribing to viewportMotion.
+  const initialViewport = viewportMotion.get();
 
   // Calculate initial camera bounds with proper padding to match final state
   // Use a reasonable fallback width if canvas isn't measured yet
