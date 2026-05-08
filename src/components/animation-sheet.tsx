@@ -33,7 +33,7 @@ import { TimelineControl } from "./timeline-control";
 import { TimeControls } from "./time-controls";
 import { PlaybackSettings } from "./playback-settings";
 import { TrackList } from "./track-list";
-import { CanvasSheet } from "./canvas-sheet/canvas-sheet";
+import { TimelineCanvas, TracksCanvas, MinimapCanvas } from "./canvas-sheet/canvas-sheet";
 import { Toolbar } from "./toolbar";
 import { ToolbarWrapper } from "./toolbar/toolbar-wrapper";
 import { WorkspaceToolbarSection } from "./toolbar/workspace-toolbar-section";
@@ -375,29 +375,42 @@ function InnerSheet({
 
   return (
     <KeybindingProvider value={animationKeybindings}>
-    <ColorContextProvider>
-      <NameContextProvider>
-        <TrackAnimatableContextProvider>
-          <LocalGlobalTransformContextProvider>
-            <div className="animation-sheet-container pointer-events-auto w-full">
-              {/* Grid layout with tracking divs - same structure as original */}
-              <div
-                aria-expanded={expanded}
-                style={{
-                  height,
-                  minHeight: MIN_SHEET_HEIGHT,
-                  gridTemplateColumns: `${SIDEBAR_WIDTH + 2}px 1fr`,
-                }}
-                className={clsx(
-                  "group/sheet grid w-full overflow-hidden pr-0.5 pb-0.5",
-                  "grid-rows-[36px_36px_minmax(0,1fr)_36px_36px_36px]",
-                )}
-              >
-                {/* Toolbar - Row 1 (Left) */}
-                <ToolbarWrapper rightPadding={8}>
-                  <WorkspaceToolbarSection
+      <ColorContextProvider>
+        <NameContextProvider>
+          <TrackAnimatableContextProvider>
+            <LocalGlobalTransformContextProvider>
+              <div className="animation-sheet-container pointer-events-auto w-full">
+                {/* Grid layout with tracking divs - same structure as original */}
+                <div
+                  aria-expanded={expanded}
+                  style={{
+                    height,
+                    minHeight: MIN_SHEET_HEIGHT,
+                    gridTemplateColumns: `${SIDEBAR_WIDTH + 2}px 1fr`,
+                  }}
+                  className={clsx(
+                    "group/sheet grid w-full overflow-hidden pr-0.5 pb-0.5",
+                    "grid-rows-[36px_36px_36px_minmax(0,1fr)_36px_36px]",
+                  )}
+                >
+                  {/* Toolbar - Row 1 (Left) */}
+                  <ToolbarWrapper rightPadding={8}>
+                    <WorkspaceToolbarSection
+                      viewIds={viewIds}
+                      activeViewId={resolvedViewId}
+                      onSelectView={handleSelectView}
+                      onCreateView={handleCreateView}
+                      onCopyView={handleCopyView}
+                      onRemoveView={handleRemoveView}
+                      onToggleExpand={onToggleExpand}
+                      expanded={expanded}
+                    />
+                  </ToolbarWrapper>
+
+                  {/* Toolbar - Row 1 (Right) */}
+                  <Toolbar
+                    viewId={resolvedViewId}
                     viewIds={viewIds}
-                    activeViewId={resolvedViewId}
                     onSelectView={handleSelectView}
                     onCreateView={handleCreateView}
                     onCopyView={handleCopyView}
@@ -405,124 +418,115 @@ function InnerSheet({
                     onToggleExpand={onToggleExpand}
                     expanded={expanded}
                   />
-                </ToolbarWrapper>
 
-                {/* Toolbar - Row 1 (Right) */}
-                <Toolbar
-                  viewId={resolvedViewId}
-                  viewIds={viewIds}
-                  onSelectView={handleSelectView}
-                  onCreateView={handleCreateView}
-                  onCopyView={handleCopyView}
-                  onRemoveView={handleRemoveView}
-                  onToggleExpand={onToggleExpand}
-                  expanded={expanded}
-                />
-
-                {/* Track Filter - Row 2: uses the shared 7-column grid.
+                  {/* Track Filter - Row 2: uses the shared 7-column grid.
                     Width and right padding mirror the track-list rows
                     (SIDEBAR_WIDTH + ControlRow's `pr-0.5`) so the four
                     toggle buttons align horizontally with the track list's
                     options/strip slots and the bottom-section button rows. */}
-                <div
-                  className="h-9 items-center py-0.5 pl-1 pr-0.5"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: `1fr 1fr auto repeat(4, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
-                    gap: `${String(SLOT_GAP)}px`,
-                    width: SIDEBAR_WIDTH,
-                  }}
-                >
-                  <div className="col-span-3 min-w-0">
-                    <Search
-                      size={Size.Sm}
-                      value={trackFilter}
-                      placeholder="Filter visible tracks"
-                      onChange={(value) => setTrackFilter(value)}
-                      outline="hidden"
-                      className="rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
-                      wrapperClassName="w-full"
+                  <div
+                    className="h-9 items-center py-0.5 pl-1 pr-0.5"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `1fr 1fr auto repeat(4, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                      gap: `${String(SLOT_GAP)}px`,
+                      width: SIDEBAR_WIDTH,
+                    }}
+                  >
+                    <div className="col-span-3 min-w-0">
+                      <Search
+                        size={Size.Sm}
+                        value={trackFilter}
+                        placeholder="Filter visible tracks"
+                        onChange={(value) => setTrackFilter(value)}
+                        outline="hidden"
+                        className="rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
+                        wrapperClassName="w-full"
+                      />
+                    </div>
+                    <TrackFilterToggles />
+                  </div>
+
+                  {/* Top canvas: ruler + timeline (rows 2-3, col 2) */}
+                  <div
+                    className={clsx("w-full min-w-0 touch-none overflow-clip rounded-t-md")}
+                    style={{ gridColumn: 2, gridRow: "2 / span 2" }}
+                  >
+                    <TimelineCanvas viewId={resolvedViewId} theme={resolvedTheme} fonts={fonts} />
+                  </div>
+
+                  {/* Timeline Control - Row 3 (left, paired with timeline in row 3 right) */}
+                  <div
+                    className="pl-1 pr-0.5"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                      gap: `${String(SLOT_GAP)}px`,
+                      alignItems: "center",
+                      width: SIDEBAR_WIDTH,
+                    }}
+                  >
+                    <TimelineControl viewId={resolvedViewId} />
+                  </div>
+
+                  {/* Track List - Row 4 (left) */}
+                  <TrackList height={height - MIN_SHEET_HEIGHT} rowIdLookup={filteredRowLookup} />
+
+                  {/* Main canvas: tracks + overlays (row 4, col 2) */}
+                  <div
+                    className={clsx("w-full min-w-0 touch-none overflow-clip", TRACK_MAIN_BG)}
+                    style={{ gridColumn: 2, gridRow: 4 }}
+                  >
+                    <TracksCanvas
+                      viewId={resolvedViewId}
+                      theme={resolvedTheme}
+                      rowIdLookup={filteredRowLookup}
                     />
                   </div>
-                  <TrackFilterToggles />
+
+                  {/* Time Controls - Row 5 */}
+                  <div
+                    className="pl-1 pr-0.5"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                      gap: `${String(SLOT_GAP)}px`,
+                      alignItems: "center",
+                      width: SIDEBAR_WIDTH,
+                    }}
+                  >
+                    <TimeControls />
+                  </div>
+
+                  {/* Bottom canvas: minimap + bottom ruler (rows 5-6, col 2) */}
+                  <div
+                    className={clsx("w-full min-w-0 touch-none overflow-clip rounded-b-md")}
+                    style={{ gridColumn: 2, gridRow: "5 / span 2" }}
+                  >
+                    <MinimapCanvas theme={resolvedTheme} fonts={fonts} />
+                  </div>
+
+                  {/* Playback Settings - Row 6 */}
+                  <div
+                    className="pl-1 pr-0.5"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                      gap: `${String(SLOT_GAP)}px`,
+                      alignItems: "center",
+                      width: SIDEBAR_WIDTH,
+                    }}
+                  >
+                    <PlaybackSettings />
+                  </div>
+
+                  {/* Bottom Ruler - Row 6 */}
                 </div>
-
-                {/* Canvas (spans all rows) */}
-                <div
-                  className={clsx(
-                    "row-span-5 w-full min-w-0 touch-none overflow-clip rounded-md",
-                    TRACK_MAIN_BG,
-                  )}
-                >
-                  <CanvasSheet
-                    viewId={resolvedViewId}
-                    theme={resolvedTheme}
-                    rowIdLookup={filteredRowLookup}
-                    fonts={fonts}
-                  />
-                </div>
-
-                {/* Track List - Row 2 */}
-
-                {/* Track List with color-coded tracks */}
-                <TrackList
-                  height={height - MIN_SHEET_HEIGHT}
-                  rowIdLookup={filteredRowLookup}
-                />
-
-                {/* Timeline Control - Row 4 */}
-                <div
-                  className="pl-1 pr-0.5"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
-                    gap: `${String(SLOT_GAP)}px`,
-                    alignItems: "center",
-                    width: SIDEBAR_WIDTH,
-                  }}
-                >
-                  <TimelineControl viewId={resolvedViewId} />
-                </div>
-
-                {/* Timeline View - Row 4 */}
-
-                {/* Time Controls - Row 5 */}
-                <div
-                  className="pl-1 pr-0.5"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
-                    gap: `${String(SLOT_GAP)}px`,
-                    alignItems: "center",
-                    width: SIDEBAR_WIDTH,
-                  }}
-                >
-                  <TimeControls />
-                </div>
-
-                {/* Minimap View - Row 5 */}
-
-                {/* Playback Settings - Row 6 */}
-                <div
-                  className="pl-1 pr-0.5"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
-                    gap: `${String(SLOT_GAP)}px`,
-                    alignItems: "center",
-                    width: SIDEBAR_WIDTH,
-                  }}
-                >
-                  <PlaybackSettings />
-                </div>
-
-                {/* Bottom Ruler - Row 5 */}
               </div>
-            </div>
-          </LocalGlobalTransformContextProvider>
-        </TrackAnimatableContextProvider>
-      </NameContextProvider>
-    </ColorContextProvider>
+            </LocalGlobalTransformContextProvider>
+          </TrackAnimatableContextProvider>
+        </NameContextProvider>
+      </ColorContextProvider>
     </KeybindingProvider>
   );
 }
