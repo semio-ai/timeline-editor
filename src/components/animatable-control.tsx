@@ -130,17 +130,11 @@ function AnimatableLeafControl({
 
   const animatable = useAnimationStore(useShallow((state) => state.animatables[animatableId]));
 
-  const storedValue = useValuesStore(
-    useCallback(
-      (state) => (valueLookupKey ? state.values.get(valueLookupKey) : undefined),
-      [valueLookupKey],
-    ),
-  );
-
-  const rawValue = useMemo(() => {
-    if (!animatable) return undefined;
-    return storedValue ?? animatable.default;
-  }, [animatable, storedValue]);
+  // The current value subscription has moved into `DirectAnimatableEditor`
+  // (the leaf that actually displays the value). Subscribing here would
+  // re-render this component (and therefore ControlRow + the radix
+  // ContextMenu/Dropdown plumbing wrapped around it) at the player tick
+  // rate during playback for every animated track.
 
   const activeAnimationId = useActiveAnimationId();
 
@@ -283,7 +277,7 @@ function AnimatableLeafControl({
       editor={
         <DirectAnimatableEditor
           animatable={animatable}
-          rawValue={rawValue}
+          valueLookupKey={valueLookupKey}
           color={resolvedColor}
           disabled={editorDisabled}
           onChange={handleValueChange}
@@ -610,20 +604,29 @@ function AnimatableGroupControl({
 
 interface DirectAnimatableEditorProps {
   animatable: AnimatableValue;
-  rawValue: RawValue | undefined;
+  /** Track key for the value subscription. The editor subscribes here so
+   * the per-tick value updates during playback don't re-render the parent
+   * row (and its radix menu plumbing). */
+  valueLookupKey?: string;
   color: string;
   disabled: boolean;
   onChange: (value: RawValue | ((current: RawValue) => RawValue)) => void;
 }
 
-function DirectAnimatableEditor({
+const DirectAnimatableEditor = memo(function DirectAnimatableEditor({
   animatable,
-  rawValue,
+  valueLookupKey,
   color,
   disabled,
   onChange,
 }: DirectAnimatableEditorProps) {
-  const value = rawValue ?? animatable.default;
+  const storedValue = useValuesStore(
+    useCallback(
+      (state) => (valueLookupKey ? state.values.get(valueLookupKey) : undefined),
+      [valueLookupKey],
+    ),
+  );
+  const value = storedValue ?? animatable.default;
   const iconCode = getIconCode(animatable.type, animatable.pub?.units);
   const angular = iconCode === "rad";
   const transformForDisplay = angular ? toDegrees : (v: number) => v;
@@ -674,7 +677,7 @@ function DirectAnimatableEditor({
   }
 
   return <div className="h-7 animate-pulse rounded bg-neutral-700/30" />;
-}
+});
 
 export const AnimatableControl = memo((props: AnimatableControlProps) => {
   if (props.kind === "group") {

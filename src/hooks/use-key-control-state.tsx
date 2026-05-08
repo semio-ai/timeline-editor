@@ -36,7 +36,19 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
 
   const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
   const running = usePlayerStore(useShallow((state) => state.player.running));
-  const stamp = usePlayerStore(useShallow((state) => state.player.stamp));
+  // Subscribing to `state.player.stamp` directly fires a React re-render
+  // 40Hz during playback for every TrackControl/TimelineControl using this
+  // hook — which then cascades into ControlRow + the radix menu plumbing
+  // wrapped around each row. The stamp-derived outputs of this hook
+  // (prev/next time, currentFrame, keyState) are gated on `!running`
+  // anyway: prev/next return undefined during play, and currentFrame /
+  // keyState are only meaningful when paused so the user can act on them.
+  // Returning a stable value while running keeps the hook (and all its
+  // callers) stable per tick.
+  const stamp = usePlayerStore(
+    useShallow((state) => (state.player.running ? null : state.player.stamp)),
+  );
+  const stampSafe = stamp ?? 0;
 
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   const uniqueInstanceId = useMemo(() => {
@@ -58,8 +70,8 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
       : undefined;
 
   const localStamp = useMemo(
-    () => (typeof toLocal === "function" ? toLocal(stamp) : stamp),
-    [stamp, toLocal],
+    () => (typeof toLocal === "function" ? toLocal(stampSafe) : stampSafe),
+    [stampSafe, toLocal],
   );
   const localBounds = useMemo<[number, number]>(() => {
     if (typeof toLocal !== "function") return bounds;
