@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useContext, memo, useEffect, useCallback, useMemo } from "react";
+import { useContext, memo, useEffect, useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { Search, Size, useTheme, TooltipProvider, TooltipContext } from "@semio/ui";
@@ -34,6 +34,7 @@ import { TimeControls } from "./time-controls";
 import { PlaybackSettings } from "./playback-settings";
 import { TrackList } from "./track-list";
 import { TimelineCanvas, TracksCanvas, MinimapCanvas } from "./canvas-sheet/canvas-sheet";
+import { preloadAnimationFonts } from "./canvas-sheet/preload-fonts";
 import { Toolbar } from "./toolbar";
 import { ToolbarWrapper } from "./toolbar/toolbar-wrapper";
 import { WorkspaceToolbarSection } from "./toolbar/workspace-toolbar-section";
@@ -202,6 +203,43 @@ function InnerSheet({
 }: AnimationSheetProps): ReactNode {
   const { resolvedTheme } = useTheme();
   const animationStore = useContext(AnimationContext);
+
+  // Sheet-wide reveal coordination. Canvas children mount only after fonts
+  // have preloaded (avoids drei's <Text> Suspense unmount/remount cycle on
+  // first paint). The outer wrapper stays at opacity 0 until the canvases
+  // that hold the user-visible carts (timeline + minimap) have reported
+  // their first valid measurement, so the user never sees a partial /
+  // wrong-sized initial render.
+  //
+  // The tracks canvas isn't part of the gate: at MIN_SHEET_HEIGHT its grid
+  // cell is 0 tall, R3F skips its render loop (useFrame doesn't fire), and
+  // its ReadyGate would never report ready. Since it's invisible at 0
+  // height, its readiness is moot — when the user expands the sheet, the
+  // canvas's ResizeObserver fires and it renders normally without remount.
+  //
+  // All ready flags are sticky: once true, they stay true. Resizing the
+  // sheet (height changes), font URL changes, or any other re-render does
+  // NOT toggle them off — canvases never remount.
+  const [fontsReady, setFontsReady] = useState(() => !fonts.mono && !fonts.ui);
+  const [timelineCanvasReady, setTimelineCanvasReady] = useState(false);
+  const [minimapCanvasReady, setMinimapCanvasReady] = useState(false);
+  const onTimelineReady = useCallback(() => setTimelineCanvasReady(true), []);
+  const onMinimapReady = useCallback(() => setMinimapCanvasReady(true), []);
+  const sheetReady = fontsReady && timelineCanvasReady && minimapCanvasReady;
+
+  useEffect(() => {
+    if (!fonts.mono && !fonts.ui) {
+      setFontsReady(true);
+      return;
+    }
+    let cancelled = false;
+    preloadAnimationFonts(fonts).then(() => {
+      if (!cancelled) setFontsReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fonts.mono, fonts.ui, fonts]);
 
   const initialViewId = useMemo(() => `view-${crypto.randomUUID()}`, []);
   const {
@@ -379,7 +417,13 @@ function InnerSheet({
         <NameContextProvider>
           <TrackAnimatableContextProvider>
             <LocalGlobalTransformContextProvider>
-              <div className="animation-sheet-container pointer-events-auto w-full">
+              <div
+                className="animation-sheet-container pointer-events-auto w-full"
+                style={{
+                  opacity: sheetReady ? 1 : 0,
+                  transition: "opacity 200ms ease-in",
+                }}
+              >
                 {/* Grid layout with tracking divs - same structure as original */}
                 <div
                   aria-expanded={expanded}
@@ -452,7 +496,14 @@ function InnerSheet({
                     className={clsx("w-full min-w-0 touch-none overflow-clip rounded-t-md")}
                     style={{ gridColumn: 2, gridRow: "2 / span 2" }}
                   >
-                    <TimelineCanvas viewId={resolvedViewId} theme={resolvedTheme} fonts={fonts} />
+                    {fontsReady && (
+                      <TimelineCanvas
+                        viewId={resolvedViewId}
+                        theme={resolvedTheme}
+                        fonts={fonts}
+                        onReady={onTimelineReady}
+                      />
+                    )}
                   </div>
 
                   {/* Timeline Control - Row 3 (left, paired with timeline in row 3 right) */}
@@ -477,11 +528,13 @@ function InnerSheet({
                     className={clsx("w-full min-w-0 touch-none overflow-clip", TRACK_MAIN_BG)}
                     style={{ gridColumn: 2, gridRow: 4 }}
                   >
-                    <TracksCanvas
-                      viewId={resolvedViewId}
-                      theme={resolvedTheme}
-                      rowIdLookup={filteredRowLookup}
-                    />
+                    {fontsReady && (
+                      <TracksCanvas
+                        viewId={resolvedViewId}
+                        theme={resolvedTheme}
+                        rowIdLookup={filteredRowLookup}
+                      />
+                    )}
                   </div>
 
                   {/* Time Controls - Row 5 */}
@@ -503,7 +556,13 @@ function InnerSheet({
                     className={clsx("w-full min-w-0 touch-none overflow-clip rounded-b-md")}
                     style={{ gridColumn: 2, gridRow: "5 / span 2" }}
                   >
-                    <MinimapCanvas theme={resolvedTheme} fonts={fonts} />
+                    {fontsReady && (
+                      <MinimapCanvas
+                        theme={resolvedTheme}
+                        fonts={fonts}
+                        onReady={onMinimapReady}
+                      />
+                    )}
                   </div>
 
                   {/* Playback Settings - Row 6 */}

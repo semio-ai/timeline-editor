@@ -33,6 +33,17 @@ export interface PanZoomControlsProps {
   trackRegion?: { top: number; bottom: number };
   contentHeightPx?: number;
   trackRender?: TrackRender;
+  /**
+   * Whether this PanZoomControls should write the canvas's `camera.left/right`
+   * directly when the viewport changes. Default `true` — used by the main
+   * (tracks) canvas where no other system manages X-frustum. Set to `false`
+   * for the top canvas (whose `CanvasCamera mode="moving"` already mirrors
+   * `viewportMotion`) and the bottom canvas (whose camera is fixed at
+   * `[0, duration]` and must NOT follow the panned viewport). When `false`,
+   * gestures still write to `viewportMotion`; the canvas's own camera is
+   * managed by its `CanvasCamera`.
+   */
+  manageCamera?: boolean;
 }
 
 interface PanZoomControlsRef {
@@ -67,6 +78,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       trackRegion,
       contentHeightPx,
       trackRender,
+      manageCamera = true,
     },
     ref,
   ) => {
@@ -119,8 +131,20 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       trackRender,
     ]);
 
-    // Setup player store integration
+    // Setup player store integration. Only when this PanZoomControls is
+    // responsible for writing the canvas's camera (`manageCamera`). For the
+    // top/bottom canvases, `CanvasCamera` already handles camera updates;
+    // this component is just the gesture handler there.
     useEffect(() => {
+      if (!manageCamera) {
+        // Still capture initialCameraWidth so zoom limits work — read from
+        // the viewport directly instead of camera.
+        if (initialCameraWidth.current <= 0) {
+          const vp = viewportMotion.get();
+          initialCameraWidth.current = vp[1] - vp[0];
+        }
+        return;
+      }
       if (!(camera instanceof OrthographicCamera) || size.width <= 0) {
         return;
       }
@@ -150,25 +174,31 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       applyViewport(viewportRef.current);
 
       return unsubscribe;
-    }, [camera, size.width]);
+    }, [camera, size.width, manageCamera]);
 
-    // Pan camera function
+    // Pan camera function. The thing being panned is always the main viewport
+    // (`viewportMotion`); the source canvas's camera is read only to scale the
+    // pixel delta to data units (so the user feel matches the canvas's view —
+    // top + main pan at the main viewport's rate, bottom pans at the
+    // full-duration rate, matching minimap-style "scrubber" UX).
     const panCamera = (deltaX: number) => {
       if (!(camera instanceof OrthographicCamera) || !settingsRef.current.enablePan) return;
 
       const canvasWidth = gl.domElement?.clientWidth || 1;
-      const currentDataViewport = getDataViewportFromFrustum(
+      const canvasViewport = getDataViewportFromFrustum(
         { left: camera.left, right: camera.right },
         canvasWidth,
       );
+      const canvasDataWidth = canvasViewport.right - canvasViewport.left;
+      // Convert pixel delta to world units using THIS CANVAS's data range.
+      const adjustedDeltaX =
+        (deltaX / canvasWidth) * canvasDataWidth * settingsRef.current.panSpeed;
 
-      const dataWidth = currentDataViewport.right - currentDataViewport.left;
-      // Convert pixel delta to world units: each pixel of scroll moves by
-      // (dataWidth / canvasWidth) world units, scaled by panSpeed.
-      const adjustedDeltaX = (deltaX / canvasWidth) * dataWidth * settingsRef.current.panSpeed;
-
-      let newDataLeft = currentDataViewport.left + adjustedDeltaX;
-      let newDataRight = currentDataViewport.right + adjustedDeltaX;
+      // Apply delta to the main viewport — what we always update.
+      const [vpLeft, vpRight] = viewportMotion.get();
+      const dataWidth = vpRight - vpLeft;
+      let newDataLeft = vpLeft + adjustedDeltaX;
+      let newDataRight = vpRight + adjustedDeltaX;
 
       // Apply bounds checking
       if (settingsRef.current.bounds) {
@@ -188,21 +218,27 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
         }
       }
 
-      // Update camera
-      const newFrustum = setFrustumFromDataViewport(
-        { left: newDataLeft, right: newDataRight },
-        canvasWidth,
-      );
+      // Update this canvas's camera directly when we manage it; otherwise
+      // CanvasCamera will pick up the viewportMotion change.
+      if (manageCamera) {
+        const newFrustum = setFrustumFromDataViewport(
+          { left: newDataLeft, right: newDataRight },
+          canvasWidth,
+        );
+        camera.left = newFrustum.left;
+        camera.right = newFrustum.right;
+        camera.updateProjectionMatrix();
+      }
 
-      camera.left = newFrustum.left;
-      camera.right = newFrustum.right;
-      camera.updateProjectionMatrix();
-
-      // Notify viewport store
       setViewport(newDataLeft, newDataRight);
     };
 
-    // Zoom camera function
+    // Zoom main viewport horizontally. Cursor data position is computed from
+    // THIS CANVAS's data range — for top/main this is the main viewport (so
+    // the cursor stays at the same screen point as zoom changes), for bottom
+    // this is `[0, duration]` (so ctrl+wheel on the bottom zooms main into
+    // the timeline area under the cursor). Width comes from the main
+    // viewport since we're zooming THAT (not the canvas's own range).
     const zoomCameraHorizontal = (zoomFactor: number, center: Vector2) => {
       if (
         !(camera instanceof OrthographicCamera) ||
@@ -214,12 +250,18 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       const canvasWidth = gl.domElement.clientWidth;
       const rect = gl.domElement.getBoundingClientRect();
 
-      const currentDataViewport = getDataViewportFromFrustum(
+      // Cursor's data position in this canvas's data range.
+      const canvasViewport = getDataViewportFromFrustum(
         { left: camera.left, right: camera.right },
         canvasWidth,
       );
+      const relativeX = (center.x - rect.left) / rect.width;
+      const cursorDataPos =
+        canvasViewport.left + relativeX * (canvasViewport.right - canvasViewport.left);
 
-      const currentDataWidth = currentDataViewport.right - currentDataViewport.left;
+      // Zoom width is computed from the main viewport's current width.
+      const [vpLeft, vpRight] = viewportMotion.get();
+      const currentDataWidth = vpRight - vpLeft;
       const minDataWidth = initialCameraWidth.current / settingsRef.current.maxZoom;
       const maxDataWidth = initialCameraWidth.current / settingsRef.current.minZoom;
       const newDataWidth = Math.max(
@@ -229,13 +271,10 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
 
       if (Math.abs(newDataWidth - currentDataWidth) < 0.000001) return;
 
-      // Calculate zoom center in data space
-      const relativeX = (center.x - rect.left) / rect.width;
-      const targetDataX = currentDataViewport.left + currentDataWidth * relativeX;
-      const newDataCenterX = targetDataX - newDataWidth * (relativeX - 0.5);
-
-      let newDataLeft = newDataCenterX - newDataWidth / 2;
-      let newDataRight = newDataCenterX + newDataWidth / 2;
+      // Anchor: cursor's data position becomes the same RELATIVE position
+      // (relativeX) within the new main viewport.
+      let newDataLeft = cursorDataPos - relativeX * newDataWidth;
+      let newDataRight = newDataLeft + newDataWidth;
 
       // Apply bounds checking
       if (settingsRef.current.bounds) {
@@ -254,17 +293,16 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
         }
       }
 
-      // Update camera
-      const newFrustum = setFrustumFromDataViewport(
-        { left: newDataLeft, right: newDataRight },
-        canvasWidth,
-      );
+      if (manageCamera) {
+        const newFrustum = setFrustumFromDataViewport(
+          { left: newDataLeft, right: newDataRight },
+          canvasWidth,
+        );
+        camera.left = newFrustum.left;
+        camera.right = newFrustum.right;
+        camera.updateProjectionMatrix();
+      }
 
-      camera.left = newFrustum.left;
-      camera.right = newFrustum.right;
-      camera.updateProjectionMatrix();
-
-      // Notify viewport store
       setViewport(newDataLeft, newDataRight);
     };
 
@@ -289,15 +327,13 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       });
     };
 
-    // Compute the effective zoom factor for horizontal axis after clamping
+    // Compute the effective zoom factor for horizontal axis after clamping.
+    // Reads the current width from `viewportMotion` (the main viewport — what
+    // we're zooming) rather than this canvas's camera, so the clamp is
+    // correct regardless of which canvas the gesture originated in.
     const effectiveHorizontalFactor = (requestedFactor: number): number => {
-      if (!(camera instanceof OrthographicCamera) || !gl.domElement) return requestedFactor;
-      const canvasWidth = gl.domElement.clientWidth;
-      const currentDataViewport = getDataViewportFromFrustum(
-        { left: camera.left, right: camera.right },
-        canvasWidth,
-      );
-      const currentDataWidth = currentDataViewport.right - currentDataViewport.left;
+      const [vpLeft, vpRight] = viewportMotion.get();
+      const currentDataWidth = vpRight - vpLeft;
       if (initialCameraWidth.current <= 0 || currentDataWidth <= 0) return requestedFactor;
       const minDataWidth = initialCameraWidth.current / settingsRef.current.maxZoom;
       const maxDataWidth = initialCameraWidth.current / settingsRef.current.minZoom;

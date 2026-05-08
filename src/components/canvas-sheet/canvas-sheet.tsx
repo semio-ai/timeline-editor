@@ -1,5 +1,5 @@
-import { memo, useMemo, useState, useCallback } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { memo, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
@@ -55,6 +55,32 @@ const ESTIMATED_CANVAS_WIDTH = 800;
 const ROW_HEIGHT = 36;
 const ROW_HALF = ROW_HEIGHT / 2;
 
+/**
+ * Fires `onReady` once on the first `useFrame` where the canvas has a real
+ * measured width. Sticky — never fires again. AnimationSheet uses this to
+ * coordinate the sheet-wide reveal opacity: the sheet stays hidden until
+ * every mounted canvas has had at least one valid measurement, after which
+ * the cart/ruler positions are derived from real motion-canvas values.
+ *
+ * The condition is `width > 0` (not `width > 0 && height > 0`) because the
+ * tracks canvas's grid cell collapses to height 0 at MIN_SHEET_HEIGHT — the
+ * canvas mounts and runs useFrame, but never has positive height until the
+ * sheet expands. Width-only lets it report ready in the collapsed state.
+ */
+const ReadyGate = memo(function ReadyGate({ onReady }: { onReady: () => void }) {
+  const firedRef = useRef(false);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
+  useFrame(({ size }) => {
+    if (firedRef.current) return;
+    if (size.width > 0) {
+      firedRef.current = true;
+      onReadyRef.current();
+    }
+  });
+  return null;
+});
+
 // ---------------------------------------------------------------------------
 // Top canvas: ruler + timeline
 // ---------------------------------------------------------------------------
@@ -62,31 +88,27 @@ const ROW_HALF = ROW_HEIGHT / 2;
 export interface TimelineCanvasProps extends CanvasFontProps {
   viewId: string;
   theme?: Theme.Dark | Theme.Light;
+  /** Fires once on the canvas's first valid measurement. Used by the
+   * AnimationSheet to gate the sheet-wide reveal opacity. */
+  onReady?: () => void;
 }
 
 export const TimelineCanvas = memo(function TimelineCanvas({
   viewId,
   theme = Theme.Light,
   fonts = {},
+  onReady,
 }: TimelineCanvasProps) {
   const initialViewport = viewportMotion.get();
   const { left, right } = calculatePaddedFrustum(initialViewport, ESTIMATED_CANVAS_WIDTH);
-  const [ready, setReady] = useState(false);
-  const handleCreated = useCallback(() => setReady(true), []);
 
   return (
     <TooltipHost className="h-full w-full">
       <Canvas
         // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
-        style={{
-          width: "100%",
-          height: "100%",
-          opacity: ready ? 1 : 0,
-          transition: "opacity 0.2s ease-in",
-        }}
+        style={{ width: "100%", height: "100%" }}
         flat
         orthographic
-        onCreated={handleCreated}
         resize={{ debounce: 0 }}
         camera={{
           name: "TimelineCamera",
@@ -103,8 +125,11 @@ export const TimelineCanvas = memo(function TimelineCanvas({
         gl={GL_OPTIONS}
       >
         <ambientLight intensity={1} />
+        {/* manageCamera=false: CanvasCamera mirrors viewportMotion → camera. */}
+        <PanZoomControls manageCamera={false} />
         <MotionCanvasProvider label="TimelineCamera">
           <CanvasCamera mode="moving" />
+          {onReady && <ReadyGate onReady={onReady} />}
           <TimelineCanvasContent viewId={viewId} theme={theme} fonts={fonts} />
         </MotionCanvasProvider>
       </Canvas>
@@ -147,31 +172,26 @@ export interface TracksCanvasProps {
   viewId: string;
   theme?: Theme.Dark | Theme.Light;
   rowIdLookup?: VisibleSourceRowIds;
+  /** Fires once on the canvas's first valid measurement. */
+  onReady?: () => void;
 }
 
 export const TracksCanvas = memo(function TracksCanvas({
   viewId,
   theme = Theme.Light,
   rowIdLookup,
+  onReady,
 }: TracksCanvasProps) {
   const initialViewport = viewportMotion.get();
   const { left, right } = calculatePaddedFrustum(initialViewport, ESTIMATED_CANVAS_WIDTH);
-  const [ready, setReady] = useState(false);
-  const handleCreated = useCallback(() => setReady(true), []);
 
   return (
     <TooltipHost className="h-full w-full">
       <Canvas
         // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
-        style={{
-          width: "100%",
-          height: "100%",
-          opacity: ready ? 1 : 0,
-          transition: "opacity 0.2s ease-in",
-        }}
+        style={{ width: "100%", height: "100%" }}
         flat
         orthographic
-        onCreated={handleCreated}
         resize={{ debounce: 0 }}
         camera={{
           name: "MainCamera",
@@ -185,6 +205,7 @@ export const TracksCanvas = memo(function TracksCanvas({
         }}
         gl={GL_OPTIONS}
       >
+        {onReady && <ReadyGate onReady={onReady} />}
         <TracksCanvasContent viewId={viewId} theme={theme} rowIdLookup={rowIdLookup} />
       </Canvas>
     </TooltipHost>
@@ -252,31 +273,26 @@ const TracksCanvasContent = memo(function TracksCanvasContent({
 
 export interface MinimapCanvasProps extends CanvasFontProps {
   theme?: Theme.Dark | Theme.Light;
+  /** Fires once on the canvas's first valid measurement. */
+  onReady?: () => void;
 }
 
 export const MinimapCanvas = memo(function MinimapCanvas({
   theme = Theme.Light,
   fonts = {},
+  onReady,
 }: MinimapCanvasProps) {
   const initialDuration = usePlayerStore.getState().player.duration;
   const initialFixed: [number, number] = [0, Math.max(initialDuration, 1000)];
   const { left, right } = calculatePaddedFrustum(initialFixed, ESTIMATED_CANVAS_WIDTH);
-  const [ready, setReady] = useState(false);
-  const handleCreated = useCallback(() => setReady(true), []);
 
   return (
     <TooltipHost className="h-full w-full">
       <Canvas
         // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
-        style={{
-          width: "100%",
-          height: "100%",
-          opacity: ready ? 1 : 0,
-          transition: "opacity 0.2s ease-in",
-        }}
+        style={{ width: "100%", height: "100%" }}
         flat
         orthographic
-        onCreated={handleCreated}
         resize={{ debounce: 0 }}
         camera={{
           name: "MinimapCamera",
@@ -293,8 +309,12 @@ export const MinimapCanvas = memo(function MinimapCanvas({
         gl={GL_OPTIONS}
       >
         <ambientLight intensity={1} />
+        {/* manageCamera=false: bottom camera is fixed at [0, duration] —
+            gestures only write viewportMotion, which shifts/zooms main. */}
+        <PanZoomControls manageCamera={false} />
         <MotionCanvasProvider label="MinimapCamera">
           <CanvasCamera mode="fixed" />
+          {onReady && <ReadyGate onReady={onReady} />}
           <MinimapCanvasContent theme={theme} fonts={fonts} />
         </MotionCanvasProvider>
       </Canvas>
