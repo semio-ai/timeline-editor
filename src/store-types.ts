@@ -302,18 +302,6 @@ export interface AnimationData {
   readonlyAnimations: Record<string, boolean>;
 
   /**
-   * Vertical scroll offset for the track list and canvas, in pixels.
-   * Written by PanZoomControls during scroll gestures; read by TracksRenderer
-   * and TrackList for synchronized positioning.
-   */
-  scrollOffset: number;
-  /**
-   * Monotonically increasing counter. Bumped by the toolbar's "Fit to Content"
-   * action; TracksRenderer watches it to reset the vertical camera in spline mode.
-   */
-  verticalFitCounter: number;
-
-  /**
    * Currently active entity ID in the editor. Null when none selected.
    * Replaces `activeEntity` in the studio store for animation-scoped concerns.
    */
@@ -457,18 +445,10 @@ export interface AnimationActions {
    */
   commitBoxSelect: () => void;
   /**
-   * Set the vertical scroll offset (in pixels) for the track list and canvas.
-   */
-  setScrollOffset: (offset: number) => void;
-  /**
    * Set whether a box-select gesture is pending (pointerdown received, awaiting threshold).
    * Prevents multiple R3F scenes from starting box-select on the same pointer event.
    */
   setBoxSelectPending: (pending: boolean) => void;
-  /**
-   * Bump the vertical fit counter to trigger a camera Y reset in spline mode.
-   */
-  requestVerticalFit: () => void;
   /**
    * Update the expanded and hidden state of a source group globally.
    * @param groupId - The ID of the source group to update.

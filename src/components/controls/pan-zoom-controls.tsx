@@ -2,7 +2,6 @@ import { useEffect, useRef, forwardRef, memo } from "react";
 import { useThree } from "@react-three/fiber";
 import { OrthographicCamera, Vector2 } from "three";
 import { isOrthographicCamera } from "@semio/utils";
-import { useShallow } from "zustand/shallow";
 import { useTooltipStore } from "@semio/ui";
 import { useGesture } from "@use-gesture/react";
 import {
@@ -10,9 +9,14 @@ import {
   getDataViewportFromFrustum,
   setFrustumFromDataViewport,
 } from "../../viewport-utils";
-import { viewportMotion, setViewport } from "../../viewport-state";
+import {
+  viewportMotion,
+  setViewport,
+  splineCameraYMotion,
+  panVertical,
+  zoomVertical,
+} from "../../viewport-state";
 import { TrackRender } from "../../types";
-import { useAnimationStore } from "../../hooks";
 
 export interface PanZoomControlsProps {
   enabled?: boolean;
@@ -67,10 +71,6 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
     ref,
   ) => {
     const { camera, gl, size } = useThree();
-    const scrollOffset = useAnimationStore(useShallow((state) => state.scrollOffset));
-    const setScrollOffset = useAnimationStore(useShallow((state) => state.setScrollOffset));
-    const scrollRef = useRef({ offset: scrollOffset, set: setScrollOffset });
-    scrollRef.current = { offset: scrollOffset, set: setScrollOffset };
     const initialCameraWidth = useRef(0);
     const initialCameraHeight = useRef(0);
     const viewportRef = useRef<[number, number]>(viewportMotion.get());
@@ -268,52 +268,25 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       setViewport(newDataLeft, newDataRight);
     };
 
-    // Zoom camera vertically around a pointer position (spline mode only)
-    const zoomCameraVertical = (zoomFactor: number, clientY: number) => {
-      if (!(camera instanceof OrthographicCamera) || !gl.domElement) return;
-      const rect = gl.domElement.getBoundingClientRect();
-      const relativeY = (clientY - rect.top) / rect.height;
-      const frustumHeight = camera.top - camera.bottom;
-      const targetY = camera.top - relativeY * frustumHeight;
-      const newHeight = frustumHeight / zoomFactor;
-      camera.top = targetY + newHeight * relativeY;
-      camera.bottom = targetY - newHeight * (1 - relativeY);
-      camera.updateProjectionMatrix();
-    };
-
-    // Handle vertical scrolling in track region
-    const handleTrackScroll = (event: { deltaY: number; clientY: number }) => {
-      const {
-        trackRegion: trackReg,
-        contentHeightPx: contentHeight,
-      } = settingsRef.current;
+    // Apply a vertical wheel delta to the centralized vertical-axis state.
+    // Spline pans camera Y; non-spline advances the row scroll. The pointer
+    // must be inside the track region in either mode — wheeling over a HUD
+    // shouldn't move the canvas vertically.
+    const applyVerticalScroll = (event: { deltaY: number; clientY: number }) => {
+      const { trackRegion: tr, contentHeightPx: ch, trackRender: mode } = settingsRef.current;
       const rect = gl.domElement?.getBoundingClientRect();
-
-      if (!trackReg || typeof contentHeight !== "number" || !rect) {
-        return false;
-      }
-
+      if (!rect || !tr || typeof ch !== "number") return;
+      const top = tr.top ?? 0;
+      const bottom = tr.bottom ?? 0;
       const pointerY = event.clientY - rect.top;
-      const { top = 0, bottom = 0 } = trackReg;
-      const trackRegionStart = top;
-      const trackRegionEnd = rect.height - bottom;
-
-      if (pointerY >= trackRegionStart && pointerY <= trackRegionEnd) {
-        const visibleHeightPx = rect.height - top - bottom;
-        const scrollMin = 0;
-        const scrollMax = Math.max(0, contentHeight - visibleHeightPx);
-
-        if (scrollMax === 0) return true; // Handled but no scroll needed
-
-        const prev = scrollRef.current.offset;
-        let next = prev + event.deltaY;
-        next = Math.max(scrollMin, Math.min(scrollMax, next));
-        scrollRef.current.set(next);
-
-        return true; // Event was handled
-      }
-
-      return false;
+      if (pointerY < top || pointerY > rect.height - bottom) return;
+      panVertical(event.deltaY, {
+        mode: mode ?? TrackRender.Key,
+        canvasHeight: rect.height,
+        contentHeight: ch,
+        topOffsetPx: top,
+        bottomOffsetPx: bottom,
+      });
     };
 
     // Compute the effective zoom factor for horizontal axis after clamping
@@ -332,13 +305,13 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       return currentDataWidth / newDataWidth;
     };
 
-    // Compute the effective zoom factor for vertical axis after clamping
+    // Compute the effective zoom factor for vertical axis after clamping.
+    // Reads from splineCameraYMotion (the source of truth) rather than the
+    // camera object so consecutive zoom calls see writes from the previous
+    // call without waiting for the subscription to apply to the camera.
     const effectiveVerticalFactor = (requestedFactor: number): number => {
-      if (!(camera instanceof OrthographicCamera)) return requestedFactor;
-      const currentHeight = camera.top - camera.bottom;
-      // Lazily capture initial camera height on first use — the player viewport
-      // effect runs before TracksRenderer initializes camera Y, so we can't
-      // rely on capturing it there. Use canvas pixel height as the baseline.
+      const cy = splineCameraYMotion.get();
+      const currentHeight = cy.top - cy.bottom;
       if (initialCameraHeight.current <= 1) {
         initialCameraHeight.current = size.height > 0 ? size.height : currentHeight;
       }
@@ -370,19 +343,9 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
           const hasCtrl = ctrlKey || metaKey;
 
           // --- Scroll: No modifier, vertical dominant ---
-          // Vertical scroll/pan (track list in non-spline, camera Y pan in spline)
+          // Vertical scroll/pan dispatched by mode in viewport-state.
           if (!hasCtrl && !shiftKey && isVerticalDominant) {
-            if (isSpline) {
-              if (isOrthographicCamera(camera)) {
-                const frustumHeight = camera.top - camera.bottom;
-                const worldDeltaY = (deltaY / size.height) * frustumHeight;
-                camera.top -= worldDeltaY;
-                camera.bottom -= worldDeltaY;
-                camera.updateProjectionMatrix();
-              }
-            } else {
-              handleTrackScroll({ deltaY, clientY: event.clientY });
-            }
+            applyVerticalScroll({ deltaY, clientY: event.clientY });
             event.preventDefault();
             onChange?.();
             onEnd?.();
@@ -430,11 +393,17 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
               // Ctrl + Shift + Scroll: Horizontal zoom
               const center = new Vector2(event.clientX, event.clientY);
               zoomCameraHorizontal(zoomFactor, center);
-            } else if (isSpline && isOrthographicCamera(camera)) {
+            } else if (isSpline) {
               // Ctrl + Scroll (no Shift): Vertical zoom (spline only)
               const effV = effectiveVerticalFactor(zoomFactor);
               if (Math.abs(effV - 1) > 0.0001) {
-                zoomCameraVertical(effV, event.clientY);
+                const rect = gl.domElement?.getBoundingClientRect();
+                if (rect) {
+                  zoomVertical(effV, event.clientY, {
+                    mode: settingsRef.current.trackRender ?? TrackRender.Key,
+                    canvasRect: rect,
+                  });
+                }
               }
             } else {
               // Ctrl + Scroll in non-spline: Horizontal zoom (no vertical axis)
@@ -459,59 +428,59 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
           const isSpline = settingsRef.current.trackRender === TrackRender.Spline;
           const scaleFactor = 1 + (scale - 1) * settingsRef.current.zoomSpeed * 0.5;
 
-          // Read modifier keys from the native event
-          const nativeEvent = event as TouchEvent & { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean };
-          const hasCtrl = nativeEvent.ctrlKey || nativeEvent.metaKey;
-          const hasShift = nativeEvent.shiftKey;
-
-          // Determine zoom axis:
-          // 1. Modifier keys override (Ctrl/Cmd+Pinch → vertical, Shift+Pinch → horizontal)
-          // 2. Touch finger angle (if available)
-          // 3. Default: uniform
+          // Determine zoom axis. Pinch+modifier-key combinations don't
+          // round-trip reliably across platforms (notably Mac, where pinch
+          // arrives as ctrl+wheel and additional modifiers are dropped),
+          // so axis selection is gesture-only:
+          // 1. Touch finger angle (if 2 fingers reported)
+          // 2. Default: uniform (collapses to horizontal in non-spline since
+          //    there's no vertical zoom axis there)
+          // For modifier-driven axis selection, use scroll+modifier instead.
+          const nativeEvent = event as TouchEvent;
           let zoomAxis: "horizontal" | "vertical" | "uniform" = "uniform";
 
-          if (isSpline && hasCtrl && !hasShift) {
-            zoomAxis = "vertical";
-          } else if (hasShift && !hasCtrl) {
-            zoomAxis = "horizontal";
-          } else {
-            const touches = nativeEvent?.touches;
-            if (touches?.length === 2) {
-              // Touch device: finger angle determines axis
-              const dx = Math.abs(touches[1].clientX - touches[0].clientX);
-              const dy = Math.abs(touches[1].clientY - touches[0].clientY);
-              zoomAxis = dx > dy ? "horizontal" : "vertical";
-            }
+          const touches = nativeEvent?.touches;
+          if (touches?.length === 2) {
+            const dx = Math.abs(touches[1].clientX - touches[0].clientX);
+            const dy = Math.abs(touches[1].clientY - touches[0].clientY);
+            zoomAxis = dx > dy ? "horizontal" : "vertical";
           }
-
-          // Non-spline: no vertical axis, force horizontal
-          if (!isSpline && zoomAxis === "vertical") {
-            zoomAxis = "horizontal";
-          }
-          if (!isSpline && zoomAxis === "uniform") {
+          if (!isSpline && zoomAxis !== "horizontal") {
             zoomAxis = "horizontal";
           }
 
-          // Apply zoom to the determined axis/axes
-          if (zoomAxis === "uniform" && isSpline && isOrthographicCamera(camera)) {
-            // For uniform zoom, clamp to the more restrictive axis so they stay in sync
+          // Apply zoom. Past this point, "uniform" and "vertical" only
+          // appear for spline mode (non-spline was forced to horizontal).
+          if (zoomAxis === "horizontal") {
+            const center = new Vector2(origin[0], origin[1]);
+            zoomCameraHorizontal(scaleFactor, center);
+          } else if (zoomAxis === "uniform") {
+            // Clamp to the more restrictive axis so both stay in sync
             const effH = effectiveHorizontalFactor(scaleFactor);
             const effV = effectiveVerticalFactor(scaleFactor);
-            // Use the factor closer to 1 (less zoom) so neither axis exceeds its limit
             const uniformFactor = Math.abs(effH - 1) < Math.abs(effV - 1) ? effH : effV;
-
             if (Math.abs(uniformFactor - 1) > 0.0001) {
               const center = new Vector2(origin[0], origin[1]);
               zoomCameraHorizontal(uniformFactor, center);
-              zoomCameraVertical(uniformFactor, origin[1]);
+              const rect = gl.domElement?.getBoundingClientRect();
+              if (rect) {
+                zoomVertical(uniformFactor, origin[1], {
+                  mode: settingsRef.current.trackRender ?? TrackRender.Key,
+                  canvasRect: rect,
+                });
+              }
             }
-          } else if (zoomAxis === "horizontal" || (zoomAxis === "uniform" && !isSpline)) {
-            const center = new Vector2(origin[0], origin[1]);
-            zoomCameraHorizontal(scaleFactor, center);
-          } else if (zoomAxis === "vertical" && isSpline && isOrthographicCamera(camera)) {
+          } else {
+            // vertical
             const effV = effectiveVerticalFactor(scaleFactor);
             if (Math.abs(effV - 1) > 0.0001) {
-              zoomCameraVertical(effV, origin[1]);
+              const rect = gl.domElement?.getBoundingClientRect();
+              if (rect) {
+                zoomVertical(effV, origin[1], {
+                  mode: settingsRef.current.trackRender ?? TrackRender.Key,
+                  canvasRect: rect,
+                });
+              }
             }
           }
 

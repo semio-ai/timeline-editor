@@ -1,17 +1,22 @@
 import { useThree, useFrame } from "@react-three/fiber";
 import { useContext, useRef, useMemo, useCallback, memo, useEffect } from "react";
 import { useShallow } from "zustand/shallow";
-import { useMotionValue, useMotionValueEvent } from "motion/react";
 import * as THREE from "three";
 import { Theme, useCanvasContextMenu } from "@semio/ui";
 import { isOrthographicCamera } from "@semio/utils";
-import { useOrthoCameraSetup, usePlaybackGestures, useBoxSelectGesture, useAnimationStore } from "../../hooks";
+import { usePlaybackGestures, useBoxSelectGesture, useAnimationStore } from "../../hooks";
 import { TrackRender, type VisibleSourceRowIds } from "../../types";
 import { AnimationData } from "../../store-types";
 import { AnimationContext } from "../../context";
 import { ThemeMode } from "../../functions";
 import { normalizeVisibleSourceRowIds } from "../../functions/filter-visible-source-row-ids";
 import { ROW_DEPTH_EPSILON, Z } from "../../constants";
+import {
+  splineCameraYMotion,
+  trackScrollMotion,
+  verticalFitCounterMotion,
+  resetSplineCameraY,
+} from "../../viewport-state";
 import { DataRenderer } from "./data-renderer";
 import { SharedSplineBackground } from "./shared-spline-background";
 import { HoverMarker } from "./overlays/hover-marker";
@@ -43,9 +48,6 @@ export const TracksRenderer = memo(function TracksRenderer({
   const { size, camera } = useThree();
   const { size: motionSize } = useMotionCanvas();
   const animationStore = useContext(AnimationContext);
-  // Local MotionValue mirroring store scroll — updated in useFrame for
-  // consumers that need a MotionValue (e.g. DataRenderer scrollOffset).
-  const scrollMotion = useMotionValue(0);
 
   const sourceRowLookup = useAnimationStore(
     useShallow(
@@ -64,11 +66,29 @@ export const TracksRenderer = memo(function TracksRenderer({
 
   const availableHeight = size.height - topOffsetPx - bottomOffsetPx;
 
-  // Only use pixel-locked camera setup for non-spline modes.
-  // Spline mode manages camera.top/bottom via PanZoomControls + useFrame.
-  useOrthoCameraSetup(
-    trackRender !== TrackRender.Spline ? (camera as THREE.OrthographicCamera) : undefined,
-  );
+  // Mirror current vertical-axis state into the camera synchronously during
+  // render. `calculatePosition` (a useMemo below) reads camera.top/bottom,
+  // so they must be valid before that runs. The async useEffect-based
+  // subscription handles subsequent MotionValue changes; this synchronous
+  // write covers the initial render and any re-render where the cache might
+  // otherwise be stale (e.g. mode switch).
+  if (isOrthographicCamera(camera) && size.height > 0) {
+    if (trackRender === TrackRender.Spline) {
+      const cy = splineCameraYMotion.get();
+      if (cy.top - cy.bottom > 0) {
+        camera.top = cy.top;
+        camera.bottom = cy.bottom;
+      } else {
+        camera.top = size.height / 2;
+        camera.bottom = -size.height / 2;
+      }
+    } else {
+      const scroll = trackScrollMotion.get();
+      camera.top = size.height / 2 - scroll;
+      camera.bottom = -size.height / 2 - scroll;
+    }
+    camera.updateProjectionMatrix();
+  }
 
   const groupRef = useRef<THREE.Group>(null);
   const overlayGroupRef = useRef<THREE.Group>(null);
@@ -76,28 +96,34 @@ export const TracksRenderer = memo(function TracksRenderer({
   const lastTrackRenderRef = useRef<TrackRender>(trackRender);
   const cachedPositionRef = useRef({ y: 0, trackWorldHeight: 0, worldHeight: 1 });
 
-  // Compute world Y position for the top of the TracksRenderer with caching
+  // Compute world Y position for the top of the TracksRenderer with caching.
+  //
+  // Non-spline mode is pixel-locked (1 world unit = 1 pixel), so the group
+  // origin is computed directly from `size.height` — independent of
+  // `camera.top` (which is now scroll-shifted). This keeps the group at a
+  // fixed scene Y; vertical scroll is expressed by camera motion only.
+  //
+  // Spline mode uses the camera's available area to center the group, since
+  // the spline camera Y is free-form and the cached position should reflect
+  // the camera's current frustum at the time of recompute.
   const calculatePosition = useCallback(() => {
-    if (isOrthographicCamera(camera)) {
+    if (trackRender === TrackRender.Spline) {
+      if (!isOrthographicCamera(camera)) {
+        return { y: 0, trackWorldHeight: trackHeight, worldHeight: 1 };
+      }
       const worldHeight0 = camera.top - camera.bottom;
       const offsetWorld = (topOffsetPx / size.height) * worldHeight0;
       const trackWorldHeight0 = (trackHeight / size.height) * worldHeight0;
-
-      if (trackRender === TrackRender.Spline) {
-        // For spline mode, center the tracks in the available area (respecting top and bottom offsets)
-        const bottomOffsetWorld = (bottomOffsetPx / size.height) * worldHeight0;
-        const availableTop = camera.top - offsetWorld;
-        const availableBottom = camera.bottom + bottomOffsetWorld;
-        const y0: number = (availableTop + availableBottom) / 2;
-        return { y: y0, trackWorldHeight: trackWorldHeight0, worldHeight: worldHeight0 };
-      } else {
-        // Y position is at top minus offset minus half a track (so first track is flush with HUD)
-        const y0: number = camera.top - offsetWorld - trackWorldHeight0 / 2;
-        return { y: y0, trackWorldHeight: trackWorldHeight0, worldHeight: worldHeight0 };
-      }
-    } else {
-      return { y: 0, trackWorldHeight: trackHeight, worldHeight: 1 };
+      const bottomOffsetWorld = (bottomOffsetPx / size.height) * worldHeight0;
+      const availableTop = camera.top - offsetWorld;
+      const availableBottom = camera.bottom + bottomOffsetWorld;
+      const y0: number = (availableTop + availableBottom) / 2;
+      return { y: y0, trackWorldHeight: trackWorldHeight0, worldHeight: worldHeight0 };
     }
+    // Non-spline: pixel-locked. Group origin sits at the top-of-available
+    // minus half a track (first row flush with the HUD). Independent of scroll.
+    const y0: number = size.height / 2 - topOffsetPx - trackHeight / 2;
+    return { y: y0, trackWorldHeight: trackHeight, worldHeight: size.height };
   }, [camera, topOffsetPx, bottomOffsetPx, trackHeight, trackRender, size.height]);
 
   // Only recalculate positions when size or trackRender actually changes significantly
@@ -119,67 +145,46 @@ export const TracksRenderer = memo(function TracksRenderer({
     return cachedPositionRef.current;
   }, [calculatePosition, size.width, size.height, trackRender]);
 
-  const { y, trackWorldHeight, worldHeight } = positionData;
+  const { y, trackWorldHeight } = positionData;
 
-  // Imperatively update group position based on scrollValue with optimization
-  const lastScrollValueRef = useRef<number>(0);
-  const lastPositionRef = useRef({ y: 0, z: 0 });
-  const lastFrameTrackRenderRef = useRef<TrackRender>(trackRender);
-
+  // Group always sits at the cached scene Y. Vertical scroll/zoom is
+  // expressed by camera motion (driven by viewport-state), not by
+  // translating the group. The group's Y is rewritten only when the
+  // calculated origin changes (canvas resize, mode switch).
+  const lastPositionRef = useRef({ y: 0 });
   useFrame(() => {
     if (!groupRef.current) return;
-
-    const currentScrollPx = animationStore?.getState().scrollOffset ?? 0;
-    const scrollChanged = Math.abs(currentScrollPx - lastScrollValueRef.current) > 0.1;
-    const positionChanged =
-      Math.abs(y - lastPositionRef.current.y) > 0.001 ||
-      Math.abs(0 - lastPositionRef.current.z) > 0.001;
-    const trackRenderChanged = trackRender !== lastFrameTrackRenderRef.current;
-
-    // Only update position if scroll, calculated position, or trackRender mode changed
-    if (scrollChanged || positionChanged || trackRenderChanged) {
-      if (trackRender !== TrackRender.Spline) {
-        const scrollWorld = (currentScrollPx / size.height) * worldHeight;
-        groupRef.current.position.y = y + scrollWorld;
-      } else {
-        groupRef.current.position.y = y;
-      }
-
-      // Sync the local MotionValue for consumers (e.g. ViolationRenderer)
-      scrollMotion.set(currentScrollPx);
-
-      lastScrollValueRef.current = currentScrollPx;
-      lastPositionRef.current = { y: groupRef.current.position.y, z: groupRef.current.position.z };
-      lastFrameTrackRenderRef.current = trackRender;
+    if (Math.abs(y - lastPositionRef.current.y) > 0.001) {
+      groupRef.current.position.y = y;
+      lastPositionRef.current.y = y;
     }
 
-    // In spline mode, keep overlay group centered on camera and update overlay sizes
-    if (trackRender === TrackRender.Spline && isOrthographicCamera(camera) && overlayGroupRef.current) {
+    // Keep overlay group centered on the camera and stretched to its vertical
+    // span. Works uniformly in spline (free camera Y / zoom) and non-spline
+    // (pixel-locked camera, Y = -scroll, height = canvas height) so tick
+    // marks, hover/playhead markers, and backgrounds always fill the visible
+    // viewport regardless of mode or scroll position.
+    if (isOrthographicCamera(camera) && overlayGroupRef.current) {
       const camCenterY = (camera.top + camera.bottom) / 2;
       const camHeight = camera.top - camera.bottom;
       overlayGroupRef.current.position.y = camCenterY;
-
-      // Scale the entire overlay group Y so all children (tick marks, markers,
-      // backgrounds) stretch to fill the camera's vertical span.
       if (availableHeight > 0) {
         overlayGroupRef.current.scale.y = camHeight / availableHeight;
       }
     }
   });
 
-  // Calculate the center Y position of the track area
+  // Calculate the center Y position of the track area.
+  // Spline mode: group is already centered, overlay sits at the same Y.
+  // Non-spline: pixel-locked. Center of available area in scene Y is
+  // independent of scroll (camera Y shifts to express scroll, but content
+  // and overlays sit at fixed scene Y).
   const trackAreaCenterY = useMemo(() => {
-    const availableWorldHeight = (availableHeight / size.height) * worldHeight;
-
     if (trackRender === TrackRender.Spline) {
-      return y; // Already centered for spline mode
-    } else {
-      // For non-spline, center of the available area
-      if (!isOrthographicCamera(camera)) return 0;
-      const offsetWorld = (topOffsetPx / size.height) * worldHeight;
-      return camera.top - offsetWorld - availableWorldHeight / 2;
+      return y;
     }
-  }, [y, worldHeight, availableHeight, size.height, trackRender, camera, topOffsetPx]);
+    return size.height / 2 - topOffsetPx - availableHeight / 2;
+  }, [y, availableHeight, size.height, trackRender, topOffsetPx]);
 
   // Add playback gestures for seeking and hover preview
   const playbackGestures = usePlaybackGestures();
@@ -195,58 +200,80 @@ export const TracksRenderer = memo(function TracksRenderer({
     items: (ctx) => buildTrackMenuItems(ctx, animationStore),
   });
 
-  // Camera Y management: pixel-locked for non-spline.
-  // In spline mode, PanZoomControls manages camera.top/bottom directly.
-  // Only reset to pixel height when not in spline mode or when canvas resizes.
+  // Camera Y management:
+  // - Spline: camera.top/bottom mirrors splineCameraYMotion (free Y, supports zoom)
+  // - Non-spline: camera.top/bottom is pixel-locked, shifted by trackScrollMotion
+  //
+  // Mode change re-seeds splineCameraYMotion to pixel-locked default; canvas
+  // resize rescales spline camera Y proportionally.
   const lastCanvasHeightRef = useRef(motionSize.height.get());
 
-  useMotionValueEvent(motionSize.height, "change", (height) => {
+  useEffect(() => {
     if (!isOrthographicCamera(camera)) return;
-    const prevHeight = lastCanvasHeightRef.current;
-    lastCanvasHeightRef.current = height;
 
-    if (trackRender === TrackRender.Spline) {
-      // Spline mode: scale the existing camera Y proportionally on canvas resize
-      if (prevHeight > 0 && prevHeight !== height) {
-        const ratio = height / prevHeight;
-        const center = (camera.top + camera.bottom) / 2;
-        const span = (camera.top - camera.bottom) * ratio;
-        camera.top = center + span / 2;
-        camera.bottom = center - span / 2;
-        camera.updateProjectionMatrix();
+    const applyVertical = () => {
+      const h = motionSize.height.get();
+      if (h <= 0) return;
+      if (trackRender === TrackRender.Spline) {
+        const cy = splineCameraYMotion.get();
+        camera.top = cy.top;
+        camera.bottom = cy.bottom;
+      } else {
+        const scroll = trackScrollMotion.get();
+        camera.top = h / 2 - scroll;
+        camera.bottom = -h / 2 - scroll;
       }
-    } else {
-      camera.top = height / 2;
-      camera.bottom = -height / 2;
       camera.updateProjectionMatrix();
-    }
-  });
+    };
 
-  useEffect(() => {
-    if (!isOrthographicCamera(camera)) return;
-    // Initialize camera Y to pixel-locked bounds for all modes.
-    // In spline mode, PanZoomControls may later adjust top/bottom via gestures,
-    // but the initial state must be valid.
-    const h = motionSize.height.get();
-    if (h > 0) {
-      camera.top = h / 2;
-      camera.bottom = -h / 2;
-      camera.updateProjectionMatrix();
+    // Seed spline camera Y to pixel-locked default on mount / mode change.
+    const h0 = motionSize.height.get();
+    if (h0 > 0) {
+      splineCameraYMotion.set({ top: h0 / 2, bottom: -h0 / 2 });
+      lastCanvasHeightRef.current = h0;
     }
-  }, [camera, trackRender, motionSize.height]);
+    applyVertical();
 
-  // Reset vertical camera when "Fit to Content" is requested in spline mode
-  const verticalFitCounter = useAnimationStore(
-    useShallow((state: AnimationData) => state.verticalFitCounter),
-  );
-  useEffect(() => {
-    if (verticalFitCounter === 0) return; // skip initial
-    if (!isOrthographicCamera(camera)) return;
-    const h = motionSize.height.get();
-    camera.top = h / 2;
-    camera.bottom = -h / 2;
-    camera.updateProjectionMatrix();
-  }, [verticalFitCounter, camera, motionSize.height]);
+    const unsubSpline = splineCameraYMotion.on("change", () => {
+      if (trackRender === TrackRender.Spline) applyVertical();
+    });
+    const unsubScroll = trackScrollMotion.on("change", () => {
+      if (trackRender !== TrackRender.Spline) applyVertical();
+    });
+    const unsubHeight = motionSize.height.on("change", (newHeight) => {
+      if (newHeight <= 0) return;
+      const prevH = lastCanvasHeightRef.current;
+      lastCanvasHeightRef.current = newHeight;
+      if (trackRender === TrackRender.Spline && prevH > 0 && prevH !== newHeight) {
+        const cy = splineCameraYMotion.get();
+        if (cy.top - cy.bottom > 0) {
+          const ratio = newHeight / prevH;
+          const center = (cy.top + cy.bottom) / 2;
+          const span = (cy.top - cy.bottom) * ratio;
+          splineCameraYMotion.set({ top: center + span / 2, bottom: center - span / 2 });
+        }
+      } else {
+        applyVertical();
+      }
+    });
+    // Fit-to-Viewport / Fit-to-Content signal. Only meaningful in spline
+    // mode (resets the freely-pannable camera Y). In non-spline modes the
+    // user's track scroll position is preserved — fit only affects the
+    // horizontal viewport.
+    const unsubFit = verticalFitCounterMotion.on("change", (counter) => {
+      if (counter === 0) return;
+      if (trackRender !== TrackRender.Spline) return;
+      const h = motionSize.height.get();
+      if (h > 0) resetSplineCameraY(h);
+    });
+
+    return () => {
+      unsubSpline();
+      unsubScroll();
+      unsubHeight();
+      unsubFit();
+    };
+  }, [camera, trackRender, motionSize]);
 
   return (
     <>
@@ -260,7 +287,7 @@ export const TracksRenderer = memo(function TracksRenderer({
             viewId={viewId}
             yOffset={trackRender === TrackRender.Spline ? 0 : -trackWorldHeight * idx}
             theme={theme}
-            scrollOffset={trackRender !== TrackRender.Spline ? scrollMotion : undefined}
+            onBoxSelectStart={boxSelectPointerDown}
           />
         ))}
         {trackRender === TrackRender.Spline && (

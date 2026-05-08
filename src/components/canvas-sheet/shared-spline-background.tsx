@@ -1,7 +1,6 @@
 import { memo, useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
-import { MotionValue } from "motion";
 import { uniq } from "lodash";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import { Z } from "../../constants";
@@ -15,7 +14,6 @@ export interface SharedSplineBackgroundProps {
   yOffset?: number;
   baseZ?: number;
   theme?: Theme.Light | Theme.Dark;
-  scrollOffset?: MotionValue<number>;
 }
 
 export const SharedSplineBackground = memo(function SharedSplineBackground({
@@ -24,7 +22,6 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
   yOffset = 0,
   baseZ = 0,
   theme = Theme.Light,
-  scrollOffset = new MotionValue(0),
 }: SharedSplineBackgroundProps) {
   const sourceRow = useAnimationStore(
     useShallow((state: AnimationData) => state.instancedTrackSources[sourceRowId]),
@@ -82,7 +79,6 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
           violationSet={computedData.violationSet}
           theme={theme}
           height={height - 1}
-          yOffset={scrollOffset}
           trackY
           xTransform={xTransform}
           sourceRowId={sourceRowId}

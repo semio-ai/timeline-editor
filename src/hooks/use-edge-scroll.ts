@@ -4,7 +4,7 @@ import { isOrthographicCamera } from "@semio/utils";
 import { TrackRender } from "../types";
 import { AnimationContext } from "../context";
 import { getDataViewportFromFrustum, setFrustumFromDataViewport } from "../viewport-utils";
-import { setViewport } from "../viewport-state";
+import { setViewport, panVertical } from "../viewport-state";
 
 // Tuning: chosen by feel, not derived from any UX research. Adjust together —
 // the feel comes from the *ratio* between zone width and max speed (pixels of
@@ -60,8 +60,9 @@ export interface EdgeScrollHandle {
  * Reusable edge-scrolling engine for any drag gesture.
  *
  * When the pointer is near the edge of the data area, the viewport auto-scrolls
- * at a speed proportional to the distance from the edge. Works for both spline
- * (camera pan) and non-spline (scrollOffset) vertical modes.
+ * at a speed proportional to the distance from the edge. Vertical scrolling
+ * dispatches by mode through `panVertical` (spline: camera Y; non-spline:
+ * row-bounded track scroll).
  *
  * Returns an imperative handle — the consumer calls `start()`, feeds pointer
  * positions via `updatePointer()`, and calls `stop()` when done.
@@ -167,44 +168,31 @@ export function useEdgeScroll(
         cam.updateProjectionMatrix();
       }
 
-      // --- Vertical ---
+      // --- Vertical: dispatched by mode through viewport-state ---
       if (vel.y !== 0) {
-        if (trackRenderRef.current === TrackRender.Spline) {
-          const { height } = sizeRef.current;
-          const worldHeight = cam.top - cam.bottom;
-          const pxToWorld = height > 0 ? worldHeight / height : 1;
-          const deltaWorld = vel.y * dt * pxToWorld;
-          cam.top -= deltaWorld;
-          cam.bottom -= deltaWorld;
-          cam.updateProjectionMatrix();
-        } else {
-          const store = animationStore?.getState();
-          if (store) {
-            const currentOffset = store.scrollOffset ?? 0;
-            const deltaY = vel.y * dt;
-            const { height } = sizeRef.current;
-            const cfg = configRef.current;
-            const topOff = cfg.topOffsetPx ?? 36;
-            const bottomOff = cfg.bottomOffsetPx ?? 108;
-            const trackH = cfg.trackHeightPx ?? 36;
-            // Prefer the caller-provided filtered row count; fall back to the
-            // unfiltered store list only if not supplied (legacy callers).
-            const rowCount =
-              cfg.contentRowCount ??
-              (store.sourceRowIds
-                ? Array.isArray(store.sourceRowIds)
-                  ? store.sourceRowIds.length
-                  : store.sourceRowIds.flat.length
-                : 0);
-            const contentHeight = rowCount * trackH;
-            const visibleHeight = height - topOff - bottomOff;
-            const maxScroll = Math.max(0, contentHeight - visibleHeight);
-            const next = Math.max(0, Math.min(maxScroll, currentOffset + deltaY));
-            if (next !== currentOffset) {
-              store.setScrollOffset(next);
-            }
-          }
-        }
+        const { height } = sizeRef.current;
+        const cfg = configRef.current;
+        const topOff = cfg.topOffsetPx ?? 36;
+        const bottomOff = cfg.bottomOffsetPx ?? 108;
+        const trackH = cfg.trackHeightPx ?? 36;
+        const store = animationStore?.getState();
+        // Prefer the caller-provided filtered row count; fall back to the
+        // unfiltered store list only if not supplied (legacy callers).
+        const rowCount =
+          cfg.contentRowCount ??
+          (store?.sourceRowIds
+            ? Array.isArray(store.sourceRowIds)
+              ? store.sourceRowIds.length
+              : store.sourceRowIds.flat.length
+            : 0);
+        const contentHeight = rowCount * trackH;
+        panVertical(vel.y * dt, {
+          mode: trackRenderRef.current,
+          canvasHeight: height,
+          contentHeight,
+          topOffsetPx: topOff,
+          bottomOffsetPx: bottomOff,
+        });
       }
 
       onViewportShiftRef.current?.();

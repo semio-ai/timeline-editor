@@ -24,11 +24,12 @@ function computeBoxSelectHitTest(
   const minY = Math.min(box.startY, box.currentY);
   const maxY = Math.max(box.startY, box.currentY);
 
-  // Layout for Y hit-testing (pixel-based, matching the renderer's 1:1 pixel-to-world)
+  // Layout for Y hit-testing. Rows live at fixed scene Y in all modes
+  // (scroll is expressed by camera Y, not by group translation), so the
+  // row's scene Y is independent of the current scroll position.
   const canvasHeight = layout.canvasHeight;
   const trackWorldHeight = layout.trackHeightPx;
-  const firstRowCenterY =
-    canvasHeight / 2 - layout.topOffsetPx - trackWorldHeight / 2 + state.scrollOffset;
+  const firstRowCenterY = canvasHeight / 2 - layout.topOffsetPx - trackWorldHeight / 2;
   // Spline layout: group Y and available height are stable pixel-based values
   const availableHeightPx = canvasHeight - layout.topOffsetPx - layout.bottomOffsetPx;
   const splineGroupY = (layout.bottomOffsetPx - layout.topOffsetPx) / 2;

@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, useCallback } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
@@ -125,14 +125,14 @@ const CanvasContent = memo(function CanvasContent({
   const bottomOffsetPx = 108;
   const trackHeight = 36;
 
-  const size = useThree((t) => t.size);
   const flatRowCount = resolvedRowIdLookup.flat.length;
 
-  const totalContentHeightPx = useMemo(() => {
-    return trackRender === TrackRender.Spline
-      ? size.height - topOffsetPx - bottomOffsetPx
-      : flatRowCount * trackHeight;
-  }, [trackRender, size.height, topOffsetPx, bottomOffsetPx, flatRowCount, trackHeight]);
+  // Row-stack height in pixels; used to clamp non-spline scroll. Unused in
+  // spline mode (spline pan is unbounded), so it doesn't need a mode branch.
+  const totalContentHeightPx = useMemo(
+    () => flatRowCount * trackHeight,
+    [flatRowCount, trackHeight],
+  );
 
   return (
     <>

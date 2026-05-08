@@ -602,13 +602,7 @@ export const AnimationSlice = (
       updateBoxSelectAction(set, get, currentStamp, currentY),
     cancelBoxSelect: () => cancelBoxSelectAction(set, get),
     commitBoxSelect: () => commitBoxSelectAction(set),
-    setScrollOffset: (offset: number) => {
-      set({ scrollOffset: offset });
-    },
     setBoxSelectPending: (pending: boolean) => setBoxSelectPendingAction(set, pending),
-    requestVerticalFit: () => {
-      set((state: AnimationData) => ({ verticalFitCounter: state.verticalFitCounter + 1 }));
-    },
     addPreview: (preview: Preview) => addPreviewAction(set, preview),
     removePreview: (evaluator: (preview: Preview) => boolean) =>
       removePreviewAction(set, evaluator),
