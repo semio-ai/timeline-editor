@@ -239,7 +239,12 @@ function InnerSheet({
     return () => {
       cancelled = true;
     };
-  }, [fonts.mono, fonts.ui, fonts]);
+    // Deps narrowed to the URLs only — `fonts` itself is typically a fresh
+    // object literal at the call site (e.g. <AnimationSheet fonts={{...}}/>),
+    // so depending on its identity would re-run the preload every parent
+    // render even when the URLs haven't changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fonts.mono, fonts.ui]);
 
   const initialViewId = useMemo(() => `view-${crypto.randomUUID()}`, []);
   const {
@@ -418,9 +423,12 @@ function InnerSheet({
           <TrackAnimatableContextProvider>
             <LocalGlobalTransformContextProvider>
               <div
-                className="animation-sheet-container pointer-events-auto w-full"
+                className="animation-sheet-container w-full"
                 style={{
                   opacity: sheetReady ? 1 : 0,
+                  // Block pointer interactions while the sheet is invisible
+                  // so the pre-reveal layout can't intercept clicks/scroll.
+                  pointerEvents: sheetReady ? "auto" : "none",
                   transition: "opacity 200ms ease-in",
                 }}
               >
