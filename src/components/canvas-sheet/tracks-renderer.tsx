@@ -96,29 +96,38 @@ export const TracksRenderer = memo(function TracksRenderer({
   const lastTrackRenderRef = useRef<TrackRender>(trackRender);
   const cachedPositionRef = useRef({ y: 0, trackWorldHeight: 0, worldHeight: 1 });
 
-  // Compute world Y position for the top of the TracksRenderer with caching.
+  // Compute world Y position for the group origin with caching.
   //
-  // Non-spline mode is pixel-locked (1 world unit = 1 pixel), so the group
-  // origin is computed directly from `size.height` — independent of
-  // `camera.top` (which is now scroll-shifted). This keeps the group at a
-  // fixed scene Y; vertical scroll is expressed by camera motion only.
+  // Both modes follow the unified "fixed scene, moving camera" invariant:
+  // the group sits at a canvas-derived position that does NOT depend on
+  // the camera. All vertical motion (scroll in non-spline, pan/zoom in
+  // spline) is expressed through camera bounds alone.
   //
-  // Spline mode uses the camera's available area to center the group, since
-  // the spline camera Y is free-form and the cached position should reflect
-  // the camera's current frustum at the time of recompute.
+  // - Non-spline: group origin = first-row center. Rows stack downward via
+  //   each DataRenderer's `yOffset = -trackWorldHeight * idx`.
+  // - Spline: group origin = center of the in-canvas available area. For
+  //   TracksCanvas (offsets = 0) this is y = 0; for HUD-padded consumers
+  //   it shifts toward the larger pad side. (Originally this was
+  //   camera-derived — `(camera.top + camera.bottom) / 2` — which combined
+  //   with the dirty check below to snap the group to the current camera
+  //   center on any size change, visually cancelling the user's
+  //   accumulated vertical pan. Pixel-deriving the origin removes that
+  //   dependency.)
   const calculatePosition = useCallback(() => {
     if (trackRender === TrackRender.Spline) {
-      if (!isOrthographicCamera(camera)) {
-        return { y: 0, trackWorldHeight: trackHeight, worldHeight: 1 };
-      }
-      const worldHeight0 = camera.top - camera.bottom;
-      const offsetWorld = (topOffsetPx / size.height) * worldHeight0;
-      const trackWorldHeight0 = (trackHeight / size.height) * worldHeight0;
-      const bottomOffsetWorld = (bottomOffsetPx / size.height) * worldHeight0;
-      const availableTop = camera.top - offsetWorld;
-      const availableBottom = camera.bottom + bottomOffsetWorld;
-      const y0: number = (availableTop + availableBottom) / 2;
-      return { y: y0, trackWorldHeight: trackWorldHeight0, worldHeight: worldHeight0 };
+      // `worldHeight` and `trackWorldHeight` are still camera-derived
+      // because they describe the visible vertical span in world units,
+      // which legitimately depends on the camera frustum. Neither value
+      // affects the group's origin — only `y` does — and downstream
+      // consumers in spline mode don't read them, but the values are
+      // computed for shape compatibility with the non-spline branch.
+      const cameraWorldHeight = isOrthographicCamera(camera)
+        ? camera.top - camera.bottom
+        : 1;
+      const trackWorldHeight0 =
+        size.height > 0 ? (trackHeight / size.height) * cameraWorldHeight : trackHeight;
+      const y0: number = (bottomOffsetPx - topOffsetPx) / 2;
+      return { y: y0, trackWorldHeight: trackWorldHeight0, worldHeight: cameraWorldHeight };
     }
     // Non-spline: pixel-locked. Group origin sits at the top-of-available
     // minus half a track (first row flush with the HUD). Independent of scroll.
@@ -207,6 +216,14 @@ export const TracksRenderer = memo(function TracksRenderer({
   // Mode change re-seeds splineCameraYMotion to pixel-locked default; canvas
   // resize rescales spline camera Y proportionally.
   const lastCanvasHeightRef = useRef(motionSize.height.get());
+  // Track whether we've already seeded the spline camera Y to its default and
+  // for which mode. Without this, any re-run of the effect below (e.g. an
+  // upstream context value briefly changing identity during a horizontal
+  // resize) would unconditionally reset the user's pan/zoom back to the
+  // pixel-locked default. We only seed on the very first run after mount and
+  // on a genuine `trackRender` change.
+  const splineSeededRef = useRef(false);
+  const seededTrackRenderRef = useRef<TrackRender | null>(null);
 
   useEffect(() => {
     if (!isOrthographicCamera(camera)) return;
@@ -226,12 +243,20 @@ export const TracksRenderer = memo(function TracksRenderer({
       camera.updateProjectionMatrix();
     };
 
-    // Seed spline camera Y to pixel-locked default on mount / mode change.
+    // Seed spline camera Y to pixel-locked default ONLY on first mount or on
+    // a genuine mode change. Without these guards, any spurious re-run of
+    // this effect (e.g. driven by a transient upstream context change during
+    // a canvas resize) would clobber the user's panned/zoomed spline Y.
     const h0 = motionSize.height.get();
-    if (h0 > 0) {
+    const isFirstSeed = !splineSeededRef.current;
+    const modeChanged =
+      seededTrackRenderRef.current !== null && seededTrackRenderRef.current !== trackRender;
+    if (h0 > 0 && (isFirstSeed || modeChanged)) {
       splineCameraYMotion.set({ top: h0 / 2, bottom: -h0 / 2 });
       lastCanvasHeightRef.current = h0;
     }
+    splineSeededRef.current = true;
+    seededTrackRenderRef.current = trackRender;
     applyVertical();
 
     const unsubSpline = splineCameraYMotion.on("change", () => {

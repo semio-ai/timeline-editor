@@ -109,7 +109,15 @@ export const TimelineCanvas = memo(function TimelineCanvas({
         style={{ width: "100%", height: "100%" }}
         flat
         orthographic
-        resize={{ debounce: 0 }}
+        // Match TracksCanvas debounce so all three canvases lag their
+        // backbuffers in lockstep during horizontal resize. Without this,
+        // the timeline would update its tick positions immediately while
+        // the (debounced) main canvas's content sits horizontally stretched
+        // by the browser, producing a misaligned playhead/tick column
+        // across the canvases for the duration of the debounce window.
+        // Wrapper's `[&_canvas]:!w-full` then CSS-stretches this canvas's
+        // existing framebuffer to the new container width in sync with main.
+        resize={{ debounce: 100 }}
         camera={{
           name: "TimelineCamera",
           position: [0, 0, 100],
@@ -192,7 +200,16 @@ export const TracksCanvas = memo(function TracksCanvas({
         style={{ width: "100%", height: "100%" }}
         flat
         orthographic
-        resize={{ debounce: 0 }}
+        // Debounce the canvas attribute resize so a drag-resize of the sheet
+        // doesn't repeatedly clear the WebGL framebuffer (assigning to
+        // canvas.width/height resets pixels to transparent per the HTML spec,
+        // causing a flicker on every event). During the debounce window the
+        // browser CSS-stretches the existing framebuffer to the new container
+        // size, and AnimationSheet applies a blur to the wrapper so the
+        // stretch reads as an intermediate preview state. The crisp resize
+        // lands once the user stops moving. Kept tight (100ms) because the
+        // events themselves are sparse — too high feels laggy on stop.
+        resize={{ debounce: 100 }}
         camera={{
           name: "MainCamera",
           position: [0, 0, 100],
@@ -293,7 +310,12 @@ export const MinimapCanvas = memo(function MinimapCanvas({
         style={{ width: "100%", height: "100%" }}
         flat
         orthographic
-        resize={{ debounce: 0 }}
+        // Match TracksCanvas debounce so the minimap stays horizontally
+        // aligned with the timeline and main canvas during resize (see the
+        // matching comment on TimelineCanvas). Wrapper's
+        // `[&_canvas]:!w-full` browser-stretches the existing framebuffer
+        // until the debounce settles.
+        resize={{ debounce: 100 }}
         camera={{
           name: "MinimapCamera",
           position: [0, 0, 100],
