@@ -5,6 +5,11 @@ import type {
   BoxSelectState,
 } from "../store-types";
 import { LayerBand, TrackRender } from "../types";
+import { buildTrackKey } from "../utils/track-key";
+import {
+  filterVisibleSourceRowIds,
+  matchesSourceRowQuery,
+} from "../functions/filter-visible-source-row-ids";
 
 /**
  * Hit-test keypoints against the current box-select bounds and return the
@@ -41,6 +46,34 @@ function computeBoxSelectHitTest(
       ? viewRowIds.spline
       : viewRowIds.flat;
 
+  // Per-view visible track set. Aggregate rows (the "global" row, group
+  // rows) carry computed frames for every underlying track — including
+  // tracks the user has hidden via the view's SelectTree OR filtered out
+  // via the view's search text. Without this filter, box-select on the
+  // timeline (origin = "global") or on a group row would select those
+  // tracks' keypoints, visible to the user only as a phantom-colored
+  // handle widget in the toolbar.
+  //
+  // Two filter mechanisms must be honored. `viewRowIds.spline` is the
+  // per-view list of LEAF row IDs after SelectTree visibility filtering
+  // (from `update-source-row-ids.ts`). Applying the view's `trackFilter`
+  // text on top of that — mirroring `update-view-filtered-source-rows.ts`
+  // — gives the canonical visible-track-key set used by the canvas.
+  // (Workspace/view scoping is already handled via `layout.viewId`.)
+  const trackFilterQuery = view?.trackFilter?.trim();
+  const filteredLookup = trackFilterQuery
+    ? filterVisibleSourceRowIds(viewRowIds, trackFilterQuery, (rowId, normalizedQuery) =>
+        matchesSourceRowQuery(rowId, normalizedQuery, {
+          sourceRows: state.instancedTrackSources,
+          tracks: state.tracks,
+          animatables: state.animatables,
+        }),
+      )
+    : viewRowIds;
+  // Spline leaf row IDs are formatted exactly as `${ns}/${inst}/${trackId}`,
+  // matching `buildTrackKey` output — usable as the visible-key set directly.
+  const visibleTrackKeys = new Set<string>(filteredLookup.spline);
+
   // Collect hit keypoints
   const hits: { trackId: string; keypointId: string }[] = [];
 
@@ -72,6 +105,11 @@ function computeBoxSelectHitTest(
         )
           return;
         if (state.selectionState.instanceId && point.instanceId !== state.selectionState.instanceId)
+          return;
+        // Skip points whose source track is hidden in this view's SelectTree.
+        // Critical for aggregate rows (global, group rows) whose computed
+        // frames include keypoints from every underlying track.
+        if (!visibleTrackKeys.has(buildTrackKey(point.namespaceId, point.instanceId, point.trackId)))
           return;
 
         // Y hit-test: check the keypoint's visual center, not the row band
