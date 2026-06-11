@@ -45,6 +45,11 @@ const VISIBLE_THRESHOLD = 0.01;
 // so the cart is comfortably grabbable at its rounded corners.
 const HIT_PADDING_PX = 5;
 
+// Replacement `Object3D.raycast` used to imperatively take a mesh out of
+// three.js's intersection list while the cart is in arrow mode. See the
+// usage in `useFrame` for why this is needed.
+const NOOP_RAYCAST: THREE.Mesh["raycast"] = () => {};
+
 export interface PlayheadCartProps {
   height?: number;
   theme?: Theme.Dark | Theme.Light;
@@ -185,6 +190,25 @@ export const PlayheadCart = memo(function PlayheadCart({
     rightSideSize: SIDE_CARET_SIZE,
   });
 
+  // Tracks whether the cart's drag/click handlers should fire. False when
+  // the cart is faded out (arrow mode) — even though the parent group's
+  // imperative `visible = false` is supposed to filter R3F pointer events,
+  // during the cross-fade the group is still visible, and same-z raycast
+  // ordering between this mesh and the edge click mesh isn't deterministic.
+  // Without this gate, a tap on the edge indicator can race-trip the cart's
+  // drag gesture (which `useDragGestures` activates on the slightest pointer
+  // movement that accompanies any normal click) and call resetPlayer at the
+  // click position — exactly the "click in arrow mode resets the playhead"
+  // bug the user reported.
+  const isCartActiveRef = useRef(initialMode === "cart");
+
+  // Hold the cart drag mesh's original `raycast` function so we can swap it
+  // for a no-op while the cart is faded out. Mirroring `visible` (either on
+  // the group or the mesh itself) was not enough to keep R3F from
+  // dispatching click events to this mesh — replacing `raycast` directly
+  // removes it from three.js's intersection list at the source.
+  const cartDragMeshOriginalRaycastRef = useRef<THREE.Mesh["raycast"] | null>(null);
+
   // Drag gestures (cart only — edge indicators are click-only)
   const dragHandlers = useDragGestures({
     disabled: playing,
@@ -319,10 +343,27 @@ export const PlayheadCart = memo(function PlayheadCart({
     edgeRightOpacityTarget.set(mode === "edge-right" ? 1 : 0);
 
     // Visibility: shown if currently chosen OR still fading out.
+    const cartVisible = mode === "cart" || cartOpacity.get() > VISIBLE_THRESHOLD;
     if (cartGroupRef.current) {
-      cartGroupRef.current.visible =
-        mode === "cart" || cartOpacity.get() > VISIBLE_THRESHOLD;
+      cartGroupRef.current.visible = cartVisible;
     }
+    // Remove the cart drag mesh from raycasting in arrow mode. Mirroring
+    // `visible` (group OR mesh) was insufficient to stop R3F dispatching
+    // click events here; replacing the mesh's `raycast` function with a
+    // no-op deterministically takes it out of three.js's intersection
+    // list, so the edge mesh becomes the sole click target.
+    if (cartDragMeshRef.current) {
+      if (cartDragMeshOriginalRaycastRef.current === null) {
+        cartDragMeshOriginalRaycastRef.current = cartDragMeshRef.current.raycast;
+      }
+      cartDragMeshRef.current.raycast = cartVisible
+        ? cartDragMeshOriginalRaycastRef.current
+        : NOOP_RAYCAST;
+      cartDragMeshRef.current.visible = cartVisible;
+    }
+    // Gate the cart's drag/click handlers on `mode === "cart"`. See the
+    // ref's declaration comment.
+    isCartActiveRef.current = mode === "cart";
     if (edgeLeftGroupRef.current) {
       edgeLeftGroupRef.current.visible =
         mode === "edge-left" || edgeLeftOpacity.get() > VISIBLE_THRESHOLD;
@@ -407,12 +448,28 @@ export const PlayheadCart = memo(function PlayheadCart({
             <mesh
               ref={cartDragMeshRef as any}
               position={[0, cartCenterY, 0.25]}
-              onPointerDown={dragHandlers.onPointerDown}
-              onPointerMove={dragHandlers.onPointerMove}
-              onPointerUp={dragHandlers.onPointerUp}
-              onPointerCancel={dragHandlers.onPointerCancel}
+              // Bail when the cart isn't the active mode — see `isCartActiveRef`.
+              onPointerDown={(event) => {
+                if (!isCartActiveRef.current) return;
+                dragHandlers.onPointerDown(event);
+              }}
+              onPointerMove={(event) => {
+                if (!isCartActiveRef.current) return;
+                dragHandlers.onPointerMove(event);
+              }}
+              onPointerUp={(event) => {
+                if (!isCartActiveRef.current) return;
+                dragHandlers.onPointerUp(event);
+              }}
+              onPointerCancel={(event) => {
+                if (!isCartActiveRef.current) return;
+                dragHandlers.onPointerCancel?.(event);
+              }}
               onClick={(event) => event.stopPropagation()}
-              onDoubleClick={handleDoubleClick}
+              onDoubleClick={(event) => {
+                if (!isCartActiveRef.current) return;
+                handleDoubleClick(event);
+              }}
               onPointerEnter={handlePointerEnter}
               onPointerLeave={handlePointerLeave}
               scale={[cartWidthSpring.get() + HIT_PADDING_PX, 1, 1]}
@@ -423,9 +480,12 @@ export const PlayheadCart = memo(function PlayheadCart({
           </group>
 
           {/* Text outside the scale group — TrackText handles its own
-              zoom-invariant scaling. Z above PlayheadCart so it draws on top. */}
+              zoom-invariant scaling. Z above PlayheadCart so it draws on top.
+              `opacityMotion` ties the text fill opacity to the same cross-
+              fade as the rect/caret/line — without it the text pops on/off
+              at the visibility threshold while everything else dissolves. */}
           <group position={[0, cartCenterY, Z.PlayheadCart + 0.5]}>
-            <PlayheadTime color={textColor} fonts={fonts} />
+            <PlayheadTime color={textColor} fonts={fonts} opacityMotion={cartOpacity} />
           </group>
         </group>
       </group>
@@ -459,7 +519,7 @@ export const PlayheadCart = memo(function PlayheadCart({
               />
             </group>
             <group position={[0, cartCenterY, Z.PlayheadCart + 0.5]}>
-              <PlayheadTime color={textColor} fonts={fonts} />
+              <PlayheadTime color={textColor} fonts={fonts} opacityMotion={edgeLeftOpacity} />
             </group>
           </group>
 
@@ -489,7 +549,7 @@ export const PlayheadCart = memo(function PlayheadCart({
               />
             </group>
             <group position={[0, cartCenterY, Z.PlayheadCart + 0.5]}>
-              <PlayheadTime color={textColor} fonts={fonts} />
+              <PlayheadTime color={textColor} fonts={fonts} opacityMotion={edgeRightOpacity} />
             </group>
           </group>
         </>
@@ -584,6 +644,11 @@ const EdgeClickMesh = memo(function EdgeClickMesh({
       ref={meshRef as any}
       position={[0, centerY, 0.25]}
       scale={[widthMotion.get() + HIT_PADDING_PX, 1, 1]}
+      // Stop pointerdown so the underlying ruler's playback gesture
+      // (FrustumBackground in RulerRenderer) doesn't process this event
+      // — without it the gesture chain can race the edge click and
+      // confuse intent.
+      onPointerDown={(e) => e.stopPropagation()}
       onClick={onClick}
       onPointerEnter={(e) => {
         setHovered(true);
@@ -629,9 +694,11 @@ function useCartWidthSpring() {
 const PlayheadTime = memo(function PlayheadTime({
   color,
   fonts,
+  opacityMotion,
 }: {
   color: string;
   fonts?: { mono?: string; ui?: string };
+  opacityMotion?: MotionValue<number>;
 }) {
   const altPressed = useAltKeyPressed();
   const [framerate, timeDisplay] = useAnimationStore(
@@ -650,6 +717,7 @@ const PlayheadTime = memo(function PlayheadTime({
       name="cart-time-display"
       characters="0123456789:.-sf"
       font={fonts?.mono}
+      opacityMotion={opacityMotion}
     />
   );
 });

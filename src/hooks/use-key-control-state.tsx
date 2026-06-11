@@ -43,12 +43,18 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
   // (prev/next time, currentFrame, keyState) are gated on `!running`
   // anyway: prev/next return undefined during play, and currentFrame /
   // keyState are only meaningful when paused so the user can act on them.
-  // Returning a stable value while running keeps the hook (and all its
-  // callers) stable per tick.
+  // Returning `null` from the selector while running keeps the hook (and
+  // all its callers) stable per tick.
   const stamp = usePlayerStore(
     useShallow((state) => (state.player.running ? null : state.player.stamp)),
   );
-  const stampSafe = stamp ?? 0;
+  // Fall back to the *current* store stamp (read at render time, not
+  // subscribed) rather than 0 — otherwise starting playback at e.g. stamp
+  // 5000 would make `currentFrame`/`missingEntries`/`keyState` snap to the
+  // state at time 0 until the user pauses. The render-time read still
+  // doesn't trigger per-tick re-renders (selector still returns `null`
+  // during play); it just gives a sensible last-known value.
+  const stampSafe = stamp ?? usePlayerStore.getState().player.stamp;
 
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   const uniqueInstanceId = useMemo(() => {
