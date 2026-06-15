@@ -23,6 +23,7 @@ export function KeyContextMenu({
   hasClipboard,
   onSelectAll,
   onSelectAllInTrack,
+  selectAllInTrackLabel = "Select All in Track",
   onDeselectAll,
   onCut,
   onCopy,
@@ -33,6 +34,9 @@ export function KeyContextMenu({
   hasClipboard: boolean;
   onSelectAll: () => void;
   onSelectAllInTrack: () => void;
+  /** Label for the Select-All-in-Track entry. Pluralizes ("Tracks") when
+   * the resolved scope spans multiple tracks. */
+  selectAllInTrackLabel?: string;
   onDeselectAll: () => void;
   onCut: () => void;
   onCopy: () => void;
@@ -85,7 +89,7 @@ export function KeyContextMenu({
         left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
         right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
       >
-        Select All in Track
+        {selectAllInTrackLabel}
       </NestedItem>
       <NestedItem
         onClick={onDeselectAll}

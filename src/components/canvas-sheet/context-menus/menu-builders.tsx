@@ -105,15 +105,30 @@ export function buildMinimapMenuItems(
 export function buildKeyMenuItems(
   ctx: CanvasContextMenuContext,
   animationStore: any,
-  /** Track keys that the right-clicked keypoint belongs to. Used for "Select All in Track". */
+  /** Track keys for the right-clicked marker. Used as the fallback scope for
+   * "Select All in Track" when no selection exists. */
   trackKeys?: string[],
 ): ReactNode {
   const state = getAnimationState(animationStore);
   const hasClipboard = state.clipboard !== null;
 
+  // Scope for "Select All in Track(s)": match the convention used by
+  // Cut/Copy/Delete (selection-centric). When a multi-track selection
+  // exists, widen the scope to every track represented in it; otherwise
+  // fall back to the right-clicked marker's tracks. This makes the
+  // operation match user intent when working with a cross-track selection
+  // ("expand the current scope") instead of silently collapsing it.
+  const selectionTrackKeys = [...state.selectionState.keypoints.entries()]
+    .filter(([, ids]) => ids.size > 0)
+    .map(([trackKey]) => trackKey);
+  const effectiveTrackKeys =
+    selectionTrackKeys.length > 0 ? selectionTrackKeys : trackKeys;
+  const selectAllInTrackLabel =
+    (effectiveTrackKeys?.length ?? 0) > 1 ? "Select All in Tracks" : "Select All in Track";
+
   const handleSelectAll = () => getAnimationState(animationStore).selectAll();
-  const handleSelectAllInTrack = trackKeys
-    ? () => getAnimationState(animationStore).selectAllInTracks(trackKeys)
+  const handleSelectAllInTrack = effectiveTrackKeys
+    ? () => getAnimationState(animationStore).selectAllInTracks(effectiveTrackKeys)
     : () => getAnimationState(animationStore).selectAll();
   const handleDeselectAll = () => getAnimationState(animationStore).clearSelection();
   const handleCopy = () => getAnimationState(animationStore).copySelection();
@@ -127,6 +142,7 @@ export function buildKeyMenuItems(
       hasClipboard={hasClipboard}
       onSelectAll={handleSelectAll}
       onSelectAllInTrack={handleSelectAllInTrack}
+      selectAllInTrackLabel={selectAllInTrackLabel}
       onDeselectAll={handleDeselectAll}
       onCut={handleCut}
       onCopy={handleCopy}
