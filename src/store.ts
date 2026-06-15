@@ -45,6 +45,7 @@ import {
   insertKeypointAtWorldStamp as insertKeyAtWorldStampAction,
   updateNewKeyTransitionDefaults as updateNewKeyTransitionDefaultsAction,
   updateSelectedKeyTransitions as updateSelectedKeyTransitionsAction,
+  flattenSelectedKeyHandles as flattenSelectedKeyHandlesAction,
   copySelection as copySelectionAction,
   cutSelection as cutSelectionAction,
   pasteAtStamp as pasteAtStampAction,
@@ -331,6 +332,20 @@ export const AnimationSlice = (
       set(
         produce((state: AnimationData): void => {
           updateSelectedKeyTransitionsAction(state, patch);
+        }),
+      );
+    },
+    flattenSelectedKeyHandles: () => {
+      // Same coarse short-circuit as updateSelectedKeyTransitions — skip
+      // the produce when every selected track is non-editable. Per-context
+      // readonly filtering happens inside the action.
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const selected = get().selectionState.keypoints;
+      const anyEditable = Array.from(selected.keys()).some((id) => !nonEditableIds.has(id));
+      if (!anyEditable) return;
+      set(
+        produce((state: AnimationData): void => {
+          flattenSelectedKeyHandlesAction(state);
         }),
       );
     },

@@ -69,7 +69,7 @@ export function updateSelectedKeyTransitions(state: AnimationData, patch: Transi
   });
 }
 
-function resolveSelectedKeyContexts(state: AnimationData): SelectedKeyContext[] {
+export function resolveSelectedKeyContexts(state: AnimationData): SelectedKeyContext[] {
   const keyContexts: SelectedKeyContext[] = [];
   const sortedByTrackId = new Map<
     string,

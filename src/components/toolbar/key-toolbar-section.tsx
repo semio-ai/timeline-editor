@@ -17,11 +17,13 @@ import {
   IconVertexFree,
   IconVertexIndeterminate,
   IconVertexPaired,
+  NestedItem,
   NestedLabel,
   NestedRadio,
   NestedSeparator,
   Size,
 } from "@semio/ui";
+import { AlignHorizontalCenter } from "@solar-icons/react-perf/Linear";
 import { useShallow } from "zustand/shallow";
 import { clsx } from "clsx";
 import {
@@ -134,6 +136,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
     preferences,
     updateNewKeyTransitionDefaults,
     updateSelectedKeyTransitions,
+    flattenSelectedKeyHandles,
   } = useAnimationStore(
     useShallow((state) => ({
       keypointSelectionMap: state.selectionState.keypoints,
@@ -141,6 +144,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
       preferences: state.preferences,
       updateNewKeyTransitionDefaults: state.updateNewKeyTransitionDefaults,
       updateSelectedKeyTransitions: state.updateSelectedKeyTransitions,
+      flattenSelectedKeyHandles: state.flattenSelectedKeyHandles,
     })),
   );
 
@@ -341,6 +345,10 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
     [hasSelection, updateDefaultTransitions, updateSelectedTransitions],
   );
 
+  const handleFlattenHandles = useCallback(() => {
+    flattenSelectedKeyHandles();
+  }, [flattenSelectedKeyHandles]);
+
   return (
     <div className="hidden items-center @[325px]:flex">
       <div
@@ -459,6 +467,16 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
             onChange={handleTransitionTypeChange}
             options={buildTransitionOptions(transitionTypeValue === MIXED_VALUE)}
           />
+
+          <NestedSeparator />
+          <NestedLabel>Actions</NestedLabel>
+          <NestedItem
+            disabled={!hasSelection}
+            onClick={handleFlattenHandles}
+            left={<AlignHorizontalCenter size="18px" className={ICON_CLASS_NAME} />}
+          >
+            Flatten Handles
+          </NestedItem>
         </Dropdown>
         <Dropdown
           side="top"

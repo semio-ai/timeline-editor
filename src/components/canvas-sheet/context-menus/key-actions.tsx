@@ -10,7 +10,7 @@ import {
   type CanvasContextMenuContext,
 } from "@semio/ui";
 import { TrashBinTrash, Copy, Clipboard } from "@solar-icons/react-perf/LineDuotone";
-import { Scissors } from "@solar-icons/react-perf/Linear";
+import { Scissors, AlignHorizontalCenter } from "@solar-icons/react-perf/Linear";
 import { AnimationAction } from "../../../keybindings";
 import { AnimationActionsSection } from "./animation-actions";
 
@@ -21,6 +21,7 @@ import { AnimationActionsSection } from "./animation-actions";
 export function KeyContextMenu({
   ctx,
   hasClipboard,
+  hasSelection,
   onSelectAll,
   onSelectAllInTrack,
   selectAllInTrackLabel = "Select All in Track",
@@ -29,9 +30,14 @@ export function KeyContextMenu({
   onCopy,
   onPaste,
   onDelete,
+  onFlattenHandles,
 }: {
   ctx: CanvasContextMenuContext;
   hasClipboard: boolean;
+  /** Whether the user currently has a selection (drives Transitions-section
+   * enablement; the right-clicked key is the implicit target for edit ops
+   * regardless). */
+  hasSelection: boolean;
   onSelectAll: () => void;
   onSelectAllInTrack: () => void;
   /** Label for the Select-All-in-Track entry. Pluralizes ("Tracks") when
@@ -42,6 +48,7 @@ export function KeyContextMenu({
   onCopy: () => void;
   onPaste: (worldStamp: number) => void;
   onDelete: () => void;
+  onFlattenHandles: () => void;
 }): ReactNode {
   return (
     <>
@@ -74,6 +81,15 @@ export function KeyContextMenu({
         right={<KeybindingHint action={AnimationAction.Delete} />}
       >
         Delete
+      </NestedItem>
+      <NestedSeparator />
+      <NestedLabel>Transitions</NestedLabel>
+      <NestedItem
+        disabled={!hasSelection}
+        onClick={onFlattenHandles}
+        left={<AlignHorizontalCenter size="18px" className={ICON_CLASS_NAME} />}
+      >
+        Flatten Handles
       </NestedItem>
       <NestedSeparator />
       <NestedLabel>Selection</NestedLabel>

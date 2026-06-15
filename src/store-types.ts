@@ -532,6 +532,15 @@ export interface AnimationActions {
    */
   updateSelectedKeyTransitions: (patch: TransitionPatch) => void;
   /**
+   * Flatten the handles of the currently selected keypoints — set each
+   * handle's derivative to zero while preserving its Euclidean length.
+   * Standard easings that already resolve to flat handles are left alone;
+   * non-flat sides (Back, Linear, explicit handles with y≠0, etc.) are
+   * converted to explicit horizontal deltas and the keypoint's pairing is
+   * set to Paired (handles are now collinear by construction).
+   */
+  flattenSelectedKeyHandles: () => void;
+  /**
    * Set multiple animations at once, replacing existing animations.
    * @param animations - Record of animation ID to StoredAnimation
    */

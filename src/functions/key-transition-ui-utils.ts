@@ -4,7 +4,12 @@ import {
   type TransitionPatch,
   type TransitionPreference,
 } from "../store-types";
-import { StandardTransitionType, TransitionPairing, type AuthoredTransition } from "../types";
+import {
+  StandardTransitionType,
+  TransitionPairing,
+  type AuthoredTransition,
+  type TransitionInfo,
+} from "../types";
 import type { SimpleKeypoint } from "../types/data/simple-track";
 import { resolveTransitionDelta } from "./get-world-control-points";
 import { inferAutoHandleDeltas } from "./infer-auto-handles";
@@ -380,6 +385,85 @@ function resolveHandleDeltaForAlignment(
     return resolveTransitionDelta("in", neighbor.stamp, anchor.stamp, neighbor.value, anchor.value, easing);
   }
   return resolveTransitionDelta("out", anchor.stamp, neighbor.stamp, anchor.value, neighbor.value, easing);
+}
+
+/** Considered "flat" when the resolved value-delta is within this tolerance. */
+const FLATTEN_Y_EPSILON = 1e-9;
+
+/**
+ * Build the flattened (zero-derivative) version of a keypoint's transitions,
+ * preserving each handle's Euclidean length. Sides that already resolve to
+ * a flat delta (any standard easing except Back/Linear; an explicit handle
+ * with y≈0; an auto-clamped handle whose resolved delta is already flat)
+ * are left untouched. Non-flat sides become explicit `{ x: ±length, y: 0 }`
+ * deltas with the standard sign convention: out points forward (+x), in
+ * points backward (-x).
+ *
+ * After flattening, both sides lie on a horizontal line through the anchor,
+ * so they are collinear by construction — we set `pairing` to Paired.
+ * If neither side was actually changed (everything was already flat), we
+ * return `null` so the caller can short-circuit (and we don't overwrite
+ * an intentional Free pairing on already-flat keys).
+ *
+ * A side with no neighbor (first or last keypoint) is skipped silently;
+ * its existing transition is preserved.
+ */
+export function buildFlattenedKeyTransitions(
+  context: SelectedKeyContext,
+): TransitionInfo | null {
+  const { point, sortedTrackPoints, pointIndex } = context;
+  if (typeof point.value !== "number") return null;
+
+  const anchor = { stamp: point.stamp, value: point.value };
+  const prev = pointIndex > 0 ? sortedTrackPoints[pointIndex - 1] : undefined;
+  const next =
+    pointIndex < sortedTrackPoints.length - 1 ? sortedTrackPoints[pointIndex + 1] : undefined;
+
+  const prevPt =
+    prev && typeof prev.value === "number"
+      ? { stamp: prev.stamp, value: prev.value }
+      : undefined;
+  const nextPt =
+    next && typeof next.value === "number"
+      ? { stamp: next.stamp, value: next.value }
+      : undefined;
+
+  const result: TransitionInfo = { ...(point.transitions ?? {}) };
+  let changed = false;
+
+  if (prevPt) {
+    const flat = flattenHandleDelta("in", point.transitions?.in, anchor, prevPt, nextPt);
+    if (flat) {
+      result.in = flat;
+      changed = true;
+    }
+  }
+  if (nextPt) {
+    const flat = flattenHandleDelta("out", point.transitions?.out, anchor, nextPt, prevPt);
+    if (flat) {
+      result.out = flat;
+      changed = true;
+    }
+  }
+
+  if (!changed) return null;
+  result.pairing = TransitionPairing.Paired;
+  return result;
+}
+
+function flattenHandleDelta(
+  side: "in" | "out",
+  transition: AuthoredTransition | undefined,
+  anchor: { stamp: number; value: number },
+  neighbor: { stamp: number; value: number },
+  otherNeighbor: { stamp: number; value: number } | undefined,
+): RawVector2 | null {
+  const delta = resolveHandleDeltaForAlignment(side, transition, anchor, neighbor, otherNeighbor);
+  if (!delta) return null;
+  if (Math.abs(delta.y) < FLATTEN_Y_EPSILON) return null;
+  const length = Math.hypot(delta.x, delta.y);
+  if (length === 0) return null;
+  return { x: side === "out" ? length : -length, y: 0 };
 }
 
 /**

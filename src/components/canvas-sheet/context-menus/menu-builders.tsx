@@ -111,6 +111,7 @@ export function buildKeyMenuItems(
 ): ReactNode {
   const state = getAnimationState(animationStore);
   const hasClipboard = state.clipboard !== null;
+  const hasSelection = state.selectionState.keypoints.size > 0;
 
   // Scope for "Select All in Track(s)": match the convention used by
   // Cut/Copy/Delete (selection-centric). When a multi-track selection
@@ -135,11 +136,13 @@ export function buildKeyMenuItems(
   const handleCut = () => getAnimationState(animationStore).cutSelection();
   const handlePaste = (worldStamp: number) => getAnimationState(animationStore).pasteAtStamp(worldStamp);
   const handleDelete = () => getAnimationState(animationStore).deleteSelection();
+  const handleFlattenHandles = () => getAnimationState(animationStore).flattenSelectedKeyHandles();
 
   return (
     <KeyContextMenu
       ctx={ctx}
       hasClipboard={hasClipboard}
+      hasSelection={hasSelection}
       onSelectAll={handleSelectAll}
       onSelectAllInTrack={handleSelectAllInTrack}
       selectAllInTrackLabel={selectAllInTrackLabel}
@@ -148,6 +151,7 @@ export function buildKeyMenuItems(
       onCopy={handleCopy}
       onPaste={handlePaste}
       onDelete={handleDelete}
+      onFlattenHandles={handleFlattenHandles}
     />
   );
 }
