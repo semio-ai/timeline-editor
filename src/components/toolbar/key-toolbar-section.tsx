@@ -464,10 +464,14 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
           <NestedSeparator />
           {/* Transition Type is nested behind a submenu since the easing list
               is long (10 options) and would dominate the dropdown otherwise.
-              The current value is shown in the trigger label and via the
-              icon so it stays visible without opening the submenu. */}
+              The trigger label stays short ("Transition Type") and the left
+              icon carries the current value — duplicating the value as text
+              made the trigger wrap awkwardly on long names ("Auto Clamped",
+              "Explicit Handles"). The flanking incoming/outgoing toolbar
+              buttons already show the per-side type with text, so the value
+              is still visible at a glance. */}
           <NestedMenu
-            label={getTransitionTypeMenuLabel(transitionTypeValue, hasSelection)}
+            label={hasSelection ? "Transition Type" : "Default Transition Type"}
             left={getTransitionTypeIcon(transitionTypeValue)}
           >
             <NestedRadio
@@ -632,15 +636,6 @@ function getTransitionTypeIcon(
   transition: typeof MIXED_VALUE | TransitionPreference,
 ): ReactNode {
   return TRANSITION_OPTIONS.find((o) => o.value === transition)?.icon;
-}
-
-function getTransitionTypeMenuLabel(
-  transition: typeof MIXED_VALUE | TransitionPreference,
-  hasSelection: boolean,
-): string {
-  const base = hasSelection ? "Transition Type" : "Default Transition Type";
-  if (transition === MIXED_VALUE) return `${base} (Mixed)`;
-  return `${base}: ${getTransitionSettingText(transition)}`;
 }
 
 function resolveHandleIndicatorTypeFromPairing(pairing?: TransitionPairing): HandleIndicatorType {
