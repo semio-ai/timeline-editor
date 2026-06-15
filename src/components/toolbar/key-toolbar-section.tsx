@@ -19,11 +19,12 @@ import {
   IconVertexPaired,
   NestedItem,
   NestedLabel,
+  NestedMenu,
   NestedRadio,
   NestedSeparator,
   Size,
 } from "@semio/ui";
-import { AlignHorizontalCenter } from "@solar-icons/react-perf/Linear";
+import { AlignHorizontalCenter, Bolt } from "@solar-icons/react-perf/Linear";
 import { useShallow } from "zustand/shallow";
 import { clsx } from "clsx";
 import {
@@ -461,22 +462,34 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
           />
 
           <NestedSeparator />
-          <NestedLabel>{hasSelection ? "Transition Type" : "Default Transition Type"}</NestedLabel>
-          <NestedRadio
-            value={transitionTypeValue}
-            onChange={handleTransitionTypeChange}
-            options={buildTransitionOptions(transitionTypeValue === MIXED_VALUE)}
-          />
-
-          <NestedSeparator />
-          <NestedLabel>Actions</NestedLabel>
-          <NestedItem
-            disabled={!hasSelection}
-            onClick={handleFlattenHandles}
-            left={<AlignHorizontalCenter size="18px" className={ICON_CLASS_NAME} />}
+          {/* Transition Type is nested behind a submenu since the easing list
+              is long (10 options) and would dominate the dropdown otherwise.
+              The current value is shown in the trigger label and via the
+              icon so it stays visible without opening the submenu. */}
+          <NestedMenu
+            label={getTransitionTypeMenuLabel(transitionTypeValue, hasSelection)}
+            left={getTransitionTypeIcon(transitionTypeValue)}
           >
-            Flatten Handles
-          </NestedItem>
+            <NestedRadio
+              value={transitionTypeValue}
+              onChange={handleTransitionTypeChange}
+              options={buildTransitionOptions(transitionTypeValue === MIXED_VALUE)}
+            />
+          </NestedMenu>
+          {/* Actions section. Disabled at the submenu level when nothing is
+              selected — everything inside operates on the current selection. */}
+          <NestedMenu
+            label="Actions"
+            left={<Bolt size="18px" className={ICON_CLASS_NAME} />}
+            disabled={!hasSelection}
+          >
+            <NestedItem
+              onClick={handleFlattenHandles}
+              left={<AlignHorizontalCenter size="18px" className={ICON_CLASS_NAME} />}
+            >
+              Flatten Handles
+            </NestedItem>
+          </NestedMenu>
         </Dropdown>
         <Dropdown
           side="top"
@@ -613,6 +626,21 @@ function getTransitionSettingText(transition: typeof MIXED_VALUE | TransitionPre
   // Get the label based on the Transition Options
   const option = TRANSITION_OPTIONS.find((o) => o.value === transition);
   return option?.label ?? "Mixed (Multiple)";
+}
+
+function getTransitionTypeIcon(
+  transition: typeof MIXED_VALUE | TransitionPreference,
+): ReactNode {
+  return TRANSITION_OPTIONS.find((o) => o.value === transition)?.icon;
+}
+
+function getTransitionTypeMenuLabel(
+  transition: typeof MIXED_VALUE | TransitionPreference,
+  hasSelection: boolean,
+): string {
+  const base = hasSelection ? "Transition Type" : "Default Transition Type";
+  if (transition === MIXED_VALUE) return `${base} (Mixed)`;
+  return `${base}: ${getTransitionSettingText(transition)}`;
 }
 
 function resolveHandleIndicatorTypeFromPairing(pairing?: TransitionPairing): HandleIndicatorType {
