@@ -56,6 +56,15 @@ const ROW_HEIGHT = 36;
 const ROW_HALF = ROW_HEIGHT / 2;
 
 /**
+ * Shared canvas attribute-resize debounce (ms). All three canvases must use the
+ * same value so their backbuffers lag in lockstep during a horizontal resize —
+ * a mismatch produces a misaligned playhead/tick column for the debounce window
+ * (see the rationale at the TracksCanvas usage). Defined once here so the three
+ * canvases can't drift apart. Kept tight because resize events are sparse.
+ */
+const RESIZE_DEBOUNCE = { debounce: 100 } as const;
+
+/**
  * Fires `onReady` once on the first `useFrame` where the canvas has a real
  * measured width. Sticky — never fires again. AnimationSheet uses this to
  * coordinate the sheet-wide reveal opacity: the sheet stays hidden until
@@ -109,15 +118,11 @@ export const TimelineCanvas = memo(function TimelineCanvas({
         style={{ width: "100%", height: "100%" }}
         flat
         orthographic
-        // Match TracksCanvas debounce so all three canvases lag their
-        // backbuffers in lockstep during horizontal resize. Without this,
-        // the timeline would update its tick positions immediately while
-        // the (debounced) main canvas's content sits horizontally stretched
-        // by the browser, producing a misaligned playhead/tick column
-        // across the canvases for the duration of the debounce window.
-        // Wrapper's `[&_canvas]:!w-full` then CSS-stretches this canvas's
-        // existing framebuffer to the new container width in sync with main.
-        resize={{ debounce: 100 }}
+        // Shared RESIZE_DEBOUNCE keeps this canvas in lockstep with the main
+        // tracks canvas during horizontal resize; the wrapper's
+        // `[&_canvas]:!w-full` CSS-stretches this canvas's existing framebuffer
+        // to the new container width in sync with main during the window.
+        resize={RESIZE_DEBOUNCE}
         camera={{
           name: "TimelineCamera",
           position: [0, 0, 100],
@@ -207,9 +212,11 @@ export const TracksCanvas = memo(function TracksCanvas({
         // browser CSS-stretches the existing framebuffer to the new container
         // size, and AnimationSheet applies a blur to the wrapper so the
         // stretch reads as an intermediate preview state. The crisp resize
-        // lands once the user stops moving. Kept tight (100ms) because the
-        // events themselves are sparse — too high feels laggy on stop.
-        resize={{ debounce: 100 }}
+        // lands once the user stops moving. Kept tight because the events
+        // themselves are sparse — too high feels laggy on stop. This is the
+        // canonical value; the top/bottom canvases share RESIZE_DEBOUNCE so
+        // all three backbuffers lag in lockstep.
+        resize={RESIZE_DEBOUNCE}
         camera={{
           name: "MainCamera",
           position: [0, 0, 100],
@@ -310,12 +317,11 @@ export const MinimapCanvas = memo(function MinimapCanvas({
         style={{ width: "100%", height: "100%" }}
         flat
         orthographic
-        // Match TracksCanvas debounce so the minimap stays horizontally
-        // aligned with the timeline and main canvas during resize (see the
-        // matching comment on TimelineCanvas). Wrapper's
+        // Shared RESIZE_DEBOUNCE keeps the minimap horizontally aligned with
+        // the timeline and main canvas during resize; the wrapper's
         // `[&_canvas]:!w-full` browser-stretches the existing framebuffer
         // until the debounce settles.
-        resize={{ debounce: 100 }}
+        resize={RESIZE_DEBOUNCE}
         camera={{
           name: "MinimapCamera",
           position: [0, 0, 100],
