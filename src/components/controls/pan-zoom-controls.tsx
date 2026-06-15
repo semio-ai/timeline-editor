@@ -18,6 +18,28 @@ import {
 } from "../../viewport-state";
 import { TrackRender } from "../../types";
 
+/**
+ * Detect whether a wheel event originated from a discrete mouse wheel
+ * (one detent ≈ 100–120px per event) versus a trackpad (fractional,
+ * pixel-precise deltas of ~1–10px). Mouse wheels feel aggressive when
+ * mapped 1:1 to viewport units, so callers can dampen them with
+ * `panSpeed`; trackpads should map 1:1 to stay smooth.
+ *
+ * Heuristic:
+ *   - `deltaMode !== 0` (Firefox line/page mode): always a wheel.
+ *   - `deltaMode === 0` with `|delta| >= 50` and integer-valued:
+ *     a Chrome/Edge/Safari wheel detent. Trackpads on the same browsers
+ *     emit sub-10px fractional deltas during smooth scrolling, so the
+ *     integer-and-large guard excludes them reliably.
+ *
+ * Pass whichever axis the gesture actually carried (deltaX for shift+wheel
+ * on Chromium browsers, deltaY otherwise) — the classification is per-axis.
+ */
+function isLikelyMouseWheel(event: WheelEvent, delta: number): boolean {
+  if (event.deltaMode !== 0) return true;
+  return Math.abs(delta) >= 50 && Number.isInteger(delta);
+}
+
 export interface PanZoomControlsProps {
   enabled?: boolean;
   enablePan?: boolean;
@@ -337,7 +359,10 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       if (initialCameraWidth.current <= 0 || currentDataWidth <= 0) return requestedFactor;
       const minDataWidth = initialCameraWidth.current / settingsRef.current.maxZoom;
       const maxDataWidth = initialCameraWidth.current / settingsRef.current.minZoom;
-      const newDataWidth = Math.max(minDataWidth, Math.min(maxDataWidth, currentDataWidth / requestedFactor));
+      const newDataWidth = Math.max(
+        minDataWidth,
+        Math.min(maxDataWidth, currentDataWidth / requestedFactor),
+      );
       return currentDataWidth / newDataWidth;
     };
 
@@ -379,9 +404,15 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
           const hasCtrl = ctrlKey || metaKey;
 
           // --- Scroll: No modifier, vertical dominant ---
-          // Vertical scroll/pan dispatched by mode in viewport-state.
+          // Vertical scroll/pan dispatched by mode in viewport-state. Mouse
+          // wheels emit ~100–120px per detent vs trackpads' fractional sub-10px
+          // events; mapping wheel detents 1:1 to camera-Y feels aggressive in
+          // spline mode, so dampen them with `panSpeed`. Trackpads stay 1:1.
           if (!hasCtrl && !shiftKey && isVerticalDominant) {
-            applyVerticalScroll({ deltaY, clientY: event.clientY });
+            const wheelScale = isLikelyMouseWheel(event as WheelEvent, deltaY)
+              ? settingsRef.current.panSpeed
+              : 1;
+            applyVerticalScroll({ deltaY: deltaY * wheelScale, clientY: event.clientY });
             event.preventDefault();
             onChange?.();
             onEnd?.();
@@ -389,9 +420,14 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
           }
 
           // --- Scroll + Shift: Horizontal pan ---
-          if (!hasCtrl && shiftKey && isVerticalDominant) {
+          // Browsers disagree on which axis carries Shift+wheel: Firefox keeps
+          // the wheel's deltaY, Chrome/Edge/Safari swap it into deltaX as their
+          // built-in "horizontal-scroll from a vertical wheel" convention. Pan
+          // on whichever axis the browser delivered so both cases work; a
+          // trackpad Shift+horizontal-swipe also lands here harmlessly.
+          if (!hasCtrl && shiftKey && (isVerticalDominant || isHorizontalDominant)) {
             if (settingsRef.current.enablePan) {
-              panCamera(deltaY);
+              panCamera(absDeltaX > absDeltaY ? deltaX : deltaY);
             }
             event.preventDefault();
             onChange?.();
