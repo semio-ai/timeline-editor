@@ -1,7 +1,7 @@
 import type { AnimationData, TransitionPatch } from "../store-types";
 import { StandardTransitionType, TransitionPairing } from "../types";
-import type { SimpleKeypoint } from "../types/data/simple-track";
 import {
+  buildSelectedKeyContexts,
   resolveDefaultPairingForTransitions,
   resolveNextSelectionTransitions,
   type SelectedKeyContext,
@@ -69,39 +69,12 @@ export function updateSelectedKeyTransitions(state: AnimationData, patch: Transi
   });
 }
 
+/**
+ * Store-action adapter around {@link buildSelectedKeyContexts}: pulls the
+ * relevant slices off `AnimationData`. Kept for symmetry with other action
+ * helpers; React-side callers can use `buildSelectedKeyContexts` directly
+ * with their `useShallow`-narrowed inputs to avoid threading the full state.
+ */
 export function resolveSelectedKeyContexts(state: AnimationData): SelectedKeyContext[] {
-  const keyContexts: SelectedKeyContext[] = [];
-  const sortedByTrackId = new Map<
-    string,
-    { points: SimpleKeypoint[]; indexById: Map<string, number> }
-  >();
-
-  state.selectionState.keypoints.forEach((selectedKeyIds, trackId) => {
-    if (selectedKeyIds.size === 0) return;
-    const track = state.tracks[trackId];
-    if (!track) return;
-
-    let sortedEntry = sortedByTrackId.get(trackId);
-    if (!sortedEntry) {
-      const points = track.points.slice().sort((a, b) => a.stamp - b.stamp);
-      const indexById = new Map(points.map((point, index) => [point.id, index]));
-      sortedEntry = { points, indexById };
-      sortedByTrackId.set(trackId, sortedEntry);
-    }
-
-    selectedKeyIds.forEach((keypointId) => {
-      const point = track.points.find((entry) => entry.id === keypointId);
-      if (!point) return;
-      const pointIndex = sortedEntry.indexById.get(keypointId);
-      if (pointIndex === undefined) return;
-      keyContexts.push({
-        trackId,
-        point,
-        sortedTrackPoints: sortedEntry.points,
-        pointIndex,
-      });
-    });
-  });
-
-  return keyContexts;
+  return buildSelectedKeyContexts(state.selectionState.keypoints, state.tracks);
 }

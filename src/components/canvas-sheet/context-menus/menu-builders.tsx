@@ -119,6 +119,12 @@ export function buildKeyMenuItems(
   // fall back to the right-clicked marker's tracks. This makes the
   // operation match user intent when working with a cross-track selection
   // ("expand the current scope") instead of silently collapsing it.
+  //
+  // The `ids.size > 0` filter exists because the selection map can carry
+  // track-key entries with empty Sets — that's the post-state of a
+  // partial-clear (e.g. deselecting the last key in a track without
+  // pruning the entry). Counting those as "represented" would widen the
+  // scope to ghost tracks.
   const selectionTrackKeys = [...state.selectionState.keypoints.entries()]
     .filter(([, ids]) => ids.size > 0)
     .map(([trackKey]) => trackKey);

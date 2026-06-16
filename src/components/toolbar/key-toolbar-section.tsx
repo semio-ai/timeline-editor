@@ -28,6 +28,8 @@ import { AlignHorizontalCenter, Bolt } from "@solar-icons/react-perf/Linear";
 import { useShallow } from "zustand/shallow";
 import { clsx } from "clsx";
 import {
+  buildSelectedKeyContexts,
+  contextHasNeighbor,
   normalizeTransitionForUi,
   resolvePairingForContext,
   type SelectedKeyContext,
@@ -39,7 +41,6 @@ import {
   type TransitionPreference,
 } from "../../store-types";
 import { StandardTransitionType, TransitionPairing } from "../../types";
-import type { SimpleKeypoint } from "../../types/data/simple-track";
 import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
 
 const MIXED_VALUE = "__mixed__";
@@ -149,51 +150,21 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
     })),
   );
 
-  const { selectedTracks, selectedKeyContexts } = useMemo(() => {
-    const trackIds: string[] = [];
-    const keyContexts: SelectedKeyContext[] = [];
-    const sortedByTrackId = new Map<
-      string,
-      { points: SimpleKeypoint[]; indexById: Map<string, number> }
-    >();
-
-    keypointSelectionMap.forEach((selectedKeyIds, trackId) => {
-      if (selectedKeyIds.size === 0) return;
-      const track = trackMap[trackId];
-      if (!track) return;
-      trackIds.push(trackId);
-
-      let sortedEntry = sortedByTrackId.get(trackId);
-      if (!sortedEntry) {
-        const points = track.points.slice().sort((a, b) => a.stamp - b.stamp);
-        const indexById = new Map(points.map((point, index) => [point.id, index]));
-        sortedEntry = { points, indexById };
-        sortedByTrackId.set(trackId, sortedEntry);
-      }
-
-      selectedKeyIds.forEach((keypointId) => {
-        const point = track.points.find((entry) => entry.id === keypointId);
-        if (!point) return;
-        const pointIndex = sortedEntry.indexById.get(keypointId);
-        if (pointIndex === undefined) return;
-        keyContexts.push({
-          trackId,
-          point,
-          sortedTrackPoints: sortedEntry.points,
-          pointIndex,
-        });
-      });
-    });
-
-    return { selectedTracks: trackIds, selectedKeyContexts: keyContexts };
-  }, [keypointSelectionMap, trackMap]);
+  const selectedKeyContexts = useMemo(
+    () => buildSelectedKeyContexts(keypointSelectionMap, trackMap),
+    [keypointSelectionMap, trackMap],
+  );
+  const selectedTracks = useMemo(
+    () => [...new Set(selectedKeyContexts.map((c) => c.trackId))],
+    [selectedKeyContexts],
+  );
 
   const hasSelection = selectedKeyContexts.length > 0;
   const trackColor = useColors(selectedTracks);
 
   const defaultTransitions = preferences.newKeyDefaults?.transitions ?? DEFAULT_NEW_KEY_TRANSITIONS;
-  const defaultIncoming = normalizeTransitionPreferenceForUi(defaultTransitions.in);
-  const defaultOutgoing = normalizeTransitionPreferenceForUi(defaultTransitions.out);
+  const defaultIncoming = defaultTransitions.in;
+  const defaultOutgoing = defaultTransitions.out;
   const defaultPairing = defaultTransitions.pairing ?? TransitionPairing.Paired;
 
   const selectedIncoming = useMemo(
@@ -690,18 +661,6 @@ function resolveHandleIndicatorClass(
 ): string | undefined {
   const fillOpacity = resolveHandleIndicatorFillOpacity(transition, hasHandle);
   return handle === "indeterminate" && fillOpacity < 1 ? "opacity-20" : undefined;
-}
-
-function contextHasNeighbor(context: SelectedKeyContext, side: "in" | "out"): boolean {
-  return side === "in"
-    ? context.pointIndex > 0
-    : context.pointIndex < context.sortedTrackPoints.length - 1;
-}
-
-function normalizeTransitionPreferenceForUi(
-  preference: TransitionPreference,
-): TransitionPreference {
-  return preference;
 }
 
 function resolveUniformValue<T extends string>(values: T[]): T | undefined {

@@ -1,9 +1,11 @@
 import type { RawVector2 } from "@semio/utils";
 import {
   TransitionDirective,
+  type AnimationData,
   type TransitionPatch,
   type TransitionPreference,
 } from "../store-types";
+import type { SelectionState } from "../types/util/selection-state";
 import {
   StandardTransitionType,
   TransitionPairing,
@@ -116,10 +118,67 @@ function contextHasPairableNeighbors(context: SelectedKeyContext): boolean {
   return context.pointIndex > 0 && context.pointIndex < context.sortedTrackPoints.length - 1;
 }
 
-function contextHasNeighbor(context: SelectedKeyContext, side: "in" | "out"): boolean {
+/**
+ * Whether the given context has an existing neighbor on the requested side.
+ * Used to gate per-side transition operations on first/last keypoints — they
+ * have no incoming/outgoing segment to author against.
+ */
+export function contextHasNeighbor(context: SelectedKeyContext, side: "in" | "out"): boolean {
   return side === "in"
     ? context.pointIndex > 0
     : context.pointIndex < context.sortedTrackPoints.length - 1;
+}
+
+/**
+ * Build a `SelectedKeyContext` for every selected keypoint, scoped to a single
+ * pass over the selection map. Each context carries the keypoint, its track's
+ * sorted points, and its position within them — enough for any per-key
+ * transition operation to look up neighbors without a fresh sort per call.
+ *
+ * Shared between the store action layer (`resolveSelectedKeyContexts`, which
+ * adapts the store's `AnimationData` shape) and React consumers like the key
+ * toolbar (which already destructure the relevant slices via useShallow and
+ * pass them in directly). Sorting is per-track and cached in `sortedByTrackId`
+ * so a multi-key-per-track selection only sorts once.
+ */
+export function buildSelectedKeyContexts(
+  keypoints: SelectionState["keypoints"],
+  tracks: AnimationData["tracks"],
+): SelectedKeyContext[] {
+  const keyContexts: SelectedKeyContext[] = [];
+  const sortedByTrackId = new Map<
+    string,
+    { points: SimpleKeypoint[]; indexById: Map<string, number> }
+  >();
+
+  keypoints.forEach((selectedKeyIds, trackId) => {
+    if (selectedKeyIds.size === 0) return;
+    const track = tracks[trackId];
+    if (!track) return;
+
+    let sortedEntry = sortedByTrackId.get(trackId);
+    if (!sortedEntry) {
+      const points = track.points.slice().sort((a, b) => a.stamp - b.stamp);
+      const indexById = new Map(points.map((point, index) => [point.id, index]));
+      sortedEntry = { points, indexById };
+      sortedByTrackId.set(trackId, sortedEntry);
+    }
+
+    selectedKeyIds.forEach((keypointId) => {
+      const point = track.points.find((entry) => entry.id === keypointId);
+      if (!point) return;
+      const pointIndex = sortedEntry.indexById.get(keypointId);
+      if (pointIndex === undefined) return;
+      keyContexts.push({
+        trackId,
+        point,
+        sortedTrackPoints: sortedEntry.points,
+        pointIndex,
+      });
+    });
+  });
+
+  return keyContexts;
 }
 
 function resolveSelectionTransitionValue(params: {

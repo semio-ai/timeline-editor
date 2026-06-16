@@ -32,6 +32,13 @@ import { TrackRender } from "../../types";
  *     emit sub-10px fractional deltas during smooth scrolling, so the
  *     integer-and-large guard excludes them reliably.
  *
+ * Known limitation: Linux HiDPI mice with sub-pixel scroll can emit
+ * fractional `deltaY` on Chromium. Those slip through as "trackpad" and
+ * skip dampening — they'll feel aggressive on this platform. We keep
+ * the integer check anyway because the opposite mistake (treating
+ * trackpad inertial fast-scroll as a wheel) is more disruptive: long
+ * trackpad pans would feel sluggish.
+ *
  * Pass whichever axis the gesture actually carried (deltaX for shift+wheel
  * on Chromium browsers, deltaY otherwise) — the classification is per-axis.
  */
