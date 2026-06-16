@@ -72,7 +72,18 @@ export function viewportFollow(
       if (oldDuration <= 0 || newDuration <= 0) return;
       const v = viewportMotion.get();
       if (Math.abs(v[1] - oldDuration) < 1) {
-        viewportMotion.set([v[0], newDuration]);
+        // Preserve the viewport's current WIDTH while pinning its right
+        // edge to the new duration. The naive "[v[0], newDuration]" write
+        // inverts the viewport when the user had panned its left edge past
+        // the new duration (e.g. panned to [6000, 8000] in an 8000ms
+        // animation, then duration shrinks to 5000 → viewport becomes
+        // [6000, 5000], left > right). That sign-flip then propagates
+        // into every drag through `useDragGestures`, making the cart
+        // track in the opposite direction of the cursor.
+        const width = v[1] - v[0];
+        const effectiveWidth = Math.min(width, newDuration);
+        const newLeft = Math.max(0, newDuration - effectiveWidth);
+        viewportMotion.set([newLeft, newDuration]);
       }
     },
   );
