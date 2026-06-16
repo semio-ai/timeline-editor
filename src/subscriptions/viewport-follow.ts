@@ -72,17 +72,21 @@ export function viewportFollow(
       if (oldDuration <= 0 || newDuration <= 0) return;
       const v = viewportMotion.get();
       if (Math.abs(v[1] - oldDuration) < 1) {
-        // Preserve the viewport's current WIDTH while pinning its right
-        // edge to the new duration. The naive "[v[0], newDuration]" write
-        // inverts the viewport when the user had panned its left edge past
-        // the new duration (e.g. panned to [6000, 8000] in an 8000ms
-        // animation, then duration shrinks to 5000 → viewport becomes
-        // [6000, 5000], left > right). That sign-flip then propagates
-        // into every drag through `useDragGestures`, making the cart
-        // track in the opposite direction of the cursor.
-        const width = v[1] - v[0];
-        const effectiveWidth = Math.min(width, newDuration);
-        const newLeft = Math.max(0, newDuration - effectiveWidth);
+        // Pin the right edge to the new duration. Normally the left edge
+        // is preserved (grow case extends the viewport rightward) — but
+        // if the user had panned the left edge past the new duration
+        // (e.g. panned to [6000, 8000] in an 8000ms animation, then
+        // duration shrinks to 5000), preserving left gives [6000, 5000],
+        // an INVERTED viewport (left > right). That sign-flip propagates
+        // through `getDataViewportFromFrustum` into every drag in
+        // `useDragGestures`, making the cart track in the opposite
+        // direction of the cursor. In that case shift the left edge back
+        // so width is preserved when possible.
+        let newLeft = v[0];
+        if (newLeft > newDuration) {
+          const width = v[1] - v[0];
+          newLeft = Math.max(0, newDuration - width);
+        }
         viewportMotion.set([newLeft, newDuration]);
       }
     },
