@@ -448,23 +448,21 @@ export const PlayheadCart = memo(function PlayheadCart({
             <mesh
               ref={cartDragMeshRef as any}
               position={[0, cartCenterY, 0.25]}
-              // Bail when the cart isn't the active mode — see `isCartActiveRef`.
+              // `isCartActiveRef` gates only NEW drags from starting in
+              // arrow mode. An in-flight drag must always be allowed to
+              // complete via Move/Up/Cancel — even if the drag itself
+              // pushed the stamp past the viewport and flipped the mode
+              // to arrow mid-drag — otherwise useGesture's internal
+              // state stays "dragging" forever. The next hover that
+              // returns to cart mode would then re-fire onDrag with the
+              // pointer's current position, jumping the playhead.
               onPointerDown={(event) => {
                 if (!isCartActiveRef.current) return;
                 dragHandlers.onPointerDown(event);
               }}
-              onPointerMove={(event) => {
-                if (!isCartActiveRef.current) return;
-                dragHandlers.onPointerMove(event);
-              }}
-              onPointerUp={(event) => {
-                if (!isCartActiveRef.current) return;
-                dragHandlers.onPointerUp(event);
-              }}
-              onPointerCancel={(event) => {
-                if (!isCartActiveRef.current) return;
-                dragHandlers.onPointerCancel?.(event);
-              }}
+              onPointerMove={dragHandlers.onPointerMove}
+              onPointerUp={dragHandlers.onPointerUp}
+              onPointerCancel={dragHandlers.onPointerCancel}
               onClick={(event) => event.stopPropagation()}
               onDoubleClick={(event) => {
                 if (!isCartActiveRef.current) return;
