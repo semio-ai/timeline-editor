@@ -536,6 +536,13 @@ function InnerSheet({
             <LocalGlobalTransformContextProvider>
               <div
                 className="animation-sheet-container w-full"
+                data-testid="animation-sheet"
+                // Queryable readiness signal: present once fonts + both
+                // canvases have reported ready (mirrors the opacity/pointer
+                // reveal below). Browser tests wait on this so interaction
+                // doesn't begin while the sheet's WebGL canvases are still
+                // initializing and janking the main thread.
+                data-sheet-ready={sheetReady ? "" : undefined}
                 style={{
                   opacity: sheetReady ? 1 : 0,
                   // Block pointer interactions while the sheet is invisible
