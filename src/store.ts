@@ -45,6 +45,7 @@ import {
   insertKeypointAtWorldStamp as insertKeyAtWorldStampAction,
   updateNewKeyTransitionDefaults as updateNewKeyTransitionDefaultsAction,
   updateSelectedKeyTransitions as updateSelectedKeyTransitionsAction,
+  flattenSelectedKeyHandles as flattenSelectedKeyHandlesAction,
   copySelection as copySelectionAction,
   cutSelection as cutSelectionAction,
   pasteAtStamp as pasteAtStampAction,
@@ -116,6 +117,7 @@ import {
   updateSourceRowIds,
   initDerivedOrchestrator,
   updateActiveEntityContext,
+  viewportFollow,
 } from "./subscriptions";
 import { View } from "./types/util/view";
 import { clickLineAction } from "./actions/click-line";
@@ -333,6 +335,20 @@ export const AnimationSlice = (
         }),
       );
     },
+    flattenSelectedKeyHandles: () => {
+      // Same coarse short-circuit as updateSelectedKeyTransitions — skip
+      // the produce when every selected track is non-editable. Per-context
+      // readonly filtering happens inside the action.
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const selected = get().selectionState.keypoints;
+      const anyEditable = Array.from(selected.keys()).some((id) => !nonEditableIds.has(id));
+      if (!anyEditable) return;
+      set(
+        produce((state: AnimationData): void => {
+          flattenSelectedKeyHandlesAction(state);
+        }),
+      );
+    },
     removeAnimation: (animationId: string, removeTracks = true) => {
       set(
         produce((state: AnimationData): void => {
@@ -517,6 +533,7 @@ export const AnimationSlice = (
       // Delay subscription initialization to prevent cascading updates during store creation
       const unsubs = [
         updatePlayerLoop,
+        viewportFollow,
         updateOverallDuration,
         initDerivedOrchestrator,
         updateInstancedTrackSources,
@@ -600,13 +617,7 @@ export const AnimationSlice = (
       updateBoxSelectAction(set, get, currentStamp, currentY),
     cancelBoxSelect: () => cancelBoxSelectAction(set, get),
     commitBoxSelect: () => commitBoxSelectAction(set),
-    setScrollOffset: (offset: number) => {
-      set({ scrollOffset: offset });
-    },
     setBoxSelectPending: (pending: boolean) => setBoxSelectPendingAction(set, pending),
-    requestVerticalFit: () => {
-      set((state: AnimationData) => ({ verticalFitCounter: state.verticalFitCounter + 1 }));
-    },
     addPreview: (preview: Preview) => addPreviewAction(set, preview),
     removePreview: (evaluator: (preview: Preview) => boolean) =>
       removePreviewAction(set, evaluator),

@@ -87,8 +87,13 @@ export function useControlMenu({
   color,
 }: UseControlMenuParams): UseControlMenuResult {
   // ── Player + store reads ──────────────────────────────────────────────
+  // Subscribe to `running` only — it changes infrequently. The current
+  // stamp is read inside the event-handler closures via `getState()` to
+  // avoid re-rendering every consumer (TrackControl, etc.) at the player
+  // tick rate during playback. Without this, every animated track row
+  // would re-render 40Hz, cascading into all the radix menu plumbing
+  // wrapped around it.
   const playing = usePlayerStore(useShallow((state) => state.player.running));
-  const playerStamp = usePlayerStore(useShallow((state) => state.player.stamp));
 
   const { selectedKeypoints, hasClipboard } = useAnimationStore(
     useShallow((state: AnimationData) => ({
@@ -193,11 +198,12 @@ export function useControlMenu({
   // ── Keyframe callbacks ───────────────────────────────────────────────
   const handleAddKeyframe = useCallback(() => {
     if (playing || allReadonly) return;
+    const stamp = usePlayerStore.getState().player.stamp;
     const targets = keyState === "partial" ? missingEntries : sourceRow.data;
     targets.forEach((datum) => {
-      insertKeypointAtWorldStamp(datum.trackId, playerStamp, datum.instanceId);
+      insertKeypointAtWorldStamp(datum.trackId, stamp, datum.instanceId);
     });
-  }, [playing, allReadonly, keyState, missingEntries, sourceRow.data, insertKeypointAtWorldStamp, playerStamp]);
+  }, [playing, allReadonly, keyState, missingEntries, sourceRow.data, insertKeypointAtWorldStamp]);
 
   const handleRemoveKeyframe = useCallback(() => {
     if (playing || allReadonly || !currentFrame) return;
@@ -206,8 +212,8 @@ export function useControlMenu({
   }, [playing, allReadonly, currentFrame, targetPoints, removeKeypoints]);
 
   const handlePaste = useCallback(() => {
-    pasteAtStamp(playerStamp);
-  }, [pasteAtStamp, playerStamp]);
+    pasteAtStamp(usePlayerStore.getState().player.stamp);
+  }, [pasteAtStamp]);
 
   // Raw trackIds for the "Select All in Track" action — the store's `tracks`
   // record is keyed by `trackId`, not the composite `namespace/instance/trackId`.

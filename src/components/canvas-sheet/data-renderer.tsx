@@ -15,6 +15,7 @@ import { MotionValue } from "motion";
 import { animate, useMotionValue, useMotionValueEvent, useSpring } from "motion/react";
 import { Instances } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
+import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { uniq } from "lodash";
 import { isOrthographicCamera } from "@semio/utils";
@@ -156,10 +157,12 @@ export interface DataRendererProps {
   yOffset?: number;
   baseZ?: number;
   theme?: Theme.Light | Theme.Dark;
-  scrollOffset?: MotionValue<number>;
   measureFromBottom?: boolean;
   showBackground?: boolean;
   trackRender?: TrackRender;
+  /** Forwarded to TrackSwitchOverlay so box-select can begin within
+   * non-active rows without requiring a switch-active click first. */
+  onBoxSelectStart?: (event: ThreeEvent<PointerEvent>) => void;
 }
 
 // WARNING: This component passes frameData as props to child components
@@ -174,10 +177,10 @@ export const DataRenderer = memo(function DataRenderer({
   yOffset = 0,
   baseZ = 0,
   theme = Theme.Light,
-  scrollOffset = new MotionValue(0),
   measureFromBottom = false,
   showBackground = true,
   trackRender = TrackRender.Key,
+  onBoxSelectStart,
 }: DataRendererProps) {
   type StoreState = AnimationData & AnimationActions;
   const sourceRow = useAnimationStore(
@@ -524,6 +527,7 @@ export const DataRenderer = memo(function DataRenderer({
         <TrackSwitchOverlay
           height={height}
           onClick={handleTrackSwitch}
+          onBoxSelectStart={onBoxSelectStart}
         />
       )}
       {/* Data content — hidden when track is not visible (backdrop remains) */}
@@ -593,7 +597,6 @@ export const DataRenderer = memo(function DataRenderer({
               violationSet={computedData.violationSet}
               theme={theme}
               height={height - 1}
-              yOffset={scrollOffset}
               measureFromBottom={measureFromBottom}
               layer={transitionLayer}
               xTransform={xTransform}
@@ -630,13 +633,21 @@ export const DataRenderer = memo(function DataRenderer({
 });
 
 /** Invisible overlay that intercepts clicks to switch the active animation instance.
- *  Uses useFrame to cover the full camera frustum regardless of viewport position. */
+ *  Uses useFrame to cover the full camera frustum regardless of viewport position.
+ *
+ *  pointerdown forwards to the box-select gesture (if provided) before stopping
+ *  propagation. This lets a drag begin within a non-active row even though the
+ *  overlay still blocks the data points beneath it from reacting. A click
+ *  without drag below the gesture's activation threshold falls through to the
+ *  `onClick` handler, which switches the active instance. */
 const TrackSwitchOverlay = memo(function TrackSwitchOverlay({
   height,
   onClick,
+  onBoxSelectStart,
 }: {
   height: number;
   onClick: (event?: { stopPropagation?: () => void }) => void;
+  onBoxSelectStart?: (event: ThreeEvent<PointerEvent>) => void;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
 
@@ -652,7 +663,10 @@ const TrackSwitchOverlay = memo(function TrackSwitchOverlay({
     <mesh
       ref={meshRef}
       position={[0, 0, Z.TrackSwitchingBoundary]}
-      onPointerDown={(event) => event.stopPropagation()}
+      onPointerDown={(event) => {
+        onBoxSelectStart?.(event);
+        event.stopPropagation();
+      }}
       onClick={onClick}
       renderOrder={1000}
     >

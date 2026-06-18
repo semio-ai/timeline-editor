@@ -1,10 +1,17 @@
 import type { RawVector2 } from "@semio/utils";
 import {
   TransitionDirective,
+  type AnimationData,
   type TransitionPatch,
   type TransitionPreference,
 } from "../store-types";
-import { StandardTransitionType, TransitionPairing, type AuthoredTransition } from "../types";
+import type { SelectionState } from "../types/util/selection-state";
+import {
+  StandardTransitionType,
+  TransitionPairing,
+  type AuthoredTransition,
+  type TransitionInfo,
+} from "../types";
 import type { SimpleKeypoint } from "../types/data/simple-track";
 import { resolveTransitionDelta } from "./get-world-control-points";
 import { inferAutoHandleDeltas } from "./infer-auto-handles";
@@ -111,10 +118,69 @@ function contextHasPairableNeighbors(context: SelectedKeyContext): boolean {
   return context.pointIndex > 0 && context.pointIndex < context.sortedTrackPoints.length - 1;
 }
 
-function contextHasNeighbor(context: SelectedKeyContext, side: "in" | "out"): boolean {
+/**
+ * Whether the given context has an existing neighbor on the requested side.
+ * Used to gate per-side transition operations on first/last keypoints — they
+ * have no incoming/outgoing segment to author against.
+ */
+export function contextHasNeighbor(context: SelectedKeyContext, side: "in" | "out"): boolean {
   return side === "in"
     ? context.pointIndex > 0
     : context.pointIndex < context.sortedTrackPoints.length - 1;
+}
+
+/**
+ * Build a `SelectedKeyContext` for every selected keypoint, scoped to a single
+ * pass over the selection map. Each context carries the keypoint, its track's
+ * sorted points, and its position within them — enough for any per-key
+ * transition operation to look up neighbors without a fresh sort per call.
+ *
+ * Shared between the store action layer (`resolveSelectedKeyContexts`, which
+ * adapts the store's `AnimationData` shape) and React consumers like the key
+ * toolbar (which already destructure the relevant slices via useShallow and
+ * pass them in directly). Sorting is per-track and cached in `sortedByTrackId`
+ * so a multi-key-per-track selection only sorts once.
+ */
+export function buildSelectedKeyContexts(
+  keypoints: SelectionState["keypoints"],
+  tracks: AnimationData["tracks"],
+): SelectedKeyContext[] {
+  const keyContexts: SelectedKeyContext[] = [];
+  const sortedByTrackId = new Map<
+    string,
+    { points: SimpleKeypoint[]; indexById: Map<string, number> }
+  >();
+
+  keypoints.forEach((selectedKeyIds, trackId) => {
+    if (selectedKeyIds.size === 0) return;
+    const track = tracks[trackId];
+    if (!track) return;
+
+    let sortedEntry = sortedByTrackId.get(trackId);
+    if (!sortedEntry) {
+      const points = track.points.slice().sort((a, b) => a.stamp - b.stamp);
+      const indexById = new Map(points.map((point, index) => [point.id, index]));
+      sortedEntry = { points, indexById };
+      sortedByTrackId.set(trackId, sortedEntry);
+    }
+
+    selectedKeyIds.forEach((keypointId) => {
+      // Look the point up via `indexById` into the already-sorted slice rather
+      // than an O(n) `track.points.find` per selected key — same point object,
+      // constant-time fetch.
+      const pointIndex = sortedEntry.indexById.get(keypointId);
+      if (pointIndex === undefined) return;
+      const point = sortedEntry.points[pointIndex];
+      keyContexts.push({
+        trackId,
+        point,
+        sortedTrackPoints: sortedEntry.points,
+        pointIndex,
+      });
+    });
+  });
+
+  return keyContexts;
 }
 
 function resolveSelectionTransitionValue(params: {
@@ -380,6 +446,85 @@ function resolveHandleDeltaForAlignment(
     return resolveTransitionDelta("in", neighbor.stamp, anchor.stamp, neighbor.value, anchor.value, easing);
   }
   return resolveTransitionDelta("out", anchor.stamp, neighbor.stamp, anchor.value, neighbor.value, easing);
+}
+
+/** Considered "flat" when the resolved value-delta is within this tolerance. */
+const FLATTEN_Y_EPSILON = 1e-9;
+
+/**
+ * Build the flattened (zero-derivative) version of a keypoint's transitions,
+ * preserving each handle's Euclidean length. Sides that already resolve to
+ * a flat delta (any standard easing except Back/Linear; an explicit handle
+ * with y≈0; an auto-clamped handle whose resolved delta is already flat)
+ * are left untouched. Non-flat sides become explicit `{ x: ±length, y: 0 }`
+ * deltas with the standard sign convention: out points forward (+x), in
+ * points backward (-x).
+ *
+ * After flattening, both sides lie on a horizontal line through the anchor,
+ * so they are collinear by construction — we set `pairing` to Paired.
+ * If neither side was actually changed (everything was already flat), we
+ * return `null` so the caller can short-circuit (and we don't overwrite
+ * an intentional Free pairing on already-flat keys).
+ *
+ * A side with no neighbor (first or last keypoint) is skipped silently;
+ * its existing transition is preserved.
+ */
+export function buildFlattenedKeyTransitions(
+  context: SelectedKeyContext,
+): TransitionInfo | null {
+  const { point, sortedTrackPoints, pointIndex } = context;
+  if (typeof point.value !== "number") return null;
+
+  const anchor = { stamp: point.stamp, value: point.value };
+  const prev = pointIndex > 0 ? sortedTrackPoints[pointIndex - 1] : undefined;
+  const next =
+    pointIndex < sortedTrackPoints.length - 1 ? sortedTrackPoints[pointIndex + 1] : undefined;
+
+  const prevPt =
+    prev && typeof prev.value === "number"
+      ? { stamp: prev.stamp, value: prev.value }
+      : undefined;
+  const nextPt =
+    next && typeof next.value === "number"
+      ? { stamp: next.stamp, value: next.value }
+      : undefined;
+
+  const result: TransitionInfo = { ...(point.transitions ?? {}) };
+  let changed = false;
+
+  if (prevPt) {
+    const flat = flattenHandleDelta("in", point.transitions?.in, anchor, prevPt, nextPt);
+    if (flat) {
+      result.in = flat;
+      changed = true;
+    }
+  }
+  if (nextPt) {
+    const flat = flattenHandleDelta("out", point.transitions?.out, anchor, nextPt, prevPt);
+    if (flat) {
+      result.out = flat;
+      changed = true;
+    }
+  }
+
+  if (!changed) return null;
+  result.pairing = TransitionPairing.Paired;
+  return result;
+}
+
+function flattenHandleDelta(
+  side: "in" | "out",
+  transition: AuthoredTransition | undefined,
+  anchor: { stamp: number; value: number },
+  neighbor: { stamp: number; value: number },
+  otherNeighbor: { stamp: number; value: number } | undefined,
+): RawVector2 | null {
+  const delta = resolveHandleDeltaForAlignment(side, transition, anchor, neighbor, otherNeighbor);
+  if (!delta) return null;
+  if (Math.abs(delta.y) < FLATTEN_Y_EPSILON) return null;
+  const length = Math.hypot(delta.x, delta.y);
+  if (length === 0) return null;
+  return { x: side === "out" ? length : -length, y: 0 };
 }
 
 /**

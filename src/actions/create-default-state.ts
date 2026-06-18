@@ -65,7 +65,5 @@ export const createDefaultState = (): AnimationData => {
     boxSelectState: null,
     boxSelectPending: false,
     clipboard: null,
-    scrollOffset: 0,
-    verticalFitCounter: 0,
   };
 };

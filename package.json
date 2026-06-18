@@ -2,6 +2,11 @@
   "name": "@semio/animation",
   "description": "Higher-level visualization and editing components for interacting with assets.",
   "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/semio-ai/semio_studio.git",
+    "directory": "packages/animation"
+  },
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
