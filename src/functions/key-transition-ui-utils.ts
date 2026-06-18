@@ -165,10 +165,12 @@ export function buildSelectedKeyContexts(
     }
 
     selectedKeyIds.forEach((keypointId) => {
-      const point = track.points.find((entry) => entry.id === keypointId);
-      if (!point) return;
+      // Look the point up via `indexById` into the already-sorted slice rather
+      // than an O(n) `track.points.find` per selected key — same point object,
+      // constant-time fetch.
       const pointIndex = sortedEntry.indexById.get(keypointId);
       if (pointIndex === undefined) return;
+      const point = sortedEntry.points[pointIndex];
       keyContexts.push({
         trackId,
         point,
