@@ -2,21 +2,8 @@ import { CSSProperties, memo, ReactNode, useCallback, useMemo } from "react";
 import {
   Dropdown,
   ICON_CLASS_NAME,
+  Icon,
   IconHandleIndicator,
-  IconVectorBack,
-  IconVectorBezierAutoClamp,
-  IconVectorBezierHandles,
-  IconVectorCirc,
-  IconVectorCubic,
-  IconVectorExpo,
-  IconVectorLinear,
-  IconVectorQuad,
-  IconVectorQuart,
-  IconVectorQuint,
-  IconVectorSine,
-  IconVertexFree,
-  IconVertexIndeterminate,
-  IconVertexPaired,
   NestedItem,
   NestedLabel,
   NestedMenu,
@@ -24,7 +11,6 @@ import {
   NestedSeparator,
   Size,
 } from "@semio/ui";
-import { AlignHorizontalCenter, Bolt } from "@solar-icons/react-perf/Linear";
 import { useShallow } from "zustand/shallow";
 import { clsx } from "clsx";
 import {
@@ -53,57 +39,57 @@ const TRANSITION_OPTIONS: { value: TransitionPreference; label: string; icon?: R
   {
     value: StandardTransitionType.Sine,
     label: "Sinusoidal",
-    icon: <IconVectorSine className={TRANSITION_ICON_CLASS} />,
+    icon: <Icon name="vector-sine" />,
   },
   {
     value: StandardTransitionType.Cubic,
     label: "Cubic",
-    icon: <IconVectorCubic className={TRANSITION_ICON_CLASS} />,
+    icon: <Icon name="vector-cubic" />,
   },
   {
     value: StandardTransitionType.Quint,
     label: "Quintic",
-    icon: <IconVectorQuint className={TRANSITION_ICON_CLASS} />,
+    icon: <Icon name="vector-quint" />,
   },
   {
     value: StandardTransitionType.Circ,
     label: "Circular",
-    icon: <IconVectorCirc className={TRANSITION_ICON_CLASS} />,
+    icon: <Icon name="vector-circ" />,
   },
   {
     value: StandardTransitionType.Quad,
     label: "Quadratic",
-    icon: <IconVectorQuad className={TRANSITION_ICON_CLASS} />,
+    icon: <Icon name="vector-quad" />,
   },
   {
     value: StandardTransitionType.Quart,
     label: "Quartic",
-    icon: <IconVectorQuart className={TRANSITION_ICON_CLASS} />,
+    icon: <Icon name="vector-quart" />,
   },
   {
     value: StandardTransitionType.Expo,
     label: "Exponential",
-    icon: <IconVectorExpo className={TRANSITION_ICON_CLASS} />,
+    icon: <Icon name="vector-expo" />,
   },
   {
     value: StandardTransitionType.Back,
     label: "Back",
-    icon: <IconVectorBack className={TRANSITION_ICON_CLASS} />,
+    icon: <Icon name="vector-back" />,
   },
   {
     value: StandardTransitionType.Linear,
     label: "Linear",
-    icon: <IconVectorLinear className={TRANSITION_ICON_CLASS} />,
+    icon: <Icon name="vector-linear" />,
   },
   {
     value: TransitionDirective.ExplicitHandles,
     label: "Bezier Handles",
-    icon: <IconVectorBezierHandles className={TRANSITION_ICON_CLASS} />,
+    icon: <Icon name="vector-bezier-handles" />,
   },
   {
     value: TransitionDirective.InferredAutoClamped,
     label: "Auto Clamped",
-    icon: <IconVectorBezierAutoClamp className={TRANSITION_ICON_CLASS} />,
+    icon: <Icon name="vector-bezier-auto-clamp" />,
   },
 ];
 
@@ -455,12 +441,12 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
               selected — everything inside operates on the current selection. */}
           <NestedMenu
             label="Actions"
-            left={<Bolt size="18px" className={ICON_CLASS_NAME} />}
+            left={<Icon name="transition-snap" />}
             disabled={!hasSelection}
           >
             <NestedItem
               onClick={handleFlattenHandles}
-              left={<AlignHorizontalCenter size="18px" className={ICON_CLASS_NAME} />}
+              left={<Icon name="align-keys" />}
             >
               Flatten Handles
             </NestedItem>
@@ -564,7 +550,7 @@ function buildPairingOptions(includeMixed: boolean) {
           value: MIXED_VALUE,
           label: "Mixed (Multiple)",
           disabled: true,
-          icon: <IconVertexIndeterminate className={ICON_CLASS_NAME} />,
+          icon: <Icon name="vertex-indeterminate" />,
         },
       ]
     : [];
@@ -573,12 +559,12 @@ function buildPairingOptions(includeMixed: boolean) {
     {
       value: TransitionPairing.Paired,
       label: "Paired",
-      icon: <IconVertexPaired className={ICON_CLASS_NAME} />,
+      icon: <Icon name="vertex-paired" />,
     },
     {
       value: TransitionPairing.Free,
       label: "Free",
-      icon: <IconVertexFree className={ICON_CLASS_NAME} />,
+      icon: <Icon name="vertex-free" />,
     },
   ];
 }
@@ -589,11 +575,11 @@ function isTransitionPreferenceValue(value: string): value is TransitionPreferen
 
 function getPairingStateIcon(pairing: TransitionPairing | typeof MIXED_VALUE): ReactNode {
   if (pairing === TransitionPairing.Paired) {
-    return <IconVertexPaired className={TRANSITION_ICON_CLASS} />;
+    return <Icon name="vertex-paired" />;
   } else if (pairing === TransitionPairing.Free) {
-    return <IconVertexFree className={TRANSITION_ICON_CLASS} />;
+    return <Icon name="vertex-free" />;
   } else {
-    return <IconVertexIndeterminate className={TRANSITION_ICON_CLASS} />;
+    return <Icon name="vertex-indeterminate" />;
   }
 }
 

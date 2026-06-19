@@ -7,12 +7,10 @@ import {
   Dropdown,
   TextField,
   Tooltip,
-  ICON_CLASS_NAME,
 } from "@semio/ui";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
 import { usePlayerStore, PlayerData } from "@semio/utils";
-import { IconDotsVertical } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
 import { type SourceRow } from "../types";
 import {
@@ -243,7 +241,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
                   <Tooltip content={getSemanticLabelForIconCode(iconCode)} invert>
                     <div>
                       <StaticIcon size={Size.Md} color={color}>
-                        <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
+                        <DataIcon iconCode={iconCode} />
                       </StaticIcon>
                     </div>
                   </Tooltip>
@@ -388,7 +386,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
                   size={Size.Xs}
                   className="flex items-center justify-center"
                   visuals="inverted"
-                  leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                  leftIcon="menu"
                   data-testid="track-row-options"
                 />
               }

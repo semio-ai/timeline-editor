@@ -1,4 +1,4 @@
-import { IconChevronDown } from "@tabler/icons-react";
+import { Icon } from "@semio/ui";
 import { clsx } from "clsx";
 
 export interface GroupToggleProps {
@@ -29,10 +29,11 @@ export function GroupToggle({
       )}
       style={{ color: color ?? "currentColor" }}
     >
-      <IconChevronDown
-        size={16}
+      <Icon
+        name="chevron-down"
+        size="none"
         className={clsx(
-          "transition-transform",
+          "size-[16px] transition-transform",
           expanded ? "rotate-0" : "-rotate-90",
         )}
       />

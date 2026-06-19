@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
-import { IconDotsVertical } from "@tabler/icons-react";
 import {
   StaticIcon,
   Size,
@@ -12,7 +11,6 @@ import {
   ContextMenu,
   Button,
   Tooltip,
-  ICON_CLASS_NAME,
 } from "@semio/ui";
 import type { AnimatableValue, RawValue } from "@semio/utils";
 import { toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/utils";
@@ -250,7 +248,7 @@ function AnimatableLeafControl({
                 <Tooltip content={getSemanticLabelForIconCode(iconCode)} disabled={false} invert>
                   <div>
                     <StaticIcon size={Size.Md} color={resolvedColor}>
-                      <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
+                      <DataIcon iconCode={iconCode} />
                     </StaticIcon>
                   </div>
                 </Tooltip>
@@ -303,7 +301,7 @@ function AnimatableLeafControl({
                     size={Size.Xs}
                     className="flex items-center justify-center"
                     visuals="inverted"
-                    leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                    leftIcon="menu"
                   />
                 </span>
               }
@@ -588,7 +586,7 @@ function AnimatableGroupControl({
                     size={Size.Xs}
                     className="flex items-center justify-center"
                     visuals="inverted"
-                    leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                    leftIcon="menu"
                   />
                 </span>
               }

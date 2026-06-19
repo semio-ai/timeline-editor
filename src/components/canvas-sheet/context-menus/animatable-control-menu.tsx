@@ -1,13 +1,11 @@
 import { ReactNode } from "react";
 import {
-  ICON_CLASS_NAME,
+  Icon,
   NestedItem,
   NestedLabel,
   NestedSeparator,
   NestedColorPicker,
 } from "@semio/ui";
-import { Palette2 } from "@solar-icons/react-perf/LineDuotone";
-import { IconPlus } from "@tabler/icons-react";
 
 export interface AnimatableLeafMenuProps {
   color: string;
@@ -35,7 +33,7 @@ export function AnimatableLeafMenuContent({
         value={color}
         onChange={onChangeColor}
         label="Change Color"
-        left={<Palette2 size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="color-picker" />}
       />
       {onAddTrack && (
         <>
@@ -44,7 +42,7 @@ export function AnimatableLeafMenuContent({
           <NestedItem
             disabled={disabled}
             onClick={onAddTrack}
-            left={<IconPlus size="18px" className={ICON_CLASS_NAME} />}
+            left={<Icon name="add" size="none" className="size-[18px]" />}
           >
             Add Track
           </NestedItem>
@@ -74,7 +72,7 @@ export function AnimatableGroupMenuContent({
       <NestedItem
         disabled={disabled || !onAddTracks}
         onClick={onAddTracks}
-        left={<IconPlus size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="add" size="none" className="size-[18px]" />}
       >
         Add All Tracks
       </NestedItem>

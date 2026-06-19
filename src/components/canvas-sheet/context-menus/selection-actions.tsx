@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { ICON_CLASS_NAME, NestedItem, NestedLabel, KeybindingHint, SelectClose, SelectCursor } from "@semio/ui";
+import { Icon, NestedItem, NestedLabel, KeybindingHint } from "@semio/ui";
 import { AnimationAction } from "../../../keybindings";
 
 /**
@@ -24,7 +24,7 @@ export function SelectionActionsSection({
       <NestedLabel>Selection</NestedLabel>
       <NestedItem
         onClick={onSelectAll}
-        left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="select-cursor" />}
         right={<KeybindingHint action={AnimationAction.SelectAll} />}
       >
         Select All
@@ -32,7 +32,7 @@ export function SelectionActionsSection({
       {hasTrackContext && onSelectAllInTrack && (
         <NestedItem
           onClick={onSelectAllInTrack}
-          left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
+          left={<Icon name="select-cursor" />}
           right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
         >
           Select All in Track
@@ -41,7 +41,7 @@ export function SelectionActionsSection({
       <NestedItem
         disabled={!hasSelection}
         onClick={onDeselectAll}
-        left={<SelectClose size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="select-close" />}
         right={<KeybindingHint action={AnimationAction.DeselectAll} />}
       >
         Deselect All

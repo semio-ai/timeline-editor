@@ -1,17 +1,7 @@
 import { clsx } from "clsx";
-import {
-  ICON_CLASS_NAME,
-  Slow,
-  Fast,
-  Bounce,
-  Select,
-  Size,
-  ToggleSquare,
-  Variant,
-} from "@semio/ui";
+import { Icon, Select, Size, ToggleSquare, Variant } from "@semio/ui";
 import { PlayerDirection, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
-import { Repeat, ArrowRight, Play, RewindForward } from "@solar-icons/react-perf/LineDuotone";
 
 export function PlaybackSettings() {
   const { direction, bounce, looping, speed } = usePlayerStore(
@@ -43,22 +33,22 @@ export function PlaybackSettings() {
           {
             value: "0.5",
             label: "Slow Playback (0.5x)",
-            icon: <Slow className={ICON_CLASS_NAME} size="100%" />,
+            icon: "speed-slow",
           },
           {
             value: "1",
             label: "Normal Playback (1x)",
-            icon: <Play className={ICON_CLASS_NAME} size="100%" />,
+            icon: "speed-normal",
           },
           {
             value: "1.5",
             label: "Fast Playback (1.5x)",
-            icon: <RewindForward className={ICON_CLASS_NAME} size="100%" />,
+            icon: "speed-fast",
           },
           {
             value: "2",
             label: "Very Fast Playback (2x)",
-            icon: <Fast className={ICON_CLASS_NAME} size="100%" />,
+            icon: "speed-fastest",
           },
         ]}
         value={speed.toString()}
@@ -76,8 +66,9 @@ export function PlaybackSettings() {
         value={direction === PlayerDirection.Reverse}
         onChange={(v) => setDirection(v ? PlayerDirection.Reverse : PlayerDirection.Forward)}
       >
-        <ArrowRight
-          size="100%"
+        <Icon
+          name="playback-direction"
+          size="none"
           className={clsx(
             "block w-3.5 h-3.5 shrink-0",
             "transition-75 ease-in-out",
@@ -92,7 +83,7 @@ export function PlaybackSettings() {
         value={looping}
         onChange={setLooping}
       >
-        <Repeat className="block w-3.5 h-3.5 shrink-0" size="100%" />
+        <Icon name="playback-loop" size="none" className="block w-3.5 h-3.5 shrink-0" />
       </ToggleSquare>
       <ToggleSquare
         sizing="inner"
@@ -101,7 +92,7 @@ export function PlaybackSettings() {
         value={bounce}
         onChange={setBounce}
       >
-        <Bounce className="block w-3.5 h-3.5 shrink-0" size="100%" />
+        <Icon name="bounce" size="none" className="block w-3.5 h-3.5 shrink-0" />
       </ToggleSquare>
     </>
   );

@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo } from "react";
 import {
   Dropdown,
-  ICON_CLASS_NAME,
+  Icon,
   NestedItem,
   NestedLabel,
   NestedRadio,
@@ -10,7 +10,6 @@ import {
   TimeDisplay,
 } from "@semio/ui";
 import { useShallow } from "zustand/shallow";
-import { IconArrowsHorizontal, IconClock, IconSelector } from "@tabler/icons-react";
 import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../../hooks";
 import { setViewport, useViewport, requestVerticalFit } from "../../viewport-state";
@@ -101,8 +100,8 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
             tooltip="Time display format"
             visuals="inverted"
             size={Size.Sm}
-            leftIcon={<IconClock className={ICON_CLASS_NAME} />}
-            rightIcon={<IconSelector className={ICON_CLASS_NAME} />}
+            leftIcon={<Icon name="clock" />}
+            rightIcon="select-indicator"
             className="w-28 rounded-xs bg-neutral-500/10 text-xs hover:bg-neutral-500/25"
           >
             {TIME_DISPLAY_SHORT[timeDisplay]}
@@ -125,7 +124,7 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
             tooltip="Set zoom level"
             visuals="inverted"
             size={Size.Sm}
-            rightIcon={<IconSelector className={ICON_CLASS_NAME} />}
+            rightIcon="select-indicator"
             className="w-20 rounded-xs bg-neutral-500/10 font-mono text-xs hover:bg-neutral-500/25"
           >
             {currentZoomLabel}
@@ -150,7 +149,7 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
         tooltip="Fit viewport to content"
         visuals="inverted"
         size={Size.Sm}
-        leftIcon={<IconArrowsHorizontal className={ICON_CLASS_NAME} />}
+        leftIcon={<Icon name="fit-horizontal" />}
         className="rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
         onClick={handleFitToContent}
       />

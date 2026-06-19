@@ -1,6 +1,5 @@
 import { memo } from "react";
-import { Popover, Select, Size, type SelectOption } from "@semio/ui";
-import { IconSettings } from "@tabler/icons-react";
+import { Icon, Popover, Select, Size, type SelectOption } from "@semio/ui";
 import { useShallow } from "zustand/shallow";
 import { useAnimationStore } from "../../hooks";
 import {
@@ -78,7 +77,7 @@ export const SettingsPopover = memo(function SettingsPopover() {
           tooltip="Editor settings"
           visuals="inverted"
           size={Size.Sm}
-          leftIcon={<IconSettings size={16} />}
+          leftIcon={<Icon name="settings" size="none" className="size-[16px]" />}
           className="rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
         />
       }

@@ -17,6 +17,7 @@ import {
 import { Scissors, AlignHorizontalCenter, Settings, Bolt } from "@solar-icons/react-perf/Linear";
 // Tabler — for concepts Solar doesn't (yet) cover. Migrate to Solar as it gains them.
 import {
+  IconPlus,
   IconChartScatter,
   IconChartScatter3d,
   IconRotate360,
@@ -59,6 +60,7 @@ import {
  */
 export const animationIconRegistry: IconRegistry = {
   // ── Editor actions (Solar canonical — converged from mixed Tabler/Solar usage) ──
+  add: IconPlus, // REVIEW: Solar candidate later
   delete: TrashBinTrash,
   copy: Copy,
   paste: Clipboard,

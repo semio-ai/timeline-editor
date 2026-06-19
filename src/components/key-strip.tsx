@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { IconKey } from "@semio/ui";
+import { KeyIcon } from "@semio/ui";
 import { useKeyControlState } from "../hooks";
 import { SourceRow } from "../types";
 import { ControlStrip } from "./controls";
@@ -67,7 +67,13 @@ export function KeyStrip({
       onCenterLeave={() => setHovered(false)}
       centerDeemphasize={trackIds.length === 0}
       centerContent={
-        <IconKey size="16px" fillOpacity={fillOpacity} dashed={keyDashed} center={center} />
+        <KeyIcon
+          size="none"
+          className="size-[16px]"
+          fillOpacity={fillOpacity}
+          dashed={keyDashed}
+          center={center}
+        />
       }
       centerAltText={keyState !== "full" ? "Add Key" : "Remove Key"}
     />
