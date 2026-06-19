@@ -1,15 +1,16 @@
 import type { ReactNode } from "react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 import { ScrollArea } from "@semio/ui";
-import { AnimatePresence, motion, useMotionValue } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useAnimationStore } from "../hooks";
 import { AnimationData } from "../store-types";
 import type { SourceRow, VisibleSourceRowIds } from "../types";
 import { SIDEBAR_WIDTH } from "../constants";
 import { normalizeVisibleSourceRowIds } from "../functions/filter-visible-source-row-ids";
 import { computeAncestorIsLast } from "../functions/compute-ancestor-is-last";
+import { trackScrollMotion, setTrackScroll } from "../viewport-state";
 import { TrackControl } from "./track-control";
 import { TrackMenuProvider } from "./track-menu-context";
 
@@ -45,17 +46,8 @@ export function TrackList({ height = 240, rowIdLookup }: TrackListProps): ReactN
     [flatRowIds, instancedTrackSources],
   );
 
-  // Mirror the store's scrollOffset to a MotionValue for the ScrollArea
-  const scrollMotion = useMotionValue(0);
-  const scrollOffset = useAnimationStore(
-    useShallow((state: AnimationData) => state.scrollOffset),
-  );
-  const setScrollOffset = useAnimationStore(
-    useShallow((state) => state.setScrollOffset),
-  );
-  useEffect(() => {
-    scrollMotion.set(scrollOffset);
-  }, [scrollOffset, scrollMotion]);
+  // Shared track-scroll MotionValue: drives both the ScrollArea here and
+  // the canvas camera Y in non-spline modes.
 
   return (
     <TrackMenuProvider>
@@ -69,26 +61,25 @@ export function TrackList({ height = 240, rowIdLookup }: TrackListProps): ReactN
       <div
         className="w-full overflow-hidden"
         onWheel={(e) => {
-          // Forward wheel events to the store so scrolling the track list
-          // also updates the canvas. Prevents ScrollArea from handling
-          // independently — all scroll goes through the shared store.
+          // Forward wheel events through the shared MotionValue so scrolling
+          // the track list also moves the canvas camera. Prevents ScrollArea
+          // from handling independently.
           e.preventDefault();
           e.stopPropagation();
           const contentHeight = sourceRows.length * 36; // trackHeight = 36px
-          const visibleHeight = height;
-          const scrollMax = Math.max(0, contentHeight - visibleHeight);
-          const prev = scrollOffset;
-          const next = Math.max(0, Math.min(scrollMax, prev + e.deltaY));
-          if (next !== prev) {
-            setScrollOffset(next);
-          }
+          setTrackScroll(trackScrollMotion.get() + e.deltaY, {
+            canvasHeight: height,
+            contentHeight,
+            topOffsetPx: 0,
+            bottomOffsetPx: 0,
+          });
         }}
       >
         <ScrollArea
           orientation="vertical"
           className="w-full"
           style={{ maxHeight: height }}
-          motionScrollY={scrollMotion}
+          motionScrollY={trackScrollMotion}
         >
           <div className="w-full">
             <AnimatePresence>

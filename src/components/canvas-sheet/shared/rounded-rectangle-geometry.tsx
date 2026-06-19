@@ -233,6 +233,7 @@ export const DynamicRoundedRect = memo(function MorphableRoundedRect({
   position = [0, 0, 0],
   widthMotion,
   heightMotion,
+  opacityMotion,
   ...meshProps
 }: {
   widthMotion: MotionValue<number>;
@@ -240,6 +241,7 @@ export const DynamicRoundedRect = memo(function MorphableRoundedRect({
   radius: number;
   segments?: number;
   color?: MotionValue<string>;
+  opacityMotion?: MotionValue<number>;
   position?: [number, number, number];
   [key: string]: any;
 }) {
@@ -266,6 +268,17 @@ export const DynamicRoundedRect = memo(function MorphableRoundedRect({
       (meshRef.current.material as THREE.MeshBasicMaterial).color.set(newColor);
     }
   });
+
+  useEffect(() => {
+    if (!opacityMotion) return;
+    const apply = (o: number) => {
+      const mat = meshRef.current?.material as THREE.MeshBasicMaterial | undefined;
+      if (!mat) return;
+      mat.opacity = o;
+    };
+    apply(opacityMotion.get());
+    return opacityMotion.on("change", apply);
+  }, [opacityMotion]);
 
   useEffect(() => {
     // Initial geometry
@@ -298,7 +311,12 @@ export const DynamicRoundedRect = memo(function MorphableRoundedRect({
       position={position}
       {...meshProps}
     >
-      <meshBasicMaterial color={color.get()} toneMapped={false} />
+      <meshBasicMaterial
+        color={color.get()}
+        toneMapped={false}
+        transparent={opacityMotion !== undefined}
+        opacity={opacityMotion ? opacityMotion.get() : 1}
+      />
     </mesh>
   );
 });

@@ -130,17 +130,11 @@ function AnimatableLeafControl({
 
   const animatable = useAnimationStore(useShallow((state) => state.animatables[animatableId]));
 
-  const storedValue = useValuesStore(
-    useCallback(
-      (state) => (valueLookupKey ? state.values.get(valueLookupKey) : undefined),
-      [valueLookupKey],
-    ),
-  );
-
-  const rawValue = useMemo(() => {
-    if (!animatable) return undefined;
-    return storedValue ?? animatable.default;
-  }, [animatable, storedValue]);
+  // The current value subscription has moved into `DirectAnimatableEditor`
+  // (the leaf that actually displays the value). Subscribing here would
+  // re-render this component (and therefore ControlRow + the radix
+  // ContextMenu/Dropdown plumbing wrapped around it) at the player tick
+  // rate during playback for every animated track.
 
   const activeAnimationId = useActiveAnimationId();
 
@@ -237,92 +231,88 @@ function AnimatableLeafControl({
   }
 
   return (
-    <ContextMenu
-      content={leafMenuContent}
-      disabled={menuOpen}
-      onOpenChange={setMenuOpen}
-    >
-    <div
-      className="relative w-full"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-    <div
-      className="pointer-events-none absolute inset-0 transition-colors duration-150 ease-out"
-      style={{ backgroundColor: hovered ? `${resolvedColor}26` : `${resolvedColor}00` }}
-    />
-    <ControlRow
-      className="pr-0.5"
-      treeIcon={
-        <TreeIconColumn
-          depth={depth}
-          icon={
-            <Tooltip content={getSemanticLabelForIconCode(iconCode)} disabled={false} invert>
-              <div>
-                <StaticIcon size={Size.Md} color={resolvedColor}>
-                  <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
-                </StaticIcon>
-              </div>
-            </Tooltip>
+    <ContextMenu content={leafMenuContent} disabled={menuOpen} onOpenChange={setMenuOpen}>
+      <div
+        className="relative w-full"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <div
+          className="pointer-events-none absolute inset-0 transition-colors duration-150 ease-out"
+          style={{ backgroundColor: hovered ? `${resolvedColor}26` : `${resolvedColor}00` }}
+        />
+        <ControlRow
+          className="pr-0.5"
+          treeIcon={
+            <TreeIconColumn
+              depth={depth}
+              icon={
+                <Tooltip content={getSemanticLabelForIconCode(iconCode)} disabled={false} invert>
+                  <div>
+                    <StaticIcon size={Size.Md} color={resolvedColor}>
+                      <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
+                    </StaticIcon>
+                  </div>
+                </Tooltip>
+              }
+            />
+          }
+          label={
+            <TextField
+              size={Size.Sm}
+              color={resolvedColor}
+              value={displayLabel}
+              readOnly={editorDisabled || !onRename}
+              outline="hidden"
+              onChange={(val) => {
+                if (!val) return;
+                onRename?.(val);
+              }}
+            />
+          }
+          editor={
+            <DirectAnimatableEditor
+              animatable={animatable}
+              valueLookupKey={valueLookupKey}
+              color={resolvedColor}
+              disabled={editorDisabled}
+              onChange={handleValueChange}
+            />
+          }
+          controls={
+            <ControlStrip
+              color={resolvedColor}
+              disabled={editorDisabled}
+              prevEnabled={false}
+              nextEnabled={false}
+              prevVisible={false}
+              nextVisible={false}
+              centerIcon="plus"
+              centerAltText="Add Track"
+              onCenter={addTrackAction}
+            />
+          }
+          options={
+            <Dropdown
+              disabled={editorDisabled || menuOpen}
+              onOpenChange={setMenuOpen}
+              side="right"
+              trigger={
+                <span>
+                  <Button
+                    size={Size.Xs}
+                    className="flex items-center justify-center"
+                    visuals="inverted"
+                    leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                  />
+                </span>
+              }
+            >
+              {leafMenuContent}
+            </Dropdown>
           }
         />
-      }
-      label={
-        <TextField
-          size={Size.Sm}
-          color={resolvedColor}
-          value={displayLabel}
-          readOnly={editorDisabled || !onRename}
-          outline="hidden"
-          onChange={(val) => {
-            if (!val) return;
-            onRename?.(val);
-          }}
-        />
-      }
-      editor={
-        <DirectAnimatableEditor
-          animatable={animatable}
-          rawValue={rawValue}
-          color={resolvedColor}
-          disabled={editorDisabled}
-          onChange={handleValueChange}
-        />
-      }
-      controls={
-        <ControlStrip
-          color={resolvedColor}
-          disabled={editorDisabled}
-          prevEnabled={false}
-          nextEnabled={false}
-          prevVisible={false}
-          nextVisible={false}
-          centerIcon="plus"
-          centerAltText="Add Track"
-          onCenter={addTrackAction}
-        />
-      }
-      options={
-        <Dropdown
-          disabled={editorDisabled || menuOpen}
-          onOpenChange={setMenuOpen}
-          side="right"
-          trigger={
-            <span>
-              <Button
-                size={Size.Xs}
-                className="flex items-center justify-center"
-                visuals="inverted"
-                leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
-              />
-            </span>
-          }
-        >
-          {leafMenuContent}
-        </Dropdown>
-      }
-    />
-    </div>
+      </div>
     </ContextMenu>
   );
 }
@@ -488,142 +478,155 @@ function AnimatableGroupControl({
         onAddTracks={canAdd ? (onAddTrack ?? handleAddTracks) : undefined}
       />
     );
-  }, [hasTrackGroup, controlMenu.menuContent, disabled, running, canAdd, onAddTrack, handleAddTracks]);
+  }, [
+    hasTrackGroup,
+    controlMenu.menuContent,
+    disabled,
+    running,
+    canAdd,
+    onAddTrack,
+    handleAddTracks,
+  ]);
 
   const { menuOpen, setMenuOpen } = controlMenu;
 
   return (
-    <ContextMenu
-      content={groupMenuContent}
-      disabled={menuOpen}
-      onOpenChange={setMenuOpen}
-    >
-    <div
-      className="relative w-full"
-      onMouseEnter={() => sourceRowId && setEmphasis(sourceRowId)}
-      onMouseLeave={() => setEmphasis(null)}
-      onPointerDown={(e) => {
-        if (!sourceRowId || groupTrackIds.length === 0) return;
-        if (e.ctrlKey || e.metaKey) {
-          toggleTrackInSelection(sourceRowId, groupTrackIds);
-        } else if (e.shiftKey && referenceRowId) {
-          rangeSelectTracks(referenceRowId, sourceRowId);
-        } else {
-          selectTrack(sourceRowId, groupTrackIds);
-        }
-      }}
-    >
+    <ContextMenu content={groupMenuContent} disabled={menuOpen} onOpenChange={setMenuOpen}>
       <div
-        className="pointer-events-none absolute inset-0 transition-colors duration-150 ease-out"
-        style={{ backgroundColor: groupBackground }}
-      />
-      <ControlRow
-        isGroup
-        className="pr-0.5"
-        target={
-          isGroupSelected ? (
-            <div
-              className="h-full w-full transition-colors duration-150 ease-out"
-              style={{ backgroundColor: color }}
-            />
-          ) : undefined
-        }
-        treeIcon={
-          <TreeIconColumn
-            depth={depth}
-            icon={
-              <GroupToggle
-                expanded={expanded}
-                onToggle={onToggle}
-                disabled={disabled}
-                color={resolvedColor}
+        className="relative w-full"
+        onMouseEnter={() => sourceRowId && setEmphasis(sourceRowId)}
+        onMouseLeave={() => setEmphasis(null)}
+        onPointerDown={(e) => {
+          if (!sourceRowId || groupTrackIds.length === 0) return;
+          if (e.ctrlKey || e.metaKey) {
+            toggleTrackInSelection(sourceRowId, groupTrackIds);
+          } else if (e.shiftKey && referenceRowId) {
+            rangeSelectTracks(referenceRowId, sourceRowId);
+          } else {
+            selectTrack(sourceRowId, groupTrackIds);
+          }
+        }}
+      >
+        <div
+          className="pointer-events-none absolute inset-0 transition-colors duration-150 ease-out"
+          style={{ backgroundColor: groupBackground }}
+        />
+        <ControlRow
+          isGroup
+          className="pr-0.5"
+          target={
+            isGroupSelected ? (
+              <div
+                className="h-full w-full transition-colors duration-150 ease-out"
+                style={{ backgroundColor: color }}
               />
-            }
-          />
-        }
-        label={
-          <TextField
-            size={Size.Sm}
-            color={resolvedColor}
-            value={displayLabel}
-            readOnly={disabled || running || !onRename}
-            outline="hidden"
-            onChange={(val) => {
-              if (running) return;
-              if (!val) return;
-              onRename?.(val);
-            }}
-          />
-        }
-        controls={
-          hasTrackGroup && sourceRow ? (
-            <KeyStrip
-              source={sourceRow}
+            ) : undefined
+          }
+          treeIcon={
+            <TreeIconColumn
+              depth={depth}
+              icon={
+                <GroupToggle
+                  expanded={expanded}
+                  onToggle={onToggle}
+                  disabled={disabled}
+                  color={resolvedColor}
+                />
+              }
+            />
+          }
+          label={
+            <TextField
+              size={Size.Sm}
               color={resolvedColor}
-              disabled={disabled || running || allReadonly}
-              onHexClick={() => {
-                if (controlMenu.keyState === "full") {
-                  controlMenu.handleRemoveKeyframe();
-                } else {
-                  controlMenu.handleAddKeyframe();
-                }
+              value={displayLabel}
+              readOnly={disabled || running || !onRename}
+              outline="hidden"
+              onChange={(val) => {
+                if (running) return;
+                if (!val) return;
+                onRename?.(val);
               }}
             />
-          ) : (
-            <ControlStrip
-              color={resolvedColor}
-              disabled={disabled || running}
-              prevEnabled={false}
-              nextEnabled={false}
-              prevVisible={false}
-              nextVisible={false}
-              centerIcon={centerIcon}
-              centerAltText="Add Track Group"
-              onCenter={canAdd ? (onAddTrack ?? handleAddTracks) : undefined}
-            />
-          )
-        }
-        options={
-          <Dropdown
-            disabled={disabled || running || menuOpen}
-            onOpenChange={setMenuOpen}
-            side="right"
-            trigger={
-              <span>
-                <Button
-                  size={Size.Xs}
-                  className="flex items-center justify-center"
-                  visuals="inverted"
-                  leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
-                />
-              </span>
-            }
-          >
-            {groupMenuContent}
-          </Dropdown>
-        }
-      />
-    </div>
+          }
+          controls={
+            hasTrackGroup && sourceRow ? (
+              <KeyStrip
+                source={sourceRow}
+                color={resolvedColor}
+                disabled={disabled || running || allReadonly}
+                onHexClick={() => {
+                  if (controlMenu.keyState === "full") {
+                    controlMenu.handleRemoveKeyframe();
+                  } else {
+                    controlMenu.handleAddKeyframe();
+                  }
+                }}
+              />
+            ) : (
+              <ControlStrip
+                color={resolvedColor}
+                disabled={disabled || running}
+                prevEnabled={false}
+                nextEnabled={false}
+                prevVisible={false}
+                nextVisible={false}
+                centerIcon={centerIcon}
+                centerAltText="Add Track Group"
+                onCenter={canAdd ? (onAddTrack ?? handleAddTracks) : undefined}
+              />
+            )
+          }
+          options={
+            <Dropdown
+              disabled={disabled || running || menuOpen}
+              onOpenChange={setMenuOpen}
+              side="right"
+              trigger={
+                <span>
+                  <Button
+                    size={Size.Xs}
+                    className="flex items-center justify-center"
+                    visuals="inverted"
+                    leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                  />
+                </span>
+              }
+            >
+              {groupMenuContent}
+            </Dropdown>
+          }
+        />
+      </div>
     </ContextMenu>
   );
 }
 
 interface DirectAnimatableEditorProps {
   animatable: AnimatableValue;
-  rawValue: RawValue | undefined;
+  /** Track key for the value subscription. The editor subscribes here so
+   * the per-tick value updates during playback don't re-render the parent
+   * row (and its radix menu plumbing). */
+  valueLookupKey?: string;
   color: string;
   disabled: boolean;
   onChange: (value: RawValue | ((current: RawValue) => RawValue)) => void;
 }
 
-function DirectAnimatableEditor({
+const DirectAnimatableEditor = memo(function DirectAnimatableEditor({
   animatable,
-  rawValue,
+  valueLookupKey,
   color,
   disabled,
   onChange,
 }: DirectAnimatableEditorProps) {
-  const value = rawValue ?? animatable.default;
+  const storedValue = useValuesStore(
+    useCallback(
+      (state) => (valueLookupKey ? state.values.get(valueLookupKey) : undefined),
+      [valueLookupKey],
+    ),
+  );
+  const value = storedValue ?? animatable.default;
   const iconCode = getIconCode(animatable.type, animatable.pub?.units);
   const angular = iconCode === "rad";
   const transformForDisplay = angular ? toDegrees : (v: number) => v;
@@ -674,7 +677,7 @@ function DirectAnimatableEditor({
   }
 
   return <div className="h-7 animate-pulse rounded bg-neutral-700/30" />;
-}
+});
 
 export const AnimatableControl = memo((props: AnimatableControlProps) => {
   if (props.kind === "group") {

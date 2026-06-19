@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
-import { RawValue, toDegrees, toRadians, usePlayerStore, PlayerData, useValuesStore } from "@semio/utils";
+import { RawValue, toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
@@ -36,7 +36,10 @@ function InnerAnimatableEditor({
   const trueColor = useColors(data.trackId ?? data.animatableId);
   const color = colorOverride ?? (active ? trueColor : DEFAULT_COLOR);
 
-  const stamp = usePlayerStore(useShallow((state: PlayerData) => state.player.stamp));
+  // Stamp is read at drag-start fire time (see worldStamp below) — subscribing
+  // here would re-render the editor every player tick during playback, and
+  // each editor row sits inside a ControlRow + radix dropdown plumbing,
+  // multiplying the cascade.
   const valueKey = useMemo(
     () => buildTrackKey(data.namespaceId, data.instanceId, data.trackId),
     [data.namespaceId, data.instanceId, data.trackId],
@@ -142,7 +145,7 @@ function InnerAnimatableEditor({
             trackId: data.trackId,
             namespaceId: data.namespaceId,
             instanceId: data.instanceId,
-            worldStamp: stamp,
+            worldStamp: usePlayerStore.getState().player.stamp,
             valueScale: valueScaleOverride,
           });
         }}

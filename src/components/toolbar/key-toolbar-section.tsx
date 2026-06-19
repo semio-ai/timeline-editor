@@ -17,14 +17,19 @@ import {
   IconVertexFree,
   IconVertexIndeterminate,
   IconVertexPaired,
+  NestedItem,
   NestedLabel,
+  NestedMenu,
   NestedRadio,
   NestedSeparator,
   Size,
 } from "@semio/ui";
+import { AlignHorizontalCenter, Bolt } from "@solar-icons/react-perf/Linear";
 import { useShallow } from "zustand/shallow";
 import { clsx } from "clsx";
 import {
+  buildSelectedKeyContexts,
+  contextHasNeighbor,
   normalizeTransitionForUi,
   resolvePairingForContext,
   type SelectedKeyContext,
@@ -36,7 +41,6 @@ import {
   type TransitionPreference,
 } from "../../store-types";
 import { StandardTransitionType, TransitionPairing } from "../../types";
-import type { SimpleKeypoint } from "../../types/data/simple-track";
 import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
 
 const MIXED_VALUE = "__mixed__";
@@ -134,6 +138,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
     preferences,
     updateNewKeyTransitionDefaults,
     updateSelectedKeyTransitions,
+    flattenSelectedKeyHandles,
   } = useAnimationStore(
     useShallow((state) => ({
       keypointSelectionMap: state.selectionState.keypoints,
@@ -141,54 +146,25 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
       preferences: state.preferences,
       updateNewKeyTransitionDefaults: state.updateNewKeyTransitionDefaults,
       updateSelectedKeyTransitions: state.updateSelectedKeyTransitions,
+      flattenSelectedKeyHandles: state.flattenSelectedKeyHandles,
     })),
   );
 
-  const { selectedTracks, selectedKeyContexts } = useMemo(() => {
-    const trackIds: string[] = [];
-    const keyContexts: SelectedKeyContext[] = [];
-    const sortedByTrackId = new Map<
-      string,
-      { points: SimpleKeypoint[]; indexById: Map<string, number> }
-    >();
-
-    keypointSelectionMap.forEach((selectedKeyIds, trackId) => {
-      if (selectedKeyIds.size === 0) return;
-      const track = trackMap[trackId];
-      if (!track) return;
-      trackIds.push(trackId);
-
-      let sortedEntry = sortedByTrackId.get(trackId);
-      if (!sortedEntry) {
-        const points = track.points.slice().sort((a, b) => a.stamp - b.stamp);
-        const indexById = new Map(points.map((point, index) => [point.id, index]));
-        sortedEntry = { points, indexById };
-        sortedByTrackId.set(trackId, sortedEntry);
-      }
-
-      selectedKeyIds.forEach((keypointId) => {
-        const point = track.points.find((entry) => entry.id === keypointId);
-        if (!point) return;
-        const pointIndex = sortedEntry.indexById.get(keypointId);
-        if (pointIndex === undefined) return;
-        keyContexts.push({
-          trackId,
-          point,
-          sortedTrackPoints: sortedEntry.points,
-          pointIndex,
-        });
-      });
-    });
-
-    return { selectedTracks: trackIds, selectedKeyContexts: keyContexts };
-  }, [keypointSelectionMap, trackMap]);
+  const selectedKeyContexts = useMemo(
+    () => buildSelectedKeyContexts(keypointSelectionMap, trackMap),
+    [keypointSelectionMap, trackMap],
+  );
+  const selectedTracks = useMemo(
+    () => [...new Set(selectedKeyContexts.map((c) => c.trackId))],
+    [selectedKeyContexts],
+  );
 
   const hasSelection = selectedKeyContexts.length > 0;
   const trackColor = useColors(selectedTracks);
 
   const defaultTransitions = preferences.newKeyDefaults?.transitions ?? DEFAULT_NEW_KEY_TRANSITIONS;
-  const defaultIncoming = normalizeTransitionPreferenceForUi(defaultTransitions.in);
-  const defaultOutgoing = normalizeTransitionPreferenceForUi(defaultTransitions.out);
+  const defaultIncoming = defaultTransitions.in;
+  const defaultOutgoing = defaultTransitions.out;
   const defaultPairing = defaultTransitions.pairing ?? TransitionPairing.Paired;
 
   const selectedIncoming = useMemo(
@@ -341,6 +317,10 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
     [hasSelection, updateDefaultTransitions, updateSelectedTransitions],
   );
 
+  const handleFlattenHandles = useCallback(() => {
+    flattenSelectedKeyHandles();
+  }, [flattenSelectedKeyHandles]);
+
   return (
     <div className="hidden items-center @[325px]:flex">
       <div
@@ -453,12 +433,38 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
           />
 
           <NestedSeparator />
-          <NestedLabel>{hasSelection ? "Transition Type" : "Default Transition Type"}</NestedLabel>
-          <NestedRadio
-            value={transitionTypeValue}
-            onChange={handleTransitionTypeChange}
-            options={buildTransitionOptions(transitionTypeValue === MIXED_VALUE)}
-          />
+          {/* Transition Type is nested behind a submenu since the easing list
+              is long (10 options) and would dominate the dropdown otherwise.
+              The trigger label stays short ("Transition Type") and the left
+              icon carries the current value — duplicating the value as text
+              made the trigger wrap awkwardly on long names ("Auto Clamped",
+              "Explicit Handles"). The flanking incoming/outgoing toolbar
+              buttons already show the per-side type with text, so the value
+              is still visible at a glance. */}
+          <NestedMenu
+            label={hasSelection ? "Transition Type" : "Default Transition Type"}
+            left={getTransitionTypeIcon(transitionTypeValue)}
+          >
+            <NestedRadio
+              value={transitionTypeValue}
+              onChange={handleTransitionTypeChange}
+              options={buildTransitionOptions(transitionTypeValue === MIXED_VALUE)}
+            />
+          </NestedMenu>
+          {/* Actions section. Disabled at the submenu level when nothing is
+              selected — everything inside operates on the current selection. */}
+          <NestedMenu
+            label="Actions"
+            left={<Bolt size="18px" className={ICON_CLASS_NAME} />}
+            disabled={!hasSelection}
+          >
+            <NestedItem
+              onClick={handleFlattenHandles}
+              left={<AlignHorizontalCenter size="18px" className={ICON_CLASS_NAME} />}
+            >
+              Flatten Handles
+            </NestedItem>
+          </NestedMenu>
         </Dropdown>
         <Dropdown
           side="top"
@@ -597,6 +603,12 @@ function getTransitionSettingText(transition: typeof MIXED_VALUE | TransitionPre
   return option?.label ?? "Mixed (Multiple)";
 }
 
+function getTransitionTypeIcon(
+  transition: typeof MIXED_VALUE | TransitionPreference,
+): ReactNode {
+  return TRANSITION_OPTIONS.find((o) => o.value === transition)?.icon;
+}
+
 function resolveHandleIndicatorTypeFromPairing(pairing?: TransitionPairing): HandleIndicatorType {
   if (pairing === TransitionPairing.Paired) {
     return "circle";
@@ -649,18 +661,6 @@ function resolveHandleIndicatorClass(
 ): string | undefined {
   const fillOpacity = resolveHandleIndicatorFillOpacity(transition, hasHandle);
   return handle === "indeterminate" && fillOpacity < 1 ? "opacity-20" : undefined;
-}
-
-function contextHasNeighbor(context: SelectedKeyContext, side: "in" | "out"): boolean {
-  return side === "in"
-    ? context.pointIndex > 0
-    : context.pointIndex < context.sortedTrackPoints.length - 1;
-}
-
-function normalizeTransitionPreferenceForUi(
-  preference: TransitionPreference,
-): TransitionPreference {
-  return preference;
 }
 
 function resolveUniformValue<T extends string>(values: T[]): T | undefined {

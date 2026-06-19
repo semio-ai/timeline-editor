@@ -1,18 +1,22 @@
-import { useRef, useMemo, useState, useEffect, memo, useCallback, useContext } from "react";
+import { useRef, useMemo, useState, useEffect, memo, useContext } from "react";
 import * as THREE from "three";
 import { cubicBezier, MotionValue, useMotionValueEvent } from "motion/react";
-import { PlayerData, usePlayerStore, isOrthographicCamera } from "@semio/utils";
+import { isOrthographicCamera } from "@semio/utils";
 import { useCursor } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Theme, useCanvasContextMenu } from "@semio/ui";
 import {
-  usePlayerSubscription,
   useTween,
   usePlaybackGestures,
   useViewportDragGestures,
 } from "../../hooks";
 import { Z } from "../../constants";
 import { AnimationContext } from "../../context";
+import {
+  viewportMotion,
+  setViewport,
+  setViewportBound,
+} from "../../viewport-state";
 import { buildMinimapMenuItems } from "./context-menus";
 import { HoverMarker } from "./overlays/hover-marker";
 import { PlayheadMarker } from "./overlays/playhead-marker";
@@ -45,13 +49,10 @@ export const MinimapDisplay = memo(function MinimapDisplay({
   const leftHexRef = useRef<THREE.Mesh>(null);
   const rightHexRef = useRef<THREE.Mesh>(null);
 
-  // Player store for updating viewport
-  const { updatePlayerViewport, updatePlayerViewportBound } = usePlayerStore();
-
   // Store current viewport for drag calculations
   const [currentViewport, setCurrentViewport] = useState<[number, number]>(() => {
-    const viewport = usePlayerStore.getState().player.viewport;
-    return [viewport[0], viewport[1]];
+    const v = viewportMotion.get();
+    return [v[0], v[1]];
   });
 
   // Interaction state
@@ -135,13 +136,9 @@ export const MinimapDisplay = memo(function MinimapDisplay({
   useCursor(dragging === "viewport", "grabbing", "auto", gl.domElement);
   useCursor(dragging === "left" || dragging === "right", "ew-resize", "auto", gl.domElement);
 
-  const handleViewportChange = useCallback((viewport: [number, number]) => {
-    setCurrentViewport([viewport[0], viewport[1]]);
-  }, []);
-
-  const selectViewport = useCallback((state: PlayerData) => state.player.viewport, []);
-
-  usePlayerSubscription(selectViewport, handleViewportChange);
+  useMotionValueEvent(viewportMotion, "change", (v) => {
+    setCurrentViewport([v[0], v[1]]);
+  });
 
   // Blender-style per-edge clamping: each edge independently clamps to the
   // frustum boundary, so the element shrinks as the viewport leaves the range,
@@ -242,7 +239,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging("viewport");
     },
     onDrag: (viewport) => {
-      updatePlayerViewport(viewport[0], viewport[1]);
+      setViewport(viewport[0], viewport[1]);
     },
     onDragEnd: () => {
       setDragging(null);
@@ -258,7 +255,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging("left");
     },
     onDrag: (viewport) => {
-      updatePlayerViewportBound("start", viewport[0]);
+      setViewportBound("start", viewport[0]);
     },
     onDragEnd: () => {
       setDragging(null);
@@ -274,7 +271,7 @@ export const MinimapDisplay = memo(function MinimapDisplay({
       setDragging("right");
     },
     onDrag: (viewport) => {
-      updatePlayerViewportBound("end", viewport[1]);
+      setViewportBound("end", viewport[1]);
     },
     onDragEnd: () => {
       setDragging(null);

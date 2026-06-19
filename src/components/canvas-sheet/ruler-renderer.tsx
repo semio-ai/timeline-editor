@@ -240,7 +240,17 @@ export const RulerRenderer = memo(function RulerRenderer({
       />
 
       <HoverMarker height={hudHeightWorld} theme={theme} />
-      <PlayheadCart height={hudHeightWorld} theme={theme} side={side} fonts={fonts} />
+      <PlayheadCart
+        height={hudHeightWorld}
+        theme={theme}
+        side={side}
+        fonts={fonts}
+        // Toggle to compare bottom-cart clamping behavior. When true, the
+        // minimap cart is clamped to its own camera frustum so the box stays
+        // readable at t=0 / t=duration. When false, the bottom cart sits
+        // exactly at the playhead (legacy — can be cropped at endpoints).
+        pinToViewport={side === "bottom"}
+      />
       <BoundsCart side={side} height={hudHeightWorld} theme={theme} />
 
       {/* Shader-based tick lines */}
