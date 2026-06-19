@@ -29,6 +29,8 @@ export * from "./utils/track-key";
 
 export { SIDEBAR_WIDTH } from "./constants/layout";
 
+export { animationIconRegistry, type AnimationIconName } from "./icons/registry";
+
 export * from "./functions";
 export * from "./keybindings";
 export * from "./test-fixtures";
