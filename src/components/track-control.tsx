@@ -28,7 +28,7 @@ import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
 import { AnimationActions, AnimationData, ControlStripMode } from "../store-types";
 import type { SimpleRawValue } from "../types/data/simple-track";
 import { buildTrackKey } from "../utils/track-key";
-import { getSemanticLabelForIconCode } from "../functions";
+import { getSemanticLabelForIconCode, resolveSourceRef } from "../functions";
 import { KeyStrip } from "./key-strip";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
@@ -76,8 +76,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     rangeSelectTracks,
     updateKeypoints,
     updateSource,
-    updateTrack,
-    updateTrackGroupName,
+    editSource,
   } = useAnimationStore(
     useShallow((state: AnimationActions) => ({
       focusSelectionInstance: state.focusSelectionInstance,
@@ -87,8 +86,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       rangeSelectTracks: state.rangeSelectTracks,
       updateKeypoints: state.updateKeypoints,
       updateSource: state.updateSource,
-      updateTrack: state.updateTrack,
-      updateTrackGroupName: state.updateTrackGroupName,
+      editSource: state.editSource,
     })),
   );
 
@@ -149,13 +147,15 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   const handleNameCommit = useCallback(
     (val: string) => {
       if (playing) return;
-      if (isGroup) {
-        updateTrackGroupName(trackIds, val);
-      } else {
-        updateTrack({ id: sourceRow.data[0]?.trackId, name: val });
-      }
+      // Route through the source-edit channel: editing a row's name mutates
+      // whatever it derives from (entity / animatable / track / local group
+      // label) and lets the derived value re-propagate, rather than writing a
+      // derived override. Studio overrides editSource to reach entity/asset
+      // source records; the animation default handles tracks/animatables/labels.
+      const ref = resolveSourceRef(sourceRow);
+      if (ref) editSource(ref, { name: val });
     },
-    [playing, isGroup, updateTrackGroupName, trackIds, updateTrack, sourceRow.data],
+    [playing, editSource, sourceRow],
   );
   const nameField = useEditableLabel(name, handleNameCommit);
 

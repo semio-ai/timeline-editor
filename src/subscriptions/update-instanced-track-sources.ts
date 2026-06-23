@@ -231,6 +231,7 @@ function flattenSources(
           depth,
           isLastChild,
           isGroup: true,
+          sourceType: group.type,
           parentId,
         };
 

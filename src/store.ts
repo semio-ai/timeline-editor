@@ -18,6 +18,7 @@ import {
   MarkerPoint,
 } from "./types";
 import type { SimpleTrack, SimpleKeypoint } from "./types/data/simple-track";
+import type { SourceRef, SourcePatch } from "./types";
 import {
   AnimationData,
   AnimationActions,
@@ -408,6 +409,43 @@ export const AnimationSlice = (
           state.tracksRevision = (state.tracksRevision ?? 0) + 1;
         }),
       );
+    },
+    editSource: (ref: SourceRef, patch: SourcePatch) => {
+      // Default implementation: handle only the sources the animation package
+      // owns. A host (studio) overrides editSource in its store composition to
+      // route `entity`/`animation` to the real source records and delegates the
+      // remaining kinds back here. See store-types `editSource` docs.
+      if (patch.name === undefined) return false;
+      const name = patch.name;
+      switch (ref.kind) {
+        case "track":
+          get().updateTrack({ id: ref.trackId, name });
+          return true;
+        case "trackGroup":
+          get().updateTrackGroupName(ref.trackIds, name);
+          return true;
+        case "animatable": {
+          get().updateAnimatable(ref.animatableId, { name });
+          // `track.groupName` is a cached copy of the animatable name (seeded
+          // at load by migrate/normalize/create-track). The track-list renders
+          // that cache while the sidebar renders the live animatable name, so
+          // renaming the animatable alone leaves the track-list showing the
+          // stale label. Refresh the cache on this animatable's tracks so both
+          // surfaces converge on the new name.
+          const groupTrackIds = Object.values(get().tracks)
+            .filter((track) => track.animatableId === ref.animatableId)
+            .map((track) => track.id);
+          if (groupTrackIds.length > 0) {
+            get().updateTrackGroupName(groupTrackIds, name);
+          }
+          return true;
+        }
+        case "entity":
+        case "animation":
+          return false;
+        default:
+          return false;
+      }
     },
     removeKeypoint: (trackId: string, keypointId: string) => {
       const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);

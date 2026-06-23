@@ -13,6 +13,8 @@ import type {
   ValueDragUpdateInput,
   HandleDragStartInput,
   HandleDragUpdateInput,
+  SourceRef,
+  SourcePatch,
   SourceRow,
   MarkerPoint,
   View,
@@ -586,6 +588,17 @@ export interface AnimationActions {
    * Update the group label associated with one or more tracks (leaves remain unchanged).
    */
   updateTrackGroupName: (trackIds: string[], name: string) => void;
+  /**
+   * Apply a property change (currently `name`) to whatever a row derives from,
+   * resolved as a {@link SourceRef}. The default implementation handles the
+   * sources the animation package owns — tracks (`updateTrack`), local group
+   * labels (`updateTrackGroupName`), and animatables (`updateAnimatable`) — and
+   * returns `false` for sources it cannot own (`entity`, `animation`). A host
+   * application can override this in its store composition to route those kinds to
+   * the real source records, delegating the rest back here. Returns whether the
+   * edit was applied. See {@link resolveSourceRef}.
+   */
+  editSource: (ref: SourceRef, patch: SourcePatch) => boolean;
   /**
    * Remove a keypoint from the animation.
    * @param trackId - The ID of the track.

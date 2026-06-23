@@ -48,7 +48,15 @@ export { TransitionHandleKind } from "./segment-geometry";
 export { SemanticTime } from "./semantic-time";
 export type { Preview } from "./preview";
 export { TrackRender } from "./track-render";
-export type { Source, SourceGroup, SourceTrack, SourceRow, SourceRowData } from "./source";
+export type {
+  Source,
+  SourceGroup,
+  SourceTrack,
+  SourceRow,
+  SourceRowData,
+  SourceRef,
+  SourcePatch,
+} from "./source";
 export { LayerBand } from "./layer-band";
 export type { VisibleSourceRowIds } from "./source-row-ids";
 export { VerticalAxis } from "./vertical-axis";

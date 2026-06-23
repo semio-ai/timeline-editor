@@ -102,6 +102,13 @@ export interface SourceRow {
   isLastChild?: boolean;
   /** Whether this row is a group (has children) vs a leaf track. */
   isGroup?: boolean;
+  /**
+   * For group rows, the source group's kind (entity / instance / composite /
+   * structural). Carried from {@link SourceGroup.type} during flattening so
+   * consumers can resolve the row's underlying source (see `resolveSourceRef`)
+   * without parsing the row id. Undefined for leaf track rows.
+   */
+  sourceType?: SourceGroup["type"];
   /** Parent row ID, if this row is nested inside a group. */
   parentId?: string;
 }
@@ -146,3 +153,32 @@ export interface SourceRowData {
   /** Optional icon code for UI rendering. */
   iconCode?: string;
 }
+
+/**
+ * A property change to apply to whatever a row/element derives from. Only
+ * `name` is wired today; `color`/`limits` are intended to flow through the
+ * same channel once the pattern is proven.
+ */
+export interface SourcePatch {
+  name?: string;
+}
+
+/**
+ * Describes the upstream "source" a row/element derives its display info from.
+ *
+ * Rows in the track list don't own their own name/color/limits — they mirror
+ * an entity, an animation (asset), an animatable, or a track. Editing such a
+ * property must mutate that source and let the derived value re-propagate,
+ * rather than writing a local override. The store's `editSource` action
+ * (overridable by a host such as studio) consumes one of these; resolve it
+ * from a {@link SourceRow} with `resolveSourceRef`.
+ */
+export type SourceRef =
+  // `namespaceId` is opaque here: the animation package does not know how a
+  // host derives an entity identity from it (e.g. studio's "entityId@instanceId"
+  // convention). The host's `editSource` override interprets it.
+  | { kind: "entity"; namespaceId: string }
+  | { kind: "animation"; animationId: string; instanceId: string; namespaceId: string }
+  | { kind: "animatable"; animatableId: string }
+  | { kind: "trackGroup"; trackIds: string[] }
+  | { kind: "track"; trackId: string };
