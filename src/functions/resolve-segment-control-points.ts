@@ -24,6 +24,24 @@ export interface SegmentControlPointResult {
   flags: ClampFlags;
 }
 
+/**
+ * Resolves a segment's bezier control points in two layers, the contract the
+ * whole editor relies on:
+ *
+ * - **raw** = the authored/inferred handle *direction*. Explicit handles use
+ *   the stored delta; easing uses its standard delta; auto-clamped uses
+ *   {@link inferAutoClampedHandleDeltas} (smooth direction flattened to
+ *   horizontal at extrema). Direction is fully settled here.
+ * - **effective** = raw passed through *magnitude-only* clamps (monotonic/knot
+ *   via {@link clampMonotonicCubicSegment}, then value/stamp range). These only
+ *   ever scale a handle along its own ray (`scaleToX`-style), so raw and
+ *   effective stay co-linear with the anchor — clamps must never bend
+ *   direction. The renderer draws the marker at raw and highlights effective.
+ *
+ * This is the single clamp site for every flow: static render, the
+ * interpolator, and the live drag preview all reach it via
+ * {@link computeRowData} / the interpolator builder.
+ */
 export function resolveSegmentControlPoints(
   input: SegmentControlPointInput,
 ): SegmentControlPointResult {
