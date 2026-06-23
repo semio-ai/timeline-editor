@@ -60,6 +60,13 @@ function InnerAnimatableEditor({
 
   const dragActiveRef = useRef(false);
   const dragDidMoveRef = useRef(false);
+  // Playhead world stamp anchoring an in-progress text edit. Typing/wheeling a
+  // value writes a key at the current playhead; the anchor is captured on the
+  // first commit of an edit session and reset on blur. If the user scrubs the
+  // playhead off the anchor mid-edit, further text commits (including the
+  // commit-on-blur) are skipped — otherwise the value entered for the original
+  // position would be written as a key at the new playhead position.
+  const editStampRef = useRef<number | null>(null);
   const [displayValue, setDisplayValue] = useState<number | null>(null);
 
   const { animatableValue, track } = useAnimationStore(
@@ -187,7 +194,23 @@ function InnerAnimatableEditor({
         color={color}
         onChange={(v) => {
           if (dragActiveRef.current) return;
+          const stamp = usePlayerStore.getState().player.stamp;
+          if (editStampRef.current === null) {
+            // First commit of this edit session anchors here.
+            editStampRef.current = stamp;
+          } else if (stamp !== editStampRef.current) {
+            // Playhead scrubbed off the anchor since editing began — abandon
+            // the commit so we don't write the in-progress value at the new
+            // position.
+            return;
+          }
           onChange(renderInverse(v));
+        }}
+        onFocus={() => {
+          editStampRef.current = null;
+        }}
+        onBlur={() => {
+          editStampRef.current = null;
         }}
         label={hideLabel ? undefined : label}
         onLabelChange={hideLabel ? undefined : (track ? (v) => updateTrack({ id: track.id, name: v }) : undefined)}
