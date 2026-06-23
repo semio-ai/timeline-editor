@@ -77,6 +77,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     updateKeypoints,
     updateSource,
     editSource,
+    canEditSource,
   } = useAnimationStore(
     useShallow((state: AnimationActions) => ({
       focusSelectionInstance: state.focusSelectionInstance,
@@ -87,6 +88,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       updateKeypoints: state.updateKeypoints,
       updateSource: state.updateSource,
       editSource: state.editSource,
+      canEditSource: state.canEditSource,
     })),
   );
 
@@ -139,6 +141,14 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   const groupName = sourceRow.name ?? resolvedName;
   const name = isGroup ? groupName : resolvedName;
 
+  // The row name derives from an upstream source (entity / animatable / track /
+  // local group label). `canEditSource` reports whether anything actually
+  // handles a rename for this source — so we can disable the field for kinds
+  // nothing supports yet (e.g. animation-instance rename, pending the
+  // asset-save migration) rather than accept a no-op edit.
+  const sourceRef = useMemo(() => resolveSourceRef(sourceRow), [sourceRow]);
+  const canRename = sourceRef ? canEditSource(sourceRef) : false;
+
   // The displayed name is derived: group rows write `track.groupName` but
   // render `sourceRow.name`, which the view-filtered source-rows subscription
   // regenerates one render after the write. A draft-while-focused field
@@ -146,16 +156,15 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   // keystrokes aren't dropped. See useEditableLabel for the full rationale.
   const handleNameCommit = useCallback(
     (val: string) => {
-      if (playing) return;
+      if (playing || !sourceRef) return;
       // Route through the source-edit channel: editing a row's name mutates
-      // whatever it derives from (entity / animatable / track / local group
-      // label) and lets the derived value re-propagate, rather than writing a
-      // derived override. Studio overrides editSource to reach entity/asset
-      // source records; the animation default handles tracks/animatables/labels.
-      const ref = resolveSourceRef(sourceRow);
-      if (ref) editSource(ref, { name: val });
+      // whatever it derives from and lets the derived value re-propagate,
+      // rather than writing a derived override. Studio overrides editSource to
+      // reach entity/asset source records; the animation default handles
+      // tracks/animatables/labels.
+      editSource(sourceRef, { name: val });
     },
-    [playing, editSource, sourceRow],
+    [playing, editSource, sourceRef],
   );
   const nameField = useEditableLabel(name, handleNameCommit);
 
@@ -273,7 +282,10 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
               size={Size.Sm}
               color={color}
               value={nameField.value}
-              readOnly={playing}
+              // Read-only during playback, and when nothing handles a rename for
+              // this row's source (e.g. animation-instance rename is unsupported
+              // until the asset-save migration) — avoids an editable no-op field.
+              readOnly={playing || !canRename}
               outline="hidden"
               onChange={(val) => nameField.onChange(val)}
               onBlur={nameField.onBlur}

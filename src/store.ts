@@ -447,6 +447,19 @@ export const AnimationSlice = (
           return false;
       }
     },
+    canEditSource: (ref: SourceRef) => {
+      // Mirror editSource's routing: report only the kinds the animation
+      // package owns. A host overrides this to report the kinds it adds
+      // (e.g. studio adds `entity`). Keep in sync with editSource above.
+      switch (ref.kind) {
+        case "track":
+        case "trackGroup":
+        case "animatable":
+          return true;
+        default:
+          return false;
+      }
+    },
     removeKeypoint: (trackId: string, keypointId: string) => {
       const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
       if (nonEditableIds.has(trackId)) return;

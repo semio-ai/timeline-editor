@@ -139,6 +139,19 @@ describe("editSource default (animation package ownership)", () => {
     childIds.forEach((id) => expect(store.getState().tracks[id].groupName).toBe("Pos"));
   });
 
+  it("canEditSource reports only the kinds the animation default owns", () => {
+    const store = createTestAnimationStore();
+    const can = store.getState().canEditSource;
+    expect(can({ kind: "track", trackId: "t" })).toBe(true);
+    expect(can({ kind: "trackGroup", trackIds: ["t"] })).toBe(true);
+    expect(can({ kind: "animatable", animatableId: "a" })).toBe(true);
+    // Not owned by the animation package — a host (studio) reports these.
+    expect(can({ kind: "entity", namespaceId: "e@t" })).toBe(false);
+    expect(can({ kind: "animation", animationId: "a", instanceId: "i", namespaceId: "e@t" })).toBe(
+      false,
+    );
+  });
+
   it("does not own entity or animation sources (returns false for host override)", () => {
     const store = createTestAnimationStore();
     expect(

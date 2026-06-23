@@ -600,6 +600,15 @@ export interface AnimationActions {
    */
   editSource: (ref: SourceRef, patch: SourcePatch) => boolean;
   /**
+   * Whether {@link editSource} would actually apply a change for this source —
+   * the render-time companion to `editSource` (which mutates). The UI uses it
+   * to disable rename for sources nothing handles yet, so a field never accepts
+   * an edit that would no-op. Mirrors `editSource`'s routing: the default
+   * reports the kinds the animation package owns; a host overrides it to report
+   * the kinds it additionally supports.
+   */
+  canEditSource: (ref: SourceRef) => boolean;
+  /**
    * Remove a keypoint from the animation.
    * @param trackId - The ID of the track.
    * @param keypointId - The ID of the keypoint to remove.
