@@ -1,6 +1,7 @@
 export * from "./use-active-animation-id";
 export * from "./use-alt-key-pressed";
 export * from "./use-box-select-gesture";
+export * from "./use-canvas-input-blur";
 export * from "./use-animation-store";
 export * from "./use-colors";
 export * from "./use-control-menu";
