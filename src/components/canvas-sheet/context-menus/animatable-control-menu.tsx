@@ -42,7 +42,7 @@ export function AnimatableLeafMenuContent({
           <NestedItem
             disabled={disabled}
             onClick={onAddTrack}
-            left={<Icon name="add" size="none" className="size-[18px]" />}
+            left={<Icon name="add" />}
           >
             Add Track
           </NestedItem>
@@ -72,7 +72,7 @@ export function AnimatableGroupMenuContent({
       <NestedItem
         disabled={disabled || !onAddTracks}
         onClick={onAddTracks}
-        left={<Icon name="add" size="none" className="size-[18px]" />}
+        left={<Icon name="add" />}
       >
         Add All Tracks
       </NestedItem>

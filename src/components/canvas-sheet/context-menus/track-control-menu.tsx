@@ -225,14 +225,14 @@ export function TrackControlMenuContent({
       <NestedItem
         disabled={playing || allReadonly || keyState === "full"}
         onClick={onAddKeyframe}
-        left={<KeyIcon fillOpacity={0} center="plus" size="none" className="size-[18px]" />}
+        left={<KeyIcon fillOpacity={0} center="plus" />}
       >
         Add Keyframe
       </NestedItem>
       <NestedItem
         disabled={playing || allReadonly || keyState === "none"}
         onClick={onRemoveKeyframe}
-        left={<KeyIcon fillOpacity={0} center="minus" size="none" className="size-[18px]" />}
+        left={<KeyIcon fillOpacity={0} center="minus" />}
       >
         Remove Keyframe
       </NestedItem>
