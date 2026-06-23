@@ -17,6 +17,7 @@ import {
   useAnimationStore,
   useColors,
   useControlMenu,
+  useEditableLabel,
   useLocalGlobalTransformLookup,
   useNames,
   useRowBackground,
@@ -140,6 +141,24 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   const groupName = sourceRow.name ?? resolvedName;
   const name = isGroup ? groupName : resolvedName;
 
+  // The displayed name is derived: group rows write `track.groupName` but
+  // render `sourceRow.name`, which the view-filtered source-rows subscription
+  // regenerates one render after the write. A draft-while-focused field
+  // (commit on blur / Enter) decouples typing from that round-trip so
+  // keystrokes aren't dropped. See useEditableLabel for the full rationale.
+  const handleNameCommit = useCallback(
+    (val: string) => {
+      if (playing) return;
+      if (isGroup) {
+        updateTrackGroupName(trackIds, val);
+      } else {
+        updateTrack({ id: sourceRow.data[0]?.trackId, name: val });
+      }
+    },
+    [playing, isGroup, updateTrackGroupName, trackIds, updateTrack, sourceRow.data],
+  );
+  const nameField = useEditableLabel(name, handleNameCommit);
+
   // Shared aggregate state, callbacks, and menu assembly.
   const {
     menuContent,
@@ -253,18 +272,12 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
             <TextField
               size={Size.Sm}
               color={color}
-              value={name}
+              value={nameField.value}
               readOnly={playing}
               outline="hidden"
-              onChange={(val) => {
-                if (playing) return;
-                if (!val) return;
-                if (isGroup) {
-                  updateTrackGroupName(trackIds, val);
-                } else {
-                  updateTrack({ id: sourceRow.data[0]?.trackId, name: val });
-                }
-              }}
+              onChange={(val) => nameField.onChange(val)}
+              onBlur={nameField.onBlur}
+              onKeyDown={nameField.onKeyDown}
             />
           }
           editor={

@@ -19,6 +19,7 @@ import {
   useAnimationStore,
   useColors,
   useControlMenu,
+  useEditableLabel,
   useRowBackground,
 } from "../hooks";
 import { AnimationActions, AnimationData, ControlStripMode } from "../store-types";
@@ -180,6 +181,11 @@ function AnimatableLeafControl({
     return animatable?.name ?? "";
   }, [animatable?.group?.axis, animatable?.name, label]);
 
+  // Draft-while-focused so the derived label (recomputed by a subscription
+  // one render after the rename write) doesn't drop keystrokes.
+  const handleRename = useCallback((val: string) => onRename?.(val), [onRename]);
+  const labelField = useEditableLabel(displayLabel, handleRename);
+
   const editorDisabled = disabled || running;
   const addTrackAction = useMemo(() => {
     if (editorDisabled || resolvedMode !== "track-missing") return undefined;
@@ -259,13 +265,12 @@ function AnimatableLeafControl({
             <TextField
               size={Size.Sm}
               color={resolvedColor}
-              value={displayLabel}
+              value={labelField.value}
               readOnly={editorDisabled || !onRename}
               outline="hidden"
-              onChange={(val) => {
-                if (!val) return;
-                onRename?.(val);
-              }}
+              onChange={(val) => labelField.onChange(val)}
+              onBlur={labelField.onBlur}
+              onKeyDown={labelField.onKeyDown}
             />
           }
           editor={
@@ -396,6 +401,17 @@ function AnimatableGroupControl({
   }, [childAnimatableIds, existingAnimatableIds]);
 
   const displayLabel = label ?? groupId;
+
+  // Draft-while-focused; see useEditableLabel — the rendered label is derived
+  // and lags the rename write by a render, which otherwise drops keystrokes.
+  const handleRename = useCallback(
+    (val: string) => {
+      if (running) return;
+      onRename?.(val);
+    },
+    [running, onRename],
+  );
+  const labelField = useEditableLabel(displayLabel, handleRename);
   const derivedAddable =
     typeof addable === "boolean" ? addable : missingChildAnimatableIds.length > 0;
   const canAutoCreate =
@@ -537,14 +553,12 @@ function AnimatableGroupControl({
             <TextField
               size={Size.Sm}
               color={resolvedColor}
-              value={displayLabel}
+              value={labelField.value}
               readOnly={disabled || running || !onRename}
               outline="hidden"
-              onChange={(val) => {
-                if (running) return;
-                if (!val) return;
-                onRename?.(val);
-              }}
+              onChange={(val) => labelField.onChange(val)}
+              onBlur={labelField.onBlur}
+              onKeyDown={labelField.onKeyDown}
             />
           }
           controls={

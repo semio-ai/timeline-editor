@@ -7,6 +7,7 @@ export * from "./use-control-menu";
 export * from "./use-diagonal-material";
 export * from "./use-drag-gestures";
 export * from "./use-edge-scroll";
+export * from "./use-editable-label";
 export * from "./use-hover-spring";
 export * from "./use-invariant-scale";
 export * from "./use-key-control-state";
