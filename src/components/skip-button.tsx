@@ -1,5 +1,5 @@
 import { MouseEventHandler, type ReactNode, useCallback } from "react";
-import { Button, Icon } from "@semio/ui";
+import { Button, Icon, type IconValue } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import type { AnimationActions, AnimationData } from "../store-types";
 import { SemanticTime } from "../types";
@@ -80,7 +80,7 @@ export function SkipButton({
   );
 }
 
-const ICONS: Record<SemanticTime, ReactNode> = {
+const ICONS: Record<SemanticTime, IconValue> = {
   [SemanticTime.Forward]: <Icon name="playback-play" size="none" className="rotate-0 size-[10px]" />,
   [SemanticTime.Backward]: (
     <Icon name="playback-play" size="none" className="rotate-180 size-[10px]" />

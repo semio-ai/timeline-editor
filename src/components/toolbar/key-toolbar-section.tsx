@@ -1,8 +1,9 @@
-import { CSSProperties, memo, ReactNode, useCallback, useMemo } from "react";
+import { CSSProperties, memo, useCallback, useMemo } from "react";
 import {
   Dropdown,
   ICON_CLASS_NAME,
   Icon,
+  type IconValue,
   IconHandleIndicator,
   NestedItem,
   NestedLabel,
@@ -35,7 +36,7 @@ const TRANSITION_TEXT_BUTTON_CLASS = "hidden @[750px]:flex";
 const TRANSITION_ICON_ONLY_BUTTON_CLASS = "flex @[750px]:hidden";
 type HandleIndicatorType = "diamond" | "circle" | "indeterminate";
 
-const TRANSITION_OPTIONS: { value: TransitionPreference; label: string; icon?: ReactNode }[] = [
+const TRANSITION_OPTIONS: { value: TransitionPreference; label: string; icon?: IconValue }[] = [
   {
     value: StandardTransitionType.Sine,
     label: "Sinusoidal",
@@ -573,7 +574,7 @@ function isTransitionPreferenceValue(value: string): value is TransitionPreferen
   return TRANSITION_PREFERENCE_VALUES.has(value);
 }
 
-function getPairingStateIcon(pairing: TransitionPairing | typeof MIXED_VALUE): ReactNode {
+function getPairingStateIcon(pairing: TransitionPairing | typeof MIXED_VALUE): IconValue {
   if (pairing === TransitionPairing.Paired) {
     return <Icon name="vertex-paired" />;
   } else if (pairing === TransitionPairing.Free) {
@@ -591,7 +592,7 @@ function getTransitionSettingText(transition: typeof MIXED_VALUE | TransitionPre
 
 function getTransitionTypeIcon(
   transition: typeof MIXED_VALUE | TransitionPreference,
-): ReactNode {
+): IconValue {
   return TRANSITION_OPTIONS.find((o) => o.value === transition)?.icon;
 }
 

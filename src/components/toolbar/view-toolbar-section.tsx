@@ -1,7 +1,8 @@
-import { memo, type ReactNode, useCallback } from "react";
+import { memo, useCallback } from "react";
 import {
   Dropdown,
   Icon,
+  type IconValue,
   NestedLabel,
   NestedRadio,
   NestedSeparator,
@@ -19,7 +20,7 @@ export interface ViewToolbarSectionProps {
 const TRACK_RENDER_OPTIONS: {
   value: TrackRender;
   label: string;
-  icon: ReactNode;
+  icon: IconValue;
   disabled?: boolean;
 }[] = [
   {

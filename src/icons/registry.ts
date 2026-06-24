@@ -74,7 +74,8 @@ const solar = (C: ComponentType<{ size?: string | number }>): IconComponent => {
   return SolarGlyph;
 };
 
-export const animationIconRegistry: IconRegistry = {
+// `satisfies` (not `: IconRegistry`) keeps the literal keys for `keyof` below.
+export const animationIconRegistry = {
   // ── Editor actions (Solar canonical — converged from mixed Tabler/Solar usage) ──
   add: IconPlus, // REVIEW: Solar candidate later
   delete: solar(TrashBinTrash),
@@ -129,7 +130,15 @@ export const animationIconRegistry: IconRegistry = {
   alert: IconAlertTriangle,
   clock: IconClock,
   "fit-horizontal": IconArrowsHorizontal,
-};
+} satisfies IconRegistry;
 
 /** Union of animation registry keys, for optionally-typed call sites. */
 export type AnimationIconName = keyof typeof animationIconRegistry;
+
+// Register these keys for build-time `<Icon name>` checking. Augmentation follows
+// the dependency graph: @semio/animation (and anything depending on it) now type-
+// checks icon names against `default ∪ animation`. Derived from the registry above,
+// so the key set never drifts from what's actually registered.
+declare module "@semio/ui" {
+  interface IconRegistryKeys extends Record<AnimationIconName, true> {}
+}

@@ -1,5 +1,4 @@
-import { type ReactNode } from "react";
-import { Button, Icon, KeyIcon, Tooltip } from "@semio/ui";
+import { Button, Icon, type IconValue, KeyIcon, Tooltip } from "@semio/ui";
 import { DEFAULT_COLOR } from "../../constants";
 
 export type ControlStripCenterIcon = "key" | "plus";
@@ -31,7 +30,7 @@ export interface ControlStripProps {
   onCenter?: () => void;
   onCenterEnter?: () => void;
   onCenterLeave?: () => void;
-  centerContent?: ReactNode;
+  centerContent?: IconValue;
   centerIcon?: ControlStripCenterIcon;
   centerFilled?: boolean;
   centerDashed?: boolean;
