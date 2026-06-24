@@ -9,9 +9,9 @@ export function DataIcon({
   className?: string;
   size?: number | string;
 }) {
-  // When a caller passes an explicit size, disable Icon's self-sizing and let
-  // the className carry the dimensions; otherwise Icon self-sizes.
-  const sizeProps = size !== undefined ? ({ size: "none" } as const) : {};
+  // When a caller passes an explicit size, disable Icon's self-sizing and forward
+  // it as the glyph's width/height (matching DocumentIcon); otherwise Icon self-sizes.
+  const sizeProps = size !== undefined ? { size: "none" as const, width: size, height: size } : {};
   switch (iconCode) {
     case "group":
       return <Icon name="data-group" className={className} {...sizeProps} />;
