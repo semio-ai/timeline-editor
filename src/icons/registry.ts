@@ -1,4 +1,5 @@
-import { type IconRegistry } from "@semio/ui";
+import { createElement, type ComponentType } from "react";
+import { type IconRegistry, type IconComponent } from "@semio/ui";
 // @semio/ui glyphs re-used as semantic aliases (these components are already in the
 // default registry under other keys; we alias them to animation-domain names).
 import { Angle, Slow, Fast } from "@semio/ui";
@@ -58,29 +59,44 @@ import {
  * Direction: we are standardizing on **Solar** across animation + studio; Tabler entries
  * are interim until Solar covers them.
  */
+
+/**
+ * Solar icons default to `size="1em"` — far smaller than Tabler/@semio/ui's `24` — so a
+ * bare `<Icon name>` renders them tiny next to other glyphs in slots where
+ * `icon-standard`'s percentage doesn't resolve (e.g. menu rows). Wrap each Solar entry
+ * with an explicit default size so they sit consistently; a call-site CSS size (the
+ * `size-[Npx]` classes on transport buttons, etc.) still overrides this attribute.
+ */
+const solar = (C: ComponentType<{ size?: string | number }>): IconComponent => {
+  function SolarGlyph(props: Record<string, unknown>) {
+    return createElement(C, { size: "18px", ...props });
+  }
+  return SolarGlyph;
+};
+
 export const animationIconRegistry: IconRegistry = {
   // ── Editor actions (Solar canonical — converged from mixed Tabler/Solar usage) ──
   add: IconPlus, // REVIEW: Solar candidate later
-  delete: TrashBinTrash,
-  copy: Copy,
-  paste: Clipboard,
-  cut: Scissors,
-  settings: Settings,
+  delete: solar(TrashBinTrash),
+  copy: solar(Copy),
+  paste: solar(Clipboard),
+  cut: solar(Scissors),
+  settings: solar(Settings),
   edit: IconEdit, // REVIEW: no Solar Pen imported yet — Tabler for now
   menu: IconDotsVertical, // overflow menu; REVIEW: Solar candidate later
 
   // ── Transport / playback ──
-  "playback-play": Play,
-  "playback-pause": Pause,
+  "playback-play": solar(Play),
+  "playback-pause": solar(Pause),
   "playback-skip-back": IconPlayerSkipBack, // REVIEW: Solar candidate later
   "playback-skip-forward": IconPlayerSkipForward, // REVIEW: Solar candidate later
-  "playback-loop": Repeat,
-  "playback-direction": ArrowRight, // call site flips with `-scale-100` for reverse
+  "playback-loop": solar(Repeat),
+  "playback-direction": solar(ArrowRight), // call site flips with `-scale-100` for reverse
 
   // ── Speed levels (glyphs are somewhat decorative; REVIEW names/glyphs) ──
   "speed-slow": Slow, // alias → default `slow`
-  "speed-normal": Play,
-  "speed-fast": RewindForward,
+  "speed-normal": solar(Play),
+  "speed-fast": solar(RewindForward),
   "speed-fastest": Fast, // alias → default `fast`
 
   // ── Animatable data types (DataIcon) — discrete keys; some share a glyph today ──
@@ -98,18 +114,18 @@ export const animationIconRegistry: IconRegistry = {
   // ── Value units — discrete keys, currently sharing the angle/length glyph ──
   "unit-radian": Angle,
   "unit-degree": Angle,
-  "unit-meter": Ruler,
-  "unit-millimeter": Ruler,
-  "unit-centimeter": Ruler,
-  "unit-kilometer": Ruler,
+  "unit-meter": solar(Ruler),
+  "unit-millimeter": solar(Ruler),
+  "unit-centimeter": solar(Ruler),
+  "unit-kilometer": solar(Ruler),
   "unit-percent": IconPercentage,
 
   // ── Transition affordances ──
-  "transition-snap": Bolt, // instantaneous/snappy transition
-  "align-keys": AlignHorizontalCenter, // REVIEW: also used as a key-toolbar option
+  "transition-snap": solar(Bolt), // instantaneous/snappy transition
+  "align-keys": solar(AlignHorizontalCenter), // REVIEW: also used as a key-toolbar option
 
   // ── Misc ──
-  "color-picker": Palette2,
+  "color-picker": solar(Palette2),
   alert: IconAlertTriangle,
   clock: IconClock,
   "fit-horizontal": IconArrowsHorizontal,
