@@ -1,10 +1,16 @@
 import { ReactNode } from "react";
 import { NestedSeparator, type CanvasContextMenuContext, TimeDisplay } from "@semio/ui";
 import type { AnimationData, AnimationActions } from "../../../store-types";
+import {
+  findKeypointAtWorldStamp,
+  resolveKeyTargets,
+  type KeyMenuContext,
+} from "../../../functions/key-edit-targets";
 import { setViewport, requestVerticalFit } from "../../../viewport-state";
 import { AnimationActionsSection } from "./animation-actions";
 import { SelectionActionsSection } from "./selection-actions";
 import { EditActionsSection } from "./edit-actions";
+import { KeyEditActionsSection } from "./key-edit-actions";
 import { KeyContextMenu } from "./key-actions";
 import { AxisSettingsSection } from "./axis-settings";
 import { ZoomActionsSection } from "./zoom-actions";
@@ -26,6 +32,8 @@ export function buildTrackMenuItems(
   animationStore: any,
   /** Optional explicit track keys for targeted Select All (from per-row context menu). */
   trackKeys?: string[],
+  /** Context for clicked-time Add/Remove Key (spline=selection, non-spline=row). */
+  keyContext?: KeyMenuContext,
 ): ReactNode {
   const state = getAnimationState(animationStore);
   const hasSelection = state.selectionState.keypoints.size > 0;
@@ -40,6 +48,36 @@ export function buildTrackMenuItems(
     ? () => getAnimationState(animationStore).selectAllInTracks(trackKeys)
     : undefined;
   const handleDeselectAll = () => getAnimationState(animationStore).clearSelection();
+
+  // Add/Remove Key at the clicked time. Per the rules: only the time (x) is
+  // used — `insertKeypointAtWorldStamp` samples the spline value at that time.
+  const worldStamp = ctx.worldPosition[0];
+  const keyTargets = resolveKeyTargets(state, keyContext);
+  const existingKeyIds = keyTargets.map((t) => findKeypointAtWorldStamp(state, t, worldStamp));
+  const anyHasKey = existingKeyIds.some(Boolean);
+  const allHaveKey = keyTargets.length > 0 && existingKeyIds.every(Boolean);
+  // Add unless every target already has a key here; Remove if any does. Both can
+  // be enabled when only some targets have a key (partial selection).
+  const addEnabled = keyTargets.length > 0 && !allHaveKey;
+  const removeEnabled = anyHasKey;
+
+  const handleAddKey = () => {
+    const s = getAnimationState(animationStore);
+    const targets = resolveKeyTargets(s, keyContext).filter(
+      (t) => !findKeypointAtWorldStamp(s, t, worldStamp),
+    );
+    if (targets.length > 0) s.insertKeypointsAtWorldStamp(targets, worldStamp);
+  };
+  const handleRemoveKey = () => {
+    const s = getAnimationState(animationStore);
+    const keypoints = resolveKeyTargets(s, keyContext)
+      .map((t) => {
+        const keypointId = findKeypointAtWorldStamp(s, t, worldStamp);
+        return keypointId ? { trackId: t.trackId, keypointId } : null;
+      })
+      .filter((k): k is { trackId: string; keypointId: string } => k !== null);
+    if (keypoints.length > 0) s.removeKeypoints(keypoints);
+  };
 
   return (
     <>
@@ -59,6 +97,13 @@ export function buildTrackMenuItems(
         onSelectAll={handleSelectAll}
         onSelectAllInTrack={handleSelectAllInTrack}
         onDeselectAll={handleDeselectAll}
+      />
+      <NestedSeparator />
+      <KeyEditActionsSection
+        addEnabled={addEnabled}
+        removeEnabled={removeEnabled}
+        onAddKey={handleAddKey}
+        onRemoveKey={handleRemoveKey}
       />
       <NestedSeparator />
       <AnimationActionsSection ctx={ctx} />

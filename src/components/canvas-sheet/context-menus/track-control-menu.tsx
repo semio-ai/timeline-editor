@@ -227,14 +227,14 @@ export function TrackControlMenuContent({
         onClick={onAddKeyframe}
         left={<KeyIcon fillOpacity={0} center="plus" />}
       >
-        Add Keyframe
+        Add Key
       </NestedItem>
       <NestedItem
         disabled={playing || allReadonly || keyState === "none"}
         onClick={onRemoveKeyframe}
         left={<KeyIcon fillOpacity={0} center="minus" />}
       >
-        Remove Keyframe
+        Remove Key
       </NestedItem>
 
       {/* --- Navigate --- */}

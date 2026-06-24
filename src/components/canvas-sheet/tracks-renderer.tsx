@@ -206,7 +206,9 @@ export const TracksRenderer = memo(function TracksRenderer({
   });
 
   const { onContextMenu } = useCanvasContextMenu({
-    items: (ctx) => buildTrackMenuItems(ctx, animationStore),
+    // Canvas-wide menu: no clicked row, so Add/Remove Key applies to the
+    // selection in spline view and is disabled (no target) in non-spline view.
+    items: (ctx) => buildTrackMenuItems(ctx, animationStore, undefined, { trackRender }),
   });
 
   // Camera Y management:
