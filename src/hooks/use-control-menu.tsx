@@ -115,7 +115,7 @@ export function useControlMenu({
     clearSelection,
     removeKeypoints,
     removeTrack,
-    insertKeypointAtWorldStamp,
+    insertKeypointsAtWorldStamp,
   } = useAnimationStore(
     useShallow((state: AnimationActions) => ({
       updateControlColor: state.updateControlColor,
@@ -130,7 +130,7 @@ export function useControlMenu({
       clearSelection: state.clearSelection,
       removeKeypoints: state.removeKeypoints,
       removeTrack: state.removeTrack,
-      insertKeypointAtWorldStamp: state.insertKeypointAtWorldStamp,
+      insertKeypointsAtWorldStamp: state.insertKeypointsAtWorldStamp,
     })),
   );
 
@@ -200,10 +200,12 @@ export function useControlMenu({
     if (playing || allReadonly) return;
     const stamp = usePlayerStore.getState().player.stamp;
     const targets = keyState === "partial" ? missingEntries : sourceRow.data;
-    targets.forEach((datum) => {
-      insertKeypointAtWorldStamp(datum.trackId, stamp, datum.instanceId);
-    });
-  }, [playing, allReadonly, keyState, missingEntries, sourceRow.data, insertKeypointAtWorldStamp]);
+    // Batched so adding keys across a row's tracks is one undoable edit.
+    insertKeypointsAtWorldStamp(
+      targets.map((datum) => ({ trackId: datum.trackId, instanceId: datum.instanceId })),
+      stamp,
+    );
+  }, [playing, allReadonly, keyState, missingEntries, sourceRow.data, insertKeypointsAtWorldStamp]);
 
   const handleRemoveKeyframe = useCallback(() => {
     if (playing || allReadonly || !currentFrame) return;

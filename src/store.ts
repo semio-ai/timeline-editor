@@ -573,6 +573,24 @@ export const AnimationSlice = (
         }),
       );
     },
+    insertKeypointsAtWorldStamp: (
+      inserts: { trackId: string; instanceId: string }[],
+      worldStamp: number,
+    ) => {
+      const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
+      const writable = inserts.filter((entry) => !nonEditableIds.has(entry.trackId));
+      if (writable.length === 0) return;
+      // Single set() so a multi-track insertion is ONE atomic, undoable edit
+      // (mirrors removeKeypoints). Inserting per-track via separate set()s would
+      // split into multiple history entries — undo would peel them off one by one.
+      set(
+        produce((state: AnimationData) => {
+          writable.forEach(({ trackId, instanceId }) => {
+            insertKeyAtWorldStampAction(state, trackId, worldStamp, instanceId);
+          });
+        }),
+      );
+    },
     initAnimationSubscriptions: () => {
       // Clean up any previous subscriptions for this store instance
       const existingCleanup = (api as any).__derivedCleanup as (() => void) | undefined;

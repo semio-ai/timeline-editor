@@ -517,6 +517,16 @@ export interface AnimationActions {
    */
   insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => void;
   /**
+   * Insert keypoints across multiple tracks at one world stamp as a single
+   * atomic, undoable edit (one history entry). Prefer this over looping
+   * {@link insertKeypointAtWorldStamp} when adding keys for a multi-track
+   * selection, so undo reverts the whole insertion at once.
+   */
+  insertKeypointsAtWorldStamp: (
+    inserts: { trackId: string; instanceId: string }[],
+    worldStamp: number,
+  ) => void;
+  /**
    * Create a new animation, empty animation in the store.
    */
   createNewDefaultAnimation: () => void;
