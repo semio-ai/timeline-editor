@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { ICON_CLASS_NAME, IconKey, NestedItem, NestedLabel, KeybindingHint } from "@semio/ui";
+import { KeyIcon, NestedItem, NestedLabel, KeybindingHint } from "@semio/ui";
 import { AnimationAction } from "../../../keybindings";
 
 /**
@@ -25,7 +25,7 @@ export function KeyEditActionsSection({
       <NestedItem
         disabled={!addEnabled}
         onClick={onAddKey}
-        left={<IconKey fillOpacity={0} center="plus" size="18px" className={ICON_CLASS_NAME} />}
+        left={<KeyIcon fillOpacity={0} center="plus" />}
         right={<KeybindingHint action={AnimationAction.AddKey} />}
       >
         Add Key
@@ -33,7 +33,7 @@ export function KeyEditActionsSection({
       <NestedItem
         disabled={!removeEnabled}
         onClick={onRemoveKey}
-        left={<IconKey fillOpacity={0} center="minus" size="18px" className={ICON_CLASS_NAME} />}
+        left={<KeyIcon fillOpacity={0} center="minus" />}
       >
         Remove Key
       </NestedItem>
