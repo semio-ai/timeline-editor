@@ -126,26 +126,43 @@ export function computeTrackViolations(
   return completedViolations;
 }
 
+/**
+ * Boundary tolerance for limit checks. A value held flat AT a limit is sampled
+ * from the spline as `limit ± float error` (bezier evaluation + the ~1e-4
+ * parameter solve), so a strict `>`/`<` test flips on and off across frames and
+ * paints scattered violations over a constant-at-limit range. Treat values
+ * within this tolerance of the limit as on-limit. Scaled by magnitude so it
+ * holds for large limits while staying ~1e-6 near zero. Real violations exceed
+ * a limit by far more than this.
+ */
+const BOUNDARY_EPSILON = 1e-6;
+function exceedsMax(value: number, max: number): boolean {
+  return value > max + BOUNDARY_EPSILON * (1 + Math.abs(max));
+}
+function belowMin(value: number, min: number): boolean {
+  return value < min - BOUNDARY_EPSILON * (1 + Math.abs(min));
+}
+
 function valueHasUpperBoundError(value: RawValue, constraints: Constraints): boolean {
   if (typeof value === "number" && typeof (constraints as NumberConstraints)?.max === "number") {
-    return value > ((constraints as NumberConstraints).max ?? Infinity);
+    return exceedsMax(value, (constraints as NumberConstraints).max ?? Infinity);
   }
   if (instanceOfRawVector2(value)) {
     return ["x", "y"].some((dim, i) => {
       const dimValue = value[dim as keyof RawVector2];
-      return (dimValue as number) > ((constraints as Vec2Constraints).max?.[i] ?? Infinity);
+      return exceedsMax(dimValue as number, (constraints as Vec2Constraints).max?.[i] ?? Infinity);
     });
   }
   if (instanceOfRawVector3(value)) {
     return ["x", "y", "z"].some((dim, i) => {
       const dimValue = value[dim as keyof RawVector3];
-      return (dimValue as number) > ((constraints as Vec3Constraints).max?.[i] ?? Infinity);
+      return exceedsMax(dimValue as number, (constraints as Vec3Constraints).max?.[i] ?? Infinity);
     });
   }
   if (instanceOfRawEuler(value) && (constraints as Vec3Constraints).max !== undefined) {
     return ["r", "p", "y"].some((dim, i) => {
       const dimValue = value[dim as keyof RawEuler];
-      return (dimValue as number) > ((constraints as Vec3Constraints).max?.[i] ?? Infinity);
+      return exceedsMax(dimValue as number, (constraints as Vec3Constraints).max?.[i] ?? Infinity);
     });
   }
   if (instanceOfRawColor(value) && (constraints as ColorConstraints).max !== undefined) {
@@ -153,13 +170,13 @@ function valueHasUpperBoundError(value: RawValue, constraints: Constraints): boo
       return (["r", "g", "b"] as RGBKey[]).some((dim, i) => {
         const dimValue = (value as RawRGB)[dim];
         const max = (constraints as ColorConstraints).max?.[i] ?? Infinity;
-        return (dimValue as number) > max;
+        return exceedsMax(dimValue as number, max);
       });
     } else if ("h" in Object.keys(value)) {
       return (["h", "s", "l"] as HSLKey[]).some((dim, i) => {
         const dimValue = (value as RawHSL)[dim];
         const max = (constraints as ColorConstraints).max?.[i] ?? Infinity;
-        return (dimValue as number) > max;
+        return exceedsMax(dimValue as number, max);
       });
     }
   }
@@ -169,24 +186,24 @@ function valueHasUpperBoundError(value: RawValue, constraints: Constraints): boo
 
 function valueHasLowerBoundError(value: RawValue, constraints: Constraints): boolean {
   if (typeof value === "number" && typeof (constraints as NumberConstraints)?.min === "number") {
-    return value < ((constraints as NumberConstraints).min ?? -Infinity);
+    return belowMin(value, (constraints as NumberConstraints).min ?? -Infinity);
   }
   if (instanceOfRawVector2(value)) {
     return ["x", "y"].some((dim, i) => {
       const dimValue = value[dim as keyof RawVector2];
-      return (dimValue as number) < ((constraints as Vec2Constraints).min?.[i] ?? -Infinity);
+      return belowMin(dimValue as number, (constraints as Vec2Constraints).min?.[i] ?? -Infinity);
     });
   }
   if (instanceOfRawVector3(value)) {
     return ["x", "y", "z"].some((dim, i) => {
       const dimValue = value[dim as keyof RawVector3];
-      return (dimValue as number) < ((constraints as Vec3Constraints).min?.[i] ?? -Infinity);
+      return belowMin(dimValue as number, (constraints as Vec3Constraints).min?.[i] ?? -Infinity);
     });
   }
   if (instanceOfRawEuler(value) && (constraints as Vec3Constraints).min !== undefined) {
     return ["r", "p", "y"].some((dim, i) => {
       const dimValue = value[dim as keyof RawEuler];
-      return (dimValue as number) < ((constraints as Vec3Constraints).min?.[i] ?? -Infinity);
+      return belowMin(dimValue as number, (constraints as Vec3Constraints).min?.[i] ?? -Infinity);
     });
   }
   if (instanceOfRawColor(value) && (constraints as ColorConstraints).min !== undefined) {
@@ -194,13 +211,13 @@ function valueHasLowerBoundError(value: RawValue, constraints: Constraints): boo
       return (["r", "g", "b"] as RGBKey[]).some((dim, i) => {
         const dimValue = (value as RawRGB)[dim];
         const min = (constraints as ColorConstraints).min?.[i] ?? -Infinity;
-        return (dimValue as number) < min;
+        return belowMin(dimValue as number, min);
       });
     } else if ("h" in Object.keys(value)) {
       return (["h", "s", "l"] as HSLKey[]).some((dim, i) => {
         const dimValue = (value as RawHSL)[dim];
         const min = (constraints as ColorConstraints).min?.[i] ?? -Infinity;
-        return (dimValue as number) < min;
+        return belowMin(dimValue as number, min);
       });
     }
   }
@@ -214,9 +231,13 @@ function valueHasVelocityError(
   constraints: Constraints,
   timeDelta: number,
 ): boolean {
+  const limit = (constraints as NumberConstraints).velocity;
+  if (limit === undefined) return false;
   const valueDelta = rawValueNorm(rawValueDiff(currentValue, nextValue));
   const velocity = Math.abs(valueDelta / timeDelta);
-  return velocity > (constraints as NumberConstraints).velocity!;
+  // Same boundary tolerance as the bound checks: motion held at the velocity
+  // limit samples as limit ± float error and would otherwise flicker.
+  return exceedsMax(velocity, limit);
 }
 
 type ViolationChecker = (

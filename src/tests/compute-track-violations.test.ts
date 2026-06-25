@@ -54,6 +54,56 @@ test("An animation that shifts from within to outside bounds gets a bounds error
   expect(violation.stampRange.end).toBeCloseTo(2000, 0);
 });
 
+test("a value hovering at the limit within float tolerance produces no bound violation", () => {
+  const max = 1;
+  // A segment held flat AT the limit samples from the spline as max ± float
+  // error; a strict `>` test would paint scattered violations across the range.
+  const interpolator = (time: number) => max + Math.sin(time / 10) * 1e-9;
+
+  const violations = computeTrackViolations(interpolator, 2000, "track1", "default", "some", {
+    id: "some-animatable-id",
+    name: "Some Animatable",
+    type: "number",
+    default: 0,
+    constraints: { min: -1, max, velocity: 1e9 },
+  });
+
+  expect(violations.filter((v) => v.type === ViolationType.Upper)).toHaveLength(0);
+});
+
+test("a value clearly beyond the limit still reports a bound violation", () => {
+  const max = 1;
+  const interpolator = () => max + 0.5; // well past the tolerance
+
+  const violations = computeTrackViolations(interpolator, 2000, "track1", "default", "some", {
+    id: "some-animatable-id",
+    name: "Some Animatable",
+    type: "number",
+    default: 0,
+    constraints: { min: -1, max, velocity: 1e9 },
+  });
+
+  expect(violations.some((v) => v.type === ViolationType.Upper)).toBe(true);
+});
+
+test("a velocity sitting at the limit within float tolerance produces no velocity violation", () => {
+  const limit = 1; // per second
+  // Linear motion whose computed velocity is the limit plus float-level error.
+  // (velocity = k * 1000 per second; see computeTrackViolations' timeDelta.)
+  const k = (1 + 1e-9) / 1000;
+  const interpolator = (time: number) => k * time;
+
+  const violations = computeTrackViolations(interpolator, 2000, "track1", "default", "some", {
+    id: "some-animatable-id",
+    name: "Some Animatable",
+    type: "number",
+    default: 0,
+    constraints: { min: -1e9, max: 1e9, velocity: limit },
+  });
+
+  expect(violations.filter((v) => v.type === ViolationType.Velocity)).toHaveLength(0);
+});
+
 test("An animation with a velocity limit of 0 returns a violation for the entire change duration", () => {
   const track1 = {
     id: "track1",

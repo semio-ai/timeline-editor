@@ -2,7 +2,7 @@ import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import type { ClampFlags, EndpointTransitions, WorldCP } from "../types";
 import { StandardTransitionType, TransitionDirective } from "../types";
 import { clampMonotonicCubicSegment } from "./clamp-monotonic-cubic-segment";
-import { inferAutoHandleDeltas } from "./infer-auto-handles";
+import { inferAutoClampedHandleDeltas, inferAutoHandleDeltas } from "./infer-auto-handles";
 
 export interface SegmentControlPointInput {
   start: { stamp: number; value: number };
@@ -24,6 +24,24 @@ export interface SegmentControlPointResult {
   flags: ClampFlags;
 }
 
+/**
+ * Resolves a segment's bezier control points in two layers, the contract the
+ * whole editor relies on:
+ *
+ * - **raw** = the authored/inferred handle *direction*. Explicit handles use
+ *   the stored delta; easing uses its standard delta; auto-clamped uses
+ *   {@link inferAutoClampedHandleDeltas} (smooth direction flattened to
+ *   horizontal at extrema). Direction is fully settled here.
+ * - **effective** = raw passed through *magnitude-only* clamps (monotonic/knot
+ *   via {@link clampMonotonicCubicSegment}, then value/stamp range). These only
+ *   ever scale a handle along its own ray (`scaleToX`-style), so raw and
+ *   effective stay co-linear with the anchor — clamps must never bend
+ *   direction. The renderer draws the marker at raw and highlights effective.
+ *
+ * This is the single clamp site for every flow: static render, the
+ * interpolator, and the live drag preview all reach it via
+ * {@link computeRowData} / the interpolator builder.
+ */
 export function resolveSegmentControlPoints(
   input: SegmentControlPointInput,
 ): SegmentControlPointResult {
@@ -59,7 +77,6 @@ export function resolveSegmentControlPoints(
     authoredTransitions,
     start: input.start,
     end: input.end,
-    neighbors: input.neighbors,
     cp1Effective: result.cp1Effective,
     cp2Effective: result.cp2Effective,
   });
@@ -110,6 +127,9 @@ function resolveAuthoredSideTransition(params: {
     start,
     end,
     neighbors,
+    // Auto-clamped resolves the flattened tangent; the ExplicitHandles
+    // directive seeds from the un-flattened "Automatic" direction.
+    clamped: authored === TransitionDirective.InferredAutoClamped,
   });
   if (!inferred) {
     return StandardTransitionType.Cubic;
@@ -132,16 +152,18 @@ function inferFromSegmentNeighborhood(params: {
   start: { stamp: number; value: number };
   end: { stamp: number; value: number };
   neighbors?: SegmentControlPointInput["neighbors"];
+  clamped: boolean;
 }): { x: number; y: number } | undefined {
-  const { side, start, end, neighbors } = params;
+  const { side, start, end, neighbors, clamped } = params;
+  const infer = clamped ? inferAutoClampedHandleDeltas : inferAutoHandleDeltas;
   const inferred =
     side === "out"
-      ? inferAutoHandleDeltas({
+      ? infer({
           prev: neighbors?.startPrev,
           anchor: start,
           next: end,
         })
-      : inferAutoHandleDeltas({
+      : infer({
           prev: start,
           anchor: end,
           next: neighbors?.endNext,
@@ -197,35 +219,24 @@ function applyAutoClampedEffectiveLimits(params: {
   authoredTransitions: EndpointTransitions;
   start: { stamp: number; value: number };
   end: { stamp: number; value: number };
-  neighbors?: SegmentControlPointInput["neighbors"];
   cp1Effective?: WorldCP;
   cp2Effective?: WorldCP;
 }): { cp1Effective?: WorldCP; cp2Effective?: WorldCP; flags: ClampFlags } {
-  const { authoredTransitions, start, end, neighbors } = params;
+  const { authoredTransitions, start, end } = params;
   let cp1Effective = params.cp1Effective ? { ...params.cp1Effective } : undefined;
   let cp2Effective = params.cp2Effective ? { ...params.cp2Effective } : undefined;
   const flags: ClampFlags = {};
-  const segmentDelta = end.value - start.value;
 
+  // The extremum flatten now lives in the auto-clamped raw tangent
+  // (inferAutoClampedHandleDeltas), so the effective stage only applies
+  // magnitude clamps (value + stamp range) that stay co-linear with the raw
+  // handle. It must never bend the handle's direction.
   if (isInferredAutoClamped(authoredTransitions.startOut) && cp1Effective) {
     let clamped = clampHandleToSegmentValueRange({
       anchor: start,
       opposite: end,
       cp: cp1Effective,
     });
-    if (
-      shouldFlattenStartTangent({
-        startPrev: neighbors?.startPrev,
-        start,
-        segmentDelta,
-      })
-    ) {
-      clamped = clampHandleToTargetY({
-        anchor: start,
-        cp: clamped,
-        targetY: start.value,
-      });
-    }
     clamped = clampHandleToSegmentStampRange({
       anchor: start,
       cp: clamped,
@@ -244,19 +255,6 @@ function applyAutoClampedEffectiveLimits(params: {
       opposite: start,
       cp: cp2Effective,
     });
-    if (
-      shouldFlattenEndTangent({
-        endNext: neighbors?.endNext,
-        end,
-        segmentDelta,
-      })
-    ) {
-      clamped = clampHandleToTargetY({
-        anchor: end,
-        cp: clamped,
-        targetY: end.value,
-      });
-    }
     clamped = clampHandleToSegmentStampRange({
       anchor: end,
       cp: clamped,
@@ -357,42 +355,6 @@ function clampHandleToTargetX(params: {
     x: anchor.stamp + dx * ratio,
     y: anchor.value + dy * ratio,
   };
-}
-
-function shouldFlattenStartTangent(params: {
-  startPrev?: { stamp: number; value: number };
-  start: { stamp: number; value: number };
-  segmentDelta: number;
-}): boolean {
-  const { startPrev, start, segmentDelta } = params;
-  if (!startPrev) {
-    return false;
-  }
-  const prevDelta = start.value - startPrev.value;
-  if (isNearlyZero(prevDelta) || isNearlyZero(segmentDelta)) {
-    return true;
-  }
-  return Math.sign(prevDelta) !== Math.sign(segmentDelta);
-}
-
-function shouldFlattenEndTangent(params: {
-  endNext?: { stamp: number; value: number };
-  end: { stamp: number; value: number };
-  segmentDelta: number;
-}): boolean {
-  const { endNext, end, segmentDelta } = params;
-  if (!endNext) {
-    return false;
-  }
-  const nextDelta = endNext.value - end.value;
-  if (isNearlyZero(nextDelta) || isNearlyZero(segmentDelta)) {
-    return true;
-  }
-  return Math.sign(segmentDelta) !== Math.sign(nextDelta);
-}
-
-function isNearlyZero(value: number): boolean {
-  return Math.abs(value) < 1e-6;
 }
 
 function toAnchorRelativeDelta(anchor: { stamp: number; value: number }, cp: WorldCP) {

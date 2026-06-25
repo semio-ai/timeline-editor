@@ -10,6 +10,7 @@ import { animationKeybindings } from "../keybindings";
 import { TrackRender, VerticalAxis } from "../types";
 import {
   useAnimationStore,
+  useBlurInputsOnCanvasPointerDown,
   ColorContextProvider,
   NameContextProvider,
   TrackAnimatableContextProvider,
@@ -217,6 +218,11 @@ function InnerSheet({
 }: AnimationSheetProps): ReactNode {
   const { resolvedTheme } = useTheme();
   const animationStore = useContext(AnimationContext);
+
+  // Canvas pointer interactions don't blur a focused DOM input on their own, so
+  // global hotkeys (Delete on a selected key) would otherwise be swallowed by a
+  // still-focused value/name field. See the hook for the full rationale.
+  useBlurInputsOnCanvasPointerDown();
 
   // Sheet-wide reveal coordination. Canvas children mount only after fonts
   // have preloaded (avoids drei's <Text> Suspense unmount/remount cycle on

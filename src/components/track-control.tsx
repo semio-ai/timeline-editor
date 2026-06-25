@@ -17,6 +17,7 @@ import {
   useAnimationStore,
   useColors,
   useControlMenu,
+  useEditableLabel,
   useLocalGlobalTransformLookup,
   useNames,
   useRowBackground,
@@ -27,7 +28,7 @@ import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
 import { AnimationActions, AnimationData, ControlStripMode } from "../store-types";
 import type { SimpleRawValue } from "../types/data/simple-track";
 import { buildTrackKey } from "../utils/track-key";
-import { getSemanticLabelForIconCode } from "../functions";
+import { getSemanticLabelForIconCode, resolveSourceRef } from "../functions";
 import { KeyStrip } from "./key-strip";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
@@ -75,8 +76,8 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     rangeSelectTracks,
     updateKeypoints,
     updateSource,
-    updateTrack,
-    updateTrackGroupName,
+    editSource,
+    canEditSource,
   } = useAnimationStore(
     useShallow((state: AnimationActions) => ({
       focusSelectionInstance: state.focusSelectionInstance,
@@ -86,8 +87,8 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
       rangeSelectTracks: state.rangeSelectTracks,
       updateKeypoints: state.updateKeypoints,
       updateSource: state.updateSource,
-      updateTrack: state.updateTrack,
-      updateTrackGroupName: state.updateTrackGroupName,
+      editSource: state.editSource,
+      canEditSource: state.canEditSource,
     })),
   );
 
@@ -139,6 +140,33 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   const resolvedName = useNames(trackIds);
   const groupName = sourceRow.name ?? resolvedName;
   const name = isGroup ? groupName : resolvedName;
+
+  // The row name derives from an upstream source (entity / animatable / track /
+  // local group label). `canEditSource` reports whether anything actually
+  // handles a rename for this source — so we can disable the field for kinds
+  // nothing supports yet (e.g. animation-instance rename, pending the
+  // asset-save migration) rather than accept a no-op edit.
+  const sourceRef = useMemo(() => resolveSourceRef(sourceRow), [sourceRow]);
+  const canRename = sourceRef ? canEditSource(sourceRef) : false;
+
+  // The displayed name is derived: group rows write `track.groupName` but
+  // render `sourceRow.name`, which the view-filtered source-rows subscription
+  // regenerates one render after the write. A draft-while-focused field
+  // (commit on blur / Enter) decouples typing from that round-trip so
+  // keystrokes aren't dropped. See useEditableLabel for the full rationale.
+  const handleNameCommit = useCallback(
+    (val: string) => {
+      if (playing || !sourceRef) return;
+      // Route through the source-edit channel: editing a row's name mutates
+      // whatever it derives from and lets the derived value re-propagate,
+      // rather than writing a derived override. Studio overrides editSource to
+      // reach entity/asset source records; the animation default handles
+      // tracks/animatables/labels.
+      editSource(sourceRef, { name: val });
+    },
+    [playing, editSource, sourceRef],
+  );
+  const nameField = useEditableLabel(name, handleNameCommit);
 
   // Shared aggregate state, callbacks, and menu assembly.
   const {
@@ -253,18 +281,15 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
             <TextField
               size={Size.Sm}
               color={color}
-              value={name}
-              readOnly={playing}
+              value={nameField.value}
+              // Read-only during playback, and when nothing handles a rename for
+              // this row's source (e.g. animation-instance rename is unsupported
+              // until the asset-save migration) — avoids an editable no-op field.
+              readOnly={playing || !canRename}
               outline="hidden"
-              onChange={(val) => {
-                if (playing) return;
-                if (!val) return;
-                if (isGroup) {
-                  updateTrackGroupName(trackIds, val);
-                } else {
-                  updateTrack({ id: sourceRow.data[0]?.trackId, name: val });
-                }
-              }}
+              onChange={(val) => nameField.onChange(val)}
+              onBlur={nameField.onBlur}
+              onKeyDown={nameField.onKeyDown}
             />
           }
           editor={
