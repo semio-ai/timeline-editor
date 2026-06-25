@@ -107,6 +107,7 @@ import {
 import {
   computeStoredAnimation,
   computeUpdatedSources,
+  findKeypointAtWorldStamp,
   getNonEditableTrackIds,
 } from "./functions";
 import {
@@ -578,7 +579,15 @@ export const AnimationSlice = (
       worldStamp: number,
     ) => {
       const { nonEditableIds } = getNonEditableTrackIds(get().instancedTrackSources);
-      const writable = inserts.filter((entry) => !nonEditableIds.has(entry.trackId));
+      const currentState = get();
+      // Skip read-only tracks and any track that already has a key at this
+      // stamp — re-inserting would stack a duplicate key at the same time
+      // (e.g. pressing the add-key shortcut repeatedly at one playhead).
+      const writable = inserts.filter(
+        (entry) =>
+          !nonEditableIds.has(entry.trackId) &&
+          !findKeypointAtWorldStamp(currentState, entry, worldStamp),
+      );
       if (writable.length === 0) return;
       // Single set() so a multi-track insertion is ONE atomic, undoable edit
       // (mirrors removeKeypoints). Inserting per-track via separate set()s would

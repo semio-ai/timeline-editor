@@ -60,4 +60,51 @@ describe("insertKeypointsAtWorldStamp", () => {
     unsubscribe();
     expect(trackUpdates).toBe(0);
   });
+
+  it("does not stack a duplicate key when one already exists at the stamp", () => {
+    const store = createTestAnimationStore();
+    const [trackId] = pickScalarTrackIds(store, 1);
+    const insert = [{ trackId, instanceId: INSTANCE_IDS.ALPHA_SHARED }];
+    const stamp = 99_999;
+
+    store.getState().insertKeypointsAtWorldStamp(insert, stamp);
+    const afterFirst = store.getState().tracks[trackId].points.length;
+
+    // Re-inserting at the same stamp (e.g. mashing the add-key shortcut) must
+    // skip the track that already has a key there — no duplicate, no update.
+    let trackUpdates = 0;
+    const unsubscribe = store.subscribe(
+      (state) => state.tracks,
+      () => {
+        trackUpdates += 1;
+      },
+    );
+    store.getState().insertKeypointsAtWorldStamp(insert, stamp);
+    unsubscribe();
+
+    expect(trackUpdates).toBe(0);
+    expect(store.getState().tracks[trackId].points.length).toBe(afterFirst);
+  });
+
+  it("inserts only on tracks lacking a key when the batch is mixed", () => {
+    const store = createTestAnimationStore();
+    const trackIds = pickScalarTrackIds(store, 2);
+    expect(trackIds.length).toBe(2);
+    const stamp = 99_999;
+
+    // Seed a key on the first track only.
+    store
+      .getState()
+      .insertKeypointsAtWorldStamp([{ trackId: trackIds[0], instanceId: INSTANCE_IDS.ALPHA_SHARED }], stamp);
+    const counts = trackIds.map((id) => store.getState().tracks[id].points.length);
+
+    // Batch over both: the already-keyed track is skipped, the other gains one.
+    store.getState().insertKeypointsAtWorldStamp(
+      trackIds.map((trackId) => ({ trackId, instanceId: INSTANCE_IDS.ALPHA_SHARED })),
+      stamp,
+    );
+
+    expect(store.getState().tracks[trackIds[0]].points.length).toBe(counts[0]);
+    expect(store.getState().tracks[trackIds[1]].points.length).toBe(counts[1] + 1);
+  });
 });
