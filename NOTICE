@@ -1,0 +1,16 @@
+@semio/animation — Third-Party Icon Notices
+============================================
+
+Tabler Icons — MIT
+  Copyright (c) 2020-2026 Pawel Kuna. https://tabler.io/icons
+  Source: @tabler/icons-react (MIT). Used for several animation registry entries.
+
+Solar Icons — CC BY 4.0
+  "Solar Icons" by 480 Design — https://www.figma.com/community/file/1166831539721848736
+  Licensed under CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+  Source: @solar-icons/react-perf (package code MIT; icon designs CC BY 4.0,
+  see that package's LICENSE-THIRD-PARTY). The animation icon registry bundles
+  these icon components (transport, editor actions, units); rendered at custom
+  sizes and recolored via currentColor.
+
+See THIRD-PARTY-NOTICES.md at the repository root for the full statement.
