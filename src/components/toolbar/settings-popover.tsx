@@ -77,7 +77,7 @@ export const SettingsPopover = memo(function SettingsPopover() {
           tooltip="Editor settings"
           visuals="inverted"
           size={Size.Sm}
-          leftIcon={<Icon name="settings" size="none" className="size-[16px]" />}
+          leftIcon={<Icon name="settings" size="none" className="size-4" />}
           className="rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
         />
       }
