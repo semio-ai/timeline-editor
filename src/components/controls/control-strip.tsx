@@ -88,7 +88,7 @@ export function ControlStrip({
           onClick={prevDisabled ? undefined : onPrev}
           onMouseEnter={prevDisabled ? undefined : onPrevEnter}
           onMouseLeave={prevDisabled ? undefined : onPrevLeave}
-          leftIcon={<Icon name="playback-play" size="none" className="rotate-180 size-[10px]" />}
+          leftIcon={<Icon name="playback-play" size="none" className="rotate-180 size-2.5" />}
           visuals="inverted"
           className={prevVisible ? undefined : "opacity-20"}
         />
@@ -115,7 +115,7 @@ export function ControlStrip({
           onClick={nextDisabled ? undefined : onNext}
           onMouseEnter={nextDisabled ? undefined : onNextEnter}
           onMouseLeave={nextDisabled ? undefined : onNextLeave}
-          leftIcon={<Icon name="playback-play" size="none" className="size-[10px]" />}
+          leftIcon={<Icon name="playback-play" size="none" className="size-2.5" />}
           visuals="inverted"
           className={nextVisible ? undefined : "opacity-20"}
         />
