@@ -36,6 +36,7 @@
     "dev": "tsup src/index.tsx --format esm,cjs --watch --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:once": "vitest run",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist",
     "test:unit": "vitest run",
