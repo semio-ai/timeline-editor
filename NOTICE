@@ -1,16 +1,31 @@
-@semio/animation — Third-Party Icon Notices
-============================================
+@semio/animation — Third-Party Notices
+======================================
 
-Tabler Icons — MIT
-  Copyright (c) 2020-2026 Pawel Kuna. https://tabler.io/icons
-  Source: @tabler/icons-react (MIT). Used for several animation registry entries.
+@semio/animation is MIT licensed; see the LICENSE file in this package.
 
-Solar Icons — CC BY 4.0
-  "Solar Icons" by 480 Design — https://www.figma.com/community/file/1166831539721848736
-  Licensed under CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
-  Source: @solar-icons/react-perf (package code MIT; icon designs CC BY 4.0,
-  see that package's LICENSE-THIRD-PARTY). The animation icon registry bundles
-  these icon components (transport, editor actions, units); rendered at custom
-  sizes and recolored via currentColor.
+Its icon registry renders components from `@solar-icons/react-perf` and
+`@tabler/icons-react`, which arrive with those dependencies rather than being
+copied into this package's `dist`. Solar Icons are CC BY 4.0 — an attribution
+requirement rather than a bare permission — so both statements are reproduced here
+in full, because a consumer of the published package has no copy of the source
+repository and a notice that points outward attributes nothing.
 
-See THIRD-PARTY-NOTICES.md at the repository root for the full statement.
+Maintainers — this statement is duplicated elsewhere in the source repository
+(https://github.com/semio-ai/semio_studio), and THIRD-PARTY-NOTICES.md at its root
+indexes every copy. Edit them together, because an attribution obligation is
+satisfied by the stated form and not by a paraphrase of it.
+
+## Icons
+
+### Tabler Icons — MIT
+- Copyright (c) 2020-2026 Paweł Kuna — <https://tabler.io/icons>
+- Distributed via [`@tabler/icons-react`](https://www.npmjs.com/package/@tabler/icons-react), MIT License.
+- Used for the bulk of the `@semio/ui` default icon registry and many `@semio/animation` / Studio registry entries.
+
+### Solar Icons — CC BY 4.0
+- **"Solar Icons" by [480 Design](https://www.figma.com/community/file/1166831539721848736)**, licensed under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+- Distributed via [`@solar-icons/react-perf`](https://www.npmjs.com/package/@solar-icons/react-perf): the **package code is MIT** — Copyright (c) 2024 Hakim Saoudi — while the **icon designs are CC BY 4.0** (see that package's `LICENSE-THIRD-PARTY`).
+- Used in the `@semio/animation` and Studio icon registries (transport, editor actions, units, legal glyphs, etc.). `@semio/ui` additionally uses the package's `IconProps` type for a few in-house glyphs drawn in a matching style.
+- **Modifications:** re-exported as React components and rendered at custom sizes / recolored via `currentColor`. No changes to the underlying glyph geometry beyond what the package provides.
+
+The Figma "Semio UI Library" file mirrors these icons and carries the same attribution on its Icons page.
