@@ -78,7 +78,7 @@ export const ViewToolbarSection = memo(function ViewToolbarSection({
     TRACK_RENDER_OPTIONS.find((option) => option.value === trackRender) ?? TRACK_RENDER_OPTIONS[0];
 
   return (
-    <div className="responsive variant-responsive-persistent-outline flex gap-0.5 rounded-sm p-0.5">
+    <div className="variant-scope variant-responsive-persistent-outline flex gap-0.5 rounded-sm p-0.5">
       <Dropdown
         side="top"
         trigger={

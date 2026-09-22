@@ -91,7 +91,7 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
   }, [duration]);
 
   return (
-    <div className="responsive variant-responsive-persistent-outline hidden gap-0.5 rounded-sm p-0.5 @[600px]:flex">
+    <div className="variant-scope variant-responsive-persistent-outline hidden gap-0.5 rounded-sm p-0.5 @[600px]:flex">
       {/* Time display mode */}
       <Dropdown
         side="top"
