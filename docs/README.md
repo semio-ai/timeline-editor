@@ -33,6 +33,13 @@ This README is the source of truth for package architecture and current behavior
 - `canvas-sheet/` owns marker/segment/handle rendering and gesture-driven interactions.
 - Storybook stories for this package live in `apps/docs/stories`.
 
+## Playback speed controls
+
+`PlaybackSettings` offers 0.1×, 0.5×, 1.0×, 1.5×, and 2.0× playback.
+Its numeric speed glyphs use the `playback-<rate>` keys in `@semio/ui`'s default
+registry; integer rates keep a decimal in the icon key (`playback-1.0`,
+`playback-2.0`) while the selector passes numeric values to the player store.
+
 ## Testing Notes
 
 - Prefer action-level and function-level coverage for gesture-heavy behavior.
@@ -59,3 +66,31 @@ Current status snapshot:
 - [ ] Locking specific tracks/splines
 - [ ] Show/Hide of individual tracks (specific visual depending on TrackRender mode)
 - [ ] Scaling when multiple keyframes are selected (with S keybinding)
+
+### Data and curve glyphs
+
+The animation registry uses Solar Hashtag for absent data and Text for text data.
+Vector data glyphs pair half-opacity axes with opaque points. Curve glyphs retain
+their existing geometry and use Solar-equivalent line weights; handle indicators
+retain their independent state styling.
+
+Grouped data uses the shared `IconFolderClosed` artwork through `data-group`.
+
+Numeric and unspecified data labels share Solar Hashtag; binary data uses the
+supplied data-binary.svg artwork, and text keeps its
+explicit Text glyph. Percentage units use the bare percent mark.
+
+Euler data uses the supplied rotate-3d artwork. Playback skip actions use Solar Bold SkipPrevious/SkipNext.
+
+Animation inherits UI glyphs and owns its additional editor/transport/data keys.
+Edit, menu, and settings use the approved Solar designs without Studio overrides.
+
+### Semantic icon roles
+
+Timeline views use `view-keys`, `view-transitions`, `view-preview`, `view-spline`,
+and `view-data`; easing uses `transition-*`. Handle pairing keeps `vertex-*`,
+and animation data keys keep `key`. Action marks (`mute`, `hide`, `unlock`)
+are distinct from state marks (`state-muted`, `state-hidden`, `state-locked`).
+Start/end bound icons own their orientation, so callers do not mirror them.
+Time-format controls display the supplied `time-display-*` artwork without
+expanding their supported format lists. Shared add/copy/remove roles come from UI.

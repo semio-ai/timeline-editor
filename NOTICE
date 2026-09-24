@@ -26,6 +26,6 @@ satisfied by the stated form and not by a paraphrase of it.
 - **"Solar Icons" by [480 Design](https://www.figma.com/community/file/1166831539721848736)**, licensed under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
 - Distributed via [`@solar-icons/react-perf`](https://www.npmjs.com/package/@solar-icons/react-perf): the **package code is MIT** — Copyright (c) 2024 Hakim Saoudi — while the **icon designs are CC BY 4.0** (see that package's `LICENSE-THIRD-PARTY`).
 - Used in the `@semio/animation` and Studio icon registries (transport, editor actions, units, legal glyphs, etc.). `@semio/ui` additionally uses the package's `IconProps` type for a few in-house glyphs drawn in a matching style.
-- **Modifications:** re-exported as React components and rendered at custom sizes / recolored via `currentColor`. No changes to the underlying glyph geometry beyond what the package provides.
+- **Modifications:** re-exported as React components and rendered at custom sizes / recolored via `currentColor`. Semio adaptations include the BoxMinimalistic outer contour without internal edges, plus custom Solar-style affordances. File-add and exclamation-mark SVGs are included from the official Solar catalogue; the supplied SVG artwork is rendered with its original geometry.
 
 The Figma "Semio UI Library" file mirrors these icons and carries the same attribution on its Icons page.

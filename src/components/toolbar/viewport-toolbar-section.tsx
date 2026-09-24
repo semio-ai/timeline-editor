@@ -8,6 +8,7 @@ import {
   NestedSeparator,
   Size,
   TimeDisplay,
+  type IconName,
 } from "@semio/ui";
 import { useShallow } from "zustand/shallow";
 import { usePlayerStore } from "@semio/utils";
@@ -28,10 +29,17 @@ const ZOOM_PRESETS = [
   { label: "800%", factor: 8 },
 ];
 
-const TIME_DISPLAY_OPTIONS: { value: TimeDisplay; label: string }[] = [
-  { value: TimeDisplay.Frames, label: "Frames" },
-  { value: TimeDisplay.Seconds, label: "Seconds" },
-  { value: TimeDisplay.SecondsPlusFrames, label: "Seconds + Frames" },
+const TIME_DISPLAY_ICONS: Record<TimeDisplay, IconName> = {
+  [TimeDisplay.Frames]: "time-display-frames",
+  [TimeDisplay.Seconds]: "time-display-seconds",
+  [TimeDisplay.SecondsPlusFrames]: "time-display-seconds-frames",
+  [TimeDisplay.Milliseconds]: "time-display-milliseconds",
+};
+
+const TIME_DISPLAY_OPTIONS = [
+  { value: TimeDisplay.Frames, label: "Frames", icon: <Icon name={TIME_DISPLAY_ICONS[TimeDisplay.Frames]} /> },
+  { value: TimeDisplay.Seconds, label: "Seconds", icon: <Icon name={TIME_DISPLAY_ICONS[TimeDisplay.Seconds]} /> },
+  { value: TimeDisplay.SecondsPlusFrames, label: "Seconds + Frames", icon: <Icon name={TIME_DISPLAY_ICONS[TimeDisplay.SecondsPlusFrames]} /> },
 ];
 
 const TIME_DISPLAY_SHORT: Record<string, string> = {
@@ -100,7 +108,7 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
             tooltip="Time display format"
             visuals="inverted"
             size={Size.Sm}
-            leftIcon={<Icon name="clock" />}
+            leftIcon={<Icon name={TIME_DISPLAY_ICONS[timeDisplay]} />}
             rightIcon="select-indicator"
             className="w-28 rounded-xs bg-neutral-500/10 text-xs hover:bg-neutral-500/25"
           >

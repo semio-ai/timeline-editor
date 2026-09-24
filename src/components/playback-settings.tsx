@@ -31,24 +31,29 @@ export function PlaybackSettings() {
         size={Size.Sm}
         options={[
           {
+            value: "0.1",
+            label: "Very Slow Playback (0.1x)",
+            icon: "playback-0.1",
+          },
+          {
             value: "0.5",
             label: "Slow Playback (0.5x)",
-            icon: "speed-slow",
+            icon: "playback-0.5",
           },
           {
             value: "1",
             label: "Normal Playback (1x)",
-            icon: "speed-normal",
+            icon: "playback-1.0",
           },
           {
             value: "1.5",
             label: "Fast Playback (1.5x)",
-            icon: "speed-fast",
+            icon: "playback-1.5",
           },
           {
             value: "2",
             label: "Very Fast Playback (2x)",
-            icon: "speed-fastest",
+            icon: "playback-2.0",
           },
         ]}
         value={speed.toString()}
@@ -92,7 +97,7 @@ export function PlaybackSettings() {
         value={bounce}
         onChange={setBounce}
       >
-        <Icon name="bounce" size="none" className="block w-3.5 h-3.5 shrink-0" />
+        <Icon name="playback-bounce" size="none" className="block w-3.5 h-3.5 shrink-0" />
       </ToggleSquare>
     </>
   );

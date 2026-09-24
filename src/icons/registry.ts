@@ -1,135 +1,80 @@
-import { createElement, type ComponentType } from "react";
-import { type IconRegistry, type IconComponent } from "@semio/ui";
-// @semio/ui glyphs re-used as semantic aliases (these components are already in the
-// default registry under other keys; we alias them to animation-domain names).
-import { Angle, Slow, Fast } from "@semio/ui";
-// Solar — the preferred icon set for the animation editor (see workflow note below).
-import { Play, Pause } from "@solar-icons/react-perf/Bold";
-import {
-  TrashBinTrash,
-  Copy,
-  Clipboard,
-  Ruler,
-  Repeat,
-  ArrowRight,
-  RewindForward,
-  Palette2,
-} from "@solar-icons/react-perf/LineDuotone";
-import { Scissors, AlignHorizontalCenter, Settings, Bolt } from "@solar-icons/react-perf/Linear";
-// Tabler — for concepts Solar doesn't (yet) cover. Migrate to Solar as it gains them.
-import {
-  IconPlus,
-  IconChartScatter,
-  IconChartScatter3d,
-  IconRotate360,
-  IconPalette,
-  IconPercentage,
-  IconHash,
-  IconFolder,
-  IconPlayerSkipBack,
-  IconPlayerSkipForward,
-  IconClock,
-  IconDotsVertical,
-  IconEdit,
-  IconAlertTriangle,
-  IconArrowsHorizontal,
-} from "@tabler/icons-react";
+import { defaultIconRegistry, PlayerEndBounds, IconTimeDisplaySeconds, createSolarIcon as solar } from "@semio/ui";
+import { Pen, Settings as SolarSettings } from "@solar-icons/react-perf/LineDuotone";
+import { MenuDots } from "@solar-icons/react-perf/Bold";
+import { Text } from "@solar-icons/react-perf/Linear";
+import { Hashtag, DangerTriangle, ClockCircle } from "@solar-icons/react-perf/LineDuotone";
+import { IconRotate3d, IconPercent } from "@semio/ui";
+import { type IconRegistry } from "@semio/ui";
+import { Angle, IconFolderClosed } from "@semio/ui";
+import { Play, Pause, SkipPrevious, SkipNext } from "@solar-icons/react-perf/Bold";
+import { TrashBinTrash, Clipboard, Ruler, Repeat, ArrowRight, Palette2 } from "@solar-icons/react-perf/LineDuotone";
+import { Scissors, AlignHorizontalCenter, Bolt } from "@solar-icons/react-perf/Linear";
+import { MovePlayerStartBounds, PlaybackSeekStartBounds } from "./boundary-glyphs";
 
 /**
- * Animation's icon registry — the icons `@semio/animation` needs beyond `@semio/ui`'s
- * `defaultIconRegistry`. Keys are **semantic** (named for their role, not the glyph),
- * so a glyph can be swapped here without touching call sites.
- *
- * This is a library registry: it is an exported **object**, not a provider. The
- * consuming app composes it (`{ ...animationIconRegistry, ...appRegistry }`) under one
- * `<IconProvider>`, so the app keeps final say on overrides. Curve/vector/vertex/eye/
- * lock/player glyphs already live in `defaultIconRegistry` — reference those keys
- * directly (e.g. `vector-sine`, `vertex-paired`); they are intentionally NOT duplicated
- * here.
- *
- * ## How to add an icon (the workflow — there is no codegen for this)
- * 1. Pick a **semantic key** (role/concept, kebab-case): `delete`, `unit-radian`,
- *    `data-vector2`. Not the glyph name.
- * 2. Import the component (prefer Solar; fall back to Tabler/`@semio/ui` if Solar
- *    lacks it) and add `"<key>": Component` below, in the right section.
- * 3. Use it: `<Icon name="<key>" />` (or `leftIcon="<key>"`). No import at the call site.
- * The `icon-registry.test.ts` resolve-check verifies every key a component references
- * actually exists here — run the tests after adding keys.
- *
- * Direction: we are standardizing on **Solar** across animation + studio; Tabler entries
- * are interim until Solar covers them.
+ * Animation owns editor actions, playback, data-type aliases, and units. UI glyph
+ * keys are inherited. Studio inherits these decisions without redeclaring them.
+ * Consumer IconProviders remain free to provide intentional theme overrides.
  */
-
-/**
- * Solar icons default to `size="1em"` — far smaller than Tabler/@semio/ui's `24` — so a
- * bare `<Icon name>` renders them tiny next to other glyphs in slots where
- * `icon-standard`'s percentage doesn't resolve (e.g. menu rows). Wrap each Solar entry
- * with an explicit default size so they sit consistently; a call-site CSS size (the
- * `size-[Npx]` classes on transport buttons, etc.) still overrides this attribute.
- */
-const solar = (C: ComponentType<{ size?: string | number }>): IconComponent => {
-  function SolarGlyph(props: Record<string, unknown>) {
-    return createElement(C, { size: "18px", ...props });
-  }
-  return SolarGlyph;
-};
-
 // `satisfies` (not `: IconRegistry`) keeps the literal keys for `keyof` below.
 export const animationIconRegistry = {
-  // ── Editor actions (Solar canonical — converged from mixed Tabler/Solar usage) ──
-  add: IconPlus, // REVIEW: Solar candidate later
-  delete: solar(TrashBinTrash),
-  copy: solar(Copy),
-  paste: solar(Clipboard),
-  cut: solar(Scissors),
-  settings: solar(Settings),
-  edit: IconEdit, // REVIEW: no Solar Pen imported yet — Tabler for now
-  menu: IconDotsVertical, // overflow menu; REVIEW: Solar candidate later
-
-  // ── Transport / playback ──
+  "delete": solar(TrashBinTrash),
+  "paste": solar(Clipboard),
+  "cut": solar(Scissors),
+  "settings": solar(SolarSettings, "icon-duotone-inverted"),
+  "edit": solar(Pen),
+  "menu": solar(MenuDots, "rotate-90"),
   "playback-play": solar(Play),
   "playback-pause": solar(Pause),
-  "playback-skip-back": IconPlayerSkipBack, // REVIEW: Solar candidate later
-  "playback-skip-forward": IconPlayerSkipForward, // REVIEW: Solar candidate later
+  "playback-skip-back": solar(SkipPrevious),
+  "playback-skip-forward": solar(SkipNext),
   "playback-loop": solar(Repeat),
-  "playback-direction": solar(ArrowRight), // call site flips with `-scale-100` for reverse
-
-  // ── Speed levels (glyphs are somewhat decorative; REVIEW names/glyphs) ──
-  "speed-slow": Slow, // alias → default `slow`
-  "speed-normal": solar(Play),
-  "speed-fast": solar(RewindForward),
-  "speed-fastest": Fast, // alias → default `fast`
-
-  // ── Animatable data types (DataIcon) — discrete keys; some share a glyph today ──
-  "data-vector2": IconChartScatter,
-  "data-vector3": IconChartScatter3d,
-  "data-euler": IconRotate360,
-  "data-rgb": IconPalette,
-  "data-hsl": IconPalette, // discrete; shares the palette glyph for now
-  "data-group": IconFolder,
-  "data-number": IconHash,
-  "data-text": IconHash, // discrete; shares the hash glyph
-  "data-binary": IconHash, // discrete; shares the hash glyph
-  "data-none": IconHash, // discrete; shares the hash glyph
-
-  // ── Value units — discrete keys, currently sharing the angle/length glyph ──
+  "playback-direction": solar(ArrowRight),
+  "data-euler": IconRotate3d,
+  "data-rgb": solar(Palette2),
+  "data-hsl": solar(Palette2),
+  "data-group": IconFolderClosed,
+  "data-number": solar(Hashtag),
+  "data-text": solar(Text),
+  "data-none": solar(Hashtag),
   "unit-radian": Angle,
   "unit-degree": Angle,
   "unit-meter": solar(Ruler),
   "unit-millimeter": solar(Ruler),
   "unit-centimeter": solar(Ruler),
   "unit-kilometer": solar(Ruler),
-  "unit-percent": IconPercentage,
-
-  // ── Transition affordances ──
-  "transition-snap": solar(Bolt), // instantaneous/snappy transition
-  "align-keys": solar(AlignHorizontalCenter), // REVIEW: also used as a key-toolbar option
-
-  // ── Misc ──
+  "unit-percent": IconPercent,
+  "transition-snap": solar(Bolt),
+  "align-keys": solar(AlignHorizontalCenter),
   "color-picker": solar(Palette2),
-  alert: IconAlertTriangle,
-  clock: IconClock,
-  "fit-horizontal": IconArrowsHorizontal,
+  "alert": solar(DangerTriangle),
+  /** @deprecated Use time-display or sort-created for the respective control. */
+  "clock": solar(ClockCircle),
+  "workspace-toggle": defaultIconRegistry["chevron-down"],
+  "rename": solar(Pen),
+  "menu-edit": solar(Pen),
+  "menu-view": defaultIconRegistry["preview-open"],
+  "time-display": IconTimeDisplaySeconds,
+  "playback-bounce": defaultIconRegistry.bounce,
+  "view-keys": defaultIconRegistry["vector-flat"],
+  "view-transitions": defaultIconRegistry["vector-angled"],
+  "view-preview": defaultIconRegistry["vector-bezier"],
+  "view-spline": defaultIconRegistry["vector-bezier-handles"],
+  "view-data": defaultIconRegistry["graph-view"],
+  "transition-bezier-handles": defaultIconRegistry["vector-bezier-handles"],
+  "transition-auto-clamped": defaultIconRegistry["vector-bezier-auto-clamp"],
+  "move-player-start-bounds": MovePlayerStartBounds,
+  "playback-seek-start-bounds": PlaybackSeekStartBounds,
+  "playback-seek-end-bounds": PlayerEndBounds,
+  "transition-back": defaultIconRegistry["vector-back"],
+  "transition-circular": defaultIconRegistry["vector-circ"],
+  "transition-cubic": defaultIconRegistry["vector-cubic"],
+  "transition-exponential": defaultIconRegistry["vector-expo"],
+  "transition-linear": defaultIconRegistry["vector-linear"],
+  "transition-quadratic": defaultIconRegistry["vector-quad"],
+  "transition-quartic": defaultIconRegistry["vector-quart"],
+  "transition-quintic": defaultIconRegistry["vector-quint"],
+  "transition-sine": defaultIconRegistry["vector-sine"],
 } satisfies IconRegistry;
 
 /** Union of animation registry keys, for optionally-typed call sites. */

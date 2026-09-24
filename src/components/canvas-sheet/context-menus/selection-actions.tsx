@@ -24,7 +24,7 @@ export function SelectionActionsSection({
       <NestedLabel>Selection</NestedLabel>
       <NestedItem
         onClick={onSelectAll}
-        left={<Icon name="select-cursor" />}
+        left={<Icon name="select-all" />}
         right={<KeybindingHint action={AnimationAction.SelectAll} />}
       >
         Select All
@@ -32,7 +32,7 @@ export function SelectionActionsSection({
       {hasTrackContext && onSelectAllInTrack && (
         <NestedItem
           onClick={onSelectAllInTrack}
-          left={<Icon name="select-cursor" />}
+          left={<Icon name="select-all" />}
           right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
         >
           Select All in Track
@@ -41,7 +41,7 @@ export function SelectionActionsSection({
       <NestedItem
         disabled={!hasSelection}
         onClick={onDeselectAll}
-        left={<Icon name="select-close" />}
+        left={<Icon name="deselect-all" />}
         right={<KeybindingHint action={AnimationAction.DeselectAll} />}
       >
         Deselect All

@@ -91,21 +91,21 @@ export function KeyContextMenu({
       <NestedLabel>Selection</NestedLabel>
       <NestedItem
         onClick={onSelectAll}
-        left={<Icon name="select-cursor" />}
+        left={<Icon name="select-all" />}
         right={<KeybindingHint action={AnimationAction.SelectAll} />}
       >
         Select All
       </NestedItem>
       <NestedItem
         onClick={onSelectAllInTrack}
-        left={<Icon name="select-cursor" />}
+        left={<Icon name="select-all" />}
         right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
       >
         {selectAllInTrackLabel}
       </NestedItem>
       <NestedItem
         onClick={onDeselectAll}
-        left={<Icon name="select-close" />}
+        left={<Icon name="deselect-all" />}
         right={<KeybindingHint action={AnimationAction.DeselectAll} />}
       >
         Deselect All
