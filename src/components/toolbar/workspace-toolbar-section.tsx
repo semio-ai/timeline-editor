@@ -166,7 +166,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
         altText="Expand Tracks"
         leftIcon={
           <Icon
-            name="chevron-down"
+            name="workspace-toggle"
             className={clsx(
               expanded ? "rotate-0" : "rotate-180",
               "transition-transform duration-75 ease-in-out",
@@ -217,7 +217,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
       >
         <NestedLabel>Workspace Options</NestedLabel>
         <NestedItem
-          left={<Icon name="edit" />}
+          left={<Icon name="rename" />}
           onClick={() => {
             beginActiveWorkspaceRename();
           }}

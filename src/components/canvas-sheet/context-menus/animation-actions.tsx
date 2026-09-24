@@ -28,7 +28,7 @@ export function AnimationActionsSection({ ctx }: { ctx: CanvasContextMenuContext
       </NestedItem>
       <NestedItem
         onClick={() => updatePlayerBound("start", stamp)}
-        left={<Icon name="move-player-end-bounds" className="-scale-100" />}
+        left={<Icon name="move-player-start-bounds" />}
       >
         Move Left Bounds
       </NestedItem>

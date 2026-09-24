@@ -1,4 +1,4 @@
-import { Icon } from "@semio/ui";
+import { DisclosureIcon } from "@semio/ui";
 import { clsx } from "clsx";
 
 export interface GroupToggleProps {
@@ -29,14 +29,7 @@ export function GroupToggle({
       )}
       style={{ color: color ?? "currentColor" }}
     >
-      <Icon
-        name="chevron-down"
-        size="none"
-        className={clsx(
-          "size-[16px] transition-transform",
-          expanded ? "rotate-0" : "-rotate-90",
-        )}
-      />
+      <DisclosureIcon open={expanded} className="size-[16px]" />
     </button>
   );
 }

@@ -33,6 +33,15 @@ This README is the source of truth for package architecture and current behavior
 - `canvas-sheet/` owns marker/segment/handle rendering and gesture-driven interactions.
 - Storybook stories for this package live in `apps/docs/stories`.
 
+## Playback speed controls
+
+`PlaybackSettings` offers 0.1×, 0.5×, 1×, 1.5× and 2× playback, from
+`PLAYBACK_SPEED_OPTIONS` (`src/components/playback-speed-options.ts`). Each option's
+value is the string form of the store's multiplier, so the select matches it with
+`speed.toString()`. Each speed shows its multiplier glyph, `playback-<rate>` from
+`@semio/ui`'s default registry; the key keeps one decimal (`playback-1.0`) while the
+value does not (`"1"`).
+
 ## Testing Notes
 
 - Prefer action-level and function-level coverage for gesture-heavy behavior.
@@ -59,3 +68,32 @@ Current status snapshot:
 - [ ] Locking specific tracks/splines
 - [ ] Show/Hide of individual tracks (specific visual depending on TrackRender mode)
 - [ ] Scaling when multiple keyframes are selected (with S keybinding)
+
+## Icons
+
+`animationIconRegistry` (`src/icons/registry.ts`) is the second of three registry
+layers. It inherits every `@semio/ui` key and adds only what the editor owns:
+editor actions (`edit`, `menu`, `settings`, `delete`, `cut`, `paste`), playback
+(`playback-*`), data types (`data-*`), units (`unit-*`), timeline views (`view-*`)
+and easing (`transition-*`). Studio adds its own keys on top without redefining
+these, so a standalone consumer of this package renders the same editor artwork as
+Studio with no provider of its own. Shared roles such as `add`, `copy` and
+`remove` come from `@semio/ui`. How keys resolve and how a consumer overrides one is
+in `packages/ui/docs/icon-registry.md`.
+
+Conventions the registry encodes:
+
+- Actions and states are separate keys: `mute`, `hide` and `unlock` are verbs;
+  `state-muted`, `state-hidden` and `state-locked` describe the current value, and
+  each can be restyled without the other.
+- Start and end bound glyphs carry their own orientation: `playback-seek-start-bounds`
+  and `move-player-start-bounds` are the end-bound artwork turned half a turn, composed
+  with any transform or `mirrored` the caller passes, so call sites do not flip them.
+- Deprecated keys stay registered with the key to use instead: `speed-slow`,
+  `speed-normal`, `speed-fast` and `speed-fastest` resolve to `playback-0.5`,
+  `playback-1.0`, `playback-1.5` and `playback-2.0`.
+
+The registry uses `@solar-icons/react-perf` components directly, which is why that
+package is a dependency here. Solar artwork is by 480 Design under CC BY 4.0; this
+package's `NOTICE` carries the attributions and the list of vendored glyphs it
+renders through `@semio/ui`.

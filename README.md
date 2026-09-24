@@ -14,7 +14,7 @@ and runtime values stores in
 npm install @semio/animation
 ```
 
-Peer dependency: `@tabler/icons-react`. Brings `@semio/ui` and `@semio/utils`
+Brings `@semio/ui` and `@semio/utils`
 along as dependencies.
 
 ## Usage

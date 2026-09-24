@@ -108,6 +108,7 @@ export function TrackControlMenuContent({
 }: TrackControlMenuProps): ReactNode {
   const isSingleTrack = trackIds.length === 1;
   const disabled = playing || allReadonly;
+  const lockActionIcon = locked ? "unlock" : "lock";
 
   return (
     <>
@@ -152,7 +153,7 @@ export function TrackControlMenuContent({
       {trackKeys && onSelectAllInTrack && (
         <NestedItem
           onClick={onSelectAllInTrack}
-          left={<Icon name="select-cursor" />}
+          left={<Icon name="select-all" />}
           right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
         >
           {isGroup ? "Select All in Group" : "Select All in Track"}
@@ -161,7 +162,7 @@ export function TrackControlMenuContent({
       <NestedItem
         disabled={!hasSelection}
         onClick={onDeselectAll}
-        left={<Icon name="select-close" />}
+        left={<Icon name="deselect-all" />}
         right={<KeybindingHint action={AnimationAction.DeselectAll} />}
       >
         Deselect All
@@ -183,7 +184,7 @@ export function TrackControlMenuContent({
         closeOnSelect={false}
         disabled={playing}
         onClick={onToggleVisible}
-        left={visible === true ? <Icon name="eye-off" /> : <Icon name="eye" />}
+        left={visible === true ? <Icon name="hide" /> : <Icon name="show" />}
       >
         {visible === true ? "Hide" : "Show"}
         {isGroup ? " All" : ""}
@@ -192,7 +193,7 @@ export function TrackControlMenuContent({
         closeOnSelect={false}
         disabled={disabled}
         onClick={onToggleMuted}
-        left={muted ? <Icon name="speaker" /> : <Icon name="speaker-off" />}
+        left={muted ? <Icon name="unmute" /> : <Icon name="mute" />}
       >
         {muted ? "Unmute" : "Mute"}
         {isGroup ? " All" : ""}
@@ -205,7 +206,7 @@ export function TrackControlMenuContent({
           // Document-readonly always reads as locked visually; user-toggle
           // locked uses the same icon. The icon flips to unlock-form only
           // when the user can actually clear it.
-          locked === true || readonly ? <Icon name="lock-off" /> : <Icon name="lock" />
+          <Icon name={readonly ? "state-locked" : lockActionIcon} />
         }
       >
         {readonly ? "Locked (document permissions)" : locked === true ? "Unlock" : "Lock"}

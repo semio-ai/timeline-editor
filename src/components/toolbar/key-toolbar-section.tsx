@@ -40,57 +40,57 @@ const TRANSITION_OPTIONS: { value: TransitionPreference; label: string; icon?: I
   {
     value: StandardTransitionType.Sine,
     label: "Sinusoidal",
-    icon: <Icon name="vector-sine" />,
+    icon: <Icon name="transition-sine" />,
   },
   {
     value: StandardTransitionType.Cubic,
     label: "Cubic",
-    icon: <Icon name="vector-cubic" />,
+    icon: <Icon name="transition-cubic" />,
   },
   {
     value: StandardTransitionType.Quint,
     label: "Quintic",
-    icon: <Icon name="vector-quint" />,
+    icon: <Icon name="transition-quintic" />,
   },
   {
     value: StandardTransitionType.Circ,
     label: "Circular",
-    icon: <Icon name="vector-circ" />,
+    icon: <Icon name="transition-circular" />,
   },
   {
     value: StandardTransitionType.Quad,
     label: "Quadratic",
-    icon: <Icon name="vector-quad" />,
+    icon: <Icon name="transition-quadratic" />,
   },
   {
     value: StandardTransitionType.Quart,
     label: "Quartic",
-    icon: <Icon name="vector-quart" />,
+    icon: <Icon name="transition-quartic" />,
   },
   {
     value: StandardTransitionType.Expo,
     label: "Exponential",
-    icon: <Icon name="vector-expo" />,
+    icon: <Icon name="transition-exponential" />,
   },
   {
     value: StandardTransitionType.Back,
     label: "Back",
-    icon: <Icon name="vector-back" />,
+    icon: <Icon name="transition-back" />,
   },
   {
     value: StandardTransitionType.Linear,
     label: "Linear",
-    icon: <Icon name="vector-linear" />,
+    icon: <Icon name="transition-linear" />,
   },
   {
     value: TransitionDirective.ExplicitHandles,
     label: "Bezier Handles",
-    icon: <Icon name="vector-bezier-handles" />,
+    icon: <Icon name="transition-bezier-handles" />,
   },
   {
     value: TransitionDirective.InferredAutoClamped,
     label: "Auto Clamped",
-    icon: <Icon name="vector-bezier-auto-clamp" />,
+    icon: <Icon name="transition-auto-clamped" />,
   },
 ];
 

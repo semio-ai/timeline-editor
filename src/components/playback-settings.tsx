@@ -2,6 +2,7 @@ import { clsx } from "clsx";
 import { Icon, Select, Size, ToggleSquare, Variant } from "@semio/ui";
 import { PlayerDirection, usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
+import { PLAYBACK_SPEED_OPTIONS } from "./playback-speed-options";
 
 export function PlaybackSettings() {
   const { direction, bounce, looping, speed } = usePlayerStore(
@@ -29,28 +30,7 @@ export function PlaybackSettings() {
         label="Select Playback Speed"
         variant={Variant.Default}
         size={Size.Sm}
-        options={[
-          {
-            value: "0.5",
-            label: "Slow Playback (0.5x)",
-            icon: "speed-slow",
-          },
-          {
-            value: "1",
-            label: "Normal Playback (1x)",
-            icon: "speed-normal",
-          },
-          {
-            value: "1.5",
-            label: "Fast Playback (1.5x)",
-            icon: "speed-fast",
-          },
-          {
-            value: "2",
-            label: "Very Fast Playback (2x)",
-            icon: "speed-fastest",
-          },
-        ]}
+        options={[...PLAYBACK_SPEED_OPTIONS]}
         value={speed.toString()}
         onChange={(value: string) => {
           const newSpeed = parseFloat(value);
@@ -92,7 +72,7 @@ export function PlaybackSettings() {
         value={bounce}
         onChange={setBounce}
       >
-        <Icon name="bounce" size="none" className="block w-3.5 h-3.5 shrink-0" />
+        <Icon name="playback-bounce" size="none" className="block w-3.5 h-3.5 shrink-0" />
       </ToggleSquare>
     </>
   );

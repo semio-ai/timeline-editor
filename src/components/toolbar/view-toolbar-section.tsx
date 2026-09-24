@@ -26,27 +26,27 @@ const TRACK_RENDER_OPTIONS: {
   {
     value: TrackRender.Key,
     label: "Key View",
-    icon: <Icon name="vector-flat" />,
+    icon: <Icon name="view-keys" />,
   },
   {
     value: TrackRender.Transition,
     label: "Transition View",
-    icon: <Icon name="vector-angled" />,
+    icon: <Icon name="view-transitions" />,
   },
   {
     value: TrackRender.Preview,
     label: "Preview View",
-    icon: <Icon name="vector-bezier" />,
+    icon: <Icon name="view-preview" />,
   },
   {
     value: TrackRender.Spline,
     label: "Spline View",
-    icon: <Icon name="vector-bezier-handles" />,
+    icon: <Icon name="view-spline" />,
   },
   {
     value: TrackRender.Data,
     label: "Data View (Coming Soon)",
-    icon: <Icon name="graph-view" />,
+    icon: <Icon name="view-data" />,
     disabled: true,
   },
 ];

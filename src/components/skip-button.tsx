@@ -86,9 +86,9 @@ const ICONS: Record<SemanticTime, IconValue> = {
     <Icon name="playback-play" size="none" className="rotate-180 size-[10px]" />
   ),
   [SemanticTime.BoundsStart]: (
-    <Icon name="player-end-bounds" size="none" className="-scale-100 size-[12px]" />
+    <Icon name="playback-seek-start-bounds" size="none" className="size-[12px]" />
   ),
-  [SemanticTime.BoundsEnd]: <Icon name="player-end-bounds" size="none" className="size-[12px]" />,
+  [SemanticTime.BoundsEnd]: <Icon name="playback-seek-end-bounds" size="none" className="size-[12px]" />,
   [SemanticTime.Duration]: <Icon name="playback-play" size="none" className="size-[10px]" />,
   [SemanticTime.Current]: <Icon name="playback-play" size="none" className="size-[10px]" />,
   [SemanticTime.Hover]: <Icon name="playback-play" size="none" className="size-[10px]" />,

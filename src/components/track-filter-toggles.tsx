@@ -107,9 +107,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         }}
       >
         {visibleState === false ? (
-          <Icon name="eye-off" size="none" className="block w-3.5 h-3.5 shrink-0" />
+          <Icon name="state-hidden" size="none" className="block w-3.5 h-3.5 shrink-0" />
         ) : (
-          <Icon name="eye" size="none" className="block w-3.5 h-3.5 shrink-0" />
+          <Icon name="state-visible" size="none" className="block w-3.5 h-3.5 shrink-0" />
         )}
       </ToggleSquare>
 
@@ -126,9 +126,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         }}
       >
         {mutedState === true ? (
-          <Icon name="speaker-off" size="none" className="block w-3.5 h-3.5 shrink-0" />
+          <Icon name="state-muted" size="none" className="block w-3.5 h-3.5 shrink-0" />
         ) : (
-          <Icon name="speaker" size="none" className="block w-3.5 h-3.5 shrink-0" />
+          <Icon name="state-unmuted" size="none" className="block w-3.5 h-3.5 shrink-0" />
         )}
       </ToggleSquare>
 
@@ -145,9 +145,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         }}
       >
         {lockedState === true ? (
-          <Icon name="lock" size="none" className="block w-3.5 h-3.5 shrink-0" />
+          <Icon name="state-locked" size="none" className="block w-3.5 h-3.5 shrink-0" />
         ) : (
-          <Icon name="lock-off" size="none" className="block w-3.5 h-3.5 shrink-0" />
+          <Icon name="state-unlocked" size="none" className="block w-3.5 h-3.5 shrink-0" />
         )}
       </ToggleSquare>
     </>

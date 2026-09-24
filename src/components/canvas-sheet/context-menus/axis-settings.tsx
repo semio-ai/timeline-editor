@@ -1,12 +1,16 @@
 import { ReactNode } from "react";
-import { NestedLabel, NestedRadio, TimeDisplay } from "@semio/ui";
+import { Icon, NestedLabel, NestedRadio, TimeDisplay } from "@semio/ui";
 
 // No `closeOnSelect`: a radio group closes on pick by default, which is what
 // these all set explicitly back when the default was the opposite.
 const TIME_DISPLAY_OPTIONS = [
-  { value: TimeDisplay.Frames, label: "Frames" },
-  { value: TimeDisplay.Seconds, label: "Seconds" },
-  { value: TimeDisplay.SecondsPlusFrames, label: "Seconds + Frames" },
+  { value: TimeDisplay.Frames, label: "Frames", icon: <Icon name="time-display-frames" /> },
+  { value: TimeDisplay.Seconds, label: "Seconds", icon: <Icon name="time-display-seconds" /> },
+  {
+    value: TimeDisplay.SecondsPlusFrames,
+    label: "Seconds + Frames",
+    icon: <Icon name="time-display-seconds-frames" />,
+  },
 ];
 
 /**

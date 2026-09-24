@@ -36,9 +36,9 @@ function MixedIconMenu() {
     <>
       <NestedLabel>Track Group</NestedLabel>
       <NestedItem left={<Icon name="color-picker" />}>Change Color</NestedItem>
-      <NestedItem left={<Icon name="eye-off" />}>Hide All</NestedItem>
-      <NestedItem left={<Icon name="speaker-off" />}>Mute All</NestedItem>
-      <NestedItem left={<Icon name="lock" />}>Lock All</NestedItem>
+      <NestedItem left={<Icon name="state-hidden" />}>Hide All</NestedItem>
+      <NestedItem left={<Icon name="state-muted" />}>Mute All</NestedItem>
+      <NestedItem left={<Icon name="state-locked" />}>Lock All</NestedItem>
       <NestedItem left={<Icon name="delete" />}>Remove Group</NestedItem>
       <NestedSeparator />
       <NestedLabel>Keys</NestedLabel>
@@ -53,7 +53,7 @@ function MixedIconMenu() {
       <NestedItem left={<Icon name="cut" />}>Cut</NestedItem>
       <NestedItem left={<Icon name="copy" />}>Copy</NestedItem>
       <NestedItem left={<Icon name="paste" />}>Paste</NestedItem>
-      <NestedItem left={<Icon name="chevron-right" />}>Submenu (Tabler)</NestedItem>
+      <NestedItem left={<Icon name="drill-in" />}>Submenu (Tabler)</NestedItem>
     </>
   );
 }
