@@ -82,10 +82,15 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 **Modifications.** Rendered as React components at Semio's sizes, recoloured through `currentColor`; the `hexagon` adaptation above removes internal edges. Semio's own Solar-style glyphs are drawn to the same 24-unit grid and stroke weight.
 
-### Supplied artwork — provenance pending
+### Supplied artwork — adapted Solar glyphs and original Semio artwork
 
-These `@semio/ui` glyphs render SVG artwork supplied to the project, with its geometry, transforms and opacity preserved and colours inheriting `currentColor`. Whether each is from the Solar catalogue (and therefore under the CC BY 4.0 attribution above) or original Semio artwork is not yet recorded. **This entry is pending that answer and must be resolved before publish.**
+These `@semio/ui` glyphs render SVG artwork supplied to the project, with its geometry, transforms and opacity preserved and colours inheriting `currentColor`:
 
 `robot`, `folder-open`, `folder-closed`, `box-plus`, `hand`, `user`, `moon`, `sun-moon`, `replace`, `rotate-3d`, `data-binary`, `save`, `time-display-milliseconds`, `time-display-seconds`, `time-display-frames`, `time-display-seconds-frames`, `time-display-ticks`, `sort-updated`, `sphere`.
+
+Each glyph in this set is one of two things:
+
+- **An adaptation of a Solar icon**, made for consistency with the rest of Semio's set. Such a glyph is adapted from **"Solar Icons" by [480 Design](https://www.figma.com/community/file/1166831539721848736)**, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), and has been modified from the Solar original.
+- **Original Semio artwork** drawn in the Solar style. Such a glyph is Semio's own and carries no third-party attribution: a visual style is not licensable, so a glyph drawn to match Solar's look without deriving from a Solar file owes Solar nothing.
 
 The Figma "Semio UI Library" file mirrors these icons and carries the same attribution on its Icons page.
