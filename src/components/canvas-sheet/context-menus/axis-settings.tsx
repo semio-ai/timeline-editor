@@ -6,7 +6,11 @@ import { Icon, NestedLabel, NestedRadio, TimeDisplay } from "@semio/ui";
 const TIME_DISPLAY_OPTIONS = [
   { value: TimeDisplay.Frames, label: "Frames", icon: <Icon name="time-display-frames" /> },
   { value: TimeDisplay.Seconds, label: "Seconds", icon: <Icon name="time-display-seconds" /> },
-  { value: TimeDisplay.SecondsPlusFrames, label: "Seconds + Frames", icon: <Icon name="time-display-seconds-frames" /> },
+  {
+    value: TimeDisplay.SecondsPlusFrames,
+    label: "Seconds + Frames",
+    icon: <Icon name="time-display-seconds-frames" />,
+  },
 ];
 
 /**

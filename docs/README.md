@@ -35,10 +35,12 @@ This README is the source of truth for package architecture and current behavior
 
 ## Playback speed controls
 
-`PlaybackSettings` offers 0.1×, 0.5×, 1.0×, 1.5×, and 2.0× playback.
-Its numeric speed glyphs use the `playback-<rate>` keys in `@semio/ui`'s default
-registry; integer rates keep a decimal in the icon key (`playback-1.0`,
-`playback-2.0`) while the selector passes numeric values to the player store.
+`PlaybackSettings` offers 0.1×, 0.5×, 1×, 1.5× and 2× playback, from
+`PLAYBACK_SPEED_OPTIONS` (`src/components/playback-speed-options.ts`). Each option's
+value is the string form of the store's multiplier, so the select matches it with
+`speed.toString()`. Each speed shows its multiplier glyph, `playback-<rate>` from
+`@semio/ui`'s default registry; the key keeps one decimal (`playback-1.0`) while the
+value does not (`"1"`).
 
 ## Testing Notes
 
@@ -67,30 +69,31 @@ Current status snapshot:
 - [ ] Show/Hide of individual tracks (specific visual depending on TrackRender mode)
 - [ ] Scaling when multiple keyframes are selected (with S keybinding)
 
-### Data and curve glyphs
+## Icons
 
-The animation registry uses Solar Hashtag for absent data and Text for text data.
-Vector data glyphs pair half-opacity axes with opaque points. Curve glyphs retain
-their existing geometry and use Solar-equivalent line weights; handle indicators
-retain their independent state styling.
+`animationIconRegistry` (`src/icons/registry.ts`) is the second of three registry
+layers. It inherits every `@semio/ui` key and adds only what the editor owns:
+editor actions (`edit`, `menu`, `settings`, `delete`, `cut`, `paste`), playback
+(`playback-*`), data types (`data-*`), units (`unit-*`), timeline views (`view-*`)
+and easing (`transition-*`). Studio adds its own keys on top without redefining
+these, so a standalone consumer of this package renders the same editor artwork as
+Studio with no provider of its own. Shared roles such as `add`, `copy` and
+`remove` come from `@semio/ui`. How keys resolve and how a consumer overrides one is
+in `packages/ui/docs/icon-registry.md`.
 
-Grouped data uses the shared `IconFolderClosed` artwork through `data-group`.
+Conventions the registry encodes:
 
-Numeric and unspecified data labels share Solar Hashtag; binary data uses the
-supplied data-binary.svg artwork, and text keeps its
-explicit Text glyph. Percentage units use the bare percent mark.
+- Actions and states are separate keys: `mute`, `hide` and `unlock` are verbs;
+  `state-muted`, `state-hidden` and `state-locked` describe the current value, and
+  each can be restyled without the other.
+- Start and end bound glyphs carry their own orientation: `playback-seek-start-bounds`
+  and `move-player-start-bounds` are the end-bound artwork turned half a turn, composed
+  with any transform or `mirrored` the caller passes, so call sites do not flip them.
+- Deprecated keys stay registered with the key to use instead: `speed-slow`,
+  `speed-normal`, `speed-fast` and `speed-fastest` resolve to `playback-0.5`,
+  `playback-1.0`, `playback-1.5` and `playback-2.0`.
 
-Euler data uses the supplied rotate-3d artwork. Playback skip actions use Solar Bold SkipPrevious/SkipNext.
-
-Animation inherits UI glyphs and owns its additional editor/transport/data keys.
-Edit, menu, and settings use the approved Solar designs without Studio overrides.
-
-### Semantic icon roles
-
-Timeline views use `view-keys`, `view-transitions`, `view-preview`, `view-spline`,
-and `view-data`; easing uses `transition-*`. Handle pairing keeps `vertex-*`,
-and animation data keys keep `key`. Action marks (`mute`, `hide`, `unlock`)
-are distinct from state marks (`state-muted`, `state-hidden`, `state-locked`).
-Start/end bound icons own their orientation, so callers do not mirror them.
-Time-format controls display the supplied `time-display-*` artwork without
-expanding their supported format lists. Shared add/copy/remove roles come from UI.
+The registry uses `@solar-icons/react-perf` components directly, which is why that
+package is a dependency here. Solar artwork is by 480 Design under CC BY 4.0; this
+package's `NOTICE` carries the attributions and the list of vendored glyphs it
+renders through `@semio/ui`.

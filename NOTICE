@@ -3,12 +3,13 @@
 
 @semio/animation is MIT licensed; see the LICENSE file in this package.
 
-Its icon registry renders components from `@solar-icons/react-perf` and
-`@tabler/icons-react`, which arrive with those dependencies rather than being
-copied into this package's `dist`. Solar Icons are CC BY 4.0 — an attribution
-requirement rather than a bare permission — so both statements are reproduced here
-in full, because a consumer of the published package has no copy of the source
-repository and a notice that points outward attributes nothing.
+Its icon registry renders components from `@solar-icons/react-perf`, which arrive
+with that dependency rather than being copied into this package's `dist`, and
+glyphs from `@semio/ui`, including the vendored and supplied artwork listed below.
+Solar's artwork is CC BY 4.0 — an attribution requirement rather than a bare
+permission — so the attributions and permission texts are reproduced here in full,
+because a consumer of the published package has no copy of the source repository
+and a notice that points outward attributes nothing.
 
 Maintainers — this statement is duplicated elsewhere in the source repository
 (https://github.com/semio-ai/semio_studio), and THIRD-PARTY-NOTICES.md at its root
@@ -18,14 +19,73 @@ satisfied by the stated form and not by a paraphrase of it.
 ## Icons
 
 ### Tabler Icons — MIT
-- Copyright (c) 2020-2026 Paweł Kuna — <https://tabler.io/icons>
-- Distributed via [`@tabler/icons-react`](https://www.npmjs.com/package/@tabler/icons-react), MIT License.
-- Used for the bulk of the `@semio/ui` default icon registry and many `@semio/animation` / Studio registry entries.
 
-### Solar Icons — CC BY 4.0
-- **"Solar Icons" by [480 Design](https://www.figma.com/community/file/1166831539721848736)**, licensed under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
-- Distributed via [`@solar-icons/react-perf`](https://www.npmjs.com/package/@solar-icons/react-perf): the **package code is MIT** — Copyright (c) 2024 Hakim Saoudi — while the **icon designs are CC BY 4.0** (see that package's `LICENSE-THIRD-PARTY`).
-- Used in the `@semio/animation` and Studio icon registries (transport, editor actions, units, legal glyphs, etc.). `@semio/ui` additionally uses the package's `IconProps` type for a few in-house glyphs drawn in a matching style.
-- **Modifications:** re-exported as React components and rendered at custom sizes / recolored via `currentColor`. Semio adaptations include the BoxMinimalistic outer contour without internal edges, plus custom Solar-style affordances. File-add and exclamation-mark SVGs are included from the official Solar catalogue; the supplied SVG artwork is rendered with its original geometry.
+- Copyright (c) 2020-2026 Paweł Kuna — <https://tabler.io/icons>
+- Distributed via [`@tabler/icons-react`](https://www.npmjs.com/package/@tabler/icons-react), MIT License. A dependency of `@semio/ui`, left external by its build; it supplies the fallback and compatibility glyphs in `@semio/ui`'s default registry.
+- **Vendored geometry.** These `@semio/ui` glyphs reproduce Tabler path data and are compiled into `@semio/ui`'s `dist` (`src/icons/shared-glyphs.tsx`):
+  - keyboard letters `letter-c`, `letter-v`, `letter-x`, `letter-z` (the `key-c`, `key-v`, `key-x`, `key-z` roles), from Tabler `letter-c`, `letter-v`, `letter-x`, `letter-z`;
+  - `arrow-big-up` (the `key-shift` role), from Tabler `arrow-big-up`;
+  - `at` (the `email` role), from Tabler `at`;
+  - `bezier`, from Tabler `vector-bezier-2`.
+
+```
+MIT License
+
+Copyright (c) 2020-2026 Paweł Kuna
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Solar Icons — artwork CC BY 4.0, package code MIT
+
+**Artwork.** **"Solar Icons" by [480 Design](https://www.figma.com/community/file/1166831539721848736)**, licensed under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+
+**Package code.** [`@solar-icons/react-perf`](https://www.npmjs.com/package/@solar-icons/react-perf), Copyright (c) 2024 Hakim Saoudi, MIT License (its artwork terms are in that package's `LICENSE-THIRD-PARTY`). It is a dependency of both `@semio/ui` and `@semio/animation`. `@semio/ui`'s CommonJS build bundles the components it renders, because the package is ESM-only; its ESM build and `@semio/animation` leave it external.
+
+```
+MIT License
+
+Copyright (c) 2024 Hakim Saoudi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+The Software may include icons that are licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0). Commercial use is allowed, but attribution is required for the use of these icons. See LICENSE-THIRD-PARTY for more details.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+**Where it is used.** The `@semio/ui`, `@semio/animation` and Studio icon registries render Solar components for shared controls, transport, editor actions, units and legal glyphs.
+
+**Vendored Solar artwork.** These `@semio/ui` glyphs copy Solar geometry into `@semio/ui`'s `dist` rather than rendering a package component. Source: <https://github.com/saoudi-h/solar-icons/tree/main/packages/core/svgs>.
+
+- LineDuotone `sidebar-open`, `sidebar-close`, `panels-top-left` and `videocamera-off` (`src/icons/sidebar-open.tsx`, `sidebar-close.tsx`, `panels-top-left.tsx`, `videocamera-off.tsx`).
+- `add-file` and `exclamation-mark`, from the catalogue SVGs (`src/icons/shared-glyphs.tsx`).
+- `hexagon`, adapted from BoxMinimalistic's outer contour without its internal edges (`src/icons/shared-glyphs.tsx`).
+
+**Modifications.** Rendered as React components at Semio's sizes, recoloured through `currentColor`; the `hexagon` adaptation above removes internal edges. Semio's own Solar-style glyphs are drawn to the same 24-unit grid and stroke weight.
+
+### Supplied artwork — provenance pending
+
+These `@semio/ui` glyphs render SVG artwork supplied to the project, with its geometry, transforms and opacity preserved and colours inheriting `currentColor`. Whether each is from the Solar catalogue (and therefore under the CC BY 4.0 attribution above) or original Semio artwork is not yet recorded. **This entry is pending that answer and must be resolved before publish.**
+
+`robot`, `folder-open`, `folder-closed`, `box-plus`, `hand`, `user`, `moon`, `sun-moon`, `replace`, `rotate-3d`, `data-binary`, `save`, `time-display-milliseconds`, `time-display-seconds`, `time-display-frames`, `time-display-seconds-frames`, `time-display-ticks`, `sort-updated`, `sphere`.
 
 The Figma "Semio UI Library" file mirrors these icons and carries the same attribution on its Icons page.
