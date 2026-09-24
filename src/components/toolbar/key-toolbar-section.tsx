@@ -312,7 +312,7 @@ export const KeyToolbarSection = memo(function KeyToolbarSection() {
     <div className="hidden items-center @[325px]:flex">
       <div
         className={clsx(
-          "responsive custom-color variant-responsive-persistent-outline flex gap-0.5 rounded-sm p-0.5",
+          "variant-scope custom-color variant-responsive-persistent-outline flex gap-0.5 rounded-sm p-0.5",
           hasSelection ? "outline-2" : "outline-1",
         )}
         style={
