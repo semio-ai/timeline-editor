@@ -9,7 +9,7 @@ export function updatePlayerLoop(
 ): () => void {
   const updatePlayerInner = usePlayerStore.getState().updatePlayer;
 
-  return usePlayerStore.subscribe(
+  const unsubscribe = usePlayerStore.subscribe(
     (state: PlayerData) => state.player.running,
     (running) => {
       const interval = get().playerInterval;
@@ -27,4 +27,18 @@ export function updatePlayerLoop(
     },
     { equalityFn: shallow, fireImmediately: true },
   );
+
+  // Only this subscription stops the interval. Once the subscription is gone
+  // nothing else would — a later pause reaches whichever store is still
+  // subscribed — so teardown stops it too. The teardown runs once, as the
+  // current set's (see `initAnimationSubscriptions`), so the store's interval
+  // is this subscription's.
+  return () => {
+    unsubscribe();
+    const interval = get().playerInterval;
+    if (interval) {
+      window.clearInterval(interval);
+      set({ playerInterval: undefined });
+    }
+  };
 }
