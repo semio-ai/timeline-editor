@@ -78,6 +78,44 @@ describe("effective motion export", () => {
       .toThrow('Multiple tracks target "HeadYaw"');
   });
 
+  test("omits private tracks even when they have output metadata", () => {
+    const privateAnimatables: Record<string, AnimatableValue> = {
+      ...animatables,
+      privateJoint: {
+        ...animatables.joint,
+        id: "privateJoint",
+        pub: { public: false, output: "HeadYaw", units: "rad" },
+      },
+    };
+    const privateTrack = { ...track, id: "private", animatableId: "privateJoint" };
+    const result = exportEffectiveMotion(
+      { ...animation, tracks: ["private", "t"] },
+      { private: privateTrack, t: track },
+      privateAnimatables,
+    );
+    expect(result.channels).toHaveLength(1);
+    expect(result.channels[0].output).toBe("HeadYaw");
+    expect(() => exportEffectiveMotion(
+      { ...animation, tracks: ["private"] },
+      { private: privateTrack },
+      privateAnimatables,
+    )).toThrow("no playable numeric tracks");
+  });
+
+  test("rejects non-finite resolved curve geometry", () => {
+    for (const invalidValue of [NaN, Infinity, -Infinity]) {
+      const invalidTrack: Track<number> = {
+        ...track,
+        points: [
+          { id: "first", stamp: 0, value: 0, transitions: { out: { x: 250, y: invalidValue } } },
+          { id: "last", stamp: 1000, value: 1, transitions: { in: { x: -250, y: 0 } } },
+        ],
+      };
+      expect(() => exportEffectiveMotion(animation, { t: invalidTrack }, animatables))
+        .toThrow("non-finite curve");
+    }
+  });
+
   test("exports clamped geometry instead of oversized authored handles", () => {
     const oversized: Track<number> = {
       ...track,

@@ -44,6 +44,7 @@ export function exportEffectiveMotion(
     if (track.settings?.muted || track.points.length === 0) continue;
 
     const animatable = animatables[track.animatableId];
+    if (animatable && animatable.pub?.public !== true) continue;
     const output = animatable?.pub?.output?.trim();
     if (!output) throw new Error(`Track "${track.name}" has no resolved output name`);
     if (outputs.has(output)) throw new Error(`Multiple tracks target "${output}"`);
@@ -82,8 +83,14 @@ export function exportEffectiveMotion(
       const cp1 = resolved.cp1Effective ?? resolved.cp1Raw;
       const cp2 = resolved.cp2Effective ?? resolved.cp2Raw;
       if (!cp1 || !cp2) throw new Error(`Track "${track.name}" has an unresolved curve`);
+      if (![cp1.x, cp1.y, cp2.x, cp2.y].every(Number.isFinite)) {
+        throw new Error(`Track "${track.name}" has non-finite curve control points`);
+      }
       start.out = { deltaTimeMs: cp1.x - start.timeMs, deltaValue: cp1.y - start.value };
       end.in = { deltaTimeMs: cp2.x - end.timeMs, deltaValue: cp2.y - end.value };
+      if (![start.out.deltaTimeMs, start.out.deltaValue, end.in.deltaTimeMs, end.in.deltaValue].every(Number.isFinite)) {
+        throw new Error(`Track "${track.name}" has non-finite curve handle offsets`);
+      }
     }
 
     outputs.add(output);

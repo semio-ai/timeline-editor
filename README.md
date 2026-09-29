@@ -83,10 +83,11 @@ to these two fields respectively, with offsets relative to each key. Verify
 the target NAOqi version's handle mode and joint limits before robot execution.
 
 The times are local to the animation asset. Instance offset and timescale are
-applied only when that asset is placed in a scene. Muted and empty tracks are
-omitted. Missing output metadata, duplicate outputs, nonnumeric channels, and
-simultaneous keys cause an explicit error so the file cannot silently name the
-wrong joint or describe a different curve.
+applied only when that asset is placed in a scene. Muted, empty, and private
+tracks are omitted. Public tracks with missing output metadata, duplicate
+outputs, nonnumeric channels, non-finite curve geometry, and simultaneous keys
+cause an explicit error so the file cannot silently name the wrong joint or
+describe a different curve.
 Legacy v1 files are migrated to millisecond stamps when loaded; the export
 function accepts the resulting runtime animation rather than a raw stored file.
 
