@@ -11,6 +11,7 @@ export * from "./compute-transition-segments";
 export * from "./compute-stored-animation";
 export * from "./compute-updated-sources";
 export * from "./compute-track-interpolator";
+export * from "./export-effective-motion";
 export * from "./compute-track-trajectories";
 export * from "./compute-track-violations";
 export * from "./compute-tree-options-from-sources";
