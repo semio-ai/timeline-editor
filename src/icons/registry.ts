@@ -71,7 +71,7 @@ export const animationIconRegistry = {
   "workspace-toggle": defaultIconRegistry["chevron-down"],
   rename: solar(Pen),
   "menu-edit": solar(Pen),
-  "menu-view": defaultIconRegistry["preview-open"],
+  "menu-view": defaultIconRegistry.show,
   "time-display": IconTimeDisplaySeconds,
   "playback-bounce": defaultIconRegistry.bounce,
   "view-keys": defaultIconRegistry["vector-flat"],
