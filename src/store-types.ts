@@ -696,6 +696,11 @@ export interface AnimationActions {
    */
   initAnimationSubscriptions: () => () => void;
   /**
+   * Stop the subscriptions the latest `initAnimationSubscriptions` call started,
+   * including their timers and queued writes. A no-op when none are running.
+   */
+  stopAnimationSubscriptions: () => void;
+  /**
    * Add an animation to the visualized set.
    * @param animationId - The ID of the animation to visualize.
    */

@@ -291,10 +291,8 @@ export const AnimationSlice = (
     setActiveEditorView: (viewId: string) => setActiveEditorViewAction(set, viewId),
     updateView: (viewId: string, view: Partial<View>) => updateViewAction(set, viewId, view),
     removeView: (viewId: string) => removeViewAction(set, viewId),
-    setVerticalViewport: (
-      viewId: string,
-      viewport: { top: number; bottom: number } | undefined,
-    ) => setVerticalViewportAction(set, viewId, viewport),
+    setVerticalViewport: (viewId: string, viewport: { top: number; bottom: number } | undefined) =>
+      setVerticalViewportAction(set, viewId, viewport),
     addAnimation: (animation: StoredAnimation) => {
       set(
         produce((state: AnimationData): void => {
@@ -621,11 +619,24 @@ export const AnimationSlice = (
         updateActiveEntityContext,
       ].map((fn) => fn(api, set, get));
 
+      // A cleanup stops only the set it was returned for, once. A later call
+      // runs it before starting its own set, which spends the handle: running it
+      // again must not stop the newer set's work (its player interval among
+      // them), and `stopAnimationSubscriptions` is how a host stops whatever is
+      // current. So while a handle is live it is the current one.
+      let active = true;
       const cleanup = () => {
+        if (!active) return;
+        active = false;
         unsubs.forEach((unsub) => unsub());
+        (api as any).__derivedCleanup = undefined;
       };
       (api as any).__derivedCleanup = cleanup;
       return cleanup;
+    },
+    stopAnimationSubscriptions: () => {
+      const current = (api as any).__derivedCleanup as (() => void) | undefined;
+      if (typeof current === "function") current();
     },
     /**
      * Handle marker click with various modifier key behaviors for selection.
@@ -676,16 +687,14 @@ export const AnimationSlice = (
     deleteSelection: () => deleteSelectionAction(set, get),
     selectAll: () => selectAllAction(set),
     selectAllInTracks: (trackKeys: string[]) => selectAllInTracksAction(set, trackKeys),
-    focusSelectionInstance: (instanceId: string) =>
-      focusSelectionInstanceAction(set, instanceId),
+    focusSelectionInstance: (instanceId: string) => focusSelectionInstanceAction(set, instanceId),
     setActiveEntity: (entityId: string | null) => setActiveEntityAction(set, get, entityId),
     setEntityControlMode: (entityId: string, mode: "direct" | "animation", instanceId?: string) =>
       setEntityControlModeAction(set, get, entityId, mode, instanceId),
     setEntityStates: (states: Record<string, EntityAnimationState>) =>
       setEntityStatesAction(set, states),
     setEmphasis: (rowId: string | null) => setEmphasisAction(set, rowId),
-    selectTrack: (rowId: string, trackIds: string[]) =>
-      selectTrackAction(set, rowId, trackIds),
+    selectTrack: (rowId: string, trackIds: string[]) => selectTrackAction(set, rowId, trackIds),
     toggleTrackInSelection: (rowId: string, trackIds: string[]) =>
       toggleTrackInSelectionAction(set, rowId, trackIds),
     rangeSelectTracks: (fromRowId: string, toRowId: string) =>

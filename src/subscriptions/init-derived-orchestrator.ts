@@ -247,5 +247,9 @@ export function initDerivedOrchestrator(
   return () => {
     unsubscribeStore();
     unsubscribePlayer();
+    // A playback write already queued reads the snapshot when it runs; without
+    // one it writes nothing, so a torn-down store's values never reach the
+    // shared values store.
+    latestSnapshot = undefined;
   };
 }
