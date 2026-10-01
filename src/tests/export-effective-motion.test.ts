@@ -68,6 +68,29 @@ describe("effective motion export", () => {
     }
   });
 
+  test("exports a percentage channel as its stored fraction, not the percentage a field shows", () => {
+    // An exported animation is played on a robot from its stored values, so a
+    // field showing 35 must not change the 0..1 fraction that is exported.
+    const hand: Record<string, AnimatableValue> = {
+      hand: {
+        id: "hand", type: "number", default: 0.25, constraints: { min: 0, max: 1 },
+        pub: { public: true, output: "LHand", units: "%" },
+      },
+    };
+    const handTrack: Track<number> = {
+      id: "t", name: "Hand", animatableId: "hand",
+      points: [
+        { id: "p0", stamp: 0, value: 0.25, transitions: { out: StandardTransitionType.Linear } },
+        { id: "p1", stamp: 500, value: 0.75, transitions: { in: StandardTransitionType.Linear } },
+      ],
+    };
+    const result = exportEffectiveMotion(animation, { t: handTrack }, hand);
+    expect(result.channels).toEqual([
+      expect.objectContaining({ output: "LHand", units: "%" }),
+    ]);
+    expect(result.channels[0].keys.map((key) => key.value)).toEqual([0.25, 0.75]);
+  });
+
   test("omits muted tracks and rejects ambiguous or missing output mappings", () => {
     expect(() => exportEffectiveMotion(animation, { t: { ...track, settings: { muted: true } } }, animatables))
       .toThrow("no playable numeric tracks");

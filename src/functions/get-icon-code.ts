@@ -1,4 +1,4 @@
-import type { AnimatableValue } from "@semio/utils";
+import { unitDisplay, type AnimatableValue } from "@semio/utils";
 
 export function getIconCode(
   animatableType:
@@ -12,7 +12,8 @@ export function getIconCode(
   units?: string,
 ): string {
   if (animatableType === "number") {
-    return units ?? "none";
+    // The canonical code, so every spelling of a unit gets the same icon.
+    return unitDisplay(units).code;
   } else if (animatableType === "string") {
     return "text";
   } else if (animatableType === "boolean") {

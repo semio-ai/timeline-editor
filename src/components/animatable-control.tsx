@@ -4,7 +4,6 @@ import { uniq } from "lodash";
 import {
   StaticIcon,
   Size,
-  SliderNumberField,
   TextField,
   ToggleSquare,
   Dropdown,
@@ -13,7 +12,7 @@ import {
   Tooltip,
 } from "@semio/ui";
 import type { AnimatableValue, RawValue } from "@semio/utils";
-import { toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/utils";
+import { usePlayerStore, useValuesStore } from "@semio/utils";
 import {
   useActiveAnimationId,
   useAnimationStore,
@@ -26,6 +25,7 @@ import { AnimationActions, AnimationData, ControlStripMode } from "../store-type
 import { SourceRow, SourceRowData } from "../types";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
 import { COMPLEX_TYPES, DEFAULT_COLOR } from "../constants";
+import { AnimatableNumberField } from "./animatable-number-field";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
 import { ControlRow, ControlStrip, GroupToggle } from "./controls";
@@ -639,34 +639,15 @@ const DirectAnimatableEditor = memo(function DirectAnimatableEditor({
     ),
   );
   const value = storedValue ?? animatable.default;
-  const iconCode = getIconCode(animatable.type, animatable.pub?.units);
-  const angular = iconCode === "rad";
-  const transformForDisplay = angular ? toDegrees : (v: number) => v;
-  const transformFromDisplay = angular ? toRadians : (v: number) => v;
 
   if (animatable.type === "number" && typeof value === "number") {
-    const constraints = animatable.constraints;
-    const minRaw = typeof constraints?.min === "number" ? constraints.min : undefined;
-    const maxRaw = typeof constraints?.max === "number" ? constraints.max : undefined;
-    const min = minRaw !== undefined ? transformForDisplay(minRaw) : undefined;
-    const max = maxRaw !== undefined ? transformForDisplay(maxRaw) : undefined;
-    const hasFiniteBounds =
-      min !== undefined && max !== undefined && min !== -Infinity && max !== Infinity;
-    const relativeDragRange = angular && !hasFiniteBounds ? 360 : undefined;
-
     return (
-      <SliderNumberField
-        size={Size.Sm}
-        strictText={false}
-        strictSlider={hasFiniteBounds}
-        disabled={disabled}
-        value={transformForDisplay(value)}
-        min={min}
-        max={max}
-        relativeDragRange={relativeDragRange}
+      <AnimatableNumberField
+        animatable={animatable}
+        value={value}
+        onChange={onChange}
         color={color}
-        onChange={(v) => onChange(transformFromDisplay(v))}
-        units={angular ? "\u00b0" : animatable.pub?.units}
+        disabled={disabled}
       />
     );
   }

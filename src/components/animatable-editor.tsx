@@ -1,7 +1,14 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
-import { RawValue, toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/utils";
+import {
+  RawValue,
+  toDegrees,
+  toRadians,
+  unitDisplay,
+  usePlayerStore,
+  useValuesStore,
+} from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
@@ -90,9 +97,12 @@ function InnerAnimatableEditor({
     return scalarStoredValue ?? animatableValue.default;
   }, [animatableValue, scalarStoredValue]);
 
-  const angular = data.iconCode === "rad" || animatableValue?.pub?.units === "rad";
-  const renderTransformer = angular ? toDegrees : (v: number) => v;
-  const renderInverse = angular ? toRadians : (v: number) => v;
+  // Display only: the field shows degrees and percentages, and every value it
+  // hands back — typed, committed or dragged — is converted to the stored unit.
+  const display = unitDisplay(animatableValue?.pub?.units);
+  const angular = data.iconCode === "rad" || display.code === "rad";
+  const renderTransformer = angular ? toDegrees : display.toDisplay;
+  const renderInverse = angular ? toRadians : display.fromDisplay;
 
   const limits = useMemo(() => {
     if (animatableValue?.type !== "number") {
@@ -108,7 +118,7 @@ function InnerAnimatableEditor({
     limits.max !== undefined &&
     limits.min !== -Infinity &&
     limits.max !== Infinity;
-  const relativeDragRange = angular && !hasFiniteBounds ? 360 : undefined;
+  const relativeDragRange = hasFiniteBounds ? undefined : angular ? 360 : display.relativeDragRange;
   const valueScaleOverride = useMemo(() => {
     if (!angular || hasFiniteBounds) return undefined;
     return {
@@ -215,7 +225,7 @@ function InnerAnimatableEditor({
         label={hideLabel ? undefined : label}
         onLabelChange={hideLabel ? undefined : (track ? (v) => updateTrack({ id: track.id, name: v }) : undefined)}
         highlight={emphasis}
-        units={angular ? "°" : animatableValue.pub?.units}
+        units={angular ? "°" : display.label}
         onHighlightChange={onEmphasisChange}
         wrapperClassName={hideLabel ? undefined : "flex-1"}
         className={hideLabel ? undefined : "flex-1"}
