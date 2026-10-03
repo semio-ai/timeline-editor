@@ -1,16 +1,16 @@
 import { memo, useCallback, useMemo } from "react";
 import {
   Dropdown,
-  ICON_CLASS_NAME,
+  Icon,
   NestedItem,
   NestedLabel,
   NestedRadio,
   NestedSeparator,
   Size,
   TimeDisplay,
+  type IconName,
 } from "@semio/ui";
 import { useShallow } from "zustand/shallow";
-import { IconArrowsHorizontal, IconClock, IconSelector } from "@tabler/icons-react";
 import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../../hooks";
 import { setViewport, useViewport, requestVerticalFit } from "../../viewport-state";
@@ -29,10 +29,17 @@ const ZOOM_PRESETS = [
   { label: "800%", factor: 8 },
 ];
 
-const TIME_DISPLAY_OPTIONS: { value: TimeDisplay; label: string }[] = [
-  { value: TimeDisplay.Frames, label: "Frames" },
-  { value: TimeDisplay.Seconds, label: "Seconds" },
-  { value: TimeDisplay.SecondsPlusFrames, label: "Seconds + Frames" },
+const TIME_DISPLAY_ICONS: Record<TimeDisplay, IconName> = {
+  [TimeDisplay.Frames]: "time-display-frames",
+  [TimeDisplay.Seconds]: "time-display-seconds",
+  [TimeDisplay.SecondsPlusFrames]: "time-display-seconds-frames",
+  [TimeDisplay.Milliseconds]: "time-display-milliseconds",
+};
+
+const TIME_DISPLAY_OPTIONS = [
+  { value: TimeDisplay.Frames, label: "Frames", icon: <Icon name={TIME_DISPLAY_ICONS[TimeDisplay.Frames]} /> },
+  { value: TimeDisplay.Seconds, label: "Seconds", icon: <Icon name={TIME_DISPLAY_ICONS[TimeDisplay.Seconds]} /> },
+  { value: TimeDisplay.SecondsPlusFrames, label: "Seconds + Frames", icon: <Icon name={TIME_DISPLAY_ICONS[TimeDisplay.SecondsPlusFrames]} /> },
 ];
 
 const TIME_DISPLAY_SHORT: Record<string, string> = {
@@ -92,7 +99,7 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
   }, [duration]);
 
   return (
-    <div className="responsive variant-responsive-persistent-outline hidden gap-0.5 rounded-sm p-0.5 @[600px]:flex">
+    <div className="variant-scope variant-responsive-persistent-outline hidden gap-0.5 rounded-sm p-0.5 @[600px]:flex">
       {/* Time display mode */}
       <Dropdown
         side="top"
@@ -101,8 +108,8 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
             tooltip="Time display format"
             visuals="inverted"
             size={Size.Sm}
-            leftIcon={<IconClock className={ICON_CLASS_NAME} />}
-            rightIcon={<IconSelector className={ICON_CLASS_NAME} />}
+            leftIcon={<Icon name={TIME_DISPLAY_ICONS[timeDisplay]} />}
+            rightIcon="select-indicator"
             className="w-28 rounded-xs bg-neutral-500/10 text-xs hover:bg-neutral-500/25"
           >
             {TIME_DISPLAY_SHORT[timeDisplay]}
@@ -125,7 +132,7 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
             tooltip="Set zoom level"
             visuals="inverted"
             size={Size.Sm}
-            rightIcon={<IconSelector className={ICON_CLASS_NAME} />}
+            rightIcon="select-indicator"
             className="w-20 rounded-xs bg-neutral-500/10 font-mono text-xs hover:bg-neutral-500/25"
           >
             {currentZoomLabel}
@@ -150,7 +157,7 @@ export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
         tooltip="Fit viewport to content"
         visuals="inverted"
         size={Size.Sm}
-        leftIcon={<IconArrowsHorizontal className={ICON_CLASS_NAME} />}
+        leftIcon={<Icon name="fit-horizontal" />}
         className="rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
         onClick={handleFitToContent}
       />

@@ -1,21 +1,14 @@
-import { memo, type ReactNode, useCallback } from "react";
+import { memo, useCallback } from "react";
 import {
   Dropdown,
-  ICON_CLASS_NAME,
-  IconGraphView,
-  IconVectorAngled,
-  IconVectorBezier,
-  IconVectorBezierHandles,
-  IconVectorFlat,
-  IconVerticalNormalize,
-  IconVerticalUniform,
+  Icon,
+  type IconValue,
   NestedLabel,
   NestedRadio,
   NestedSeparator,
   Size,
 } from "@semio/ui";
 import { useShallow } from "zustand/shallow";
-import { IconSelector } from "@tabler/icons-react";
 import { TrackRender, VerticalAxis } from "../../types";
 import { useAnimationStore } from "../../hooks";
 import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
@@ -27,33 +20,33 @@ export interface ViewToolbarSectionProps {
 const TRACK_RENDER_OPTIONS: {
   value: TrackRender;
   label: string;
-  icon: ReactNode;
+  icon: IconValue;
   disabled?: boolean;
 }[] = [
   {
     value: TrackRender.Key,
     label: "Key View",
-    icon: <IconVectorFlat className={ICON_CLASS_NAME} />,
+    icon: <Icon name="view-keys" />,
   },
   {
     value: TrackRender.Transition,
     label: "Transition View",
-    icon: <IconVectorAngled className={ICON_CLASS_NAME} />,
+    icon: <Icon name="view-transitions" />,
   },
   {
     value: TrackRender.Preview,
     label: "Preview View",
-    icon: <IconVectorBezier className={ICON_CLASS_NAME} />,
+    icon: <Icon name="view-preview" />,
   },
   {
     value: TrackRender.Spline,
     label: "Spline View",
-    icon: <IconVectorBezierHandles className={ICON_CLASS_NAME} />,
+    icon: <Icon name="view-spline" />,
   },
   {
     value: TrackRender.Data,
     label: "Data View (Coming Soon)",
-    icon: <IconGraphView className={ICON_CLASS_NAME} />,
+    icon: <Icon name="view-data" />,
     disabled: true,
   },
 ];
@@ -85,7 +78,7 @@ export const ViewToolbarSection = memo(function ViewToolbarSection({
     TRACK_RENDER_OPTIONS.find((option) => option.value === trackRender) ?? TRACK_RENDER_OPTIONS[0];
 
   return (
-    <div className="responsive variant-responsive-persistent-outline flex gap-0.5 rounded-sm p-0.5">
+    <div className="variant-scope variant-responsive-persistent-outline flex gap-0.5 rounded-sm p-0.5">
       <Dropdown
         side="top"
         trigger={
@@ -94,7 +87,7 @@ export const ViewToolbarSection = memo(function ViewToolbarSection({
             visuals="inverted"
             size={Size.Sm}
             leftIcon={activeTrackRenderOption.icon}
-            rightIcon={<IconSelector className={ICON_CLASS_NAME} />}
+            rightIcon="select-indicator"
             altText={`View mode: ${activeTrackRenderOption.label}`}
             className="min-w-36 rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
           >
@@ -121,13 +114,13 @@ export const ViewToolbarSection = memo(function ViewToolbarSection({
             {
               value: VerticalAxis.Normalized,
               label: "Normalized Y",
-              icon: <IconVerticalNormalize className={ICON_CLASS_NAME} />,
+              icon: <Icon name="vertical-normalize" />,
               disabled: trackRender !== TrackRender.Spline,
             },
             {
               value: VerticalAxis.Uniform,
               label: "Uniform Y",
-              icon: <IconVerticalUniform className={ICON_CLASS_NAME} />,
+              icon: <Icon name="vertical-uniform" />,
               disabled: trackRender !== TrackRender.Spline,
             },
           ]}

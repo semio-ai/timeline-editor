@@ -1,4 +1,4 @@
-import { AnimatableValue, AnimatableGroupType, RawValue } from "@semio/utils";
+import { AnimatableValue, AnimatableGroupType, RawValue, unitDisplay } from "@semio/utils";
 import type { SourceRow, Track } from "../types";
 
 /**
@@ -24,10 +24,14 @@ function inferFallbackRange(
   for (const animatable of animatables) {
     if (animatable.type !== "number") continue;
 
-    // Unit-based inference
-    const units = animatable.pub?.units;
-    if (units === "rad") {
+    // Unit-based inference, in stored units: the graph plots radians and
+    // fractions, not the degrees and percentages a field shows.
+    const unit = unitDisplay(animatable.pub?.units).code;
+    if (unit === "rad") {
       return ensureContains(-Math.PI, Math.PI, center);
+    }
+    if (unit === "%") {
+      return ensureContains(0, 1, center);
     }
 
     // Group-type inference

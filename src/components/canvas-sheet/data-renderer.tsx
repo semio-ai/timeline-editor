@@ -247,10 +247,21 @@ export const DataRenderer = memo(function DataRenderer({
     [sourceRow],
   );
 
+  // Per-row Add/Remove Key targets (track + its instance) for the non-spline
+  // case, where a right-click acts on the clicked row.
+  const rowKeyTargets = useMemo(
+    () =>
+      sourceRow
+        ? sourceRow.data.map((s) => ({ trackId: s.trackId, instanceId: s.instanceId }))
+        : [],
+    [sourceRow],
+  );
+
   // Per-row context menu — passes this row's trackIds for targeted Select All
   const animationStore = useContext(AnimationContext);
   const { onContextMenu: rowContextMenu } = useCanvasContextMenu({
-    items: (ctx) => buildTrackMenuItems(ctx, animationStore, trackIds),
+    items: (ctx) =>
+      buildTrackMenuItems(ctx, animationStore, trackIds, { trackRender, rowTargets: rowKeyTargets }),
   });
 
   const rowMuted = useMemo(() => {

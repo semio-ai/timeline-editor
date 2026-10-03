@@ -1,5 +1,6 @@
 export * from "./animation-sheet";
 export * from "./animatable-control";
+export * from "./animatable-number-field";
 export * from "./animatable-control-list";
 export * from "./track-control";
 export * from "./controls";

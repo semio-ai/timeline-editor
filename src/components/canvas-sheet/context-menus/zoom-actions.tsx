@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
-import { ICON_CLASS_NAME, NestedItem, NestedLabel } from "@semio/ui";
-import { IconArrowsHorizontal } from "@tabler/icons-react";
+import { Icon, NestedItem, NestedLabel } from "@semio/ui";
 
 /**
  * "Zoom Actions" section for minimap context menu.
@@ -14,7 +13,7 @@ export function ZoomActionsSection({ onFitToViewport }: { onFitToViewport: () =>
       <NestedLabel>Viewport</NestedLabel>
       <NestedItem
         onClick={onFitToViewport}
-        left={<IconArrowsHorizontal className={ICON_CLASS_NAME} />}
+        left={<Icon name="fit-horizontal" />}
       >
         Fit to Viewport
       </NestedItem>

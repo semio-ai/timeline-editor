@@ -1,17 +1,6 @@
 import { memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import {
-  Eye,
-  EyeOff,
-  Speaker,
-  SpeakerOff,
-  Lock,
-  LockOff,
-  ToggleSquare,
-  Size,
-  IconKey,
-} from "@semio/ui";
-import { Settings } from "@solar-icons/react-perf/Linear";
+import { Icon, KeyIcon, ToggleSquare, Size } from "@semio/ui";
 import { useAnimationStore } from "../hooks";
 import { collectSourceTracks } from "../functions/source-utils";
 import { ControlStripMode } from "../store-types";
@@ -99,9 +88,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         }
       >
         {isProperties ? (
-          <Settings className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="settings" size="none" className="block w-3.5 h-3.5 shrink-0" />
         ) : (
-          <IconKey fillOpacity={0} className="block w-3.5 h-3.5 shrink-0" />
+          <KeyIcon fillOpacity={0} className="block w-3.5 h-3.5 shrink-0" />
         )}
       </ToggleSquare>
 
@@ -118,9 +107,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         }}
       >
         {visibleState === false ? (
-          <EyeOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-hidden" size="none" className="block w-3.5 h-3.5 shrink-0" />
         ) : (
-          <Eye className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-visible" size="none" className="block w-3.5 h-3.5 shrink-0" />
         )}
       </ToggleSquare>
 
@@ -137,9 +126,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         }}
       >
         {mutedState === true ? (
-          <SpeakerOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-muted" size="none" className="block w-3.5 h-3.5 shrink-0" />
         ) : (
-          <Speaker className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-unmuted" size="none" className="block w-3.5 h-3.5 shrink-0" />
         )}
       </ToggleSquare>
 
@@ -156,9 +145,9 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
         }}
       >
         {lockedState === true ? (
-          <Lock className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-locked" size="none" className="block w-3.5 h-3.5 shrink-0" />
         ) : (
-          <LockOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-unlocked" size="none" className="block w-3.5 h-3.5 shrink-0" />
         )}
       </ToggleSquare>
     </>

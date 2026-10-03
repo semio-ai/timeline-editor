@@ -1,6 +1,5 @@
 import { MouseEventHandler, type ReactNode, useCallback } from "react";
-import { Play } from "@solar-icons/react-perf/Bold";
-import { Button, PlayerEndBounds } from "@semio/ui";
+import { Button, Icon, type IconValue } from "@semio/ui";
 import { useShallow } from "zustand/react/shallow";
 import type { AnimationActions, AnimationData } from "../store-types";
 import { SemanticTime } from "../types";
@@ -81,12 +80,16 @@ export function SkipButton({
   );
 }
 
-const ICONS: Record<SemanticTime, ReactNode> = {
-  [SemanticTime.Forward]: <Play className="rotate-0" size="10px" />,
-  [SemanticTime.Backward]: <Play className="rotate-180" size="10px" />,
-  [SemanticTime.BoundsStart]: <PlayerEndBounds size="12px" className="-scale-100" />,
-  [SemanticTime.BoundsEnd]: <PlayerEndBounds size="12px" />,
-  [SemanticTime.Duration]: <Play size="10px" />,
-  [SemanticTime.Current]: <Play size="10px" />,
-  [SemanticTime.Hover]: <Play size="10px" />,
+const ICONS: Record<SemanticTime, IconValue> = {
+  [SemanticTime.Forward]: <Icon name="playback-play" size="none" className="rotate-0 size-[10px]" />,
+  [SemanticTime.Backward]: (
+    <Icon name="playback-play" size="none" className="rotate-180 size-[10px]" />
+  ),
+  [SemanticTime.BoundsStart]: (
+    <Icon name="playback-seek-start-bounds" size="none" className="size-[12px]" />
+  ),
+  [SemanticTime.BoundsEnd]: <Icon name="playback-seek-end-bounds" size="none" className="size-[12px]" />,
+  [SemanticTime.Duration]: <Icon name="playback-play" size="none" className="size-[10px]" />,
+  [SemanticTime.Current]: <Icon name="playback-play" size="none" className="size-[10px]" />,
+  [SemanticTime.Hover]: <Icon name="playback-play" size="none" className="size-[10px]" />,
 };

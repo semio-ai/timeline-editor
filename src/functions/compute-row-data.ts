@@ -67,6 +67,23 @@ export interface DragPreviewCache {
   draggedTrackIds: Set<string>;
 }
 
+/**
+ * Single source of rendered geometry (curves, markers, bezier handles) for a
+ * row — used by BOTH the static render and the live drag preview. When
+ * `dragState` belongs to the active instance, the drag's diffs (value/stamp
+ * moves and `handleDiffs`) are applied to the points here, then every segment
+ * is resolved through {@link resolveSegmentControlPoints} exactly as in the
+ * static case. So there is no separate "drag geometry" path: any change to how
+ * handles/curves are derived (e.g. the auto-clamp flatten, or the monotonic
+ * "knot" clamp inside resolveSegmentControlPoints) automatically applies to
+ * drags too — that's why dragging a key re-flattens auto-clamp handles live.
+ *
+ * Note the division of labor for handle drags: the gesture
+ * (`bezier-handles.onDrag2D` → `updateHandleDrag`) only sanitizes the *raw*
+ * dragged handle (`clampHandleAgainstOwnKeypointX`, an X-against-own-anchor
+ * guard) and stores it as a diff; the *effective* (monotonic-clamped) handle
+ * shown on the curve is still produced here via resolveSegmentControlPoints.
+ */
 export function computeRowData(
   sourceRow: SourceRow,
   tracks: Record<string, Track<RawValue>>,

@@ -1,52 +1,53 @@
-import {
-  IconChartScatter,
-  IconChartScatter3d,
-  IconFolder,
-  IconHash,
-  IconPalette,
-  IconPercentage,
-  IconRotate360,
-} from "@tabler/icons-react";
-import { Angle } from "@semio/ui";
-import { Ruler } from "@solar-icons/react-perf/LineDuotone";
+import { Icon } from "@semio/ui";
 
 export function DataIcon({
   iconCode,
   className,
   size,
-  ...props
 }: {
   iconCode: string;
   className?: string;
   size?: number | string;
 }) {
+  // When a caller passes an explicit size, disable Icon's self-sizing and forward
+  // it as the glyph's width/height (matching DocumentIcon); otherwise Icon self-sizes.
+  const sizeProps = size !== undefined ? { size: "none" as const, width: size, height: size } : {};
   switch (iconCode) {
     case "group":
-      return <IconFolder className={className} size={size} {...props} />;
+      return <Icon name="data-group" className={className} {...sizeProps} />;
     case "vector2":
-      return <IconChartScatter className={className} size={size} {...props} />;
+      return <Icon name="data-vector2" className={className} {...sizeProps} />;
     case "vector3":
-      return <IconChartScatter3d className={className} size={size} {...props} />;
+      return <Icon name="data-vector3" className={className} {...sizeProps} />;
     case "euler":
-      return <IconRotate360 className={className} size={size} {...props} />;
+      return <Icon name="data-euler" className={className} {...sizeProps} />;
     case "rgb":
+      return <Icon name="data-rgb" className={className} {...sizeProps} />;
     case "hsl":
-      return <IconPalette className={className} size={size} {...props} />;
+      return <Icon name="data-hsl" className={className} {...sizeProps} />;
     case "rad":
-      return <Angle className={className} size="100%" {...props} />;
+      return <Icon name="unit-radian" className={className} {...sizeProps} />;
     case "deg":
-      return <Angle className={className} size="100%" {...props} />;
+      return <Icon name="unit-degree" className={className} {...sizeProps} />;
     case "m":
-      return <Ruler className={className} size="100%" {...props} />;
+      return <Icon name="unit-meter" className={className} {...sizeProps} />;
     case "mm":
-      return <Ruler className={className} size="100%" {...props} />;
+      return <Icon name="unit-millimeter" className={className} {...sizeProps} />;
     case "cm":
-      return <Ruler className={className} size="100%" {...props} />;
+      return <Icon name="unit-centimeter" className={className} {...sizeProps} />;
     case "km":
-      return <Ruler className={className} size="100%" {...props} />;
+      return <Icon name="unit-kilometer" className={className} {...sizeProps} />;
     case "%":
-      return <IconPercentage className={className} size={size} {...props} />;
+      return <Icon name="unit-percent" className={className} {...sizeProps} />;
+    case "number":
+      return <Icon name="data-number" className={className} {...sizeProps} />;
+    case "text":
+      return <Icon name="data-text" className={className} {...sizeProps} />;
+    case "binary":
+      return <Icon name="data-binary" className={className} {...sizeProps} />;
+    case "none":
+      return <Icon name="data-none" className={className} {...sizeProps} />;
     default:
-      return <IconHash className={className} size={size} {...props} />;
+      return <Icon name="data-none" className={className} {...sizeProps} />;
   }
 }

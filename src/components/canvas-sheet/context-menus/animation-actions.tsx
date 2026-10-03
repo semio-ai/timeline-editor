@@ -1,8 +1,6 @@
 import { ReactNode } from "react";
 import {
-  ICON_CLASS_NAME,
-  MovePlayerEndBounds,
-  MovePlayhead,
+  Icon,
   NestedItem,
   NestedLabel,
   type CanvasContextMenuContext,
@@ -24,19 +22,19 @@ export function AnimationActionsSection({ ctx }: { ctx: CanvasContextMenuContext
       <NestedLabel>Animation</NestedLabel>
       <NestedItem
         onClick={() => resetPlayer(stamp)}
-        left={<MovePlayhead size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="move-playhead" />}
       >
         Move Playhead
       </NestedItem>
       <NestedItem
         onClick={() => updatePlayerBound("start", stamp)}
-        left={<MovePlayerEndBounds size="18px" className={`${ICON_CLASS_NAME} -scale-100`} />}
+        left={<Icon name="move-player-start-bounds" />}
       >
         Move Left Bounds
       </NestedItem>
       <NestedItem
         onClick={() => updatePlayerBound("end", stamp)}
-        left={<MovePlayerEndBounds size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="move-player-end-bounds" />}
       >
         Move Right Bounds
       </NestedItem>

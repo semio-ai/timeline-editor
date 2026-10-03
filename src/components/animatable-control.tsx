@@ -1,32 +1,31 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
-import { IconDotsVertical } from "@tabler/icons-react";
 import {
   StaticIcon,
   Size,
-  SliderNumberField,
   TextField,
   ToggleSquare,
   Dropdown,
   ContextMenu,
   Button,
   Tooltip,
-  ICON_CLASS_NAME,
 } from "@semio/ui";
 import type { AnimatableValue, RawValue } from "@semio/utils";
-import { toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/utils";
+import { usePlayerStore, useValuesStore } from "@semio/utils";
 import {
   useActiveAnimationId,
   useAnimationStore,
   useColors,
   useControlMenu,
+  useEditableLabel,
   useRowBackground,
 } from "../hooks";
 import { AnimationActions, AnimationData, ControlStripMode } from "../store-types";
 import { SourceRow, SourceRowData } from "../types";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
 import { COMPLEX_TYPES, DEFAULT_COLOR } from "../constants";
+import { AnimatableNumberField } from "./animatable-number-field";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
 import { ControlRow, ControlStrip, GroupToggle } from "./controls";
@@ -182,6 +181,11 @@ function AnimatableLeafControl({
     return animatable?.name ?? "";
   }, [animatable?.group?.axis, animatable?.name, label]);
 
+  // Draft-while-focused so the derived label (recomputed by a subscription
+  // one render after the rename write) doesn't drop keystrokes.
+  const handleRename = useCallback((val: string) => onRename?.(val), [onRename]);
+  const labelField = useEditableLabel(displayLabel, handleRename);
+
   const editorDisabled = disabled || running;
   const addTrackAction = useMemo(() => {
     if (editorDisabled || resolvedMode !== "track-missing") return undefined;
@@ -250,7 +254,7 @@ function AnimatableLeafControl({
                 <Tooltip content={getSemanticLabelForIconCode(iconCode)} disabled={false} invert>
                   <div>
                     <StaticIcon size={Size.Md} color={resolvedColor}>
-                      <DataIcon iconCode={iconCode} className={ICON_CLASS_NAME} />
+                      <DataIcon iconCode={iconCode} />
                     </StaticIcon>
                   </div>
                 </Tooltip>
@@ -261,13 +265,12 @@ function AnimatableLeafControl({
             <TextField
               size={Size.Sm}
               color={resolvedColor}
-              value={displayLabel}
+              value={labelField.value}
               readOnly={editorDisabled || !onRename}
               outline="hidden"
-              onChange={(val) => {
-                if (!val) return;
-                onRename?.(val);
-              }}
+              onChange={(val) => labelField.onChange(val)}
+              onBlur={labelField.onBlur}
+              onKeyDown={labelField.onKeyDown}
             />
           }
           editor={
@@ -303,7 +306,7 @@ function AnimatableLeafControl({
                     size={Size.Xs}
                     className="flex items-center justify-center"
                     visuals="inverted"
-                    leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                    leftIcon="menu"
                   />
                 </span>
               }
@@ -398,6 +401,17 @@ function AnimatableGroupControl({
   }, [childAnimatableIds, existingAnimatableIds]);
 
   const displayLabel = label ?? groupId;
+
+  // Draft-while-focused; see useEditableLabel — the rendered label is derived
+  // and lags the rename write by a render, which otherwise drops keystrokes.
+  const handleRename = useCallback(
+    (val: string) => {
+      if (running) return;
+      onRename?.(val);
+    },
+    [running, onRename],
+  );
+  const labelField = useEditableLabel(displayLabel, handleRename);
   const derivedAddable =
     typeof addable === "boolean" ? addable : missingChildAnimatableIds.length > 0;
   const canAutoCreate =
@@ -539,14 +553,12 @@ function AnimatableGroupControl({
             <TextField
               size={Size.Sm}
               color={resolvedColor}
-              value={displayLabel}
+              value={labelField.value}
               readOnly={disabled || running || !onRename}
               outline="hidden"
-              onChange={(val) => {
-                if (running) return;
-                if (!val) return;
-                onRename?.(val);
-              }}
+              onChange={(val) => labelField.onChange(val)}
+              onBlur={labelField.onBlur}
+              onKeyDown={labelField.onKeyDown}
             />
           }
           controls={
@@ -588,7 +600,7 @@ function AnimatableGroupControl({
                     size={Size.Xs}
                     className="flex items-center justify-center"
                     visuals="inverted"
-                    leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+                    leftIcon="menu"
                   />
                 </span>
               }
@@ -627,34 +639,15 @@ const DirectAnimatableEditor = memo(function DirectAnimatableEditor({
     ),
   );
   const value = storedValue ?? animatable.default;
-  const iconCode = getIconCode(animatable.type, animatable.pub?.units);
-  const angular = iconCode === "rad";
-  const transformForDisplay = angular ? toDegrees : (v: number) => v;
-  const transformFromDisplay = angular ? toRadians : (v: number) => v;
 
   if (animatable.type === "number" && typeof value === "number") {
-    const constraints = animatable.constraints;
-    const minRaw = typeof constraints?.min === "number" ? constraints.min : undefined;
-    const maxRaw = typeof constraints?.max === "number" ? constraints.max : undefined;
-    const min = minRaw !== undefined ? transformForDisplay(minRaw) : undefined;
-    const max = maxRaw !== undefined ? transformForDisplay(maxRaw) : undefined;
-    const hasFiniteBounds =
-      min !== undefined && max !== undefined && min !== -Infinity && max !== Infinity;
-    const relativeDragRange = angular && !hasFiniteBounds ? 360 : undefined;
-
     return (
-      <SliderNumberField
-        size={Size.Sm}
-        strictText={false}
-        strictSlider={hasFiniteBounds}
-        disabled={disabled}
-        value={transformForDisplay(value)}
-        min={min}
-        max={max}
-        relativeDragRange={relativeDragRange}
+      <AnimatableNumberField
+        animatable={animatable}
+        value={value}
+        onChange={onChange}
         color={color}
-        onChange={(v) => onChange(transformFromDisplay(v))}
-        units={angular ? "\u00b0" : animatable.pub?.units}
+        disabled={disabled}
       />
     );
   }

@@ -1,4 +1,4 @@
-import { IconChevronDown } from "@tabler/icons-react";
+import { DisclosureIcon } from "@semio/ui";
 import { clsx } from "clsx";
 
 export interface GroupToggleProps {
@@ -29,13 +29,7 @@ export function GroupToggle({
       )}
       style={{ color: color ?? "currentColor" }}
     >
-      <IconChevronDown
-        size={16}
-        className={clsx(
-          "transition-transform",
-          expanded ? "rotate-0" : "-rotate-90",
-        )}
-      />
+      <DisclosureIcon open={expanded} className="size-[16px]" />
     </button>
   );
 }

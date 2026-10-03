@@ -1,13 +1,11 @@
 import { ReactNode } from "react";
 import {
-  ICON_CLASS_NAME,
+  Icon,
   NestedItem,
   NestedLabel,
   KeybindingHint,
   type CanvasContextMenuContext,
 } from "@semio/ui";
-import { TrashBinTrash, Copy, Clipboard } from "@solar-icons/react-perf/LineDuotone";
-import { Scissors } from "@solar-icons/react-perf/Linear";
 import { AnimationAction } from "../../../keybindings";
 
 /**
@@ -40,7 +38,7 @@ export function EditActionsSection({
       <NestedItem
         disabled={!hasSelection}
         onClick={onCut}
-        left={<Scissors size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="cut" />}
         right={<KeybindingHint action={AnimationAction.Cut} />}
       >
         Cut
@@ -48,7 +46,7 @@ export function EditActionsSection({
       <NestedItem
         disabled={!hasSelection}
         onClick={onCopy}
-        left={<Copy size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="copy" />}
         right={<KeybindingHint action={AnimationAction.Copy} />}
       >
         Copy
@@ -56,7 +54,7 @@ export function EditActionsSection({
       <NestedItem
         disabled={!hasClipboard}
         onClick={() => onPaste(ctx.worldPosition[0])}
-        left={<Clipboard size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="paste" />}
         right={<KeybindingHint action={AnimationAction.Paste} />}
       >
         Paste
@@ -64,7 +62,7 @@ export function EditActionsSection({
       <NestedItem
         disabled={!hasSelection}
         onClick={onDelete}
-        left={<TrashBinTrash size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="delete" />}
         right={<KeybindingHint action={AnimationAction.Delete} />}
       >
         Delete

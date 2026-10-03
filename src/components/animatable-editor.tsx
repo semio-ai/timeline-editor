@@ -1,7 +1,14 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
-import { RawValue, toDegrees, toRadians, usePlayerStore, useValuesStore } from "@semio/utils";
+import {
+  RawValue,
+  toDegrees,
+  toRadians,
+  unitDisplay,
+  usePlayerStore,
+  useValuesStore,
+} from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
@@ -60,6 +67,13 @@ function InnerAnimatableEditor({
 
   const dragActiveRef = useRef(false);
   const dragDidMoveRef = useRef(false);
+  // Playhead world stamp anchoring an in-progress text edit. Typing/wheeling a
+  // value writes a key at the current playhead; the anchor is captured on the
+  // first commit of an edit session and reset on blur. If the user scrubs the
+  // playhead off the anchor mid-edit, further text commits (including the
+  // commit-on-blur) are skipped — otherwise the value entered for the original
+  // position would be written as a key at the new playhead position.
+  const editStampRef = useRef<number | null>(null);
   const [displayValue, setDisplayValue] = useState<number | null>(null);
 
   const { animatableValue, track } = useAnimationStore(
@@ -83,9 +97,12 @@ function InnerAnimatableEditor({
     return scalarStoredValue ?? animatableValue.default;
   }, [animatableValue, scalarStoredValue]);
 
-  const angular = data.iconCode === "rad" || animatableValue?.pub?.units === "rad";
-  const renderTransformer = angular ? toDegrees : (v: number) => v;
-  const renderInverse = angular ? toRadians : (v: number) => v;
+  // Display only: the field shows degrees and percentages, and every value it
+  // hands back — typed, committed or dragged — is converted to the stored unit.
+  const display = unitDisplay(animatableValue?.pub?.units);
+  const angular = data.iconCode === "rad" || display.code === "rad";
+  const renderTransformer = angular ? toDegrees : display.toDisplay;
+  const renderInverse = angular ? toRadians : display.fromDisplay;
 
   const limits = useMemo(() => {
     if (animatableValue?.type !== "number") {
@@ -101,7 +118,7 @@ function InnerAnimatableEditor({
     limits.max !== undefined &&
     limits.min !== -Infinity &&
     limits.max !== Infinity;
-  const relativeDragRange = angular && !hasFiniteBounds ? 360 : undefined;
+  const relativeDragRange = hasFiniteBounds ? undefined : angular ? 360 : display.relativeDragRange;
   const valueScaleOverride = useMemo(() => {
     if (!angular || hasFiniteBounds) return undefined;
     return {
@@ -187,12 +204,28 @@ function InnerAnimatableEditor({
         color={color}
         onChange={(v) => {
           if (dragActiveRef.current) return;
+          const stamp = usePlayerStore.getState().player.stamp;
+          if (editStampRef.current === null) {
+            // First commit of this edit session anchors here.
+            editStampRef.current = stamp;
+          } else if (stamp !== editStampRef.current) {
+            // Playhead scrubbed off the anchor since editing began — abandon
+            // the commit so we don't write the in-progress value at the new
+            // position.
+            return;
+          }
           onChange(renderInverse(v));
+        }}
+        onFocus={() => {
+          editStampRef.current = null;
+        }}
+        onBlur={() => {
+          editStampRef.current = null;
         }}
         label={hideLabel ? undefined : label}
         onLabelChange={hideLabel ? undefined : (track ? (v) => updateTrack({ id: track.id, name: v }) : undefined)}
         highlight={emphasis}
-        units={angular ? "°" : animatableValue.pub?.units}
+        units={angular ? "°" : display.label}
         onHighlightChange={onEmphasisChange}
         wrapperClassName={hideLabel ? undefined : "flex-1"}
         className={hideLabel ? undefined : "flex-1"}

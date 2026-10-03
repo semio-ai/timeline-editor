@@ -1,24 +1,13 @@
 import { ReactNode } from "react";
 import {
-  Eye,
-  EyeOff,
-  Speaker,
-  SpeakerOff,
-  Lock,
-  LockOff,
-  ICON_CLASS_NAME,
+  Icon,
+  KeyIcon,
   NestedItem,
   NestedLabel,
   NestedSeparator,
   NestedColorPicker,
   KeybindingHint,
-  SelectClose,
-  SelectCursor,
-  IconKey,
 } from "@semio/ui";
-import { TrashBinTrash, Copy, Clipboard, Palette2 } from "@solar-icons/react-perf/LineDuotone";
-import { Scissors } from "@solar-icons/react-perf/Linear";
-import { IconPlayerSkipBack, IconPlayerSkipForward } from "@tabler/icons-react";
 import { AnimationAction } from "../../../keybindings";
 
 export interface TrackControlMenuProps {
@@ -119,6 +108,7 @@ export function TrackControlMenuContent({
 }: TrackControlMenuProps): ReactNode {
   const isSingleTrack = trackIds.length === 1;
   const disabled = playing || allReadonly;
+  const lockActionIcon = locked ? "unlock" : "lock";
 
   return (
     <>
@@ -127,7 +117,7 @@ export function TrackControlMenuContent({
       <NestedItem
         disabled={!hasSelection}
         onClick={onCut}
-        left={<Scissors size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="cut" />}
         right={<KeybindingHint action={AnimationAction.Cut} />}
       >
         Cut
@@ -135,7 +125,7 @@ export function TrackControlMenuContent({
       <NestedItem
         disabled={!hasSelection}
         onClick={onCopy}
-        left={<Copy size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="copy" />}
         right={<KeybindingHint action={AnimationAction.Copy} />}
       >
         Copy
@@ -143,7 +133,7 @@ export function TrackControlMenuContent({
       <NestedItem
         disabled={!hasClipboard}
         onClick={onPaste}
-        left={<Clipboard size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="paste" />}
         right={<KeybindingHint action={AnimationAction.Paste} />}
       >
         Paste
@@ -151,7 +141,7 @@ export function TrackControlMenuContent({
       <NestedItem
         disabled={!hasSelection}
         onClick={onDelete}
-        left={<TrashBinTrash size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="delete" />}
         right={<KeybindingHint action={AnimationAction.Delete} />}
       >
         Delete
@@ -163,7 +153,7 @@ export function TrackControlMenuContent({
       {trackKeys && onSelectAllInTrack && (
         <NestedItem
           onClick={onSelectAllInTrack}
-          left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
+          left={<Icon name="select-all" />}
           right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
         >
           {isGroup ? "Select All in Group" : "Select All in Track"}
@@ -172,7 +162,7 @@ export function TrackControlMenuContent({
       <NestedItem
         disabled={!hasSelection}
         onClick={onDeselectAll}
-        left={<SelectClose size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="deselect-all" />}
         right={<KeybindingHint action={AnimationAction.DeselectAll} />}
       >
         Deselect All
@@ -187,20 +177,14 @@ export function TrackControlMenuContent({
           value={color}
           onChange={(v) => onChangeColor?.(v)}
           label="Change Color"
-          left={<Palette2 size="18px" className={ICON_CLASS_NAME} />}
+          left={<Icon name="color-picker" />}
         />
       )}
       <NestedItem
         closeOnSelect={false}
         disabled={playing}
         onClick={onToggleVisible}
-        left={
-          visible === true ? (
-            <EyeOff size="18px" className={ICON_CLASS_NAME} />
-          ) : (
-            <Eye size="18px" className={ICON_CLASS_NAME} />
-          )
-        }
+        left={visible === true ? <Icon name="hide" /> : <Icon name="show" />}
       >
         {visible === true ? "Hide" : "Show"}
         {isGroup ? " All" : ""}
@@ -209,13 +193,7 @@ export function TrackControlMenuContent({
         closeOnSelect={false}
         disabled={disabled}
         onClick={onToggleMuted}
-        left={
-          muted ? (
-            <Speaker size="18px" className={ICON_CLASS_NAME} />
-          ) : (
-            <SpeakerOff size="18px" className={ICON_CLASS_NAME} />
-          )
-        }
+        left={muted ? <Icon name="unmute" /> : <Icon name="mute" />}
       >
         {muted ? "Unmute" : "Mute"}
         {isGroup ? " All" : ""}
@@ -228,11 +206,7 @@ export function TrackControlMenuContent({
           // Document-readonly always reads as locked visually; user-toggle
           // locked uses the same icon. The icon flips to unlock-form only
           // when the user can actually clear it.
-          locked === true || readonly ? (
-            <LockOff size="18px" className={ICON_CLASS_NAME} />
-          ) : (
-            <Lock size="18px" className={ICON_CLASS_NAME} />
-          )
+          <Icon name={readonly ? "state-locked" : lockActionIcon} />
         }
       >
         {readonly ? "Locked (document permissions)" : locked === true ? "Unlock" : "Lock"}
@@ -241,7 +215,7 @@ export function TrackControlMenuContent({
       <NestedItem
         disabled={playing || allReadonly || !onRemoveTrack}
         onClick={onRemoveTrack}
-        left={<TrashBinTrash size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="delete" />}
       >
         {isGroup ? "Remove Group" : "Remove Track"}
       </NestedItem>
@@ -252,16 +226,16 @@ export function TrackControlMenuContent({
       <NestedItem
         disabled={playing || allReadonly || keyState === "full"}
         onClick={onAddKeyframe}
-        left={<IconKey fillOpacity={0} center="plus" size="18px" className={ICON_CLASS_NAME} />}
+        left={<KeyIcon fillOpacity={0} center="plus" />}
       >
-        Add Keyframe
+        Add Key
       </NestedItem>
       <NestedItem
         disabled={playing || allReadonly || keyState === "none"}
         onClick={onRemoveKeyframe}
-        left={<IconKey fillOpacity={0} center="minus" size="18px" className={ICON_CLASS_NAME} />}
+        left={<KeyIcon fillOpacity={0} center="minus" />}
       >
-        Remove Keyframe
+        Remove Key
       </NestedItem>
 
       {/* --- Navigate --- */}
@@ -270,14 +244,14 @@ export function TrackControlMenuContent({
       <NestedItem
         disabled={playing || !prevEnabled}
         onClick={onPrev}
-        left={<IconPlayerSkipBack size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="playback-skip-back" />}
       >
         Previous Keyframe
       </NestedItem>
       <NestedItem
         disabled={playing || !nextEnabled}
         onClick={onNext}
-        left={<IconPlayerSkipForward size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="playback-skip-forward" />}
       >
         Next Keyframe
       </NestedItem>

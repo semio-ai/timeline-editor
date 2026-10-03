@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Eye, EyeOff, Speaker, SpeakerOff, Lock, LockOff, ToggleSquare, Size } from "@semio/ui";
+import { Icon, ToggleSquare, Size } from "@semio/ui";
 
 export interface TrackPropertiesStripProps {
   color?: string;
@@ -53,9 +53,9 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         onChange={() => onToggleVisible?.()}
       >
         {visible === false ? (
-          <EyeOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-hidden" size="none" className="block w-3.5 h-3.5 shrink-0" />
         ) : (
-          <Eye className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-visible" size="none" className="block w-3.5 h-3.5 shrink-0" />
         )}
       </ToggleSquare>
 
@@ -69,9 +69,9 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         onChange={() => onToggleMuted?.()}
       >
         {muted === true ? (
-          <SpeakerOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-muted" size="none" className="block w-3.5 h-3.5 shrink-0" />
         ) : (
-          <Speaker className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-unmuted" size="none" className="block w-3.5 h-3.5 shrink-0" />
         )}
       </ToggleSquare>
 
@@ -93,9 +93,9 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         onChange={() => onToggleLocked?.()}
       >
         {locked === true || readonly ? (
-          <Lock className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-locked" size="none" className="block w-3.5 h-3.5 shrink-0" />
         ) : (
-          <LockOff className="block w-3.5 h-3.5 shrink-0" size="100%" />
+          <Icon name="state-unlocked" size="none" className="block w-3.5 h-3.5 shrink-0" />
         )}
       </ToggleSquare>
     </>

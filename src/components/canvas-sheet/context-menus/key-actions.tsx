@@ -1,16 +1,12 @@
 import { ReactNode } from "react";
 import {
-  ICON_CLASS_NAME,
+  Icon,
   NestedItem,
   NestedLabel,
   NestedSeparator,
   KeybindingHint,
-  SelectCursor,
-  SelectClose,
   type CanvasContextMenuContext,
 } from "@semio/ui";
-import { TrashBinTrash, Copy, Clipboard } from "@solar-icons/react-perf/LineDuotone";
-import { Scissors, AlignHorizontalCenter } from "@solar-icons/react-perf/Linear";
 import { AnimationAction } from "../../../keybindings";
 import { AnimationActionsSection } from "./animation-actions";
 
@@ -55,14 +51,14 @@ export function KeyContextMenu({
       <NestedLabel>Edit</NestedLabel>
       <NestedItem
         onClick={onCut}
-        left={<Scissors size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="cut" />}
         right={<KeybindingHint action={AnimationAction.Cut} />}
       >
         Cut
       </NestedItem>
       <NestedItem
         onClick={onCopy}
-        left={<Copy size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="copy" />}
         right={<KeybindingHint action={AnimationAction.Copy} />}
       >
         Copy
@@ -70,14 +66,14 @@ export function KeyContextMenu({
       <NestedItem
         disabled={!hasClipboard}
         onClick={() => onPaste(ctx.worldPosition[0])}
-        left={<Clipboard size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="paste" />}
         right={<KeybindingHint action={AnimationAction.Paste} />}
       >
         Paste
       </NestedItem>
       <NestedItem
         onClick={onDelete}
-        left={<TrashBinTrash size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="delete" />}
         right={<KeybindingHint action={AnimationAction.Delete} />}
       >
         Delete
@@ -87,7 +83,7 @@ export function KeyContextMenu({
       <NestedItem
         disabled={!hasSelection}
         onClick={onFlattenHandles}
-        left={<AlignHorizontalCenter size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="align-keys" />}
       >
         Flatten Handles
       </NestedItem>
@@ -95,21 +91,21 @@ export function KeyContextMenu({
       <NestedLabel>Selection</NestedLabel>
       <NestedItem
         onClick={onSelectAll}
-        left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="select-all" />}
         right={<KeybindingHint action={AnimationAction.SelectAll} />}
       >
         Select All
       </NestedItem>
       <NestedItem
         onClick={onSelectAllInTrack}
-        left={<SelectCursor size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="select-all" />}
         right={<KeybindingHint action={AnimationAction.SelectAllInTrack} />}
       >
         {selectAllInTrackLabel}
       </NestedItem>
       <NestedItem
         onClick={onDeselectAll}
-        left={<SelectClose size="18px" className={ICON_CLASS_NAME} />}
+        left={<Icon name="deselect-all" />}
         right={<KeybindingHint action={AnimationAction.DeselectAll} />}
       >
         Deselect All

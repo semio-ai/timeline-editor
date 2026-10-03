@@ -1,12 +1,14 @@
 export {
   AnimatableControl,
   AnimatableControlList,
+  AnimatableNumberField,
   TrackControl,
   KeyStrip,
   MotionCubicBezierLine,
   MotionCubicBezierFill,
   type AnimatableControlProps,
   type AnimatableControlListProps,
+  type AnimatableNumberFieldProps,
   type KeyStripProps,
   type MotionCubicBezierLineProps,
   type MotionCubicBezierFillProps,
@@ -28,6 +30,8 @@ export * from "./utils/context-providers";
 export * from "./utils/track-key";
 
 export { SIDEBAR_WIDTH } from "./constants/layout";
+
+export { animationIconRegistry, type AnimationIconName } from "./icons/registry";
 
 export * from "./functions";
 export * from "./keybindings";

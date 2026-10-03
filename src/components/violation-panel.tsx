@@ -1,6 +1,6 @@
 import { Fragment, useMemo } from "react";
 import { clsx } from "clsx";
-import { IconAlertTriangle } from "@tabler/icons-react";
+import { Icon } from "@semio/ui";
 import { uniq } from "lodash";
 import { Violation, ViolationSegment, ViolationType } from "../types";
 import { useColors, useNames } from "../hooks";
@@ -60,7 +60,7 @@ export function ViolationPanel({
         style={{ color }}
       >
         <div className="flex flex-row items-center">
-          <IconAlertTriangle size={20} className="mr-2" />
+          <Icon name="alert" size="none" className="size-[20px] mr-2" />
           {name}
         </div>
         <div className="min-w-6 text-center text-black" style={{ backgroundColor: color }}>

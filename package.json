@@ -26,7 +26,8 @@
     "dist/**",
     "src/styles.css",
     "src/theme.css",
-    "NOTICE"
+    "NOTICE",
+    "LICENSE"
   ],
   "sideEffects": [
     "**/*.css"
@@ -36,6 +37,7 @@
     "dev": "tsup src/index.tsx --format esm,cjs --watch --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:once": "vitest run",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist",
     "test:unit": "vitest run",
@@ -47,7 +49,6 @@
     "@semio/ui": "*",
     "@semio/utils": "*",
     "@solar-icons/react-perf": "^2.1.0",
-    "@tabler/icons-react": "^3.34.0",
     "@tailwindcss/postcss": "^4.1.3",
     "@use-gesture/react": "^10.3.1",
     "clsx": "^2.1.1",
@@ -66,9 +67,6 @@
     "three": "^0.170.0",
     "zustand": "^5.0.2"
   },
-  "peerDependencies": {
-    "@tabler/icons-react": "^3.34.0"
-  },
   "devDependencies": {
     "@semio/eslint-config": "*",
     "@semio/typescript-config": "*",
@@ -82,13 +80,12 @@
     "@types/react-dom": "^19.1.0",
     "@types/three": "^0.170.0",
     "@vitejs/plugin-react": "^5.0.2",
-    "@vitest/browser": "^3.2.4",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.1.3",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.1"
   },
   "publishConfig": {
     "access": "public"

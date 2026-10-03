@@ -5,6 +5,12 @@ export type HandleAnchorSide = "startOut" | "endIn";
 
 /**
  * Clamp a handle so it cannot cross its own anchor on the X axis.
+ *
+ * This is a *raw-input* guard for handle dragging only — it constrains the
+ * handle the user is dragging, NOT the rendered effective tangent. The
+ * monotonic/value "effective" clamp is applied separately and centrally by
+ * {@link resolveSegmentControlPoints} (reached for drags via computeRowData's
+ * preview), so this is not a competing or duplicate clamp.
  */
 export function clampHandleAgainstOwnKeypointX(params: {
   anchor: HandleAnchorSide;

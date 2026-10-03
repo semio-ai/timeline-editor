@@ -1,7 +1,4 @@
-import { type ReactNode } from "react";
-import { IconPlus } from "@tabler/icons-react";
-import { Play } from "@solar-icons/react-perf/Bold";
-import { Button, IconKey, Tooltip } from "@semio/ui";
+import { Button, Icon, type IconValue, KeyIcon, Tooltip } from "@semio/ui";
 import { DEFAULT_COLOR } from "../../constants";
 
 export type ControlStripCenterIcon = "key" | "plus";
@@ -33,7 +30,7 @@ export interface ControlStripProps {
   onCenter?: () => void;
   onCenterEnter?: () => void;
   onCenterLeave?: () => void;
-  centerContent?: ReactNode;
+  centerContent?: IconValue;
   centerIcon?: ControlStripCenterIcon;
   centerFilled?: boolean;
   centerDashed?: boolean;
@@ -71,9 +68,14 @@ export function ControlStrip({
 
   const defaultCenterContent =
     centerIcon === "plus" ? (
-      <IconPlus size="16px" />
+      <Icon name="add" size="none" className="size-[16px]" />
     ) : (
-      <IconKey size="16px" dashed={centerDashed} fillOpacity={centerFilled ? 1 : 0} />
+      <KeyIcon
+        size="none"
+        className="size-[16px]"
+        dashed={centerDashed}
+        fillOpacity={centerFilled ? 1 : 0}
+      />
     );
 
   return (
@@ -86,7 +88,7 @@ export function ControlStrip({
           onClick={prevDisabled ? undefined : onPrev}
           onMouseEnter={prevDisabled ? undefined : onPrevEnter}
           onMouseLeave={prevDisabled ? undefined : onPrevLeave}
-          leftIcon={<Play className="rotate-180" size="10px" />}
+          leftIcon={<Icon name="playback-play" size="none" className="rotate-180 size-2.5" />}
           visuals="inverted"
           className={prevVisible ? undefined : "opacity-20"}
         />
@@ -113,7 +115,7 @@ export function ControlStrip({
           onClick={nextDisabled ? undefined : onNext}
           onMouseEnter={nextDisabled ? undefined : onNextEnter}
           onMouseLeave={nextDisabled ? undefined : onNextLeave}
-          leftIcon={<Play size="10px" />}
+          leftIcon={<Icon name="playback-play" size="none" className="size-2.5" />}
           visuals="inverted"
           className={nextVisible ? undefined : "opacity-20"}
         />

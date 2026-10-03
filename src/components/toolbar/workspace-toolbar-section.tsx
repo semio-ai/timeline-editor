@@ -2,7 +2,7 @@ import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState
 import {
   Button,
   Dropdown,
-  ICON_CLASS_NAME,
+  Icon,
   NestedItem,
   NestedLabel,
   NestedRadio,
@@ -10,15 +10,6 @@ import {
   TextField,
 } from "@semio/ui";
 import { useShallow } from "zustand/shallow";
-import {
-  IconChevronDown,
-  IconCopy,
-  IconDotsVertical,
-  IconEdit,
-  IconPlus,
-  IconSelector,
-  IconTrash,
-} from "@tabler/icons-react";
 import { clsx } from "clsx";
 import { useAnimationStore } from "../../hooks";
 import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
@@ -158,7 +149,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
           visuals="inverted"
           size={Size.Sm}
           altText="Select Workspace"
-          leftIcon={<IconSelector className={ICON_CLASS_NAME} />}
+          leftIcon="select-indicator"
           className={isEditingActiveWorkspace ? "pointer-events-none" : ""}
         />
       </div>
@@ -166,7 +157,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
   }, [activeWorkspaceDraftName, commitWorkspaceRename, isEditingActiveWorkspace]);
 
   return (
-    <div className="responsive variant-responsive-persistent-outline flex flex-1 gap-0.5 rounded-sm p-0.5">
+    <div className="variant-scope variant-responsive-persistent-outline flex flex-1 gap-0.5 rounded-sm p-0.5">
       <ToolbarTooltipButton
         tooltip="Toggle Workspace Expansion"
         visuals="inverted"
@@ -174,11 +165,11 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
         onClick={() => onToggleExpand?.(!(expanded ?? false))}
         altText="Expand Tracks"
         leftIcon={
-          <IconChevronDown
+          <Icon
+            name="workspace-toggle"
             className={clsx(
               expanded ? "rotate-0" : "rotate-180",
               "transition-transform duration-75 ease-in-out",
-              ICON_CLASS_NAME,
             )}
           />
         }
@@ -219,14 +210,14 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
             visuals="inverted"
             size={Size.Sm}
             altText="Workspace Options"
-            leftIcon={<IconDotsVertical className={ICON_CLASS_NAME} />}
+            leftIcon={<Icon name="menu" />}
             className="rounded-r-xs bg-neutral-500/10 hover:bg-neutral-500/25"
           />
         }
       >
         <NestedLabel>Workspace Options</NestedLabel>
         <NestedItem
-          left={<IconEdit className={ICON_CLASS_NAME} />}
+          left={<Icon name="rename" />}
           onClick={() => {
             beginActiveWorkspaceRename();
           }}
@@ -234,7 +225,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
           Rename Workspace
         </NestedItem>
         <NestedItem
-          left={<IconCopy className={ICON_CLASS_NAME} />}
+          left={<Icon name="copy" />}
           onClick={() => {
             if (activeViewId) {
               onCopyView(activeViewId);
@@ -244,7 +235,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
           Copy Workspace
         </NestedItem>
         <NestedItem
-          left={<IconTrash className={ICON_CLASS_NAME} />}
+          left={<Icon name="delete" />}
           disabled={viewIds.length <= 1}
           onClick={() => {
             if (activeViewId) {
@@ -255,7 +246,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
           Delete Workspace
         </NestedItem>
         <NestedItem
-          left={<IconPlus className={ICON_CLASS_NAME} />}
+          left={<Icon name="add" />}
           onClick={() => {
             onCreateView();
           }}

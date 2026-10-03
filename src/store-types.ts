@@ -13,6 +13,8 @@ import type {
   ValueDragUpdateInput,
   HandleDragStartInput,
   HandleDragUpdateInput,
+  SourceRef,
+  SourcePatch,
   SourceRow,
   MarkerPoint,
   View,
@@ -515,6 +517,16 @@ export interface AnimationActions {
    */
   insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => void;
   /**
+   * Insert keypoints across multiple tracks at one world stamp as a single
+   * atomic, undoable edit (one history entry). Prefer this over looping
+   * {@link insertKeypointAtWorldStamp} when adding keys for a multi-track
+   * selection, so undo reverts the whole insertion at once.
+   */
+  insertKeypointsAtWorldStamp: (
+    inserts: { trackId: string; instanceId: string }[],
+    worldStamp: number,
+  ) => void;
+  /**
    * Create a new animation, empty animation in the store.
    */
   createNewDefaultAnimation: () => void;
@@ -586,6 +598,26 @@ export interface AnimationActions {
    * Update the group label associated with one or more tracks (leaves remain unchanged).
    */
   updateTrackGroupName: (trackIds: string[], name: string) => void;
+  /**
+   * Apply a property change (currently `name`) to whatever a row derives from,
+   * resolved as a {@link SourceRef}. The default implementation handles the
+   * sources the animation package owns — tracks (`updateTrack`), local group
+   * labels (`updateTrackGroupName`), and animatables (`updateAnimatable`) — and
+   * returns `false` for sources it cannot own (`entity`, `animation`). A host
+   * application can override this in its store composition to route those kinds to
+   * the real source records, delegating the rest back here. Returns whether the
+   * edit was applied. See {@link resolveSourceRef}.
+   */
+  editSource: (ref: SourceRef, patch: SourcePatch) => boolean;
+  /**
+   * Whether {@link editSource} would actually apply a change for this source —
+   * the render-time companion to `editSource` (which mutates). The UI uses it
+   * to disable rename for sources nothing handles yet, so a field never accepts
+   * an edit that would no-op. Mirrors `editSource`'s routing: the default
+   * reports the kinds the animation package owns; a host overrides it to report
+   * the kinds it additionally supports.
+   */
+  canEditSource: (ref: SourceRef) => boolean;
   /**
    * Remove a keypoint from the animation.
    * @param trackId - The ID of the track.
@@ -663,6 +695,11 @@ export interface AnimationActions {
    * Initialize interpolator generation. Returns a function to cancel the subscriptions.
    */
   initAnimationSubscriptions: () => () => void;
+  /**
+   * Stop the subscriptions the latest `initAnimationSubscriptions` call started,
+   * including their timers and queued writes. A no-op when none are running.
+   */
+  stopAnimationSubscriptions: () => void;
   /**
    * Add an animation to the visualized set.
    * @param animationId - The ID of the animation to visualize.

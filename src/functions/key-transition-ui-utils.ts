@@ -14,7 +14,7 @@ import {
 } from "../types";
 import type { SimpleKeypoint } from "../types/data/simple-track";
 import { resolveTransitionDelta } from "./get-world-control-points";
-import { inferAutoHandleDeltas } from "./infer-auto-handles";
+import { inferAutoClampedHandleDeltas, inferAutoHandleDeltas } from "./infer-auto-handles";
 import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
 
 export interface SelectedKeyContext {
@@ -431,11 +431,12 @@ function resolveHandleDeltaForAlignment(
     return transition;
   }
 
-  // For auto-clamped, use the inferred handle delta
+  // For auto-clamped, use the flattened (auto-clamped) inferred delta so this
+  // alignment/pairing check matches the rendered handle direction.
   if (transition === TransitionDirective.InferredAutoClamped && otherNeighbor) {
     const prev = side === "in" ? neighbor : otherNeighbor;
     const next = side === "in" ? otherNeighbor : neighbor;
-    const inferred = inferAutoHandleDeltas({ prev, anchor, next });
+    const inferred = inferAutoClampedHandleDeltas({ prev, anchor, next });
     if (!inferred) return undefined;
     return side === "in" ? inferred.in : inferred.out;
   }
