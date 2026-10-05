@@ -1,7 +1,7 @@
 import { usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import { Keypoint } from "../types";
-import { computeTrackInterpolator } from "../functions";
+import { trackCurve } from "../functions/track-curve";
 import {
   findInsertionNeighbors,
   resolveNewKeyTransitionPreferences,
@@ -113,13 +113,12 @@ export function updateKeypoint(
     };
 
     if (typeof keypoint.value === "function") {
-      // We need to lookup the current value
-      const interpolator = computeTrackInterpolator(track, {
-        id: "default",
-        animationId: "default",
-        settings: { offset: 0, timescale: 1, active: true },
-      });
-      const interpolatedValue = interpolator(stamp) as SimpleRawValue | undefined;
+      // The track's current value there, as the module plays it.
+      const animation = Object.values(state.animations).find((candidate) =>
+        candidate.tracks.includes(trackId),
+      );
+      const curve = animation && trackCurve(track, animation, state.tracks, state.trackBaker);
+      const interpolatedValue = curve?.(stamp) as SimpleRawValue | undefined;
       if (interpolatedValue === undefined) {
         newPoint.value = state.animatables[track.animatableId]?.default as SimpleRawValue;
       } else {

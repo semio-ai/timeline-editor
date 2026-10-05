@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import type { AnimatableValue } from "@semio/utils";
-import { computeTrackInterpolator } from "../functions/compute-track-interpolator";
 import { exportEffectiveMotion, type EffectiveMotionKey } from "../functions/export-effective-motion";
 import { StandardTransitionType, TransitionDirective, type Animation, type Track } from "../types";
+import { curveOf } from "./curves";
 
 const animation: Animation = { id: "a", name: "Wave", tracks: ["t"], groups: [] };
 const animatables: Record<string, AnimatableValue> = {
@@ -60,9 +60,7 @@ describe("effective motion export", () => {
     expect(JSON.stringify(result)).not.toContain("inferred-auto-clamped");
     expect(JSON.stringify(result)).not.toContain('"animatableId"');
     expect(JSON.stringify(result)).not.toContain('"trackId"');
-    const interpolate = computeTrackInterpolator(track, {
-      id: "instance", animationId: "a", settings: { active: true, offset: 0, timescale: 1 },
-    });
+    const interpolate = curveOf(track);
     for (const timeMs of [100, 300, 650, 900, 1100, 1400, 1750, 1950]) {
       expect(sample(keys, timeMs)).toBeCloseTo(interpolate(timeMs) as number, 3);
     }

@@ -10,7 +10,8 @@
  * - K.transitions.in is defined for the incoming segment [A, K]
  * - K.transitions.out is defined for the outgoing segment [K, B]
  *
- * Transition semantics must match compute-track-interpolator:
+ * Transition semantics are the editor's (`resolveTransitionDelta`), the ones `toModuleClip` hands
+ * the module:
  *   - x: control time position as fraction of [start, end] on the time axis
  *   - y: control value position as weight between start.value and end.value (per type)
  *
@@ -96,7 +97,7 @@ export function insertKeypointWithDeCasteljauLocal(
 
   // Will solve for parameter u after control times are computed below
 
-  // Build cubic control points in (time, value) space following compute-track-interpolator semantics
+  // Build cubic control points in (time, value) space from the segment's transitions
   const aOut = A.transitions?.out ?? DEFAULT_OUT;
   const bIn = B.transitions?.in ?? DEFAULT_IN;
 
@@ -108,10 +109,10 @@ export function insertKeypointWithDeCasteljauLocal(
   const p1t = startTime + aOutDelta.x;
   const p2t = endTime + bInDelta.x;
   const p3t = endTime;
-  // Relative parameter for split — solve cubic for time to match compute-track-interpolator semantics
+  // Relative parameter for split — solve the cubic for time
   const u = solveForParameterTime(p0t, p1t, p2t, p3t, localStamp);
 
-  // Absolute control values (same blend semantics used by compute-track-interpolator)
+  // Absolute control values
   const p0v = A.value;
   const p1v = rawValueAdd(A.value, aOutDelta.y as RawValue);
   const p2v = rawValueAdd(B.value, bInDelta.y as RawValue);

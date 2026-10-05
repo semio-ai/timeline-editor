@@ -2,16 +2,12 @@ import { resolveSegmentControlPoints } from "../../functions/resolve-segment-con
 import type { SimpleRawValue, SimpleTrack } from "../../types/data/simple-track";
 
 /**
- * What a Studio track plays at a local time, evaluated exactly: the segments
- * and control points `computeTrackInterpolator` builds, with a numeric
- * segment's Bézier parameter solved to double precision rather than by the
- * interpolator's twelve bisection steps, and a string or boolean segment
- * holding its start value as the interpolator's step branch does. The oracle
- * the module is held to.
- *
- * Strings need it: the interpolator offsets every segment's start value by
- * its handle delta (`rawValueAdd`), which throws for a string, so it cannot
- * evaluate a string track of two stamps or more.
+ * The curve a Studio track's keypoints and handles define at a local time,
+ * evaluated exactly: segments of no duration skipped, a numeric segment's
+ * Bézier from the control points the editor resolves
+ * (`resolveSegmentControlPoints`), its parameter solved to double precision,
+ * and a string or boolean segment holding its start value. The oracle the
+ * module is held to.
  */
 export function studioCurve(track: SimpleTrack): (timeMs: number) => SimpleRawValue {
   const points = [...track.points].sort((a, b) => a.stamp - b.stamp);

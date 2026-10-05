@@ -14,12 +14,13 @@ import {
 } from "../types";
 import { buildTrackKey } from "../utils/track-key";
 import type { ProjectedTrackView, SelectionCleanup, TrackDiffOp } from "../types/util/diff";
-import { computeTrackInterpolator } from "./compute-track-interpolator";
+import type { SimpleTrack } from "../types/data/simple-track";
 import { computeDerivativeInterpolator } from "./compute-derivative-interpolator";
-import { computeTrackViolations } from "./compute-track-violations";
+import { computeInstanceTrackViolations } from "./compute-track-violations";
 import { computeRowData } from "./compute-row-data";
 import { resolveDraggedTrackIds } from "./resolve-dragged-track-ids";
 import { resolveAnimationDuration } from "./compute-animation-extent";
+import { trackCurve, type TrackBaker } from "./track-curve";
 
 export interface BuildDerivedSnapshotInputs {
   tracks: Record<string, Track<RawValue>>;
@@ -29,8 +30,17 @@ export interface BuildDerivedSnapshotInputs {
   instancedTrackSources: Record<string, SourceRow>;
   dragState: DragState | undefined;
   selectionState: SelectionState;
+  /** Bakes each track's curve; without it no track has one. */
+  trackBaker?: TrackBaker;
   version?: number;
 }
+
+/** A curve that has no value anywhere: a track nothing could bake. */
+const noCurve = () => undefined;
+
+/** The tracks hold scalars (`AnimationData.tracks`), as a module clip's tracks do. */
+const asSimple = (tracks: Record<string, Track<RawValue>>) =>
+  tracks as unknown as Record<string, SimpleTrack>;
 
 export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): DerivedSnapshot {
   const { namespaces, animations, tracks, animatables } = inputs;
@@ -77,19 +87,19 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         if (!animatable) return;
 
         const trackKey = buildTrackKey(namespace.id, instance.id, trackId);
-        const canonicalInterpolator = computeTrackInterpolator(track, instance);
+        const canonicalCurve =
+          trackCurve(
+            track as unknown as SimpleTrack,
+            animation,
+            asSimple(inputs.tracks),
+            inputs.trackBaker,
+          ) ?? noCurve;
         const animDuration = resolveAnimationDuration(animation, inputs.tracks);
-        const canonicalDerivative = computeDerivativeInterpolator(
-          canonicalInterpolator,
+        const canonicalDerivative = computeDerivativeInterpolator(canonicalCurve, animDuration);
+        const canonicalViolations = computeInstanceTrackViolations(
+          canonicalCurve,
           animDuration,
-        );
-        const timescale = instance.settings.timescale ?? 1;
-        const durationScale =
-          Number.isFinite(timescale) && timescale !== 0 ? Math.abs(timescale) : 1;
-        const violationDuration = animDuration / durationScale;
-        const canonicalViolations = computeTrackViolations(
-          canonicalInterpolator,
-          violationDuration,
+          instance.settings.timescale,
           trackId,
           namespace.id,
           instance.id,
@@ -98,7 +108,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
 
         derivedTracks[trackKey] = {
           canonical: {
-            interpolator: canonicalInterpolator,
+            curve: canonicalCurve,
             derivative: canonicalDerivative,
             violations: canonicalViolations,
           },
@@ -138,6 +148,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
       {
         animations: inputs.animations,
         namespaces: inputs.namespaces,
+        trackBaker: inputs.trackBaker,
       },
       dragPreviewCache,
       renderSampleCache,
@@ -162,24 +173,24 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         return;
       }
       const previewTrack: Track<RawValue> = { ...context.track, points: view.points };
-      const previewInterpolator = computeTrackInterpolator(previewTrack, context.instance);
-      const previewTimescale = context.instance.settings.timescale ?? 1;
-      const previewScale =
-        Number.isFinite(previewTimescale) && previewTimescale !== 0
-          ? Math.abs(previewTimescale)
-          : 1;
-      const previewAnimDuration = resolveAnimationDuration(context.animation, inputs.tracks);
-      const previewDuration = previewAnimDuration / previewScale;
-      const previewViolations = computeTrackViolations(
-        previewInterpolator,
-        previewDuration,
+      const previewCurve =
+        trackCurve(
+          previewTrack as unknown as SimpleTrack,
+          context.animation,
+          asSimple(inputs.tracks),
+          inputs.trackBaker,
+        ) ?? noCurve;
+      const previewViolations = computeInstanceTrackViolations(
+        previewCurve,
+        resolveAnimationDuration(context.animation, inputs.tracks),
+        context.instance.settings.timescale,
         view.trackId,
         context.namespaceId,
         context.instance.id,
         context.animatable,
       );
       target.preview = {
-        interpolator: previewInterpolator,
+        curve: previewCurve,
         violations: previewViolations,
       };
     });

@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
-import { computeTrackInterpolator } from "../../functions/compute-track-interpolator";
 import { resolveAnimationDuration } from "../../functions/compute-animation-extent";
 import { toModuleClip, type AroraValueJson, type ModuleClip } from "../../functions/to-module-clip";
 import { createTestAnimationStore } from "../../test-fixtures";
-import type { Animation, AnimationInstance } from "../../types";
+import type { Animation } from "../../types";
 import { StandardTransitionType } from "../../types";
 import type { SimpleKeypoint, SimpleTrack } from "../../types/data/simple-track";
 import { randomAnimation } from "./random-animation";
 import { studioCurve } from "./studio-curve";
+import { clipBaker } from "./clip-baker";
 import {
   startVizijRuntimeHost,
   type ModuleClipHost,
@@ -25,13 +25,6 @@ const FRAME_MS = 1000 / RATE_HZ;
  */
 const TIME_TOLERANCE = 2e-6;
 const VALUE_TOLERANCE = 1e-6;
-
-/**
- * How far `computeTrackInterpolator` strays in time: it stops its bisection
- * after twelve steps, so its parameter is off by up to 2^-13, a time error of
- * up to 3·2^-13 of a segment.
- */
-const INTERPOLATOR_TIME_TOLERANCE = 4e-4;
 
 /** The module, run in Node; any `ModuleClipHost` serves these tests. */
 const host: ModuleClipHost = startVizijRuntimeHost();
@@ -192,21 +185,35 @@ describe("the converted clip through the Vizij animation module", () => {
   }));
 
   test.each(fixtures.map((f) => [f.animation.id, f] as const))(
-    "plays fixture %s as Studio's interpolator does",
+    "plays fixture %s on Studio's curve, as the tests' clip baker samples it",
     async (_, fixture) => {
+      const clip = toModuleClip(fixture.animation, fixture.tracks);
       for (const run of [await playThroughModule(fixture), await bakeThroughModule(fixture)]) {
         for (const { track, samples } of run.tracks) {
-          const interpolator = computeTrackInterpolator(track, identityInstance(fixture.animation));
           const exact = studioCurve(track);
           const curve = (t: number) => exact(t) as number;
+          const window = TIME_TOLERANCE * run.duration;
           samples.forEach((sample, i) => {
-            const at = run.timesMs[i];
-            expectOnCurve(sample, curve, track, at, TIME_TOLERANCE * run.duration);
-            // The exact curve is the interpolator's, solved to double precision.
-            const window = INTERPOLATOR_TIME_TOLERANCE * run.duration;
-            expectOnCurve(interpolator(at) as number, curve, track, at, window);
+            expectOnCurve(sample, curve, track, run.timesMs[i], window);
           });
         }
+      }
+      // The baker the other tests draw curves with lies on the same curve.
+      const baked = await bakeThroughModule(fixture);
+      for (const { track } of baked.tracks) {
+        const exact = studioCurve(track);
+        const mine = clipBaker(clip, track.id, RATE_HZ)!;
+        expect(mine).toHaveLength(baked.timesMs.length);
+        mine.forEach((sample, i) => {
+          const window = TIME_TOLERANCE * baked.duration;
+          expectOnCurve(
+            sample as number,
+            (t) => exact(t) as number,
+            track,
+            baked.timesMs[i],
+            window,
+          );
+        });
       }
     },
   );
@@ -217,31 +224,28 @@ describe("the converted clip through the Vizij animation module", () => {
     const played = await playThroughModule(generated);
     const baked = await bakeThroughModule(generated);
 
+    const clip = toModuleClip(generated.animation, generated.tracks);
     for (const run of [played, baked]) {
       for (const { track, samples } of run.tracks) {
         const curve = studioCurve(track);
-        // Studio's interpolator throws on a string track (see studioCurve).
-        const interpolator =
-          typeof samples[0] === "string"
-            ? undefined
-            : computeTrackInterpolator(track, identityInstance(generated.animation));
+        const mine = run === baked ? clipBaker(clip, track.id, RATE_HZ) : undefined;
         const window = TIME_TOLERANCE * run.duration;
         const lastStamp = Math.max(...track.points.map((p) => p.stamp));
         samples.forEach((sample, i) => {
           const at = run.timesMs[i];
           if (typeof sample === "number") {
             expectOnCurve(sample, (t) => curve(t) as number, track, at, window);
+            if (mine)
+              expectOnCurve(mine[i] as number, (t) => curve(t) as number, track, at, window);
             return;
           }
           // At its last keypoint's own instant, a step track already plays
-          // that keypoint in the module, where Studio's interpolator holds
-          // the previous value until the next instant. A clip played to its
-          // end rests there.
+          // that keypoint in the module, where the exact curve holds the
+          // previous value until the next instant. A clip played to its end
+          // rests there.
           const settled = at >= lastStamp - window ? Infinity : at;
           expect(sample, `${track.id} at ${at} ms`).toBe(curve(settled));
-          if (interpolator) {
-            expect(sample, `${track.id} at ${at} ms`).toBe(interpolator(settled));
-          }
+          if (mine) expect(mine[i], `${track.id} at ${at} ms (clip baker)`).toBe(sample);
         });
       }
     }
@@ -347,14 +351,6 @@ function point(
   transitions?: SimpleKeypoint["transitions"],
 ): SimpleKeypoint {
   return { id: "", stamp, value, transitions };
-}
-
-function identityInstance(animation: Animation): AnimationInstance {
-  return {
-    id: "instance",
-    animationId: animation.id,
-    settings: { active: true, offset: 0, timescale: 1 },
-  };
 }
 
 function clipOf(scene: Scene) {

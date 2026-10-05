@@ -270,3 +270,40 @@ const violationCheckers: Record<ViolationType, ViolationChecker> = {
 const violationCheckerEntries: [ViolationType, ViolationChecker][] = Object.entries(
   violationCheckers,
 ) as [ViolationType, ViolationChecker][];
+
+/**
+ * A track's violations on an instance: its curve (in local time) checked as
+ * the instance plays it in world time, so the instance's timescale scales the
+ * velocities, over the animation's duration in world time; reported in the
+ * track's local time, as the row draws them.
+ */
+export function computeInstanceTrackViolations(
+  curve: TrackInterpolator,
+  animationDurationMs: number,
+  timescale: number | undefined,
+  trackId: string,
+  namespace: string,
+  instanceId: string,
+  animatableValue: AnimatableValue | DeprecatedComplexAnimatableValue,
+): Violation[] {
+  const scale =
+    timescale !== undefined && Number.isFinite(timescale) && timescale !== 0
+      ? Math.abs(timescale)
+      : 1;
+  const violations = computeTrackViolations(
+    scale === 1 ? curve : (worldMs) => curve(worldMs * scale),
+    animationDurationMs / scale,
+    trackId,
+    namespace,
+    instanceId,
+    animatableValue,
+  );
+  if (scale === 1) return violations;
+  return violations.map((violation) => ({
+    ...violation,
+    stampRange: {
+      start: violation.stampRange.start * scale,
+      end: violation.stampRange.end * scale,
+    },
+  }));
+}

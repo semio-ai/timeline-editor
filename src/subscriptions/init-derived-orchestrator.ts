@@ -35,6 +35,7 @@ interface DerivedInputs {
   editorViews: AnimationData["editorViews"];
   sourceRowIds: AnimationData["sourceRowIds"];
   sourceRowIdsByView: AnimationData["sourceRowIdsByView"];
+  trackBaker: AnimationData["trackBaker"];
 }
 
 interface DerivedComputation {
@@ -65,14 +66,14 @@ function computeValueAndVelocityMaps(
     const safeTimescale = Number.isFinite(timescale) && timescale !== 0 ? timescale : 1;
     const localStamp = computeLocalStamp(stamp, safeTimescale, offset);
 
-    const previewInterpolator = track.preview?.interpolator;
-    const valueInterpolator = previewInterpolator ?? track.canonical.interpolator;
-    values.set(lookup, valueInterpolator(localStamp));
+    const previewCurve = track.preview?.curve;
+    const valueCurve = previewCurve ?? track.canonical.curve;
+    values.set(lookup, valueCurve(localStamp));
 
     let velocity: RawValue | undefined;
-    if (previewInterpolator) {
+    if (previewCurve) {
       const duration = track.metadata?.duration ?? 1000;
-      const previewDerivative = computeDerivativeInterpolator(previewInterpolator, duration);
+      const previewDerivative = computeDerivativeInterpolator(previewCurve, duration);
       velocity = previewDerivative(localStamp);
     } else {
       velocity = track.canonical.derivative(localStamp);
@@ -105,6 +106,7 @@ function computeDerivedState(
     instancedTrackSources: inputs.instancedTrackSources,
     dragState: inputs.dragState,
     selectionState: inputs.selectionState,
+    trackBaker: inputs.trackBaker,
     version: versionHint,
   });
 
@@ -159,6 +161,7 @@ export function initDerivedOrchestrator(
     editorViews: currentState.editorViews,
     sourceRowIds: currentState.sourceRowIds,
     sourceRowIdsByView: currentState.sourceRowIdsByView,
+    trackBaker: currentState.trackBaker,
   };
 
   const maybeApplyDerived = (inputs: DerivedInputs) => {
@@ -198,6 +201,7 @@ export function initDerivedOrchestrator(
       editorViews: state.editorViews,
       sourceRowIds: state.sourceRowIds,
       sourceRowIdsByView: state.sourceRowIdsByView,
+      trackBaker: state.trackBaker,
     }),
     (inputs) => {
       maybeApplyDerived(inputs);

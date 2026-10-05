@@ -11,7 +11,7 @@ This README is the source of truth for package architecture and current behavior
 | `src/index.tsx` | Public package entry point and exports. |
 | `src/store.ts` / `src/store-types.ts` | Zustand store wiring, canonical data model, and actions. |
 | `src/actions/` | Immer reducers for animation, track, keypoint, selection, and drag mutations. |
-| `src/functions/` | Pure helpers for derivation, interpolation, drag math, and transforms. |
+| `src/functions/` | Pure helpers for derivation, curves, drag math, and transforms. |
 | `src/subscriptions/` | Derived-state orchestration and store subscriptions. |
 | `src/components/` | Timeline UI, controls, and canvas renderers. |
 | `src/hooks/` | Store selectors, gesture hooks, and rendering hooks. |
@@ -60,16 +60,39 @@ docstring is the mapping; in short:
 | string or boolean segment | no handles: the module holds the left value |
 | instance offset and timescale, looping, bounce | not in the clip: player state (seek, speed, loop mode) |
 
-`src/tests/module-clip/` holds the clip to Studio's playback: every fixture
+`src/tests/module-clip/` holds the clip to Studio's curves: every fixture
 animation and 120 generated ones are played by the module's `step` at 100 Hz
-and sampled by its `bake`, and compared with the curve Studio's interpolator
-defines, solved exactly (`studio-curve.ts`). Booleans match that interpolator
-exactly, and strings match exactly the step it declares and cannot evaluate (it
-throws on a string track of two stamps or more); a number matches the curve at a time within 2 ppm of the duration, to 1e-6 of
-the track's magnitude, the module's `f32` precision. The fixtures are also
-compared with `computeTrackInterpolator` itself, within its bisection's error.
-The module runs in Node through `@vizij/runtime`, behind `ModuleClipHost`
-(`vizij-runtime-host.ts`), the seam a host over an emulated device fills.
+and sampled by its `bake`, and compared with the curve Studio's keypoints and
+handles define, solved exactly (`studio-curve.ts`). Strings and booleans match
+exactly; a number matches the curve at a time within 2 ppm of the duration, to
+1e-6 of the track's magnitude, the module's `f32` precision. The module runs in
+Node through `@vizij/runtime`, behind `ModuleClipHost` (`vizij-runtime-host.ts`).
+`clipBaker` (`clip-baker.ts`), the baker the other tests draw curves with, reads a
+clip back and samples it as the module does; the same tests hold it to the
+exact curve.
+
+## Curves from the module
+
+The module is the only evaluator of a track's curve. A host gives the store a
+`trackBaker` (Studio bakes on an emulated device's module); `trackCurve`
+(`src/functions/track-curve.ts`) bakes a track alone over its animation's
+duration, at 200 samples a second (fewer for an animation past 100 s), once per
+track (copies with the same keypoints share a bake), and reads it back: a number
+between two samples on the line between them, a string or a boolean held. From
+that curve come:
+
+- the values and velocities the derived snapshot writes for each track at the
+  playhead (the velocity a finite difference of the curve);
+- the violations, checked as each instance plays the curve in world time (its
+  timescale scales the velocities) and reported in the track's local time;
+- a value row's spline (`TrackRender.Spline` / `Preview`), the drag preview
+  baking the dragged points;
+- the value a new keypoint takes on a curve.
+
+Without a baker no track has a curve: values and violations are empty, and a
+value row draws its segments' Bézier parameters instead. The key and transition
+views draw each segment's easing from its handles: the authored shape, not a
+value over time.
 
 ## Testing Notes
 

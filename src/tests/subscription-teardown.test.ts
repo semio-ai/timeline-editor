@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { usePlayerStore, useValuesStore } from "@semio/utils";
 import { createTestAnimationStore } from "../test-fixtures/animation-store-factory";
+import { clipBaker } from "./module-clip/clip-baker";
 
 /**
  * What `initAnimationSubscriptions()`'s cleanup must stop. A host that disposes
@@ -19,7 +20,7 @@ afterEach(() => {
 
 /** A store with its subscriptions started, and the cleanup that stops them. */
 function startedStore() {
-  const store = createTestAnimationStore();
+  const store = createTestAnimationStore({ trackBaker: clipBaker });
   // Re-initialising tears down the set the factory started and hands back a
   // cleanup for the new one.
   const cleanup = store.getState().initAnimationSubscriptions();

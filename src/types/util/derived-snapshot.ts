@@ -6,7 +6,8 @@ import type { RenderSampleCache } from "./render-types";
 
 /**
  * DerivedSnapshot lifecycle:
- * - canonical: built from stored tracks/animations; includes interpolators/violations.
+ * - canonical: built from stored tracks/animations; includes each track's baked curve and its
+ *   violations.
  * - preview: when dragState exists, a transient projection overlays deltas (handleDiffs/marker
  *   movement) onto canonical tracks to render UI without mutating canon.
  * - commit: apply deltas to canonical data, clear dragState, rebuild derived.
@@ -21,16 +22,19 @@ export type TrackKey = TrackInstanceKey;
 /** Per-track derived data (canonical and optional preview projections). */
 export interface DerivedTrackSnapshot {
   canonical: {
-    /** Interpolator built from canonical track data. */
-    interpolator: TrackInterpolator;
-    /** Derivative interpolator (for velocities). */
+    /**
+     * The track's value at a local time, read from the module's bake of it
+     * (`trackCurve`); `undefined` everywhere while nothing can bake.
+     */
+    curve: TrackInterpolator;
+    /** The curve's rate of change per second (for velocities). */
     derivative: TrackInterpolator;
     /** Violations computed from canonical data. */
     violations: Violation[];
   };
   preview?: {
-    /** Interpolator for preview-only projection (if drag active). */
-    interpolator?: TrackInterpolator;
+    /** The curve of the preview-only projection (if drag active). */
+    curve?: TrackInterpolator;
     /** Violations for the preview projection. */
     violations?: Violation[];
   };

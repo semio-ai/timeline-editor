@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { usePlayerStore, useValuesStore } from "@semio/utils";
+import { clipBaker } from "../module-clip/clip-baker";
 import {
   INSTANCE_IDS,
   NAMESPACE_IDS,
@@ -18,7 +19,7 @@ describe("values drag preview behavior", () => {
   let cleanup: (() => void) | undefined;
 
   beforeEach(async () => {
-    store = createMinimalAnimationStore();
+    store = createMinimalAnimationStore({ trackBaker: clipBaker });
 
     store.setState((state) => ({
       tracks: {
@@ -43,7 +44,7 @@ describe("values drag preview behavior", () => {
     cleanup?.();
   });
 
-  it("uses preview interpolators while dragging", async () => {
+  it("uses preview curves while dragging", async () => {
     const player = usePlayerStore.getState();
     const previousStamp = player.player.stamp;
     const stamp = 1000;
@@ -91,11 +92,11 @@ describe("values drag preview behavior", () => {
       const track = store.getState().tracks[TRACK_IDS.SCALE];
       const trackKey = buildTrackKey(namespaceId, instanceId, TRACK_IDS.SCALE);
       const snapshot = store.getState().derivedSnapshot;
-      const previewInterpolator = snapshot?.tracks[trackKey]?.preview?.interpolator;
-      const canonicalInterpolator = snapshot?.tracks[trackKey]?.canonical.interpolator;
+      const previewInterpolator = snapshot?.tracks[trackKey]?.preview?.curve;
+      const canonicalInterpolator = snapshot?.tracks[trackKey]?.canonical.curve;
 
       if (!track || !previewInterpolator || !canonicalInterpolator) {
-        throw new Error("Missing interpolators for drag preview test");
+        throw new Error("Missing curves for drag preview test");
       }
 
       const instance = store.getState().namespaces[namespaceId].animationInstances[instanceId];
@@ -130,6 +131,7 @@ describe("values drag preview behavior", () => {
     const previousStamp = player.player.stamp;
 
     const storeWithInstances = createTestAnimationStore({
+      trackBaker: clipBaker,
       activeInstance: INSTANCE_IDS.BETA_SHARED,
     });
     const cleanupInstances = storeWithInstances.getState().initAnimationSubscriptions();
@@ -191,8 +193,8 @@ describe("values drag preview behavior", () => {
         INSTANCE_IDS.BETA_SHARED,
         TRACK_IDS.OPACITY,
       );
-      const previewInterpolator = snapshot?.tracks[trackKey]?.preview?.interpolator;
-      const canonicalInterpolator = snapshot?.tracks[trackKey]?.canonical.interpolator;
+      const previewInterpolator = snapshot?.tracks[trackKey]?.preview?.curve;
+      const canonicalInterpolator = snapshot?.tracks[trackKey]?.canonical.curve;
       if (!previewInterpolator || !canonicalInterpolator) {
         throw new Error("Missing interpolators for timescaled drag preview test");
       }

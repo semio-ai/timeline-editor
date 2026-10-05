@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { usePlayerStore, useValuesStore } from "@semio/utils";
-import { computeLocalStamp, computeTrackInterpolator, computeWorldStamp } from "../../functions";
+import { computeLocalStamp, computeWorldStamp } from "../../functions";
+import { clipBaker } from "../module-clip/clip-baker";
+import { curveOf } from "../curves";
 import { buildTrackKey } from "../../utils/track-key";
 import {
   ANIMATABLE_IDS,
@@ -19,7 +21,7 @@ describe("values timescale behavior", () => {
     player.resetPlayer(worldStamp);
 
     try {
-      const store = createTestAnimationStore();
+      const store = createTestAnimationStore({ trackBaker: clipBaker });
       const state = store.getState();
       const animatable = state.animatables[ANIMATABLE_IDS.SCALE];
       const track = state.tracks[TRACK_IDS.SCALE];
@@ -33,7 +35,7 @@ describe("values timescale behavior", () => {
         throw new Error("Expected number animatable for values timescale test");
       }
 
-      const interpolator = computeTrackInterpolator(track, instance);
+      const interpolator = curveOf(track, state.animations[instance.animationId], state.tracks);
       const localStamp = computeLocalStamp(
         worldStamp,
         instance.settings.timescale,
@@ -59,7 +61,7 @@ describe("values timescale behavior", () => {
     const previousStamp = player.player.stamp;
 
     try {
-      const store = createTestAnimationStore();
+      const store = createTestAnimationStore({ trackBaker: clipBaker });
       const state = store.getState();
       const track = state.tracks[TRACK_IDS.SCALE];
       const instance =
@@ -96,7 +98,7 @@ describe("values timescale behavior", () => {
     const previousStamp = player.player.stamp;
 
     try {
-      const store = createTestAnimationStore();
+      const store = createTestAnimationStore({ trackBaker: clipBaker });
       const state = store.getState();
       const track = state.tracks[TRACK_IDS.POSITION_X];
       const instance =

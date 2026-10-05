@@ -31,6 +31,7 @@ import {
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
 import type { ProjectedTrackView, SelectionCleanup, TrackDiffOp } from "../types/util/diff";
+import type { SimpleTrack } from "../types/data/simple-track";
 import { computeDragDiffOps } from "./drag-diff-ops";
 import { computeViolationSet } from "./compute-violation-set";
 import { computeTransitionSegments } from "./compute-transition-segments";
@@ -38,8 +39,8 @@ import { computeFilledInterpGaps } from "./compute-filled-interp-gaps";
 import { computeVerticalBounds } from "./compute-vertical-bounds";
 import { computeFrames } from "./compute-frames";
 import { resolveAnimationDuration } from "./compute-animation-extent";
-import { computeTrackInterpolator } from "./compute-track-interpolator";
-import { computeTrackViolations } from "./compute-track-violations";
+import { trackCurve, type TrackBaker, type TrackCurve } from "./track-curve";
+import { computeInstanceTrackViolations } from "./compute-track-violations";
 import { buildRenderParamsFromControlPoints } from "./compute-transition-params";
 import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
 import { coerceNumericValue, extractFrameNumericValue } from "./segment-value-utils";
@@ -58,6 +59,8 @@ const IDENTITY_TRANSFORM: AffineTransform2D = {
 interface RowComputationContext {
   animations: Record<string, Animation>;
   namespaces: Record<string, Namespace>;
+  /** Bakes the curves the row draws and its drag preview's violations. */
+  trackBaker?: TrackBaker;
 }
 
 export interface DragPreviewCache {
@@ -450,14 +453,17 @@ export function computeRowData(
       if (!animation || !instance || !animatable) {
         return;
       }
-      const timescale = instance.settings.timescale ?? 1;
-      const durationScale = Number.isFinite(timescale) && timescale !== 0 ? Math.abs(timescale) : 1;
-      const animDuration = resolveAnimationDuration(animation, tracks);
-      const violationDuration = animDuration / durationScale;
-      const interpolator = computeTrackInterpolator(previewTrack, instance);
-      const previewViolations = computeTrackViolations(
-        interpolator,
-        violationDuration,
+      const curve =
+        trackCurve(
+          previewTrack as unknown as SimpleTrack,
+          animation,
+          tracks as unknown as Record<string, SimpleTrack>,
+          context.trackBaker,
+        ) ?? (() => undefined);
+      const previewViolations = computeInstanceTrackViolations(
+        curve,
+        resolveAnimationDuration(animation, tracks),
+        instance.settings.timescale,
         track.id,
         entry.namespaceId,
         entry.instanceId,
@@ -486,6 +492,7 @@ export function computeRowData(
     sourceRow,
     renderSampleCache,
     rowTransform,
+    rowValueCurve(sourceRow, relevantTracks, tracks, previewByTrackId, draggedTrackIds, context),
   );
   const renderHandles = buildRenderHandles(segmentsWithGeometry, sourceRow);
 
@@ -578,11 +585,69 @@ function buildSelectionFrames(
   return selectionFrames;
 }
 
+/**
+ * The baked curve a value row draws: the curve of its one track, of the drag
+ * preview's points while that track is dragged. `undefined` for a row of
+ * several tracks (it draws timing, not values), and when nothing can bake.
+ */
+function rowValueCurve(
+  sourceRow: SourceRow,
+  relevantTracks: Record<string, Track<RawValue>>,
+  tracks: Record<string, Track<RawValue>>,
+  previewByTrackId: Map<string, { projectedPoints: Keypoint<RawValue>[] }>,
+  draggedTrackIds: Set<string> | undefined,
+  context: RowComputationContext | undefined,
+): TrackCurve | undefined {
+  if (sourceRow.data.length !== 1 || !context?.trackBaker) return undefined;
+  const [datum] = sourceRow.data;
+  const track = relevantTracks[datum.trackId];
+  const animation = context.animations[datum.animationId];
+  if (!track || !animation) return undefined;
+  const preview = draggedTrackIds?.has(datum.trackId)
+    ? previewByTrackId.get(datum.trackId)
+    : undefined;
+  const drawn = preview
+    ? { ...track, points: [...preview.projectedPoints].sort((a, b) => a.stamp - b.stamp) }
+    : track;
+  return trackCurve(
+    drawn as unknown as SimpleTrack,
+    animation,
+    tracks as unknown as Record<string, SimpleTrack>,
+    context.trackBaker,
+  );
+}
+
+/**
+ * A value segment's spline, read from the row's baked curve between the
+ * segment's stamps; `undefined` for a segment the curve does not draw (a hold
+ * before the first or after the last keypoint, a string) and without a curve.
+ */
+function sampleValueCurve(
+  curve: TrackCurve | undefined,
+  startStamp: number,
+  endStamp: number,
+  buffer: boolean | undefined,
+): Float32Array | undefined {
+  if (!curve || buffer) return undefined;
+  const count = Math.max(2, SEGMENT_SAMPLE_RESOLUTION + 1);
+  const points = new Float32Array(count * 2);
+  for (let i = 0; i < count; i += 1) {
+    const stamp = startStamp + ((endStamp - startStamp) * i) / (count - 1);
+    const value = curve(stamp);
+    const y = typeof value === "boolean" ? Number(value) : value;
+    if (typeof y !== "number") return undefined;
+    points[i * 2] = stamp;
+    points[i * 2 + 1] = y;
+  }
+  return points;
+}
+
 function buildRenderSegments(
   segments: InstancePair[],
   sourceRow: SourceRow,
   renderSampleCache: RenderSampleCache | undefined,
   rowTransform: AffineTransform2D,
+  valueCurve: TrackCurve | undefined,
 ): RenderSegment[] {
   const fallbackEntry = sourceRow.data[0];
   const segmentPointCount = Math.max(2, SEGMENT_SAMPLE_RESOLUTION + 1);
@@ -671,7 +736,8 @@ function buildRenderSegments(
 
       if (detail.splineParams) {
         const splinePoints = applySampleTransform(
-          sampleCubicBezier(detail.splineParams, SEGMENT_SAMPLE_RESOLUTION),
+          sampleValueCurve(valueCurve, detail.startStamp, detail.endStamp, detail.buffer) ??
+            sampleCubicBezier(detail.splineParams, SEGMENT_SAMPLE_RESOLUTION),
           detail.transform,
         );
         const splineSample: SegmentSample = {
@@ -720,7 +786,7 @@ function buildRenderSegments(
     const buildSharedSamples = (
       render: TrackRender,
       list: typeof details,
-      getParams: (detail: (typeof details)[number]) => TransitionParams,
+      sample: (detail: (typeof details)[number]) => Float32Array,
     ) => {
       if (list.length === 0) return;
 
@@ -736,8 +802,7 @@ function buildRenderSegments(
         renderSampleCache.samples[sampleId] = cachedSample;
       }
       list.forEach((detail, index) => {
-        const segmentPoints = sampleCubicBezier(getParams(detail), SEGMENT_SAMPLE_RESOLUTION);
-        cachedSample.points.set(segmentPoints, index * segmentPointLength);
+        cachedSample.points.set(sample(detail), index * segmentPointLength);
       });
 
       trackEntry[render] = cachedSample.id;
@@ -753,12 +818,22 @@ function buildRenderSegments(
       });
     };
 
-    buildSharedSamples(TrackRender.Transition, details, (detail) => detail.transitionParams);
-    buildSharedSamples(TrackRender.Key, details, (detail) => detail.keyParams);
+    const bezier = (params: TransitionParams) =>
+      sampleCubicBezier(params, SEGMENT_SAMPLE_RESOLUTION);
+    buildSharedSamples(TrackRender.Transition, details, (detail) =>
+      bezier(detail.transitionParams),
+    );
+    buildSharedSamples(TrackRender.Key, details, (detail) => bezier(detail.keyParams));
 
     const splineDetails = details.filter((detail) => detail.splineParams);
     if (splineDetails.length > 0) {
-      buildSharedSamples(TrackRender.Spline, splineDetails, (detail) => detail.splineParams!);
+      buildSharedSamples(
+        TrackRender.Spline,
+        splineDetails,
+        (detail) =>
+          sampleValueCurve(valueCurve, detail.startStamp, detail.endStamp, detail.buffer) ??
+          bezier(detail.splineParams!),
+      );
       splineDetails.forEach((detail) => {
         detail.samples[TrackRender.Preview] = detail.samples[TrackRender.Spline];
       });

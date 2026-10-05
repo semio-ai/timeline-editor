@@ -26,6 +26,7 @@ import type {
 import { StandardTransitionType, TransitionDirective, TransitionPairing } from "./types";
 import type { SelectionState } from "./types/util/selection-state";
 import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "./types/data/simple-track";
+import type { TrackBaker } from "./functions/track-curve";
 
 export { TransitionDirective };
 
@@ -187,6 +188,12 @@ export interface AnimationPreferencesPatch {
  */
 export interface AnimationData {
   derivedSnapshot?: DerivedSnapshot;
+  /**
+   * Bakes a track through the Vizij animation module, for the curves, readouts
+   * and violations; the host supplies it (Studio, from an emulated device),
+   * and without one no track has a curve.
+   */
+  trackBaker?: TrackBaker;
   /**
    * A record of animation instances and their namespaces, used for specifying how
    * values are written into `useValuesStore` without overriding others.
@@ -509,7 +516,7 @@ export interface AnimationActions {
   ) => void;
   /**
    * Insert a keypoint at the given world (player) stamp for a specific instance.
-   * Computes the local stamp using instance transforms and derives value via the derived snapshot interpolator when available.
+   * Computes the local stamp using instance transforms and derives value from the derived snapshot's baked curve when available.
    */
   insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => void;
   /**

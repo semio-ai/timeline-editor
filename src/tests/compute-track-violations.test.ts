@@ -1,7 +1,7 @@
 import { test, expect } from "vitest";
 import { computeTrackViolations } from "../functions/compute-track-violations";
-import { computeTrackInterpolator } from "../functions/compute-track-interpolator";
 import { ViolationType } from "../types";
+import { curveOf } from "./curves";
 
 test("An animation that shifts from within to outside bounds gets a bounds error at the midpoint", () => {
   const track1 = {
@@ -18,10 +18,8 @@ test("An animation that shifts from within to outside bounds gets a bounds error
     animationId: "thing",
     settings: { offset: 0, timescale: 1, active: true },
   };
-  // Note: timescale/offset alter world-time sampling, so violations can differ per instance.
-
-  // Create the animation interpolator
-  const track1Interpolator = computeTrackInterpolator(track1, defaultInstance);
+  // The track's curve, as the module bakes it
+  const track1Interpolator = curveOf(track1);
 
   // Compute the track violations
   const violations = computeTrackViolations(
@@ -122,8 +120,8 @@ test("An animation with a velocity limit of 0 returns a violation for the entire
     settings: { offset: 0, timescale: 1, active: true },
   };
 
-  // Create the animation interpolator
-  const track1Interpolator = computeTrackInterpolator(track1, defaultInstance);
+  // The track's curve, as the module bakes it
+  const track1Interpolator = curveOf(track1);
 
   // Compute the track violations
   const violations = computeTrackViolations(

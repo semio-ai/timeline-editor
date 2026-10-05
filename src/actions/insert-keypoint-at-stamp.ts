@@ -57,7 +57,7 @@ export function insertKeypointAtWorldStamp(
   // In v2 format, stamps are in ms — no [0,1] clamping needed.
   const clampedStamp = Number.isFinite(localStamp) ? localStamp : 0;
 
-  // Derive the value from the current interpolator snapshot when available.
+  // Derive the value from the snapshot's baked curve when available.
   const value = resolveInterpolatedOrDefaultValue(
     state,
     track,
@@ -119,9 +119,9 @@ function resolveInstanceAndNamespace(
 }
 
 /**
- * Try to obtain the value for a new keypoint using the existing derived snapshot interpolator
+ * Try to obtain the value for a new keypoint from the derived snapshot's baked curve
  * for the given trackKey (namespace/instance/track). Fall back to the track's current value
- * (animatable default) if no interpolator is available.
+ * (animatable default) if no curve is available.
  */
 function resolveInterpolatedOrDefaultValue(
   state: AnimationData,
@@ -131,10 +131,10 @@ function resolveInterpolatedOrDefaultValue(
   instanceId: string,
   localStamp: number,
 ): SimpleRawValue | undefined {
-  // Prefer derivedSnapshot interpolator for this specific instance/track.
+  // Prefer the derived snapshot's curve for this specific instance/track.
   if (namespaceId && state.derivedSnapshot?.tracks) {
     const trackKey = buildTrackKey(namespaceId, instanceId, trackId);
-    const interp = state.derivedSnapshot.tracks[trackKey]?.canonical?.interpolator;
+    const interp = state.derivedSnapshot.tracks[trackKey]?.canonical?.curve;
     if (interp) {
       const maybe = interp(localStamp) as SimpleRawValue | undefined;
       if (maybe !== undefined) return maybe;

@@ -69,14 +69,11 @@ export function moduleClipDuration(
  *   The module samples numbers in `f32`.
  * - **Keypoints.** Sorted by stamp. Of keypoints sharing the first stamp only
  *   the last is kept, and of keypoints sharing the last stamp only the first:
- *   Studio's interpolator skips segments of no duration, so those are the ones
- *   it holds before its first segment and after its last.
+ *   a segment of no duration plays nothing, so those are the ones the track
+ *   holds before its first segment and after its last.
  * - **Transitions.** Strings and booleans hold the left keypoint's value and
- *   carry no handles: the step Studio's interpolator takes for booleans and
- *   declares for strings (it cannot evaluate a string track of two stamps or
- *   more). At the instant of the last keypoint the module already plays it,
- *   where Studio's interpolator still holds the previous value. A numeric
- *   segment's Bézier is Studio's own
+ *   carry no handles; at the instant of a keypoint the module plays it. A
+ *   numeric segment's Bézier is Studio's own
  *   (`resolveSegmentControlPoints`, the curve the editor draws), normalized to
  *   the segment: `x` over its duration, `y` over its value change. The module
  *   eases between keypoint values, so a segment whose value turns back inside
@@ -85,6 +82,12 @@ export function moduleClipDuration(
  *   there. Every module segment is then monotone in value, which keeps the
  *   normalized handles within `[-1, 2]`.
  *
+ * - **Played tracks.** `played` names the tracks the clip carries, in
+ *   `animation.tracks` order (all of them by default); the clip lasts the whole
+ *   animation's duration whichever it carries. A track left out claims no
+ *   animatable, so the next track on its animatable plays, as Studio plays a
+ *   muted track's animatable.
+ *
  * @throws when a track mixes value types, carries a number the module's `f32`
  *   cannot hold or a non-finite stamp, or when the duration exceeds the
  *   module's `u32` milliseconds.
@@ -92,8 +95,10 @@ export function moduleClipDuration(
 export function toModuleClip(
   animation: Animation,
   tracks: Record<string, SimpleTrack>,
+  played: Iterable<string> = animation.tracks,
 ): ModuleClip {
   const duration = moduleClipDuration(animation, tracks);
+  const carried = new Set(played);
   if (duration > MAX_U32) {
     throw new Error(`animation ${animation.id} lasts ${duration} ms, beyond the module's u32`);
   }
@@ -102,7 +107,7 @@ export function toModuleClip(
   const moduleTracks: { fields: AroraFieldJson[] }[] = [];
   for (const trackId of animation.tracks) {
     const track = tracks[trackId];
-    if (!track) continue;
+    if (!track || !carried.has(trackId)) continue;
     if (claimed.has(track.animatableId)) continue;
     claimed.add(track.animatableId);
     if (track.points.length === 0) continue;
@@ -183,10 +188,9 @@ function field(id: string, value: AroraValueJson): AroraFieldJson {
 }
 
 /**
- * A track's keypoints in the module's form: sorted by stamp as Studio's
- * interpolator sorts them, each numeric segment's handles set from Studio's
- * control points and cut at its value extrema, and the keypoints Studio
- * never plays left out.
+ * A track's keypoints in the module's form: sorted by stamp, each numeric
+ * segment's handles set from Studio's control points and cut at its value
+ * extrema, and the keypoints a segment of no duration hides left out.
  */
 function toModuleKeypoints(track: SimpleTrack, duration: number): ModuleKeypoint[] {
   const points = [...track.points].sort((a, b) => a.stamp - b.stamp);
@@ -232,7 +236,7 @@ function toModuleKeypoints(track: SimpleTrack, duration: number): ModuleKeypoint
     result.splice(i + 1, 0, ...inserted);
   }
 
-  // Studio's interpolator skips segments of no duration and holds its first
+  // A segment of no duration plays nothing: the track holds its first
   // segment's start before it and its last segment's end after it; with no
   // segment at all, its first keypoint. The module holds its first and last
   // keypoints, so the others on those stamps go.
@@ -265,7 +269,7 @@ function valueKind(track: SimpleTrack, points: SimpleKeypoint[]): "number" | "st
 
 /**
  * The world-space control points of the numeric segment `points[i] → points[i + 1]`,
- * resolved exactly as `computeTrackInterpolator` resolves them.
+ * resolved as the editor resolves them (`resolveSegmentControlPoints`).
  */
 function segmentControlPoints(points: SimpleKeypoint[], i: number): [Point, Point] {
   const start = points[i];
