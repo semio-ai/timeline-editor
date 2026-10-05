@@ -7,8 +7,8 @@ import { createTestAnimationStore } from "../test-fixtures/animation-store-facto
  * What `initAnimationSubscriptions()`'s cleanup must stop. A host that disposes
  * an animation store — Studio, closing a project — relies on it to end all of
  * that store's work on the shared player and values stores, not only its
- * listeners: an interval or a queued write that survives keeps acting on the
- * singletons the next store reads.
+ * listeners: a subscription or a queued write that survives keeps acting on
+ * the singletons the next store reads.
  */
 
 afterEach(() => {
@@ -26,52 +26,56 @@ function startedStore() {
   return { store, cleanup };
 }
 
-describe("animation subscription teardown", () => {
-  test("stops the player interval the store started", () => {
-    const clearInterval = vi.spyOn(window, "clearInterval");
-    const { store, cleanup } = startedStore();
+/**
+ * Records every subscription opened on the shared player store from now on,
+ * as its unsubscribe: a spy on the one that was opened.
+ */
+function trackPlayerSubscriptions(): ReturnType<typeof vi.fn>[] {
+  const opened: ReturnType<typeof vi.fn>[] = [];
+  const subscribe = usePlayerStore.subscribe.bind(usePlayerStore) as (
+    ...args: unknown[]
+  ) => () => void;
+  vi.spyOn(usePlayerStore, "subscribe").mockImplementation(((...args: unknown[]) => {
+    const unsubscribe = vi.fn(subscribe(...args));
+    opened.push(unsubscribe);
+    return unsubscribe;
+  }) as typeof usePlayerStore.subscribe);
+  return opened;
+}
 
-    usePlayerStore.getState().playPlayer();
-    const interval = store.getState().playerInterval;
-    expect(interval).toBeDefined();
+describe("animation subscription teardown", () => {
+  test("closes the subscriptions the store opened on the player store", () => {
+    const opened = trackPlayerSubscriptions();
+    const { cleanup } = startedStore();
+    expect(opened.length).toBeGreaterThan(0);
 
     cleanup();
 
-    expect(clearInterval).toHaveBeenCalledWith(interval);
-    expect(store.getState().playerInterval).toBeUndefined();
+    opened.forEach((unsubscribe) => expect(unsubscribe).toHaveBeenCalled());
   });
 
-  test("a cleanup spent by a later initialisation leaves that initialisation's interval running", () => {
+  test("a cleanup spent by a later initialisation leaves that initialisation's subscriptions open", () => {
     const { store, cleanup: first } = startedStore();
-    usePlayerStore.getState().playPlayer();
-
+    const opened = trackPlayerSubscriptions();
     const second = store.getState().initAnimationSubscriptions();
-    const secondInterval = store.getState().playerInterval;
-    expect(secondInterval).toBeDefined();
+    expect(opened.length).toBeGreaterThan(0);
 
     first();
 
-    expect(store.getState().playerInterval).toBe(secondInterval);
+    opened.forEach((unsubscribe) => expect(unsubscribe).not.toHaveBeenCalled());
     second();
-    expect(store.getState().playerInterval).toBeUndefined();
+    opened.forEach((unsubscribe) => expect(unsubscribe).toHaveBeenCalled());
   });
 
   test("stopAnimationSubscriptions stops the current set, whichever call started it", () => {
-    const clearInterval = vi.spyOn(window, "clearInterval");
     const { store } = startedStore();
+    const opened = trackPlayerSubscriptions();
     store.getState().initAnimationSubscriptions();
-    usePlayerStore.getState().playPlayer();
-    const interval = store.getState().playerInterval;
-    expect(interval).toBeDefined();
+    expect(opened.length).toBeGreaterThan(0);
 
     store.getState().stopAnimationSubscriptions();
 
-    expect(clearInterval).toHaveBeenCalledWith(interval);
-    expect(store.getState().playerInterval).toBeUndefined();
-    // Stopped, not restarted: a later play reaches no subscription of this store.
-    usePlayerStore.getState().pausePlayer();
-    usePlayerStore.getState().playPlayer();
-    expect(store.getState().playerInterval).toBeUndefined();
+    opened.forEach((unsubscribe) => expect(unsubscribe).toHaveBeenCalled());
   });
 
   test("a playback write queued before teardown writes nothing after it", async () => {

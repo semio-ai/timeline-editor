@@ -27,7 +27,6 @@ export const createDefaultState = (): AnimationData => {
     framerate: 24,
     expanded: false,
     timeDisplay: TimeDisplay.Frames,
-    playerInterval: undefined,
     previews: [],
     selectionState: createEmptySelectionState(),
     emphasisRowId: null,

@@ -111,7 +111,6 @@ import {
   getNonEditableTrackIds,
 } from "./functions";
 import {
-  updatePlayerLoop,
   updateOverallDuration,
   updateInstancedTrackSources,
   updateViewFilteredSourceRows,
@@ -608,7 +607,6 @@ export const AnimationSlice = (
 
       // Delay subscription initialization to prevent cascading updates during store creation
       const unsubs = [
-        updatePlayerLoop,
         viewportFollow,
         updateOverallDuration,
         initDerivedOrchestrator,
@@ -621,9 +619,8 @@ export const AnimationSlice = (
 
       // A cleanup stops only the set it was returned for, once. A later call
       // runs it before starting its own set, which spends the handle: running it
-      // again must not stop the newer set's work (its player interval among
-      // them), and `stopAnimationSubscriptions` is how a host stops whatever is
-      // current. So while a handle is live it is the current one.
+      // again must not stop the newer set's work, and `stopAnimationSubscriptions`
+      // is how a host stops whatever is current. So while a handle is live it is the current one.
       let active = true;
       const cleanup = () => {
         if (!active) return;
@@ -825,11 +822,10 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
   })),
 );
 
-// Subscriptions on `useDefaultAnimationStore` are now opt-in. Module-load
-// auto-init was causing two `update-player-loop` subscriptions on the
-// shared `usePlayerStore` (one for this default store, one for the
-// studio's composite store), which compounded into a React 19 max-depth
-// cascade on every player tick. Standalone consumers that fall back to
+// Subscriptions on `useDefaultAnimationStore` are opt-in: initialised at module
+// load, they would subscribe to the shared `usePlayerStore` once for this
+// default store and once for the studio's composite store, and every playhead
+// move would fan out to both. Standalone consumers that fall back to
 // `useDefaultAnimationStore` (currently only `AnimationSheet`) call
 // `initAnimationSubscriptions()` themselves on mount.
 

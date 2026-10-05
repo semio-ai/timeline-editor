@@ -218,10 +218,6 @@ export interface AnimationData {
    */
   timeDisplay: TimeDisplay;
   /**
-   * Player's interval.
-   */
-  playerInterval?: number;
-  /**
    * Previews for parts of the animation other than the current time.
    */
   previews: Preview[];
@@ -738,11 +734,12 @@ export interface AnimationActions {
   updateControlColor: (controlId: string, color: string) => void;
   /**
    * Set the muted state of a source track. Mute is the user's per-track
-   * toggle; the values bridge skips muted tracks within the entity's active
-   * animation instance. The "at most one track per animatable can drive the
-   * rig" rule is enforced structurally by the bridge filtering on the
-   * entity's active animation instance — non-active instances do not bridge
-   * regardless of mute state, so no cross-instance auto-mute happens here.
+   * toggle; the clip an entity plays on its devices leaves out the muted
+   * tracks of its active animation instance. The "at most one track per
+   * animatable can drive the rig" rule is enforced structurally by playing
+   * only the entity's active animation instance — non-active instances do
+   * not play regardless of mute state, so no cross-instance auto-mute
+   * happens here.
    * @param sourceId - Source track id (`namespaceId/instanceId/trackId`) to update.
    * @param muted - Whether the track is muted.
    */

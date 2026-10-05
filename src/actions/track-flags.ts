@@ -90,12 +90,11 @@ export function setTracksMuted(
       ids.forEach((sourceId) => {
         updates[sourceId] = { muted };
       });
-      // Mute is purely the user's per-track toggle now. The "at most one
+      // Mute is purely the user's per-track toggle. The "at most one
       // track per animatable can drive the rig" rule is enforced
-      // structurally by the values bridge filtering on the entity's active
-      // animation instance — see resolveBridgeEntries in
-      // values-bridge-subscription.ts. Tracks in non-active instances do
-      // not need to be muted; they simply do not bridge.
+      // structurally by the entity's devices playing only its active
+      // animation instance (Studio's `arora-subscription.ts`). Tracks in
+      // non-active instances do not need to be muted; they do not play.
       state.globalSourceTree = computeUpdatedSources(state.globalSourceTree, updates);
     }),
   );

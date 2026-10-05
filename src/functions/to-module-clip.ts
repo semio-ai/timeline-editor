@@ -35,6 +35,17 @@ export interface ModuleClip {
 }
 
 /**
+ * The duration of `animation`'s module clip, in milliseconds: the animation's
+ * duration as Studio's player derives it, rounded up to whole milliseconds.
+ */
+export function moduleClipDuration(
+  animation: Animation,
+  tracks: Record<string, SimpleTrack>,
+): number {
+  return Math.ceil(resolveAnimationDuration(animation, tracks));
+}
+
+/**
  * Converts a Studio animation into the Vizij animation module's clip.
  *
  * - **Tracks.** One module track per Studio track, with the Studio track's
@@ -82,7 +93,7 @@ export function toModuleClip(
   animation: Animation,
   tracks: Record<string, SimpleTrack>,
 ): ModuleClip {
-  const duration = Math.ceil(resolveAnimationDuration(animation, tracks));
+  const duration = moduleClipDuration(animation, tracks);
   if (duration > MAX_U32) {
     throw new Error(`animation ${animation.id} lasts ${duration} ms, beyond the module's u32`);
   }
