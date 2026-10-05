@@ -2,7 +2,6 @@ import type { Animation } from "../types";
 import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "../types/data/simple-track";
 import { resolveAnimationDuration } from "./compute-animation-extent";
 import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
-import { getWorldControlPoints } from "./get-world-control-points";
 
 /** An arora `Value` in its JSON form, narrowed to the variants a module clip carries. */
 export type AroraValueJson =
@@ -35,35 +34,21 @@ export interface ModuleClip {
   struct: AroraStructJson;
 }
 
-/** Where the module writes a converted animation's outputs. */
-export interface ModuleClipTarget {
-  /** The Studio animation instance (`AnimationInstance.id`) the clip plays for. */
-  instanceId: string;
-  /**
-   * The key table of the entity the instance belongs to, `{ animatableId: key }`:
-   * the device key name of each animatable, as the World computes it at
-   * `spawnEntity`. A track whose animatable has no entry is left out.
-   */
-  keys: Record<string, string>;
-}
-
 /**
- * Converts a Studio animation into the Vizij animation module's clip, for one
- * animation instance of one entity.
+ * Converts a Studio animation into the Vizij animation module's clip.
  *
- * - **Tracks.** One module track per Studio track whose animatable has a key
- *   in `target.keys`, with the Studio track's id and name. A track with no
- *   keypoint is left out (the module would write `0` for it), and so is a
- *   later track on a key already taken, as Studio's playback lets the first
- *   track on an animatable win. Muting is the editor's, not the clip's: a
- *   muted track converts like any other.
+ * - **Tracks.** One module track per Studio track, with the Studio track's
+ *   id and name. Of the tracks on one animatable, the first in
+ *   `animation.tracks` claims it, as in Studio's playback; a track with no
+ *   keypoint claims it too and is left out, so the animatable is not
+ *   animated (the module would write `0` for it). Muting is not seen here:
+ *   Studio keeps it per instance in the editor's source tree, and a muted
+ *   track converts like any other.
  * - **Keys.** A track's `animatable_id` — the key the module reports each
- *   output under — is `animation/<instanceId>/<key>`, `key` being the
- *   animatable's device key from `target.keys`. The animation plane then
- *   names the same `key` as the device's input (`<key>.target_*`) and
- *   feedback (`<key>.position`) keys, so whatever steps the module routes an
- *   output onto the device's input by a string rewrite: the same rule holds on
- *   an emulated device and on a real one, which has no Studio key table.
+ *   output under — is the Studio animatable id. The clip names no device
+ *   key, so one clip serves every entity and device the animation plays on;
+ *   checking a track against an entity's animatables and keying its outputs
+ *   onto a device's keys belong to whatever loads the clip.
  * - **Time.** `duration` is the animation's duration as Studio's player
  *   derives it (`resolveAnimationDuration`), rounded up to whole milliseconds;
  *   stamps are divided by it, so clip time equals the animation's local time.
@@ -75,10 +60,12 @@ export interface ModuleClipTarget {
  *   the last is kept, and of keypoints sharing the last stamp only the first:
  *   Studio's interpolator skips segments of no duration, so those are the ones
  *   it holds before its first segment and after its last.
- * - **Transitions.** Strings and booleans hold the left keypoint's value, as
- *   in Studio, and carry no handles; at the instant of the last keypoint the
- *   module already plays it, where Studio's interpolator still holds the
- *   previous value. A numeric segment's Bézier is Studio's own
+ * - **Transitions.** Strings and booleans hold the left keypoint's value and
+ *   carry no handles: the step Studio's interpolator takes for booleans and
+ *   declares for strings (it cannot evaluate a string track of two stamps or
+ *   more). At the instant of the last keypoint the module already plays it,
+ *   where Studio's interpolator still holds the previous value. A numeric
+ *   segment's Bézier is Studio's own
  *   (`resolveSegmentControlPoints`, the curve the editor draws), normalized to
  *   the segment: `x` over its duration, `y` over its value change. The module
  *   eases between keypoint values, so a segment whose value turns back inside
@@ -87,32 +74,32 @@ export interface ModuleClipTarget {
  *   there. Every module segment is then monotone in value, which keeps the
  *   normalized handles within `[-1, 2]`.
  *
- * @throws when a track mixes value types or carries a non-finite number or
- *   stamp, or when the duration exceeds the module's `u32` milliseconds.
+ * @throws when a track mixes value types, carries a number the module's `f32`
+ *   cannot hold or a non-finite stamp, or when the duration exceeds the
+ *   module's `u32` milliseconds.
  */
 export function toModuleClip(
   animation: Animation,
   tracks: Record<string, SimpleTrack>,
-  target: ModuleClipTarget,
 ): ModuleClip {
   const duration = Math.ceil(resolveAnimationDuration(animation, tracks));
   if (duration > MAX_U32) {
     throw new Error(`animation ${animation.id} lasts ${duration} ms, beyond the module's u32`);
   }
 
-  const claimedKeys = new Set<string>();
+  const claimed = new Set<string>();
   const moduleTracks: { fields: AroraFieldJson[] }[] = [];
   for (const trackId of animation.tracks) {
     const track = tracks[trackId];
-    if (!track || track.points.length === 0) continue;
-    const key = target.keys[track.animatableId];
-    if (key === undefined || claimedKeys.has(key)) continue;
-    claimedKeys.add(key);
+    if (!track) continue;
+    if (claimed.has(track.animatableId)) continue;
+    claimed.add(track.animatableId);
+    if (track.points.length === 0) continue;
     moduleTracks.push({
       fields: [
         field(FIELD.trackId, { str: track.id }),
         field(FIELD.trackName, { str: track.name }),
-        field(FIELD.trackAnimatable, { str: `animation/${target.instanceId}/${key}` }),
+        field(FIELD.trackAnimatable, { str: track.animatableId }),
         field(FIELD.trackPoints, {
           structs: {
             id: TYPE.keypoint,
@@ -136,6 +123,8 @@ export function toModuleClip(
 }
 
 const MAX_U32 = 0xffff_ffff;
+/** The largest finite `f32`. */
+const MAX_F32 = 3.4028234663852886e38;
 
 /** The module's declared type ids (vizij-animation-module `src/lib.rs`). */
 const TYPE = {
@@ -243,15 +232,18 @@ function toModuleKeypoints(track: SimpleTrack, duration: number): ModuleKeypoint
   return first < last ? result.slice(first, last + 1) : [result[0]];
 }
 
-/** The one value type of a track, refusing a mix and a non-finite number or stamp. */
+/**
+ * The one value type of a track, refusing a mix, a number beyond the module's
+ * `f32` and a non-finite stamp.
+ */
 function valueKind(track: SimpleTrack, points: SimpleKeypoint[]): "number" | "string" | "boolean" {
   const kind = typeof points[0].value;
   for (const point of points) {
     if (typeof point.value !== kind) {
       throw new Error(`track ${track.id} mixes ${kind} and ${typeof point.value} values`);
     }
-    if (typeof point.value === "number" && !Number.isFinite(point.value)) {
-      throw new Error(`track ${track.id} keypoint ${point.id} is not a finite number`);
+    if (typeof point.value === "number" && !(Math.abs(point.value) <= MAX_F32)) {
+      throw new Error(`track ${track.id} keypoint ${point.id} is not a finite f32 number`);
     }
     if (!Number.isFinite(point.stamp)) {
       throw new Error(`track ${track.id} keypoint ${point.id} has no finite stamp`);
@@ -280,16 +272,10 @@ function segmentControlPoints(points: SimpleKeypoint[], i: number): [Point, Poin
   });
   const cp1 = resolved.cp1Effective ?? resolved.cp1Raw;
   const cp2 = resolved.cp2Effective ?? resolved.cp2Raw;
-  if (cp1 && cp2) return [cp1, cp2];
-  const fallback = getWorldControlPoints(
-    start.stamp,
-    end.stamp,
-    start.value as number,
-    end.value as number,
-    start.transitions,
-    end.transitions,
-  );
-  return [fallback.start, fallback.end];
+  if (!cp1 || !cp2) {
+    throw new Error(`segment ${start.id} → ${end.id} resolved no control points`);
+  }
+  return [cp1, cp2];
 }
 
 type Bezier = [Point, Point, Point, Point];

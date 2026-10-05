@@ -16,7 +16,6 @@ import {
 
 const RATE_HZ = 100;
 const FRAME_MS = 1000 / RATE_HZ;
-const INSTANCE = "instance-1";
 
 /**
  * How closely the module reproduces a numeric Studio curve. It samples in
@@ -38,24 +37,21 @@ const INTERPOLATOR_TIME_TOLERANCE = 4e-4;
 const host: ModuleClipHost = startVizijRuntimeHost();
 
 describe("toModuleClip", () => {
-  test("keys each track under the instance and the animatable's device key", () => {
-    const { animation, tracks } = buildScene([
-      buildTrack("a", "elbow", [point(0, 0), point(500, 1)]),
-      buildTrack("b", "unbound", [point(0, 0), point(500, 1)]),
-      buildTrack("c", "wrist", []),
-      buildTrack("d", "elbow", [point(0, 5), point(500, 6)]),
-      buildTrack("e", "face", [point(0, "idle")]),
-    ]);
-    const clip = decode(
-      toModuleClip(animation, tracks, {
-        instanceId: INSTANCE,
-        keys: { elbow: "elbow_joint", wrist: "wrist_joint", face: "face" },
-      }),
+  test("names each track's animatable, the first track on an animatable claiming it", () => {
+    const clip = clipOf(
+      buildScene([
+        buildTrack("a", "elbow", [point(0, 0), point(500, 1)]),
+        buildTrack("c", "wrist", []),
+        buildTrack("d", "elbow", [point(0, 5), point(500, 6)]),
+        buildTrack("e", "face", [point(0, "idle")]),
+        // The empty track on the wrist claimed it first.
+        buildTrack("f", "wrist", [point(0, 5), point(500, 6)]),
+      ]),
     );
 
     expect(clip.tracks.map((t) => [t.id, t.animatable_id])).toEqual([
-      ["a", `animation/${INSTANCE}/elbow_joint`],
-      ["e", `animation/${INSTANCE}/face`],
+      ["a", "elbow"],
+      ["e", "face"],
     ]);
   });
 
@@ -116,6 +112,25 @@ describe("toModuleClip", () => {
     }
   });
 
+  test("plays a turning point near a segment's end as Studio draws it", async () => {
+    // 0 to 0 with the value's extrema at about a third and 95 % of the curve.
+    const nearEnd = buildScene([
+      buildTrack("a", "x", [
+        point(0, 0, { out: { x: 300, y: 8 } }),
+        point(1000, 0, { in: { x: -300, y: -1 } }),
+      ]),
+    ]);
+    expect(clipOf(nearEnd).tracks[0].points.map((p) => p.id)).toEqual(["k0", "k0~1", "k0~2", "k1"]);
+
+    const run = await playThroughModule(nearEnd);
+    const [{ track, samples }] = run.tracks;
+    const exact = studioCurve(track);
+    samples.forEach((sample, i) => {
+      const curve = (t: number) => exact(t) as number;
+      expectOnCurve(sample, curve, track, run.timesMs[i], TIME_TOLERANCE * run.duration);
+    });
+  });
+
   test("carries strings and booleans as held values, with no handles", () => {
     const { tracks } = clipOf(
       buildScene([
@@ -151,13 +166,21 @@ describe("toModuleClip", () => {
     expect(ids([point(300, true)])).toEqual(["k0"]);
   });
 
-  test("refuses a track that mixes value types or holds a non-finite number or stamp", () => {
+  test("refuses what the module cannot hold: mixed types, numbers beyond f32, bad stamps", () => {
     const mixed = buildScene([buildTrack("a", "x", [point(0, 0), point(500, "one")])]);
     expect(() => clipOf(mixed)).toThrow(/mixes number and string/);
     const infinite = buildScene([buildTrack("a", "x", [point(0, 0), point(500, Infinity)])]);
-    expect(() => clipOf(infinite)).toThrow(/not a finite number/);
+    expect(() => clipOf(infinite)).toThrow(/not a finite f32 number/);
+    const huge = buildScene([buildTrack("a", "x", [point(0, 1e39), point(500, 0)])]);
+    expect(() => clipOf(huge)).toThrow(/not a finite f32 number/);
+    const largest = buildScene([buildTrack("a", "x", [point(0, -3.4e38), point(500, 0)])]);
+    expect(() => clipOf(largest)).not.toThrow();
     const unstamped = buildScene([buildTrack("a", "x", [point(0, 0), point(NaN, 1)])]);
     expect(() => clipOf(unstamped)).toThrow(/no finite stamp/);
+    const endless = buildScene([buildTrack("a", "x", [point(0, 0), point(2 ** 32, 1)])]);
+    expect(() => clipOf(endless)).toThrow(/beyond the module's u32/);
+    const longest = buildScene([buildTrack("a", "x", [point(0, 0), point(2 ** 32 - 1, 1)])]);
+    expect(clipOf(longest).duration).toBe(2 ** 32 - 1);
   });
 });
 
@@ -234,10 +257,7 @@ interface ModuleRun {
 
 /** The animation played by the module's step at 100 Hz, from 0 past its end. */
 async function playThroughModule(scene: Scene): Promise<ModuleRun> {
-  const clip = toModuleClip(scene.animation, scene.tracks, {
-    instanceId: INSTANCE,
-    keys: identityKeys(scene),
-  });
+  const clip = toModuleClip(scene.animation, scene.tracks);
   const duration = decode(clip).duration;
   const { series, timesMs } = await host.play(clip, FRAME_MS, Math.ceil(duration / FRAME_MS) + 2);
   return moduleRun(scene, duration, timesMs, series);
@@ -245,10 +265,7 @@ async function playThroughModule(scene: Scene): Promise<ModuleRun> {
 
 /** The animation as the module's `bake` samples it at 100 Hz. */
 async function bakeThroughModule(scene: Scene): Promise<ModuleRun> {
-  const clip = toModuleClip(scene.animation, scene.tracks, {
-    instanceId: INSTANCE,
-    keys: identityKeys(scene),
-  });
+  const clip = toModuleClip(scene.animation, scene.tracks);
   const duration = decode(clip).duration;
   const series = await host.bake(clip, RATE_HZ);
   const frames = [...series.values()][0]?.length ?? 0;
@@ -266,7 +283,7 @@ function moduleRun(
     .map((id) => scene.tracks[id])
     .filter((track) => track.points.length > 0);
   const tracks = played.map((track) => {
-    const samples = series.get(`animation/${INSTANCE}/${track.animatableId}`);
+    const samples = series.get(track.animatableId);
     if (!samples) throw new Error(`the module played nothing for ${track.id}`);
     expect(samples).toHaveLength(timesMs.length);
     return { track, samples };
@@ -332,27 +349,16 @@ function point(
   return { id: "", stamp, value, transitions };
 }
 
-function identityKeys(scene: Scene): Record<string, string> {
-  return Object.fromEntries(
-    Object.values(scene.tracks).map((t) => [t.animatableId, t.animatableId]),
-  );
-}
-
 function identityInstance(animation: Animation): AnimationInstance {
   return {
-    id: INSTANCE,
+    id: "instance",
     animationId: animation.id,
     settings: { active: true, offset: 0, timescale: 1 },
   };
 }
 
 function clipOf(scene: Scene) {
-  return decode(
-    toModuleClip(scene.animation, scene.tracks, {
-      instanceId: INSTANCE,
-      keys: identityKeys(scene),
-    }),
-  );
+  return decode(toModuleClip(scene.animation, scene.tracks));
 }
 
 // --- reading a clip back --------------------------------------------------------
