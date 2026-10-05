@@ -42,6 +42,34 @@ value is the string form of the store's multiplier, so the select matches it wit
 `@semio/ui`'s default registry; the key keeps one decimal (`playback-1.0`) while the
 value does not (`"1"`).
 
+## The Vizij animation module's clip
+
+`toModuleClip(animation, tracks, { instanceId, keys })` (`src/functions/to-module-clip.ts`)
+converts an animation into the `AnimationClip` the Vizij animation module's
+`load_animation` takes, as the arora `Value` JSON a bridge `Call` carries. Its
+docstring is the mapping; in short:
+
+| Studio | Module clip |
+| --- | --- |
+| animation name, duration (`resolveAnimationDuration`) | `name`, `duration` in whole ms, rounded up |
+| track id and name | track `id` and `name` |
+| track's animatable | `animatable_id` = `animation/<instanceId>/<key>`, `key` from the entity's key table |
+| keypoint stamp (ms) | `stamp` = stamp / duration (`f32`) |
+| number / boolean / string | `f64` / `bool` / `str` |
+| numeric segment (easings, directives, explicit handles, clamps) | its Bézier from `resolveSegmentControlPoints`, normalized to the segment; cut at value extrema |
+| string or boolean segment | no handles: the module holds the left value |
+| instance offset and timescale, looping, bounce | not in the clip: player state (seek, speed, loop mode) |
+
+`src/tests/module-clip/` holds the clip to Studio's playback: every fixture
+animation and 120 generated ones are played by the module's `step` at 100 Hz
+and sampled by its `bake`, and compared with the curve Studio's interpolator
+defines, solved exactly (`studio-curve.ts`). Strings and booleans match exactly;
+a number matches the curve at a time within 2 ppm of the duration, to 1e-6 of
+the track's magnitude, the module's `f32` precision. The fixtures are also
+compared with `computeTrackInterpolator` itself, within its bisection's error.
+The module runs in Node through `@vizij/runtime`, behind `ModuleClipHost`
+(`vizij-runtime-host.ts`), the seam a host over an emulated device fills.
+
 ## Testing Notes
 
 - Prefer action-level and function-level coverage for gesture-heavy behavior.
