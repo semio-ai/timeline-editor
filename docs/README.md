@@ -77,7 +77,7 @@ The module is the only evaluator of a track's curve. A host gives the store a
 `trackBaker` (Studio bakes on an emulated device's module); `trackCurve`
 (`src/functions/track-curve.ts`) bakes a track alone over its animation's
 duration, at 200 samples a second (fewer for an animation past 100 s), once per
-track (copies with the same keypoints share a bake), and reads it back: a number
+track content (copies with the same keypoints share a bake), and reads it back: a number
 between two samples on the line between them, a string or a boolean held. From
 that curve come:
 
@@ -86,13 +86,17 @@ that curve come:
 - the violations, checked as each instance plays the curve in world time (its
   timescale scales the velocities) and reported in the track's local time;
 - a value row's spline (`TrackRender.Spline` / `Preview`), the drag preview
-  baking the dragged points;
+  baking the dragged points; a segment reaching outside the clip time the
+  module plays (before 0, past the animation's end) is drawn from its authored
+  Bézier instead, so it meets its keypoints;
 - the value a new keypoint takes on a curve.
 
-Without a baker no track has a curve: values and violations are empty, and a
-value row draws its segments' Bézier parameters instead. The key and transition
-views draw each segment's easing from its handles: the authored shape, not a
-value over time.
+Without a baker no track has a curve: the snapshot writes no values, reports no
+violations and sends no trajectory to a paired device, and a value row draws its
+segments' Bézier parameters. A keypoint inserted then keeps the track's shape: a
+de Casteljau split inside a segment, the held value outside. The key and
+transition views draw each segment's easing from its handles: the authored
+shape, not a value over time.
 
 ## Testing Notes
 

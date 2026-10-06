@@ -453,22 +453,24 @@ export function computeRowData(
       if (!animation || !instance || !animatable) {
         return;
       }
-      const curve =
-        trackCurve(
-          previewTrack as unknown as SimpleTrack,
-          animation,
-          tracks as unknown as Record<string, SimpleTrack>,
-          context.trackBaker,
-        ) ?? (() => undefined);
-      const previewViolations = computeInstanceTrackViolations(
-        curve,
-        resolveAnimationDuration(animation, tracks),
-        instance.settings.timescale,
-        track.id,
-        entry.namespaceId,
-        entry.instanceId,
-        animatable,
+      const curve = trackCurve(
+        previewTrack as unknown as SimpleTrack,
+        animation,
+        tracks as unknown as Record<string, SimpleTrack>,
+        context.trackBaker,
       );
+      // An unbaked curve has no values to check.
+      const previewViolations = !curve
+        ? []
+        : computeInstanceTrackViolations(
+            curve,
+            resolveAnimationDuration(animation, tracks),
+            instance.settings.timescale,
+            track.id,
+            entry.namespaceId,
+            entry.instanceId,
+            animatable,
+          );
       const existing = effectiveViolations[entry.trackId] ?? [];
       const withoutDraggedInstance = usePreview
         ? existing.filter(
@@ -619,8 +621,11 @@ function rowValueCurve(
 
 /**
  * A value segment's spline, read from the row's baked curve between the
- * segment's stamps; `undefined` for a segment the curve does not draw (a hold
- * before the first or after the last keypoint, a string) and without a curve.
+ * segment's stamps; `undefined` for a segment the curve does not draw and
+ * without a curve. The curve does not draw a hold before the first or after
+ * the last keypoint, a string, nor a segment reaching outside the clip time
+ * the module plays (`0` to the animation's end): there the segment's authored
+ * Bézier shows where its keypoints are.
  */
 function sampleValueCurve(
   curve: TrackCurve | undefined,
@@ -628,7 +633,7 @@ function sampleValueCurve(
   endStamp: number,
   buffer: boolean | undefined,
 ): Float32Array | undefined {
-  if (!curve || buffer) return undefined;
+  if (!curve || buffer || startStamp < 0 || endStamp > curve.durationMs) return undefined;
   const count = Math.max(2, SEGMENT_SAMPLE_RESOLUTION + 1);
   const points = new Float32Array(count * 2);
   for (let i = 0; i < count; i += 1) {
