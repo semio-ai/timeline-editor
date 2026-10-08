@@ -1,11 +1,3 @@
-import {
-  PlayerData,
-  PlayerDirection,
-  RawValue,
-  usePlayerStore,
-  mergeValueMaps,
-  useValuesStore,
-} from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import type {
   AnimationApi,
@@ -14,13 +6,7 @@ import type {
   AnimationStoreSetter,
 } from "../store-types";
 import { DerivedSnapshot } from "../types";
-import {
-  matchingIdentityRawValue,
-  rawValueMultiplyScalar,
-  buildDerivedSnapshot,
-  computeLocalStamp,
-} from "../functions";
-import { computeDerivativeInterpolator } from "../functions/compute-derivative-interpolator";
+import { buildDerivedSnapshot } from "../functions";
 import { logDerivedEvent } from "../utils/derived-debug";
 import { projectRowVerticalAxes } from "./update-view-vertical-axes";
 
@@ -38,66 +24,7 @@ interface DerivedInputs {
   trackBaker: AnimationData["trackBaker"];
 }
 
-interface DerivedComputation {
-  snapshot: DerivedSnapshot;
-  values: Map<string, RawValue | undefined>;
-  velocities: Map<string, RawValue | undefined>;
-}
-
-function computeValueAndVelocityMaps(
-  snapshot: DerivedSnapshot | undefined,
-  player: PlayerData,
-): { values: Map<string, RawValue | undefined>; velocities: Map<string, RawValue | undefined> } {
-  const values = new Map<string, RawValue | undefined>();
-  const velocities = new Map<string, RawValue | undefined>();
-
-  if (!snapshot) {
-    return { values, velocities };
-  }
-
-  const { stamp, running, speed, _currentDirection } = player.player;
-  const multiplier = (_currentDirection === PlayerDirection.Reverse ? -1 : 1) * speed;
-
-  Object.entries(snapshot.tracks).forEach(([trackKey, track]) => {
-    if (track.metadata?.muted) return;
-    const lookup = trackKey;
-    const timescale = track.metadata?.timescale ?? 1;
-    const offset = track.metadata?.offset ?? 0;
-    const safeTimescale = Number.isFinite(timescale) && timescale !== 0 ? timescale : 1;
-    const localStamp = computeLocalStamp(stamp, safeTimescale, offset);
-
-    const previewCurve = track.preview?.curve;
-    const valueCurve = previewCurve ?? track.canonical.curve;
-    values.set(lookup, valueCurve(localStamp));
-
-    let velocity: RawValue | undefined;
-    if (previewCurve) {
-      const duration = track.metadata?.duration ?? 1000;
-      const previewDerivative = computeDerivativeInterpolator(previewCurve, duration);
-      velocity = previewDerivative(localStamp);
-    } else {
-      velocity = track.canonical.derivative(localStamp);
-    }
-    if (velocity !== undefined) {
-      const scaledVelocity = rawValueMultiplyScalar(velocity, safeTimescale);
-      if (running) {
-        velocities.set(lookup, rawValueMultiplyScalar(scaledVelocity, multiplier));
-      } else {
-        velocities.set(lookup, matchingIdentityRawValue(scaledVelocity));
-      }
-    } else {
-      velocities.set(lookup, undefined);
-    }
-  });
-
-  return { values, velocities };
-}
-
-function computeDerivedState(
-  inputs: DerivedInputs,
-  versionHint: number,
-  player: PlayerData,
-): DerivedComputation {
+function computeDerivedState(inputs: DerivedInputs, versionHint: number): DerivedSnapshot {
   const snapshot = buildDerivedSnapshot({
     tracks: inputs.tracks,
     namespaces: inputs.namespaces,
@@ -119,7 +46,7 @@ function computeDerivedState(
     inputs.sourceRowIdsByView,
   );
 
-  const adjustedSnapshot: DerivedSnapshot = {
+  return {
     ...snapshot,
     rows: Object.fromEntries(
       Object.entries(snapshot.rows).map(([rowId, row]) => [
@@ -130,14 +57,6 @@ function computeDerivedState(
         },
       ]),
     ),
-  };
-
-  const { values, velocities } = computeValueAndVelocityMaps(adjustedSnapshot, player);
-
-  return {
-    snapshot: adjustedSnapshot,
-    values,
-    velocities,
   };
 }
 
@@ -166,27 +85,16 @@ export function initDerivedOrchestrator(
 
   const maybeApplyDerived = (inputs: DerivedInputs) => {
     const versionHint = (latestSnapshot?.version ?? currentState.derivedSnapshot?.version ?? 0) + 1;
-    const result = computeDerivedState(inputs, versionHint, usePlayerStore.getState());
-
-    latestSnapshot = result.snapshot;
+    const snapshot = computeDerivedState(inputs, versionHint);
+    latestSnapshot = snapshot;
 
     logDerivedEvent("derivedOrchestrator", "snapshot", () => ({
-      version: result.snapshot.version,
-      trackCount: Object.keys(result.snapshot.tracks).length,
-      rowCount: Object.keys(result.snapshot.rows).length,
+      version: snapshot.version,
+      trackCount: Object.keys(snapshot.tracks).length,
+      rowCount: Object.keys(snapshot.rows).length,
     }));
 
-    // Write stable derived data to the main animation store
-    set({
-      derivedSnapshot: result.snapshot,
-    });
-
-    // Write transient values/velocities to the dedicated values store
-    const valuesState = useValuesStore.getState();
-    useValuesStore.setState({
-      values: mergeValueMaps(valuesState.values, result.values),
-      velocities: mergeValueMaps(valuesState.velocities, result.velocities),
-    });
+    set({ derivedSnapshot: snapshot });
   };
 
   const unsubscribeStore = api.subscribe(
@@ -209,51 +117,7 @@ export function initDerivedOrchestrator(
     { fireImmediately: true, equalityFn: shallow },
   );
 
-  // Coalesce per-tick player updates: if a values-store write is already
-  // queued, skip queueing another. The microtask defers the write past
-  // the synchronous useSyncExternalStore notification chain triggered by
-  // the player setState, which keeps the orchestrator out of React's
-  // commit cycle and avoids contributing to nested-update detection.
-  let playbackUpdatePending = false;
-
-  const unsubscribePlayer = usePlayerStore.subscribe(
-    (state: PlayerData) => ({
-      stamp: state.player.stamp,
-      running: state.player.running,
-      speed: state.player.speed,
-      currentDirection: state.player._currentDirection,
-    }),
-    () => {
-      if (!latestSnapshot) {
-        return;
-      }
-      if (playbackUpdatePending) return;
-      playbackUpdatePending = true;
-      queueMicrotask(() => {
-        playbackUpdatePending = false;
-        if (!latestSnapshot) return;
-        const { values, velocities } = computeValueAndVelocityMaps(
-          latestSnapshot,
-          usePlayerStore.getState(),
-        );
-        const valuesState = useValuesStore.getState();
-        useValuesStore.setState({
-          values: mergeValueMaps(valuesState.values, values),
-          velocities: mergeValueMaps(valuesState.velocities, velocities),
-        });
-      });
-    },
-    { fireImmediately: true, equalityFn: shallow },
-  );
-
   maybeApplyDerived(initialInputs);
 
-  return () => {
-    unsubscribeStore();
-    unsubscribePlayer();
-    // A playback write already queued reads the snapshot when it runs; without
-    // one it writes nothing, so a torn-down store's values never reach the
-    // shared values store.
-    latestSnapshot = undefined;
-  };
+  return unsubscribeStore;
 }

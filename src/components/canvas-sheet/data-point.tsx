@@ -3,7 +3,7 @@ import { useShallow } from "zustand/shallow";
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { Instance, Line, PositionMesh, useCursor } from "@react-three/drei";
 import * as THREE from "three";
-import { RawValue, usePlayerStore, closestFrame } from "@semio/utils";
+import { RawValue, closestFrame } from "@semio/utils";
 import { Theme, useCanvasContextMenu } from "@semio/ui";
 import { useMotionValue, useMotionValueEvent, useSpring, useTransform } from "motion/react";
 import type { MotionValue } from "motion";
@@ -24,6 +24,7 @@ import {
   DEFAULT_COLOR,
 } from "../../constants";
 import { AnimationContext } from "../../context";
+import { usePlayer } from "../../hooks/use-player";
 import { buildKeyMenuItems } from "./context-menus";
 
 const BG_MULTIPLIER = 1.2;
@@ -131,7 +132,7 @@ export const DataPoint = memo(function DataPoint({
   const commitDrag = useAnimationStore(useShallow((state) => state.commitDrag));
   const cancelDrag = useAnimationStore(useShallow((state) => state.cancelDrag));
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
-  const playing = usePlayerStore(useShallow((state) => state.player.running));
+  const playing = usePlayer(useShallow((state) => state.player.running));
   const selectionState = useAnimationStore(useShallow((state) => state.selectionState));
 
   const unselectedForegroundPoints = points.filter(

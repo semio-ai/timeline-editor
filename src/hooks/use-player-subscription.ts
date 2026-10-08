@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect } from "react";
-import { PlayerData, usePlayerStore } from "@semio/utils";
+import type { PlayerData } from "@semio/utils";
+import { useAnimationStore } from "./use-animation-store";
 
 /**
- * A hook used to subscribe to changes in the player store.
+ * A hook used to subscribe to changes in the player of the animation store in context.
  * @param selector - A function that takes the store and returns the value you want to access.
  * @param callback - A function that will be called when the value returned by the selector changes.
  * @param equalityFn - A function that takes the previous and current value returned by the selector and returns true if they are equal.
@@ -12,8 +13,9 @@ export function usePlayerSubscription<T>(
   callback: (data: T, previous: T) => void,
   equalityFn: (a: T, b: T) => boolean = (a, b) => a === b,
 ) {
+  const playerStore = useAnimationStore((state) => state.playerStore);
   useEffect(() => {
-    const unsubscribe = usePlayerStore.subscribe(
+    const unsubscribe = playerStore.subscribe(
       selector,
       (next: T, prev: T) => {
         if (!equalityFn(next, prev)) {
@@ -23,7 +25,7 @@ export function usePlayerSubscription<T>(
       { equalityFn, fireImmediately: true },
     );
     return unsubscribe;
-  }, [selector, callback, equalityFn]);
+  }, [playerStore, selector, callback, equalityFn]);
 }
 
 export function useLayoutPlayerSubscription<T>(
@@ -31,8 +33,9 @@ export function useLayoutPlayerSubscription<T>(
   callback: (data: T, previous: T) => void,
   equalityFn: (a: T, b: T) => boolean = (a, b) => a === b,
 ) {
+  const playerStore = useAnimationStore((state) => state.playerStore);
   useLayoutEffect(() => {
-    const unsubscribe = usePlayerStore.subscribe(
+    const unsubscribe = playerStore.subscribe(
       selector,
       (next: T, prev: T) => {
         if (!equalityFn(next, prev)) {
@@ -42,5 +45,5 @@ export function useLayoutPlayerSubscription<T>(
       { equalityFn },
     );
     return unsubscribe;
-  }, [selector, callback, equalityFn]);
+  }, [playerStore, selector, callback, equalityFn]);
 }

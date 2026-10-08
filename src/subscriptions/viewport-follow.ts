@@ -1,4 +1,4 @@
-import { PlayerData, usePlayerStore } from "@semio/utils";
+import type { PlayerData } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import { viewportMotion, getFittedViewport } from "../viewport-state";
 import type {
@@ -28,12 +28,13 @@ const SNAP_THRESHOLD_MS = 10;
 export function viewportFollow(
   _api: AnimationApi,
   _set: AnimationStoreSetter,
-  _get: AnimationStoreGetter,
+  get: AnimationStoreGetter,
 ): () => void {
-  let prevStamp = usePlayerStore.getState().player.stamp;
-  let prevDuration = usePlayerStore.getState().player.duration;
+  const player = get().playerStore;
+  let prevStamp = player.getState().player.stamp;
+  let prevDuration = player.getState().player.duration;
 
-  const unsubFollow = usePlayerStore.subscribe(
+  const unsubFollow = player.subscribe(
     (state: PlayerData) => ({
       stamp: state.player.stamp,
       running: state.player.running,
@@ -64,7 +65,7 @@ export function viewportFollow(
     { equalityFn: shallow },
   );
 
-  const unsubDuration = usePlayerStore.subscribe(
+  const unsubDuration = player.subscribe(
     (state: PlayerData) => state.player.duration,
     (newDuration) => {
       const oldDuration = prevDuration;

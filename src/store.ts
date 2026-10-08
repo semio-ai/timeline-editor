@@ -1,4 +1,4 @@
-import { RawValue, AnimatableValue, useValuesStore } from "@semio/utils";
+import { RawValue, AnimatableValue } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
@@ -122,36 +122,8 @@ import {
 } from "./subscriptions";
 import { View } from "./types/util/view";
 import { clickLineAction } from "./actions/click-line";
-import { parseTrackKey } from "./utils/track-key";
 
 enableMapSet();
-
-const applyTrackValue = (
-  state: AnimationData,
-  trackKey: string,
-  value: RawValue | ((current: RawValue) => RawValue),
-) => {
-  const lookupId = trackKey;
-  const valuesState = useValuesStore.getState();
-  if (typeof value === "function") {
-    const current: RawValue | undefined = valuesState.values.get(lookupId);
-    if (current === undefined) {
-      // Get the default value from the animatable if it exists.
-      const { trackId } = parseTrackKey(lookupId);
-      const animatableId = state.tracks[trackId]?.animatableId;
-      const animatable = animatableId ? state.animatables[animatableId] : undefined;
-      const fallback = animatable?.default;
-      if (fallback === undefined) {
-        return;
-      }
-      useValuesStore.getState().setTrackValue(lookupId, value(fallback));
-    } else {
-      useValuesStore.getState().setTrackValue(lookupId, value(current));
-    }
-  } else {
-    useValuesStore.getState().setTrackValue(lookupId, value);
-  }
-};
 
 export const AnimationSlice = (
   set: AnimationStoreSetter,
@@ -186,18 +158,6 @@ export const AnimationSlice = (
     },
     updateViewTrackVisibility: (viewId: string, updates: Record<string, { hidden?: boolean }>) =>
       updateViewTrackVisibilityAction(set, viewId, updates),
-    updateValues: (values: Map<string, RawValue | undefined>) => {
-      useValuesStore.getState().updateValues(values);
-    },
-    updateVelocities: (velocities: Map<string, RawValue | undefined>) => {
-      useValuesStore.getState().updateVelocities(velocities);
-    },
-    setTrackValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => {
-      // applyTrackValue needs AnimationData for animatable defaults, so we still
-      // need to read from the main store, but it writes to useValuesStore internally.
-      const state = get();
-      applyTrackValue(state, trackKey, value);
-    },
     createNewDefaultAnimation: () => {
       set(
         produce((state: AnimationData) => {
@@ -234,11 +194,6 @@ export const AnimationSlice = (
       );
     },
     removeAnimatable: (id: string) => {
-      // TODO: also clear matching dotKey entries (and trackKeys for tracks
-      // referencing this animatable) from useValuesStore. Orphaned entries are
-      // currently inert (readers query by current animatable IDs) but
-      // accumulate until project reload. See useValuesStore JSDoc lifecycle
-      // section.
       set(
         produce((state: AnimationData): void => {
           if (!(id in state.animatables)) return;
@@ -539,9 +494,9 @@ export const AnimationSlice = (
       skipToNextKeyframeAction(get, sourceRow, respectBounds),
     skipToPrevKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) =>
       skipToPrevKeyframeAction(get, sourceRow, respectBounds),
-    skipToStart: () => skipToStartAction(),
-    skipToEnd: () => skipToEndAction(),
-    updateDuration: (duration: number) => updateDurationAction(set, duration),
+    skipToStart: () => skipToStartAction(get),
+    skipToEnd: () => skipToEndAction(get),
+    updateDuration: (duration: number) => updateDurationAction(set, get, duration),
     updateAnimationDuration: (animationId: string, duration: number, rescale: boolean) =>
       updateAnimationDurationAction(set, animationId, duration, rescale),
     updateFramerate: (framerate: number) => updateFramerateAction(set, framerate),
@@ -684,7 +639,8 @@ export const AnimationSlice = (
     deleteSelection: () => deleteSelectionAction(set, get),
     selectAll: () => selectAllAction(set),
     selectAllInTracks: (trackKeys: string[]) => selectAllInTracksAction(set, trackKeys),
-    focusSelectionInstance: (instanceId: string) => focusSelectionInstanceAction(set, instanceId),
+    focusSelectionInstance: (instanceId: string) =>
+      focusSelectionInstanceAction(set, get, instanceId),
     setActiveEntity: (entityId: string | null) => setActiveEntityAction(set, get, entityId),
     setEntityControlMode: (entityId: string, mode: "direct" | "animation", instanceId?: string) =>
       setEntityControlModeAction(set, get, entityId, mode, instanceId),
@@ -823,11 +779,9 @@ export const useDefaultAnimationStore = create<AnimationData & AnimationActions>
 );
 
 // Subscriptions on `useDefaultAnimationStore` are opt-in: initialised at module
-// load, they would subscribe to the shared `usePlayerStore` once for this
-// default store and once for the studio's composite store, and every playhead
-// move would fan out to both. Standalone consumers that fall back to
-// `useDefaultAnimationStore` (currently only `AnimationSheet`) call
-// `initAnimationSubscriptions()` themselves on mount.
+// load, they would run for a store most pages never render. Standalone
+// consumers that fall back to `useDefaultAnimationStore` (currently only
+// `AnimationSheet`) call `initAnimationSubscriptions()` themselves on mount.
 
 export function createAnimationStore(initial?: Partial<AnimationData>): AnimationStore {
   const store = create<AnimationData & AnimationActions>()(

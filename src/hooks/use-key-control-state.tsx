@@ -1,13 +1,13 @@
 import { useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
-import { usePlayerStore } from "@semio/utils";
 import { computeNextTime, computePreviousTime } from "../functions";
 import { type AnimationActions, type AnimationData } from "../store-types";
 import { buildTrackKey } from "../utils/track-key";
 import { SemanticTime, SourceRow, InstancedFrameInfo, LayerBand } from "../types";
 import { useAnimationStore } from "./use-animation-store";
 import { useLocalGlobalTransformLookup } from "./use-local-global-transforms";
+import { usePlayer } from "./use-player";
 
 export interface KeyControlState {
   prevEnabled: boolean;
@@ -34,8 +34,9 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
     useShallow((state: AnimationData) => state.derivedSnapshot?.rows?.[source.id]?.computed),
   );
 
-  const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
-  const running = usePlayerStore(useShallow((state) => state.player.running));
+  const bounds = usePlayer(useShallow((state) => state.player.bounds));
+  const running = usePlayer(useShallow((state) => state.player.running));
+  const playerStore = useAnimationStore((state) => state.playerStore);
   // Subscribing to `state.player.stamp` directly fires a React re-render
   // 40Hz during playback for every TrackControl/TimelineControl using this
   // hook — which then cascades into ControlRow + the radix menu plumbing
@@ -45,7 +46,7 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
   // keyState are only meaningful when paused so the user can act on them.
   // Returning `null` from the selector while running keeps the hook (and
   // all its callers) stable per tick.
-  const stamp = usePlayerStore(
+  const stamp = usePlayer(
     useShallow((state) => (state.player.running ? null : state.player.stamp)),
   );
   // Fall back to the *current* store stamp (read at render time, not
@@ -54,7 +55,7 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
   // state at time 0 until the user pauses. The render-time read still
   // doesn't trigger per-tick re-renders (selector still returns `null`
   // during play); it just gives a sensible last-known value.
-  const stampSafe = stamp ?? usePlayerStore.getState().player.stamp;
+  const stampSafe = stamp ?? playerStore.getState().player.stamp;
 
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   const uniqueInstanceId = useMemo(() => {

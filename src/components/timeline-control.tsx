@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { useCallback, useMemo } from "react";
 import { clsx } from "clsx";
 import { SelectTree, Size, TreeOption, Variant } from "@semio/ui";
-import { usePlayerStore } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
 import {
@@ -17,10 +16,11 @@ import { computeVisibleSourceTracks } from "../functions/compute-visible-source-
 import { getInstanceSources } from "../functions/source-tree-utils";
 import { buildFilteredSourceRowId } from "../functions/view-filtered-source-row";
 import { AnimationActions, AnimationData } from "../store-types";
-import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
+import type { SimpleKeypoint } from "../types/data/simple-track";
 import type { SourceRow } from "../types";
 import { buildTrackKey } from "../utils/track-key";
-import { useValuesRef } from "../hooks/use-values-ref";
+import { useTrackValueReader } from "../hooks/use-track-value-reader";
+import { usePlayer } from "../hooks/use-player";
 import { KeyStrip } from "./key-strip";
 import { DataIcon } from "./data-icon";
 
@@ -39,7 +39,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
     );
 
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
-  const valuesRef = useValuesRef();
+  const readTrackValue = useTrackValueReader();
 
   const fallbackSource = useMemo<SourceRow>(
     () => source ?? { id: "global-fallback", data: [] },
@@ -71,7 +71,8 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
     })),
   );
 
-  const running = usePlayerStore(useShallow((state) => state.player.running));
+  const running = usePlayer(useShallow((state) => state.player.running));
+  const playerStore = useAnimationStore((state) => state.playerStore);
   const { keyState, currentFrame, missingEntries, targetPoints } =
     useKeyControlState(fallbackSource);
 
@@ -190,7 +191,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           // Read stamp at click-fire time so this control doesn't have to
           // re-render every 25ms playback tick just to keep the closure's
           // stamp fresh.
-          const stamp = usePlayerStore.getState().player.stamp;
+          const stamp = playerStore.getState().player.stamp;
           const targets = keyState === "partial" ? missingEntries : fallbackSource.data;
           const updates: { trackId: string; keypoint: Partial<SimpleKeypoint> }[] = targets
             .map((datum) => {
@@ -201,7 +202,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
                 datum.instanceId as string,
                 datum.trackId as string,
               );
-              const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
+              const value = readTrackValue(valueKey, stamp);
               return {
                 trackId: datum.trackId,
                 keypoint: {

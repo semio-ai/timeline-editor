@@ -3,13 +3,13 @@ import { useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import { isOrthographicCamera } from "@semio/utils";
-import { usePlayerStore } from "@semio/utils";
 import { useTooltipStore } from "@semio/ui";
 import type { AnimationActions, AnimationData, BoxSelectState } from "../store-types";
 import { TrackRender } from "../types";
 import { AnimationContext } from "../context";
 import { useAnimationStore } from "./use-animation-store";
 import { useEdgeScroll } from "./use-edge-scroll";
+import { usePlayer } from "./use-player";
 
 /** Minimum pointer movement (in screen pixels) before activating box-select. */
 const ACTIVATION_THRESHOLD_PX = 3;
@@ -68,7 +68,7 @@ export function useBoxSelectGesture(
     }),
   );
 
-  const playing = usePlayerStore(useShallow((state) => state.player.running));
+  const playing = usePlayer(useShallow((state) => state.player.running));
 
   const cameraRef = useRef(camera);
   cameraRef.current = camera;

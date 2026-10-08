@@ -11,10 +11,10 @@ import {
   type IconName,
 } from "@semio/ui";
 import { useShallow } from "zustand/shallow";
-import { usePlayerStore } from "@semio/utils";
 import { useAnimationStore } from "../../hooks";
 import { setViewport, useViewport, requestVerticalFit } from "../../viewport-state";
 import type { AnimationData, AnimationActions } from "../../store-types";
+import { usePlayer } from "../../hooks/use-player";
 import { SettingsPopover } from "./settings-popover";
 import { ToolbarTooltipButton } from "./toolbar-tooltip-button";
 
@@ -51,7 +51,7 @@ const TIME_DISPLAY_SHORT: Record<string, string> = {
 
 export const ViewportToolbarSection = memo(function ViewportToolbarSection() {
   const viewport = useViewport();
-  const duration = usePlayerStore(useShallow((state) => state.player.duration));
+  const duration = usePlayer(useShallow((state) => state.player.duration));
   const timeDisplay = useAnimationStore(
     useShallow((state: AnimationData) => state.timeDisplay),
   );

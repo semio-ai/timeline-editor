@@ -1,9 +1,10 @@
 import { memo, useEffect, useRef } from "react";
 import { useThree } from "@react-three/fiber";
 import { useMotionValueEvent } from "motion/react";
-import { isOrthographicCamera, usePlayerStore } from "@semio/utils";
+import { isOrthographicCamera } from "@semio/utils";
 import { calculatePaddedFrustum } from "../../viewport-utils";
 import { viewportMotion } from "../../viewport-state";
+import { useAnimationStore } from "../../hooks/use-animation-store";
 import { useMotionCanvas } from "./shared/motion-canvas-context";
 
 /**
@@ -29,6 +30,7 @@ export const CanvasCamera = memo(function CanvasCamera({
   mode: "moving" | "fixed";
 }) {
   const camera = useThree((s) => s.camera);
+  const playerStore = useAnimationStore((state) => state.playerStore);
   const { size: motionSize } = useMotionCanvas();
   const modeRef = useRef(mode);
   modeRef.current = mode;
@@ -42,7 +44,7 @@ export const CanvasCamera = memo(function CanvasCamera({
       if (width <= 0) return;
       let dataVp: [number, number];
       if (modeRef.current === "fixed") {
-        const dur = usePlayerStore.getState().player.duration;
+        const dur = playerStore.getState().player.duration;
         dataVp = [0, Math.max(dur, 1000)];
       } else {
         dataVp = viewportMotion.get();
@@ -62,7 +64,7 @@ export const CanvasCamera = memo(function CanvasCamera({
     const unsubViewport = viewportMotion.on("change", () => {
       if (modeRef.current === "moving") updateCam();
     });
-    const unsubDuration = usePlayerStore.subscribe(
+    const unsubDuration = playerStore.subscribe(
       (s) => s.player.duration,
       () => updateCam(),
     );
@@ -70,7 +72,7 @@ export const CanvasCamera = memo(function CanvasCamera({
       unsubViewport();
       unsubDuration();
     };
-  }, [camera, motionSize]);
+  }, [camera, motionSize, playerStore]);
 
   // Resize handlers — re-derive camera bounds when the canvas DOM element
   // changes size. Width drives X-frustum padding; height drives pixel-lock.
@@ -78,7 +80,7 @@ export const CanvasCamera = memo(function CanvasCamera({
     if (!isOrthographicCamera(camera) || width <= 0) return;
     const dataVp =
       modeRef.current === "fixed"
-        ? ([0, Math.max(usePlayerStore.getState().player.duration, 1000)] as [number, number])
+        ? ([0, Math.max(playerStore.getState().player.duration, 1000)] as [number, number])
         : viewportMotion.get();
     const { left, right } = calculatePaddedFrustum(dataVp, width);
     camera.left = left;

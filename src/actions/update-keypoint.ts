@@ -1,4 +1,3 @@
-import { usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import { Keypoint } from "../types";
 import { trackCurve } from "../functions/track-curve";
@@ -79,13 +78,13 @@ export function updateKeypoint(
       if (defaultValue !== undefined) {
         const seedPoint: SimpleKeypoint = {
           id: crypto.randomUUID(),
-          stamp: usePlayerStore.getState().player.stamp,
+          stamp: state.playerStore.getState().player.stamp,
           value: defaultValue as SimpleRawValue,
           transitions: resolveNewKeyTransitions({
             prevPoint: undefined,
             nextPoint: undefined,
             anchor: {
-              stamp: usePlayerStore.getState().player.stamp,
+              stamp: state.playerStore.getState().player.stamp,
               value: defaultValue as SimpleRawValue,
             },
             defaults: resolveNewKeyTransitionPreferences(state),
@@ -100,7 +99,7 @@ export function updateKeypoint(
       // However, for now we will just insert a point at the specified or default value,
       // using the default easing method.
     }
-    let stamp = usePlayerStore.getState().player.stamp;
+    let stamp = state.playerStore.getState().player.stamp;
     if (typeof keypoint.stamp === "number") {
       stamp = keypoint.stamp;
     } else if (typeof keypoint.stamp === "function") {

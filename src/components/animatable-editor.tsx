@@ -1,20 +1,15 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
-import {
-  RawValue,
-  toDegrees,
-  toRadians,
-  unitDisplay,
-  usePlayerStore,
-  useValuesStore,
-} from "@semio/utils";
+import { RawValue, toDegrees, toRadians, unitDisplay } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { DEFAULT_COLOR } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
+import { trackValueAt } from "../functions/track-value-at";
+import { usePlayer } from "../hooks/use-player";
 
 export interface AnimatableEditorProps {
   rowId: string;
@@ -42,17 +37,22 @@ function InnerAnimatableEditor({
 }: AnimatableEditorProps) {
   const trueColor = useColors(data.trackId ?? data.animatableId);
   const color = colorOverride ?? (active ? trueColor : DEFAULT_COLOR);
+  const playerStore = useAnimationStore((state) => state.playerStore);
 
-  // Stamp is read at drag-start fire time (see worldStamp below) — subscribing
-  // here would re-render the editor every player tick during playback, and
-  // each editor row sits inside a ControlRow + radix dropdown plumbing,
-  // multiplying the cascade.
+  // The track's value at the playhead, from its curve. The selector returns
+  // the value rather than the stamp, so the editor re-renders when the value
+  // changes, not at every player tick: each editor row sits inside a
+  // ControlRow + radix dropdown plumbing, which multiplies the cascade.
   const valueKey = useMemo(
     () => buildTrackKey(data.namespaceId, data.instanceId, data.trackId),
     [data.namespaceId, data.instanceId, data.trackId],
   );
-  const storedValue = useValuesStore(
-    useCallback((state) => state.values.get(valueKey), [valueKey]),
+  const snapshot = useAnimationStore((state: AnimationData) => state.derivedSnapshot);
+  const storedValue = usePlayer(
+    useCallback(
+      (state) => trackValueAt(snapshot, valueKey, state.player.stamp),
+      [snapshot, valueKey],
+    ),
   );
 
   // Drag pipeline integration (value-driven)
@@ -162,7 +162,7 @@ function InnerAnimatableEditor({
             trackId: data.trackId,
             namespaceId: data.namespaceId,
             instanceId: data.instanceId,
-            worldStamp: usePlayerStore.getState().player.stamp,
+            worldStamp: playerStore.getState().player.stamp,
             valueScale: valueScaleOverride,
           });
         }}
@@ -204,7 +204,7 @@ function InnerAnimatableEditor({
         color={color}
         onChange={(v) => {
           if (dragActiveRef.current) return;
-          const stamp = usePlayerStore.getState().player.stamp;
+          const stamp = playerStore.getState().player.stamp;
           if (editStampRef.current === null) {
             // First commit of this edit session anchors here.
             editStampRef.current = stamp;

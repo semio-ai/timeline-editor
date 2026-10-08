@@ -1,4 +1,4 @@
-import type { RawValue, AnimatableValue, StoreSubscribeWithSelector, Write } from "@semio/utils";
+import type { AnimatableValue, PlayerStore, StoreSubscribeWithSelector, Write } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import type { StoreApi } from "zustand";
 import type {
@@ -72,7 +72,7 @@ export interface EntityAnimationState {
 export interface ActiveEntityContext {
   /** Active entity ID. */
   entityId: string;
-  /** Resolved namespace ID for value lookups (format: "entityId@instanceId"). */
+  /** The entity's namespace, whose entity `namespaceEntity` (`@semio/utils`) resolves. */
   namespaceId: string;
   /** Control mode for the active entity. */
   controlMode: "direct" | "animation";
@@ -195,8 +195,16 @@ export interface AnimationData {
    */
   trackBaker?: TrackBaker;
   /**
-   * A record of animation instances and their namespaces, used for specifying how
-   * values are written into `useValuesStore` without overriding others.
+   * The player the timeline shows and commands: its playhead, bounds and
+   * transport. The host passes the one it drives (Studio, the player its
+   * `Transport` plays the devices from) when it creates the store; a store
+   * created without one has a player of its own. The store's subscriptions
+   * take it when they start, so it is the store's for its life.
+   */
+  playerStore: PlayerStore;
+  /**
+   * The namespaces the animation instances play under, by namespace id: each
+   * instance's tracks are keyed `namespaceId/instanceId/trackId`.
    */
   namespaces: Record<string, Namespace>;
   /**
@@ -475,18 +483,6 @@ export interface AnimationActions {
     viewId: string,
     updates: Record<string, { hidden?: boolean }>,
   ) => void;
-  /**
-   * @deprecated Use `useValuesStore.getState().updateValues` instead.
-   */
-  updateValues: (values: Map<string, RawValue | undefined>) => void;
-  /**
-   * @deprecated Use `useValuesStore.getState().updateVelocities` instead.
-   */
-  updateVelocities: (velocities: Map<string, RawValue | undefined>) => void;
-  /**
-   * @deprecated Use `useValuesStore.getState().setTrackValue` instead.
-   */
-  setTrackValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => void;
   /**
    * Creates a new view
    */

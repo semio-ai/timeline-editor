@@ -3,7 +3,6 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
-import { usePlayerStore } from "@semio/utils";
 import { TrackRender } from "../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
 import { calculatePaddedFrustum } from "../../viewport-utils";
@@ -306,7 +305,8 @@ export const MinimapCanvas = memo(function MinimapCanvas({
   fonts = {},
   onReady,
 }: MinimapCanvasProps) {
-  const initialDuration = usePlayerStore.getState().player.duration;
+  const playerStore = useAnimationStore((state) => state.playerStore);
+  const initialDuration = playerStore.getState().player.duration;
   const initialFixed: [number, number] = [0, Math.max(initialDuration, 1000)];
   const { left, right } = calculatePaddedFrustum(initialFixed, ESTIMATED_CANVAS_WIDTH);
 

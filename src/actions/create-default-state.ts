@@ -1,4 +1,5 @@
 import { TimeDisplay } from "@semio/ui";
+import { createPlayerStore } from "@semio/utils";
 import {
   AnimationData,
   ControlStripMode,
@@ -10,16 +11,17 @@ import { TransitionDirective, TransitionPairing } from "../types";
 // import { createDefaultAnimation } from "./create-default-animation";
 
 /**
- * Creates the default state for the animation store.
- *
- * Transient values and velocities live in the dedicated `useValuesStore`
- * (from `@semio/utils`), not in this state object.
+ * Creates the default state for the animation store, with a player of its
+ * own. Values come from the host's store (`DataStoreContext`), and the value a
+ * track takes at the playhead from its curve (`trackValueAt`), not from this
+ * state object.
  */
 export const createDefaultState = (): AnimationData => {
   // const defaultAnimation = createDefaultAnimation();
 
   return {
     derivedSnapshot: undefined,
+    playerStore: createPlayerStore(),
     namespaces: {},
     animations: {},
     tracks: {},

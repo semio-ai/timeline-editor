@@ -1,4 +1,9 @@
-import { RawValue, AnimatableValue, DeprecatedComplexAnimatableValue } from "@semio/utils";
+import {
+  RawValue,
+  AnimatableValue,
+  DeprecatedComplexAnimatableValue,
+  namespaceEntity,
+} from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import {
   type Track,
@@ -705,9 +710,9 @@ export function createTestAnimationStore(options?: {
   // (which read from entityStates, not from selectionState.instanceId)
   // see the fixture's intended active instance for each namespace's
   // owning entity. The namespaceId IS the entityId in these fixtures
-  // (no "@" suffix).
+  // (it names no instance).
   Object.keys(namespaces).forEach((namespaceId) => {
-    const entityId = namespaceId.split("@")[0];
+    const entityId = namespaceEntity(namespaceId);
     setEntityControlMode(entityId, "animation", activeInstance);
   });
 
@@ -719,7 +724,7 @@ export function createTestAnimationStore(options?: {
     Object.keys(namespace.animationInstances).includes(activeInstance),
   )?.[0];
   if (owningNamespaceId) {
-    setActiveEntity(owningNamespaceId.split("@")[0]);
+    setActiveEntity(namespaceEntity(owningNamespaceId));
   }
 
   focusSelectionInstance(activeInstance);

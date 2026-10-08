@@ -2,7 +2,6 @@ import { ReactNode, useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
 import { KeybindingProvider, useKeybindingMap } from "@semio/ui";
-import { usePlayerStore } from "@semio/utils";
 import { TrackControlMenuContent } from "../components/canvas-sheet/context-menus";
 import { useTrackMenuState } from "../components/track-menu-context";
 import { computeAggregate, nextToggleValue } from "../functions/three-way-aggregate";
@@ -12,6 +11,7 @@ import type { SourceRow } from "../types";
 import { useActiveAnimationId } from "./use-active-animation-id";
 import { useAnimationStore } from "./use-animation-store";
 import { useKeyControlState } from "./use-key-control-state";
+import { usePlayer } from "./use-player";
 
 export interface UseControlMenuParams {
   /** The source row this menu acts on. Caller supplies a fallback if no live row exists. */
@@ -93,7 +93,8 @@ export function useControlMenu({
   // tick rate during playback. Without this, every animated track row
   // would re-render 40Hz, cascading into all the radix menu plumbing
   // wrapped around it.
-  const playing = usePlayerStore(useShallow((state) => state.player.running));
+  const playing = usePlayer(useShallow((state) => state.player.running));
+  const playerStore = useAnimationStore((state) => state.playerStore);
 
   const { selectedKeypoints, hasClipboard } = useAnimationStore(
     useShallow((state: AnimationData) => ({
@@ -198,14 +199,22 @@ export function useControlMenu({
   // ── Keyframe callbacks ───────────────────────────────────────────────
   const handleAddKeyframe = useCallback(() => {
     if (playing || allReadonly) return;
-    const stamp = usePlayerStore.getState().player.stamp;
+    const stamp = playerStore.getState().player.stamp;
     const targets = keyState === "partial" ? missingEntries : sourceRow.data;
     // Batched so adding keys across a row's tracks is one undoable edit.
     insertKeypointsAtWorldStamp(
       targets.map((datum) => ({ trackId: datum.trackId, instanceId: datum.instanceId })),
       stamp,
     );
-  }, [playing, allReadonly, keyState, missingEntries, sourceRow.data, insertKeypointsAtWorldStamp]);
+  }, [
+    playing,
+    allReadonly,
+    keyState,
+    missingEntries,
+    sourceRow.data,
+    insertKeypointsAtWorldStamp,
+    playerStore,
+  ]);
 
   const handleRemoveKeyframe = useCallback(() => {
     if (playing || allReadonly || !currentFrame) return;
@@ -214,8 +223,8 @@ export function useControlMenu({
   }, [playing, allReadonly, currentFrame, targetPoints, removeKeypoints]);
 
   const handlePaste = useCallback(() => {
-    pasteAtStamp(usePlayerStore.getState().player.stamp);
-  }, [pasteAtStamp]);
+    pasteAtStamp(playerStore.getState().player.stamp);
+  }, [pasteAtStamp, playerStore]);
 
   // Raw trackIds for the "Select All in Track" action — the store's `tracks`
   // record is keyed by `trackId`, not the composite `namespace/instance/trackId`.

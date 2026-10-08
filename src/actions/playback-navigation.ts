@@ -1,5 +1,4 @@
 import { produce } from "immer";
-import { usePlayerStore } from "@semio/utils";
 import {
   computeLocalStamp,
   computeNextTime,
@@ -93,7 +92,7 @@ export function skipToNextKeyframe(
   respectBounds?: boolean,
 ): void {
   const state = get();
-  const playerState = usePlayerStore.getState();
+  const playerState = state.playerStore.getState();
   const sourceRowId = sourceRow.id;
   const computedData = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
   if (!computedData) return;
@@ -123,7 +122,7 @@ export function skipToPrevKeyframe(
   respectBounds?: boolean,
 ): void {
   const state = get();
-  const playerState = usePlayerStore.getState();
+  const playerState = state.playerStore.getState();
   const sourceRowId = sourceRow.id;
   const computedData = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
   if (!computedData) return;
@@ -147,18 +146,22 @@ export function skipToPrevKeyframe(
   }
 }
 
-export function skipToStart(): void {
-  const playerState = usePlayerStore.getState();
+export function skipToStart(get: AnimationStoreGetter): void {
+  const playerState = get().playerStore.getState();
   playerState.resetPlayer(playerState.player.bounds[0]);
 }
 
-export function skipToEnd(): void {
-  const playerState = usePlayerStore.getState();
+export function skipToEnd(get: AnimationStoreGetter): void {
+  const playerState = get().playerStore.getState();
   playerState.resetPlayer(playerState.player.bounds[1]);
 }
 
-export function updateDuration(set: AnimationStoreSetter, duration: number): void {
-  const playerState = usePlayerStore.getState();
+export function updateDuration(
+  set: AnimationStoreSetter,
+  get: AnimationStoreGetter,
+  duration: number,
+): void {
+  const playerState = get().playerStore.getState();
   playerState.updateDuration(duration);
   set({ duration });
 }

@@ -1,3 +1,4 @@
+import { namespaceEntity } from "@semio/utils";
 import type { EntityAnimationState } from "../store-types";
 
 /**
@@ -47,7 +48,7 @@ export interface RowEditPredicates {
 }
 
 export interface RowEditInputs {
-  /** Row's owning entity, derived from its namespaceId (`entityId@...`). */
+  /** Row's owning entity, derived from its namespaceId (`namespaceEntity`). */
   owningEntityId: string | undefined;
   /** Row's animation instance, when all entries in the row share one instance. */
   rowInstanceId: string | undefined;
@@ -126,5 +127,5 @@ export function deriveOwningEntityFromNamespaceId(
   namespaceId: string | undefined,
 ): string | undefined {
   if (!namespaceId) return undefined;
-  return namespaceId.split("@")[0];
+  return namespaceEntity(namespaceId);
 }
