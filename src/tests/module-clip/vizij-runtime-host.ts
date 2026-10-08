@@ -30,7 +30,8 @@ export interface ModuleClipHost {
   play(clip: ModuleClip, dtMs: number, steps: number): Promise<PlayedClip>;
 }
 
-/** The module's function and parameter ids (vizij-animation-module `src/lib.rs`). */
+/** The module's id, function and parameter ids (vizij-animation-module `src/lib.rs`). */
+const MODULE = "76697a69-6a00-0000-0d00-000000000000";
 const FN = {
   loadAnimation: "76697a69-6a00-0000-0f00-000000000001",
   createPlayer: "76697a69-6a00-0000-0f00-000000000002",
@@ -56,6 +57,10 @@ const PARAM = {
 const OUTPUT_KEY = "76697a69-6a00-0000-0110-000000000002";
 const OUTPUT_VALUE = "76697a69-6a00-0000-0110-000000000003";
 const STATE_TIME_NS = "76697a69-6a00-0000-0111-000000000003";
+/** The `tracks` field of the module's `BakedAnimation` record, and a `BakedTrack`'s fields. */
+const BAKED_TRACKS = "76697a69-6a00-0000-0120-000000000004";
+const BAKED_TRACK_KEY = "76697a69-6a00-0000-0121-000000000001";
+const BAKED_TRACK_VALUES = "76697a69-6a00-0000-0121-000000000002";
 
 /** The Vizij animation module in Node: a fresh `@vizij/runtime` device per clip. */
 export function startVizijRuntimeHost(): ModuleClipHost {
@@ -69,10 +74,17 @@ export function startVizijRuntimeHost(): ModuleClipHost {
             args: [field(PARAM.bakeAnim, anim), field(PARAM.bakeFrameRate, { f32: rateHz })],
           },
         ]);
-        const json = JSON.parse(stringOf(baked)) as {
-          tracks: { target_path: string; values: ValueJson[] }[];
-        };
-        return new Map(json.tracks.map((t) => [t.target_path, t.values.map(sampleOf)]));
+        // An optional BakedAnimation record: its tracks, each its animatable_id
+        // and its samples as one array of values.
+        const record = (baked.option as { struct: { fields: Field[] } } | undefined)?.struct;
+        if (!record) throw new Error(`the module baked nothing: ${JSON.stringify(baked)}`);
+        return new Map(
+          structsOf(fieldsOf(record)[BAKED_TRACKS]).map((track) => {
+            const values = fieldsOf(track);
+            const samples = values[BAKED_TRACK_VALUES].values as ValueJson[];
+            return [stringOf(values[BAKED_TRACK_KEY]), samples.map(sampleOf)];
+          }),
+        );
       });
     },
 
@@ -141,7 +153,8 @@ async function withDevice<T>(
   const runtime: Runtime = await startRuntime();
   try {
     return await body(async (calls) => {
-      const pending = calls.map((c) => runtime.call(c));
+      // A device dispatches a call to the module it names.
+      const pending = calls.map((c) => runtime.call({ module_id: MODULE, ...c }));
       runtime.step(0);
       const results = await Promise.all(pending);
       return results.map((r) => r.ret as ValueJson);
