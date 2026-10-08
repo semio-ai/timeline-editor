@@ -111,17 +111,45 @@ describe("Recorder", () => {
     ]);
   });
 
-  it("records nothing for a key whose device's clock it has not seen, or that was removed", () => {
+  it("records a value set before its device's clock when the clock arrives, unless replaced or removed", () => {
+    const recorder = new Recorder([
+      { device: "robot", key: "battery" },
+      { device: "robot", key: "joint1.position" },
+      { device: "robot", key: "lamp.value" },
+    ]);
+
+    recorder.capture(
+      change({
+        "robot/battery": { f64: 0.9 },
+        "robot/joint1.position": { f64: 1 },
+        "robot/lamp.value": { bool: true },
+      }),
+    );
+    recorder.capture(change({ "robot/joint1.position": { f64: 2 }, "robot/lamp.value": null }));
+    recorder.capture(change({ "robot/arora/time": ms(16) }));
+
+    expect(recorder.tracks().map(({ points }) => points)).toEqual([
+      [{ stamp: 16, value: 0.9 }],
+      [{ stamp: 16, value: 2 }],
+      [],
+    ]);
+  });
+
+  it("holds back a key's values while its device's clock is removed or holds no number", () => {
     const recorder = new Recorder([{ device: "sim", key: "joint1.position" }]);
 
-    recorder.capture(change({ "sim/joint1.position": { f64: 1 } }));
     recorder.capture(change({ "sim/arora/time": ms(16), "sim/joint1.position": { f64: 2 } }));
     recorder.capture(change({ "sim/arora/time": null, "sim/joint1.position": { f64: 3 } }));
     recorder.capture(change({ "sim/arora/time": ms(48), "sim/joint1.position": { f64: 3 } }));
+    recorder.capture(
+      change({ "sim/arora/time": { str: "late" }, "sim/joint1.position": { f64: 4 } }),
+    );
+    recorder.capture(change({ "sim/arora/time": ms(80) }));
 
     expect(recorder.tracks()[0].points).toEqual([
       { stamp: 16, value: 2 },
       { stamp: 48, value: 3 },
+      { stamp: 80, value: 4 },
     ]);
   });
 

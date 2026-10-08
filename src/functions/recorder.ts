@@ -10,6 +10,8 @@ interface Recording extends RecordedKey {
   points: RecordedPoint[];
   /** The value of the last point, while the key still holds it as far as the changes tell. */
   held?: ScalarValue;
+  /** A value set before its device's clock was seen, recorded when the clock is. */
+  pending?: ScalarValue;
 }
 
 /**
@@ -25,8 +27,9 @@ interface Recording extends RecordedKey {
  * `subscribe` feeds it, the first call bringing each key's current value. A
  * value no animatable can hold (a structure, an array) and a key's removal
  * add no point, and the next value after either is a point even when it
- * equals the last one. A key changed before its device's clock was seen is
- * not recorded until the clock is. Nothing is kept beyond the recorder.
+ * equals the last one. A value set before its device's clock was seen is
+ * recorded when the clock is, at that time, unless a later change replaced
+ * it. Nothing is kept beyond the recorder.
  */
 export class Recorder {
   /** The keys the recorder reads: each recorded key, and its device's `arora/time`. */
@@ -63,14 +66,26 @@ export class Recorder {
       else this.clocks.delete(device);
     }
     for (const recording of this.recordings) {
-      if (change.unset.has(recording.storeKey)) recording.held = undefined;
-      if (!change.set.has(recording.storeKey)) continue;
-      const value = fromTaggedValue(change.set.get(recording.storeKey));
+      if (change.unset.has(recording.storeKey)) {
+        recording.held = undefined;
+        recording.pending = undefined;
+      }
       const stamp = this.clocks.get(recording.device);
-      if (value === undefined || stamp === undefined) {
+      let value = recording.pending;
+      if (change.set.has(recording.storeKey)) {
+        value = fromTaggedValue(change.set.get(recording.storeKey));
+        if (value === undefined) recording.held = undefined;
+      }
+      if (value === undefined) {
+        recording.pending = undefined;
+        continue;
+      }
+      if (stamp === undefined) {
+        recording.pending = value;
         recording.held = undefined;
         continue;
       }
+      recording.pending = undefined;
       if (Object.is(recording.held, value)) continue;
       recording.held = value;
       recording.points.push({ stamp, value });
