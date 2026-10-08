@@ -52,3 +52,4 @@ export {
   type ModuleClip,
 } from "./to-module-clip";
 export * from "./track-curve";
+export * from "./recorder";
