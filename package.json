@@ -80,7 +80,7 @@
     "@types/react-dom": "^19.1.0",
     "@types/three": "^0.170.0",
     "@vitejs/plugin-react": "^5.0.2",
-    "@vizij/runtime": "^3.0.0",
+    "@vizij/runtime": "^4.1.0",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.1.3",
