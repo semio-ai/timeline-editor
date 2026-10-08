@@ -138,6 +138,26 @@ export function toModuleClip(
   };
 }
 
+/**
+ * `clip` reduced to its track `trackId`, with the track's `animatable_id` set
+ * to the track's id, so the module's bake of it names the track: the clip a
+ * one-track bake loads, as the World's `bake` makes it on a device.
+ */
+export function singleTrackClip(clip: ModuleClip, trackId: string): ModuleClip {
+  const isTrack = (track: { fields: AroraFieldJson[] }) =>
+    track.fields.some((f) => f.id === FIELD.trackId && "str" in f.value && f.value.str === trackId);
+  const fields = clip.struct.fields.map((f) => {
+    if (f.id !== FIELD.clipTracks || !("structs" in f.value)) return f;
+    const elements = f.value.structs.elements.filter(isTrack).map((track) => ({
+      fields: track.fields.map((t) =>
+        t.id === FIELD.trackAnimatable ? field(FIELD.trackAnimatable, { str: trackId }) : t,
+      ),
+    }));
+    return field(FIELD.clipTracks, { structs: { ...f.value.structs, elements } });
+  });
+  return { struct: { ...clip.struct, fields } };
+}
+
 const MAX_U32 = 0xffff_ffff;
 /** The largest finite `f32`. */
 const MAX_F32 = 3.4028234663852886e38;

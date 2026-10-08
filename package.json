@@ -17,6 +17,12 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     },
+    "./module-baker": {
+      "types": "./dist/module-baker.d.ts",
+      "source": "./src/module-baker.ts",
+      "import": "./dist/module-baker.mjs",
+      "require": "./dist/module-baker.js"
+    },
     "./styles.css": "./src/styles.css",
     "./theme.css": "./src/theme.css",
     "./dist/styles.css": "./dist/styles.css"
@@ -33,8 +39,8 @@
     "**/*.css"
   ],
   "scripts": {
-    "build": "tsup src/index.tsx --format esm,cjs --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
-    "dev": "tsup src/index.tsx --format esm,cjs --watch --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
+    "build": "tsup src/index.tsx src/module-baker.ts --format esm,cjs --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
+    "dev": "tsup src/index.tsx src/module-baker.ts --format esm,cjs --watch --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -51,6 +57,7 @@
     "@solar-icons/react-perf": "^2.1.0",
     "@tailwindcss/postcss": "^4.1.3",
     "@use-gesture/react": "^10.3.1",
+    "@vizij/runtime": "^4.1.0",
     "clsx": "^2.1.1",
     "culori": "^4.0.2",
     "d3-interpolate": "^3.0.1",
@@ -80,7 +87,6 @@
     "@types/react-dom": "^19.1.0",
     "@types/three": "^0.170.0",
     "@vitejs/plugin-react": "^5.0.2",
-    "@vizij/runtime": "^4.1.0",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.1.3",

@@ -4,9 +4,7 @@ Higher-level visualization and editing components for animating assets — a
 canvas-based timeline editor (`AnimationSheet`) plus the track/keyframe controls
 and motion primitives it's built from. Rendered with
 [react-three-fiber](https://docs.pmnd.rs/react-three-fiber), themed with
-[`@semio/ui`](https://www.npmjs.com/package/@semio/ui), and driven by the player
-and runtime values stores in
-[`@semio/utils`](https://www.npmjs.com/package/@semio/utils).
+[`@semio/ui`](https://www.npmjs.com/package/@semio/ui).
 
 ## Installation
 
@@ -19,13 +17,43 @@ along as dependencies.
 
 ## Usage
 
+The host hands the sheet three things:
+
+- **the animation store** (`AnimationContext`), created with the player the
+  timeline shows and commands (`createAnimationStore({ playerStore })`; one
+  created without one has a player of its own);
+- **the values store** (`DataStoreContext` from `@semio/utils`), Arora's data
+  store interface, which the direct controls read;
+- **a baker** (`trackBaker` on the store), which draws each track's curve from
+  the Vizij animation module, the only evaluator of a curve. Studio bakes on an
+  emulated device of its own; a page with no device attaches the module this
+  package bundles.
+
 ```tsx
-import { AnimationSheet } from "@semio/animation";
+import { AnimationContext, AnimationSheet, createAnimationStore } from "@semio/animation";
+import { attachModuleBaker } from "@semio/animation/module-baker";
+import { createValuesStore, DataStoreContext, valuesDataStore } from "@semio/utils";
+
+const store = createAnimationStore();
+const values = valuesDataStore(createValuesStore());
 
 export function Editor() {
-  return <AnimationSheet /* viewId, theme, fonts, … */ />;
+  useEffect(() => attachModuleBaker(store), []);
+  return (
+    <DataStoreContext.Provider value={values}>
+      <AnimationContext.Provider value={store}>
+        <AnimationSheet /* viewId, theme, fonts, … */ />
+      </AnimationContext.Provider>
+    </DataStoreContext.Provider>
+  );
 }
 ```
+
+`attachModuleBaker` runs the module in the page through `@vizij/runtime`
+(25 MB of wasm, 7 MB compressed, fetched on the first bake). It lives on its own
+entry point, `@semio/animation/module-baker`, so a host that bakes elsewhere
+never bundles it. Without a baker, curves are drawn from their authored Béziers
+and tracks have no values or violations.
 
 Playback and viewport are decoupled: pan / zoom / playhead-follow are driven by
 motion values independent of the player tick, so the timeline follows the
@@ -64,14 +92,16 @@ The JSON contract is:
   "animationName": "Look around",
   "timeBasis": "animation-local",
   "timeUnit": "ms",
-  "channels": [{
-    "output": "HeadYaw",
-    "units": "rad",
-    "keys": [
-      { "timeMs": 0, "value": 0, "out": { "deltaTimeMs": 300, "deltaValue": 0 } },
-      { "timeMs": 900, "value": 0.4, "in": { "deltaTimeMs": -300, "deltaValue": 0 } }
-    ]
-  }]
+  "channels": [
+    {
+      "output": "HeadYaw",
+      "units": "rad",
+      "keys": [
+        { "timeMs": 0, "value": 0, "out": { "deltaTimeMs": 300, "deltaValue": 0 } },
+        { "timeMs": 900, "value": 0.4, "in": { "deltaTimeMs": -300, "deltaValue": 0 } }
+      ]
+    }
+  ]
 }
 ```
 

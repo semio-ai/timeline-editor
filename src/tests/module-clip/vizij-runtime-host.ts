@@ -1,4 +1,5 @@
 import { startRuntime, type Runtime } from "@vizij/runtime";
+import { bakedSamples } from "../../functions/baked-animation";
 import type { ModuleClip } from "../../functions/to-module-clip";
 
 /** One sampled value, as the module outputs it. */
@@ -57,10 +58,6 @@ const PARAM = {
 const OUTPUT_KEY = "76697a69-6a00-0000-0110-000000000002";
 const OUTPUT_VALUE = "76697a69-6a00-0000-0110-000000000003";
 const STATE_TIME_NS = "76697a69-6a00-0000-0111-000000000003";
-/** The `tracks` field of the module's `BakedAnimation` record, and a `BakedTrack`'s fields. */
-const BAKED_TRACKS = "76697a69-6a00-0000-0120-000000000004";
-const BAKED_TRACK_KEY = "76697a69-6a00-0000-0121-000000000001";
-const BAKED_TRACK_VALUES = "76697a69-6a00-0000-0121-000000000002";
 
 /** The Vizij animation module in Node: a fresh `@vizij/runtime` device per clip. */
 export function startVizijRuntimeHost(): ModuleClipHost {
@@ -74,16 +71,11 @@ export function startVizijRuntimeHost(): ModuleClipHost {
             args: [field(PARAM.bakeAnim, anim), field(PARAM.bakeFrameRate, { f32: rateHz })],
           },
         ]);
-        // An optional BakedAnimation record: its tracks, each its animatable_id
-        // and its samples as one array of values.
-        const record = (baked.option as { struct: { fields: Field[] } } | undefined)?.struct;
-        if (!record) throw new Error(`the module baked nothing: ${JSON.stringify(baked)}`);
         return new Map(
-          structsOf(fieldsOf(record)[BAKED_TRACKS]).map((track) => {
-            const values = fieldsOf(track);
-            const samples = values[BAKED_TRACK_VALUES].values as ValueJson[];
-            return [stringOf(values[BAKED_TRACK_KEY]), samples.map(sampleOf)];
-          }),
+          [...bakedSamples(baked)].map(([key, samples]) => [
+            key,
+            samples.map((s) => sampleOf(s as ValueJson)),
+          ]),
         );
       });
     },
