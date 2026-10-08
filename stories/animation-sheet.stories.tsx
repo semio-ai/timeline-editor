@@ -9,6 +9,7 @@ import {
   createTestAnimationStore,
   createMinimalAnimationStore,
   INSTANCE_IDS,
+  TrackRender,
   useAnimationStore,
 } from "@semio/animation";
 import { attachModuleBaker } from "@semio/animation/module-baker";
@@ -36,10 +37,13 @@ type Story = StoryObj<typeof meta>;
 function AnimationSheetWithStore({
   storeType = "full",
   bake = true,
+  trackRender,
   ...props
 }: AnimationSheetProps & {
   storeType?: "full" | "minimal" | "namespaceA" | "namespaceB";
   bake?: boolean;
+  /** How every view of the sheet draws its tracks, when not the store's default. */
+  trackRender?: TrackRender;
 }): ReactNode {
   const [ref, bounds] = useMeasure();
   const values = useMemo(() => valuesDataStore(createValuesStore()), []);
@@ -66,6 +70,12 @@ function AnimationSheetWithStore({
   }, [storeType]);
 
   useEffect(() => (bake ? attachModuleBaker(store) : undefined), [store, bake]);
+  useEffect(() => {
+    if (trackRender === undefined) return;
+    for (const viewId of Object.keys(store.getState().editorViews)) {
+      store.getState().updateView(viewId, { trackRender });
+    }
+  }, [store, trackRender]);
 
   return (
     <DataStoreContext.Provider value={values}>
@@ -124,6 +134,13 @@ export const NamespaceBOnly: Story = {
  */
 export const Minimal: Story = {
   render: () => <AnimationSheetWithStore storeType="minimal" />,
+};
+
+/**
+ * The spline view: each value row's curve, as the bundled module bakes it
+ */
+export const Splines: Story = {
+  render: () => <AnimationSheetWithStore storeType="full" trackRender={TrackRender.Spline} />,
 };
 
 /**
