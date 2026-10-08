@@ -25,12 +25,21 @@ import type { AnimationStore } from "./store";
 export function attachModuleBaker(store: AnimationStore): () => void {
   const baked = new Map<string, SimpleRawValue[] | undefined>();
   const pending = new Map<string, BakeRequest>();
+  /** The keys asked for since the current round began: they are on screen, so kept. */
+  let asked = new Set<string>();
   let running: Promise<void> | undefined;
   let detached = false;
 
   const answer: TrackBaker = (clip, trackId, rateHz) => {
     const key = `${rateHz}|${trackId}|${JSON.stringify(clip)}`;
-    if (baked.has(key)) return baked.get(key);
+    asked.add(key);
+    if (baked.has(key)) {
+      // Kept the longest, as the latest asked for.
+      const samples = baked.get(key);
+      baked.delete(key);
+      baked.set(key, samples);
+      return samples;
+    }
     pending.set(key, { clip, trackId, rateHz });
     running ??= bakeRounds()
       .catch((error: unknown) => console.error("The Vizij animation module could not bake", error))
@@ -42,16 +51,22 @@ export function attachModuleBaker(store: AnimationStore): () => void {
   const freshBaker = (): TrackBaker => (clip, trackId, rateHz) => answer(clip, trackId, rateHz);
   let current = freshBaker();
   store.setState({ trackBaker: current });
+  /** Whether the store still bakes here: neither taken back nor given another baker. */
+  const attached = () => !detached && store.getState().trackBaker === current;
 
   async function bakeRounds(): Promise<void> {
     // The first round waits for the store's update to finish asking.
     await Promise.resolve();
-    while (pending.size > 0 && !detached) {
+    while (pending.size > 0 && attached()) {
       const round = [...pending];
       pending.clear();
+      const onScreen = asked;
+      asked = new Set();
       const samples = await bakeOnModule(round.map(([, request]) => request));
-      if (detached) return;
-      round.forEach(([key], i) => remember(baked, key, samples[i]));
+      if (!attached()) return;
+      round.forEach(([key], i) => baked.set(key, samples[i]));
+      const askedSince = asked;
+      forgetOldest(baked, (key) => onScreen.has(key) || askedSince.has(key));
       current = freshBaker();
       store.setState({ trackBaker: current });
     }
@@ -69,16 +84,21 @@ interface BakeRequest {
   rateHz: number;
 }
 
-/** The most bakes kept; the oldest go first. */
+/**
+ * The most bakes kept, beyond those of the curves on screen: the ones asked
+ * least recently go first, and a curve on screen is never forgotten, so the
+ * timeline's next ask finds every curve it draws and the rounds end.
+ */
 const KEPT_BAKES = 2048;
 
-function remember(
+function forgetOldest(
   baked: Map<string, SimpleRawValue[] | undefined>,
-  key: string,
-  samples: SimpleRawValue[] | undefined,
+  onScreen: (key: string) => boolean,
 ): void {
-  baked.set(key, samples);
-  if (baked.size > KEPT_BAKES) baked.delete(baked.keys().next().value!);
+  for (const key of baked.keys()) {
+    if (baked.size <= KEPT_BAKES) return;
+    if (!onScreen(key)) baked.delete(key);
+  }
 }
 
 /**

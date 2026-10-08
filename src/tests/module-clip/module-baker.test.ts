@@ -5,6 +5,7 @@ import { createTestAnimationStore } from "../../test-fixtures/animation-store-fa
 import type { AnimationStore } from "../../store";
 import type { Track } from "../../types";
 import { curveOf } from "../curves";
+import { clipBaker } from "./clip-baker";
 
 /** Resolves once `ready` holds, checking at each turn of the event loop. */
 async function until(ready: () => boolean, timeoutMs = 120_000): Promise<void> {
@@ -66,4 +67,26 @@ describe("attachModuleBaker", () => {
     detach();
     expect(store.getState().trackBaker).toBeUndefined();
   }, 180_000);
+
+  it("leaves the store a baker its host gives it, and bakes no more there", async () => {
+    const store = createTestAnimationStore();
+    attachModuleBaker(store);
+    const hosts = clipBaker;
+    store.setState({ trackBaker: hosts });
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    expect(store.getState().trackBaker).toBe(hosts);
+  }, 60_000);
+
+  it("takes back a baker detached before its first round lands, and sets none after", async () => {
+    const store = createTestAnimationStore();
+    const detach = attachModuleBaker(store);
+    detach();
+    expect(store.getState().trackBaker).toBeUndefined();
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    expect(store.getState().trackBaker).toBeUndefined();
+  }, 60_000);
 });

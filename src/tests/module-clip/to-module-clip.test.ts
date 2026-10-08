@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { resolveAnimationDuration } from "../../functions/compute-animation-extent";
-import { toModuleClip, type AroraValueJson, type ModuleClip } from "../../functions/to-module-clip";
+import {
+  singleTrackClip,
+  toModuleClip,
+  type AroraValueJson,
+  type ModuleClip,
+} from "../../functions/to-module-clip";
 import { createTestAnimationStore } from "../../test-fixtures";
 import type { Animation } from "../../types";
 import { StandardTransitionType } from "../../types";
@@ -46,6 +51,20 @@ describe("toModuleClip", () => {
       ["a", "elbow"],
       ["e", "face"],
     ]);
+  });
+
+  test("reduced to one track, keys that track by its id, as a one-track bake takes it", () => {
+    const scene = buildScene([
+      buildTrack("a", "elbow", [point(0, 0), point(500, 1)]),
+      buildTrack("b", "wrist", [point(0, 2), point(500, 3)]),
+    ]);
+    const whole = toModuleClip(scene.animation, scene.tracks);
+    const one = decode(singleTrackClip(whole, "b"));
+
+    expect(one.tracks.map((t) => [t.id, t.animatable_id])).toEqual([["b", "b"]]);
+    expect(one.tracks[0].points).toEqual(decode(whole).tracks[1].points);
+    expect(one.duration).toBe(decode(whole).duration);
+    expect(decode(singleTrackClip(whole, "none")).tracks).toEqual([]);
   });
 
   test("lasts as long as Studio's player plays the animation, in whole milliseconds", () => {

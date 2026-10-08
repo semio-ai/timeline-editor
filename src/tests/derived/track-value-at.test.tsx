@@ -46,7 +46,7 @@ describe("trackValueAt", () => {
 });
 
 describe("useTrackValue", () => {
-  it("re-renders when the track's value at the playhead changes, not when the snapshot or the stamp alone moves", () => {
+  it("re-renders when the track's value at the playhead changes, by a playhead move or an edit, and not on a snapshot rebuild that leaves it", () => {
     const store = createTestAnimationStore({ trackBaker: clipBaker });
     const player = store.getState().playerStore;
     const stamp = player.getState().player.stamp;
@@ -80,5 +80,23 @@ describe("useTrackValue", () => {
     act(() => player.getState().resetPlayer(stamp + 500));
     expect(renders).toBe(atStart + 1);
     expect(result.current).toBe(valueAt(key, stamp + 500));
+
+    // An edit raises the curve under the playhead, which holds.
+    const moved = result.current;
+    const trackId = store.getState().derivedSnapshot!.tracks[key as never].metadata!.trackId!;
+    const edited = store.getState().tracks[trackId];
+    act(() =>
+      store.setState({
+        tracks: {
+          ...store.getState().tracks,
+          [trackId]: {
+            ...edited,
+            points: edited.points.map((p) => ({ ...p, value: (p.value as number) + 1 })),
+          },
+        },
+      }),
+    );
+    expect(renders).toBe(atStart + 2);
+    expect(result.current).toBeCloseTo((moved as number) + 1, 3);
   });
 });
