@@ -14,10 +14,6 @@ import capture from "./fixtures/recorded-entity-devices.json";
  * `Recorder`, as `startRecording` feeds one, and draws each device's input
  * (`k.target_position`, what reached it) and feedback (`k.position`, what it
  * did) on that device's own clock.
- *
- * The real device's clock reaches the World as `arora.time` (studio-bridge#102);
- * the capture records it under `arora/time`, the key the device writes, which
- * is what a recording in Studio reads once that is fixed.
  */
 const meta = {
   title: "animation/RecordedTracks",
