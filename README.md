@@ -94,3 +94,6 @@ function accepts the resulting runtime animation rather than a raw stored file.
 ## License
 
 MIT
+
+Toolbar sections use the shared UI `toolbar-segments` style for 2px gaps, square
+shared edges and rounded exposed ends. Section outlines remain on the group.
