@@ -1,13 +1,5 @@
 import { memo, useCallback, useMemo } from "react";
-import {
-  Button,
-  ContextMenu,
-  StaticIcon,
-  Size,
-  Dropdown,
-  TextField,
-  Tooltip,
-} from "@semio/ui";
+import { Button, ContextMenu, StaticIcon, Size, Dropdown, TextField, Tooltip } from "@semio/ui";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
 import { usePlayerStore, PlayerData } from "@semio/utils";
@@ -32,10 +24,16 @@ import { getSemanticLabelForIconCode, resolveSourceRef } from "../functions";
 import { KeyStrip } from "./key-strip";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
-import { ControlRow, GroupToggle, TrackPropertiesStrip } from "./controls";
+import {
+  ControlRow,
+  GroupToggle,
+  TrackPropertiesStrip,
+  type TrackPropertiesStripProps,
+} from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
 
 export interface TrackControlProps {
+  propertyControls?: TrackPropertiesStripProps;
   sourceRow: SourceRow;
   ancestorIsLast?: boolean[];
   /** Override the depth from sourceRow (used when rendered inside AnimatableControlList). */
@@ -44,7 +42,12 @@ export interface TrackControlProps {
   controlStripOverride?: ControlStripMode;
 }
 
-function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: TrackControlProps) {
+function InnerTrackControl({
+  sourceRow,
+  depthOverride,
+  controlStripOverride,
+  propertyControls,
+}: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
@@ -53,11 +56,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
 
   // Row-level store reads that the control itself (vs the menu) needs for
   // rendering, selection background, and active-instance focus.
-  const {
-    storeControlStripMode,
-    animatables,
-    emphasisRowId,
-  } = useAnimationStore(
+  const { storeControlStripMode, animatables, emphasisRowId } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       storeControlStripMode: state.preferences.controlStripMode,
       animatables: state.animatables,
@@ -203,11 +202,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
   );
 
   return (
-    <ContextMenu
-      content={menuContent}
-      disabled={menuOpen}
-      onOpenChange={setMenuOpen}
-    >
+    <ContextMenu content={menuContent} disabled={menuOpen} onOpenChange={setMenuOpen}>
       <div
         className="relative w-full"
         onMouseEnter={() => setEmphasis(sourceRow.id)}
@@ -380,6 +375,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
                 onToggleVisible={handleToggleVisible}
                 onToggleMuted={handleToggleMuted}
                 onToggleLocked={handleToggleLocked}
+                {...propertyControls}
               />
             ) : (
               <KeyStrip

@@ -14,6 +14,10 @@ import {
 import { TrackMenuProvider } from "./track-menu-context";
 
 export interface AnimatableControlListProps {
+  /** Restrict backing track rows to the host's namespace and animation instance. */
+  sourceNamespaceId?: string;
+  /** null explicitly selects direct controls, including for group rows. */
+  sourceInstanceId?: string | null;
   animatableIds?: string[];
   animatables?: AnimatableValue[];
   className?: string;
@@ -71,6 +75,8 @@ interface GroupContext {
 }
 
 export function AnimatableControlList({
+  sourceNamespaceId,
+  sourceInstanceId,
   animatableIds,
   animatables,
   className,
@@ -109,6 +115,13 @@ export function AnimatableControlList({
   }, [animatableIds, animatables, storeAnimatables]);
 
   const rowsForInstance = useMemo(() => {
+    if (sourceInstanceId === null) return [];
+    if (sourceNamespaceId !== undefined) {
+      return rows.filter((row) =>
+        row.data.length > 0 && row.data.every((datum) =>
+          datum.namespaceId === sourceNamespaceId && datum.instanceId === sourceInstanceId),
+      );
+    }
     if (selectionInstanceId) {
       return rows.filter((row) =>
         row.data.every((datum) => datum.instanceId === selectionInstanceId),
@@ -123,7 +136,7 @@ export function AnimatableControlList({
     );
 
     return foregroundRows.length > 0 ? foregroundRows : rows;
-  }, [rows, selectionInstanceId]);
+  }, [rows, selectionInstanceId, sourceNamespaceId, sourceInstanceId]);
 
   const rowByAnimatableId = useMemo(() => {
     const lookup = new Map<string, string>();
