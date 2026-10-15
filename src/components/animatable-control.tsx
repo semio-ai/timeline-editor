@@ -235,7 +235,7 @@ function AnimatableLeafControl({
   }
 
   if (sourceRow && resolvedMode === "track") {
-    return <TrackControl sourceRow={sourceRow} depthOverride={depth} />;
+    return <TrackControl sourceRow={sourceRow} depthOverride={depth} propertyControls={propertyControls} />;
   }
 
   return (
@@ -489,6 +489,7 @@ function AnimatableGroupControl({
   // the AnimatableGroupMenuContent for the "Add All Tracks" affordance.
   const controlMenu = useControlMenu({
     sourceRow: fallbackSourceRow,
+    propertyControls,
     trackIds: groupTrackIds,
     isGroup: true,
     allReadonly,

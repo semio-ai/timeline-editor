@@ -111,3 +111,7 @@ backing rows explicitly. Passing `sourceInstanceId={null}` excludes all track
 associations, including group rows. Without an explicit scope, the list retains
 its selection-based behavior. These options keep host-specific entity identity
 resolution outside the animation package.
+
+Host-provided property state and callbacks also drive track-row and mixed-group
+context menus. A namespace scope without an instance scope includes that
+namespace's instances; `sourceInstanceId={null}` explicitly selects direct controls.

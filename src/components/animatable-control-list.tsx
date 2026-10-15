@@ -119,7 +119,8 @@ export function AnimatableControlList({
     if (sourceNamespaceId !== undefined) {
       return rows.filter((row) =>
         row.data.length > 0 && row.data.every((datum) =>
-          datum.namespaceId === sourceNamespaceId && datum.instanceId === sourceInstanceId),
+          datum.namespaceId === sourceNamespaceId &&
+          (sourceInstanceId === undefined || datum.instanceId === sourceInstanceId)),
       );
     }
     if (selectionInstanceId) {

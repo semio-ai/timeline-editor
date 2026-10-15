@@ -1,5 +1,13 @@
 import { memo, useCallback, useMemo } from "react";
-import { Button, ContextMenu, StaticIcon, Size, Dropdown, TextField, Tooltip } from "@semio/ui";
+import {
+  Button,
+  ContextMenu,
+  StaticIcon,
+  Size,
+  Dropdown,
+  TextField,
+  Tooltip,
+} from "@semio/ui";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
 import { usePlayerStore, PlayerData } from "@semio/utils";
@@ -56,7 +64,11 @@ function InnerTrackControl({
 
   // Row-level store reads that the control itself (vs the menu) needs for
   // rendering, selection background, and active-instance focus.
-  const { storeControlStripMode, animatables, emphasisRowId } = useAnimationStore(
+  const {
+    storeControlStripMode,
+    animatables,
+    emphasisRowId,
+  } = useAnimationStore(
     useShallow((state: AnimationData) => ({
       storeControlStripMode: state.preferences.controlStripMode,
       animatables: state.animatables,
@@ -184,6 +196,7 @@ function InnerTrackControl({
     keyState,
   } = useControlMenu({
     sourceRow,
+    propertyControls,
     trackIds,
     isGroup,
     allReadonly,
@@ -202,7 +215,11 @@ function InnerTrackControl({
   );
 
   return (
-    <ContextMenu content={menuContent} disabled={menuOpen} onOpenChange={setMenuOpen}>
+    <ContextMenu
+      content={menuContent}
+      disabled={menuOpen}
+      onOpenChange={setMenuOpen}
+    >
       <div
         className="relative w-full"
         onMouseEnter={() => setEmphasis(sourceRow.id)}

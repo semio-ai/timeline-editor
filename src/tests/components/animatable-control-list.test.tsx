@@ -16,7 +16,7 @@ vi.mock("../../components/animatable-control", () => ({
 }));
 afterEach(cleanup);
 
-function renderList(instanceId: string | null) {
+function renderList(instanceId: string | null | undefined) {
   // Same instance id in two namespaces exercises the list's explicit namespace boundary.
   const store = createStore(() => ({
     selectionState: { instanceId: "i" },
@@ -52,6 +52,10 @@ describe("animatable control source scope", () => {
     expect(screen.getByTestId("joint").getAttribute("data-source")).toBe("e1@target/i/t1");
     expect(screen.getByTestId("spare").hasAttribute("data-source")).toBe(false);
     expect(screen.getByTestId("arm").getAttribute("data-source")).toBe("e1@target/i/arm");
+  });
+  it("supports namespace-only scope without silently losing its tracks", () => {
+    renderList(undefined);
+    expect(screen.getByTestId("joint").getAttribute("data-source")).toBe("e1@target/i/t1");
   });
   it("clears both leaf and group track associations in direct mode", () => {
     renderList(null);
