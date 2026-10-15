@@ -91,9 +91,10 @@ describe a different curve.
 Legacy v1 files are migrated to millisecond stamps when loaded; the export
 function accepts the resulting runtime animation rather than a raw stored file.
 
+Toolbar sections use the shared UI `toolbar-segments` style for 2px gaps, square
+shared edges and rounded exposed ends. Section outlines remain on the group.
+
+
 ## License
 
 MIT
-
-Toolbar sections use the shared UI `toolbar-segments` style for 2px gaps, square
-shared edges and rounded exposed ends. Section outlines remain on the group.
