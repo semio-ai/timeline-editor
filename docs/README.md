@@ -31,6 +31,7 @@ This README is the source of truth for package architecture and current behavior
 
 - `AnimationSheet` composes controls + canvas and is the primary consumer-facing editor surface.
 - `canvas-sheet/` owns marker/segment/handle rendering and gesture-driven interactions.
+- All three canvases subscribe to `useCanvasFrameloop()` from `@semio/utils` outside their R3F roots. The default is `always`; a host choosing `demand` owns scheduling global invalidations for continuous behavior. See the [shared API](../../utils/README.md#canvas-render-loop).
 - Storybook stories for this package live in `apps/docs/stories`.
 
 ## Playback speed controls
