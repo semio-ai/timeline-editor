@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
 import {
@@ -29,7 +29,7 @@ import { useKeyValue } from "../hooks/use-key-value";
 import { AnimatableNumberField } from "./animatable-number-field";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
-import { ControlRow, ControlStrip, GroupToggle } from "./controls";
+import { ControlRow, ControlStrip, GroupToggle, LabelWithNotice } from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
 import { KeyStrip } from "./key-strip";
 import {
@@ -79,6 +79,15 @@ export interface AnimatableLeafControlProps extends AnimatableControlBaseProps {
   onRename?: (name: string) => void;
   /** Tree nesting depth for indentation (0 = top-level). */
   depth?: number;
+  /**
+   * The record the control edits when the animation store holds none for
+   * `animatableId`: an input a device opens beyond the model. Such a control
+   * edits the value alone — it has no track to add, no colour to change and
+   * no name to edit.
+   */
+  animatable?: AnimatableValue;
+  /** Shown beside the label: a statement about the control, such as a device that does not take its input. */
+  notice?: ReactNode;
 }
 
 export interface AnimatableGroupControlProps extends AnimatableControlBaseProps {
@@ -112,6 +121,8 @@ function AnimatableLeafControl({
   onRename,
   disabled = false,
   depth = 0,
+  animatable: unstoredAnimatable,
+  notice,
 }: AnimatableLeafControlProps) {
   const resolvedMode: AnimatableControlMode = mode ?? (sourceRowId ? "track" : "direct");
   const running = usePlayer(useShallow((state) => state.player.running));
@@ -128,7 +139,10 @@ function AnimatableLeafControl({
     })),
   );
 
-  const animatable = useAnimationStore(useShallow((state) => state.animatables[animatableId]));
+  const storedAnimatable = useAnimationStore(
+    useShallow((state) => state.animatables[animatableId]),
+  );
+  const animatable = storedAnimatable ?? unstoredAnimatable;
 
   // The current value subscription has moved into `DirectAnimatableEditor`
   // (the leaf that actually displays the value). Subscribing here would
@@ -153,8 +167,8 @@ function AnimatableLeafControl({
 
   const canAutoCreateTrack =
     Boolean(activeAnimationId) &&
-    Boolean(animatable) &&
-    !COMPLEX_TYPES.has(animatable?.type ?? "number") &&
+    Boolean(storedAnimatable) &&
+    !COMPLEX_TYPES.has(storedAnimatable?.type ?? "number") &&
     !hasTrackInActiveAnimation &&
     !isActiveAnimationReadonly;
 
@@ -195,27 +209,27 @@ function AnimatableLeafControl({
 
   const handleChangeColor = useCallback(
     (v: string) => {
-      if (!animatable) return;
+      if (!storedAnimatable) return;
       updateAnimatable(animatableId, {
         pub: {
-          ...(animatable.pub ?? { public: true, output: "none" }),
+          ...(storedAnimatable.pub ?? { public: true, output: "none" }),
           color: v,
         },
       });
     },
-    [animatable, animatableId, updateAnimatable],
+    [storedAnimatable, animatableId, updateAnimatable],
   );
 
   const leafMenuContent = useMemo(
     () => (
       <AnimatableLeafMenuContent
         color={color}
-        disabled={editorDisabled}
+        disabled={editorDisabled || !storedAnimatable}
         onChangeColor={handleChangeColor}
         onAddTrack={addTrackAction}
       />
     ),
-    [color, editorDisabled, handleChangeColor, addTrackAction],
+    [color, editorDisabled, storedAnimatable, handleChangeColor, addTrackAction],
   );
 
   const { menuOpen, setMenuOpen } = useTrackMenuState();
@@ -231,6 +245,7 @@ function AnimatableLeafControl({
         sourceRow={sourceRow}
         depthOverride={depth}
         controlStripOverride={ControlStripMode.KeySkip}
+        notice={notice}
       />
     );
   }
@@ -263,16 +278,18 @@ function AnimatableLeafControl({
             />
           }
           label={
-            <TextField
-              size={Size.Sm}
-              color={resolvedColor}
-              value={labelField.value}
-              readOnly={editorDisabled || !onRename}
-              outline="hidden"
-              onChange={(val) => labelField.onChange(val)}
-              onBlur={labelField.onBlur}
-              onKeyDown={labelField.onKeyDown}
-            />
+            <LabelWithNotice notice={notice}>
+              <TextField
+                size={Size.Sm}
+                color={resolvedColor}
+                value={labelField.value}
+                readOnly={editorDisabled || !onRename}
+                outline="hidden"
+                onChange={(val) => labelField.onChange(val)}
+                onBlur={labelField.onBlur}
+                onKeyDown={labelField.onKeyDown}
+              />
+            </LabelWithNotice>
           }
           editor={
             <DirectAnimatableEditor
