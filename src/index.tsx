@@ -1,4 +1,7 @@
 export {
+  ControlStripModeToggle,
+  TrackPropertiesStrip,
+  type TrackPropertiesStripProps,
   AnimatableControl,
   AnimatableControlList,
   AnimatableNumberField,
@@ -38,4 +41,10 @@ export * from "./keybindings";
 export * from "./test-fixtures";
 
 // Re-export values store from @semio/utils for convenience
-export { useValuesStore, mergeValueMaps, type ValuesStore, type ValuesData, type ValuesActions } from "@semio/utils";
+export {
+  useValuesStore,
+  mergeValueMaps,
+  type ValuesStore,
+  type ValuesData,
+  type ValuesActions,
+} from "@semio/utils";

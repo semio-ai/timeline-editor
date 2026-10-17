@@ -31,6 +31,7 @@ This README is the source of truth for package architecture and current behavior
 
 - `AnimationSheet` composes controls + canvas and is the primary consumer-facing editor surface.
 - `canvas-sheet/` owns marker/segment/handle rendering and gesture-driven interactions.
+- All three canvases subscribe to `useCanvasFrameloop()` from `@semio/utils` outside their R3F roots. The default is `always`; a host choosing `demand` owns scheduling global invalidations for continuous behavior. See the [shared API](../../utils/README.md#canvas-render-loop).
 - Storybook stories for this package live in `apps/docs/stories`.
 
 ## Playback speed controls
@@ -126,3 +127,21 @@ The registry uses `@solar-icons/react-perf` components directly, which is why th
 package is a dependency here. Solar artwork is by 480 Design under CC BY 4.0; this
 package's `NOTICE` carries the attributions and the list of vendored glyphs it
 renders through `@semio/ui`.
+
+## Shared animatable control properties
+
+`AnimatableControl` and its group rows honor `preferences.controlStripMode`, the
+same preference as timeline rows. `ControlStripModeToggle` is shared by the editor
+and hosts. A host may supply `propertyControls` (the `TrackPropertiesStrip` props)
+for direct controls or groups mixing tracked and trackless children; track-backed
+rows otherwise retain the editor's source-flag actions.
+
+`AnimatableControlList` accepts `sourceNamespaceId` and `sourceInstanceId` to scope
+backing rows explicitly. Passing `sourceInstanceId={null}` excludes all track
+associations, including group rows. Without an explicit scope, the list retains
+its selection-based behavior. These options keep host-specific entity identity
+resolution outside the animation package.
+
+Host-provided property state and callbacks also drive track-row and mixed-group
+context menus. A namespace scope without an instance scope includes that
+namespace's instances; `sourceInstanceId={null}` explicitly selects direct controls.

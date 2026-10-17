@@ -9,3 +9,5 @@ export * from "./time-display";
 export * from "./key-strip";
 export * from "./utilities/motion-cubic-bezier-fill";
 export * from "./utilities/motion-cubic-bezier-line";
+
+export * from "./control-strip-mode-toggle";

@@ -1,5 +1,29 @@
 # @semio/animation
 
+## 0.4.0
+
+### Minor Changes
+
+- 0f67e09: Expose host-supplied control properties and shared strip mode, scoped control-list sources, and per-control scene visibility and interaction policy.
+
+### Patch Changes
+
+- 718aa2c: Subscribe the timeline, tracks and minimap canvases to the host's shared render-loop setting from @semio/utils, preserving continuous rendering by default.
+- 00a3856: Use shared toolbar segment adjacency styling to keep square shared edges and rounded exposed ends.
+- Updated dependencies [59c07f3]
+- Updated dependencies [7eafe8d]
+- Updated dependencies [68f6c72]
+- Updated dependencies [fb2e03d]
+- Updated dependencies [1242fdc]
+- Updated dependencies [d25b073]
+- Updated dependencies [58ee9aa]
+- Updated dependencies [5033a08]
+- Updated dependencies [4fa327f]
+- Updated dependencies [718aa2c]
+- Updated dependencies [8101906]
+  - @semio/ui@0.4.0
+  - @semio/utils@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
