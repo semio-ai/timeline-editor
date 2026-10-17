@@ -1,4 +1,7 @@
 export {
+  ControlStripModeToggle,
+  TrackPropertiesStrip,
+  type TrackPropertiesStripProps,
   AnimatableControl,
   AnimatableControlList,
   AnimatableNumberField,
@@ -39,4 +42,10 @@ export * from "./test-fixtures";
 
 // The values store of @semio/utils, re-exported for hosts that import it from here.
 // The package itself reads values through the injected `DataStore`.
-export { useValuesStore, mergeValueMaps, type ValuesStore, type ValuesData, type ValuesActions } from "@semio/utils";
+export {
+  useValuesStore,
+  mergeValueMaps,
+  type ValuesStore,
+  type ValuesData,
+  type ValuesActions,
+} from "@semio/utils";

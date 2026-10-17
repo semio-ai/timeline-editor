@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useShallow } from "zustand/shallow";
 import * as THREE from "three";
 import { Theme, TooltipHost } from "@semio/ui";
+import { useCanvasFrameloop } from "@semio/utils";
 import { TrackRender } from "../../types";
 import { PanZoomControls } from "../controls/pan-zoom-controls";
 import { calculatePaddedFrustum } from "../../viewport-utils";
@@ -107,12 +108,14 @@ export const TimelineCanvas = memo(function TimelineCanvas({
   fonts = {},
   onReady,
 }: TimelineCanvasProps) {
+  const frameloop = useCanvasFrameloop();
   const initialViewport = viewportMotion.get();
   const { left, right } = calculatePaddedFrustum(initialViewport, ESTIMATED_CANVAS_WIDTH);
 
   return (
     <TooltipHost className="h-full w-full">
       <Canvas
+        frameloop={frameloop}
         // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
         style={{ width: "100%", height: "100%" }}
         flat
@@ -194,12 +197,14 @@ export const TracksCanvas = memo(function TracksCanvas({
   rowIdLookup,
   onReady,
 }: TracksCanvasProps) {
+  const frameloop = useCanvasFrameloop();
   const initialViewport = viewportMotion.get();
   const { left, right } = calculatePaddedFrustum(initialViewport, ESTIMATED_CANVAS_WIDTH);
 
   return (
     <TooltipHost className="h-full w-full">
       <Canvas
+        frameloop={frameloop}
         // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
         style={{ width: "100%", height: "100%" }}
         flat
@@ -306,6 +311,7 @@ export const MinimapCanvas = memo(function MinimapCanvas({
   onReady,
 }: MinimapCanvasProps) {
   const playerStore = useAnimationStore((state) => state.playerStore);
+  const frameloop = useCanvasFrameloop();
   const initialDuration = playerStore.getState().player.duration;
   const initialFixed: [number, number] = [0, Math.max(initialDuration, 1000)];
   const { left, right } = calculatePaddedFrustum(initialFixed, ESTIMATED_CANVAS_WIDTH);
@@ -313,6 +319,7 @@ export const MinimapCanvas = memo(function MinimapCanvas({
   return (
     <TooltipHost className="h-full w-full">
       <Canvas
+        frameloop={frameloop}
         // @ts-ignore R3F v9 CanvasProps doesn't expose HTMLAttributes in React 19
         style={{ width: "100%", height: "100%" }}
         flat

@@ -63,7 +63,7 @@ export const TrackPropertiesStrip = memo(function TrackPropertiesStrip({
         sizing="inner"
         size={Size.Xs}
         color={color}
-        label={`${muted ? "Unmute" : "Mute"}${suffix}`}
+        label={`${muted === true ? "Unmute" : "Mute"}${suffix}`}
         value={muted === "partial" ? "partial" : !muted}
         disabled={disabled || !onToggleMuted}
         onChange={() => onToggleMuted?.()}

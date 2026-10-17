@@ -1,10 +1,10 @@
 import { memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Icon, KeyIcon, ToggleSquare, Size } from "@semio/ui";
+import { Icon, ToggleSquare, Size } from "@semio/ui";
 import { useAnimationStore } from "../hooks";
 import { collectSourceTracks } from "../functions/source-utils";
-import { ControlStripMode } from "../store-types";
 import type { AnimationActions, AnimationData } from "../store-types";
+import { ControlStripModeToggle } from "./control-strip-mode-toggle";
 
 /**
  * Filter row toggle buttons:
@@ -21,12 +21,6 @@ import type { AnimationActions, AnimationData } from "../store-types";
  * Clicking partial sets all to the "on" state.
  */
 export const TrackFilterToggles = memo(function TrackFilterToggles() {
-  const controlStripMode = useAnimationStore(
-    useShallow((state: AnimationData) => state.preferences.controlStripMode),
-  );
-  const setPreferences = useAnimationStore(
-    useShallow((state: AnimationActions) => state.setPreferences),
-  );
   const globalSourceTree = useAnimationStore(
     useShallow((state: AnimationData) => state.globalSourceTree),
   );
@@ -39,8 +33,6 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
   const setTracksLocked = useAnimationStore(
     useShallow((state: AnimationActions) => state.setTracksLocked),
   );
-
-  const isProperties = controlStripMode === ControlStripMode.Properties;
 
   // Collect all leaf tracks and compute aggregate states
   const { allIds, visibleState, mutedState, lockedState } = useMemo(() => {
@@ -75,24 +67,7 @@ export const TrackFilterToggles = memo(function TrackFilterToggles() {
 
   return (
     <>
-      {/* Mode toggle */}
-      <ToggleSquare
-        sizing="inner"
-        size={Size.Xs}
-        label={isProperties ? "Show key controls" : "Show track properties"}
-        value={isProperties}
-        onChange={() =>
-          setPreferences({
-            controlStripMode: isProperties ? ControlStripMode.KeySkip : ControlStripMode.Properties,
-          })
-        }
-      >
-        {isProperties ? (
-          <Icon name="settings" size="none" className="block w-3.5 h-3.5 shrink-0" />
-        ) : (
-          <KeyIcon fillOpacity={0} className="block w-3.5 h-3.5 shrink-0" />
-        )}
-      </ToggleSquare>
+      <ControlStripModeToggle />
 
       {/* Global visibility */}
       <ToggleSquare

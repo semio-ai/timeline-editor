@@ -59,6 +59,16 @@ Playback and viewport are decoupled: pan / zoom / playhead-follow are driven by
 motion values independent of the player tick, so the timeline follows the
 playhead smoothly without re-rendering the React tree on every frame.
 
+## Canvas render loop
+
+The timeline, tracks and minimap render every frame by default
+(`frameloop="always"`). Hosts can choose `CanvasFrameloop.Demand` through
+`setCanvasFrameloop()` from `@semio/utils`, which also controls `@semio/scene`.
+All three canvases subscribe to the setting, including while mounted. The
+host must schedule R3F's global `invalidate()` to keep continuous behavior
+running in demand mode; this package starts no timer. See the
+[shared API](../utils/README.md#canvas-render-loop).
+
 ## What's inside
 
 All re-exported from the package root:
@@ -120,6 +130,10 @@ cause an explicit error so the file cannot silently name the wrong joint or
 describe a different curve.
 Legacy v1 files are migrated to millisecond stamps when loaded; the export
 function accepts the resulting runtime animation rather than a raw stored file.
+
+Toolbar sections use the shared UI `toolbar-segments` style for 2px gaps, square
+shared edges and rounded exposed ends. Section outlines remain on the group.
+
 
 ## License
 

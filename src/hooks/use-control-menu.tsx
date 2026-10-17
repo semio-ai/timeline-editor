@@ -8,12 +8,15 @@ import { computeAggregate, nextToggleValue } from "../functions/three-way-aggreg
 import type { AggregateState } from "../functions/three-way-aggregate";
 import type { AnimationActions, AnimationData } from "../store-types";
 import type { SourceRow } from "../types";
+import type { TrackPropertiesStripProps } from "../components/controls/track-properties-strip";
 import { useActiveAnimationId } from "./use-active-animation-id";
 import { useAnimationStore } from "./use-animation-store";
 import { useKeyControlState } from "./use-key-control-state";
 import { usePlayer } from "./use-player";
 
 export interface UseControlMenuParams {
+  /** Host policy shared by the row strip and context menu. */
+  propertyControls?: TrackPropertiesStripProps;
   /** The source row this menu acts on. Caller supplies a fallback if no live row exists. */
   sourceRow: SourceRow;
   /** Raw track IDs for this row (post-uniq). */
@@ -81,6 +84,7 @@ export interface UseControlMenuResult {
  */
 export function useControlMenu({
   sourceRow,
+  propertyControls,
   trackIds,
   isGroup,
   allReadonly,
@@ -270,14 +274,15 @@ export function useControlMenu({
           isGroup={isGroup}
           sourceRowId={sourceRow.id}
           color={color}
-          visible={rowVisible}
-          muted={rowMuted === true}
-          locked={rowLocked}
-          readonly={rowReadonly === true}
+          propertiesDisabled={propertyControls?.disabled}
+          visible={propertyControls?.visible ?? rowVisible}
+          muted={(propertyControls?.muted ?? rowMuted) === true}
+          locked={propertyControls?.locked ?? rowLocked}
+          readonly={propertyControls?.readonly ?? rowReadonly === true}
           onChangeColor={handleChangeColor}
-          onToggleVisible={handleToggleVisible}
-          onToggleMuted={handleToggleMuted}
-          onToggleLocked={handleToggleLocked}
+          onToggleVisible={propertyControls?.onToggleVisible ?? handleToggleVisible}
+          onToggleMuted={propertyControls?.onToggleMuted ?? handleToggleMuted}
+          onToggleLocked={propertyControls?.onToggleLocked ?? handleToggleLocked}
           onRemoveTrack={activeAnimationId ? handleRemoveTrack : undefined}
           keyState={keyState}
           onAddKeyframe={handleAddKeyframe}
@@ -299,6 +304,7 @@ export function useControlMenu({
       </KeybindingProvider>
     ),
     [
+      propertyControls,
       keybindingMap,
       playing,
       allReadonly,
