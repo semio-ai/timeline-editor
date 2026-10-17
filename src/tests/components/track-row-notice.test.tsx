@@ -68,18 +68,18 @@ it("shows, beside a track's name, what the host states for the input it animates
     <RowNoticeContext.Provider
       value={(namespaceId, animatableId) =>
         namespaceId === "e@target" && animatableId === "anim-lamp" ? (
-          <span role="img" aria-label="Quori 7 has no such input." />
+          <span role="img" aria-label="Quori 7 does not declare this input." />
         ) : undefined
       }
     >
       <TrackControl sourceRow={lampRow} />
     </RowNoticeContext.Provider>,
   );
-  expect(screen.getByRole("img", { name: "Quori 7 has no such input." })).toBeDefined();
+  expect(screen.getByRole("img", { name: "Quori 7 does not declare this input." })).toBeDefined();
   expect(screen.getByDisplayValue("Lamp")).toBeDefined();
 });
 
 it("shows nothing beside it when the host states nothing", () => {
   render(<TrackControl sourceRow={lampRow} />);
-  expect(screen.queryByRole("img", { name: "Quori 7 has no such input." })).toBeNull();
+  expect(screen.queryByRole("img", { name: "Quori 7 does not declare this input." })).toBeNull();
 });
