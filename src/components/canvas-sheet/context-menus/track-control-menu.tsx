@@ -23,6 +23,8 @@ export interface TrackControlMenuProps {
   sourceRowId: string;
 
   // --- Track properties ---
+  /** Host override for property actions, independent of keyframe edit permissions. */
+  propertiesDisabled?: boolean;
   color?: string;
   visible: boolean | "partial";
   muted: boolean;
@@ -80,6 +82,7 @@ export function TrackControlMenuContent({
   trackIds,
   isGroup = false,
   color,
+  propertiesDisabled,
   visible,
   muted,
   locked,
@@ -108,6 +111,7 @@ export function TrackControlMenuContent({
 }: TrackControlMenuProps): ReactNode {
   const isSingleTrack = trackIds.length === 1;
   const disabled = playing || allReadonly;
+  const propertyDisabled = propertiesDisabled ?? playing;
   const lockActionIcon = locked ? "unlock" : "lock";
 
   return (
@@ -182,7 +186,7 @@ export function TrackControlMenuContent({
       )}
       <NestedItem
         closeOnSelect={false}
-        disabled={playing}
+        disabled={propertyDisabled}
         onClick={onToggleVisible}
         left={visible === true ? <Icon name="hide" /> : <Icon name="show" />}
       >
@@ -191,7 +195,7 @@ export function TrackControlMenuContent({
       </NestedItem>
       <NestedItem
         closeOnSelect={false}
-        disabled={disabled}
+        disabled={propertiesDisabled ?? disabled}
         onClick={onToggleMuted}
         left={muted ? <Icon name="unmute" /> : <Icon name="mute" />}
       >
@@ -200,7 +204,7 @@ export function TrackControlMenuContent({
       </NestedItem>
       <NestedItem
         closeOnSelect={false}
-        disabled={playing || readonly}
+        disabled={propertyDisabled || readonly}
         onClick={onToggleLocked}
         left={
           // Document-readonly always reads as locked visually; user-toggle
