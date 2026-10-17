@@ -32,10 +32,16 @@ import { getSemanticLabelForIconCode, resolveSourceRef } from "../functions";
 import { KeyStrip } from "./key-strip";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
-import { ControlRow, GroupToggle, TrackPropertiesStrip } from "./controls";
+import {
+  ControlRow,
+  GroupToggle,
+  TrackPropertiesStrip,
+  type TrackPropertiesStripProps,
+} from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
 
 export interface TrackControlProps {
+  propertyControls?: TrackPropertiesStripProps;
   sourceRow: SourceRow;
   ancestorIsLast?: boolean[];
   /** Override the depth from sourceRow (used when rendered inside AnimatableControlList). */
@@ -44,7 +50,12 @@ export interface TrackControlProps {
   controlStripOverride?: ControlStripMode;
 }
 
-function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: TrackControlProps) {
+function InnerTrackControl({
+  sourceRow,
+  depthOverride,
+  controlStripOverride,
+  propertyControls,
+}: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
@@ -185,6 +196,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
     keyState,
   } = useControlMenu({
     sourceRow,
+    propertyControls,
     trackIds,
     isGroup,
     allReadonly,
@@ -380,6 +392,7 @@ function InnerTrackControl({ sourceRow, depthOverride, controlStripOverride }: T
                 onToggleVisible={handleToggleVisible}
                 onToggleMuted={handleToggleMuted}
                 onToggleLocked={handleToggleLocked}
+                {...propertyControls}
               />
             ) : (
               <KeyStrip
