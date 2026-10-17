@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, type ReactNode } from "react";
+import { type ReactNode, memo, useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
 import {
@@ -29,7 +29,14 @@ import { useKeyValue } from "../hooks/use-key-value";
 import { AnimatableNumberField } from "./animatable-number-field";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
-import { ControlRow, ControlStrip, GroupToggle, LabelWithNotice } from "./controls";
+import {
+  ControlRow,
+  ControlStrip,
+  GroupToggle,
+  LabelWithNotice,
+  TrackPropertiesStrip,
+  type TrackPropertiesStripProps,
+} from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
 import { KeyStrip } from "./key-strip";
 import {
@@ -41,6 +48,8 @@ import { useTrackMenuState } from "./track-menu-context";
 export type AnimatableControlMode = "track" | "track-missing" | "direct";
 
 export interface AnimatableControlBaseProps {
+  /** Host-supplied property state for direct controls and mixed groups. */
+  propertyControls?: TrackPropertiesStripProps;
   disabled?: boolean;
 }
 
@@ -120,11 +129,13 @@ function AnimatableLeafControl({
   label,
   onRename,
   disabled = false,
+  propertyControls,
   depth = 0,
   animatable: unstoredAnimatable,
   notice,
 }: AnimatableLeafControlProps) {
   const resolvedMode: AnimatableControlMode = mode ?? (sourceRowId ? "track" : "direct");
+  const stripMode = useAnimationStore((state) => state.preferences.controlStripMode);
   const running = usePlayer(useShallow((state) => state.player.running));
 
   const sourceRow = useAnimationStore(
@@ -244,7 +255,7 @@ function AnimatableLeafControl({
       <TrackControl
         sourceRow={sourceRow}
         depthOverride={depth}
-        controlStripOverride={ControlStripMode.KeySkip}
+        propertyControls={propertyControls}
         notice={notice}
       />
     );
@@ -301,17 +312,21 @@ function AnimatableLeafControl({
             />
           }
           controls={
-            <ControlStrip
-              color={resolvedColor}
-              disabled={editorDisabled}
-              prevEnabled={false}
-              nextEnabled={false}
-              prevVisible={false}
-              nextVisible={false}
-              centerIcon="plus"
-              centerAltText="Add Track"
-              onCenter={addTrackAction}
-            />
+            stripMode === ControlStripMode.Properties && propertyControls ? (
+              <TrackPropertiesStrip color={resolvedColor} {...propertyControls} />
+            ) : (
+              <ControlStrip
+                color={resolvedColor}
+                disabled={editorDisabled}
+                prevEnabled={false}
+                nextEnabled={false}
+                prevVisible={false}
+                nextVisible={false}
+                centerIcon="plus"
+                centerAltText="Add Track"
+                onCenter={addTrackAction}
+              />
+            )
           }
           options={
             <Dropdown
@@ -349,8 +364,10 @@ function AnimatableGroupControl({
   addable,
   sourceRowId,
   disabled = false,
+  propertyControls,
   depth = 0,
 }: AnimatableGroupControlProps) {
+  const stripMode = useAnimationStore((state) => state.preferences.controlStripMode);
   const running = usePlayer(useShallow((state) => state.player.running));
 
   // Store reads the group control needs for rendering, not for the menu.
@@ -497,6 +514,7 @@ function AnimatableGroupControl({
   // the AnimatableGroupMenuContent for the "Add All Tracks" affordance.
   const controlMenu = useControlMenu({
     sourceRow: fallbackSourceRow,
+    propertyControls,
     trackIds: groupTrackIds,
     isGroup: true,
     allReadonly,
@@ -521,6 +539,54 @@ function AnimatableGroupControl({
   ]);
 
   const { menuOpen, setMenuOpen } = controlMenu;
+
+  let groupControls: ReactNode;
+  if (stripMode === ControlStripMode.Properties && (propertyControls || hasTrackGroup)) {
+    groupControls = (
+      <TrackPropertiesStrip
+        color={resolvedColor}
+        isGroup
+        {...(propertyControls ?? {
+          visible: controlMenu.rowVisible,
+          muted: controlMenu.rowMuted,
+          locked: controlMenu.rowLocked,
+          readonly: controlMenu.rowReadonly === true,
+          onToggleVisible: controlMenu.handleToggleVisible,
+          onToggleMuted: controlMenu.handleToggleMuted,
+          onToggleLocked: controlMenu.handleToggleLocked,
+        })}
+      />
+    );
+  } else if (hasTrackGroup && sourceRow) {
+    groupControls = (
+      <KeyStrip
+        source={sourceRow}
+        color={resolvedColor}
+        disabled={disabled || running || allReadonly}
+        onHexClick={() => {
+          if (controlMenu.keyState === "full") {
+            controlMenu.handleRemoveKeyframe();
+          } else {
+            controlMenu.handleAddKeyframe();
+          }
+        }}
+      />
+    );
+  } else {
+    groupControls = (
+      <ControlStrip
+        color={resolvedColor}
+        disabled={disabled || running}
+        prevEnabled={false}
+        nextEnabled={false}
+        prevVisible={false}
+        nextVisible={false}
+        centerIcon={centerIcon}
+        centerAltText="Add Track Group"
+        onCenter={canAdd ? (onAddTrack ?? handleAddTracks) : undefined}
+      />
+    );
+  }
 
   return (
     <ContextMenu content={groupMenuContent} disabled={menuOpen} onOpenChange={setMenuOpen}>
@@ -579,34 +645,7 @@ function AnimatableGroupControl({
               onKeyDown={labelField.onKeyDown}
             />
           }
-          controls={
-            hasTrackGroup && sourceRow ? (
-              <KeyStrip
-                source={sourceRow}
-                color={resolvedColor}
-                disabled={disabled || running || allReadonly}
-                onHexClick={() => {
-                  if (controlMenu.keyState === "full") {
-                    controlMenu.handleRemoveKeyframe();
-                  } else {
-                    controlMenu.handleAddKeyframe();
-                  }
-                }}
-              />
-            ) : (
-              <ControlStrip
-                color={resolvedColor}
-                disabled={disabled || running}
-                prevEnabled={false}
-                nextEnabled={false}
-                prevVisible={false}
-                nextVisible={false}
-                centerIcon={centerIcon}
-                centerAltText="Add Track Group"
-                onCenter={canAdd ? (onAddTrack ?? handleAddTracks) : undefined}
-              />
-            )
-          }
+          controls={groupControls}
           options={
             <Dropdown
               disabled={disabled || running || menuOpen}

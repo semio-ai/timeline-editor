@@ -33,10 +33,17 @@ import { usePlayer } from "../hooks/use-player";
 import { KeyStrip } from "./key-strip";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
-import { ControlRow, GroupToggle, LabelWithNotice, TrackPropertiesStrip } from "./controls";
+import {
+  ControlRow,
+  GroupToggle,
+  LabelWithNotice,
+  TrackPropertiesStrip,
+  type TrackPropertiesStripProps,
+} from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
 
 export interface TrackControlProps {
+  propertyControls?: TrackPropertiesStripProps;
   sourceRow: SourceRow;
   ancestorIsLast?: boolean[];
   /** Override the depth from sourceRow (used when rendered inside AnimatableControlList). */
@@ -52,6 +59,7 @@ function InnerTrackControl({
   depthOverride,
   controlStripOverride,
   notice,
+  propertyControls,
 }: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
@@ -194,6 +202,7 @@ function InnerTrackControl({
     keyState,
   } = useControlMenu({
     sourceRow,
+    propertyControls,
     trackIds,
     isGroup,
     allReadonly,
@@ -391,6 +400,7 @@ function InnerTrackControl({
                 onToggleVisible={handleToggleVisible}
                 onToggleMuted={handleToggleMuted}
                 onToggleLocked={handleToggleLocked}
+                {...propertyControls}
               />
             ) : (
               <KeyStrip

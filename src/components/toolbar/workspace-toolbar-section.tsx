@@ -157,7 +157,7 @@ export const WorkspaceToolbarSection = memo(function WorkspaceToolbarSection({
   }, [activeWorkspaceDraftName, commitWorkspaceRename, isEditingActiveWorkspace]);
 
   return (
-    <div className="variant-scope variant-responsive-persistent-outline flex flex-1 gap-0.5 rounded-sm p-0.5">
+    <div className="variant-scope variant-responsive-persistent-outline toolbar-segments flex flex-1 gap-0.5 rounded-sm p-0.5">
       <ToolbarTooltipButton
         tooltip="Toggle Workspace Expansion"
         visuals="inverted"
