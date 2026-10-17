@@ -38,6 +38,7 @@ import {
   GroupToggle,
   LabelWithNotice,
   TrackPropertiesStrip,
+  useRowNotice,
   type TrackPropertiesStripProps,
 } from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
@@ -50,7 +51,11 @@ export interface TrackControlProps {
   depthOverride?: number;
   /** Override the control strip mode (e.g., force KeySkip in the animatable control list). */
   controlStripOverride?: ControlStripMode;
-  /** Shown beside the label: a statement about the row, such as a device that does not take its input. */
+  /**
+   * Shown beside the label: a statement about the row, such as how a paired
+   * device differs on its input. When not given, a one-track row shows the
+   * host's {@link RowNoticeContext} for its track.
+   */
   notice?: ReactNode;
 }
 
@@ -64,6 +69,7 @@ function InnerTrackControl({
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
+  const shownNotice = useRowNotice(sourceRow, notice);
 
   const playing = usePlayer(useShallow((state: PlayerData) => state.player.running));
   const playerStore = useAnimationStore((state) => state.playerStore);
@@ -296,7 +302,7 @@ function InnerTrackControl({
             />
           }
           label={
-            <LabelWithNotice notice={notice}>
+            <LabelWithNotice notice={shownNotice}>
               <TextField
                 size={Size.Sm}
                 color={color}

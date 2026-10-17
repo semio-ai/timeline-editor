@@ -54,7 +54,7 @@ docstring is the mapping; in short:
 | --- | --- |
 | animation name, duration (`resolveAnimationDuration`) | `name`, `duration` in whole ms, rounded up |
 | track id and name | track `id` and `name` |
-| track's animatable (the first track on an animatable claims it) | `animatable_id` = the Studio animatable id; whatever loads the clip keys it onto a device |
+| track's animatable, or the input it animates beyond the model (the first track on one claims it) | `animatable_id` = the Studio animatable id, or the track's `inputKey`; whatever loads the clip keys it onto a device |
 | keypoint stamp (ms) | `stamp` = stamp / duration (`f32`) |
 | number / boolean / string | `f64` / `bool` / `str` |
 | numeric segment (easings, directives, explicit handles, clamps) | its Bézier from `resolveSegmentControlPoints`, normalized to the segment; cut at value extrema |
@@ -71,6 +71,24 @@ Node through `@vizij/runtime`, behind `ModuleClipHost` (`vizij-runtime-host.ts`)
 `clipBaker` (`clip-baker.ts`), the baker the other tests draw curves with, reads a
 clip back and samples it as the module does; the same tests hold it to the
 exact curve.
+
+## A track on an input beyond the model
+
+A track animates an animatable of the entity's model, `animatableId`, or an
+input the entity's runtime declares beyond the model, which `inputKey` names by
+its key (`fan.target_value`, `speaker/gain`). Such a track's `animatableId` is
+`runtimeInputId(inputKey)` (`@semio/utils`), the id under which the host keeps
+the input's record among the animatables, so its rows, curves and controls are
+an animatable's; `createTrack` sets `inputKey` for a track created on such an
+id. It plays on an entity whose runtime declares the key, and nowhere else.
+
+It is stored as every track is, in the animation's content (`StoredAnimation`,
+the JSON an animation asset saves), with `inputKey` one more optional field;
+the rest of the shape is unchanged, and no Firestore document or rule reads
+tracks. A client that does not know the field reads the track as one on an
+animatable its model lacks, as after a model update removed one: it lists the
+track, draws and plays none of it, and keeps the field when it saves the
+animation, since a track is stored whole.
 
 ## Curves from the module
 

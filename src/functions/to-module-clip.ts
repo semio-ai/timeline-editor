@@ -49,17 +49,19 @@ export function moduleClipDuration(
  * Converts a Studio animation into the Vizij animation module's clip.
  *
  * - **Tracks.** One module track per Studio track, with the Studio track's
- *   id and name. Of the tracks on one animatable, the first in
+ *   id and name. Of the tracks on one animatable or input, the first in
  *   `animation.tracks` claims it, as in Studio's playback; a track with no
  *   keypoint claims it too and is left out, so the animatable is not
  *   animated (the module would write `0` for it). Muting is not seen here:
  *   Studio keeps it per instance in the editor's source tree, and a muted
  *   track converts like any other.
  * - **Keys.** A track's `animatable_id` — the key the module reports each
- *   output under — is the Studio animatable id. The clip names no device
- *   key, so one clip serves every entity and device the animation plays on;
- *   checking a track against an entity's animatables and keying its outputs
- *   onto a device's keys belong to whatever loads the clip.
+ *   output under — names what it animates: the Studio animatable id, or, for
+ *   a track on an input an entity's runtime declares beyond its model, that
+ *   input's key (`Track.inputKey`). The clip names no device key of an
+ *   animatable, so one clip serves every entity and device the animation
+ *   plays on; checking a track against an entity's inputs and keying its
+ *   outputs onto a device's keys belong to whatever loads the clip.
  * - **Time.** `duration` is the animation's duration as Studio's player
  *   derives it (`resolveAnimationDuration`), rounded up to whole milliseconds;
  *   stamps are divided by it, so clip time equals the animation's local time.
@@ -108,14 +110,15 @@ export function toModuleClip(
   for (const trackId of animation.tracks) {
     const track = tracks[trackId];
     if (!track || !carried.has(trackId)) continue;
-    if (claimed.has(track.animatableId)) continue;
-    claimed.add(track.animatableId);
+    const animated = track.inputKey ?? track.animatableId;
+    if (claimed.has(animated)) continue;
+    claimed.add(animated);
     if (track.points.length === 0) continue;
     moduleTracks.push({
       fields: [
         field(FIELD.trackId, { str: track.id }),
         field(FIELD.trackName, { str: track.name }),
-        field(FIELD.trackAnimatable, { str: track.animatableId }),
+        field(FIELD.trackAnimatable, { str: animated }),
         field(FIELD.trackPoints, {
           structs: {
             id: TYPE.keypoint,

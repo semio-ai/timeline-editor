@@ -88,14 +88,7 @@ export interface AnimatableLeafControlProps extends AnimatableControlBaseProps {
   onRename?: (name: string) => void;
   /** Tree nesting depth for indentation (0 = top-level). */
   depth?: number;
-  /**
-   * The record the control edits when the animation store holds none for
-   * `animatableId`: an input a device opens beyond the model. Such a control
-   * edits the value alone — it has no track to add, no colour to change and
-   * no name to edit.
-   */
-  animatable?: AnimatableValue;
-  /** Shown beside the label: a statement about the control, such as a device that does not take its input. */
+  /** Shown beside the label: a statement about the control, such as how a paired device differs on its input. */
   notice?: ReactNode;
 }
 
@@ -131,7 +124,6 @@ function AnimatableLeafControl({
   disabled = false,
   propertyControls,
   depth = 0,
-  animatable: unstoredAnimatable,
   notice,
 }: AnimatableLeafControlProps) {
   const resolvedMode: AnimatableControlMode = mode ?? (sourceRowId ? "track" : "direct");
@@ -150,10 +142,7 @@ function AnimatableLeafControl({
     })),
   );
 
-  const storedAnimatable = useAnimationStore(
-    useShallow((state) => state.animatables[animatableId]),
-  );
-  const animatable = storedAnimatable ?? unstoredAnimatable;
+  const animatable = useAnimationStore(useShallow((state) => state.animatables[animatableId]));
 
   // The current value subscription has moved into `DirectAnimatableEditor`
   // (the leaf that actually displays the value). Subscribing here would
@@ -178,8 +167,8 @@ function AnimatableLeafControl({
 
   const canAutoCreateTrack =
     Boolean(activeAnimationId) &&
-    Boolean(storedAnimatable) &&
-    !COMPLEX_TYPES.has(storedAnimatable?.type ?? "number") &&
+    Boolean(animatable) &&
+    !COMPLEX_TYPES.has(animatable?.type ?? "number") &&
     !hasTrackInActiveAnimation &&
     !isActiveAnimationReadonly;
 
@@ -220,27 +209,27 @@ function AnimatableLeafControl({
 
   const handleChangeColor = useCallback(
     (v: string) => {
-      if (!storedAnimatable) return;
+      if (!animatable) return;
       updateAnimatable(animatableId, {
         pub: {
-          ...(storedAnimatable.pub ?? { public: true, output: "none" }),
+          ...(animatable.pub ?? { public: true, output: "none" }),
           color: v,
         },
       });
     },
-    [storedAnimatable, animatableId, updateAnimatable],
+    [animatable, animatableId, updateAnimatable],
   );
 
   const leafMenuContent = useMemo(
     () => (
       <AnimatableLeafMenuContent
         color={color}
-        disabled={editorDisabled || !storedAnimatable}
+        disabled={editorDisabled}
         onChangeColor={handleChangeColor}
         onAddTrack={addTrackAction}
       />
     ),
-    [color, editorDisabled, storedAnimatable, handleChangeColor, addTrackAction],
+    [color, editorDisabled, handleChangeColor, addTrackAction],
   );
 
   const { menuOpen, setMenuOpen } = useTrackMenuState();

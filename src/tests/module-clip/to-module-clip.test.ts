@@ -53,6 +53,26 @@ describe("toModuleClip", () => {
     ]);
   });
 
+  test("names a track on an input beyond the model by the input's key, which it claims", () => {
+    const fan = (id: string, value: boolean) => ({
+      ...buildTrack(id, "input:fan%2Etarget_value", [point(0, value), point(500, !value)]),
+      inputKey: "fan.target_value",
+    });
+    const clip = clipOf(
+      buildScene([
+        fan("a", true),
+        buildTrack("b", "elbow", [point(0, 0), point(500, 1)]),
+        // The first track on the fan claimed it.
+        fan("c", false),
+      ]),
+    );
+
+    expect(clip.tracks.map((t) => [t.id, t.animatable_id])).toEqual([
+      ["a", "fan.target_value"],
+      ["b", "elbow"],
+    ]);
+  });
+
   test("reduced to one track, keys that track by its id, as a one-track bake takes it", () => {
     const scene = buildScene([
       buildTrack("a", "elbow", [point(0, 0), point(500, 1)]),
