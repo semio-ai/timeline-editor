@@ -12,7 +12,6 @@ import {
   Tooltip,
 } from "@semio/ui";
 import type { AnimatableValue, RawValue } from "@semio/utils";
-import { usePlayerStore, useValuesStore } from "@semio/utils";
 import {
   useActiveAnimationId,
   useAnimationStore,
@@ -25,6 +24,8 @@ import { AnimationActions, AnimationData, ControlStripMode } from "../store-type
 import { SourceRow, SourceRowData } from "../types";
 import { getIconCode, getSemanticLabelForIconCode } from "../functions/get-icon-code";
 import { COMPLEX_TYPES, DEFAULT_COLOR } from "../constants";
+import { usePlayer } from "../hooks/use-player";
+import { useKeyValue } from "../hooks/use-key-value";
 import { AnimatableNumberField } from "./animatable-number-field";
 import { TrackControl } from "./track-control";
 import { DataIcon } from "./data-icon";
@@ -64,8 +65,8 @@ export interface AnimatableLeafControlProps extends AnimatableControlBaseProps {
    */
   mode?: AnimatableControlMode;
   /**
-   * Optional lookup key used to resolve the latest value from the animation store.
-   * If omitted, the animatable default is used.
+   * The key the direct editor reads its value from in the injected `DataStore`
+   * (`DataStoreContext`). If omitted, the animatable default is used.
    */
   valueLookupKey?: string;
   /**
@@ -123,7 +124,7 @@ function AnimatableLeafControl({
 }: AnimatableLeafControlProps) {
   const resolvedMode: AnimatableControlMode = mode ?? (sourceRowId ? "track" : "direct");
   const stripMode = useAnimationStore((state) => state.preferences.controlStripMode);
-  const running = usePlayerStore(useShallow((state) => state.player.running));
+  const running = usePlayer(useShallow((state) => state.player.running));
 
   const sourceRow = useAnimationStore(
     useShallow((state) => (sourceRowId ? state.instancedTrackSources[sourceRowId] : undefined)),
@@ -343,7 +344,7 @@ function AnimatableGroupControl({
   depth = 0,
 }: AnimatableGroupControlProps) {
   const stripMode = useAnimationStore((state) => state.preferences.controlStripMode);
-  const running = usePlayerStore(useShallow((state) => state.player.running));
+  const running = usePlayer(useShallow((state) => state.player.running));
 
   // Store reads the group control needs for rendering, not for the menu.
   const { sourceRow, emphasisRowId, animations, tracks, animatables } = useAnimationStore(
@@ -648,9 +649,9 @@ function AnimatableGroupControl({
 
 interface DirectAnimatableEditorProps {
   animatable: AnimatableValue;
-  /** Track key for the value subscription. The editor subscribes here so
-   * the per-tick value updates during playback don't re-render the parent
-   * row (and its radix menu plumbing). */
+  /** The key of the value in the injected `DataStore`. The editor watches it
+   * here so the per-tick value updates during playback don't re-render the
+   * parent row (and its radix menu plumbing). */
   valueLookupKey?: string;
   color: string;
   disabled: boolean;
@@ -664,13 +665,7 @@ const DirectAnimatableEditor = memo(function DirectAnimatableEditor({
   disabled,
   onChange,
 }: DirectAnimatableEditorProps) {
-  const storedValue = useValuesStore(
-    useCallback(
-      (state) => (valueLookupKey ? state.values.get(valueLookupKey) : undefined),
-      [valueLookupKey],
-    ),
-  );
-  const value = storedValue ?? animatable.default;
+  const value = useKeyValue(valueLookupKey, animatable.default);
 
   if (animatable.type === "number" && typeof value === "number") {
     return (

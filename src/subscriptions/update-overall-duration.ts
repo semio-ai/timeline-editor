@@ -1,4 +1,3 @@
-import { usePlayerStore } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import type {
   AnimationApi,
@@ -12,9 +11,9 @@ import { resolveAnimationDuration } from "../functions/compute-animation-extent"
 export function updateOverallDuration(
   api: AnimationApi,
   _set: AnimationStoreSetter,
-  _get: AnimationStoreGetter,
+  get: AnimationStoreGetter,
 ): () => void {
-  const updateDuration = usePlayerStore.getState().updateDuration;
+  const updateDuration = get().playerStore.getState().updateDuration;
   return api.subscribe(
     (state: AnimationData) => ({
       animations: state.animations,

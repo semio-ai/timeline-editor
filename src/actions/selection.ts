@@ -1,6 +1,6 @@
+import { namespaceEntity } from "@semio/utils";
 import { produce } from "immer";
 import { uniq } from "lodash";
-import { usePlayerStore } from "@semio/utils";
 import { createEmptySelectionState } from "../functions/selection-state-manager";
 import type {
   AnimationData,
@@ -70,7 +70,7 @@ function findOwningEntityForInstance(
 ): string | null {
   for (const namespaceId of Object.keys(namespaces)) {
     if (namespaces[namespaceId].animationInstances?.[instanceId]) {
-      return namespaceId.split("@")[0];
+      return namespaceEntity(namespaceId);
     }
   }
   return null;
@@ -93,8 +93,12 @@ function findOwningEntityForInstance(
  *   stays at the entity's existing active driver — the click effectively
  *   moves focus without changing what's edited.
  */
-export function focusSelectionInstance(set: AnimationStoreSetter, instanceId: string): void {
-  const isPlaying = Boolean(usePlayerStore.getState().player?.running);
+export function focusSelectionInstance(
+  set: AnimationStoreSetter,
+  get: AnimationStoreGetter,
+  instanceId: string,
+): void {
+  const isPlaying = Boolean(get().playerStore.getState().player?.running);
 
   set((state: AnimationData) => {
     const owningEntityId = findOwningEntityForInstance(state.namespaces, instanceId);
@@ -161,7 +165,7 @@ export function setEntityControlMode(
   mode: "direct" | "animation",
   instanceId?: string,
 ): void {
-  if (usePlayerStore.getState().player?.running) return;
+  if (get().playerStore.getState().player?.running) return;
 
   const currentEntityState = get().entityStates[entityId];
   const resolvedInstanceId = mode === "animation" ? (instanceId ?? null) : null;

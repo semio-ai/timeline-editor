@@ -174,9 +174,8 @@ export interface SourcePatch {
  * from a {@link SourceRow} with `resolveSourceRef`.
  */
 export type SourceRef =
-  // `namespaceId` is opaque here: the animation package does not know how a
-  // host derives an entity identity from it (e.g. studio's "entityId@instanceId"
-  // convention). The host's `editSource` override interprets it.
+  // `namespaceId` is resolved to its entity by the host's `editSource`
+  // override, through `namespaceEntity` (`@semio/utils`).
   | { kind: "entity"; namespaceId: string }
   | { kind: "animation"; animationId: string; instanceId: string; namespaceId: string }
   | { kind: "animatable"; animatableId: string }

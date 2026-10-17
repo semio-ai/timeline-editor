@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
   buildDerivedSnapshot,
-  computeTrackInterpolator,
-  computeTrackViolations,
+  computeInstanceTrackViolations,
   computeRowData,
   materializeSegmentSample,
+  type TrackBaker,
 } from "../../functions";
 import { createTestAnimationStore } from "../../test-fixtures";
 import { parseTrackKey, buildTrackKey } from "../../utils/track-key";
@@ -17,6 +17,8 @@ import {
   NAMESPACE_IDS,
   INSTANCE_IDS,
 } from "../../test-fixtures/animation-store-factory";
+import { clipBaker } from "../module-clip/clip-baker";
+import { curveOf } from "../curves";
 
 describe("buildDerivedSnapshot", () => {
   test("matches existing per-track and per-row computations in test store", () => {
@@ -31,6 +33,7 @@ describe("buildDerivedSnapshot", () => {
       instancedTrackSources: state.instancedTrackSources,
       dragState: state.dragState,
       selectionState: state.selectionState,
+      trackBaker: clipBaker,
       version: 1,
     });
 
@@ -48,14 +51,11 @@ describe("buildDerivedSnapshot", () => {
         throw new Error(`Missing canonical data for track key ${trackKey}`);
       }
 
-      const interpolator = computeTrackInterpolator(track, instance);
-      // Match build-derived-snapshot.ts: account for timescale in violation duration
-      const timescale = instance.settings.timescale ?? 1;
-      const durationScale = Number.isFinite(timescale) && timescale !== 0 ? Math.abs(timescale) : 1;
-      const violationDuration = resolveAnimationDuration(animation, state.tracks) / durationScale;
-      const violations = computeTrackViolations(
-        interpolator,
-        violationDuration,
+      const curve = curveOf(track, animation, state.tracks);
+      const violations = computeInstanceTrackViolations(
+        curve,
+        resolveAnimationDuration(animation, state.tracks),
+        instance.settings.timescale,
         trackId,
         namespaceId,
         instanceId,
@@ -68,8 +68,8 @@ describe("buildDerivedSnapshot", () => {
 
       // Sample at a representative ms timestamp (mid-animation)
       const sampleStamp = resolveAnimationDuration(animation, state.tracks) / 2;
-      const snapshotValue = derivedTrack.canonical.interpolator(sampleStamp);
-      const legacyValue = interpolator(sampleStamp);
+      const snapshotValue = derivedTrack.canonical.curve(sampleStamp);
+      const legacyValue = curve(sampleStamp);
       if (typeof snapshotValue === "number" && typeof legacyValue === "number") {
         expect(snapshotValue).toBeCloseTo(legacyValue);
       } else {
@@ -91,6 +91,7 @@ describe("buildDerivedSnapshot", () => {
         {
           animations: state.animations,
           namespaces: state.namespaces,
+          trackBaker: clipBaker,
         },
       );
 
@@ -116,7 +117,7 @@ describe("buildDerivedSnapshot", () => {
     expect(firstSegment?.startKeypointId).toBeDefined();
   });
 
-  test("builds preview interpolators for all instances sharing a dragged track", () => {
+  test("builds preview curves for all instances sharing a dragged track", () => {
     const store = createTestAnimationStore();
     const state = store.getState();
 
@@ -179,13 +180,62 @@ describe("buildDerivedSnapshot", () => {
       instancedTrackSources: state.instancedTrackSources,
       dragState,
       selectionState,
+      trackBaker: clipBaker,
       version: 2,
     });
 
     const activeKey = buildTrackKey(namespaceId, instanceId, trackId);
     const otherKey = buildTrackKey(otherNamespaceId, otherInstanceId, trackId);
 
-    expect(snapshot.tracks[activeKey]?.preview?.interpolator).toBeDefined();
-    expect(snapshot.tracks[otherKey]?.preview?.interpolator).toBeDefined();
+    expect(snapshot.tracks[activeKey]?.preview?.curve).toBeDefined();
+    expect(snapshot.tracks[otherKey]?.preview?.curve).toBeDefined();
+  });
+
+  test("draws a value row's curve, and reads its values, from the bake", () => {
+    const state = createTestAnimationStore().getState();
+    const build = (trackBaker?: TrackBaker) =>
+      buildDerivedSnapshot({
+        tracks: state.tracks,
+        namespaces: state.namespaces,
+        animations: state.animations,
+        animatables: state.animatables,
+        instancedTrackSources: state.instancedTrackSources,
+        dragState: undefined,
+        selectionState: state.selectionState,
+        trackBaker,
+      });
+    // A baker whose every sample is one value: whatever the keypoints say, the
+    // drawn curve and the values are that value.
+    const flat: TrackBaker = (clip, trackId, rateHz) =>
+      clipBaker(clip, trackId, rateHz)?.map((sample) =>
+        typeof sample === "number" ? 0.125 : sample,
+      );
+    const snapshot = build(flat);
+
+    const valueRow = Object.values(snapshot.rows).find(
+      (row) =>
+        state.instancedTrackSources[row.id]?.data.length === 1 &&
+        (row.computed.render?.segments ?? []).some(
+          (segment) => !segment.buffer && segment.samples[TrackRender.Spline],
+        ),
+    );
+    if (!valueRow) throw new Error("Expected a value row with a drawn segment");
+    const drawn = (valueRow.computed.render?.segments ?? []).filter(
+      (segment) => !segment.buffer && segment.samples[TrackRender.Spline],
+    );
+    for (const segment of drawn) {
+      const sample = materializeSegmentSample(
+        segment.samples[TrackRender.Spline]!,
+        snapshot.renderSampleCache,
+      );
+      const ys = Array.from(sample?.points ?? []).filter((_, i) => i % 2 === 1);
+      expect(ys.length).toBeGreaterThan(0);
+      ys.forEach((y) => expect(y).toBeCloseTo(0.125, 6));
+    }
+    const [trackKey] = valueRow.trackKeys;
+    expect(snapshot.tracks[trackKey].canonical.curve(100)).toBe(0.125);
+
+    // Without a baker, no track has a value.
+    expect(build(undefined).tracks[trackKey].canonical.curve(100)).toBeUndefined();
   });
 });

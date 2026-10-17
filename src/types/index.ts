@@ -2,6 +2,7 @@ export * from "./data/animation";
 export type * from "./data/interpolator";
 export * from "./data/keypoint";
 export type * from "./data/namespace";
+export type * from "./data/recorded-track";
 export type * from "./data/track";
 export type * from "./data/track-group";
 export type * from "./data/trajectory";

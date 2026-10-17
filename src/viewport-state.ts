@@ -1,5 +1,4 @@
 import { MotionValue } from "motion/react";
-import { usePlayerStore } from "@semio/utils";
 import { useEffect, useState } from "react";
 import { TrackRender } from "./types";
 
@@ -38,13 +37,9 @@ export function setViewportBound(bound: "start" | "end", time: number): void {
   }
 }
 
-/**
- * Recenter the viewport on a stamp without resizing it.
- * Defaults to the player's current stamp.
- */
-export function centerViewportOnStamp(stamp?: number): void {
-  const s = stamp ?? usePlayerStore.getState().player.stamp;
-  viewportMotion.set(getFittedViewport(s, viewportMotion.get()));
+/** Recenter the viewport on a stamp without resizing it. */
+export function centerViewportOnStamp(stamp: number): void {
+  viewportMotion.set(getFittedViewport(stamp, viewportMotion.get()));
 }
 
 /**

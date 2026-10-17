@@ -18,7 +18,7 @@ import { useFrame } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { uniq } from "lodash";
-import { isOrthographicCamera } from "@semio/utils";
+import { isOrthographicCamera, namespaceEntity } from "@semio/utils";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import {
   buildFilteredSourceRowId,
@@ -359,14 +359,14 @@ export const DataRenderer = memo(function DataRenderer({
     return ids.length === 1 ? ids[0] : undefined;
   }, [sourceRow]);
 
-  // Owning entity is encoded in the row's namespaceId (`entityId@...`).
+  // Owning entity of the row's namespace (`namespaceEntity`).
   // Compute it locally so the store selector stays O(1) — walking
   // `state.namespaces` per row × per state change was a real perf
   // regression at scale.
   const owningEntityId = useMemo(() => {
     if (!sourceRow) return undefined;
     const ns = sourceRow.data.find((d) => d.namespaceId)?.namespaceId;
-    return ns ? ns.split("@")[0] : undefined;
+    return ns ? namespaceEntity(ns) : undefined;
   }, [sourceRow]);
 
   // Owning entity's currently-driving instance — same source the values

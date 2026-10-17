@@ -10,7 +10,6 @@ export * from "./compute-visible-source-row-ids";
 export * from "./compute-transition-segments";
 export * from "./compute-stored-animation";
 export * from "./compute-updated-sources";
-export * from "./compute-track-interpolator";
 export * from "./export-effective-motion";
 export * from "./compute-track-trajectories";
 export * from "./compute-track-violations";
@@ -44,3 +43,13 @@ export * from "./track-editability";
 export * from "./row-edit-state";
 export * from "./source-ref";
 export * from "./key-edit-targets";
+export {
+  moduleClipDuration,
+  toModuleClip,
+  type AroraFieldJson,
+  type AroraStructJson,
+  type AroraValueJson,
+  type ModuleClip,
+} from "./to-module-clip";
+export * from "./track-curve";
+export * from "./recorder";

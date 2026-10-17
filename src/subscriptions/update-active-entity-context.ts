@@ -1,3 +1,4 @@
+import { namespaceEntity } from "@semio/utils";
 import { shallow } from "zustand/shallow";
 import type {
   ActiveEntityContext,
@@ -45,9 +46,9 @@ export function updateActiveEntityContext(
         return;
       }
 
-      // Find the namespace for this entity (format: "entityId@instanceId")
-      const prefix = `${activeEntityId}@`;
-      const namespaceEntry = Object.entries(namespaces).find(([id]) => id.startsWith(prefix));
+      const namespaceEntry = Object.entries(namespaces).find(
+        ([id]) => namespaceEntity(id) === activeEntityId,
+      );
       if (!namespaceEntry) {
         if (current !== null) set({ activeEntityContext: null });
         return;

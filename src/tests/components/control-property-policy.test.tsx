@@ -19,6 +19,10 @@ vi.mock("../../hooks", () => ({
   useRowBackground: () => "",
   useControlMenu: () => ({}),
 }));
+vi.mock("../../hooks/use-player", async () => {
+  const { usePlayerStore } = await import("@semio/utils");
+  return { usePlayer: usePlayerStore };
+});
 vi.mock("../../components/track-control", () => ({
   TrackControl: ({ propertyControls }: { propertyControls?: TrackPropertiesStripProps }) =>
     <button type="button" onClick={propertyControls?.onToggleMuted}>Mute driver candidates</button>,

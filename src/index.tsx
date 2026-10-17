@@ -40,7 +40,8 @@ export * from "./functions";
 export * from "./keybindings";
 export * from "./test-fixtures";
 
-// Re-export values store from @semio/utils for convenience
+// The values store of @semio/utils, re-exported for hosts that import it from here.
+// The package itself reads values through the injected `DataStore`.
 export {
   useValuesStore,
   mergeValueMaps,

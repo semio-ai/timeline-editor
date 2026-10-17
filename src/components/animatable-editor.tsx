@@ -1,20 +1,14 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
-import {
-  RawValue,
-  toDegrees,
-  toRadians,
-  unitDisplay,
-  usePlayerStore,
-  useValuesStore,
-} from "@semio/utils";
+import { RawValue, toDegrees, toRadians, unitDisplay } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";
 import { AnimationActions, AnimationData } from "../store-types";
 import { DEFAULT_COLOR } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
+import { useTrackValue } from "../hooks/use-track-value";
 
 export interface AnimatableEditorProps {
   rowId: string;
@@ -42,18 +36,17 @@ function InnerAnimatableEditor({
 }: AnimatableEditorProps) {
   const trueColor = useColors(data.trackId ?? data.animatableId);
   const color = colorOverride ?? (active ? trueColor : DEFAULT_COLOR);
+  const playerStore = useAnimationStore((state) => state.playerStore);
 
-  // Stamp is read at drag-start fire time (see worldStamp below) — subscribing
-  // here would re-render the editor every player tick during playback, and
-  // each editor row sits inside a ControlRow + radix dropdown plumbing,
-  // multiplying the cascade.
+  // The track's value at the playhead, from its curve; the editor re-renders
+  // when the value changes, not at every player tick or snapshot rebuild: each
+  // editor row sits inside a ControlRow + radix dropdown plumbing, which
+  // multiplies the cascade.
   const valueKey = useMemo(
     () => buildTrackKey(data.namespaceId, data.instanceId, data.trackId),
     [data.namespaceId, data.instanceId, data.trackId],
   );
-  const storedValue = useValuesStore(
-    useCallback((state) => state.values.get(valueKey), [valueKey]),
-  );
+  const storedValue = useTrackValue(valueKey);
 
   // Drag pipeline integration (value-driven)
   const { startValueDrag, updateValueDrag, commitValueDrag, cancelValueDrag } = useAnimationStore(
@@ -144,7 +137,11 @@ function InnerAnimatableEditor({
   }, [track?.name, animatableValue?.name]);
 
   if (!hasAnimatable || rawValue === undefined) {
-    return <div className={clsx("h-7 animate-pulse rounded bg-neutral-700/30", !hideLabel && "flex-1")} />;
+    return (
+      <div
+        className={clsx("h-7 animate-pulse rounded bg-neutral-700/30", !hideLabel && "flex-1")}
+      />
+    );
   }
 
   if (data.type === "number" && typeof rawValue === "number") {
@@ -162,7 +159,7 @@ function InnerAnimatableEditor({
             trackId: data.trackId,
             namespaceId: data.namespaceId,
             instanceId: data.instanceId,
-            worldStamp: usePlayerStore.getState().player.stamp,
+            worldStamp: playerStore.getState().player.stamp,
             valueScale: valueScaleOverride,
           });
         }}
@@ -204,7 +201,7 @@ function InnerAnimatableEditor({
         color={color}
         onChange={(v) => {
           if (dragActiveRef.current) return;
-          const stamp = usePlayerStore.getState().player.stamp;
+          const stamp = playerStore.getState().player.stamp;
           if (editStampRef.current === null) {
             // First commit of this edit session anchors here.
             editStampRef.current = stamp;
@@ -223,7 +220,9 @@ function InnerAnimatableEditor({
           editStampRef.current = null;
         }}
         label={hideLabel ? undefined : label}
-        onLabelChange={hideLabel ? undefined : (track ? (v) => updateTrack({ id: track.id, name: v }) : undefined)}
+        onLabelChange={
+          hideLabel ? undefined : track ? (v) => updateTrack({ id: track.id, name: v }) : undefined
+        }
         highlight={emphasis}
         units={angular ? "°" : display.label}
         onHighlightChange={onEmphasisChange}

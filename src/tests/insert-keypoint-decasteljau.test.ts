@@ -5,6 +5,7 @@ import { StandardTransitionType } from "../types";
 import { buildTrackKey } from "../utils/track-key";
 import { computeWorldStamp } from "../functions/compute-instance-time";
 import { inferAutoHandleDeltas } from "../functions/infer-auto-handles";
+import { clipBaker } from "./module-clip/clip-baker";
 import { flushMicrotasks } from "./utils/flush-microtasks";
 
 /**
@@ -19,7 +20,7 @@ function sampleInterpolator(
   samples: number[],
 ): number[] | undefined {
   const key = buildTrackKey(namespaceId, instanceId, trackId);
-  const interp = state.derivedSnapshot?.tracks?.[key]?.canonical?.interpolator;
+  const interp = state.derivedSnapshot?.tracks?.[key]?.canonical?.curve;
   if (!interp) return undefined;
   return samples.map((t) => {
     const v = interp(t);
@@ -87,7 +88,7 @@ function findMidSegmentLocalStamp(
 
 describe("insertKeypointAtWorldStamp insertion preferences", () => {
   it("defaults to flat insertion and uses cubic transitions for the new keypoint", async () => {
-    const store = createMinimalAnimationStore();
+    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
     const state0 = store.getState();
 
     const trackId = Object.keys(state0.tracks)[0]; // minimal store has a single numeric track (SCALE)
@@ -126,7 +127,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
   });
 
   it("preserves curve shape around the insertion point when defaults request explicit handles", async () => {
-    const store = createMinimalAnimationStore();
+    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {
@@ -180,7 +181,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
   });
 
   it("stores inferred auto-clamped directives when inferred defaults are selected", async () => {
-    const store = createMinimalAnimationStore();
+    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {
@@ -212,7 +213,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
     // which the toolbar normalizer rendered as cubic — silently dropping the
     // user's chosen default for the trailing handle. Both sides should now
     // carry the user's preference even when no nextPoint exists.
-    const store = createMinimalAnimationStore();
+    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {
@@ -244,7 +245,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
   it("applies the configured default to BOTH sides when inserted at the start of a track", async () => {
     // Mirror of the end-insertion regression: prepend should also carry
     // both `in` and `out` from preferences even though there's no prevPoint.
-    const store = createMinimalAnimationStore();
+    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {
@@ -277,7 +278,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
     // Regression: slider-driven keypoint creation (setValueAction →
     // updateKeypoint) used to skip the default-application path entirely,
     // leaving transitions undefined and rendering as cubic.
-    const store = createMinimalAnimationStore();
+    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {
@@ -304,7 +305,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
   });
 
   it("uses inferred handles for explicit defaults when split insertion is unavailable", async () => {
-    const store = createMinimalAnimationStore();
+    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {

@@ -5,7 +5,7 @@ import { Camera, Group, Mesh, Vector3 } from "three";
 import { useMotionValueEvent, useSpring } from "motion/react";
 import { Theme } from "@semio/ui";
 import type { RawVector2 } from "@semio/utils";
-import { usePlayerStore, isOrthographicCamera } from "@semio/utils";
+import { isOrthographicCamera } from "@semio/utils";
 import {
   LayerBand,
   RenderHandle,
@@ -28,6 +28,7 @@ import {
 import { useDragGestures } from "../../hooks/use-drag-gestures";
 import { useAnimationStore, useInvariantScaleX, useInvariantScaleY } from "../../hooks";
 import { ROW_DEPTH_EPSILON } from "../../constants";
+import { usePlayer } from "../../hooks/use-player";
 import { computeRenderScale } from "./utils/render-scale";
 import { getLayerZ } from "./utils/layers";
 
@@ -148,7 +149,7 @@ export const BezierHandles = memo(function BezierHandles({
   xInverse,
   xScale,
 }: BezierHandlesProps) {
-  const running = usePlayerStore((state) => state.player.running);
+  const running = usePlayer((state) => state.player.running);
   const startHandleDragAction = useAnimationStore((state) => state.startHandleDrag);
   const updateHandleDragAction = useAnimationStore((state) => state.updateHandleDrag);
   const commitDragAction = useAnimationStore((state) => state.commitDrag);

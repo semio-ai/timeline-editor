@@ -26,7 +26,7 @@ import { TickBackground } from "./overlays/tick-background";
 
 /**
  * MinimapDisplay renders a minimap rectangle and half-hexagons using react-three/fiber,
- * subscribing to viewport changes via usePlayerStore and updating mesh positions directly.
+ * subscribing to viewport changes via the store's player and updating mesh positions directly.
  *
  * Blender-style clamping: the scroll element is clamped to stay within the
  * minimap camera frustum so it's always visible and grabbable.

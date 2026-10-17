@@ -1,11 +1,12 @@
 import { clsx } from "clsx";
 import { Icon, Select, Size, ToggleSquare, Variant } from "@semio/ui";
-import { PlayerDirection, usePlayerStore } from "@semio/utils";
+import { PlayerDirection } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
+import { usePlayer } from "../hooks/use-player";
 import { PLAYBACK_SPEED_OPTIONS } from "./playback-speed-options";
 
 export function PlaybackSettings() {
-  const { direction, bounce, looping, speed } = usePlayerStore(
+  const { direction, bounce, looping, speed } = usePlayer(
     useShallow((state) => ({
       direction: state.player.direction,
       bounce: state.player.bounce,
@@ -15,7 +16,7 @@ export function PlaybackSettings() {
   );
 
   // Map bounce/looping combination to style for UI compatibility
-  const { setBounce, setLooping, setDirection, setSpeed } = usePlayerStore(
+  const { setBounce, setLooping, setDirection, setSpeed } = usePlayer(
     useShallow((state) => ({
       setBounce: state.updateBounce,
       setLooping: state.updateLooping,

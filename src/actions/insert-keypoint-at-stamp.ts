@@ -39,7 +39,15 @@ export function insertKeypointAtWorldStamp(
     preferences.in === TransitionDirective.ExplicitHandles ||
     preferences.out === TransitionDirective.ExplicitHandles;
 
-  if (shouldAttemptShapePreservingSplit) {
+  // Without a baked curve, a split is the one insertion that keeps the shape.
+  const curveValue = resolveCurveValue(
+    state,
+    trackId,
+    namespaceId,
+    instanceId,
+    computeLocalStamp(worldStamp, timescale, offset),
+  );
+  if (shouldAttemptShapePreservingSplit || (curveValue === undefined && track.points.length > 0)) {
     // Attempt shape-preserving split first; fall back if no segment contains the stamp.
     const split = insertKeypointWithDeCasteljau(track, worldStamp, {
       settings: { offset, timescale, active: true },
@@ -57,15 +65,12 @@ export function insertKeypointAtWorldStamp(
   // In v2 format, stamps are in ms — no [0,1] clamping needed.
   const clampedStamp = Number.isFinite(localStamp) ? localStamp : 0;
 
-  // Derive the value from the current interpolator snapshot when available.
-  const value = resolveInterpolatedOrDefaultValue(
-    state,
-    track,
-    trackId,
-    namespaceId,
-    instanceId,
-    localStamp,
-  );
+  // The curve's value there; without one, what the track holds there outside
+  // its segments, and the animatable's default on an empty track.
+  const value =
+    curveValue ??
+    heldValue(track, clampedStamp) ??
+    (state.animatables?.[track.animatableId]?.default as SimpleRawValue | undefined);
 
   if (value === undefined) {
     return undefined;
@@ -119,33 +124,33 @@ function resolveInstanceAndNamespace(
 }
 
 /**
- * Try to obtain the value for a new keypoint using the existing derived snapshot interpolator
- * for the given trackKey (namespace/instance/track). Fall back to the track's current value
- * (animatable default) if no interpolator is available.
+ * The value of the derived snapshot's baked curve for the track on the
+ * instance at a local stamp; `undefined` when the track has no baked curve.
  */
-function resolveInterpolatedOrDefaultValue(
+function resolveCurveValue(
   state: AnimationData,
-  track: SimpleTrack,
   trackId: string,
   namespaceId: string | undefined,
   instanceId: string,
   localStamp: number,
 ): SimpleRawValue | undefined {
-  // Prefer derivedSnapshot interpolator for this specific instance/track.
-  if (namespaceId && state.derivedSnapshot?.tracks) {
-    const trackKey = buildTrackKey(namespaceId, instanceId, trackId);
-    const interp = state.derivedSnapshot.tracks[trackKey]?.canonical?.interpolator;
-    if (interp) {
-      const maybe = interp(localStamp) as SimpleRawValue | undefined;
-      if (maybe !== undefined) return maybe;
-    }
-  }
+  if (!namespaceId) return undefined;
+  const trackKey = buildTrackKey(namespaceId, instanceId, trackId);
+  const curve = state.derivedSnapshot?.tracks?.[trackKey]?.canonical?.curve;
+  return curve?.(localStamp) as SimpleRawValue | undefined;
+}
 
-  // Fallback to animatable default if present.
-  const defaultValue = state.animatables?.[track.animatableId]?.default as
-    | SimpleRawValue
-    | undefined;
-  return defaultValue;
+/**
+ * What a track holds at a stamp no segment covers: its first keypoint's value
+ * at or before the first stamp, its last's at or after the last, a keypoint's
+ * own value at its stamp; `undefined` inside a segment and on an empty track.
+ */
+function heldValue(track: SimpleTrack, stamp: number): SimpleRawValue | undefined {
+  const points = [...track.points].sort((a, b) => a.stamp - b.stamp);
+  if (points.length === 0) return undefined;
+  if (stamp <= points[0].stamp) return points[0].value;
+  if (stamp >= points[points.length - 1].stamp) return points[points.length - 1].value;
+  return points.find((point) => point.stamp === stamp)?.value;
 }
 
 function findInsertIndex(points: SimpleKeypoint[], stamp: number): number {
@@ -158,4 +163,3 @@ function findInsertIndex(points: SimpleKeypoint[], stamp: number): number {
   }
   return -1; // append
 }
-

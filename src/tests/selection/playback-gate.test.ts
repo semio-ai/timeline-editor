@@ -10,7 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { usePlayerStore } from "@semio/utils";
+import { namespaceEntity } from "@semio/utils";
 import {
   INSTANCE_IDS,
   NAMESPACE_IDS,
@@ -20,14 +20,14 @@ import type { AnimationStore } from "../../store";
 import { flushMicrotasks } from "../utils/flush-microtasks";
 
 /**
- * Lie to the gate without poking the real player store. Calling
- * usePlayerStore.setState would trip the player-loop subscription
- * (window.setInterval, jsdom-only) — irrelevant to what we're testing.
+ * Lie to the gate about the store's player without moving it, so nothing that
+ * follows the player reacts — irrelevant to what we're testing.
  */
-const withPlayerRunning = (running: boolean, fn: () => void): void => {
-  const realState = usePlayerStore.getState();
+const withPlayerRunning = (store: AnimationStore, running: boolean, fn: () => void): void => {
+  const player = store.getState().playerStore;
+  const realState = player.getState();
   const spy = vi
-    .spyOn(usePlayerStore, "getState")
+    .spyOn(player, "getState")
     .mockReturnValue({ ...realState, player: { ...realState.player, running } });
   try {
     fn();
@@ -36,12 +36,10 @@ const withPlayerRunning = (running: boolean, fn: () => void): void => {
   }
 };
 
-const entityIdFor = (namespaceId: string): string => namespaceId.split("@")[0];
-
 describe("selection actions playback gate", () => {
   let store: AnimationStore;
   let cleanup: (() => void) | undefined;
-  const entityId = entityIdFor(NAMESPACE_IDS.ALPHA);
+  const entityId = namespaceEntity(NAMESPACE_IDS.ALPHA);
 
   beforeEach(async () => {
     store = createTestAnimationStore({
@@ -76,7 +74,7 @@ describe("selection actions playback gate", () => {
     it("no-ops when the player is running", () => {
       const before = store.getState().entityStates[entityId]?.activeInstanceId;
 
-      withPlayerRunning(true, () => {
+      withPlayerRunning(store, true, () => {
         store
           .getState()
           .setEntityControlMode(entityId, "animation", INSTANCE_IDS.ALPHA_EXCLUSIVE);
@@ -109,7 +107,7 @@ describe("selection actions playback gate", () => {
     it("during playback: leaves entityStates pairing unchanged (gated)", () => {
       const beforeActive = store.getState().entityStates[entityId]?.activeInstanceId;
 
-      withPlayerRunning(true, () => {
+      withPlayerRunning(store, true, () => {
         store.getState().focusSelectionInstance(INSTANCE_IDS.ALPHA_EXCLUSIVE);
       });
 
@@ -120,7 +118,7 @@ describe("selection actions playback gate", () => {
     });
 
     it("during playback: still switches focused entity (allowed mid-playback)", () => {
-      withPlayerRunning(true, () => {
+      withPlayerRunning(store, true, () => {
         store.getState().focusSelectionInstance(INSTANCE_IDS.ALPHA_EXCLUSIVE);
       });
       // Entity focus follows clicks even during playback, per the

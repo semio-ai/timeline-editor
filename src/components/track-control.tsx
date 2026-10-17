@@ -10,7 +10,7 @@ import {
 } from "@semio/ui";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
-import { usePlayerStore, PlayerData } from "@semio/utils";
+import { PlayerData } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { type SourceRow } from "../types";
 import {
@@ -23,12 +23,13 @@ import {
   useRowBackground,
   useRowEditState,
 } from "../hooks";
-import { useValuesRef } from "../hooks/use-values-ref";
+import { useTrackValueReader } from "../hooks/use-track-value-reader";
 import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
 import { AnimationActions, AnimationData, ControlStripMode } from "../store-types";
 import type { SimpleRawValue } from "../types/data/simple-track";
 import { buildTrackKey } from "../utils/track-key";
 import { getSemanticLabelForIconCode, resolveSourceRef } from "../functions";
+import { usePlayer } from "../hooks/use-player";
 import { KeyStrip } from "./key-strip";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
@@ -60,7 +61,8 @@ function InnerTrackControl({
   const allReadonly = sourceRow.data.every((d) => !d.editable);
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
 
-  const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
+  const playing = usePlayer(useShallow((state: PlayerData) => state.player.running));
+  const playerStore = useAnimationStore((state) => state.playerStore);
 
   // Row-level store reads that the control itself (vs the menu) needs for
   // rendering, selection background, and active-instance focus.
@@ -103,7 +105,7 @@ function InnerTrackControl({
     })),
   );
 
-  const valuesRef = useValuesRef();
+  const readTrackValue = useTrackValueReader();
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
 
   // Compute unique instance for this row (must be exactly one)
@@ -318,7 +320,7 @@ function InnerTrackControl({
                   // Read stamp at handler-fire time so this row doesn't have
                   // to re-render every 25ms playback tick just to keep the
                   // closure's stamp fresh.
-                  const playerStamp = usePlayerStore.getState().player.stamp;
+                  const playerStamp = playerStore.getState().player.stamp;
                   const datumAnimatablePairs = sourceRow.data.map((datum) => ({
                     datum,
                     animatableId: datum.animatableId,
@@ -333,7 +335,7 @@ function InnerTrackControl({
                         datum.instanceId,
                         datum.trackId,
                       );
-                      const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
+                      const value = readTrackValue(valueKey, playerStamp);
                       const defaultValue = animatables[animatableId]?.default as
                         | SimpleRawValue
                         | undefined;

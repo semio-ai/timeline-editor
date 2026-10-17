@@ -1,4 +1,4 @@
-import type { RawValue, AnimatableValue, StoreSubscribeWithSelector, Write } from "@semio/utils";
+import type { AnimatableValue, PlayerStore, StoreSubscribeWithSelector, Write } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import type { StoreApi } from "zustand";
 import type {
@@ -26,6 +26,7 @@ import type {
 import { StandardTransitionType, TransitionDirective, TransitionPairing } from "./types";
 import type { SelectionState } from "./types/util/selection-state";
 import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "./types/data/simple-track";
+import type { TrackBaker } from "./functions/track-curve";
 
 export { TransitionDirective };
 
@@ -71,7 +72,7 @@ export interface EntityAnimationState {
 export interface ActiveEntityContext {
   /** Active entity ID. */
   entityId: string;
-  /** Resolved namespace ID for value lookups (format: "entityId@instanceId"). */
+  /** The entity's namespace, whose entity `namespaceEntity` (`@semio/utils`) resolves. */
   namespaceId: string;
   /** Control mode for the active entity. */
   controlMode: "direct" | "animation";
@@ -188,8 +189,22 @@ export interface AnimationPreferencesPatch {
 export interface AnimationData {
   derivedSnapshot?: DerivedSnapshot;
   /**
-   * A record of animation instances and their namespaces, used for specifying how
-   * values are written into `useValuesStore` without overriding others.
+   * Bakes a track through the Vizij animation module, for the curves, readouts
+   * and violations; the host supplies it (Studio, from an emulated device),
+   * and without one no track has a curve.
+   */
+  trackBaker?: TrackBaker;
+  /**
+   * The player the timeline shows and commands: its playhead, bounds and
+   * transport. The host passes the one it drives (Studio, the player its
+   * `Transport` plays the devices from) when it creates the store; a store
+   * created without one has a player of its own. The store's subscriptions
+   * take it when they start, so it is the store's for its life.
+   */
+  playerStore: PlayerStore;
+  /**
+   * The namespaces the animation instances play under, by namespace id: each
+   * instance's tracks are keyed `namespaceId/instanceId/trackId`.
    */
   namespaces: Record<string, Namespace>;
   /**
@@ -217,10 +232,6 @@ export interface AnimationData {
    * Whether to show times as frames or seconds.
    */
   timeDisplay: TimeDisplay;
-  /**
-   * Player's interval.
-   */
-  playerInterval?: number;
   /**
    * Previews for parts of the animation other than the current time.
    */
@@ -473,18 +484,6 @@ export interface AnimationActions {
     updates: Record<string, { hidden?: boolean }>,
   ) => void;
   /**
-   * @deprecated Use `useValuesStore.getState().updateValues` instead.
-   */
-  updateValues: (values: Map<string, RawValue | undefined>) => void;
-  /**
-   * @deprecated Use `useValuesStore.getState().updateVelocities` instead.
-   */
-  updateVelocities: (velocities: Map<string, RawValue | undefined>) => void;
-  /**
-   * @deprecated Use `useValuesStore.getState().setTrackValue` instead.
-   */
-  setTrackValue: (trackKey: string, value: RawValue | ((current: RawValue) => RawValue)) => void;
-  /**
    * Creates a new view
    */
   addView: (view: Partial<View> & { id: string }) => void;
@@ -513,7 +512,7 @@ export interface AnimationActions {
   ) => void;
   /**
    * Insert a keypoint at the given world (player) stamp for a specific instance.
-   * Computes the local stamp using instance transforms and derives value via the derived snapshot interpolator when available.
+   * Computes the local stamp using instance transforms and derives value from the derived snapshot's baked curve when available.
    */
   insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => void;
   /**
@@ -738,11 +737,12 @@ export interface AnimationActions {
   updateControlColor: (controlId: string, color: string) => void;
   /**
    * Set the muted state of a source track. Mute is the user's per-track
-   * toggle; the values bridge skips muted tracks within the entity's active
-   * animation instance. The "at most one track per animatable can drive the
-   * rig" rule is enforced structurally by the bridge filtering on the
-   * entity's active animation instance — non-active instances do not bridge
-   * regardless of mute state, so no cross-instance auto-mute happens here.
+   * toggle; the clip an entity plays on its devices leaves out the muted
+   * tracks of its active animation instance. The "at most one track per
+   * animatable can drive the rig" rule is enforced structurally by playing
+   * only the entity's active animation instance — non-active instances do
+   * not play regardless of mute state, so no cross-instance auto-mute
+   * happens here.
    * @param sourceId - Source track id (`namespaceId/instanceId/trackId`) to update.
    * @param muted - Whether the track is muted.
    */

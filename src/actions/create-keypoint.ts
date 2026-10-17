@@ -1,4 +1,3 @@
-import { usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import {
   findInsertionNeighbors,
@@ -39,7 +38,7 @@ export function createKeypoint(
   } else {
     const fallbackValue: SimpleRawValue =
       point.value ?? (typeof track.points[0]?.value !== "undefined" ? track.points[0].value : 0);
-    const stamp = point.stamp ?? usePlayerStore.getState().player.stamp;
+    const stamp = point.stamp ?? state.playerStore.getState().player.stamp;
     // Honor caller-provided transitions (e.g. clipboard paste with full
     // keypoint shape); otherwise apply the user's configured new-key
     // defaults so all keypoint-creation paths agree on what "new key"
