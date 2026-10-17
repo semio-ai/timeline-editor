@@ -2,7 +2,10 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import { Canvas } from "@react-three/fiber";
-import { CanvasFrameloop, setCanvasFrameloop } from "@semio/utils";
+import { createStore } from "zustand/vanilla";
+import { CanvasFrameloop, setCanvasFrameloop, usePlayerStore } from "@semio/utils";
+import { AnimationContext } from "../context";
+import type { AnimationStore } from "../store";
 import {
   MinimapCanvas,
   TimelineCanvas,
@@ -28,7 +31,17 @@ afterEach(() => {
 const canvases = [
   ["timeline", () => <TimelineCanvas viewId="test-view" />],
   ["tracks", () => <TracksCanvas viewId="test-view" />],
-  ["minimap", () => <MinimapCanvas />],
+  [
+    "minimap",
+    // The minimap reads its bounds from the store's player.
+    () => (
+      <AnimationContext.Provider
+        value={createStore(() => ({ playerStore: usePlayerStore })) as unknown as AnimationStore}
+      >
+        <MinimapCanvas />
+      </AnimationContext.Provider>
+    ),
+  ],
 ] as const;
 
 it.each(canvases)("renders the %s every frame by default", (_name, createCanvas) => {
