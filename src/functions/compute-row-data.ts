@@ -608,22 +608,36 @@ function rowValueCurve(
   return trackCurve(drawn as unknown as SimpleTrack, context.trackEvaluator);
 }
 
-/** Sample all value segments in one host call per row, in clip-local time. */
+/**
+ * Every value segment's points, in one host call per row, in clip-local time:
+ * a number track's polyline on its curve, a boolean track's steps sampled
+ * evenly in time; `undefined` for a string track and without a curve.
+ */
 function sampleValueCurve(
   curve: TrackCurve | undefined,
   segments: { startStamp: number; endStamp: number }[],
 ): (Float32Array | undefined)[] {
   if (!curve) return segments.map(() => undefined);
   const count = Math.max(2, SEGMENT_SAMPLE_RESOLUTION + 1);
-  const times = Float64Array.from({ length: segments.length * count }, (_, index) => {
-    const segment = segments[Math.floor(index / count)];
-    return (
-      segment.startStamp + ((segment.endStamp - segment.startStamp) * (index % count)) / (count - 1)
+  const length = count * 2;
+  const starts = Float64Array.from(segments, (segment) => segment.startStamp);
+  const ends = Float64Array.from(segments, (segment) => segment.endStamp);
+  const polyline = curve.polyline(starts, ends, count);
+  if (polyline) {
+    return segments.map((_, index) =>
+      Float32Array.from(polyline.subarray(index * length, (index + 1) * length)),
     );
+  }
+  const times = new Float64Array(segments.length * count);
+  segments.forEach((segment, index) => {
+    for (let i = 0; i < count; i += 1) {
+      times[index * count + i] =
+        segment.startStamp + ((segment.endStamp - segment.startStamp) * i) / (count - 1);
+    }
   });
   const values = curve.values(times);
   return segments.map((_, index) => {
-    const points = new Float32Array(count * 2);
+    const points = new Float32Array(length);
     for (let i = 0; i < count; i += 1) {
       const offset = index * count + i;
       const value = values[offset];

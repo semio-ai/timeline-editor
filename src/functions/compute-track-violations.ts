@@ -80,8 +80,9 @@ export function computeTrackViolations(
 
   const times = Float64Array.from({ length: steps + 1 }, (_, i) => i * intervalSize);
   const batchCurve = interpolator as Partial<TrackCurve>;
-  const values = batchCurve.values?.(times);
-  const velocities = batchCurve.velocities?.(times);
+  const numbers = batchCurve.numbers?.(times);
+  const values = numbers?.values ?? batchCurve.values?.(times);
+  const velocities = numbers ? numbers.velocities : batchCurve.velocities?.(times);
   let valueStart: RawValue = values?.[0] ?? interpolator(0) ?? defaultValue;
 
   for (let i = 0; i < steps; i += 1) {
@@ -139,8 +140,8 @@ export function computeTrackViolations(
 
 /**
  * Boundary tolerance for limit checks. A value held flat AT a limit is sampled
- * from the spline as `limit ± float error` (bezier evaluation + the ~1e-4
- * parameter solve), so a strict `>`/`<` test flips on and off across frames and
+ * from the spline as `limit ± float error` (the time solve and the Bézier's
+ * evaluation each round), so a strict `>`/`<` test flips on and off across frames and
  * paints scattered violations over a constant-at-limit range. Treat values
  * within this tolerance of the limit as on-limit. Scaled by magnitude so it
  * holds for large limits while staying ~1e-6 near zero. Real violations exceed
@@ -309,6 +310,17 @@ export function computeInstanceTrackViolations(
       exact.velocities &&
       ((times: Float64Array) =>
         exact.velocities!(times.map((time) => time * scale))?.map((velocity) => velocity * scale)),
+    numbers:
+      exact.numbers &&
+      ((times: Float64Array) => {
+        const numbers = exact.numbers!(times.map((time) => time * scale));
+        return (
+          numbers && {
+            values: numbers.values,
+            velocities: numbers.velocities.map((velocity) => velocity * scale),
+          }
+        );
+      }),
   });
   const violations = computeTrackViolations(
     scale === 1 ? curve : worldCurve,

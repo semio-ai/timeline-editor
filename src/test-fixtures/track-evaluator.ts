@@ -37,6 +37,29 @@ export const testTrackEvaluator: TrackEvaluator = {
       },
       velocities: (times) =>
         kind === "number" ? Float64Array.from(times, (time) => sample(time).velocity!) : undefined,
+      numbers: (times) =>
+        kind === "number"
+          ? Float64Array.from({ length: times.length * 2 }, (_, i) =>
+              i < times.length
+                ? (sample(times[i]).value as number)
+                : sample(times[i - times.length]).velocity!,
+            )
+          : undefined,
+      numberAt: (time) => (kind === "number" ? (sample(time).value as number) : NaN),
+      velocityAt: (time) => (kind === "number" ? sample(time).velocity! : NaN),
+      polyline: (starts, ends, count) => {
+        if (kind !== "number") return undefined;
+        const points = new Float64Array(starts.length * count * 2);
+        starts.forEach((start, range) => {
+          for (let i = 0; i < count; i += 1) {
+            const time =
+              i === count - 1 ? ends[range] : start + ((ends[range] - start) * i) / (count - 1);
+            points[(range * count + i) * 2] = time;
+            points[(range * count + i) * 2 + 1] = sample(time).value as number;
+          }
+        });
+        return points;
+      },
       free() {},
     };
   },

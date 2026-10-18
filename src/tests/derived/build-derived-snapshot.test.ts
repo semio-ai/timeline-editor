@@ -216,6 +216,19 @@ describe("buildDerivedSnapshot", () => {
               : compiled.values(times),
           velocities: (times) =>
             compiled.kind === "number" ? new Float64Array(times.length).fill(123) : undefined,
+          numbers: (times) =>
+            compiled.kind === "number"
+              ? new Float64Array(times.length * 2)
+                  .fill(0.125, 0, times.length)
+                  .fill(123, times.length)
+              : undefined,
+          numberAt: (time) => (compiled.kind === "number" ? 0.125 : compiled.numberAt(time)),
+          velocityAt: (time) => (compiled.kind === "number" ? 123 : compiled.velocityAt(time)),
+          polyline: (starts, ends, count) => {
+            const points = compiled.polyline(starts, ends, count);
+            for (let i = 1; i < (points?.length ?? 0); i += 2) points![i] = 0.125;
+            return points;
+          },
         };
       },
     };

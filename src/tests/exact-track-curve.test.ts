@@ -1,3 +1,4 @@
+import { freeze } from "immer";
 import { describe, expect, it } from "vitest";
 import { computeRowData } from "../functions/compute-row-data";
 import { computeInstanceTrackViolations } from "../functions/compute-track-violations";
@@ -71,6 +72,21 @@ describe("exact track evaluation", () => {
     expect(trackCurve({ ...track, points: [track.points[0]] }, testTrackEvaluator)!(-100)).toBe(1);
   });
 
+  it("reads a track edited in place afresh, and keeps a frozen one's curve", () => {
+    // An immer draft is edited in place between two reads in one recipe.
+    const draft = structuredClone(ramp);
+    const before = trackCurve(draft, testTrackEvaluator)!;
+    draft.points[1].value = 4;
+    const after = trackCurve(draft, testTrackEvaluator)!;
+    expect(after).not.toBe(before);
+    expect(after(0)).toBeCloseTo(2, 12);
+    const committed = freeze(structuredClone(ramp), true);
+    expect(trackCurve(committed, testTrackEvaluator)).toBe(
+      trackCurve(committed, testTrackEvaluator),
+    );
+    expect(trackCurve(committed, testTrackEvaluator)!(0)).toBeCloseTo(1, 12);
+  });
+
   it("caches by content, recompiles edits, isolates evaluators and frees evictions", () => {
     let compiles = 0;
     let frees = 0;
@@ -84,6 +100,10 @@ describe("exact track evaluation", () => {
           values(times) {
             if (freed) throw new Error("freed resource");
             return compiled.values(times);
+          },
+          numberAt(time) {
+            if (freed) throw new Error("freed resource");
+            return compiled.numberAt(time);
           },
           free: () => {
             frees += 1;
@@ -158,6 +178,20 @@ it("draws every value segment, including before zero, with one host batch per ro
           return new Float64Array(times.length).fill(123);
         },
         velocities: () => undefined,
+        numbers: () => undefined,
+        numberAt: () => 123,
+        velocityAt: () => 0,
+        polyline(starts, ends, count) {
+          batches += 1;
+          negativeTime ||= starts.some((time) => time < 0);
+          const points = new Float64Array(starts.length * count * 2).fill(123);
+          starts.forEach((start, range) => {
+            for (let i = 0; i < count; i += 1) {
+              points[(range * count + i) * 2] = start + ((ends[range] - start) * i) / (count - 1);
+            }
+          });
+          return points;
+        },
         free() {},
       };
     },
@@ -191,9 +225,10 @@ it("draws every value segment, including before zero, with one host batch per ro
   for (let i = 1; i < sample.points.length; i += 2) expect(sample.points[i]).toBe(123);
 });
 
-it("batches violation values and exact velocities in world time", () => {
+it("batches violation values and exact velocities in world time, in one evaluation", () => {
   let valueCalls = 0;
   let velocityCalls = 0;
+  let numberCalls = 0;
   const curve = Object.assign(
     () => {
       throw new Error("scalar evaluation in batch analysis");
@@ -207,6 +242,13 @@ it("batches violation values and exact velocities in world time", () => {
         velocityCalls += 1;
         return new Float64Array(times.length).fill(2);
       },
+      numbers(times: Float64Array) {
+        numberCalls += 1;
+        return {
+          values: new Float64Array(times.length),
+          velocities: new Float64Array(times.length).fill(2),
+        };
+      },
       velocity: () => 2,
     },
   );
@@ -217,8 +259,9 @@ it("batches violation values and exact velocities in world time", () => {
     default: 0,
     constraints: { velocity: 3 },
   });
-  expect(valueCalls).toBe(1);
-  expect(velocityCalls).toBe(1);
+  expect(numberCalls).toBe(1);
+  expect(valueCalls).toBe(0);
+  expect(velocityCalls).toBe(0);
   expect(violations).toMatchObject([
     { type: ViolationType.Velocity, stampRange: { start: 0, end: 1000 } },
   ]);

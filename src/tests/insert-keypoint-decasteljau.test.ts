@@ -372,20 +372,24 @@ it("takes an explicit split's inserted value from the injected evaluator", () =>
       kind: "number",
       values: (times: Float64Array) => new Float64Array(times.length).fill(0.625),
       velocities: (times: Float64Array) => new Float64Array(times.length),
+      numbers: (times: Float64Array) =>
+        new Float64Array(times.length * 2).fill(0.625, 0, times.length),
+      numberAt: () => 0.625,
+      velocityAt: () => 0,
+      polyline: (starts: Float64Array, _ends: Float64Array, count: number) =>
+        new Float64Array(starts.length * count * 2),
       free() {},
     }),
   };
   const store = createMinimalAnimationStore({ trackEvaluator: evaluator });
-  store
-    .getState()
-    .setPreferences({
-      newKeyDefaults: {
-        transitions: {
-          in: TransitionDirective.ExplicitHandles,
-          out: TransitionDirective.ExplicitHandles,
-        },
+  store.getState().setPreferences({
+    newKeyDefaults: {
+      transitions: {
+        in: TransitionDirective.ExplicitHandles,
+        out: TransitionDirective.ExplicitHandles,
       },
-    });
+    },
+  });
   const trackId = Object.keys(store.getState().tracks)[0];
   store.getState().updateTrack({
     id: trackId,
@@ -409,16 +413,14 @@ it("takes an explicit split's inserted value from the injected evaluator", () =>
 
 it("splits effective numeric handles without changing their clamped curve", () => {
   const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
-  store
-    .getState()
-    .setPreferences({
-      newKeyDefaults: {
-        transitions: {
-          in: TransitionDirective.ExplicitHandles,
-          out: TransitionDirective.ExplicitHandles,
-        },
+  store.getState().setPreferences({
+    newKeyDefaults: {
+      transitions: {
+        in: TransitionDirective.ExplicitHandles,
+        out: TransitionDirective.ExplicitHandles,
       },
-    });
+    },
+  });
   const trackId = Object.keys(store.getState().tracks)[0];
   store.getState().updateTrack({
     id: trackId,
