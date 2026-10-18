@@ -5,7 +5,7 @@ import {
   writeStoredAnimation,
   clipTrackJson,
   persistStoredAnimation,
-  splitCompositeTracks,
+  type PersistedAnimation,
 } from "../functions/stored-animation-format";
 import {
   AnimationFormatSupport,
@@ -222,7 +222,7 @@ describe("stored clip format", () => {
       lengthNs: 5_000_000_000,
     };
     expect(readStoredAnimation(held).defaultViewportExtent).toBe(5000);
-    expect(persistStoredAnimation(held).lengthNs).toBe(5_000_000_000);
+    expect((persistStoredAnimation(held) as PersistedAnimation).lengthNs).toBe(5_000_000_000);
     // A length the content and viewport already give adds no viewport extent.
     const written = writeStoredAnimation(
       { ...animation, defaultViewportExtent: undefined },
@@ -232,67 +232,37 @@ describe("stored clip format", () => {
     expect(persistStoredAnimation(written)).toEqual(written);
   });
 
-  it("takes a legacy composite track in as scalar tracks, and writes them as format 3", () => {
+  it("saves an animation holding a composite value in format 2, as it was read", () => {
     const legacy = {
       id: "a",
       name: "A",
       formatVersion: 2,
-      groups: [
-        {
-          id: "g",
-          name: "G",
-          children: ["before", "pose", { id: "n", name: "N", children: ["pose"] }],
-        },
-      ],
+      groups: [{ id: "g", name: "G", children: ["before", "pose"] }],
       tracks: [
         { id: "before", name: "B", animatableId: "b", points: [{ id: "k", stamp: 0, value: 2 }] },
         {
           id: "pose",
           name: "Head",
           animatableId: "head",
+          settings: { color: "red", muted: true },
           points: [
             { id: "p", stamp: 0, value: { x: 1, y: 2, z: 3 } },
-            {
-              id: "q",
-              stamp: 500,
-              value: { x: 4, y: 5, z: 6 },
-              transitions: { in: StandardTransitionType.Sine },
-            },
+            { id: "q", stamp: 500, value: 7 },
           ],
         },
       ],
     };
     const store = createAnimationStore();
     store.getState().addAnimation(legacy as unknown as StoredAnimation);
-    const { animations, tracks } = store.getState();
-    expect(animations.a.tracks).toEqual(["before", "pose.x", "pose.y", "pose.z"]);
-    expect(animations.a.groups).toEqual([
-      {
-        id: "g",
-        name: "G",
-        children: [
-          "before",
-          "pose.x",
-          "pose.y",
-          "pose.z",
-          { id: "n", name: "N", children: ["pose.x", "pose.y", "pose.z"] },
-        ],
-      },
-    ]);
-    expect(tracks["pose.y"]).toMatchObject({
-      name: "y",
-      groupName: "Head",
-      animatableId: "head.y",
-      points: [
-        { id: "p.y", stamp: 0, value: 2 },
-        { id: "q.y", stamp: 500, value: 5, transitions: { in: StandardTransitionType.Sine } },
-      ],
-    });
-    const written = store.getState().getStorableAnimation("a");
-    expect(written.tracks.map((item) => item.id)).toEqual(["before", "pose.x", "pose.y", "pose.z"]);
-    expect(persistStoredAnimation(legacy)).toEqual(written);
-    // Content without a composite value is read as it is.
-    const scalar = { ...legacy, tracks: [legacy.tracks[0]] };
-    expect(splitCompositeTracks(readStoredAnimation(scalar))).toBe(scalar);
+    // Mute is runtime state, left out of what is saved.
+    const asRead = {
+      ...legacy,
+      tracks: [legacy.tracks[0], { ...legacy.tracks[1], settings: { color: "red" } }],
+    };
+    expect(store.getState().getStorableAnimation("a")).toEqual(asRead);
+    expect(persistStoredAnimation(legacy)).toEqual(asRead);
+    // With only scalars it is format 3.
+    store.getState().updateTrack({ id: "pose", points: [{ id: "p", stamp: 0, value: 1 }] });
+    expect(store.getState().getStorableAnimation("a").formatVersion).toBe(3);
   });
 });

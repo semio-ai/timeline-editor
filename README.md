@@ -45,21 +45,26 @@ export function Editor({ evaluator }: { evaluator: TrackEvaluator }) {
 
 `clipTrackJson` emits the clip 2.0 track document both the evaluator and Studio's
 World read. Values and velocities are evaluated exactly in clip-local milliseconds;
-number velocities are in value units per second. A content-keyed cache compiles a
+number velocities are in value units per second. A row draws a number track from
+the evaluator's `polyline`, points on the curve, and a violation check reads values
+and velocities from one `numbers` batch. A content-keyed cache compiles a
 track once per evaluator and frees its compiled resource on eviction. Without an
 evaluator, rows draw authored Béziers and have no readouts or violations.
 
 ## Animation content
 
 Persistence writes format 3: clip 2.0's document in integer nanoseconds plus editor
-metadata. `writeStoredAnimation` (also exported as `computeStoredAnimation`) writes
-it from an `Animation` and a track map. `PersistedAnimation` names those bytes;
+metadata. `writeStoredAnimation` writes it from an `Animation` and a track map;
+`writeAnimationForStorage` (also exported as `computeStoredAnimation`, and used by the
+store's save getters and `persistStoredAnimation`) writes format 3 unless a track
+holds a value format 3 cannot, a legacy composite, and then writes format 2 as it was
+read. `PersistedAnimation` names the format-3 bytes;
 `StoredAnimation` names the embedded millisecond model returned by
 `readStoredAnimation`. The reader accepts formats 1, 2 and 3 and rejects unsupported
 versions before inspecting tracks. Framework-free persistence APIs are also available
 from `@semio/animation/format`.
 
-Every saved point must be scalar. Composite migration requires its animatable's
+Every point saved in format 3 must be scalar. Composite migration requires its animatable's
 schema; an unresolved composite is refused by the writer. Invalid transition names
 and non-finite handles play as the default cubic and are omitted from the document.
 Muted state is runtime-only; colours, input keys, group names, groups and viewport

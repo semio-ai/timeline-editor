@@ -54,8 +54,9 @@ point exposes the codec and version classifier without loading the UI.
 
 `StoredAnimation` is the embedded millisecond model; `PersistedAnimation` is the
 nanosecond document. Composite tracks with known animatable schemas are flattened
-by `migrateAnimationData`; the writer requires scalar values and rejects unresolved
-composites. Both asset save hooks use the same format writer through
+by `migrateAnimationData`. `writeStoredAnimation` requires scalar values; the save
+boundary, `writeAnimationForStorage`, writes an animation holding an unresolved
+composite in format 2, as it was read. Both asset save hooks use it through
 `toAssetUploadBytes` in `@semio/core`.
 
 ## A track on an input beyond the model

@@ -512,7 +512,7 @@ export const AnimationSlice = (
       const stored = computeStoredAnimation(state.animations[animationId], state.tracks);
       return stored;
     },
-    getAnimationsToSave: (): PersistedAnimation[] => {
+    getAnimationsToSave: (): (PersistedAnimation | StoredAnimation)[] => {
       const state = get();
       return Object.keys(state.animations).map((animationId) =>
         state.getStorableAnimation(animationId),

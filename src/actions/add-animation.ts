@@ -2,7 +2,7 @@ import { RawValue } from "@semio/utils";
 import { AnimationData } from "../store-types";
 import { Track } from "../types";
 import type { SimpleTrack } from "../types/data/simple-track";
-import { readStoredAnimation, splitCompositeTracks } from "../functions/stored-animation-format";
+import { readStoredAnimation } from "../functions/stored-animation-format";
 
 /**
  * Adds an animation to the state.
@@ -13,9 +13,7 @@ import { readStoredAnimation, splitCompositeTracks } from "../functions/stored-a
  * ensures that the animation is added to the list of visualized animations and sets
  * it as the active animation.
  *
- * Persisted formats 1, 2 and 3 are read into millisecond tracks by readStoredAnimation,
- * and a legacy track of composite values is split into scalar tracks
- * (splitCompositeTracks), so every track the store holds can be written as format 3.
+ * Persisted formats 1, 2 and 3 are read into millisecond tracks by readStoredAnimation.
  *
  * @param state - The current state of the animation data.
  * @param animationData - The data of the animation to be added. It should be an object
@@ -24,7 +22,7 @@ import { readStoredAnimation, splitCompositeTracks } from "../functions/stored-a
 export function addAnimation(state: AnimationData, animationData: unknown) {
   if (animationData && typeof animationData === "object") {
     // Resolve time units before the store or its subscriptions inspect tracks.
-    const migrated = splitCompositeTracks(readStoredAnimation(animationData));
+    const migrated = readStoredAnimation(animationData);
     const animationId = migrated.id;
     const animation = {
       id: migrated.id,

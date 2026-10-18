@@ -721,11 +721,11 @@ export interface AnimationActions {
    * Getter for the stored animation.
    * @param animationId - The ID of the animation to get.
    */
-  getStorableAnimation: (animationId: string) => PersistedAnimation;
+  getStorableAnimation: (animationId: string) => PersistedAnimation | StoredAnimation;
   /**
    * Getter for all stored animations.
    */
-  getAnimationsToSave: () => PersistedAnimation[];
+  getAnimationsToSave: () => (PersistedAnimation | StoredAnimation)[];
   /**
    * Update the color of a control.
    * @param controlId - The ID of the control.
