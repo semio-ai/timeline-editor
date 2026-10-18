@@ -624,9 +624,9 @@ function sampleValueCurve(
   const ends = Float64Array.from(segments, (segment) => segment.endStamp);
   const polyline = curve.polyline(starts, ends, count);
   if (polyline) {
-    return segments.map((_, index) =>
-      Float32Array.from(polyline.subarray(index * length, (index + 1) * length)),
-    );
+    // One buffer for the row; each segment draws its own part of it.
+    const points = Float32Array.from(polyline);
+    return segments.map((_, index) => points.subarray(index * length, (index + 1) * length));
   }
   const times = new Float64Array(segments.length * count);
   segments.forEach((segment, index) => {

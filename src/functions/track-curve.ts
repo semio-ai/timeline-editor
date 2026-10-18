@@ -29,8 +29,12 @@ export interface CompiledCurve {
   free(): void;
 }
 export interface TrackEvaluator {
-  /** Compile a clip 2.0 JSON track document. Throws when it cannot. */
-  compile(trackJson: string): CompiledCurve;
+  /**
+   * Compile a track, as clip 2.0 plays it: `clipTrackJson`'s document, or
+   * for a number track `clipTrackColumns`' columns, which need no text
+   * parsed. Throws when it cannot. The track is read during the call only.
+   */
+  compile(track: SimpleTrack): CompiledCurve;
 }
 export type TrackCurve = ((localMs: number) => SimpleRawValue | undefined) & {
   values(timesMs: Float64Array): Float64Array | (boolean | string)[];
@@ -47,24 +51,34 @@ interface CachedCurve {
   /** Set when the cache frees `compiled`; a curve still held reacquires it. */
   freed: boolean;
 }
-const compiledByContent = new WeakMap<TrackEvaluator, Map<string, CachedCurve>>();
-const CONTENT_ENTRIES = 512;
 
-function acquire(content: string, evaluator: TrackEvaluator): CachedCurve {
-  let cache = compiledByContent.get(evaluator);
+/**
+ * Where a compiled track is found again: a frozen track itself (the store's
+ * committed tracks are frozen, as immer freezes its state deeply, so one
+ * cannot change once compiled), and any other track (a draft being edited, a
+ * drag's preview) by its clip document.
+ */
+type CacheKey = SimpleTrack | string;
+const compiledByKey = new WeakMap<TrackEvaluator, Map<CacheKey, CachedCurve>>();
+const CACHE_ENTRIES = 512;
+
+/** `source` gives the track to compile when the cache holds none for `key`. */
+function acquire(key: CacheKey, source: () => SimpleTrack, evaluator: TrackEvaluator): CachedCurve {
+  let cache = compiledByKey.get(evaluator);
   if (!cache) {
     cache = new Map();
-    compiledByContent.set(evaluator, cache);
+    compiledByKey.set(evaluator, cache);
   }
-  let entry = cache.get(content);
+  let entry = cache.get(key);
   if (!entry) {
-    const compiled = evaluator.compile(content);
+    const track = source();
+    const compiled = evaluator.compile(track);
     const number = compiled.kind === "number";
     // A snapshot can hold a curve after the cache evicts its compiled track,
     // so the curve compiles the track again rather than call a freed one.
     let held: CachedCurve | undefined;
     const resource = () => {
-      if (held!.freed) held = acquire(content, evaluator);
+      if (held!.freed) held = acquire(key, () => track, evaluator);
       return held!.compiled;
     };
     const curve: TrackCurve = Object.assign(
@@ -90,10 +104,10 @@ function acquire(content: string, evaluator: TrackEvaluator): CachedCurve {
     entry = { compiled, curve, freed: false };
     held = entry;
   } else {
-    cache.delete(content);
+    cache.delete(key);
   }
-  cache.set(content, entry);
-  if (cache.size > CONTENT_ENTRIES) {
+  cache.set(key, entry);
+  if (cache.size > CACHE_ENTRIES) {
     const oldest = cache.keys().next().value!;
     const evicted = cache.get(oldest)!;
     cache.delete(oldest);
@@ -103,22 +117,21 @@ function acquire(content: string, evaluator: TrackEvaluator): CachedCurve {
   return entry;
 }
 
-/**
- * The clip JSON of each frozen track. The store's committed tracks are frozen
- * (immer freezes its state deeply), so one cannot change after its JSON is
- * written; any other track, such as a draft being edited or a drag's preview,
- * is written afresh at every call.
- */
-const jsonOfFrozenTrack = new WeakMap<SimpleTrack, string>();
-
-function trackJson(track: SimpleTrack): string {
-  if (!Object.isFrozen(track) || !Object.isFrozen(track.points)) return clipTrackJson(track);
-  let json = jsonOfFrozenTrack.get(track);
-  if (json === undefined) {
-    json = clipTrackJson(track);
-    jsonOfFrozenTrack.set(track, json);
-  }
-  return json;
+/** A copy of what a track plays, read through a proxy as through a plain object. */
+function copyOf(track: SimpleTrack): SimpleTrack {
+  const transition = <T>(value: T): T =>
+    typeof value === "object" && value !== null ? { ...value } : value;
+  return {
+    ...track,
+    points: track.points.map((point) => ({
+      ...point,
+      transitions: point.transitions && {
+        ...point.transitions,
+        in: transition(point.transitions.in),
+        out: transition(point.transitions.out),
+      },
+    })),
+  };
 }
 
 /** Exact evaluation in clip-local ms, holding endpoint values; undefined when the host cannot compile. */
@@ -128,7 +141,12 @@ export function trackCurve(
 ): TrackCurve | undefined {
   if (!evaluator || track.points.length === 0) return undefined;
   try {
-    return acquire(trackJson(track), evaluator).curve;
+    if (Object.isFrozen(track) && Object.isFrozen(track.points)) {
+      return acquire(track, () => track, evaluator).curve;
+    }
+    // A track that can change (an immer draft among them) is compiled from a
+    // copy, which a curve held past an eviction compiles again.
+    return acquire(clipTrackJson(track), () => copyOf(track), evaluator).curve;
   } catch {
     return undefined;
   }

@@ -1,12 +1,13 @@
 import type { TrackEvaluator } from "../functions/track-curve";
-import type { ClipTrack } from "../functions/stored-animation-format";
+import { clipTrackJson, type ClipTrack } from "../functions/stored-animation-format";
 import type { SimpleTrack } from "../types/data/simple-track";
 import { referenceCurve } from "./reference-curve";
 
 /** Test/story evaluator using Studio's segment resolver and 64-step bisection in ms. */
 export const testTrackEvaluator: TrackEvaluator = {
-  compile(trackJson) {
-    const document = JSON.parse(trackJson) as ClipTrack;
+  compile(source) {
+    // What an engine compiles: the track as its clip document writes it.
+    const document = JSON.parse(clipTrackJson(source)) as ClipTrack;
     const track: SimpleTrack = {
       ...document,
       points: document.points.map((point) => ({

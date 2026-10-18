@@ -74,12 +74,18 @@ describe("exact track evaluation", () => {
 
   it("reads a track edited in place afresh, and keeps a frozen one's curve", () => {
     // An immer draft is edited in place between two reads in one recipe.
-    const draft = structuredClone(ramp);
+    // Of its own content, so no other test's curve stands in for it.
+    const draft = { ...structuredClone(ramp), name: "draft" };
     const before = trackCurve(draft, testTrackEvaluator)!;
     draft.points[1].value = 4;
     const after = trackCurve(draft, testTrackEvaluator)!;
     expect(after).not.toBe(before);
     expect(after(0)).toBeCloseTo(2, 12);
+    // A curve held past its eviction compiles the track as it was, not as
+    // the draft became.
+    for (let i = 0; i < 512; i += 1)
+      trackCurve({ ...ramp, name: `evict-${i}` }, testTrackEvaluator);
+    expect(before(0)).toBeCloseTo(1, 12);
     const committed = freeze(structuredClone(ramp), true);
     expect(trackCurve(committed, testTrackEvaluator)).toBe(
       trackCurve(committed, testTrackEvaluator),
@@ -91,9 +97,9 @@ describe("exact track evaluation", () => {
     let compiles = 0;
     let frees = 0;
     const evaluator: TrackEvaluator = {
-      compile(json) {
+      compile(track) {
         compiles += 1;
-        const compiled = testTrackEvaluator.compile(json);
+        const compiled = testTrackEvaluator.compile(track);
         let freed = false;
         return {
           ...compiled,

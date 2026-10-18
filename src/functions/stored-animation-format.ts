@@ -107,6 +107,62 @@ export function clipTrackJson(track: SimpleTrack): string {
   return JSON.stringify(writeTrack(track));
 }
 
+/** A number track's keypoints as columns: what an evaluator compiles with no text to parse. */
+export interface ClipTrackColumns {
+  /** Clip-local times in whole nanoseconds, in the track's order. */
+  timesNs: Float64Array;
+  values: Float64Array;
+  /**
+   * Six numbers a keypoint: the transition it arrives by, then the one it
+   * leaves by, each a code, a time delta in nanoseconds and a value delta.
+   * The code is -1 for none, -2 for a handle of the two deltas, and
+   * otherwise the code `codeOf` gives the transition's name.
+   */
+  transitions: Float64Array;
+}
+
+/**
+ * A number track's keypoints as {@link ClipTrackColumns}, written as
+ * {@link clipTrackJson} writes them (times rounded to whole nanoseconds, a
+ * transition the document leaves out left out here), so the two compile to
+ * one curve; `undefined` for a track holding a value that is not a number.
+ * Throws for a transition name `codeOf` has no code for.
+ */
+export function clipTrackColumns(
+  track: SimpleTrack,
+  codeOf: (name: string) => number | undefined,
+): ClipTrackColumns | undefined {
+  const { points } = track;
+  if (!points.every((point) => typeof point.value === "number")) return undefined;
+  const columns: ClipTrackColumns = {
+    timesNs: new Float64Array(points.length),
+    values: new Float64Array(points.length),
+    transitions: new Float64Array(points.length * 6).fill(-1),
+  };
+  // Each side as `writeTrack` writes it into the document.
+  const side = (authored: AuthoredTransition | undefined, at: number) => {
+    const transition = writeTransition(authored);
+    if (transition === undefined) return;
+    if (typeof transition === "object") {
+      columns.transitions[at] = -2;
+      // A document writes -0 as 0.
+      columns.transitions[at + 1] = transition.dtNs + 0;
+      columns.transitions[at + 2] = transition.dv + 0;
+      return;
+    }
+    const code = codeOf(transition);
+    if (code === undefined) throw new Error(`No code for the transition ${transition}`);
+    columns.transitions[at] = code;
+  };
+  points.forEach((point, i) => {
+    columns.timesNs[i] = Math.round(point.stamp * 1e6) + 0;
+    columns.values[i] = (point.value as number) + 0;
+    side(point.transitions?.in, i * 6);
+    side(point.transitions?.out, i * 6 + 3);
+  });
+  return columns;
+}
+
 function readTransition(value: ClipTransition | undefined): AuthoredTransition | undefined {
   if (value === undefined || typeof value === "string") return value;
   return { x: value.dtNs / 1e6, y: value.dv };

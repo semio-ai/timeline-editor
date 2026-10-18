@@ -206,8 +206,8 @@ describe("buildDerivedSnapshot", () => {
       });
     // The host owns both values and derivatives, independently of authored geometry.
     const flat: TrackEvaluator = {
-      compile(json) {
-        const compiled = testTrackEvaluator.compile(json);
+      compile(track) {
+        const compiled = testTrackEvaluator.compile(track);
         return {
           ...compiled,
           values: (times) =>

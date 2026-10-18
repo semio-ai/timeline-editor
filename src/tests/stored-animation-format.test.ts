@@ -5,8 +5,11 @@ import {
   writeStoredAnimation,
   clipTrackJson,
   persistStoredAnimation,
+  clipTrackColumns,
+  type ClipTrack,
   type PersistedAnimation,
 } from "../functions/stored-animation-format";
+import { randomAnimation } from "../test-fixtures/random-animation";
 import {
   AnimationFormatSupport,
   classifyAnimationFormat,
@@ -214,6 +217,50 @@ describe("stored clip format", () => {
     expect(store.getState().tracks.t.points[1].stamp).toBe(1234.567891);
     expect(store.getState().getStorableAnimation("a")).toEqual(document);
     expect(store.getState().getAnimationsToSave()).toEqual([document]);
+  });
+
+  it("writes a number track's columns as its document writes its points", () => {
+    const names = [...Object.values(StandardTransitionType), ...Object.values(TransitionDirective)];
+    const codeOf = (name: string) => {
+      const code = names.indexOf(name as never);
+      return code < 0 ? undefined : code;
+    };
+    const decode = (columns: Float64Array, at: number) =>
+      columns[at] === -1
+        ? undefined
+        : columns[at] === -2
+          ? { dtNs: columns[at + 1], dv: columns[at + 2] }
+          : names[columns[at]];
+    const odd: SimpleTrack = {
+      ...track,
+      points: [
+        ...track.points,
+        {
+          id: "r",
+          stamp: 2000.0000004,
+          value: -0,
+          transitions: { in: { x: -0, y: NaN }, out: "unknown" as StandardTransitionType },
+        },
+      ],
+    };
+    const generated = Array.from({ length: 30 }, (_, seed) =>
+      Object.values(randomAnimation(seed + 1).tracks),
+    ).flat();
+    for (const each of [track, odd, ...generated]) {
+      const document = JSON.parse(clipTrackJson(each)) as { points: ClipTrack["points"] };
+      const columns = clipTrackColumns(each, codeOf);
+      if (!document.points.every((point) => typeof point.value === "number")) {
+        expect(columns).toBeUndefined();
+        continue;
+      }
+      expect(Array.from(columns!.timesNs)).toEqual(document.points.map((point) => point.timeNs));
+      expect(Array.from(columns!.values)).toEqual(document.points.map((point) => point.value));
+      document.points.forEach((point, i) => {
+        expect(decode(columns!.transitions, i * 6)).toEqual(point.transitions?.in);
+        expect(decode(columns!.transitions, i * 6 + 3)).toEqual(point.transitions?.out);
+      });
+    }
+    expect(() => clipTrackColumns(track, () => undefined)).toThrow("No code");
   });
 
   it("keeps a clip's length past its last keypoint through a read and a write", () => {
