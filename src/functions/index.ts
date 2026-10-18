@@ -43,6 +43,7 @@ export * from "./row-edit-state";
 export * from "./source-ref";
 export * from "./key-edit-targets";
 export * from "./track-curve";
+export { resolveAnimationDuration } from "./compute-animation-extent";
 export * from "./recorder";
 
 export * from "./stored-animation-format";
