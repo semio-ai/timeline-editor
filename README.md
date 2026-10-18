@@ -43,12 +43,14 @@ export function Editor({ evaluator }: { evaluator: TrackEvaluator }) {
 }
 ```
 
-`clipTrackJson` emits the clip 2.0 track document both the evaluator and Studio's
-World read. Values and velocities are evaluated exactly in clip-local milliseconds;
+An evaluator compiles a track as clip 2.0 plays it: `clipTrackJson` emits its
+document, the one Studio's World delivers, and `clipTrackColumns` a number track's
+keypoints as columns of numbers, which compile with no text to parse. Values and velocities are evaluated exactly in clip-local milliseconds;
 number velocities are in value units per second. A row draws a number track from
 the evaluator's `polyline`, points on the curve, and a violation check reads values
-and velocities from one `numbers` batch. A content-keyed cache compiles a
-track once per evaluator and frees its compiled resource on eviction. Without an
+and velocities from one `numbers` batch. A cache compiles a track once
+per evaluator (a frozen track found again by identity, any other by its document)
+and frees its compiled resource on eviction. Without an
 evaluator, rows draw authored Béziers and have no readouts or violations.
 
 ## Animation content
