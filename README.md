@@ -24,36 +24,47 @@ The host hands the sheet three things:
   created without one has a player of its own);
 - **the values store** (`DataStoreContext` from `@semio/utils`), Arora's data
   store interface, which the direct controls read;
-- **a baker** (`trackBaker` on the store), which draws each track's curve from
-  the Vizij animation module, the only evaluator of a curve. Studio bakes on an
-  emulated device of its own; a page with no device attaches the module this
-  package bundles.
+- **an evaluator** (`trackEvaluator` on the store), whose `compile(trackJson)`
+  returns a `CompiledCurve` with batched values and velocities. Studio injects
+  `@semio/studio-arora`'s compiled tracks. Hosts own the evaluator's initialization.
 
 ```tsx
+import { useState } from "react";
 import { AnimationContext, AnimationSheet, createAnimationStore } from "@semio/animation";
-import { attachModuleBaker } from "@semio/animation/module-baker";
-import { createValuesStore, DataStoreContext, valuesDataStore } from "@semio/utils";
+import type { TrackEvaluator } from "@semio/animation";
 
-const store = createAnimationStore();
-const values = valuesDataStore(createValuesStore());
-
-export function Editor() {
-  useEffect(() => attachModuleBaker(store), []);
+export function Editor({ evaluator }: { evaluator: TrackEvaluator }) {
+  const [store] = useState(() => createAnimationStore({ trackEvaluator: evaluator }));
   return (
-    <DataStoreContext.Provider value={values}>
-      <AnimationContext.Provider value={store}>
-        <AnimationSheet /* viewId, theme, fonts, … */ />
-      </AnimationContext.Provider>
-    </DataStoreContext.Provider>
+    <AnimationContext.Provider value={store}>
+      <AnimationSheet /* viewId, theme, fonts, … */ />
+    </AnimationContext.Provider>
   );
 }
 ```
 
-`attachModuleBaker` runs the module in the page through `@vizij/runtime`
-(25 MB of wasm, 7 MB compressed, fetched on the first bake). It lives on its own
-entry point, `@semio/animation/module-baker`, so a host that bakes elsewhere
-never bundles it. Without a baker, curves are drawn from their authored Béziers
-and tracks have no values or violations.
+`clipTrackJson` emits the clip 2.0 track document both the evaluator and Studio's
+World read. Values and velocities are evaluated exactly in clip-local milliseconds;
+number velocities are in value units per second. A content-keyed cache compiles a
+track once per evaluator and frees its compiled resource on eviction. Without an
+evaluator, rows draw authored Béziers and have no readouts or violations.
+
+## Animation content
+
+Persistence writes format 3: clip 2.0's document in integer nanoseconds plus editor
+metadata. `writeStoredAnimation` (also exported as `computeStoredAnimation`) writes
+it from an `Animation` and a track map. `PersistedAnimation` names those bytes;
+`StoredAnimation` names the embedded millisecond model returned by
+`readStoredAnimation`. The reader accepts formats 1, 2 and 3 and rejects unsupported
+versions before inspecting tracks. Framework-free persistence APIs are also available
+from `@semio/animation/format`.
+
+Every saved point must be scalar. Composite migration requires its animatable's
+schema; an unresolved composite is refused by the writer. Invalid transition names
+and non-finite handles play as the default cubic and are omitted from the document.
+Muted state is runtime-only; colours, input keys, group names, groups and viewport
+extent persist. `lengthNs` is the resolved editor duration (content extent, viewport
+extent or 1000 ms, whichever is greatest).
 
 Playback and viewport are decoupled: pan / zoom / playhead-follow are driven by
 motion values independent of the player tick, so the timeline follows the
@@ -133,7 +144,6 @@ function accepts the resulting runtime animation rather than a raw stored file.
 
 Toolbar sections use the shared UI `toolbar-segments` style for 2px gaps, square
 shared edges and rounded exposed ends. Section outlines remain on the group.
-
 
 ## License
 

@@ -1,4 +1,3 @@
-import { range } from "lodash";
 import {
   AnimatableValue,
   DeprecatedComplexAnimatableValue,
@@ -22,6 +21,7 @@ import {
 } from "@semio/utils";
 import { ViolationType } from "../types";
 import type { Violation, TrackInterpolator } from "../types";
+import type { TrackCurve } from "./track-curve";
 import { rawValueNorm, rawValueDiff } from "./raw-value-math";
 
 type Vec3Constraints = (AnimatableVector3 | AnimatableEuler)["constraints"];
@@ -78,40 +78,51 @@ export function computeTrackViolations(
   };
   const defaultValue = animatableValue.default;
 
-  let valueStart: RawValue = interpolator(0) ?? defaultValue;
+  const times = Float64Array.from({ length: steps + 1 }, (_, i) => i * intervalSize);
+  const batchCurve = interpolator as Partial<TrackCurve>;
+  const values = batchCurve.values?.(times);
+  const velocities = batchCurve.velocities?.(times);
+  let valueStart: RawValue = values?.[0] ?? interpolator(0) ?? defaultValue;
 
-  range(0, duration, intervalSize).forEach((stampStart) => {
-    const stampEnd = stampStart + intervalSize;
-    const valueEnd: RawValue = interpolator(stampEnd) ?? defaultValue;
-    violationCheckerEntries.forEach(
-      ([violationType, violationChecker]: [ViolationType, ViolationChecker]) => {
-        if (violationChecker(valueStart, valueEnd, animatableValue.constraints, timeDelta)) {
-          const openViolation = openViolations[violationType as keyof typeof violationChecker];
-          if (openViolation === undefined) {
-            // Open a new violation
-            openViolations[violationType] = {
-              id: crypto.randomUUID(),
-              stampRange: { start: stampStart, end: stampEnd },
-              type: violationType,
-              trackId,
-              namespace,
-              instanceId,
-            } as Violation;
-          } else if (openViolation !== undefined) {
-            // Update the end time of the current open violation
-            (
-              openViolations[violationType as keyof typeof violationChecker] as Violation
-            ).stampRange.end = stampEnd;
-          }
-        } else if (openViolations[violationType as keyof typeof violationChecker] !== undefined) {
-          // Close the violation
-          completedViolations.push(openViolations[violationType as keyof typeof violationChecker]);
-          openViolations[violationType] = undefined;
+  for (let i = 0; i < steps; i += 1) {
+    const stampStart = times[i];
+    const stampEnd = times[i + 1];
+    const valueEnd: RawValue = values?.[i + 1] ?? interpolator(stampEnd) ?? defaultValue;
+    for (const [violationType, violationChecker] of violationCheckerEntries) {
+      const velocityLimit = (animatableValue.constraints as NumberConstraints)?.velocity;
+      const violates =
+        violationType === ViolationType.Velocity && velocities && velocityLimit !== undefined
+          ? exceedsMax(
+              Math.max(Math.abs(velocities[i]), Math.abs(velocities[i + 1])),
+              velocityLimit,
+            ) || violationChecker(valueStart, valueEnd, animatableValue.constraints, timeDelta)
+          : violationChecker(valueStart, valueEnd, animatableValue.constraints, timeDelta);
+      if (violates) {
+        const openViolation = openViolations[violationType as keyof typeof violationChecker];
+        if (openViolation === undefined) {
+          // Open a new violation
+          openViolations[violationType] = {
+            id: crypto.randomUUID(),
+            stampRange: { start: stampStart, end: stampEnd },
+            type: violationType,
+            trackId,
+            namespace,
+            instanceId,
+          } as Violation;
+        } else if (openViolation !== undefined) {
+          // Update the end time of the current open violation
+          (
+            openViolations[violationType as keyof typeof violationChecker] as Violation
+          ).stampRange.end = stampEnd;
         }
-      },
-    );
+      } else if (openViolations[violationType as keyof typeof violationChecker] !== undefined) {
+        // Close the violation
+        completedViolations.push(openViolations[violationType as keyof typeof violationChecker]);
+        openViolations[violationType] = undefined;
+      }
+    }
     valueStart = valueEnd;
-  });
+  }
 
   // Close out any open violations
   Object.values(openViolations).forEach((openViolation) => {
@@ -290,8 +301,17 @@ export function computeInstanceTrackViolations(
     timescale !== undefined && Number.isFinite(timescale) && timescale !== 0
       ? Math.abs(timescale)
       : 1;
+  const exact = curve as Partial<TrackCurve>;
+  const worldCurve = Object.assign((worldMs: number) => curve(worldMs * scale), {
+    values:
+      exact.values && ((times: Float64Array) => exact.values!(times.map((time) => time * scale))),
+    velocities:
+      exact.velocities &&
+      ((times: Float64Array) =>
+        exact.velocities!(times.map((time) => time * scale))?.map((velocity) => velocity * scale)),
+  });
   const violations = computeTrackViolations(
-    scale === 1 ? curve : (worldMs) => curve(worldMs * scale),
+    scale === 1 ? curve : worldCurve,
     animationDurationMs / scale,
     trackId,
     namespace,

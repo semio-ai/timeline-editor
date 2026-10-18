@@ -4,7 +4,7 @@ import {
   computeInstanceTrackViolations,
   computeRowData,
   materializeSegmentSample,
-  type TrackBaker,
+  type TrackEvaluator,
 } from "../../functions";
 import { createTestAnimationStore } from "../../test-fixtures";
 import { parseTrackKey, buildTrackKey } from "../../utils/track-key";
@@ -17,7 +17,7 @@ import {
   NAMESPACE_IDS,
   INSTANCE_IDS,
 } from "../../test-fixtures/animation-store-factory";
-import { clipBaker } from "../module-clip/clip-baker";
+import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
 import { curveOf } from "../curves";
 
 describe("buildDerivedSnapshot", () => {
@@ -33,7 +33,7 @@ describe("buildDerivedSnapshot", () => {
       instancedTrackSources: state.instancedTrackSources,
       dragState: state.dragState,
       selectionState: state.selectionState,
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       version: 1,
     });
 
@@ -91,7 +91,7 @@ describe("buildDerivedSnapshot", () => {
         {
           animations: state.animations,
           namespaces: state.namespaces,
-          trackBaker: clipBaker,
+          trackEvaluator: testTrackEvaluator,
         },
       );
 
@@ -180,7 +180,7 @@ describe("buildDerivedSnapshot", () => {
       instancedTrackSources: state.instancedTrackSources,
       dragState,
       selectionState,
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       version: 2,
     });
 
@@ -191,9 +191,9 @@ describe("buildDerivedSnapshot", () => {
     expect(snapshot.tracks[otherKey]?.preview?.curve).toBeDefined();
   });
 
-  test("draws a value row's curve, and reads its values, from the bake", () => {
+  test("draws a value row and reads values and exact velocities through the evaluator", () => {
     const state = createTestAnimationStore().getState();
-    const build = (trackBaker?: TrackBaker) =>
+    const build = (trackEvaluator?: TrackEvaluator) =>
       buildDerivedSnapshot({
         tracks: state.tracks,
         namespaces: state.namespaces,
@@ -202,14 +202,23 @@ describe("buildDerivedSnapshot", () => {
         instancedTrackSources: state.instancedTrackSources,
         dragState: undefined,
         selectionState: state.selectionState,
-        trackBaker,
+        trackEvaluator,
       });
-    // A baker whose every sample is one value: whatever the keypoints say, the
-    // drawn curve and the values are that value.
-    const flat: TrackBaker = (clip, trackId, rateHz) =>
-      clipBaker(clip, trackId, rateHz)?.map((sample) =>
-        typeof sample === "number" ? 0.125 : sample,
-      );
+    // The host owns both values and derivatives, independently of authored geometry.
+    const flat: TrackEvaluator = {
+      compile(json) {
+        const compiled = testTrackEvaluator.compile(json);
+        return {
+          ...compiled,
+          values: (times) =>
+            compiled.kind === "number"
+              ? new Float64Array(times.length).fill(0.125)
+              : compiled.values(times),
+          velocities: (times) =>
+            compiled.kind === "number" ? new Float64Array(times.length).fill(123) : undefined,
+        };
+      },
+    };
     const snapshot = build(flat);
 
     const valueRow = Object.values(snapshot.rows).find(
@@ -234,8 +243,9 @@ describe("buildDerivedSnapshot", () => {
     }
     const [trackKey] = valueRow.trackKeys;
     expect(snapshot.tracks[trackKey].canonical.curve(100)).toBe(0.125);
+    expect(snapshot.tracks[trackKey].canonical.derivative(100)).toBe(123);
 
-    // Without a baker, no track has a value.
+    // Without an evaluator, no track has a value.
     expect(build(undefined).tracks[trackKey].canonical.curve(100)).toBeUndefined();
   });
 });

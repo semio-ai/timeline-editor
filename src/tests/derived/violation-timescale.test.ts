@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { RawValue } from "@semio/utils";
 import { buildDerivedSnapshot, rawValueDiff, rawValueNorm } from "../../functions";
-import { clipBaker } from "../module-clip/clip-baker";
+import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
 import { curveOf } from "../curves";
 import { buildTrackKey } from "../../utils/track-key";
 import {
@@ -41,7 +41,7 @@ const computeMaxVelocity = (
 
 describe("violation timescale behavior", () => {
   test("timescale increases velocity violations for shared tracks", () => {
-    const store = createTestAnimationStore({ trackBaker: clipBaker });
+    const store = createTestAnimationStore({ trackEvaluator: testTrackEvaluator });
     const state = store.getState();
     const animatable = state.animatables[ANIMATABLE_IDS.SCALE];
     const track = state.tracks[TRACK_IDS.SCALE];
@@ -100,7 +100,7 @@ describe("violation timescale behavior", () => {
       instancedTrackSources: state.instancedTrackSources,
       dragState: undefined,
       selectionState: state.selectionState,
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       version: 1,
     });
 

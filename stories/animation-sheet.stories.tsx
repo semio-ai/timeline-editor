@@ -12,7 +12,9 @@ import {
   TrackRender,
   useAnimationStore,
 } from "@semio/animation";
-import { attachModuleBaker } from "@semio/animation/module-baker";
+import { testTrackEvaluator } from "@semio/animation";
+
+/** Studio evaluates through @semio/studio-arora; stories use the test evaluator. */
 import { Text, TextRole } from "@semio/ui";
 import { createValuesStore, DataStoreContext, valuesDataStore } from "@semio/utils";
 
@@ -28,20 +30,17 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * The sheet on a store of its own, its values in a store the story injects.
- * With `bake`, its curves come from the Vizij animation module, which the
- * package runs in the page through `@vizij/runtime` (`attachModuleBaker`):
- * no device, no Studio. Without it, nothing bakes and the curves are drawn
- * from the authored Béziers, with no values or violations.
+ * A standalone sheet using the test evaluator and an injected values store.
+ * Studio evaluates through @semio/studio-arora.
  */
 function AnimationSheetWithStore({
   storeType = "full",
-  bake = true,
+  evaluate = true,
   trackRender,
   ...props
 }: AnimationSheetProps & {
   storeType?: "full" | "minimal" | "namespaceA" | "namespaceB";
-  bake?: boolean;
+  evaluate?: boolean;
   /** How every view of the sheet draws its tracks, when not the store's default. */
   trackRender?: TrackRender;
 }): ReactNode {
@@ -69,7 +68,7 @@ function AnimationSheetWithStore({
     }
   }, [storeType]);
 
-  useEffect(() => (bake ? attachModuleBaker(store) : undefined), [store, bake]);
+  useEffect(() => (evaluate ? attachTestEvaluator(store) : undefined), [store, evaluate]);
   useEffect(() => {
     if (trackRender === undefined) return;
     for (const viewId of Object.keys(store.getState().editorViews)) {
@@ -81,7 +80,7 @@ function AnimationSheetWithStore({
     <DataStoreContext.Provider value={values}>
       <AnimationContext.Provider value={store}>
         <div ref={ref} style={{ width: "100vw", height: "100vh", minHeight: 400 }}>
-          {bake && <BakeStatus />}
+          {evaluate && <EvaluationStatus />}
           <AnimationSheet
             {...props}
             height={props.height ?? (bounds.height > 0 ? bounds.height : 600)}
@@ -96,14 +95,14 @@ function AnimationSheetWithStore({
   );
 }
 
-/** How many of the sheet's tracks have a curve the module baked. */
-function BakeStatus(): ReactNode {
+/** How many of the sheet's tracks have a curve the test evaluator evaluated. */
+function EvaluationStatus(): ReactNode {
   const tracks = useAnimationStore((state) => state.derivedSnapshot?.tracks);
   const all = Object.values(tracks ?? {});
-  const baked = all.filter((track) => track.canonical.curve(0) !== undefined).length;
+  const evaluated = all.filter((track) => track.canonical.curve(0) !== undefined).length;
   return (
-    <Text role={TextRole.Note} data-testid="bake-status">
-      Curves baked by the Vizij animation module: {baked} of {all.length} tracks
+    <Text role={TextRole.Note} data-testid="evaluate-status">
+      Curves evaluated by the test evaluator: {evaluated} of {all.length} tracks
     </Text>
   );
 }
@@ -137,15 +136,20 @@ export const Minimal: Story = {
 };
 
 /**
- * The spline view: each value row's curve, as the bundled module bakes it
+ * The spline view: each value row's curve, as the test evaluator evaluates it
  */
 export const Splines: Story = {
   render: () => <AnimationSheetWithStore storeType="full" trackRender={TrackRender.Spline} />,
 };
 
 /**
- * Nothing bakes: curves drawn from the authored Béziers, no values or violations
+ * Nothing evaluates: curves drawn from the authored Béziers, no values or violations
  */
-export const WithoutBaker: Story = {
-  render: () => <AnimationSheetWithStore storeType="full" bake={false} />,
+export const WithoutEvaluator: Story = {
+  render: () => <AnimationSheetWithStore storeType="full" evaluate={false} />,
 };
+
+function attachTestEvaluator(store: import("@semio/animation").AnimationStore) {
+  store.setState({ trackEvaluator: testTrackEvaluator });
+  return () => store.setState({ trackEvaluator: undefined });
+}

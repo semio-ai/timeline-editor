@@ -2,18 +2,11 @@ import { RawValue } from "@semio/utils";
 import type { Track } from "./track";
 import type { TrackGroup } from "./track-group";
 
-/**
- * Format version for stored animations.
- *
- * - **1** (legacy): Keypoint stamps are normalized [0,1] fractions of the animation's duration.
- *   Transition x-deltas are also normalized. Duration is stored explicitly.
- * - **2** (current): Keypoint stamps are in absolute milliseconds. Transition x-deltas are in
- *   milliseconds. Duration is derived from track extent rather than stored explicitly.
- */
-export type AnimationFormatVersion = 1 | 2;
+/** Versions accepted at the persistence boundary. */
+export type AnimationFormatVersion = 1 | 2 | 3;
 
-/** The current format version for newly created animations. */
-export const CURRENT_ANIMATION_FORMAT_VERSION: AnimationFormatVersion = 2;
+/** Persisted animations use clip 2.0 time units. Runtime records remain in ms. */
+export const CURRENT_ANIMATION_FORMAT_VERSION = 3;
 
 /**
  * Runtime animation record stored in the editor state.
@@ -40,7 +33,8 @@ export interface Animation {
 }
 
 /**
- * Stored animation shape used for persistence and serialization.
+ * Embedded in-memory animation in millisecond units (including legacy input).
+ * PersistedAnimation is the distinct nanosecond document written to storage.
  * Tracks are embedded rather than referenced by id.
  */
 export interface StoredAnimation {
@@ -69,7 +63,7 @@ export interface StoredAnimation {
    * Format version. Absent or 1 = legacy normalized [0,1] stamps.
    * 2 = millisecond stamps.
    */
-  formatVersion?: AnimationFormatVersion;
+  formatVersion?: 1 | 2;
 }
 
 /** Instance of an animation within a namespace (timing overrides live here). */

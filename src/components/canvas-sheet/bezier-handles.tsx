@@ -19,7 +19,10 @@ import {
   HandleDragUpdateInput,
   ValueScale,
 } from "../../types";
-import { clampHandleAgainstOwnKeypointX } from "../../functions/solve-handle-transition";
+import {
+  handlePointerDelta,
+  handlesWithinSnapTolerance,
+} from "../../functions/handle-pointer-delta";
 import {
   computePairedHandleDelta,
   getViewLength,
@@ -71,7 +74,7 @@ interface HandleInteractionProps {
   basePairing?: TransitionPairing;
   valueScale?: ValueScale;
   pixelRangeY: number;
-  startHandleDrag: (input: HandleDragStartInput) => void;
+  startHandleDrag: (input: HandleDragStartInput) => TransitionPairing | undefined;
   updateHandleDrag: (input: HandleDragUpdateInput) => void;
   commitDrag: () => void;
   cancelDrag: () => void;
@@ -95,34 +98,9 @@ interface BezierHandlesProps {
 }
 
 const RAW_RADIUS_PX = 4;
-const PAIRING_FLAT_TOLERANCE_RAD = (3 * Math.PI) / 180;
 
 const tmpAnchor = new Vector3();
 const tmpMarker = new Vector3();
-
-const computeVerticalRange = (valueScale?: ValueScale): number => {
-  if (!valueScale) return 1;
-  const range = valueScale.domain[1] - valueScale.domain[0];
-  return Number.isFinite(range) && range !== 0 ? range : 1;
-};
-
-const applyPrecision = (value: number, precision?: number): number => {
-  if (precision === undefined) return value;
-  const factor = 10 ** precision;
-  return Math.round(value * factor) / factor;
-};
-
-const withinFlatTolerance = (a: RawVector2, b: RawVector2): boolean => {
-  const aLen = Math.hypot(a.x, a.y);
-  const bLen = Math.hypot(b.x, b.y);
-  if (aLen === 0 || bLen === 0) {
-    return false;
-  }
-  const dot = (a.x * b.x + a.y * b.y) / (aLen * bLen);
-  const clamped = Math.max(-1, Math.min(1, dot));
-  const angle = Math.acos(clamped);
-  return Math.abs(Math.PI - angle) <= PAIRING_FLAT_TOLERANCE_RAD;
-};
 
 const debugHandles = (label: string, payload: Record<string, unknown>): void => {
   if (
@@ -606,7 +584,7 @@ const HandleDot = memo(function HandleDot({
         pairedDelta: interaction.pairedDelta,
         pairedLengthView: pairingBaselineRef.current?.pairedLengthView,
       });
-      interaction.startHandleDrag({
+      dragPairingRef.current = interaction.startHandleDrag({
         side: interaction.side,
         rowId: interaction.rowId,
         trackId: interaction.trackId,
@@ -618,54 +596,35 @@ const HandleDot = memo(function HandleDot({
         startValue: interaction.startValue,
         endValue: interaction.endValue,
         pairing: interaction.basePairing,
+        viewScaleX,
+        viewScaleY,
       });
     },
     onDrag2D: ({ x, normalizedValueDelta, alt, shift, meta }) => {
       if (!interaction) return;
       dragDidMoveRef.current = true;
-      const pointerXWorld = typeof x === "number" ? x : interaction.controlPoint.x;
-      const pointerX =
-        typeof interaction.xInverse === "function"
-          ? interaction.xInverse(pointerXWorld)
-          : pointerXWorld;
-      const range = computeVerticalRange(interaction.valueScale);
-      const deltaY = (normalizedValueDelta ?? 0) * range;
       const dragBase = dragBaseRef.current;
-      const baseControlPoint = dragBase?.controlPoint ?? interaction.controlPoint;
-      const anchorStamp =
-        dragBase?.anchorStamp ??
-        (interaction.side === "out" ? interaction.startStamp : interaction.endStamp);
-      const anchorValue =
-        dragBase?.anchorValue ??
-        (interaction.side === "out" ? interaction.startValue : interaction.endValue);
-      const nextCpWorld = {
-        x: pointerX,
-        y: baseControlPoint.y + deltaY,
-      };
-      const clamped = clampHandleAgainstOwnKeypointX({
-        anchor: interaction.side === "out" ? "startOut" : "endIn",
-        cpWorld: nextCpWorld,
-        startX: interaction.startStamp,
-        endX: interaction.endStamp,
+      const draggedDelta = handlePointerDelta({
+        ...interaction,
+        pointerXWorld: x,
+        normalizedValueDelta,
+        controlPoint: dragBase?.controlPoint ?? interaction.controlPoint,
+        anchorStamp:
+          dragBase?.anchorStamp ??
+          (interaction.side === "out" ? interaction.startStamp : interaction.endStamp),
+        anchorValue:
+          dragBase?.anchorValue ??
+          (interaction.side === "out" ? interaction.startValue : interaction.endValue),
       });
-      const nextY = applyPrecision(clamped.y, interaction.valueScale?.precision);
-      const draggedDelta = {
-        x: clamped.x - anchorStamp,
-        y: nextY - anchorValue,
-      };
 
       const viewScaleX = interaction.viewScaleX ?? 1;
       const viewScaleY = interaction.viewScaleY ?? 1;
       const draggedView = toViewVector(draggedDelta, viewScaleX, viewScaleY);
       const draggedViewLen = Math.hypot(draggedView.x, draggedView.y);
       const baseline = pairingBaselineRef.current;
-      const pairedBaselineView = baseline?.pairedDelta
-        ? toViewVector(baseline.pairedDelta, viewScaleX, viewScaleY)
-        : undefined;
-      const withinSnapTolerance =
-        pairedBaselineView !== undefined
-          ? withinFlatTolerance(draggedView, pairedBaselineView)
-          : false;
+      const withinSnapTolerance = baseline?.pairedDelta
+        ? handlesWithinSnapTolerance(draggedDelta, baseline.pairedDelta, viewScaleX, viewScaleY)
+        : false;
 
       const basePairing = dragPairingRef.current ?? interaction.basePairing;
       let pairingIntent = basePairing;

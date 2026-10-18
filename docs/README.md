@@ -6,18 +6,18 @@ This README is the source of truth for package architecture and current behavior
 
 ## Package Anatomy
 
-| Path | Purpose |
-| --- | --- |
-| `src/index.tsx` | Public package entry point and exports. |
-| `src/store.ts` / `src/store-types.ts` | Zustand store wiring, canonical data model, and actions. |
-| `src/actions/` | Immer reducers for animation, track, keypoint, selection, and drag mutations. |
-| `src/functions/` | Pure helpers for derivation, curves, drag math, and transforms. |
-| `src/subscriptions/` | Derived-state orchestration and store subscriptions. |
-| `src/components/` | Timeline UI, controls, and canvas renderers. |
-| `src/hooks/` | Store selectors, gesture hooks, and rendering hooks. |
-| `src/types/` | Data + utility types used across the package. |
-| `src/test-fixtures/` | Shared fixtures for tests and stories. |
-| `src/tests/` | Vitest coverage for reducers and derived behavior. |
+| Path                                  | Purpose                                                                       |
+| ------------------------------------- | ----------------------------------------------------------------------------- |
+| `src/index.tsx`                       | Public package entry point and exports.                                       |
+| `src/store.ts` / `src/store-types.ts` | Zustand store wiring, canonical data model, and actions.                      |
+| `src/actions/`                        | Immer reducers for animation, track, keypoint, selection, and drag mutations. |
+| `src/functions/`                      | Pure helpers for derivation, curves, drag math, and transforms.               |
+| `src/subscriptions/`                  | Derived-state orchestration and store subscriptions.                          |
+| `src/components/`                     | Timeline UI, controls, and canvas renderers.                                  |
+| `src/hooks/`                          | Store selectors, gesture hooks, and rendering hooks.                          |
+| `src/types/`                          | Data + utility types used across the package.                                 |
+| `src/test-fixtures/`                  | Shared fixtures for tests and stories.                                        |
+| `src/tests/`                          | Vitest coverage for reducers and derived behavior.                            |
 
 ## Architecture Snapshot
 
@@ -43,34 +43,20 @@ value is the string form of the store's multiplier, so the select matches it wit
 `@semio/ui`'s default registry; the key keeps one decimal (`playback-1.0`) while the
 value does not (`"1"`).
 
-## The Vizij animation module's clip
+## Clip document and persistence
 
-`toModuleClip(animation, tracks)` (`src/functions/to-module-clip.ts`)
-converts an animation into the `AnimationClip` the Vizij animation module's
-`load_animation` takes, as the arora `Value` JSON a bridge `Call` carries. Its
-docstring is the mapping; in short:
+`writeStoredAnimation` writes format 3: clip 2.0's JSON document plus Studio's
+editor fields. Stamps are rounded to integer nanoseconds; explicit handles carry
+unrounded `dtNs` and `dv`. `readStoredAnimation` admits formats 1, 2 and 3 and
+returns embedded tracks in milliseconds. Format 2 is read unchanged. An unknown
+version is refused before tracks are read. The `@semio/animation/format` entry
+point exposes the codec and version classifier without loading the UI.
 
-| Studio | Module clip |
-| --- | --- |
-| animation name, duration (`resolveAnimationDuration`) | `name`, `duration` in whole ms, rounded up |
-| track id and name | track `id` and `name` |
-| track's animatable, or the input it animates beyond the model (the first track on one claims it) | `animatable_id` = the Studio animatable id, or the track's `inputKey`; whatever loads the clip keys it onto a device |
-| keypoint stamp (ms) | `stamp` = stamp / duration (`f32`) |
-| number / boolean / string | `f64` / `bool` / `str` |
-| numeric segment (easings, directives, explicit handles, clamps) | its Bézier from `resolveSegmentControlPoints`, normalized to the segment; cut at value extrema |
-| string or boolean segment | no handles: the module holds the left value |
-| instance offset and timescale, looping, bounce | not in the clip: player state (seek, speed, loop mode) |
-
-`src/tests/module-clip/` holds the clip to Studio's curves: every fixture
-animation and 120 generated ones are played by the module's `step` at 100 Hz
-and sampled by its `bake`, and compared with the curve Studio's keypoints and
-handles define, solved exactly (`studio-curve.ts`). Strings and booleans match
-exactly; a number matches the curve at a time within 2 ppm of the duration, to
-1e-6 of the track's magnitude, the module's `f32` precision. The module runs in
-Node through `@vizij/runtime`, behind `ModuleClipHost` (`vizij-runtime-host.ts`).
-`clipBaker` (`clip-baker.ts`), the baker the other tests draw curves with, reads a
-clip back and samples it as the module does; the same tests hold it to the
-exact curve.
+`StoredAnimation` is the embedded millisecond model; `PersistedAnimation` is the
+nanosecond document. Composite tracks with known animatable schemas are flattened
+by `migrateAnimationData`; the writer requires scalar values and rejects unresolved
+composites. Both asset save hooks use the same format writer through
+`toAssetUploadBytes` in `@semio/core`.
 
 ## A track on an input beyond the model
 
@@ -90,32 +76,31 @@ animatable its model lacks, as after a model update removed one: it lists the
 track, draws and plays none of it, and keeps the field when it saves the
 animation, since a track is stored whole.
 
-## Curves from the module
+## Exact curves
 
-The module is the only evaluator of a track's curve. A host gives the store a
-`trackBaker` (Studio bakes on an emulated device's module); `trackCurve`
-(`src/functions/track-curve.ts`) bakes a track alone over its animation's
-duration, at 200 samples a second (fewer for an animation past 100 s), once per
-track content (copies with the same keypoints share a bake), and reads it back: a number
-between two samples on the line between them, a string or a boolean held. From
-that curve come:
+The host injects `store.trackEvaluator`. Studio supplies `@semio/studio-arora`'s
+`CompiledTrack`; tests and stories use `testTrackEvaluator`, a test-only resolver
+with 64-step bisection. `trackCurve(track, evaluator)` compiles `clipTrackJson(track)`
+once per content and evaluator, with up to 512 entries; eviction frees the compiled
+curve. Tracks hold their endpoint values before and after their keypoints, including
+negative clip-local times. A track curve has no animation duration.
 
-- the values and velocities the derived snapshot writes for each track at the
-  playhead (the velocity a finite difference of the curve);
-- the violations, checked as each instance plays the curve in world time (its
-  timescale scales the velocities) and reported in the track's local time;
-- a value row's spline (`TrackRender.Spline` / `Preview`), the drag preview
-  baking the dragged points; a segment reaching outside the clip time the
-  module plays (before 0, past the animation's end) is drawn from its authored
-  Bézier instead, so it meets its keypoints;
-- the value a new keypoint takes on a curve.
+Rows sample all their value segments in one values batch. Violations batch values
+and exact velocities at 10 ms world intervals. Endpoint differences also detect a
+velocity violation across an interval whose sampled velocities are held values:
+its average speed proves some velocity within that interval exceeds the limit.
+The instance timescale multiplies local velocities into world velocities. Derived
+snapshots and readouts use exact values and velocities; insertion uses the same
+compiled curve. Without an evaluator, values and violations are absent, rendering
+uses authored Béziers, and insertion preserves its containing segment with a de Casteljau split.
+Numeric splits use effective control points and the host's inserted value. Adjacent
+inferred handles re-resolve when the inserted key changes their neighbouring key.
 
-Without a baker no track has a curve: the snapshot writes no values, reports no
-violations and sends no trajectory to a paired device, and a value row draws its
-segments' Bézier parameters. A keypoint inserted then keeps the track's shape: a
-de Casteljau split inside a segment, the held value outside. The key and
-transition views draw each segment's easing from its handles: the authored
-shape, not a value over time.
+Handle pointer time is mapped through `xInverse` into local time before storing
+its delta. Thus a timeline delta is multiplied by the instance timescale and value
+deltas keep their units. The component and drag-start inference judge pairing in
+screen units; `handlePointerDelta` and `handlesWithinSnapTolerance` provide the pure
+math exercised by action-level round-trip tests.
 
 ## Testing Notes
 
@@ -127,17 +112,17 @@ shape, not a value over time.
 
 Current status snapshot:
 
-- [X] Correct interpolation methods (cubic-bezier + transition settings)
+- [x] Correct interpolation methods (cubic-bezier + transition settings)
 - [ ] Full handle support
-  - [X] Handles on Bezier curves
+  - [x] Handles on Bezier curves
   - [ ] Hotkey to reset handles to flat
-  - [X] Key addition in mid-transitions (use a tangent calculation)
+  - [x] Key addition in mid-transitions (use a tangent calculation)
 - [ ] Selection
-  - [X] Single selection
-  - [X] Multi selection (Shift + Click, CTRL + Click)
+  - [x] Single selection
+  - [x] Multi selection (Shift + Click, CTRL + Click)
   - [ ] Box selection (Click + Drag) (?)
 - [ ] Move selected keyframes (Click + Drag)
-  - [X] Click + Drag
+  - [x] Click + Drag
   - [ ] Mode switching with T or G keys (plus X/Y)
 - [ ] Cut/Copy/Paste keyframes (CTRL + X, CTRL + C, CTRL + V)
 - [ ] Locking specific tracks/splines

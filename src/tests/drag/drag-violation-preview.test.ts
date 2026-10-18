@@ -7,7 +7,7 @@ import type { AnimationStore } from "../../store";
 import { flushMicrotasks } from "../utils/flush-microtasks";
 import { clickMarkerWith } from "../selection/selection-test-helpers";
 import { computeInstanceTrackViolations } from "../../functions/compute-track-violations";
-import { clipBaker } from "../module-clip/clip-baker";
+import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
 import { curveOf } from "../curves";
 import { resolveAnimationDuration } from "../../functions/compute-animation-extent";
 import { Violation, ViolationType } from "../../types";
@@ -33,7 +33,7 @@ describe("drag previews recompute violation overlays", () => {
   let cleanup: (() => void) | undefined;
 
   beforeEach(async () => {
-    store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
 
     store.setState((state) => ({
       tracks: {

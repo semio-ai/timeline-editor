@@ -1,6 +1,6 @@
-import type { Animation, AuthoredTransition, TransitionInfo } from "../../types";
-import { StandardTransitionType, TransitionDirective } from "../../types";
-import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "../../types/data/simple-track";
+import type { Animation, AuthoredTransition, TransitionInfo } from "../types";
+import { StandardTransitionType, TransitionDirective } from "../types";
+import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "../types/data/simple-track";
 
 /** A generated animation and its tracks, as the store holds them. */
 export interface GeneratedAnimation {
@@ -14,9 +14,6 @@ export interface GeneratedAnimation {
  * explicit handles (including ones the editor's clamps must correct);
  * keypoints out of order, sharing a stamp, or repeating a value.
  *
- * Every stamp is an odd multiple of 5 ms, so sampling at 100 Hz never lands
- * on a keypoint: at a keypoint's own instant a step value is either side's,
- * by a margin below the module's `f32` time resolution.
  */
 export function randomAnimation(seed: number): GeneratedAnimation {
   const random = mulberry32(seed);

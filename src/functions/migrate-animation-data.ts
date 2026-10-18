@@ -2,6 +2,7 @@ import { AnimatableGroupType } from "@semio/utils";
 import type { AnimatableValue, DeprecatedComplexAnimatableValue, RawValue } from "@semio/utils";
 import type { StoredAnimation, Track } from "../types";
 import { COMPLEX_TYPES, TYPE_FIELDS } from "../constants";
+import { readStoredAnimation } from "./stored-animation-format";
 import { flattenCompositeTracks } from "./flatten-tracks";
 
 type AnimatableValueLike = AnimatableValue | DeprecatedComplexAnimatableValue;
@@ -17,9 +18,10 @@ export interface MigrationResult {
  * animatables, and sets deterministic group ids based on the base animatable id.
  */
 export function migrateAnimationData(
-  animation: StoredAnimation,
+  content: unknown,
   animatables: Record<string, AnimatableValueLike>,
 ): MigrationResult {
+  const animation = readStoredAnimation(content);
   const sourceTracks = animation.tracks.reduce<Record<string, Track<RawValue>>>((acc, track) => {
     acc[track.id] = track;
     return acc;

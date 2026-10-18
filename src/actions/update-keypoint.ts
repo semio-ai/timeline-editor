@@ -8,8 +8,10 @@ import {
 } from "../functions/resolve-new-key-transitions";
 import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
 
-export interface KeypointDelta<T extends SimpleRawValue>
-  extends Omit<Keypoint<T>, "stamp" | "value"> {
+export interface KeypointDelta<T extends SimpleRawValue> extends Omit<
+  Keypoint<T>,
+  "stamp" | "value"
+> {
   stamp: number | ((current: number) => number);
   value: T | ((current: T) => T);
 }
@@ -113,10 +115,7 @@ export function updateKeypoint(
 
     if (typeof keypoint.value === "function") {
       // The track's current value there, as the module plays it.
-      const animation = Object.values(state.animations).find((candidate) =>
-        candidate.tracks.includes(trackId),
-      );
-      const curve = animation && trackCurve(track, animation, state.tracks, state.trackBaker);
+      const curve = trackCurve(track, state.trackEvaluator);
       const interpolatedValue = curve?.(stamp) as SimpleRawValue | undefined;
       if (interpolatedValue === undefined) {
         newPoint.value = state.animatables[track.animatableId]?.default as SimpleRawValue;

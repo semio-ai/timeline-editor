@@ -10,14 +10,14 @@ import { flushMicrotasks } from "../utils/flush-microtasks";
 import { clickMarkerWith } from "../selection/selection-test-helpers";
 import { computeDragDiffOps } from "../../functions/drag-diff-ops";
 import { computeInstanceTrackViolations } from "../../functions/compute-track-violations";
-import { clipBaker } from "../module-clip/clip-baker";
+import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
 import { curveOf } from "../curves";
 import { resolveAnimationDuration } from "../../functions/compute-animation-extent";
 
 describe("global row opacity drag projection", () => {
   it("keeps a single projected marker with matching stamp in the global row", async () => {
     const store = createTestAnimationStore({
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       includeNamespaceA: true,
       includeNamespaceB: false,
       activeInstance: INSTANCE_IDS.ALPHA_SHARED,

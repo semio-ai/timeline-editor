@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { StoredAnimation } from "../types";
 import { StandardTransitionType, TransitionPairing } from "../types";
-import { CURRENT_ANIMATION_FORMAT_VERSION } from "../types/data/animation";
 import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
 
 function makeV1Animation(overrides?: Partial<StoredAnimation>): StoredAnimation {
@@ -18,7 +17,7 @@ function makeV1Animation(overrides?: Partial<StoredAnimation>): StoredAnimation 
 describe("migrateToMillisecondStamps", () => {
   it("returns v2 animations unchanged", () => {
     const v2 = makeV1Animation({
-      formatVersion: CURRENT_ANIMATION_FORMAT_VERSION,
+      formatVersion: 2,
       tracks: [
         {
           id: "t1",
@@ -53,7 +52,7 @@ describe("migrateToMillisecondStamps", () => {
 
     const result = migrateToMillisecondStamps(v1);
 
-    expect(result.formatVersion).toBe(CURRENT_ANIMATION_FORMAT_VERSION);
+    expect(result.formatVersion).toBe(2);
     expect(result.tracks[0].points[0].stamp).toBe(0);
     expect(result.tracks[0].points[1].stamp).toBe(1000); // 0.2 * 5000
     expect(result.tracks[0].points[2].stamp).toBe(2500); // 0.5 * 5000
@@ -166,7 +165,7 @@ describe("migrateToMillisecondStamps", () => {
   it("handles animations with no tracks", () => {
     const v1 = makeV1Animation({ tracks: [] });
     const result = migrateToMillisecondStamps(v1);
-    expect(result.formatVersion).toBe(CURRENT_ANIMATION_FORMAT_VERSION);
+    expect(result.formatVersion).toBe(2);
     expect(result.tracks).toEqual([]);
   });
 

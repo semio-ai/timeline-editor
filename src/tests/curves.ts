@@ -2,29 +2,16 @@ import type { RawValue } from "@semio/utils";
 import { trackCurve, type TrackCurve } from "../functions/track-curve";
 import type { Animation, Track } from "../types";
 import type { SimpleTrack } from "../types/data/simple-track";
-import { clipBaker } from "./module-clip/clip-baker";
+import { testTrackEvaluator } from "../test-fixtures/track-evaluator";
 
-/**
- * A track's curve as the module bakes it (through the tests' `clipBaker`), in
- * the track's local time: within `animation` and its `tracks` when given,
- * else within an animation of that one track. The tests' tracks hold scalars.
+/** A scalar track evaluated exactly by the test evaluator, in local ms.
  */
 export function curveOf(
   track: Track<RawValue>,
-  animation: Animation = {
-    id: `${track.id}-animation`,
-    name: track.name,
-    tracks: [track.id],
-    groups: [],
-  },
-  tracks: Record<string, Track<RawValue>> = { [track.id]: track },
+  _animation?: Animation,
+  _tracks?: Record<string, Track<RawValue>>,
 ): TrackCurve {
-  const curve = trackCurve(
-    track as SimpleTrack,
-    animation,
-    tracks as Record<string, SimpleTrack>,
-    clipBaker,
-  );
+  const curve = trackCurve(track as SimpleTrack, testTrackEvaluator);
   if (!curve) throw new Error(`track ${track.id} has no curve`);
   return curve;
 }

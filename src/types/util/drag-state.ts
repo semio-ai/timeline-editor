@@ -211,6 +211,9 @@ export interface HandleDragStartInput {
   endStamp: number;
   startValue: number;
   endValue: number;
+  /** Pixels per local millisecond/value unit, used for the pairing angle. */
+  viewScaleX?: number;
+  viewScaleY?: number;
   /** Optional resolved pairing at drag start. */
   pairing?: TransitionPairing;
 }

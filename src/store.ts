@@ -3,6 +3,7 @@ import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";
 import { create } from "zustand";
+import type { PersistedAnimation } from "./functions/stored-animation-format";
 import {
   Track,
   StoredAnimation,
@@ -247,14 +248,14 @@ export const AnimationSlice = (
     removeView: (viewId: string) => removeViewAction(set, viewId),
     setVerticalViewport: (viewId: string, viewport: { top: number; bottom: number } | undefined) =>
       setVerticalViewportAction(set, viewId, viewport),
-    addAnimation: (animation: StoredAnimation) => {
+    addAnimation: (animation: StoredAnimation | PersistedAnimation) => {
       set(
         produce((state: AnimationData): void => {
           addAnimation(state, animation);
         }),
       );
     },
-    setAnimations: (animations: Record<string, StoredAnimation>) => {
+    setAnimations: (animations: Record<string, StoredAnimation | PersistedAnimation>) => {
       set(
         produce((state: AnimationData): void => {
           // Clear existing animations
@@ -511,7 +512,7 @@ export const AnimationSlice = (
       const stored = computeStoredAnimation(state.animations[animationId], state.tracks);
       return stored;
     },
-    getAnimationsToSave: (): StoredAnimation[] => {
+    getAnimationsToSave: (): PersistedAnimation[] => {
       const state = get();
       return Object.keys(state.animations).map((animationId) =>
         state.getStorableAnimation(animationId),
@@ -719,6 +720,7 @@ export const AnimationSlice = (
           startHandleDrag(state, input);
         }),
       );
+      return get().dragState?.handleAnchor?.basePairing;
     },
     updateDrag: (input: DragUpdateInput) => {
       set(
