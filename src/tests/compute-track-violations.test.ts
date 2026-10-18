@@ -18,7 +18,7 @@ test("An animation that shifts from within to outside bounds gets a bounds error
     animationId: "thing",
     settings: { offset: 0, timescale: 1, active: true },
   };
-  // The track's curve, as the module bakes it
+  // The track's curve, evaluated exactly
   const track1Interpolator = curveOf(track1);
 
   // Compute the track violations
@@ -120,7 +120,7 @@ test("An animation with a velocity limit of 0 returns a violation for the entire
     settings: { offset: 0, timescale: 1, active: true },
   };
 
-  // The track's curve, as the module bakes it
+  // The track's curve, evaluated exactly
   const track1Interpolator = curveOf(track1);
 
   // Compute the track violations
