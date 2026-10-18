@@ -2,7 +2,12 @@ import { describe, it, expect } from "vitest";
 import type { StoredAnimation } from "../types";
 import { StandardTransitionType, TransitionPairing } from "../types";
 import { CURRENT_ANIMATION_FORMAT_VERSION } from "../types/data/animation";
-import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
+import {
+  AnimationFormatSupport,
+  classifyAnimationFormat,
+  UnreadableAnimationFormatError,
+  migrateToMillisecondStamps,
+} from "../functions/migrate-animation-format";
 
 function makeV1Animation(overrides?: Partial<StoredAnimation>): StoredAnimation {
   return {
@@ -233,5 +238,52 @@ describe("migrateToMillisecondStamps", () => {
 
     expect(second).toBe(first); // Same reference — no double migration
     expect(second.tracks[0].points[0].stamp).toBe(1000); // 0.25 * 4000
+  });
+});
+
+describe("animation format admission", () => {
+  it.each([
+    [undefined, AnimationFormatSupport.Legacy],
+    [1, AnimationFormatSupport.Legacy],
+    [2, AnimationFormatSupport.Current],
+    [3, AnimationFormatSupport.Unreadable],
+    [99, AnimationFormatSupport.Unreadable],
+    ["3", AnimationFormatSupport.Unreadable],
+    [-1, AnimationFormatSupport.Unreadable],
+  ])("classifies %s as %s", (version, expected) => {
+    expect(classifyAnimationFormat(version)).toBe(expected);
+  });
+
+  it.each([3, 99, "3", -1])(
+    "refuses %s before reading or migrating its tracks",
+    (formatVersion) => {
+      const stored = { ...makeV1Animation(), formatVersion } as unknown as StoredAnimation;
+      Object.defineProperty(stored, "tracks", {
+        get: () => {
+          throw new Error("read unknown tracks");
+        },
+      });
+      expect(() => migrateToMillisecondStamps(stored)).toThrow(UnreadableAnimationFormatError);
+      expect(stored.formatVersion).toBe(formatVersion);
+    },
+  );
+
+  it("migrates an explicitly marked v1 animation", () => {
+    const stored = makeV1Animation({
+      formatVersion: 1,
+      tracks: [
+        { id: "t", name: "t", animatableId: "a", points: [{ id: "k", stamp: 0.5, value: 1 }] },
+      ],
+    });
+    expect(migrateToMillisecondStamps(stored).tracks[0].points[0].stamp).toBe(2500);
+  });
+
+  it("gives newer formats a truthful reload message", () => {
+    expect(() =>
+      migrateToMillisecondStamps({
+        ...makeV1Animation(),
+        formatVersion: 3,
+      } as unknown as StoredAnimation),
+    ).toThrow("This animation was saved by a newer version of Studio. Reload Studio to open it.");
   });
 });

@@ -19,7 +19,13 @@
     },
     "./styles.css": "./src/styles.css",
     "./theme.css": "./src/theme.css",
-    "./dist/styles.css": "./dist/styles.css"
+    "./dist/styles.css": "./dist/styles.css",
+    "./format": {
+      "types": "./dist/format.d.ts",
+      "source": "./src/format.ts",
+      "import": "./dist/format.mjs",
+      "require": "./dist/format.js"
+    }
   },
   "license": "MIT",
   "files": [
@@ -33,15 +39,16 @@
     "**/*.css"
   ],
   "scripts": {
-    "build": "tsup src/index.tsx --format esm,cjs --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
-    "dev": "tsup src/index.tsx --format esm,cjs --watch --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
+    "build": "tsup src/index.tsx src/format.ts --format esm,cjs --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
+    "dev": "tsup src/index.tsx src/format.ts --format esm,cjs --watch --dts --external react --external three --external @react-three/fiber --external @react-three/drei --publicDir",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:once": "vitest run",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist",
     "test:unit": "vitest run",
-    "test": "vitest run"
+    "test": "vitest run",
+    "conformance:generate": "tsup conformance/generate.ts --format cjs --out-dir dist/conformance && node dist/conformance/generate.js"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.0",

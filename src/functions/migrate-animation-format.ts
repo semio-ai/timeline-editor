@@ -4,6 +4,38 @@ import { CURRENT_ANIMATION_FORMAT_VERSION } from "../types/data/animation";
 import type { AuthoredTransition, Keypoint } from "../types/data/keypoint";
 import type { Track } from "../types/data/track";
 
+/** The formats this client can interpret without guessing at time units. */
+export enum AnimationFormatSupport {
+  Legacy = "legacy",
+  Current = "current",
+  Unreadable = "unreadable",
+}
+
+export function classifyAnimationFormat(version: unknown): AnimationFormatSupport {
+  if (version === undefined || version === 1) return AnimationFormatSupport.Legacy;
+  if (version === CURRENT_ANIMATION_FORMAT_VERSION) return AnimationFormatSupport.Current;
+  return AnimationFormatSupport.Unreadable;
+}
+
+export class UnreadableAnimationFormatError extends Error {
+  constructor(version: unknown) {
+    super(
+      typeof version === "number" && version > CURRENT_ANIMATION_FORMAT_VERSION
+        ? "This animation was saved by a newer version of Studio. Reload Studio to open it."
+        : "This animation has an unreadable format version and cannot be opened.",
+    );
+    this.name = "UnreadableAnimationFormatError";
+  }
+}
+
+/** Check persisted versions before inspecting or changing their content. */
+export function assertReadableAnimationFormat(animation: unknown): void {
+  const version = (animation as { formatVersion?: unknown } | null)?.formatVersion;
+  if (classifyAnimationFormat(version) === AnimationFormatSupport.Unreadable) {
+    throw new UnreadableAnimationFormatError(version);
+  }
+}
+
 /**
  * Migrates a StoredAnimation from format v1 (normalized [0,1] stamps) to
  * format v2 (millisecond stamps).
@@ -23,7 +55,8 @@ import type { Track } from "../types/data/track";
  * @returns The migrated animation in v2 format
  */
 export function migrateToMillisecondStamps(stored: StoredAnimation): StoredAnimation {
-  // Already in current format — no migration needed
+  assertReadableAnimationFormat(stored);
+  // Millisecond stamps and handle deltas are already in the required units.
   if (stored.formatVersion === CURRENT_ANIMATION_FORMAT_VERSION) {
     return stored;
   }

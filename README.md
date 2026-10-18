@@ -108,3 +108,15 @@ shared edges and rounded exposed ends. Section outlines remain on the group.
 ## License
 
 MIT
+
+## Engine conformance
+
+The [animation engine reference](conformance/README.md) contains deterministic
+v2 JSON cases, exact samples and world velocities for a replacement engine.
+Regenerate from the root with
+`npm run conformance:generate --workspace=@semio/animation` after building utils.
+Stored animations with unknown format versions are refused before migration or
+editing; newer versions ask the person to reload Studio.
+
+`@semio/animation/format` exposes the version classifier, refusal error and guard
+without initializing the editor store or loading its UI.

@@ -4,6 +4,8 @@ import type { StoredAnimation, Track } from "../types";
 import { COMPLEX_TYPES, TYPE_FIELDS } from "../constants";
 import { flattenCompositeTracks } from "./flatten-tracks";
 
+import { assertReadableAnimationFormat } from "./migrate-animation-format";
+
 type AnimatableValueLike = AnimatableValue | DeprecatedComplexAnimatableValue;
 
 export interface MigrationResult {
@@ -20,6 +22,7 @@ export function migrateAnimationData(
   animation: StoredAnimation,
   animatables: Record<string, AnimatableValueLike>,
 ): MigrationResult {
+  assertReadableAnimationFormat(animation);
   const sourceTracks = animation.tracks.reduce<Record<string, Track<RawValue>>>((acc, track) => {
     acc[track.id] = track;
     return acc;

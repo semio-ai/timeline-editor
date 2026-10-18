@@ -1,6 +1,7 @@
 import type { RawValue } from "@semio/utils";
 import type { Animation, StoredAnimation } from "../types/data/animation";
 import type { Track } from "../types/data/track";
+import { assertReadableAnimationFormat } from "./migrate-animation-format";
 
 /**
  * Computes the actual extent (duration) of an animation from its track content.
@@ -54,6 +55,7 @@ export function resolveAnimationDuration(
  * Resolves the effective duration from a StoredAnimation (embedded tracks).
  */
 export function resolveStoredAnimationDuration(stored: StoredAnimation): number {
+  assertReadableAnimationFormat(stored);
   const contentExtent = computeTrackExtent(stored.tracks);
   const viewportExtent = stored.defaultViewportExtent ?? stored.duration ?? 0;
   return Math.max(contentExtent, viewportExtent, 1000);

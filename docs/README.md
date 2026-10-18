@@ -116,3 +116,17 @@ resolution outside the animation package.
 Host-provided property state and callbacks also drive track-row and mixed-group
 context menus. A namespace scope without an instance scope includes that
 namespace's instances; `sourceInstanceId={null}` explicitly selects direct controls.
+
+## Stored animation compatibility
+
+`classifyAnimationFormat` recognizes absent/1 as normalized v1, and 2 as
+millisecond v2. Every other version is unreadable. `addAnimation`, composite
+migration and the fixture loader refuse unreadable data before reading tracks;
+`migrateToMillisecondStamps` migrates only known v1 content. The shared core
+asset parser applies the same check to persisted bytes. A newer numeric version
+asks the person to reload Studio. Refused content must not enter the editable
+store or a save payload, including when it replaces already-loaded content.
+
+The [engine reference](../conformance/README.md) records exact values and world
+velocities for the fixture animations and dedicated semantic cases. Regenerate it
+with `npm run conformance:generate --workspace=@semio/animation` from the root.
