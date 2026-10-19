@@ -4,6 +4,7 @@ import { StandardTransitionType, TransitionPairing } from "../types";
 import { CURRENT_ANIMATION_FORMAT_VERSION } from "../types/data/animation";
 import {
   AnimationFormatSupport,
+  assertReadableAnimationFormat,
   classifyAnimationFormat,
   UnreadableAnimationFormatError,
   migrateToMillisecondStamps,
@@ -276,6 +277,45 @@ describe("animation format admission", () => {
       ],
     });
     expect(migrateToMillisecondStamps(stored).tracks[0].points[0].stamp).toBe(2500);
+  });
+
+  // A v2 document with such a keypoint is never rescaled; its readers'
+  // structural checks refuse it (`use-project-full-context.test.tsx`).
+  it.each([
+    ["no version", undefined],
+    ["v1", 1],
+  ])("refuses a %s document whose keypoints carry no stamp to rescale", (_label, formatVersion) => {
+    const stored = {
+      ...makeV1Animation(),
+      formatVersion,
+      tracks: [
+        {
+          id: "t",
+          name: "t",
+          animatableId: "a",
+          points: [{ id: "k", timeNs: 500_000_000, value: 1 }],
+        },
+      ],
+    } as unknown as StoredAnimation;
+    expect(() => assertReadableAnimationFormat(stored)).toThrow(UnreadableAnimationFormatError);
+    expect(() => migrateToMillisecondStamps(stored)).toThrow(UnreadableAnimationFormatError);
+  });
+
+  it("control: admits stamped v1 and v2 documents, and ones with no tracks or points", () => {
+    const stamped = [
+      { id: "t", name: "t", animatableId: "a", points: [{ id: "k", stamp: 0.5, value: 1 }] },
+    ];
+    expect(() => assertReadableAnimationFormat(makeV1Animation({ tracks: stamped }))).not.toThrow();
+    expect(() =>
+      assertReadableAnimationFormat({ ...makeV1Animation({ tracks: stamped }), formatVersion: 2 }),
+    ).not.toThrow();
+    expect(() => assertReadableAnimationFormat(makeV1Animation({ tracks: [] }))).not.toThrow();
+    expect(() =>
+      assertReadableAnimationFormat({
+        ...makeV1Animation(),
+        tracks: [{ id: "t", name: "t", animatableId: "a", points: [] }],
+      }),
+    ).not.toThrow();
   });
 
   it("gives newer formats a truthful reload message", () => {
