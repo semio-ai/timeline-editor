@@ -325,7 +325,7 @@ describe("stored clip format", () => {
       expect(point.value).toEqual(input.tracks[0].points[0].value);
       expect(point.transitions).toEqual(input.tracks[0].points[0].transitions);
       expect(read.tracks[0].settings).toEqual(input.tracks[0].settings);
-      expect(read.tracks[0].inputKey).toBeNull();
+      expect(read.tracks[0].inputKey).toBeUndefined();
       expect(point.stamp).toBe(input.formatVersion === 2 ? 0.5 : 2500);
     },
   );

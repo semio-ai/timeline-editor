@@ -29,19 +29,19 @@ const names = new Set<string>([
  * All formats require string document id/name, arrays of tracks/groups, unique
  * track ids, string track id/name/animatableId and an array of points. Groups
  * require string id/name and recursive string-or-group children. Optional
- * groupName is a string, settings is an object and defaultViewportExtent is finite.
+ * inputKey/groupName are strings, settings is an object and defaultViewportExtent is finite.
  *
  * Formats 1 (also an absent version) and 2 require string point id, finite stamp,
  * a defined value of any shape (including composites and null), and no timeNs.
  * Stamps and handle x are normalized in format 1 and milliseconds in format 2.
  * Optional transitions and sides may be null or absent; present sides must be
- * named transitions or finite x/y handles without dtNs/dv. Pairing, inputKey and
- * settings contents retain legacy permissiveness. Duration may be null, absent
+ * named transitions or finite x/y handles without dtNs/dv. Pairing and settings
+ * contents retain legacy permissiveness. Duration may be null, absent
  * or finite; format 1 defaults a null/absent duration to 5000 milliseconds.
  *
  * Format 3 requires string point id, safe-integer timeNs, no stamp, and finite
- * number/string/boolean values of one kind per track. Optional inputKey/color
- * are strings; transitions is an object, pairing is a TransitionPairing, and
+ * number/string/boolean values of one kind per track. Optional color is a string;
+ * transitions is an object, pairing is a TransitionPairing, and
  * sides are named transitions or safe-integer dtNs/finite dv handles without
  * x/y. Optional duration is finite and defaultViewportExtentNs a safe integer.
  * Unknown versions are refused before tracks are inspected.
@@ -89,7 +89,7 @@ export function isStoredAnimationContent(content: unknown): boolean {
     typeof value.id === "string" &&
     typeof value.name === "string" &&
     typeof value.animatableId === "string" &&
-    (!nanoseconds || optionalString(value.inputKey)) &&
+    optionalString(value.inputKey) &&
     optionalString(value.groupName) &&
     (value.settings === undefined ||
       (isObject(value.settings) && (!nanoseconds || optionalString(value.settings.color)))) &&

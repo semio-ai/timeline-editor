@@ -52,7 +52,8 @@ units before conversion; format 3 requires safe-integer `timeNs` and `dtNs`, fin
 value (composites remain valid) and finite x/y handles or named transitions, with
 legacy optional transition metadata preserved. A v3 `stamp` or x/y handle and a
 v1/v2 `timeNs` or nanosecond handle are refused. Duplicate track ids are refused
-in every format. Unknown versions are refused before tracks are read.
+in every format, and a track's optional `inputKey` must be a string in every
+format. Unknown versions are refused before tracks are read.
 The `@semio/animation/format` entry point exposes the codec without loading the UI.
 
 `StoredAnimation` is the embedded millisecond model; `PersistedAnimation` describes

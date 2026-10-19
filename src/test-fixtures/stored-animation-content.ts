@@ -190,6 +190,17 @@ for (const formatVersion of [undefined, 1, 2, 3]) {
 }
 
 for (const formatVersion of [undefined, 1, 2]) {
+  const content = millisecondDocument();
+  for (const inputKey of [1, null]) {
+    malformedAnimationCases.push([
+      `invalid inputKey in format ${formatVersion ?? "absent"}: ${JSON.stringify(inputKey)}`,
+      {
+        ...content,
+        formatVersion,
+        tracks: [{ ...content.tracks[0], inputKey }],
+      },
+    ]);
+  }
   const withPoint = (point: unknown) => ({
     ...millisecondDocument(),
     formatVersion,
@@ -242,7 +253,7 @@ export const legacyCompatibilityCases = [undefined, 1, 2].flatMap((formatVersion
       tracks: [
         {
           ...millisecondDocument().tracks[0],
-          inputKey: null,
+          inputKey: undefined,
           settings: { color: null },
           points: [{ id: "p", stamp: 0.5, value, transitions }],
         },
