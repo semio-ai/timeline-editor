@@ -26,16 +26,48 @@ const references = readdirSync(directory)
     reference: JSON.parse(readFileSync(`${directory}/${name}`, "utf8")) as ReferenceCase,
   }));
 
+/**
+ * Asserts the regenerated value equals the committed one, with numbers compared to a
+ * relative 1e-12. Floating-point results can differ in the last bit or two between
+ * platforms (the set is committed from one, CI regenerates it on another), so equal
+ * text holds only on the platform that wrote the file. 1e-12 is far below the 1e-9 an
+ * engine is held to, and far above that platform noise.
+ */
+function expectMatchesCommitted(actual: unknown, committed: unknown, path: string): void {
+  if (typeof committed === "number" && typeof actual === "number") {
+    const scale = Math.max(1, Math.abs(committed));
+    expect(Math.abs(actual - committed), path).toBeLessThanOrEqual(1e-12 * scale);
+    return;
+  }
+  if (Array.isArray(committed)) {
+    expect(Array.isArray(actual), path).toBe(true);
+    expect((actual as unknown[]).length, path).toBe(committed.length);
+    committed.forEach((item, index) =>
+      expectMatchesCommitted((actual as unknown[])[index], item, `${path}[${index}]`),
+    );
+    return;
+  }
+  if (committed !== null && typeof committed === "object") {
+    expect(actual !== null && typeof actual === "object", path).toBe(true);
+    const actualRecord = actual as Record<string, unknown>;
+    expect(Object.keys(actualRecord).sort(), path).toEqual(Object.keys(committed).sort());
+    for (const [key, value] of Object.entries(committed)) {
+      expectMatchesCommitted(actualRecord[key], value, `${path}.${key}`);
+    }
+    return;
+  }
+  expect(actual, path).toBe(committed);
+}
+
 describe("animation engine reference", () => {
-  it("records reproducible JSON for every case", () => {
+  it("matches a regeneration of every committed case", () => {
     const generated = referenceCases().sort((a, b) => a.name.localeCompare(b.name));
     expect(references.map((r) => r.name).sort()).toEqual(
       generated.map((r) => `${r.name}.json`).sort(),
     );
     for (const { name, reference } of generated) {
-      expect(readFileSync(`${directory}/${name}.json`, "utf8"), name).toBe(
-        `${JSON.stringify(reference, null, 2)}\n`,
-      );
+      const committed = JSON.parse(readFileSync(`${directory}/${name}.json`, "utf8")) as unknown;
+      expectMatchesCommitted(JSON.parse(JSON.stringify(reference)), committed, name);
     }
   });
 

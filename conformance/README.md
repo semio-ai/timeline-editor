@@ -77,8 +77,11 @@ npm run conformance:generate --workspace=@semio/animation
 
 Or, from `packages/animation`, run `npm run conformance:generate`. The bundled
 runner is generated under ignored `dist/conformance`; it needs the utils build,
-not an animation build. Two runs must produce byte-identical JSON. Format generator
-sources with Prettier; the generator itself deterministically formats the JSON.
+not an animation build. Two runs on one platform produce byte-identical JSON.
+Across platforms a number can differ in its last bit or two, so the test compares
+a regeneration with the committed set to a relative 1e-12 rather than as text.
+Format generator sources with Prettier; the generator itself deterministically
+formats the JSON.
 
 Run `npx vitest run conformance/conformance.test.ts` from `packages/animation`.
 The tests compare committed samples with the generator, and numeric speed-1 values
