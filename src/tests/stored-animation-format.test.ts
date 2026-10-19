@@ -24,6 +24,7 @@ import {
   malformedAnimationCases,
   nanosecondDocument,
   millisecondDocument,
+  legacyCompatibilityCases,
 } from "../test-fixtures/stored-animation-content";
 
 const animation: Animation = {
@@ -310,18 +311,117 @@ describe("stored clip format", () => {
 
   it.each(malformedAnimationCases)("refuses %s before conversion", (_rule, content) => {
     expect(() => readStoredAnimation(content)).toThrow(NotAnAnimationError);
+    const store = createAnimationStore();
+    const before = store.getState();
+    expect(() => before.addAnimation(content as StoredAnimation)).toThrow(NotAnAnimationError);
+    expect(store.getState()).toBe(before);
   });
 
-  it("accepts optional metadata absent and safe integer boundaries", () => {
+  it.each(legacyCompatibilityCases)(
+    "preserves legacy values and optional metadata: %o",
+    (input) => {
+      const read = readStoredAnimation(input);
+      const point = read.tracks[0].points[0];
+      expect(point.value).toEqual(input.tracks[0].points[0].value);
+      expect(point.transitions).toEqual(input.tracks[0].points[0].transitions);
+      expect(read.tracks[0].settings).toEqual(input.tracks[0].settings);
+      expect(read.tracks[0].inputKey).toBeNull();
+      expect(point.stamp).toBe(input.formatVersion === 2 ? 0.5 : 2500);
+    },
+  );
+
+  it.each([undefined, 1, 2])("reads every legacy transition in format %s", (formatVersion) => {
+    const input = { ...millisecondDocument(), formatVersion };
+    const points = readStoredAnimation(input).tracks[0].points;
+    expect(points[0].transitions!.in).toEqual({
+      x: -12.123456789 * (formatVersion === 2 ? 1 : input.duration),
+      y: 0.5,
+    });
+    expect(points.slice(1).map((point) => point.transitions)).toEqual(
+      input.tracks[0].points.slice(1).map((point) => point.transitions),
+    );
+  });
+
+  it("accepts absent optional metadata", () => {
     expect(
       readStoredAnimation({ formatVersion: 3, id: "a", name: "A", groups: [], tracks: [] }).tracks,
     ).toEqual([]);
-    for (const timeNs of [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]) {
+  });
+
+  const rewrite = (stored: StoredAnimation) =>
+    writeStoredAnimation(
+      { ...stored, tracks: stored.tracks.map((item) => item.id) },
+      Object.fromEntries(stored.tracks.map((item) => [item.id, item])),
+    );
+  it.each([Number.MIN_SAFE_INTEGER + 1, Number.MAX_SAFE_INTEGER - 1])(
+    "writes, reads and rewrites near-boundary nanoseconds %s exactly",
+    (timeNs) => {
+      const source = structuredClone(track);
+      source.points[0].stamp = timeNs / 1e6;
+      source.points[0].transitions!.in = { x: timeNs / 1e6, y: 0.25 };
+      const first = writeStoredAnimation(
+        { ...animation, defaultViewportExtent: timeNs / 1e6 },
+        { t: source },
+      );
+      expect(first.tracks[0].points[0].timeNs).toBe(timeNs);
+      expect(first.tracks[0].points[0].transitions!.in).toEqual({ dtNs: timeNs, dv: 0.25 });
+      expect(first.defaultViewportExtentNs).toBe(timeNs);
+      const second = rewrite(readStoredAnimation(JSON.parse(JSON.stringify(first))));
+      expect(second).toEqual(first);
+    },
+  );
+
+  it.each(
+    [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER].flatMap((nanoseconds) =>
+      ["timeNs", "dtNs", "defaultViewportExtentNs"].map((field) => ({ field, nanoseconds })),
+    ),
+  )(
+    "reads $field boundary $nanoseconds and refuses unsafe reserialization",
+    ({ field, nanoseconds }) => {
       const document = nanosecondDocument();
-      document.tracks[0].points[0].timeNs = timeNs;
-      document.tracks[0].points[0].transitions.in.dtNs = timeNs;
-      expect(readStoredAnimation(document).tracks[0].points[0].stamp).toBe(timeNs / 1e6);
-    }
+      if (field === "timeNs") document.tracks[0].points[0].timeNs = nanoseconds;
+      if (field === "dtNs") document.tracks[0].points[0].transitions.in.dtNs = nanoseconds;
+      if (field === "defaultViewportExtentNs") document.defaultViewportExtentNs = nanoseconds;
+      const runtime = readStoredAnimation(document);
+      expect(() => rewrite(runtime)).toThrow(
+        `${field} cannot be written as safe integer nanoseconds`,
+      );
+    },
+  );
+
+  it.each([NaN, Infinity, -Infinity])("refuses saving a non-finite time: %s", (value) => {
+    const source = structuredClone(track);
+    source.points[0].stamp = value;
+    expect(() => writeStoredAnimation(animation, { t: source })).toThrow("timeNs");
+  });
+
+  it.each(
+    [NaN, Infinity, -Infinity].flatMap((value) => [
+      { x: value, y: 1 },
+      { x: 1, y: value },
+    ]),
+  )("refuses saving a non-finite handle: %o", (handle) => {
+    const source = structuredClone(track);
+    source.points[0].transitions!.in = handle;
+    expect(() => writeStoredAnimation(animation, { t: source })).toThrow("transition");
+  });
+
+  it("refuses dropping an unknown transition from a format-3 save", () => {
+    const source = structuredClone(track);
+    source.points[0].transitions!.in = "unknown" as StandardTransitionType;
+    expect(() => writeStoredAnimation(animation, { t: source })).toThrow("transition");
+  });
+
+  it.each([NaN, true])("refuses writing a scalar its format-3 reader would reject: %s", (value) => {
+    const source = structuredClone(track);
+    source.points[0].value = value;
+    expect(() => writeStoredAnimation(animation, { t: source })).toThrow("invalid content");
+  });
+
+  it("refuses writing duplicate track ids in format 3", () => {
+    expect(() => writeStoredAnimation({ ...animation, tracks: ["t", "t"] }, { t: track })).toThrow(
+      "invalid content",
+    );
   });
 
   it("saves a loaded format-2 document unchanged field for field", () => {

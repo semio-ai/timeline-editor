@@ -176,3 +176,77 @@ export const millisecondDocument = () => ({
     },
   ],
 });
+
+for (const formatVersion of [undefined, 1, 2, 3]) {
+  const content = formatVersion === 3 ? nanosecondDocument() : millisecondDocument();
+  malformedAnimationCases.push([
+    `duplicate track id in format ${formatVersion ?? "absent"}`,
+    {
+      ...content,
+      formatVersion,
+      tracks: [...content.tracks, { ...content.tracks[0], name: "Another track" }],
+    },
+  ]);
+}
+
+for (const formatVersion of [undefined, 1, 2]) {
+  const withPoint = (point: unknown) => ({
+    ...millisecondDocument(),
+    formatVersion,
+    tracks: [{ ...millisecondDocument().tracks[0], points: [point] }],
+  });
+  for (const point of [
+    { id: "p", stamp: 0 },
+    { id: "p", stamp: 0, value: undefined },
+  ]) {
+    malformedAnimationCases.push([
+      `missing legacy value in format ${formatVersion ?? "absent"}: ${"value" in point ? "undefined" : "absent"}`,
+      withPoint(point),
+    ]);
+  }
+  for (const side of ["in", "out"]) {
+    for (const transition of [
+      { dtNs: 1, dv: 2 },
+      { x: 1, y: 2, dtNs: 1, dv: 2 },
+      { x: 1 },
+      { y: 2 },
+      { x: Infinity, y: 2 },
+      { x: 1, y: NaN },
+      { x: "1", y: 2 },
+      {},
+      [],
+      1,
+      "unknown",
+    ]) {
+      malformedAnimationCases.push([
+        `invalid legacy ${side} in format ${formatVersion ?? "absent"}: ${JSON.stringify(transition)}`,
+        withPoint({ id: "p", stamp: 0, value: 1, transitions: { [side]: transition } }),
+      ]);
+    }
+  }
+}
+
+/** Legacy metadata and composite values are retained without imposing format-3 schemas. */
+export const legacyCompatibilityCases = [undefined, 1, 2].flatMap((formatVersion) =>
+  [
+    { x: 1, y: 2 },
+    { x: 1, y: 2, z: 3 },
+    { r: 0.1, p: 0.2, y: 0.3 },
+    { h: 10, s: 0.5, l: 0.5 },
+    null,
+  ].flatMap((value) =>
+    [undefined, null, {}, { in: null, out: null, pairing: "custom" }].map((transitions) => ({
+      ...millisecondDocument(),
+      formatVersion,
+      duration: null,
+      tracks: [
+        {
+          ...millisecondDocument().tracks[0],
+          inputKey: null,
+          settings: { color: null },
+          points: [{ id: "p", stamp: 0.5, value, transitions }],
+        },
+      ],
+    })),
+  ),
+);

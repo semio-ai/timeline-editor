@@ -54,18 +54,26 @@ enum HandlePrecision {
   Exact,
 }
 
+function safeNanoseconds(milliseconds: number, field: string): number {
+  const nanoseconds = Math.round(milliseconds * 1e6);
+  if (!Number.isSafeInteger(nanoseconds))
+    throw new Error(`${field} cannot be written as safe integer nanoseconds`);
+  return nanoseconds;
+}
+
 function writeTransition(
   value: AuthoredTransition | undefined,
   precision: HandlePrecision,
 ): ClipTransition | undefined {
-  if (typeof value === "string")
-    return namedTransitions.has(value) ? (value as ClipTransition) : undefined;
-  if (!value || !Number.isFinite(value.x) || !Number.isFinite(value.y)) return undefined;
   const integerHandles = precision === HandlePrecision.WholeNanoseconds;
-  const dtNs = integerHandles ? Math.round(value.x * 1e6) : value.x * 1e6;
-  return (integerHandles ? Number.isSafeInteger(dtNs) : Number.isFinite(dtNs))
-    ? { dtNs, dv: value.y }
-    : undefined;
+  if (value === undefined) return undefined;
+  if (typeof value === "string" && namedTransitions.has(value)) return value as ClipTransition;
+  if (typeof value === "object" && value && Number.isFinite(value.x) && Number.isFinite(value.y)) {
+    const dtNs = integerHandles ? safeNanoseconds(value.x, "transition dtNs") : value.x * 1e6;
+    if (Number.isFinite(dtNs)) return { dtNs, dv: value.y };
+  }
+  if (integerHandles) throw new Error("Cannot write an invalid transition in format 3");
+  return undefined;
 }
 
 function writeTrack(track: Track<RawValue>, precision: HandlePrecision): ClipTrack {
@@ -89,7 +97,10 @@ function writeTrack(track: Track<RawValue>, precision: HandlePrecision): ClipTra
       };
       return {
         id: point.id,
-        timeNs: Math.round(point.stamp * 1e6),
+        timeNs:
+          precision === HandlePrecision.WholeNanoseconds
+            ? safeNanoseconds(point.stamp, `Keypoint ${point.id} timeNs`)
+            : Math.round(point.stamp * 1e6),
         value: point.value as SimpleRawValue,
         transitions,
       };
@@ -102,21 +113,27 @@ function animationDocument(
   tracks: Record<string, Track<RawValue>>,
   precision: HandlePrecision,
 ): PersistedAnimation {
+  let defaultViewportExtentNs: number | undefined;
+  if (animation.defaultViewportExtent !== undefined) {
+    defaultViewportExtentNs =
+      precision === HandlePrecision.WholeNanoseconds
+        ? safeNanoseconds(animation.defaultViewportExtent, "defaultViewportExtentNs")
+        : Math.round(animation.defaultViewportExtent * 1e6);
+  }
   return {
     formatVersion: CURRENT_ANIMATION_FORMAT_VERSION,
     id: animation.id,
     name: animation.name,
     groups: animation.groups,
-    defaultViewportExtentNs:
-      animation.defaultViewportExtent === undefined
-        ? undefined
-        : Math.round(animation.defaultViewportExtent * 1e6),
+    defaultViewportExtentNs,
     tracks: animation.tracks.map((id) => writeTrack(tracks[id], precision)),
   };
 }
 
 /**
  * Write format 3 with editor metadata and no clip length. Runtime-only mute is excluded.
+ * Throws if rounded times or handle deltas are unsafe integers, a transition is
+ * invalid, or the resulting document fails the reader's structural admission.
  * Studio saves through writeAnimationForStorage; switching that function to this
  * writer is a one-line change once clients that read format 3 are in production.
  */
@@ -124,7 +141,10 @@ export function writeStoredAnimation(
   animation: Animation,
   tracks: Record<string, Track<RawValue>>,
 ): PersistedAnimation {
-  return animationDocument(animation, tracks, HandlePrecision.WholeNanoseconds);
+  const document = animationDocument(animation, tracks, HandlePrecision.WholeNanoseconds);
+  if (!isStoredAnimationContent(document))
+    throw new Error("Cannot write format 3: invalid content");
+  return document;
 }
 
 /** Prepare a standalone clip with the content/viewport/one-second duration floor. */
@@ -204,15 +224,8 @@ function readTransition(value: ClipTransition | undefined): AuthoredTransition |
 /**
  * Read formats 1, 2 and 3 into the embedded millisecond model; malformed content
  * throws NotAnAnimationError. Unknown versions retain their version refusal.
- * Format 3 requires formatVersion: 3, string id/name, arrays groups/tracks;
- * groups require string id/name and recursive string-or-group children;
- * tracks require string id/name/animatableId and points; points require string
- * id, safe-integer timeNs and a finite number, string or boolean value of one
- * kind per track. Optional inputKey/groupName/color are strings, settings and
- * transitions are objects, pairing is a TransitionPairing, and in/out are named
- * transitions or handles with safe-integer dtNs and finite dv. The optional
- * defaultViewportExtentNs is a safe integer. Millisecond stamp and x/y handles
- * are refused in format 3; timeNs is refused in earlier formats.
+ * Per-format requirements and legacy metadata permissiveness are documented on
+ * isStoredAnimationContent, the admission shared with core.
  */
 export function readStoredAnimation(content: unknown): StoredAnimation {
   assertReadableAnimationFormat(content);

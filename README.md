@@ -64,15 +64,24 @@ composite values. `StoredAnimation` names the embedded millisecond model.
 `PersistedAnimation` describes format 3: clip 2.0's document plus editor metadata,
 with safe-integer `timeNs`, handles `{ dtNs, dv }` (safe-integer nanoseconds and
 finite value deltas), and optional `defaultViewportExtentNs`. It stores no length.
-`readStoredAnimation` checks all required fields before conversion, refuses mixed
-time units and malformed handles, and rejects unsupported versions before reading
-tracks. Every format-3 track holds finite scalar values of one kind. Framework-free
-persistence APIs are available from `@semio/animation/format`.
+`readStoredAnimation` checks required fields before conversion and refuses duplicate
+track ids in every format. Formats 1 (including an absent version) and 2 require
+finite `stamp`, a defined value (including composites or null), and named
+transitions or finite `{ x, y }` handles; `timeNs` and `{ dtNs, dv }` handles are
+refused. Optional legacy transitions and sides may be null or absent, pairing and
+settings contents remain permissive, and a null/absent format-1 duration defaults
+to 5000 ms. Format 3 refuses `stamp`, x/y handles, null transitions, invalid pairing
+and malformed optional metadata, and requires finite scalar values of one kind
+per track. Unsupported versions are refused before tracks are read. The validator
+`isStoredAnimationContent` documents the complete requirements per format.
+Framework-free persistence APIs are available from `@semio/animation/format`.
 
 `writeStoredAnimation` retains the format-3 writer; switching the save boundary to
 it is a one-line change once clients that read format 3 are in production. It
-rounds stamps and handle time deltas to whole nanoseconds. Invalid transition names
-and non-finite handles are omitted; unresolved composite values are refused.
+rounds stamps and handle time deltas to whole nanoseconds, and throws if a time,
+viewport hint or handle delta cannot be written as a safe integer. It refuses
+invalid transitions, unresolved composite values and any document its reader
+would reject, so handles cannot silently disappear from a save.
 Muted state is runtime-only; colours, input keys, group names, groups and viewport
 extent persist. `clipDocument` prepares a clip to play with `lengthNs` resolved by
 `resolveAnimationDuration`: the latest of the content's end, the viewport hint and

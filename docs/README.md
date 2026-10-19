@@ -48,15 +48,20 @@ value does not (`"1"`).
 Studio reads formats 1, 2 and 3 and writes format 2 through
 `writeAnimationForStorage`. `readStoredAnimation` validates required fields and
 units before conversion; format 3 requires safe-integer `timeNs` and `dtNs`, finite
-`dv`, and scalar values of one kind per track. A v3 `stamp` or x/y handle and a v2
-`timeNs` are refused. Unknown versions are refused before tracks are read.
+`dv`, and scalar values of one kind per track. Formats 1 and 2 require a defined
+value (composites remain valid) and finite x/y handles or named transitions, with
+legacy optional transition metadata preserved. A v3 `stamp` or x/y handle and a
+v1/v2 `timeNs` or nanosecond handle are refused. Duplicate track ids are refused
+in every format. Unknown versions are refused before tracks are read.
 The `@semio/animation/format` entry point exposes the codec without loading the UI.
 
 `StoredAnimation` is the embedded millisecond model; `PersistedAnimation` describes
 format 3 with optional `defaultViewportExtentNs` and no stored length.
 `writeStoredAnimation` writes format 3, rounding stamps and handle time deltas to
-nanoseconds. Switching the save boundary to it is a one-line change once clients
-that read format 3 are in production. Composite tracks with known schemas are
+nanoseconds, throwing for unsafe integer conversions or invalid content rather
+than emitting unreadable documents or omitting handles. Switching the save boundary
+to it is a one-line change once clients that read format 3 are in production.
+Composite tracks with known schemas are
 flattened by `migrateAnimationData`; unresolved composites save in format 2.
 Both asset save hooks use the save boundary through `toAssetUploadBytes` in core.
 `clipDocument` prepares a playable clip whose `lengthNs` follows

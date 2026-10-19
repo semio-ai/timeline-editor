@@ -1,2 +1,2 @@
-/** The editor's save boundary: format 3, or format 2 for content format 3 cannot hold. */
+/** The editor's save boundary: format 2 in milliseconds, preserving composite values. */
 export { writeAnimationForStorage as computeStoredAnimation } from "./stored-animation-format";
