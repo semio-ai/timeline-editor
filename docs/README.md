@@ -45,19 +45,26 @@ value does not (`"1"`).
 
 ## Clip document and persistence
 
-`writeStoredAnimation` writes format 3: clip 2.0's JSON document plus Studio's
-editor fields. Stamps are rounded to integer nanoseconds; explicit handles carry
-unrounded `dtNs` and `dv`. `readStoredAnimation` admits formats 1, 2 and 3 and
-returns embedded tracks in milliseconds. Format 2 is read unchanged. An unknown
-version is refused before tracks are read. The `@semio/animation/format` entry
-point exposes the codec and version classifier without loading the UI.
+Studio reads formats 1, 2 and 3 and writes format 2 through
+`writeAnimationForStorage`. `readStoredAnimation` validates required fields and
+units before conversion; format 3 requires safe-integer `timeNs` and `dtNs`, finite
+`dv`, and scalar values of one kind per track. A v3 `stamp` or x/y handle and a v2
+`timeNs` are refused. Unknown versions are refused before tracks are read.
+The `@semio/animation/format` entry point exposes the codec without loading the UI.
 
-`StoredAnimation` is the embedded millisecond model; `PersistedAnimation` is the
-nanosecond document. Composite tracks with known animatable schemas are flattened
-by `migrateAnimationData`. `writeStoredAnimation` requires scalar values; the save
-boundary, `writeAnimationForStorage`, writes an animation holding an unresolved
-composite in format 2, as it was read. Both asset save hooks use it through
-`toAssetUploadBytes` in `@semio/core`.
+`StoredAnimation` is the embedded millisecond model; `PersistedAnimation` describes
+format 3 with optional `defaultViewportExtentNs` and no stored length.
+`writeStoredAnimation` writes format 3, rounding stamps and handle time deltas to
+nanoseconds. Switching the save boundary to it is a one-line change once clients
+that read format 3 are in production. Composite tracks with known schemas are
+flattened by `migrateAnimationData`; unresolved composites save in format 2.
+Both asset save hooks use the save boundary through `toAssetUploadBytes` in core.
+`clipDocument` prepares a playable clip whose `lengthNs` follows
+`resolveAnimationDuration`: content end, viewport hint or one second, whichever
+is latest. Device conversion resolves the whole animation before filtering tracks.
+Engine clip encoding and track evaluation preserve fractional handle nanoseconds
+for exact v2 curves. Track evaluation and effective-motion export need no engine
+clip length.
 
 ## A track on an input beyond the model
 

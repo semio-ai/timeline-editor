@@ -30,6 +30,9 @@ export function addAnimation(state: AnimationData, animationData: unknown) {
       tracks: migrated.tracks.map((t) => t.id),
       groups: migrated.groups,
       defaultViewportExtent: migrated.defaultViewportExtent ?? migrated.duration,
+      viewportExtentFromDuration:
+        migrated.defaultViewportExtent === undefined && migrated.duration !== undefined,
+      duration: migrated.duration,
     };
     const tracks = migrated.tracks.reduce((acc, track) => ({ ...acc, [track.id]: track }), {});
 

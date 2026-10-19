@@ -6,8 +6,8 @@ import {
   clipTrackJson,
   persistStoredAnimation,
   clipTrackColumns,
+  clipDocument,
   type ClipTrack,
-  type PersistedAnimation,
 } from "../functions/stored-animation-format";
 import { randomAnimation } from "../test-fixtures/random-animation";
 import {
@@ -19,6 +19,12 @@ import { StandardTransitionType, TransitionDirective, TransitionPairing } from "
 import type { Animation, StoredAnimation } from "../types";
 import type { SimpleTrack } from "../types/data/simple-track";
 import { createAnimationStore } from "../store";
+import { NotAnAnimationError } from "../functions/is-stored-animation-content";
+import {
+  malformedAnimationCases,
+  nanosecondDocument,
+  millisecondDocument,
+} from "../test-fixtures/stored-animation-content";
 
 const animation: Animation = {
   id: "a",
@@ -40,7 +46,7 @@ const track: SimpleTrack = {
       stamp: -0.000001,
       value: 0,
       transitions: {
-        in: { x: -0.000000123456, y: 0.25 },
+        in: { x: -0.125, y: 0.25 },
         out: StandardTransitionType.Sine,
         pairing: TransitionPairing.Paired,
       },
@@ -59,14 +65,14 @@ const track: SimpleTrack = {
 };
 
 describe("stored clip format", () => {
-  it("round trips integer nanosecond stamps, unrounded handles and editor metadata", () => {
+  it("round trips integer nanosecond stamps, integer handles and editor metadata", () => {
     const document = writeStoredAnimation(animation, { t: track });
     expect(document).toMatchObject({
       formatVersion: 3,
-      lengthNs: 2345123456,
+      defaultViewportExtentNs: 2345123456,
       tracks: [{ points: [{ timeNs: -1 }, { timeNs: 1234567891 }] }],
     });
-    expect(document.tracks[0].points[0].transitions?.in).toEqual({ dtNs: -0.123456, dv: 0.25 });
+    expect(document.tracks[0].points[0].transitions?.in).toEqual({ dtNs: -125000, dv: 0.25 });
     expect(document.tracks[0].settings).toEqual({ color: "red" });
     const runtime = readStoredAnimation(JSON.parse(JSON.stringify(document)));
     expect(runtime).toEqual({
@@ -79,13 +85,39 @@ describe("stored clip format", () => {
     );
     expect(resolveStoredAnimationDuration(document)).toBe(animation.defaultViewportExtent);
     expect(
-      writeStoredAnimation({ ...animation, defaultViewportExtent: undefined }, { t: track })
-        .lengthNs,
+      clipDocument({ ...animation, defaultViewportExtent: undefined }, { t: track }).lengthNs,
     ).toBe(1234567891);
     expect(
-      writeStoredAnimation({ ...animation, tracks: [], defaultViewportExtent: undefined }, {})
-        .lengthNs,
+      clipDocument({ ...animation, tracks: [], defaultViewportExtent: undefined }, {}).lengthNs,
     ).toBe(1e9);
+  });
+
+  it("rounds stored handle nanoseconds while preserving the engine's fractional handles", () => {
+    const fractional = structuredClone(track);
+    fractional.points[0].transitions!.in = { x: -0.000000123456, y: 0.25 };
+    const stored = writeStoredAnimation(animation, { t: fractional });
+    expect(stored.tracks[0].points[0].transitions!.in).toEqual({ dtNs: -0, dv: 0.25 });
+    expect(readStoredAnimation(stored).tracks[0].points[0].transitions!.in).toEqual({
+      x: -0,
+      y: 0.25,
+    });
+    const expected = { dtNs: -0.123456, dv: 0.25 };
+    expect(clipDocument(animation, { t: fractional }).tracks[0].points[0].transitions!.in).toEqual(
+      expected,
+    );
+    expect(JSON.parse(clipTrackJson(fractional)).points[0].transitions.in).toEqual(expected);
+    expect(clipTrackColumns(fractional, () => 0)!.transitions[1]).toBe(expected.dtNs);
+  });
+
+  it.each([
+    [5000, 2000, 5000e6],
+    [500, 3000, 3000e6],
+    [-250, undefined, 1e9],
+  ])("prepares a clip from content end %s and viewport %s", (stamp, viewport, expected) => {
+    const source = { ...track, points: [{ id: "p", stamp, value: 1 }] };
+    expect(
+      clipDocument({ ...animation, defaultViewportExtent: viewport }, { t: source }).lengthNs,
+    ).toBe(expected);
   });
 
   it.each([...Object.values(StandardTransitionType), ...Object.values(TransitionDirective)])(
@@ -210,13 +242,13 @@ describe("stored clip format", () => {
     ).toThrow("must be scalar");
   });
 
-  it("saves store content as format 3 and reloads it in milliseconds", () => {
+  it("loads format 3 and saves format 2 in milliseconds", () => {
     const store = createAnimationStore();
     const document = writeStoredAnimation(animation, { t: track });
     store.getState().addAnimation(document);
     expect(store.getState().tracks.t.points[1].stamp).toBe(1234.567891);
-    expect(store.getState().getStorableAnimation("a")).toEqual(document);
-    expect(store.getState().getAnimationsToSave()).toEqual([document]);
+    expect(store.getState().getStorableAnimation("a")).toEqual(readStoredAnimation(document));
+    expect(store.getState().getAnimationsToSave()).toEqual([readStoredAnimation(document)]);
   });
 
   it("writes a number track's columns as its document writes its points", () => {
@@ -263,20 +295,70 @@ describe("stored clip format", () => {
     expect(() => clipTrackColumns(track, () => undefined)).toThrow("No code");
   });
 
-  it("keeps a clip's length past its last keypoint through a read and a write", () => {
-    const held = {
-      ...writeStoredAnimation({ ...animation, defaultViewportExtent: undefined }, { t: track }),
-      lengthNs: 5_000_000_000,
-    };
-    expect(readStoredAnimation(held).defaultViewportExtent).toBe(5000);
-    expect((persistStoredAnimation(held) as PersistedAnimation).lengthNs).toBe(5_000_000_000);
-    // A length the content and viewport already give adds no viewport extent.
-    const written = writeStoredAnimation(
-      { ...animation, defaultViewportExtent: undefined },
-      { t: track },
+  it("stores only the nanosecond viewport hint and ignores an extraneous clip length", () => {
+    const document = writeStoredAnimation(animation, { t: track });
+    expect(document).not.toHaveProperty("lengthNs");
+    expect(document).not.toHaveProperty("defaultViewportExtent");
+    expect(readStoredAnimation({ ...document, lengthNs: 10e9 }).defaultViewportExtent).toBe(
+      animation.defaultViewportExtent,
     );
-    expect(readStoredAnimation(written).defaultViewportExtent).toBeUndefined();
-    expect(persistStoredAnimation(written)).toEqual(written);
+    expect(
+      readStoredAnimation({ ...nanosecondDocument(), defaultViewportExtentNs: undefined })
+        .defaultViewportExtent,
+    ).toBeUndefined();
+  });
+
+  it.each(malformedAnimationCases)("refuses %s before conversion", (_rule, content) => {
+    expect(() => readStoredAnimation(content)).toThrow(NotAnAnimationError);
+  });
+
+  it("accepts optional metadata absent and safe integer boundaries", () => {
+    expect(
+      readStoredAnimation({ formatVersion: 3, id: "a", name: "A", groups: [], tracks: [] }).tracks,
+    ).toEqual([]);
+    for (const timeNs of [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]) {
+      const document = nanosecondDocument();
+      document.tracks[0].points[0].timeNs = timeNs;
+      document.tracks[0].points[0].transitions.in.dtNs = timeNs;
+      expect(readStoredAnimation(document).tracks[0].points[0].stamp).toBe(timeNs / 1e6);
+    }
+  });
+
+  it("saves a loaded format-2 document unchanged field for field", () => {
+    const input = millisecondDocument();
+    const store = createAnimationStore();
+    store.getState().addAnimation(input);
+    expect(JSON.parse(JSON.stringify(store.getState().getStorableAnimation(input.id)))).toEqual(
+      input,
+    );
+    expect(JSON.parse(JSON.stringify(persistStoredAnimation(input)))).toEqual(input);
+  });
+
+  it("preserves a duration-only format-2 document while using its viewport floor", () => {
+    const { defaultViewportExtent: _, ...input } = millisecondDocument();
+    const store = createAnimationStore();
+    store.getState().addAnimation(input);
+    expect(store.getState().animations[input.id].defaultViewportExtent).toBe(input.duration);
+    expect(JSON.parse(JSON.stringify(store.getState().getStorableAnimation(input.id)))).toEqual(
+      input,
+    );
+  });
+
+  it("loads, edits, saves and reloads every format-2 field including inputKey", () => {
+    const input = millisecondDocument();
+    const store = createAnimationStore();
+    store.getState().addAnimation(input);
+    const edited = structuredClone(input);
+    edited.tracks[0].points.at(-1)!.value = 42;
+    store.getState().updateKeypoint("t", { id: edited.tracks[0].points.at(-1)!.id, value: 42 });
+    const saved = JSON.parse(JSON.stringify(store.getState().getStorableAnimation(input.id)));
+    expect(saved).toEqual(edited);
+    const reloaded = createAnimationStore();
+    reloaded.getState().addAnimation(saved);
+    expect(JSON.parse(JSON.stringify(reloaded.getState().getStorableAnimation(input.id)))).toEqual(
+      edited,
+    );
+    expect(readStoredAnimation(saved)).toEqual(edited);
   });
 
   it("saves an animation holding a composite value in format 2, as it was read", () => {
@@ -308,8 +390,8 @@ describe("stored clip format", () => {
     };
     expect(store.getState().getStorableAnimation("a")).toEqual(asRead);
     expect(persistStoredAnimation(legacy)).toEqual(asRead);
-    // With only scalars it is format 3.
+    // Scalars and composites both save in format 2.
     store.getState().updateTrack({ id: "pose", points: [{ id: "p", stamp: 0, value: 1 }] });
-    expect(store.getState().getStorableAnimation("a").formatVersion).toBe(3);
+    expect(store.getState().getStorableAnimation("a").formatVersion).toBe(2);
   });
 });

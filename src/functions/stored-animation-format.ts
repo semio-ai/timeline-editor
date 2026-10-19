@@ -8,7 +8,8 @@ import {
 } from "../types/data/keypoint";
 import type { AuthoredTransition } from "../types/data/keypoint";
 import type { SimpleRawValue, SimpleTrack } from "../types/data/simple-track";
-import { computeTrackExtent, resolveAnimationDuration } from "./compute-animation-extent";
+import { resolveAnimationDuration } from "./compute-animation-extent";
+import { isStoredAnimationContent, NotAnAnimationError } from "./is-stored-animation-content";
 import {
   assertReadableAnimationFormat,
   migrateToMillisecondStamps,
@@ -34,14 +35,13 @@ export interface ClipTrack {
   settings?: { color?: string };
   points: ClipPoint[];
 }
-/** The nanosecond document written to storage, distinct from StoredAnimation in ms. */
+/** Format 3 storage document in nanoseconds; clip length is resolved at playback. */
 export interface PersistedAnimation {
   formatVersion: 3;
   id: string;
   name: string;
-  lengthNs: number;
   groups: TrackGroup[];
-  defaultViewportExtent?: number;
+  defaultViewportExtentNs?: number;
   tracks: ClipTrack[];
 }
 
@@ -49,15 +49,26 @@ const namedTransitions = new Set<string>([
   ...Object.values(StandardTransitionType),
   ...Object.values(TransitionDirective),
 ]);
-function writeTransition(value: AuthoredTransition | undefined): ClipTransition | undefined {
+enum HandlePrecision {
+  WholeNanoseconds,
+  Exact,
+}
+
+function writeTransition(
+  value: AuthoredTransition | undefined,
+  precision: HandlePrecision,
+): ClipTransition | undefined {
   if (typeof value === "string")
     return namedTransitions.has(value) ? (value as ClipTransition) : undefined;
   if (!value || !Number.isFinite(value.x) || !Number.isFinite(value.y)) return undefined;
-  const dtNs = value.x * 1e6;
-  return Number.isFinite(dtNs) ? { dtNs, dv: value.y } : undefined;
+  const integerHandles = precision === HandlePrecision.WholeNanoseconds;
+  const dtNs = integerHandles ? Math.round(value.x * 1e6) : value.x * 1e6;
+  return (integerHandles ? Number.isSafeInteger(dtNs) : Number.isFinite(dtNs))
+    ? { dtNs, dv: value.y }
+    : undefined;
 }
 
-function writeTrack(track: Track<RawValue>): ClipTrack {
+function writeTrack(track: Track<RawValue>, precision: HandlePrecision): ClipTrack {
   return {
     id: track.id,
     name: track.name,
@@ -72,8 +83,8 @@ function writeTrack(track: Track<RawValue>): ClipTrack {
         );
       }
       const transitions = point.transitions && {
-        in: writeTransition(point.transitions.in),
-        out: writeTransition(point.transitions.out),
+        in: writeTransition(point.transitions.in, precision),
+        out: writeTransition(point.transitions.out, precision),
         pairing: point.transitions.pairing,
       };
       return {
@@ -86,25 +97,47 @@ function writeTrack(track: Track<RawValue>): ClipTrack {
   };
 }
 
-/** Write clip 2.0 plus editor metadata. Runtime-only mute state is excluded. */
-export function writeStoredAnimation(
+function animationDocument(
   animation: Animation,
   tracks: Record<string, Track<RawValue>>,
+  precision: HandlePrecision,
 ): PersistedAnimation {
   return {
     formatVersion: CURRENT_ANIMATION_FORMAT_VERSION,
     id: animation.id,
     name: animation.name,
-    lengthNs: Math.round(resolveAnimationDuration(animation, tracks) * 1e6),
     groups: animation.groups,
-    defaultViewportExtent: animation.defaultViewportExtent,
-    tracks: animation.tracks.map((id) => writeTrack(tracks[id])),
+    defaultViewportExtentNs:
+      animation.defaultViewportExtent === undefined
+        ? undefined
+        : Math.round(animation.defaultViewportExtent * 1e6),
+    tracks: animation.tracks.map((id) => writeTrack(tracks[id], precision)),
   };
 }
 
-/** A track's clip 2.0 JSON document, shared by evaluation and persistence. */
+/**
+ * Write format 3 with editor metadata and no clip length. Runtime-only mute is excluded.
+ * Studio saves through writeAnimationForStorage; switching that function to this
+ * writer is a one-line change once clients that read format 3 are in production.
+ */
+export function writeStoredAnimation(
+  animation: Animation,
+  tracks: Record<string, Track<RawValue>>,
+): PersistedAnimation {
+  return animationDocument(animation, tracks, HandlePrecision.WholeNanoseconds);
+}
+
+/** Prepare a standalone clip with the content/viewport/one-second duration floor. */
+export function clipDocument(animation: Animation, tracks: Record<string, Track<RawValue>>) {
+  return {
+    ...animationDocument(animation, tracks, HandlePrecision.Exact),
+    lengthNs: Math.round(resolveAnimationDuration(animation, tracks) * 1e6),
+  };
+}
+
+/** A track's engine clip 2.0 document; fractional handle nanoseconds preserve v2 curves. */
 export function clipTrackJson(track: SimpleTrack): string {
-  return JSON.stringify(writeTrack(track));
+  return JSON.stringify(writeTrack(track, HandlePrecision.Exact));
 }
 
 /** A number track's keypoints as columns: what an evaluator compiles with no text to parse. */
@@ -141,7 +174,7 @@ export function clipTrackColumns(
   };
   // Each side as `writeTrack` writes it into the document.
   const side = (authored: AuthoredTransition | undefined, at: number) => {
-    const transition = writeTransition(authored);
+    const transition = writeTransition(authored, HandlePrecision.Exact);
     if (transition === undefined) return;
     if (typeof transition === "object") {
       columns.transitions[at] = -2;
@@ -168,9 +201,22 @@ function readTransition(value: ClipTransition | undefined): AuthoredTransition |
   return { x: value.dtNs / 1e6, y: value.dv };
 }
 
-/** Read all supported persisted formats into the embedded millisecond model. */
+/**
+ * Read formats 1, 2 and 3 into the embedded millisecond model; malformed content
+ * throws NotAnAnimationError. Unknown versions retain their version refusal.
+ * Format 3 requires formatVersion: 3, string id/name, arrays groups/tracks;
+ * groups require string id/name and recursive string-or-group children;
+ * tracks require string id/name/animatableId and points; points require string
+ * id, safe-integer timeNs and a finite number, string or boolean value of one
+ * kind per track. Optional inputKey/groupName/color are strings, settings and
+ * transitions are objects, pairing is a TransitionPairing, and in/out are named
+ * transitions or handles with safe-integer dtNs and finite dv. The optional
+ * defaultViewportExtentNs is a safe integer. Millisecond stamp and x/y handles
+ * are refused in format 3; timeNs is refused in earlier formats.
+ */
 export function readStoredAnimation(content: unknown): StoredAnimation {
   assertReadableAnimationFormat(content);
+  if (!isStoredAnimationContent(content)) throw new NotAnAnimationError();
   const stored = content as StoredAnimation | PersistedAnimation;
   if (stored.formatVersion !== 3) return migrateToMillisecondStamps(stored);
   const tracks = stored.tracks.map((track) => ({
@@ -186,54 +232,42 @@ export function readStoredAnimation(content: unknown): StoredAnimation {
       },
     })),
   }));
-  // The editor's duration is the latest of its content, its viewport extent
-  // and a second; a clip longer than all three (one another writer made, with
-  // a hold after its last keypoint) keeps its length as the viewport extent.
-  // Compared in whole nanoseconds, as the writer rounds the length.
-  const derivedNs = Math.round(
-    Math.max(computeTrackExtent(tracks), stored.defaultViewportExtent ?? 0, 1000) * 1e6,
-  );
   return {
     id: stored.id,
     name: stored.name,
     formatVersion: 2,
     groups: stored.groups,
     defaultViewportExtent:
-      stored.lengthNs > derivedNs ? stored.lengthNs / 1e6 : stored.defaultViewportExtent,
+      stored.defaultViewportExtentNs === undefined
+        ? undefined
+        : stored.defaultViewportExtentNs / 1e6,
     tracks,
   };
 }
 
-/** Whether every value of every track `animation` names is a scalar. */
-function holdsOnlyScalars(animation: Animation, tracks: Record<string, Track<RawValue>>): boolean {
-  return animation.tracks.every((id) =>
-    (tracks[id]?.points ?? []).every((point) =>
-      ["number", "boolean", "string"].includes(typeof point.value),
-    ),
-  );
-}
-
 /**
- * What the editor saves: format 3, unless a track holds a value format 3
- * cannot (a composite, from before animatables were split into scalar
- * channels); that animation is saved in format 2, as it was read, so nothing
- * of it is lost. Runtime-only mute state is excluded either way.
+ * Studio saves format 2 so deployed millisecond readers can open every save.
+ * Once format-3 readers are in production, the body can return
+ * writeStoredAnimation(animation, tracks) in a one-line switch. Mute is runtime-only.
  */
 export function writeAnimationForStorage(
   animation: Animation,
   tracks: Record<string, Track<RawValue>>,
 ): PersistedAnimation | StoredAnimation {
-  if (holdsOnlyScalars(animation, tracks)) return writeStoredAnimation(animation, tracks);
   return {
     id: animation.id,
     name: animation.name,
+    duration: animation.duration,
     tracks: animation.tracks.map((id) => {
       const track = tracks[id];
       const { muted: _, ...rest } = track.settings || {};
       return { ...track, settings: Object.keys(rest).length > 0 ? rest : undefined };
     }),
     groups: animation.groups,
-    defaultViewportExtent: animation.defaultViewportExtent,
+    defaultViewportExtent:
+      animation.viewportExtentFromDuration && animation.defaultViewportExtent === animation.duration
+        ? undefined
+        : animation.defaultViewportExtent,
     formatVersion: 2,
   };
 }

@@ -7,8 +7,8 @@ import { readStoredAnimation } from "./stored-animation-format";
  * Computes the actual extent (duration) of an animation from its track content.
  * Returns the maximum keypoint stamp across all tracks, or 0 if no keypoints exist.
  *
- * This is the authoritative duration in v2 format — it replaces the legacy
- * `animation.duration` field which was an explicit property in v1.
+ * This is the content end. resolveAnimationDuration also applies the viewport
+ * hint and a one-second minimum when preparing a playable clip.
  *
  * @param tracks - Track data (either embedded tracks from StoredAnimation or
  *   resolved tracks from the track map)

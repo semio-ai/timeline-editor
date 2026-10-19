@@ -55,23 +55,32 @@ evaluator, rows draw authored Béziers and have no readouts or violations.
 
 ## Animation content
 
-Persistence writes format 3: clip 2.0's document in integer nanoseconds plus editor
-metadata. `writeStoredAnimation` writes it from an `Animation` and a track map;
-`writeAnimationForStorage` (also exported as `computeStoredAnimation`, and used by the
-store's save getters and `persistStoredAnimation`) writes format 3 unless a track
-holds a value format 3 cannot, a legacy composite, and then writes format 2 as it was
-read. `PersistedAnimation` names the format-3 bytes;
-`StoredAnimation` names the embedded millisecond model returned by
-`readStoredAnimation`. The reader accepts formats 1, 2 and 3 and rejects unsupported
-versions before inspecting tracks. Framework-free persistence APIs are also available
-from `@semio/animation/format`.
+Studio reads formats 1, 2 and 3 and writes format 2 through
+`writeAnimationForStorage` (also exported as `computeStoredAnimation`, used by
+the store's save getters and `persistStoredAnimation`). This keeps saves readable
+by deployed millisecond clients, including tracks with `inputKey` and legacy
+composite values. `StoredAnimation` names the embedded millisecond model.
 
-Every point saved in format 3 must be scalar. Composite migration requires its animatable's
-schema; an unresolved composite is refused by the writer. Invalid transition names
-and non-finite handles play as the default cubic and are omitted from the document.
+`PersistedAnimation` describes format 3: clip 2.0's document plus editor metadata,
+with safe-integer `timeNs`, handles `{ dtNs, dv }` (safe-integer nanoseconds and
+finite value deltas), and optional `defaultViewportExtentNs`. It stores no length.
+`readStoredAnimation` checks all required fields before conversion, refuses mixed
+time units and malformed handles, and rejects unsupported versions before reading
+tracks. Every format-3 track holds finite scalar values of one kind. Framework-free
+persistence APIs are available from `@semio/animation/format`.
+
+`writeStoredAnimation` retains the format-3 writer; switching the save boundary to
+it is a one-line change once clients that read format 3 are in production. It
+rounds stamps and handle time deltas to whole nanoseconds. Invalid transition names
+and non-finite handles are omitted; unresolved composite values are refused.
 Muted state is runtime-only; colours, input keys, group names, groups and viewport
-extent persist. `lengthNs` is the resolved editor duration (content extent, viewport
-extent or 1000 ms, whichever is greatest).
+extent persist. `clipDocument` prepares a clip to play with `lengthNs` resolved by
+`resolveAnimationDuration`: the latest of the content's end, the viewport hint and
+one second. Device delivery uses the same rule for the whole animation even when
+some tracks are filtered out. Engine clips and track evaluation (`clipTrackJson` and `clipTrackColumns`)
+keep fractional handle nanoseconds so v2 curves retain their exact geometry.
+A track evaluated alone has no clip duration. Effective-motion export carries keys and
+handles in milliseconds and has no engine clip length.
 
 Playback and viewport are decoupled: pan / zoom / playhead-follow are driven by
 motion values independent of the player tick, so the timeline follows the
