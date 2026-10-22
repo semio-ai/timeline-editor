@@ -18,9 +18,8 @@ export interface RecordedPoint {
 /**
  * The values one key of one device took over the device's own clock, read-only.
  * It is keyed by device and key, so one view can hold, for one device, what
- * reached it (`<key>.target_position`), what its animation module output
- * (`animation/<instance>/<key>`) and what it did (`<key>.position`), and the
- * same keys of another device bound to the same entity beside them: a
+ * reached it (`<key>.target_position`) and what it did (`<key>.position`), and
+ * the same keys of another device bound to the same entity beside them: a
  * simulation and a robot given one animation. A key nothing drives, a battery
  * level, records the same way.
  */
