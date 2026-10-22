@@ -24,36 +24,72 @@ The host hands the sheet three things:
   created without one has a player of its own);
 - **the values store** (`DataStoreContext` from `@semio/utils`), Arora's data
   store interface, which the direct controls read;
-- **a baker** (`trackBaker` on the store), which draws each track's curve from
-  the Vizij animation module, the only evaluator of a curve. Studio bakes on an
-  emulated device of its own; a page with no device attaches the module this
-  package bundles.
+- **an evaluator** (`trackEvaluator` on the store), whose `compile(trackJson)`
+  returns a `CompiledCurve` with batched values and velocities. Studio injects
+  `@semio/studio-arora`'s compiled tracks. Hosts own the evaluator's initialization.
 
 ```tsx
+import { useState } from "react";
 import { AnimationContext, AnimationSheet, createAnimationStore } from "@semio/animation";
-import { attachModuleBaker } from "@semio/animation/module-baker";
-import { createValuesStore, DataStoreContext, valuesDataStore } from "@semio/utils";
+import type { TrackEvaluator } from "@semio/animation";
 
-const store = createAnimationStore();
-const values = valuesDataStore(createValuesStore());
-
-export function Editor() {
-  useEffect(() => attachModuleBaker(store), []);
+export function Editor({ evaluator }: { evaluator: TrackEvaluator }) {
+  const [store] = useState(() => createAnimationStore({ trackEvaluator: evaluator }));
   return (
-    <DataStoreContext.Provider value={values}>
-      <AnimationContext.Provider value={store}>
-        <AnimationSheet /* viewId, theme, fonts, … */ />
-      </AnimationContext.Provider>
-    </DataStoreContext.Provider>
+    <AnimationContext.Provider value={store}>
+      <AnimationSheet /* viewId, theme, fonts, … */ />
+    </AnimationContext.Provider>
   );
 }
 ```
 
-`attachModuleBaker` runs the module in the page through `@vizij/runtime`
-(25 MB of wasm, 7 MB compressed, fetched on the first bake). It lives on its own
-entry point, `@semio/animation/module-baker`, so a host that bakes elsewhere
-never bundles it. Without a baker, curves are drawn from their authored Béziers
-and tracks have no values or violations.
+An evaluator compiles a track as clip 2.0 plays it: `clipTrackJson` emits its
+document, the one Studio's World delivers, and `clipTrackColumns` a number track's
+keypoints as columns of numbers, which compile with no text to parse. Values and velocities are evaluated exactly in clip-local milliseconds;
+number velocities are in value units per second. A row draws a number track from
+the evaluator's `polyline`, points on the curve, and a violation check reads values
+and velocities from one `numbers` batch. A cache compiles a track once
+per evaluator (a frozen track found again by identity, any other by its document)
+and frees its compiled resource on eviction. Without an
+evaluator, rows draw authored Béziers and have no readouts or violations.
+
+## Animation content
+
+Studio reads formats 1, 2 and 3 and writes format 2 through
+`writeAnimationForStorage` (also exported as `computeStoredAnimation`, used by
+the store's save getters and `persistStoredAnimation`). This keeps saves readable
+by deployed millisecond clients, including tracks with `inputKey` and legacy
+composite values. `StoredAnimation` names the embedded millisecond model.
+
+`PersistedAnimation` describes format 3: clip 2.0's document plus editor metadata,
+with safe-integer `timeNs`, handles `{ dtNs, dv }` (safe-integer nanoseconds and
+finite value deltas), and optional `defaultViewportExtentNs`. It stores no length.
+`readStoredAnimation` checks required fields before conversion and refuses duplicate
+track ids in every format. Formats 1 (including an absent version) and 2 require
+finite `stamp`, a defined value (including composites or null), and named
+transitions or finite `{ x, y }` handles; `timeNs` and `{ dtNs, dv }` handles are
+refused. Optional legacy transitions and sides may be null or absent, pairing and
+settings contents remain permissive, and a null/absent format-1 duration defaults
+to 5000 ms. Format 3 refuses `stamp`, x/y handles, null transitions, invalid pairing
+and malformed optional metadata, and requires finite scalar values of one kind
+per track. Unsupported versions are refused before tracks are read. The validator
+`isStoredAnimationContent` documents the complete requirements per format.
+Framework-free persistence APIs are available from `@semio/animation/format`.
+
+`writeStoredAnimation` retains the format-3 writer; switching the save boundary to
+it is a one-line change once clients that read format 3 are in production. It
+rounds stamps and handle time deltas to whole nanoseconds, and throws if a time,
+viewport hint or handle delta cannot be written as a safe integer. It refuses
+invalid transitions, unresolved composite values and any document its reader
+would reject, so handles cannot silently disappear from a save.
+Muted state is runtime-only; colours, input keys, group names, groups and viewport
+extent persist. `clipDocument` prepares a clip to play with `lengthNs` resolved by
+`resolveAnimationDuration`: the latest of the content's end, the viewport hint and
+one second. Device delivery uses the same rule for the whole animation even when
+some tracks are filtered out. Engine clips and track evaluation (`clipTrackJson` and `clipTrackColumns`)
+keep fractional handle nanoseconds so v2 curves retain their exact geometry.
+A track evaluated alone has no clip duration. Effective-motion export carries keys and
+handles in milliseconds and has no engine clip length.
 
 Playback and viewport are decoupled: pan / zoom / playhead-follow are driven by
 motion values independent of the player tick, so the timeline follows the
@@ -133,7 +169,6 @@ function accepts the resulting runtime animation rather than a raw stored file.
 
 Toolbar sections use the shared UI `toolbar-segments` style for 2px gaps, square
 shared edges and rounded exposed ends. Section outlines remain on the group.
-
 
 ## License
 

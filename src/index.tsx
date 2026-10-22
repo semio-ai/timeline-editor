@@ -6,6 +6,7 @@ export {
   AnimatableControlList,
   AnimatableNumberField,
   TrackControl,
+  RowNoticeContext,
   KeyStrip,
   MotionCubicBezierLine,
   MotionCubicBezierFill,
@@ -13,6 +14,7 @@ export {
   type AnimatableControlListProps,
   type AnimatableNumberFieldProps,
   type KeyStripProps,
+  type RowNotice,
   type MotionCubicBezierLineProps,
   type MotionCubicBezierFillProps,
 } from "./components";

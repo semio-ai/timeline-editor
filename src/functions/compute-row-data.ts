@@ -39,7 +39,7 @@ import { computeFilledInterpGaps } from "./compute-filled-interp-gaps";
 import { computeVerticalBounds } from "./compute-vertical-bounds";
 import { computeFrames } from "./compute-frames";
 import { resolveAnimationDuration } from "./compute-animation-extent";
-import { trackCurve, type TrackBaker, type TrackCurve } from "./track-curve";
+import { trackCurve, type TrackEvaluator, type TrackCurve } from "./track-curve";
 import { computeInstanceTrackViolations } from "./compute-track-violations";
 import { buildRenderParamsFromControlPoints } from "./compute-transition-params";
 import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
@@ -59,8 +59,8 @@ const IDENTITY_TRANSFORM: AffineTransform2D = {
 interface RowComputationContext {
   animations: Record<string, Animation>;
   namespaces: Record<string, Namespace>;
-  /** Bakes the curves the row draws and its drag preview's violations. */
-  trackBaker?: TrackBaker;
+  /** Evaluates the curves the row draws and its drag preview's violations. */
+  trackEvaluator?: TrackEvaluator;
 }
 
 export interface DragPreviewCache {
@@ -453,13 +453,8 @@ export function computeRowData(
       if (!animation || !instance || !animatable) {
         return;
       }
-      const curve = trackCurve(
-        previewTrack as unknown as SimpleTrack,
-        animation,
-        tracks as unknown as Record<string, SimpleTrack>,
-        context.trackBaker,
-      );
-      // An unbaked curve has no values to check.
+      const curve = trackCurve(previewTrack as unknown as SimpleTrack, context.trackEvaluator);
+      // An uncompiled curve has no values to check.
       const previewViolations = !curve
         ? []
         : computeInstanceTrackViolations(
@@ -494,7 +489,7 @@ export function computeRowData(
     sourceRow,
     renderSampleCache,
     rowTransform,
-    rowValueCurve(sourceRow, relevantTracks, tracks, previewByTrackId, draggedTrackIds, context),
+    rowValueCurve(sourceRow, relevantTracks, previewByTrackId, draggedTrackIds, context),
   );
   const renderHandles = buildRenderHandles(segmentsWithGeometry, sourceRow);
 
@@ -588,19 +583,18 @@ function buildSelectionFrames(
 }
 
 /**
- * The baked curve a value row draws: the curve of its one track, of the drag
+ * The compiled curve a value row draws: the curve of its one track, of the drag
  * preview's points while that track is dragged. `undefined` for a row of
- * several tracks (it draws timing, not values), and when nothing can bake.
+ * several tracks (it draws timing, not values), and when nothing can evaluate.
  */
 function rowValueCurve(
   sourceRow: SourceRow,
   relevantTracks: Record<string, Track<RawValue>>,
-  tracks: Record<string, Track<RawValue>>,
   previewByTrackId: Map<string, { projectedPoints: Keypoint<RawValue>[] }>,
   draggedTrackIds: Set<string> | undefined,
   context: RowComputationContext | undefined,
 ): TrackCurve | undefined {
-  if (sourceRow.data.length !== 1 || !context?.trackBaker) return undefined;
+  if (sourceRow.data.length !== 1 || !context?.trackEvaluator) return undefined;
   const [datum] = sourceRow.data;
   const track = relevantTracks[datum.trackId];
   const animation = context.animations[datum.animationId];
@@ -611,40 +605,48 @@ function rowValueCurve(
   const drawn = preview
     ? { ...track, points: [...preview.projectedPoints].sort((a, b) => a.stamp - b.stamp) }
     : track;
-  return trackCurve(
-    drawn as unknown as SimpleTrack,
-    animation,
-    tracks as unknown as Record<string, SimpleTrack>,
-    context.trackBaker,
-  );
+  return trackCurve(drawn as unknown as SimpleTrack, context.trackEvaluator);
 }
 
 /**
- * A value segment's spline, read from the row's baked curve between the
- * segment's stamps; `undefined` for a segment the curve does not draw and
- * without a curve. The curve does not draw a hold before the first or after
- * the last keypoint, a string, nor a segment reaching outside the clip time
- * the module plays (`0` to the animation's end): there the segment's authored
- * Bézier shows where its keypoints are.
+ * Every value segment's points, in one host call per row, in clip-local time:
+ * a number track's polyline on its curve, a boolean track's steps sampled
+ * evenly in time; `undefined` for a string track and without a curve.
  */
 function sampleValueCurve(
   curve: TrackCurve | undefined,
-  startStamp: number,
-  endStamp: number,
-  buffer: boolean | undefined,
-): Float32Array | undefined {
-  if (!curve || buffer || startStamp < 0 || endStamp > curve.durationMs) return undefined;
+  segments: { startStamp: number; endStamp: number }[],
+): (Float32Array | undefined)[] {
+  if (!curve) return segments.map(() => undefined);
   const count = Math.max(2, SEGMENT_SAMPLE_RESOLUTION + 1);
-  const points = new Float32Array(count * 2);
-  for (let i = 0; i < count; i += 1) {
-    const stamp = startStamp + ((endStamp - startStamp) * i) / (count - 1);
-    const value = curve(stamp);
-    const y = typeof value === "boolean" ? Number(value) : value;
-    if (typeof y !== "number") return undefined;
-    points[i * 2] = stamp;
-    points[i * 2 + 1] = y;
+  const length = count * 2;
+  const starts = Float64Array.from(segments, (segment) => segment.startStamp);
+  const ends = Float64Array.from(segments, (segment) => segment.endStamp);
+  const polyline = curve.polyline(starts, ends, count);
+  if (polyline) {
+    // One buffer for the row; each segment draws its own part of it.
+    const points = Float32Array.from(polyline);
+    return segments.map((_, index) => points.subarray(index * length, (index + 1) * length));
   }
-  return points;
+  const times = new Float64Array(segments.length * count);
+  segments.forEach((segment, index) => {
+    for (let i = 0; i < count; i += 1) {
+      times[index * count + i] =
+        segment.startStamp + ((segment.endStamp - segment.startStamp) * i) / (count - 1);
+    }
+  });
+  const values = curve.values(times);
+  return segments.map((_, index) => {
+    const points = new Float32Array(length);
+    for (let i = 0; i < count; i += 1) {
+      const offset = index * count + i;
+      const value = values[offset];
+      if (typeof value === "string") return undefined;
+      points[i * 2] = times[offset];
+      points[i * 2 + 1] = Number(value);
+    }
+    return points;
+  });
 }
 
 function buildRenderSegments(
@@ -716,6 +718,11 @@ function buildRenderSegments(
     ];
   });
 
+  const sampledValues = sampleValueCurve(valueCurve, segmentDetails);
+  const samplesByDetail = new Map(
+    segmentDetails.map((detail, index) => [detail, sampledValues[index]]),
+  );
+
   if (!renderSampleCache) {
     return segmentDetails.map((detail) => {
       const transitionPoints = applySampleTransform(
@@ -741,7 +748,7 @@ function buildRenderSegments(
 
       if (detail.splineParams) {
         const splinePoints = applySampleTransform(
-          sampleValueCurve(valueCurve, detail.startStamp, detail.endStamp, detail.buffer) ??
+          samplesByDetail.get(detail) ??
             sampleCubicBezier(detail.splineParams, SEGMENT_SAMPLE_RESOLUTION),
           detail.transform,
         );
@@ -835,9 +842,7 @@ function buildRenderSegments(
       buildSharedSamples(
         TrackRender.Spline,
         splineDetails,
-        (detail) =>
-          sampleValueCurve(valueCurve, detail.startStamp, detail.endStamp, detail.buffer) ??
-          bezier(detail.splineParams!),
+        (detail) => samplesByDetail.get(detail) ?? bezier(detail.splineParams!),
       );
       splineDetails.forEach((detail) => {
         detail.samples[TrackRender.Preview] = detail.samples[TrackRender.Spline];
@@ -958,7 +963,7 @@ function applySampleTransform(points: Float32Array, transform: AffineTransform2D
   return points;
 }
 
-function resolveRowTransform(
+export function resolveRowTransform(
   sourceRow: SourceRow,
   context?: RowComputationContext,
 ): AffineTransform2D {

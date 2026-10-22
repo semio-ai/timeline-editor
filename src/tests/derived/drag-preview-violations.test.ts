@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { clipBaker } from "../module-clip/clip-baker";
+import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
 import { buildDerivedSnapshot, computeTrackViolations } from "../../functions";
 import { computeDragDiffOps, applyTrackDiffOpsToPoints } from "../../functions/drag-diff-ops";
 import { buildTrackKey } from "../../utils/track-key";
@@ -11,7 +11,7 @@ import { flushMicrotasks } from "../utils/flush-microtasks";
 
 describe("drag preview funnel", () => {
   test("violations during drag match violations after applying the same deltas", () => {
-    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
     const state = store.getState();
 
     const rowId = Object.keys(state.instancedTrackSources)[0];
@@ -41,7 +41,7 @@ describe("drag preview funnel", () => {
     };
 
     const snapshotBefore = buildDerivedSnapshot({
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       tracks: state.tracks,
       namespaces: state.namespaces,
       animations: state.animations,
@@ -53,7 +53,7 @@ describe("drag preview funnel", () => {
     });
 
     const snapshotDuring = buildDerivedSnapshot({
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       tracks: state.tracks,
       namespaces: state.namespaces,
       animations: state.animations,
@@ -88,7 +88,7 @@ describe("drag preview funnel", () => {
     };
 
     const snapshotAfter = buildDerivedSnapshot({
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       tracks: committedTracks,
       namespaces: state.namespaces,
       animations: state.animations,
@@ -126,7 +126,7 @@ describe("drag preview funnel", () => {
   });
 
   test("handle-driven clamp mismatch: preview violations differ from post-commit when handle overshoots", () => {
-    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
     const state = store.getState();
     const rowId = Object.keys(state.instancedTrackSources)[0];
     const trackId = TRACK_IDS.SCALE;
@@ -158,7 +158,7 @@ describe("drag preview funnel", () => {
     };
 
     const baseSnapshot = buildDerivedSnapshot({
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       tracks: state.tracks,
       namespaces: state.namespaces,
       animations: state.animations,
@@ -177,7 +177,7 @@ describe("drag preview funnel", () => {
     });
 
     const rowDuring = buildDerivedSnapshot({
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       tracks: state.tracks,
       namespaces: state.namespaces,
       animations: state.animations,
@@ -206,7 +206,7 @@ describe("drag preview funnel", () => {
     const committedTracks = { ...state.tracks, [trackId]: committedTrack };
 
     const committedSnapshot = buildDerivedSnapshot({
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       tracks: committedTracks,
       namespaces: state.namespaces,
       animations: state.animations,
@@ -242,7 +242,7 @@ describe("drag preview funnel", () => {
   });
 
   test("row-level violations match canonical track violations during handle drag (global view parity)", () => {
-    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
     const state = store.getState();
     const rowId = Object.keys(state.instancedTrackSources)[0];
     const trackId = TRACK_IDS.SCALE;
@@ -273,7 +273,7 @@ describe("drag preview funnel", () => {
     };
 
     const snapshot = buildDerivedSnapshot({
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       tracks: state.tracks,
       namespaces: state.namespaces,
       animations: state.animations,
@@ -299,7 +299,7 @@ describe("drag preview funnel", () => {
       ),
     };
     const committedSnapshot = buildDerivedSnapshot({
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       tracks: { ...state.tracks, [trackId]: committedTrack },
       namespaces: state.namespaces,
       animations: state.animations,
@@ -340,7 +340,7 @@ describe("drag preview funnel", () => {
   });
 
   test("global row violations match canonical when dragging via store actions", async () => {
-    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
 
     const initialSnapshot = store.getState().derivedSnapshot;
     if (!initialSnapshot) {
@@ -448,7 +448,7 @@ describe("drag preview funnel", () => {
   });
 
   test("global row uses preview violations during marker drag in multi-instance store", async () => {
-    const store = createTestAnimationStore({ trackBaker: clipBaker });
+    const store = createTestAnimationStore({ trackEvaluator: testTrackEvaluator });
     await flushMicrotasks();
 
     const initialSnapshot = store.getState().derivedSnapshot;

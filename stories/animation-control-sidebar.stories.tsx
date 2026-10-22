@@ -10,7 +10,9 @@ import {
   LocalGlobalTransformContextProvider,
   createTestAnimationStore,
 } from "@semio/animation";
-import { attachModuleBaker } from "@semio/animation/module-baker";
+import { testTrackEvaluator } from "@semio/animation";
+
+/** Studio evaluates through @semio/studio-arora; stories use the test evaluator. */
 import { createValuesStore, DataStoreContext, valuesDataStore } from "@semio/utils";
 
 const meta = {
@@ -29,15 +31,14 @@ function ControlsList(): ReactNode {
 }
 
 /**
- * The sheet and its controls on a store of their own: values in a store the
- * story injects, curves and readouts from the Vizij animation module the
- * package runs in the page (`attachModuleBaker`).
+ * A standalone sheet using the test evaluator and an injected values store.
+ * Studio evaluates through @semio/studio-arora.
  */
 function AnimationSheetWithControls(): ReactNode {
   const store = useMemo(() => createTestAnimationStore(), []);
   const values = useMemo(() => valuesDataStore(createValuesStore()), []);
   const [ref, bounds] = useMeasure();
-  useEffect(() => attachModuleBaker(store), [store]);
+  useEffect(() => attachTestEvaluator(store), [store]);
 
   return (
     <DataStoreContext.Provider value={values}>
@@ -70,3 +71,8 @@ function AnimationSheetWithControls(): ReactNode {
 export const Preview: Story = {
   render: () => <AnimationSheetWithControls />,
 };
+
+function attachTestEvaluator(store: import("@semio/animation").AnimationStore) {
+  store.setState({ trackEvaluator: testTrackEvaluator });
+  return () => store.setState({ trackEvaluator: undefined });
+}

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, type ReactNode } from "react";
 import {
   Button,
   ContextMenu,
@@ -36,7 +36,9 @@ import { DataIcon } from "./data-icon";
 import {
   ControlRow,
   GroupToggle,
+  LabelWithNotice,
   TrackPropertiesStrip,
+  useRowNotice,
   type TrackPropertiesStripProps,
 } from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
@@ -49,17 +51,25 @@ export interface TrackControlProps {
   depthOverride?: number;
   /** Override the control strip mode (e.g., force KeySkip in the animatable control list). */
   controlStripOverride?: ControlStripMode;
+  /**
+   * Shown beside the label: a statement about the row, such as how a paired
+   * device differs on its input. When not given, a one-track row shows the
+   * host's {@link RowNoticeContext} for its track.
+   */
+  notice?: ReactNode;
 }
 
 function InnerTrackControl({
   sourceRow,
   depthOverride,
   controlStripOverride,
+  notice,
   propertyControls,
 }: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
+  const shownNotice = useRowNotice(sourceRow, notice);
 
   const playing = usePlayer(useShallow((state: PlayerData) => state.player.running));
   const playerStore = useAnimationStore((state) => state.playerStore);
@@ -292,19 +302,21 @@ function InnerTrackControl({
             />
           }
           label={
-            <TextField
-              size={Size.Sm}
-              color={color}
-              value={nameField.value}
-              // Read-only during playback, and when nothing handles a rename for
-              // this row's source (e.g. animation-instance rename is unsupported
-              // until the asset-save migration) — avoids an editable no-op field.
-              readOnly={playing || !canRename}
-              outline="hidden"
-              onChange={(val) => nameField.onChange(val)}
-              onBlur={nameField.onBlur}
-              onKeyDown={nameField.onKeyDown}
-            />
+            <LabelWithNotice notice={shownNotice}>
+              <TextField
+                size={Size.Sm}
+                color={color}
+                value={nameField.value}
+                // Read-only during playback, and when nothing handles a rename for
+                // this row's source (e.g. animation-instance rename is unsupported
+                // until the asset-save migration) — avoids an editable no-op field.
+                readOnly={playing || !canRename}
+                outline="hidden"
+                onChange={(val) => nameField.onChange(val)}
+                onBlur={nameField.onBlur}
+                onKeyDown={nameField.onKeyDown}
+              />
+            </LabelWithNotice>
           }
           editor={
             !isGroup ? (

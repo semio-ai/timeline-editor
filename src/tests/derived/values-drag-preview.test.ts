@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { clipBaker } from "../module-clip/clip-baker";
+import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
 import {
   INSTANCE_IDS,
   NAMESPACE_IDS,
@@ -19,7 +19,7 @@ describe("values drag preview behavior", () => {
   let cleanup: (() => void) | undefined;
 
   beforeEach(async () => {
-    store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
 
     store.setState((state) => ({
       tracks: {
@@ -119,7 +119,7 @@ describe("values drag preview behavior", () => {
 
   it("reads preview values for timescaled instances while dragging", async () => {
     const storeWithInstances = createTestAnimationStore({
-      trackBaker: clipBaker,
+      trackEvaluator: testTrackEvaluator,
       activeInstance: INSTANCE_IDS.BETA_SHARED,
     });
     const cleanupInstances = storeWithInstances.getState().initAnimationSubscriptions();

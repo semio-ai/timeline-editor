@@ -16,7 +16,7 @@ import { ControlStripMode, HandleVisibility, ViolationVisibility } from "../stor
 import { createAnimationStore, type AnimationStore } from "../store";
 import { migrateAnimationData } from "../functions/migrate-animation-data";
 import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
-import type { TrackBaker } from "../functions/track-curve";
+import type { TrackEvaluator } from "../functions/track-curve";
 
 // Animation IDs
 export const ANIMATION_IDS = {
@@ -602,14 +602,14 @@ export function createTestAnimationStore(options?: {
   includeNamespaceA?: boolean;
   includeNamespaceB?: boolean;
   activeInstance?: string;
-  /** What bakes the tracks' curves; without one no track has a curve. */
-  trackBaker?: TrackBaker;
+  /** What evaluates the tracks' curves; without one no track has a curve. */
+  trackEvaluator?: TrackEvaluator;
 }): AnimationStore {
   const {
     includeNamespaceA = true,
     includeNamespaceB = true,
     activeInstance = INSTANCE_IDS.ALPHA_SHARED,
-    trackBaker,
+    trackEvaluator,
   } = options || {};
 
   const allAnimatables = createAnimatables();
@@ -674,7 +674,7 @@ export function createTestAnimationStore(options?: {
   );
 
   const store = createAnimationStore({
-    trackBaker,
+    trackEvaluator,
     framerate: 30,
     timeDisplay: TimeDisplay.Frames,
     expanded: true,
@@ -736,13 +736,13 @@ export function createTestAnimationStore(options?: {
  * Create a minimal AnimationStore for simple tests
  */
 export function createMinimalAnimationStore(options?: {
-  /** What bakes the tracks' curves; without one no track has a curve. */
-  trackBaker?: TrackBaker;
+  /** What evaluates the tracks' curves; without one no track has a curve. */
+  trackEvaluator?: TrackEvaluator;
 }): AnimationStore {
   const animatables = createAnimatables();
   const tracks = createTracks();
   const store = createAnimationStore({
-    trackBaker: options?.trackBaker,
+    trackEvaluator: options?.trackEvaluator,
     framerate: 30,
     timeDisplay: TimeDisplay.Frames,
     expanded: true,

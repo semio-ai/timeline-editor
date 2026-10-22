@@ -21,7 +21,7 @@ interface DerivedInputs {
   editorViews: AnimationData["editorViews"];
   sourceRowIds: AnimationData["sourceRowIds"];
   sourceRowIdsByView: AnimationData["sourceRowIdsByView"];
-  trackBaker: AnimationData["trackBaker"];
+  trackEvaluator: AnimationData["trackEvaluator"];
 }
 
 function computeDerivedState(inputs: DerivedInputs, versionHint: number): DerivedSnapshot {
@@ -33,7 +33,7 @@ function computeDerivedState(inputs: DerivedInputs, versionHint: number): Derive
     instancedTrackSources: inputs.instancedTrackSources,
     dragState: inputs.dragState,
     selectionState: inputs.selectionState,
-    trackBaker: inputs.trackBaker,
+    trackEvaluator: inputs.trackEvaluator,
     version: versionHint,
   });
 
@@ -80,7 +80,7 @@ export function initDerivedOrchestrator(
     editorViews: currentState.editorViews,
     sourceRowIds: currentState.sourceRowIds,
     sourceRowIdsByView: currentState.sourceRowIdsByView,
-    trackBaker: currentState.trackBaker,
+    trackEvaluator: currentState.trackEvaluator,
   };
 
   const maybeApplyDerived = (inputs: DerivedInputs) => {
@@ -109,7 +109,7 @@ export function initDerivedOrchestrator(
       editorViews: state.editorViews,
       sourceRowIds: state.sourceRowIds,
       sourceRowIdsByView: state.sourceRowIdsByView,
-      trackBaker: state.trackBaker,
+      trackEvaluator: state.trackEvaluator,
     }),
     (inputs) => {
       maybeApplyDerived(inputs);

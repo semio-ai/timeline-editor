@@ -1,7 +1,7 @@
 import { computeLocalStamp } from "../functions/compute-instance-time";
 import { type AnimationData, TransitionDirective } from "../store-types";
 import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "../types/data/simple-track";
-import { buildTrackKey } from "../utils/track-key";
+import { trackCurve } from "../functions/track-curve";
 import { insertKeypointWithDeCasteljau } from "../functions/insert-keypoint-with-decasteljau";
 import {
   findInsertionNeighbors,
@@ -14,7 +14,7 @@ import {
  *
  * Notes:
  * - If default transition directives request explicit handles, insertion attempts
- *   a de Casteljau split first to preserve curve shape.
+ *   a de Casteljau split first to preserve the containing segment.
  * - If explicit handle derivation is not possible, transitions fall back to cubic easing.
  * - Control-surface callers should pass the world (player) stamp and the instanceId they operate on.
  */
@@ -32,26 +32,27 @@ export function insertKeypointAtWorldStamp(
   const resolved = resolveInstanceAndNamespace(state, instanceId);
   const timescale = resolved?.instance?.settings?.timescale ?? 1;
   const offset = resolved?.instance?.settings?.offset ?? 0;
-  const namespaceId = resolved?.namespaceId;
 
   const preferences = resolveNewKeyTransitionPreferences(state);
   const shouldAttemptShapePreservingSplit =
     preferences.in === TransitionDirective.ExplicitHandles ||
     preferences.out === TransitionDirective.ExplicitHandles;
 
-  // Without a baked curve, a split is the one insertion that keeps the shape.
-  const curveValue = resolveCurveValue(
-    state,
-    trackId,
-    namespaceId,
-    instanceId,
-    computeLocalStamp(worldStamp, timescale, offset),
-  );
+  // Without an evaluator, a split preserves the containing segment.
+  const curveValue = trackCurve(
+    track,
+    state.trackEvaluator,
+  )?.(computeLocalStamp(worldStamp, timescale, offset));
   if (shouldAttemptShapePreservingSplit || (curveValue === undefined && track.points.length > 0)) {
     // Attempt shape-preserving split first; fall back if no segment contains the stamp.
-    const split = insertKeypointWithDeCasteljau(track, worldStamp, {
-      settings: { offset, timescale, active: true },
-    });
+    const split = insertKeypointWithDeCasteljau(
+      track,
+      worldStamp,
+      {
+        settings: { offset, timescale, active: true },
+      },
+      curveValue,
+    );
     if (split) {
       split.inserted.transitions = {
         ...(split.inserted.transitions ?? {}),
@@ -121,23 +122,6 @@ function resolveInstanceAndNamespace(
     }
   }
   return null;
-}
-
-/**
- * The value of the derived snapshot's baked curve for the track on the
- * instance at a local stamp; `undefined` when the track has no baked curve.
- */
-function resolveCurveValue(
-  state: AnimationData,
-  trackId: string,
-  namespaceId: string | undefined,
-  instanceId: string,
-  localStamp: number,
-): SimpleRawValue | undefined {
-  if (!namespaceId) return undefined;
-  const trackKey = buildTrackKey(namespaceId, instanceId, trackId);
-  const curve = state.derivedSnapshot?.tracks?.[trackKey]?.canonical?.curve;
-  return curve?.(localStamp) as SimpleRawValue | undefined;
 }
 
 /**

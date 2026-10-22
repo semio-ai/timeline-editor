@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { createTestAnimationStore } from "../test-fixtures/animation-store-factory";
 import type { AnimationStore } from "../store";
-import { clipBaker } from "./module-clip/clip-baker";
+import { testTrackEvaluator } from "../test-fixtures/track-evaluator";
 
 /**
  * What `initAnimationSubscriptions()`'s cleanup must stop. A host that disposes
@@ -37,7 +37,7 @@ function trackPlayerSubscriptions(store: AnimationStore): ReturnType<typeof vi.f
  * the subscriptions they opened on its player.
  */
 function startedStore() {
-  const store = createTestAnimationStore({ trackBaker: clipBaker });
+  const store = createTestAnimationStore({ trackEvaluator: testTrackEvaluator });
   const opened = trackPlayerSubscriptions(store);
   // Re-initialising tears down the set the factory started and hands back a
   // cleanup for the new one.

@@ -33,6 +33,7 @@ import {
   ControlRow,
   ControlStrip,
   GroupToggle,
+  LabelWithNotice,
   TrackPropertiesStrip,
   type TrackPropertiesStripProps,
 } from "./controls";
@@ -87,6 +88,8 @@ export interface AnimatableLeafControlProps extends AnimatableControlBaseProps {
   onRename?: (name: string) => void;
   /** Tree nesting depth for indentation (0 = top-level). */
   depth?: number;
+  /** Shown beside the label: a statement about the control, such as how a paired device differs on its input. */
+  notice?: ReactNode;
 }
 
 export interface AnimatableGroupControlProps extends AnimatableControlBaseProps {
@@ -121,6 +124,7 @@ function AnimatableLeafControl({
   disabled = false,
   propertyControls,
   depth = 0,
+  notice,
 }: AnimatableLeafControlProps) {
   const resolvedMode: AnimatableControlMode = mode ?? (sourceRowId ? "track" : "direct");
   const stripMode = useAnimationStore((state) => state.preferences.controlStripMode);
@@ -236,7 +240,14 @@ function AnimatableLeafControl({
   }
 
   if (sourceRow && resolvedMode === "track") {
-    return <TrackControl sourceRow={sourceRow} depthOverride={depth} propertyControls={propertyControls} />;
+    return (
+      <TrackControl
+        sourceRow={sourceRow}
+        depthOverride={depth}
+        propertyControls={propertyControls}
+        notice={notice}
+      />
+    );
   }
 
   return (
@@ -267,16 +278,18 @@ function AnimatableLeafControl({
             />
           }
           label={
-            <TextField
-              size={Size.Sm}
-              color={resolvedColor}
-              value={labelField.value}
-              readOnly={editorDisabled || !onRename}
-              outline="hidden"
-              onChange={(val) => labelField.onChange(val)}
-              onBlur={labelField.onBlur}
-              onKeyDown={labelField.onKeyDown}
-            />
+            <LabelWithNotice notice={notice}>
+              <TextField
+                size={Size.Sm}
+                color={resolvedColor}
+                value={labelField.value}
+                readOnly={editorDisabled || !onRename}
+                outline="hidden"
+                onChange={(val) => labelField.onChange(val)}
+                onBlur={labelField.onBlur}
+                onKeyDown={labelField.onKeyDown}
+              />
+            </LabelWithNotice>
           }
           editor={
             <DirectAnimatableEditor

@@ -6,7 +6,7 @@ import type { RenderSampleCache } from "./render-types";
 
 /**
  * DerivedSnapshot lifecycle:
- * - canonical: built from stored tracks/animations; includes each track's baked curve and its
+ * - canonical: built from stored tracks/animations; includes each track's compiled curve and its
  *   violations.
  * - preview: when dragState exists, a transient projection overlays deltas (handleDiffs/marker
  *   movement) onto canonical tracks to render UI without mutating canon.
@@ -23,8 +23,8 @@ export type TrackKey = TrackInstanceKey;
 export interface DerivedTrackSnapshot {
   canonical: {
     /**
-     * The track's value at a local time, read from the module's bake of it
-     * (`trackCurve`); `undefined` everywhere while nothing can bake.
+     * The track's value at a local time, evaluated exactly by the host
+     * (`trackCurve`); `undefined` everywhere without an evaluator.
      */
     curve: TrackInterpolator;
     /** The curve's rate of change per second (for velocities). */

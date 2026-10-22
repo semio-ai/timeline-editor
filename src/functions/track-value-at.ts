@@ -6,7 +6,7 @@ import { computeLocalStamp } from "./compute-instance-time";
  * The value the timeline reads for a track of the derived snapshot at a world
  * stamp: its drag preview's curve while one is shown, else its curve, at the
  * instance's local time. `undefined` for a track the snapshot does not hold,
- * a muted one, or one nothing has baked.
+ * a muted one, or one the host cannot evaluate.
  */
 export function trackValueAt(
   snapshot: DerivedSnapshot | undefined,

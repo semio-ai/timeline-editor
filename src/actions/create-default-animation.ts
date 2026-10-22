@@ -1,6 +1,5 @@
 import { DEFAULT_ANIMATION_ID } from "../constants";
 import type { StoredAnimation } from "../types";
-import { CURRENT_ANIMATION_FORMAT_VERSION } from "../types/data/animation";
 
 /**
  * Creates a default animation in v2 format (millisecond stamps).
@@ -14,6 +13,6 @@ export function createDefaultAnimation(): StoredAnimation {
     tracks: [],
     groups: [],
     defaultViewportExtent: 5000,
-    formatVersion: CURRENT_ANIMATION_FORMAT_VERSION,
+    formatVersion: 2,
   };
 }

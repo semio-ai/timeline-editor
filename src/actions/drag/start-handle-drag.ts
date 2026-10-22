@@ -1,3 +1,4 @@
+import { handlesWithinSnapTolerance } from "../../functions/handle-pointer-delta";
 import type { AnimationData } from "../../store-types";
 import type {
   AuthoredTransition,
@@ -27,10 +28,6 @@ const resolveInstanceTransform = (state: AnimationData, instanceId: string): Dra
   return DEFAULT_TRANSFORM;
 };
 
-const PAIRING_FLAT_TOLERANCE_RAD = (3 * Math.PI) / 180;
-
-const clampToUnitInterval = (value: number): number => Math.max(-1, Math.min(1, value));
-
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
@@ -45,6 +42,8 @@ const inferPairingFromTransitions = (params: {
   };
   prev?: { stamp: number; value: number };
   next?: { stamp: number; value: number };
+  viewScaleX: number;
+  viewScaleY: number;
   hasIn: boolean;
   hasOut: boolean;
 }): TransitionPairing | undefined => {
@@ -77,20 +76,9 @@ const inferPairingFromTransitions = (params: {
     outTransition,
   );
 
-  const inLen = Math.hypot(inDelta.x, inDelta.y);
-  const outLen = Math.hypot(outDelta.x, outDelta.y);
-  if (inLen === 0 || outLen === 0) {
-    return undefined;
-  }
-
-  const dot = clampToUnitInterval(
-    (inDelta.x * outDelta.x + inDelta.y * outDelta.y) / (inLen * outLen),
-  );
-  const angle = Math.acos(dot);
-  if (Math.abs(Math.PI - angle) <= PAIRING_FLAT_TOLERANCE_RAD) {
-    return TransitionPairing.Paired;
-  }
-  return TransitionPairing.Free;
+  return handlesWithinSnapTolerance(inDelta, outDelta, params.viewScaleX, params.viewScaleY)
+    ? TransitionPairing.Paired
+    : TransitionPairing.Free;
 };
 
 export function startHandleDrag(state: AnimationData, input: HandleDragStartInput): void {
@@ -148,6 +136,8 @@ export function startHandleDrag(state: AnimationData, input: HandleDragStartInpu
             nextPoint && isFiniteNumber(nextPoint.value)
               ? { stamp: nextPoint.stamp, value: nextPoint.value }
               : undefined,
+          viewScaleX: input.viewScaleX ?? 1,
+          viewScaleY: input.viewScaleY ?? 1,
           hasIn,
           hasOut,
         })

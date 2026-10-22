@@ -1,6 +1,7 @@
 import type { AnimatableValue, PlayerStore, StoreSubscribeWithSelector, Write } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import type { StoreApi } from "zustand";
+import type { PersistedAnimation } from "./functions/stored-animation-format";
 import type {
   Animation,
   StoredAnimation,
@@ -26,7 +27,7 @@ import type {
 import { StandardTransitionType, TransitionDirective, TransitionPairing } from "./types";
 import type { SelectionState } from "./types/util/selection-state";
 import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "./types/data/simple-track";
-import type { TrackBaker } from "./functions/track-curve";
+import type { TrackEvaluator } from "./functions/track-curve";
 
 export { TransitionDirective };
 
@@ -188,12 +189,8 @@ export interface AnimationPreferencesPatch {
  */
 export interface AnimationData {
   derivedSnapshot?: DerivedSnapshot;
-  /**
-   * Bakes a track through the Vizij animation module, for the curves, readouts
-   * and violations; the host supplies it (Studio, from an emulated device),
-   * and without one no track has a curve.
-   */
-  trackBaker?: TrackBaker;
+  /** Host evaluator for exact curves, readouts and velocities in clip-local time. */
+  trackEvaluator?: TrackEvaluator;
   /**
    * The player the timeline shows and commands: its playhead, bounds and
    * transport. The host passes the one it drives (Studio, the player its
@@ -512,7 +509,7 @@ export interface AnimationActions {
   ) => void;
   /**
    * Insert a keypoint at the given world (player) stamp for a specific instance.
-   * Computes the local stamp using instance transforms and derives value from the derived snapshot's baked curve when available.
+   * Computes the local stamp using instance transforms and derives value from the derived snapshot's compiled curve when available.
    */
   insertKeypointAtWorldStamp: (trackId: string, worldStamp: number, instanceId: string) => void;
   /**
@@ -533,7 +530,7 @@ export interface AnimationActions {
    * Update the animation data.
    * @param animation - The animation data to add.
    */
-  addAnimation: (animation: StoredAnimation) => void;
+  addAnimation: (animation: StoredAnimation | PersistedAnimation) => void;
   /**
    * Update transition defaults used for newly inserted keypoints.
    */
@@ -555,7 +552,7 @@ export interface AnimationActions {
    * Set multiple animations at once, replacing existing animations.
    * @param animations - Record of animation ID to StoredAnimation
    */
-  setAnimations: (animations: Record<string, StoredAnimation>) => void;
+  setAnimations: (animations: Record<string, StoredAnimation | PersistedAnimation>) => void;
   /**
    * Remove an animation by its ID.
    * @param animationId - The ID of the animation to remove.
@@ -724,11 +721,11 @@ export interface AnimationActions {
    * Getter for the stored animation.
    * @param animationId - The ID of the animation to get.
    */
-  getStorableAnimation: (animationId: string) => StoredAnimation;
+  getStorableAnimation: (animationId: string) => PersistedAnimation | StoredAnimation;
   /**
    * Getter for all stored animations.
    */
-  getAnimationsToSave: () => StoredAnimation[];
+  getAnimationsToSave: () => (PersistedAnimation | StoredAnimation)[];
   /**
    * Update the color of a control.
    * @param controlId - The ID of the control.
@@ -833,9 +830,9 @@ export interface AnimationActions {
   startValueDrag: (input: ValueDragStartInput) => void;
 
   /**
-   * Start a drag operation for a handle (in/out).
+   * Start a handle drag and return its pairing intent measured in screen units.
    */
-  startHandleDrag: (input: HandleDragStartInput) => void;
+  startHandleDrag: (input: HandleDragStartInput) => TransitionPairing | undefined;
 
   /**
    * Update the active drag with pointer deltas.

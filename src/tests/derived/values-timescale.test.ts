@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { computeLocalStamp, computeWorldStamp } from "../../functions";
 import { trackValueAt } from "../../functions/track-value-at";
-import { clipBaker } from "../module-clip/clip-baker";
+import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
 import { curveOf } from "../curves";
 import { buildTrackKey } from "../../utils/track-key";
 import {
@@ -15,7 +15,7 @@ import {
 describe("values timescale behavior", () => {
   test("samples values using local stamps derived from instance transforms", () => {
     const worldStamp = 0.4;
-    const store = createTestAnimationStore({ trackBaker: clipBaker });
+    const store = createTestAnimationStore({ trackEvaluator: testTrackEvaluator });
     const state = store.getState();
     const animatable = state.animatables[ANIMATABLE_IDS.SCALE];
     const track = state.tracks[TRACK_IDS.SCALE];
@@ -48,7 +48,7 @@ describe("values timescale behavior", () => {
   });
 
   test("holds the first keypoint value until the transformed start time", () => {
-    const store = createTestAnimationStore({ trackBaker: clipBaker });
+    const store = createTestAnimationStore({ trackEvaluator: testTrackEvaluator });
     const state = store.getState();
     const track = state.tracks[TRACK_IDS.SCALE];
     const instance =
@@ -76,7 +76,7 @@ describe("values timescale behavior", () => {
   });
 
   test("position.x stays at its initial value at the global offset frame", () => {
-    const store = createTestAnimationStore({ trackBaker: clipBaker });
+    const store = createTestAnimationStore({ trackEvaluator: testTrackEvaluator });
     const state = store.getState();
     const track = state.tracks[TRACK_IDS.POSITION_X];
     const instance =

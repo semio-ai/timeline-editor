@@ -5,7 +5,6 @@ export type * from "./data/namespace";
 export type * from "./data/recorded-track";
 export type * from "./data/track";
 export type * from "./data/track-group";
-export type * from "./data/trajectory";
 export type * from "./data/violation";
 export * from "./data/violation";
 export * from "./util";

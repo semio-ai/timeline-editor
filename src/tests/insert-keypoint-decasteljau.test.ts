@@ -5,7 +5,8 @@ import { StandardTransitionType } from "../types";
 import { buildTrackKey } from "../utils/track-key";
 import { computeWorldStamp } from "../functions/compute-instance-time";
 import { inferAutoHandleDeltas } from "../functions/infer-auto-handles";
-import { clipBaker } from "./module-clip/clip-baker";
+import { testTrackEvaluator } from "../test-fixtures/track-evaluator";
+import { curveOf } from "./curves";
 import { flushMicrotasks } from "./utils/flush-microtasks";
 
 /**
@@ -88,7 +89,7 @@ function findMidSegmentLocalStamp(
 
 describe("insertKeypointAtWorldStamp insertion preferences", () => {
   it("defaults to flat insertion and uses cubic transitions for the new keypoint", async () => {
-    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
     const state0 = store.getState();
 
     const trackId = Object.keys(state0.tracks)[0]; // minimal store has a single numeric track (SCALE)
@@ -127,7 +128,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
   });
 
   it("preserves curve shape around the insertion point when defaults request explicit handles", async () => {
-    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {
@@ -181,7 +182,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
   });
 
   it("stores inferred auto-clamped directives when inferred defaults are selected", async () => {
-    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {
@@ -213,7 +214,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
     // which the toolbar normalizer rendered as cubic — silently dropping the
     // user's chosen default for the trailing handle. Both sides should now
     // carry the user's preference even when no nextPoint exists.
-    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {
@@ -245,7 +246,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
   it("applies the configured default to BOTH sides when inserted at the start of a track", async () => {
     // Mirror of the end-insertion regression: prepend should also carry
     // both `in` and `out` from preferences even though there's no prevPoint.
-    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {
@@ -278,7 +279,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
     // Regression: slider-driven keypoint creation (setValueAction →
     // updateKeypoint) used to skip the default-application path entirely,
     // leaving transitions undefined and rendering as cubic.
-    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {
@@ -305,7 +306,7 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
   });
 
   it("uses inferred handles for explicit defaults when split insertion is unavailable", async () => {
-    const store = createMinimalAnimationStore({ trackBaker: clipBaker });
+    const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
     store.getState().setPreferences({
       newKeyDefaults: {
         transitions: {
@@ -363,4 +364,82 @@ describe("insertKeypointAtWorldStamp insertion preferences", () => {
     expect(outTransition.x).toBeCloseTo(inferred?.out.x ?? 0, 8);
     expect(outTransition.y).toBeCloseTo(inferred?.out.y ?? 0, 8);
   });
+});
+
+it("takes an explicit split's inserted value from the injected evaluator", () => {
+  const evaluator = {
+    compile: () => ({
+      kind: "number",
+      values: (times: Float64Array) => new Float64Array(times.length).fill(0.625),
+      velocities: (times: Float64Array) => new Float64Array(times.length),
+      numbers: (times: Float64Array) =>
+        new Float64Array(times.length * 2).fill(0.625, 0, times.length),
+      numberAt: () => 0.625,
+      velocityAt: () => 0,
+      polyline: (starts: Float64Array, _ends: Float64Array, count: number) =>
+        new Float64Array(starts.length * count * 2),
+      free() {},
+    }),
+  };
+  const store = createMinimalAnimationStore({ trackEvaluator: evaluator });
+  store.getState().setPreferences({
+    newKeyDefaults: {
+      transitions: {
+        in: TransitionDirective.ExplicitHandles,
+        out: TransitionDirective.ExplicitHandles,
+      },
+    },
+  });
+  const trackId = Object.keys(store.getState().tracks)[0];
+  store.getState().updateTrack({
+    id: trackId,
+    points: [
+      { id: "a", stamp: 0, value: 0 },
+      { id: "b", stamp: 1000, value: 1 },
+    ],
+  });
+  const { instanceId, timescale, offset } = resolveSingleNamespaceAndInstance(store.getState());
+  store
+    .getState()
+    .insertKeypointAtWorldStamp(
+      trackId,
+      computeWorldStamp(333.123456, timescale, offset),
+      instanceId,
+    );
+  expect(
+    store.getState().tracks[trackId].points.find((point) => point.stamp === 333.123456)?.value,
+  ).toBe(0.625);
+});
+
+it("splits effective numeric handles without changing their clamped curve", () => {
+  const store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
+  store.getState().setPreferences({
+    newKeyDefaults: {
+      transitions: {
+        in: TransitionDirective.ExplicitHandles,
+        out: TransitionDirective.ExplicitHandles,
+      },
+    },
+  });
+  const trackId = Object.keys(store.getState().tracks)[0];
+  store.getState().updateTrack({
+    id: trackId,
+    points: [
+      { id: "a", stamp: -100, value: 0, transitions: { out: { x: 1800, y: 4 } } },
+      { id: "b", stamp: 1000, value: 1, transitions: { in: { x: -1800, y: -4 } } },
+    ],
+  });
+  const before = curveOf(store.getState().tracks[trackId]);
+  const times = new Float64Array([-99, 0.123456, 150, 400, 625, 900, 999]);
+  const values = before.values(times);
+  const { instanceId, timescale, offset } = resolveSingleNamespaceAndInstance(store.getState());
+  const expected = before(400);
+  store
+    .getState()
+    .insertKeypointAtWorldStamp(trackId, computeWorldStamp(400, timescale, offset), instanceId);
+  const track = store.getState().tracks[trackId];
+  expect(track.points.find((point) => point.stamp === 400)?.value).toBe(expected);
+  const after = curveOf(track).values(times);
+  for (let i = 0; i < times.length; i += 1)
+    expect(Math.abs((after[i] as number) - (values[i] as number))).toBeLessThan(1e-6);
 });

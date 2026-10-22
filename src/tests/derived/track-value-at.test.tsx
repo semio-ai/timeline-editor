@@ -7,7 +7,7 @@ import { trackValueAt } from "../../functions/track-value-at";
 import { useTrackValue } from "../../hooks/use-track-value";
 import type { DerivedSnapshot, DerivedTrackSnapshot } from "../../types";
 import { createTestAnimationStore } from "../../test-fixtures/animation-store-factory";
-import { clipBaker } from "../module-clip/clip-baker";
+import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
 
 /** A snapshot track whose curve is the identity of local time, plus `extra`. */
 function track(extra: Partial<DerivedTrackSnapshot> = {}, metadata = {}): DerivedTrackSnapshot {
@@ -47,7 +47,7 @@ describe("trackValueAt", () => {
 
 describe("useTrackValue", () => {
   it("re-renders when the track's value at the playhead changes, by a playhead move or an edit, and not on a snapshot rebuild that leaves it", () => {
-    const store = createTestAnimationStore({ trackBaker: clipBaker });
+    const store = createTestAnimationStore({ trackEvaluator: testTrackEvaluator });
     const player = store.getState().playerStore;
     const stamp = player.getState().player.stamp;
     const valueAt = (key: string, at: number) =>
