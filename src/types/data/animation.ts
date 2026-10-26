@@ -2,18 +2,11 @@ import { RawValue } from "@semio/utils";
 import type { Track } from "./track";
 import type { TrackGroup } from "./track-group";
 
-/**
- * Format version for stored animations.
- *
- * - **1** (legacy): Keypoint stamps are normalized [0,1] fractions of the animation's duration.
- *   Transition x-deltas are also normalized. Duration is stored explicitly.
- * - **2** (current): Keypoint stamps are in absolute milliseconds. Transition x-deltas are in
- *   milliseconds. Duration is derived from track extent rather than stored explicitly.
- */
-export type AnimationFormatVersion = 1 | 2;
+/** Versions accepted at the persistence boundary. */
+export type AnimationFormatVersion = 1 | 2 | 3;
 
-/** The current format version for newly created animations. */
-export const CURRENT_ANIMATION_FORMAT_VERSION: AnimationFormatVersion = 2;
+/** Latest readable format; Studio writes format 2 until format-3 readers are deployed. */
+export const CURRENT_ANIMATION_FORMAT_VERSION = 3;
 
 /**
  * Runtime animation record stored in the editor state.
@@ -30,17 +23,21 @@ export interface Animation {
   groups: TrackGroup[];
   /**
    * Default viewport extent in milliseconds. Controls the initial visible range
-   * when opening this animation in the editor. The actual animation length is
-   * derived from track content (max keypoint stamp); this value acts as a
-   * minimum floor for the viewport.
+   * when opening this animation in the editor. Playback duration is the latest
+   * of the content end, this hint and one second.
    *
    * Optional — when absent, the viewport auto-fits to track content.
    */
   defaultViewportExtent?: number;
+  /** True when the viewport is inferred from duration; omit that inferred field on save. */
+  viewportExtentFromDuration?: boolean;
+  /** Optional legacy metadata retained for lossless format-2 saves. */
+  duration?: number;
 }
 
 /**
- * Stored animation shape used for persistence and serialization.
+ * Embedded in-memory animation in millisecond units (including legacy input).
+ * Studio saves format 2; PersistedAnimation describes the readable format-3 document.
  * Tracks are embedded rather than referenced by id.
  */
 export interface StoredAnimation {
@@ -53,10 +50,9 @@ export interface StoredAnimation {
   /** Track grouping metadata (hierarchical). */
   groups: TrackGroup[];
   /**
-   * Legacy duration field. In v1 format, this was the authoritative animation
-   * duration in ms. In v2 format, it is preserved during migration as the
-   * defaultViewportExtent value. New v2 animations should use
-   * defaultViewportExtent instead.
+   * V1 duration in milliseconds, used to scale normalized stamps. In v2 it
+   * remains optional metadata and supplies the viewport fallback when
+   * defaultViewportExtent is absent.
    */
   duration?: number;
   /**
@@ -69,7 +65,7 @@ export interface StoredAnimation {
    * Format version. Absent or 1 = legacy normalized [0,1] stamps.
    * 2 = millisecond stamps.
    */
-  formatVersion?: AnimationFormatVersion;
+  formatVersion?: 1 | 2;
 }
 
 /** Instance of an animation within a namespace (timing overrides live here). */

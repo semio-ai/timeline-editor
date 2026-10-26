@@ -2,7 +2,7 @@ import { Theme } from "@semio/ui";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useShallow } from "zustand/react/shallow";
-import { usePlayerStore, closestFrame, PlayerData } from "@semio/utils";
+import { closestFrame, PlayerData } from "@semio/utils";
 import { useMotionValue, useSpring, useTransform, useMotionValueEvent } from "motion/react";
 import { useCursor } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
@@ -20,6 +20,7 @@ import {
 import { AnimationData, AnimationActions } from "../../../store-types";
 import { SemanticTime } from "../../../types";
 import { TIMELINE_PADDING, Z } from "../../../constants";
+import { usePlayer } from "../../../hooks/use-player";
 
 // Theme colors matching the PlayheadCart approach
 const BASE_COLORS = {
@@ -86,16 +87,17 @@ export const BoundsCart = memo(function BoundsCart({
   // Get canvas element for cursor container
   const { gl } = useThree();
 
-  const { updateBounds, playing } = usePlayerStore(
+  const { updateBounds, playing } = usePlayer(
     useShallow((state) => ({
       updateBounds: state.updatePlayerBounds,
       playing: state.player.running,
     })),
   );
+  const playerStore = useAnimationStore((state) => state.playerStore);
 
   // Get bounds springs
-  const leftSpring = useMotionValue<number>(usePlayerStore.getState().player.bounds[0]);
-  const rightSpring = useMotionValue<number>(usePlayerStore.getState().player.bounds[1]);
+  const leftSpring = useMotionValue<number>(playerStore.getState().player.bounds[0]);
+  const rightSpring = useMotionValue<number>(playerStore.getState().player.bounds[1]);
 
   usePlayerSubscription(
     (state: PlayerData) => state.player.bounds,

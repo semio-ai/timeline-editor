@@ -5,15 +5,15 @@ import {
   NestedLabel,
   type CanvasContextMenuContext,
 } from "@semio/ui";
-import { usePlayerStore } from "@semio/utils";
+import { usePlayer } from "../../../hooks/use-player";
 
 /**
  * Shared "Animation Actions" section for canvas context menus.
  * Provides Move Playhead, Move Left Bounds, Move Right Bounds.
  */
 export function AnimationActionsSection({ ctx }: { ctx: CanvasContextMenuContext }): ReactNode {
-  const resetPlayer = usePlayerStore((s) => s.resetPlayer);
-  const updatePlayerBound = usePlayerStore((s) => s.updatePlayerBound);
+  const resetPlayer = usePlayer((s) => s.resetPlayer);
+  const updatePlayerBound = usePlayer((s) => s.updatePlayerBound);
 
   const stamp = ctx.worldPosition[0];
 

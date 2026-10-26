@@ -2,8 +2,7 @@
 
 These plain JSON cases define the results an animation engine must reproduce.
 They contain Studio v2 animations and scalar tracks, with no JavaScript-specific
-Map serialization. The generator uses Studio's control-point resolver, not its
-track interpolator, so it can run after the interpolator is removed.
+Map serialization.
 
 ## Format
 
@@ -84,10 +83,14 @@ Format generator sources with Prettier; the generator itself deterministically
 formats the JSON.
 
 Run `npx vitest run conformance/conformance.test.ts` from `packages/animation`.
-The tests compare committed samples with the generator, and numeric speed-1 values
-with Studio's interpolator, excluding the final instant, within 8.2e-4 of each
-track's range. Separate tests pin the intentional handle, string and final-boolean
-differences, negative time and analytic world velocities. The generator and curve
-helpers never import `compute-track-interpolator.ts`; only these comparison tests
-do. When that implementation is deleted, replace the comparison tests with the
-new engine's reader of these JSON files.
+`conformance/conformance.test.ts` checks that every regenerated case matches the
+committed JSON within a relative 1e-12. It also checks fixture migration, sampling
+at knots and adjacent instants, the dense grid, numeric precision, handle scaling,
+string steps, the final boolean value, negative local times, analytic world
+velocities and muted or empty contributions. The generator uses Studio's
+control-point resolver and imports no track interpolator.
+
+Studio's [Arora conformance tests](../../../apps/studio/src/arora/conformance.test.ts)
+check the Arora engine against these committed files through the editor's track
+evaluator and compiled delivery tracks. The [device conformance tests](../../../apps/studio/src/arora/conformance-device.test.ts)
+check the same files through Arora's animation module on an emulated device.

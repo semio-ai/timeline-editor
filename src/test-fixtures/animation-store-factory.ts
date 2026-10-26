@@ -1,4 +1,4 @@
-import { AnimatableValue, DeprecatedComplexAnimatableValue } from "@semio/utils";
+import { AnimatableValue, DeprecatedComplexAnimatableValue, namespaceEntity } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import {
   type Namespace,
@@ -10,6 +10,7 @@ import { ControlStripMode, HandleVisibility, ViolationVisibility } from "../stor
 import { createAnimationStore, type AnimationStore } from "../store";
 import { migrateAnimationData } from "../functions/migrate-animation-data";
 import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
+import type { TrackEvaluator } from "../functions/track-curve";
 
 import {
   ANIMATION_IDS,
@@ -60,11 +61,14 @@ export function createTestAnimationStore(options?: {
   includeNamespaceA?: boolean;
   includeNamespaceB?: boolean;
   activeInstance?: string;
+  /** What evaluates the tracks' curves; without one no track has a curve. */
+  trackEvaluator?: TrackEvaluator;
 }): AnimationStore {
   const {
     includeNamespaceA = true,
     includeNamespaceB = true,
     activeInstance = INSTANCE_IDS.ALPHA_SHARED,
+    trackEvaluator,
   } = options || {};
 
   const allAnimatables = createAnimatables();
@@ -129,6 +133,7 @@ export function createTestAnimationStore(options?: {
   );
 
   const store = createAnimationStore({
+    trackEvaluator,
     framerate: 30,
     timeDisplay: TimeDisplay.Frames,
     expanded: true,
@@ -164,9 +169,9 @@ export function createTestAnimationStore(options?: {
   // (which read from entityStates, not from selectionState.instanceId)
   // see the fixture's intended active instance for each namespace's
   // owning entity. The namespaceId IS the entityId in these fixtures
-  // (no "@" suffix).
+  // (it names no instance).
   Object.keys(namespaces).forEach((namespaceId) => {
-    const entityId = namespaceId.split("@")[0];
+    const entityId = namespaceEntity(namespaceId);
     setEntityControlMode(entityId, "animation", activeInstance);
   });
 
@@ -178,7 +183,7 @@ export function createTestAnimationStore(options?: {
     Object.keys(namespace.animationInstances).includes(activeInstance),
   )?.[0];
   if (owningNamespaceId) {
-    setActiveEntity(owningNamespaceId.split("@")[0]);
+    setActiveEntity(namespaceEntity(owningNamespaceId));
   }
 
   focusSelectionInstance(activeInstance);
@@ -189,10 +194,14 @@ export function createTestAnimationStore(options?: {
 /**
  * Create a minimal AnimationStore for simple tests
  */
-export function createMinimalAnimationStore(): AnimationStore {
+export function createMinimalAnimationStore(options?: {
+  /** What evaluates the tracks' curves; without one no track has a curve. */
+  trackEvaluator?: TrackEvaluator;
+}): AnimationStore {
   const animatables = createAnimatables();
   const tracks = createTracks();
   const store = createAnimationStore({
+    trackEvaluator: options?.trackEvaluator,
     framerate: 30,
     timeDisplay: TimeDisplay.Frames,
     expanded: true,

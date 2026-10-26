@@ -2,7 +2,7 @@ import { Theme } from "@semio/ui";
 import { memo, useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useShallow } from "zustand/react/shallow";
-import { usePlayerStore, PlayerData } from "@semio/utils";
+import { PlayerData } from "@semio/utils";
 import {
   useMotionValue,
   useSpring,
@@ -44,10 +44,11 @@ export const BoundsOverlay = memo(function BoundsOverlay({
   const fillRef = useRef<THREE.Mesh>(null);
   const leftOverlayRef = useRef<THREE.Mesh>(null);
   const rightOverlayRef = useRef<THREE.Mesh>(null);
+  const playerStore = useAnimationStore((state) => state.playerStore);
 
   // Get bounds springs
-  const leftSpring = useMotionValue<number>(usePlayerStore.getState().player.bounds[0]);
-  const rightSpring = useMotionValue<number>(usePlayerStore.getState().player.bounds[1]);
+  const leftSpring = useMotionValue<number>(playerStore.getState().player.bounds[0]);
+  const rightSpring = useMotionValue<number>(playerStore.getState().player.bounds[1]);
 
   usePlayerSubscription(
     (state: PlayerData) => state.player.bounds,

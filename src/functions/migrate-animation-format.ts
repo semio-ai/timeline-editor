@@ -3,16 +3,19 @@ import type { StoredAnimation } from "../types/data/animation";
 import { CURRENT_ANIMATION_FORMAT_VERSION } from "../types/data/animation";
 import type { AuthoredTransition, Keypoint } from "../types/data/keypoint";
 import type { Track } from "../types/data/track";
+import { readStoredAnimation } from "./stored-animation-format";
 
 /** The formats this client can interpret without guessing at time units. */
 export enum AnimationFormatSupport {
   Legacy = "legacy",
+  Millisecond = "millisecond",
   Current = "current",
   Unreadable = "unreadable",
 }
 
 export function classifyAnimationFormat(version: unknown): AnimationFormatSupport {
   if (version === undefined || version === 1) return AnimationFormatSupport.Legacy;
+  if (version === 2) return AnimationFormatSupport.Millisecond;
   if (version === CURRENT_ANIMATION_FORMAT_VERSION) return AnimationFormatSupport.Current;
   return AnimationFormatSupport.Unreadable;
 }
@@ -87,16 +90,15 @@ export function assertReadableAnimationFormat(animation: unknown): void {
  */
 export function migrateToMillisecondStamps(stored: StoredAnimation): StoredAnimation {
   assertReadableAnimationFormat(stored);
-  // Millisecond stamps and handle deltas are already in the required units.
-  if (stored.formatVersion === CURRENT_ANIMATION_FORMAT_VERSION) {
-    return stored;
-  }
+  if ((stored as { formatVersion?: unknown }).formatVersion === 3)
+    return readStoredAnimation(stored);
+  if (stored.formatVersion === 2) return stored;
 
   const duration = stored.duration ?? 5000;
 
   return {
     ...stored,
-    formatVersion: CURRENT_ANIMATION_FORMAT_VERSION,
+    formatVersion: 2,
     // Preserve the legacy duration as the default viewport extent
     defaultViewportExtent: duration,
     tracks: stored.tracks.map((track) => migrateTrack(track, duration)),

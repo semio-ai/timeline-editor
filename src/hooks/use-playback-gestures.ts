@@ -1,10 +1,11 @@
 import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useThree, ThreeEvent } from "@react-three/fiber";
-import { closestFrame, usePlayerStore, isOrthographicCamera } from "@semio/utils";
+import { closestFrame, isOrthographicCamera } from "@semio/utils";
 import { AnimationActions, AnimationData } from "../store-types";
 import { useAltKeyPressed } from "./use-alt-key-pressed";
 import { useAnimationStore } from "./use-animation-store";
+import { usePlayer } from "./use-player";
 
 interface UsePlaybackGesturesOptions {
   disabled?: boolean;
@@ -41,7 +42,7 @@ interface UsePlaybackGesturesReturn {
  *
  * @example
  * // Conditional disabling during playback
- * const { playing } = usePlayerStore();
+ * const { playing } = usePlayer();
  * const gestures = usePlaybackGestures({ disabled: playing });
  *
  * Features:
@@ -60,7 +61,7 @@ export const usePlaybackGestures = ({
   const { size, camera } = useThree();
 
   // Player store actions and state
-  const { resetPlayer, playing } = usePlayerStore(
+  const { resetPlayer, playing } = usePlayer(
     useShallow((state) => ({
       resetPlayer: state.resetPlayer,
       playing: state.player.running,

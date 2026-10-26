@@ -6,6 +6,7 @@ export {
   AnimatableControlList,
   AnimatableNumberField,
   TrackControl,
+  RowNoticeContext,
   KeyStrip,
   MotionCubicBezierLine,
   MotionCubicBezierFill,
@@ -13,6 +14,7 @@ export {
   type AnimatableControlListProps,
   type AnimatableNumberFieldProps,
   type KeyStripProps,
+  type RowNotice,
   type MotionCubicBezierLineProps,
   type MotionCubicBezierFillProps,
 } from "./components";
@@ -40,7 +42,8 @@ export * from "./functions";
 export * from "./keybindings";
 export * from "./test-fixtures";
 
-// Re-export values store from @semio/utils for convenience
+// The values store of @semio/utils, re-exported for hosts that import it from here.
+// The package itself reads values through the injected `DataStore`.
 export {
   useValuesStore,
   mergeValueMaps,

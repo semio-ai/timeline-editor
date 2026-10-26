@@ -1,8 +1,8 @@
 import { RawValue } from "@semio/utils";
 import { AnimationData } from "../store-types";
-import { StoredAnimation, Track } from "../types";
+import { Track } from "../types";
 import type { SimpleTrack } from "../types/data/simple-track";
-import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
+import { readStoredAnimation } from "../functions/stored-animation-format";
 
 /**
  * Adds an animation to the state.
@@ -13,17 +13,16 @@ import { migrateToMillisecondStamps } from "../functions/migrate-animation-forma
  * ensures that the animation is added to the list of visualized animations and sets
  * it as the active animation.
  *
- * Legacy v1 animations (normalized [0,1] stamps) are automatically migrated to v2
- * (millisecond stamps) on load via migrateToMillisecondStamps.
+ * Persisted formats 1, 2 and 3 are read into millisecond tracks by readStoredAnimation.
  *
  * @param state - The current state of the animation data.
  * @param animationData - The data of the animation to be added. It should be an object
  *                        containing the animation details.
  */
-export function addAnimation(state: AnimationData, animationData: StoredAnimation) {
+export function addAnimation(state: AnimationData, animationData: unknown) {
   if (animationData && typeof animationData === "object") {
-    // Migrate legacy v1 format to v2 (millisecond stamps) on load
-    const migrated = migrateToMillisecondStamps(animationData);
+    // Resolve time units before the store or its subscriptions inspect tracks.
+    const migrated = readStoredAnimation(animationData);
     const animationId = migrated.id;
     const animation = {
       id: migrated.id,
@@ -31,6 +30,9 @@ export function addAnimation(state: AnimationData, animationData: StoredAnimatio
       tracks: migrated.tracks.map((t) => t.id),
       groups: migrated.groups,
       defaultViewportExtent: migrated.defaultViewportExtent ?? migrated.duration,
+      viewportExtentFromDuration:
+        migrated.defaultViewportExtent === undefined && migrated.duration !== undefined,
+      duration: migrated.duration,
     };
     const tracks = migrated.tracks.reduce((acc, track) => ({ ...acc, [track.id]: track }), {});
 

@@ -7,7 +7,7 @@ import type { StoredAnimation } from "../types";
 const future = {
   id: "future",
   name: "Future",
-  formatVersion: 3,
+  formatVersion: 4,
   duration: 1000,
   groups: [],
   tracks: [

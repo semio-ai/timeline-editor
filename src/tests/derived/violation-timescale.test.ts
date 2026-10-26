@@ -1,11 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { RawValue } from "@semio/utils";
-import {
-  buildDerivedSnapshot,
-  computeTrackInterpolator,
-  rawValueDiff,
-  rawValueNorm,
-} from "../../functions";
+import { buildDerivedSnapshot, rawValueDiff, rawValueNorm } from "../../functions";
+import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
+import { curveOf } from "../curves";
 import { buildTrackKey } from "../../utils/track-key";
 import {
   ANIMATABLE_IDS,
@@ -44,7 +41,7 @@ const computeMaxVelocity = (
 
 describe("violation timescale behavior", () => {
   test("timescale increases velocity violations for shared tracks", () => {
-    const store = createTestAnimationStore();
+    const store = createTestAnimationStore({ trackEvaluator: testTrackEvaluator });
     const state = store.getState();
     const animatable = state.animatables[ANIMATABLE_IDS.SCALE];
     const track = state.tracks[TRACK_IDS.SCALE];
@@ -61,14 +58,20 @@ describe("violation timescale behavior", () => {
       throw new Error("Expected number animatable for velocity timescale test");
     }
 
-    const alphaInterpolator = computeTrackInterpolator(track, alphaInstance);
-    const betaInterpolator = computeTrackInterpolator(track, betaInstance);
-    const betaTimescale = betaInstance.settings.timescale ?? 1;
-    const betaScale =
-      Number.isFinite(betaTimescale) && betaTimescale !== 0 ? Math.abs(betaTimescale) : 1;
+    // The track's curve as each instance plays it in world time: beta's
+    // timescale runs through it faster.
+    const curve = curveOf(track, animation, state.tracks);
+    const alphaScale = Math.abs(alphaInstance.settings.timescale ?? 1);
+    const betaScale = Math.abs(betaInstance.settings.timescale ?? 1);
+    const alphaInterpolator = (worldMs: number) => curve(worldMs * alphaScale);
+    const betaInterpolator = (worldMs: number) => curve(worldMs * betaScale);
 
     const animationDuration = resolveAnimationDuration(animation, state.tracks);
-    const maxAlpha = computeMaxVelocity(alphaInterpolator, animationDuration, animatable.default);
+    const maxAlpha = computeMaxVelocity(
+      alphaInterpolator,
+      animationDuration / alphaScale,
+      animatable.default,
+    );
     const maxBeta = computeMaxVelocity(
       betaInterpolator,
       animationDuration / betaScale,
@@ -97,6 +100,7 @@ describe("violation timescale behavior", () => {
       instancedTrackSources: state.instancedTrackSources,
       dragState: undefined,
       selectionState: state.selectionState,
+      trackEvaluator: testTrackEvaluator,
       version: 1,
     });
 

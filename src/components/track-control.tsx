@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, type ReactNode } from "react";
 import {
   Button,
   ContextMenu,
@@ -10,7 +10,7 @@ import {
 } from "@semio/ui";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
-import { usePlayerStore, PlayerData } from "@semio/utils";
+import { PlayerData } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { type SourceRow } from "../types";
 import {
@@ -23,19 +23,22 @@ import {
   useRowBackground,
   useRowEditState,
 } from "../hooks";
-import { useValuesRef } from "../hooks/use-values-ref";
+import { useTrackValueReader } from "../hooks/use-track-value-reader";
 import { DEFAULT_COLOR, GROUP_TYPES } from "../constants";
 import { AnimationActions, AnimationData, ControlStripMode } from "../store-types";
 import type { SimpleRawValue } from "../types/data/simple-track";
 import { buildTrackKey } from "../utils/track-key";
 import { getSemanticLabelForIconCode, resolveSourceRef } from "../functions";
+import { usePlayer } from "../hooks/use-player";
 import { KeyStrip } from "./key-strip";
 import { AnimatableEditor } from "./animatable-editor";
 import { DataIcon } from "./data-icon";
 import {
   ControlRow,
   GroupToggle,
+  LabelWithNotice,
   TrackPropertiesStrip,
+  useRowNotice,
   type TrackPropertiesStripProps,
 } from "./controls";
 import { TreeIconColumn } from "./controls/tree-connector";
@@ -48,19 +51,28 @@ export interface TrackControlProps {
   depthOverride?: number;
   /** Override the control strip mode (e.g., force KeySkip in the animatable control list). */
   controlStripOverride?: ControlStripMode;
+  /**
+   * Shown beside the label: a statement about the row, such as how a paired
+   * device differs on its input. When not given, a one-track row shows the
+   * host's {@link RowNoticeContext} for its track.
+   */
+  notice?: ReactNode;
 }
 
 function InnerTrackControl({
   sourceRow,
   depthOverride,
   controlStripOverride,
+  notice,
   propertyControls,
 }: TrackControlProps) {
   const trackIds = uniq(sourceRow.data.map((d) => d.trackId));
   const allReadonly = sourceRow.data.every((d) => !d.editable);
   const isGroup = sourceRow.data.length !== 1 || GROUP_TYPES.has(sourceRow.data[0].type);
+  const shownNotice = useRowNotice(sourceRow, notice);
 
-  const playing = usePlayerStore(useShallow((state: PlayerData) => state.player.running));
+  const playing = usePlayer(useShallow((state: PlayerData) => state.player.running));
+  const playerStore = useAnimationStore((state) => state.playerStore);
 
   // Row-level store reads that the control itself (vs the menu) needs for
   // rendering, selection background, and active-instance focus.
@@ -103,7 +115,7 @@ function InnerTrackControl({
     })),
   );
 
-  const valuesRef = useValuesRef();
+  const readTrackValue = useTrackValueReader();
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
 
   // Compute unique instance for this row (must be exactly one)
@@ -290,19 +302,21 @@ function InnerTrackControl({
             />
           }
           label={
-            <TextField
-              size={Size.Sm}
-              color={color}
-              value={nameField.value}
-              // Read-only during playback, and when nothing handles a rename for
-              // this row's source (e.g. animation-instance rename is unsupported
-              // until the asset-save migration) — avoids an editable no-op field.
-              readOnly={playing || !canRename}
-              outline="hidden"
-              onChange={(val) => nameField.onChange(val)}
-              onBlur={nameField.onBlur}
-              onKeyDown={nameField.onKeyDown}
-            />
+            <LabelWithNotice notice={shownNotice}>
+              <TextField
+                size={Size.Sm}
+                color={color}
+                value={nameField.value}
+                // Read-only during playback, and when nothing handles a rename for
+                // this row's source (e.g. animation-instance rename is unsupported
+                // until the asset-save migration) — avoids an editable no-op field.
+                readOnly={playing || !canRename}
+                outline="hidden"
+                onChange={(val) => nameField.onChange(val)}
+                onBlur={nameField.onBlur}
+                onKeyDown={nameField.onKeyDown}
+              />
+            </LabelWithNotice>
           }
           editor={
             !isGroup ? (
@@ -318,7 +332,7 @@ function InnerTrackControl({
                   // Read stamp at handler-fire time so this row doesn't have
                   // to re-render every 25ms playback tick just to keep the
                   // closure's stamp fresh.
-                  const playerStamp = usePlayerStore.getState().player.stamp;
+                  const playerStamp = playerStore.getState().player.stamp;
                   const datumAnimatablePairs = sourceRow.data.map((datum) => ({
                     datum,
                     animatableId: datum.animatableId,
@@ -333,7 +347,7 @@ function InnerTrackControl({
                         datum.instanceId,
                         datum.trackId,
                       );
-                      const value = valuesRef.current.get(valueKey) as SimpleRawValue | undefined;
+                      const value = readTrackValue(valueKey, playerStamp);
                       const defaultValue = animatables[animatableId]?.default as
                         | SimpleRawValue
                         | undefined;

@@ -24,7 +24,7 @@ function makeV1Animation(overrides?: Partial<StoredAnimation>): StoredAnimation 
 describe("migrateToMillisecondStamps", () => {
   it("returns v2 animations unchanged", () => {
     const v2 = makeV1Animation({
-      formatVersion: CURRENT_ANIMATION_FORMAT_VERSION,
+      formatVersion: 2,
       tracks: [
         {
           id: "t1",
@@ -59,7 +59,7 @@ describe("migrateToMillisecondStamps", () => {
 
     const result = migrateToMillisecondStamps(v1);
 
-    expect(result.formatVersion).toBe(CURRENT_ANIMATION_FORMAT_VERSION);
+    expect(result.formatVersion).toBe(2);
     expect(result.tracks[0].points[0].stamp).toBe(0);
     expect(result.tracks[0].points[1].stamp).toBe(1000); // 0.2 * 5000
     expect(result.tracks[0].points[2].stamp).toBe(2500); // 0.5 * 5000
@@ -172,7 +172,7 @@ describe("migrateToMillisecondStamps", () => {
   it("handles animations with no tracks", () => {
     const v1 = makeV1Animation({ tracks: [] });
     const result = migrateToMillisecondStamps(v1);
-    expect(result.formatVersion).toBe(CURRENT_ANIMATION_FORMAT_VERSION);
+    expect(result.formatVersion).toBe(2);
     expect(result.tracks).toEqual([]);
   });
 
@@ -246,8 +246,9 @@ describe("animation format admission", () => {
   it.each([
     [undefined, AnimationFormatSupport.Legacy],
     [1, AnimationFormatSupport.Legacy],
-    [2, AnimationFormatSupport.Current],
-    [3, AnimationFormatSupport.Unreadable],
+    [2, AnimationFormatSupport.Millisecond],
+    [3, AnimationFormatSupport.Current],
+    [CURRENT_ANIMATION_FORMAT_VERSION + 1, AnimationFormatSupport.Unreadable],
     [99, AnimationFormatSupport.Unreadable],
     ["3", AnimationFormatSupport.Unreadable],
     [-1, AnimationFormatSupport.Unreadable],
@@ -255,7 +256,7 @@ describe("animation format admission", () => {
     expect(classifyAnimationFormat(version)).toBe(expected);
   });
 
-  it.each([3, 99, "3", -1])(
+  it.each([CURRENT_ANIMATION_FORMAT_VERSION + 1, 99, "3", -1])(
     "refuses %s before reading or migrating its tracks",
     (formatVersion) => {
       const stored = { ...makeV1Animation(), formatVersion } as unknown as StoredAnimation;
@@ -322,7 +323,7 @@ describe("animation format admission", () => {
     expect(() =>
       migrateToMillisecondStamps({
         ...makeV1Animation(),
-        formatVersion: 3,
+        formatVersion: CURRENT_ANIMATION_FORMAT_VERSION + 1,
       } as unknown as StoredAnimation),
     ).toThrow("This animation was saved by a newer version of Studio. Reload Studio to open it.");
   });

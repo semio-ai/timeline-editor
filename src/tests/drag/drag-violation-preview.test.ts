@@ -6,8 +6,9 @@ import {
 import type { AnimationStore } from "../../store";
 import { flushMicrotasks } from "../utils/flush-microtasks";
 import { clickMarkerWith } from "../selection/selection-test-helpers";
-import { computeTrackInterpolator } from "../../functions/compute-track-interpolator";
-import { computeTrackViolations } from "../../functions/compute-track-violations";
+import { computeInstanceTrackViolations } from "../../functions/compute-track-violations";
+import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
+import { curveOf } from "../curves";
 import { resolveAnimationDuration } from "../../functions/compute-animation-extent";
 import { Violation, ViolationType } from "../../types";
 
@@ -32,7 +33,7 @@ describe("drag previews recompute violation overlays", () => {
   let cleanup: (() => void) | undefined;
 
   beforeEach(async () => {
-    store = createMinimalAnimationStore();
+    store = createMinimalAnimationStore({ trackEvaluator: testTrackEvaluator });
 
     store.setState((state) => ({
       tracks: {
@@ -130,9 +131,10 @@ describe("drag previews recompute violation overlays", () => {
       points: [...previewPoints].sort((a, b) => a.stamp - b.stamp),
     };
 
-    const expectedViolations = computeTrackViolations(
-      computeTrackInterpolator(previewTrack, instance),
+    const expectedViolations = computeInstanceTrackViolations(
+      curveOf(previewTrack, animation, store.getState().tracks),
       resolveAnimationDuration(animation, store.getState().tracks),
+      instance.settings.timescale,
       TRACK_IDS.SCALE,
       namespaceId,
       instanceId,

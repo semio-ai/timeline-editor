@@ -1,11 +1,12 @@
 import { Size, TimeDisplay as TimeDisplayMethod, TimeInput, Variant } from "@semio/ui";
 import { type ReactNode, memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { PlayerActions, usePlayerStore } from "@semio/utils";
+import { PlayerActions } from "@semio/utils";
 import { useAnimationStore } from "../hooks";
 import type { AnimationActions } from "../store-types";
 import { SemanticTime } from "../types";
 import { computeNextTime, computePreviousTime } from "../functions";
+import { usePlayer } from "../hooks/use-player";
 
 export interface TimeDisplayProps {
   semanticTime?: SemanticTime;
@@ -28,8 +29,8 @@ export function InnerTimeDisplay({
 
   const framerate = useAnimationStore(useShallow((state) => state.framerate));
 
-  const bounds = usePlayerStore(useShallow((state) => state.player.bounds));
-  const [stamp, duration] = usePlayerStore(
+  const bounds = usePlayer(useShallow((state) => state.player.bounds));
+  const [stamp, duration] = usePlayer(
     useShallow((state) => [state.player.stamp, state.player.duration]),
   );
 
@@ -43,7 +44,7 @@ export function InnerTimeDisplay({
     return computeNextTime(computedData.virtualFrames, stamp, bounds, true);
   }, [stamp, bounds, computedData, duration]);
 
-  const { resetPlayer, updatePlayerBounds } = usePlayerStore(
+  const { resetPlayer, updatePlayerBounds } = usePlayer(
     useShallow((state: PlayerActions) => ({
       resetPlayer: state.resetPlayer,
       updatePlayerBounds: state.updatePlayerBounds,

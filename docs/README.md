@@ -6,18 +6,18 @@ This README is the source of truth for package architecture and current behavior
 
 ## Package Anatomy
 
-| Path | Purpose |
-| --- | --- |
-| `src/index.tsx` | Public package entry point and exports. |
-| `src/store.ts` / `src/store-types.ts` | Zustand store wiring, canonical data model, and actions. |
-| `src/actions/` | Immer reducers for animation, track, keypoint, selection, and drag mutations. |
-| `src/functions/` | Pure helpers for derivation, interpolation, drag math, and transforms. |
-| `src/subscriptions/` | Derived-state orchestration and store subscriptions. |
-| `src/components/` | Timeline UI, controls, and canvas renderers. |
-| `src/hooks/` | Store selectors, gesture hooks, and rendering hooks. |
-| `src/types/` | Data + utility types used across the package. |
-| `src/test-fixtures/` | Shared fixtures for tests and stories. |
-| `src/tests/` | Vitest coverage for reducers and derived behavior. |
+| Path                                  | Purpose                                                                       |
+| ------------------------------------- | ----------------------------------------------------------------------------- |
+| `src/index.tsx`                       | Public package entry point and exports.                                       |
+| `src/store.ts` / `src/store-types.ts` | Zustand store wiring, canonical data model, and actions.                      |
+| `src/actions/`                        | Immer reducers for animation, track, keypoint, selection, and drag mutations. |
+| `src/functions/`                      | Pure helpers for derivation, curves, drag math, and transforms.               |
+| `src/subscriptions/`                  | Derived-state orchestration and store subscriptions.                          |
+| `src/components/`                     | Timeline UI, controls, and canvas renderers.                                  |
+| `src/hooks/`                          | Store selectors, gesture hooks, and rendering hooks.                          |
+| `src/types/`                          | Data + utility types used across the package.                                 |
+| `src/test-fixtures/`                  | Shared fixtures for tests and stories.                                        |
+| `src/tests/`                          | Vitest coverage for reducers and derived behavior.                            |
 
 ## Architecture Snapshot
 
@@ -43,6 +43,79 @@ value is the string form of the store's multiplier, so the select matches it wit
 `@semio/ui`'s default registry; the key keeps one decimal (`playback-1.0`) while the
 value does not (`"1"`).
 
+## Clip document and persistence
+
+Studio reads formats 1, 2 and 3 and writes format 2 through
+`writeAnimationForStorage`. `readStoredAnimation` validates required fields and
+units before conversion; format 3 requires safe-integer `timeNs` and `dtNs`, finite
+`dv`, and scalar values of one kind per track. Formats 1 and 2 require a defined
+value (composites remain valid) and finite x/y handles or named transitions, with
+legacy optional transition metadata preserved. A v3 `stamp` or x/y handle and a
+v1/v2 `timeNs` or nanosecond handle are refused. Duplicate track ids are refused
+in every format, and a track's optional `inputKey` must be a string in every
+format. Unknown versions are refused before tracks are read.
+The `@semio/animation/format` entry point exposes the codec without loading the UI.
+
+`StoredAnimation` is the embedded millisecond model; `PersistedAnimation` describes
+format 3 with optional `defaultViewportExtentNs` and no stored length.
+`writeStoredAnimation` writes format 3, rounding stamps and handle time deltas to
+nanoseconds, throwing for unsafe integer conversions or invalid content rather
+than emitting unreadable documents or omitting handles. Switching the save boundary
+to it is a one-line change once clients that read format 3 are in production.
+Composite tracks with known schemas are
+flattened by `migrateAnimationData`; unresolved composites save in format 2.
+Both asset save hooks use the save boundary through `toAssetUploadBytes` in core.
+`clipDocument` prepares a playable clip whose `lengthNs` follows
+`resolveAnimationDuration`: content end, viewport hint or one second, whichever
+is latest. Device conversion resolves the whole animation before filtering tracks.
+Engine clip encoding and track evaluation preserve fractional handle nanoseconds
+for exact v2 curves. Track evaluation and effective-motion export need no engine
+clip length.
+
+## A track on an input beyond the model
+
+A track animates an animatable of the entity's model, `animatableId`, or an
+input the entity's runtime declares beyond the model, which `inputKey` names by
+its key (`fan.target_value`, `speaker/gain`). Such a track's `animatableId` is
+`runtimeInputId(inputKey)` (`@semio/utils`), the id under which the host keeps
+the input's record among the animatables, so its rows, curves and controls are
+an animatable's; `createTrack` sets `inputKey` for a track created on such an
+id. It plays on an entity whose runtime declares the key, and nowhere else.
+
+It is stored as every track is, in the animation's content (`StoredAnimation`,
+the JSON an animation asset saves), with `inputKey` one more optional field;
+the rest of the shape is unchanged, and no Firestore document or rule reads
+tracks. A client that does not know the field reads the track as one on an
+animatable its model lacks, as after a model update removed one: it lists the
+track, draws and plays none of it, and keeps the field when it saves the
+animation, since a track is stored whole.
+
+## Exact curves
+
+The host injects `store.trackEvaluator`. Studio supplies `@semio/studio-arora`'s
+`CompiledTrack`; tests and stories use `testTrackEvaluator`, a test-only resolver
+with 64-step bisection. `trackCurve(track, evaluator)` compiles `clipTrackJson(track)`
+once per content and evaluator, with up to 512 entries; eviction frees the compiled
+curve. Tracks hold their endpoint values before and after their keypoints, including
+negative clip-local times. A track curve has no animation duration.
+
+Rows sample all their value segments in one values batch. Violations batch values
+and exact velocities at 10 ms world intervals. Endpoint differences also detect a
+velocity violation across an interval whose sampled velocities are held values:
+its average speed proves some velocity within that interval exceeds the limit.
+The instance timescale multiplies local velocities into world velocities. Derived
+snapshots and readouts use exact values and velocities; insertion uses the same
+compiled curve. Without an evaluator, values and violations are absent, rendering
+uses authored Béziers, and insertion preserves its containing segment with a de Casteljau split.
+Numeric splits use effective control points and the host's inserted value. Adjacent
+inferred handles re-resolve when the inserted key changes their neighbouring key.
+
+Handle pointer time is mapped through `xInverse` into local time before storing
+its delta. Thus a timeline delta is multiplied by the instance timescale and value
+deltas keep their units. The component and drag-start inference judge pairing in
+screen units; `handlePointerDelta` and `handlesWithinSnapTolerance` provide the pure
+math exercised by action-level round-trip tests.
+
 ## Testing Notes
 
 - Prefer action-level and function-level coverage for gesture-heavy behavior.
@@ -53,17 +126,17 @@ value does not (`"1"`).
 
 Current status snapshot:
 
-- [X] Correct interpolation methods (cubic-bezier + transition settings)
+- [x] Correct interpolation methods (cubic-bezier + transition settings)
 - [ ] Full handle support
-  - [X] Handles on Bezier curves
+  - [x] Handles on Bezier curves
   - [ ] Hotkey to reset handles to flat
-  - [X] Key addition in mid-transitions (use a tangent calculation)
+  - [x] Key addition in mid-transitions (use a tangent calculation)
 - [ ] Selection
-  - [X] Single selection
-  - [X] Multi selection (Shift + Click, CTRL + Click)
+  - [x] Single selection
+  - [x] Multi selection (Shift + Click, CTRL + Click)
   - [ ] Box selection (Click + Drag) (?)
 - [ ] Move selected keyframes (Click + Drag)
-  - [X] Click + Drag
+  - [x] Click + Drag
   - [ ] Mode switching with T or G keys (plus X/Y)
 - [ ] Cut/Copy/Paste keyframes (CTRL + X, CTRL + C, CTRL + V)
 - [ ] Locking specific tracks/splines
@@ -119,12 +192,15 @@ namespace's instances; `sourceInstanceId={null}` explicitly selects direct contr
 
 ## Stored animation compatibility
 
-`classifyAnimationFormat` recognizes absent/1 as normalized v1, and 2 as
-millisecond v2. Every other version is unreadable. `addAnimation`, composite
-migration and the fixture loader refuse unreadable data before reading tracks;
-`migrateToMillisecondStamps` migrates only known v1 content. The shared core
-asset parser applies the same check to persisted bytes. A newer numeric version
-asks the person to reload Studio. Refused content must not enter the editable
+`classifyAnimationFormat` recognizes absent/1 as normalized v1, 2 as millisecond
+v2, and 3 as the current nanosecond format. Every other version is unreadable.
+`readStoredAnimation` validates content before conversion; `addAnimation`,
+composite migration and the fixture loader use this reader.
+`migrateToMillisecondStamps` rescales v1 stamps, preserves v2 content and delegates
+v3 conversion to the reader. Its guard also refuses v1 keypoints without numeric
+stamps so direct migration cannot invent times. The shared core asset parser
+applies the same version and structural checks to persisted bytes. A numeric
+version above 3 asks the person to reload Studio. Refused content must not enter the editable
 store or a save payload, including when it replaces already-loaded content.
 
 The [engine reference](../conformance/README.md) records exact values and world

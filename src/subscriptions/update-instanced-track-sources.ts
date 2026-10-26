@@ -1,3 +1,4 @@
+import { namespaceEntity } from "@semio/utils";
 import { isEqual } from "lodash";
 import type {
   AnimationApi,
@@ -244,7 +245,7 @@ function flattenSources(
     } else {
       const track = source as SourceTrack;
       const trackKey = track.id; // format: "ns/inst/trackId"
-      const owningEntityId = track.namespaceId.split("@")[0];
+      const owningEntityId = namespaceEntity(track.namespaceId);
       const locked = track.locked ?? false;
       const readonly = track.readonly ?? false;
       // Both user-toggle `locked` and document-permission `readonly`

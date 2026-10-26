@@ -1,10 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { computeTrackInterpolator } from "../src/functions/compute-track-interpolator";
-import { computeLocalStamp, computeWorldStamp } from "../src/functions/compute-instance-time";
+import { computeWorldStamp } from "../src/functions/compute-instance-time";
 import { createTestAnimationStore } from "../src/test-fixtures";
-import type { AnimationInstance } from "../src/types/data/animation";
 import type { SimpleTrack } from "../src/types/data/simple-track";
 import { corpus, scalarTracks } from "./corpus";
 import { referenceCurve } from "./curve";
@@ -12,11 +10,6 @@ import { referenceCases, type ReferenceCase } from "./cases";
 
 const settings = { active: true, offset: 137, timescale: 1 };
 const get = (id: string) => corpus().find((a) => a.id === id)!;
-const instance = (reference: ReferenceCase): AnimationInstance => ({
-  id: "instance",
-  animationId: reference.animation.id,
-  settings: reference.instance,
-});
 const directory = fileURLToPath(new URL("./reference/", import.meta.url));
 const references = readdirSync(directory)
   .filter((name) => name.endsWith(".json"))
@@ -105,39 +98,7 @@ describe("animation engine reference", () => {
     }
   });
 
-  it("agrees with main on numeric tracks at speed 1 within 8.2e-4 of the track range", () => {
-    let compared = 0;
-    for (const { name, reference } of references) {
-      if (reference.instance.timescale !== 1 || !reference.instance.active) continue;
-      for (const track of scalarTracks(reference.animation)) {
-        if (
-          track.settings?.muted ||
-          !track.points.length ||
-          typeof track.points[0].value !== "number"
-        )
-          continue;
-        const values = track.points.map((p) => p.value as number);
-        const tolerance = (Math.max(...values) - Math.min(...values)) * 8.2e-4 + 1e-10;
-        const last = Math.max(...track.points.map((p) => p.stamp));
-        const interpolate = computeTrackInterpolator(track, instance(reference));
-        for (const sample of reference.samples) {
-          if (sample.worldTimeMs === computeWorldStamp(last, 1, reference.instance.offset))
-            continue;
-          const actual = interpolate(
-            computeLocalStamp(sample.worldTimeMs, 1, reference.instance.offset),
-          ) as number;
-          expect(
-            Math.abs(actual - (sample.tracks[track.id].value as number)),
-            `${name}/${track.id}@${sample.worldTimeMs}`,
-          ).toBeLessThanOrEqual(tolerance);
-          compared += 1;
-        }
-      }
-    }
-    expect(compared).toBeGreaterThan(5000);
-  });
-
-  it("solves numeric curves to double precision instead of twelve bisections", () => {
+  it("solves numeric curves to double precision", () => {
     const track = scalarTracks(get("explicit-handles"))[0];
     // For x controls [0, 400, 900, 1000] and y [0, 0, 10, 10],
     // solving x(u)=400 gives this value (rounded from a 70-digit solve).
@@ -147,35 +108,28 @@ describe("animation engine reference", () => {
     );
   });
 
-  it("scales explicit handles with speed 2 while main distorts their curve", () => {
+  it("scales explicit handles with speed 2", () => {
     const track = scalarTracks(get("explicit-handles"))[0];
     const fast = { ...settings, timescale: 2 };
     const expected = referenceCurve(track, settings)(537).value as number;
     const actual = referenceCurve(track, fast)(337).value as number;
     expect(actual).toBeCloseTo(expected, 12);
-    const main = computeTrackInterpolator(track, { id: "i", animationId: "a", settings: fast });
-    expect(Math.abs((main(400) as number) - actual)).toBeGreaterThan(0.5);
   });
 
-  it("plays strings as left steps, with the final value at the final instant, while main throws", () => {
+  it("plays strings as left steps, with the final value at the final instant", () => {
     const track = scalarTracks(get("string-track"))[0];
     const curve = referenceCurve(track, settings);
     expect(curve(136).value).toBe("idle");
     expect(curve(637).value).toBe("idle");
     expect(curve(637.001).value).toBe("smile");
     expect(curve(1637)).toEqual({ value: "blink", velocity: null });
-    expect(() =>
-      computeTrackInterpolator(track, { id: "i", animationId: "a", settings }),
-    ).toThrow();
   });
 
-  it("plays the last boolean at its instant while main holds its left value", () => {
+  it("plays the last boolean at its instant", () => {
     const track = scalarTracks(get("boolean-last-keypoint"))[0];
     const curve = referenceCurve(track, settings);
     expect(curve(2136.999)).toEqual({ value: true, velocity: null });
     expect(curve(2137)).toEqual({ value: false, velocity: null });
-    const main = computeTrackInterpolator(track, { id: "i", animationId: "a", settings });
-    expect(main(2000)).toBe(true);
   });
 
   it("evaluates negative local time and uses offset without clamping to zero", () => {

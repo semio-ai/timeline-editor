@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { useFrame, ThreeEvent, useThree } from "@react-three/fiber";
 import { clamp } from "lodash";
 import { useShallow } from "zustand/react/shallow";
-import { usePlayerStore, closestFrame, isOrthographicCamera } from "@semio/utils";
+import { closestFrame, isOrthographicCamera } from "@semio/utils";
 import {
   useMotionValue,
   easeOut,
@@ -30,6 +30,7 @@ import { AnimationData, AnimationActions } from "../../../store-types";
 import { SemanticTime } from "../../../types";
 import { centerViewportOnStamp, viewportMotion } from "../../../viewport-state";
 import { getDataViewportFromFrustum } from "../../../viewport-utils";
+import { usePlayer } from "../../../hooks/use-player";
 
 const CONE_RADIUS = 4;
 const SIDE_CARET_SIZE = 10;
@@ -154,12 +155,13 @@ export const PlayheadCart = memo(function PlayheadCart({
   const altPressed = useAltKeyPressed();
   const { gl } = useThree();
 
-  const { resetPlayer, playing } = usePlayerStore(
+  const { resetPlayer, playing } = usePlayer(
     useShallow((state) => ({
       resetPlayer: state.resetPlayer,
       playing: state.player.running,
     })),
   );
+  const playerStore = useAnimationStore((state) => state.playerStore);
 
   const { framerate, addPreview, removePreview, previewCurrent } = useAnimationStore(
     useShallow((state: AnimationData & AnimationActions) => ({
@@ -377,10 +379,10 @@ export const PlayheadCart = memo(function PlayheadCart({
   const handleDoubleClick = useCallback(
     (event: ThreeEvent<MouseEvent>) => {
       if (playing) return;
-      centerViewportOnStamp();
+      centerViewportOnStamp(playerStore.getState().player.stamp);
       event.stopPropagation();
     },
-    [playing],
+    [playing, playerStore],
   );
 
   const handlePointerEnter = useCallback(
@@ -401,10 +403,13 @@ export const PlayheadCart = memo(function PlayheadCart({
     [removePreview],
   );
 
-  const handleEdgeClick = useCallback((event: ThreeEvent<MouseEvent>) => {
-    centerViewportOnStamp();
-    event.stopPropagation();
-  }, []);
+  const handleEdgeClick = useCallback(
+    (event: ThreeEvent<MouseEvent>) => {
+      centerViewportOnStamp(playerStore.getState().player.stamp);
+      event.stopPropagation();
+    },
+    [playerStore],
+  );
 
   return (
     <>
@@ -673,7 +678,7 @@ function useCartWidthSpring() {
   const [framerate, timeDisplay] = useAnimationStore(
     useShallow((s) => [s.framerate, s.timeDisplay]),
   );
-  const [stamp, duration] = usePlayerStore(useShallow((s) => [s.player.stamp, s.player.duration]));
+  const [stamp, duration] = usePlayer(useShallow((s) => [s.player.stamp, s.player.duration]));
   const safeDuration = Number.isFinite(duration) ? duration : 0;
 
   const visualTime = stampToVisualTime(stamp, safeDuration, framerate, timeDisplay, altPressed);
@@ -702,7 +707,7 @@ const PlayheadTime = memo(function PlayheadTime({
   const [framerate, timeDisplay] = useAnimationStore(
     useShallow((s) => [s.framerate, s.timeDisplay]),
   );
-  const [stamp, duration] = usePlayerStore(useShallow((s) => [s.player.stamp, s.player.duration]));
+  const [stamp, duration] = usePlayer(useShallow((s) => [s.player.stamp, s.player.duration]));
   const safeDuration = Number.isFinite(duration) ? duration : 0;
 
   const visualTime = stampToVisualTime(stamp, safeDuration, framerate, timeDisplay, altPressed);

@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { stampToVisualTime, Theme, useCanvasContextMenu } from "@semio/ui";
-import { usePlayerStore, isOrthographicCamera } from "@semio/utils";
+import { isOrthographicCamera } from "@semio/utils";
 import {
   useAnimationStore,
   useAltKeyPressed,
@@ -13,6 +13,7 @@ import {
 import type { AnimationData } from "../../store-types";
 import { computeTickIntervals } from "../../functions/compute-tick-interval";
 import { Z } from "../../constants";
+import { usePlayer } from "../../hooks/use-player";
 import { buildRulerMenuItems } from "./context-menus";
 import { TrackText } from "./shared/track-text";
 import { HoverMarker } from "./overlays/hover-marker";
@@ -128,7 +129,7 @@ export const RulerRenderer = memo(function RulerRenderer({
   theme = Theme.Light,
   fonts = {},
 }: RulerRendererProps) {
-  const duration = usePlayerStore(useShallow((state) => state.player.duration));
+  const duration = usePlayer(useShallow((state) => state.player.duration));
   const framerate = useAnimationStore(
     useShallow((state: AnimationData) => state.framerate as number),
   );

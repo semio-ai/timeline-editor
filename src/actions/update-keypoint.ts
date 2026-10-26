@@ -1,7 +1,6 @@
-import { usePlayerStore } from "@semio/utils";
 import type { AnimationData } from "../store-types";
 import { Keypoint } from "../types";
-import { computeTrackInterpolator } from "../functions";
+import { trackCurve } from "../functions/track-curve";
 import {
   findInsertionNeighbors,
   resolveNewKeyTransitionPreferences,
@@ -9,8 +8,10 @@ import {
 } from "../functions/resolve-new-key-transitions";
 import type { SimpleKeypoint, SimpleRawValue } from "../types/data/simple-track";
 
-export interface KeypointDelta<T extends SimpleRawValue>
-  extends Omit<Keypoint<T>, "stamp" | "value"> {
+export interface KeypointDelta<T extends SimpleRawValue> extends Omit<
+  Keypoint<T>,
+  "stamp" | "value"
+> {
   stamp: number | ((current: number) => number);
   value: T | ((current: T) => T);
 }
@@ -79,13 +80,13 @@ export function updateKeypoint(
       if (defaultValue !== undefined) {
         const seedPoint: SimpleKeypoint = {
           id: crypto.randomUUID(),
-          stamp: usePlayerStore.getState().player.stamp,
+          stamp: state.playerStore.getState().player.stamp,
           value: defaultValue as SimpleRawValue,
           transitions: resolveNewKeyTransitions({
             prevPoint: undefined,
             nextPoint: undefined,
             anchor: {
-              stamp: usePlayerStore.getState().player.stamp,
+              stamp: state.playerStore.getState().player.stamp,
               value: defaultValue as SimpleRawValue,
             },
             defaults: resolveNewKeyTransitionPreferences(state),
@@ -100,7 +101,7 @@ export function updateKeypoint(
       // However, for now we will just insert a point at the specified or default value,
       // using the default easing method.
     }
-    let stamp = usePlayerStore.getState().player.stamp;
+    let stamp = state.playerStore.getState().player.stamp;
     if (typeof keypoint.stamp === "number") {
       stamp = keypoint.stamp;
     } else if (typeof keypoint.stamp === "function") {
@@ -113,13 +114,9 @@ export function updateKeypoint(
     };
 
     if (typeof keypoint.value === "function") {
-      // We need to lookup the current value
-      const interpolator = computeTrackInterpolator(track, {
-        id: "default",
-        animationId: "default",
-        settings: { offset: 0, timescale: 1, active: true },
-      });
-      const interpolatedValue = interpolator(stamp) as SimpleRawValue | undefined;
+      // The track's current value there, as the module plays it.
+      const curve = trackCurve(track, state.trackEvaluator);
+      const interpolatedValue = curve?.(stamp) as SimpleRawValue | undefined;
       if (interpolatedValue === undefined) {
         newPoint.value = state.animatables[track.animatableId]?.default as SimpleRawValue;
       } else {

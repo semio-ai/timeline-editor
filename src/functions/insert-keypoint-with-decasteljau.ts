@@ -10,9 +10,8 @@
  * - K.transitions.in is defined for the incoming segment [A, K]
  * - K.transitions.out is defined for the outgoing segment [K, B]
  *
- * Transition semantics must match compute-track-interpolator:
- *   - x: control time position as fraction of [start, end] on the time axis
- *   - y: control value position as weight between start.value and end.value (per type)
+ * Numeric segments use the editor's effective control points, including inferred
+ * tangents and monotonic clamps. Stored handles are local ms/value deltas.
  *
  * Supported RawValue types: number, vector2, vector3, euler, rgb, hsl.
  * Step-like types (string/boolean) are handled conservatively.
@@ -40,6 +39,7 @@ import {
   StandardTransitionType,
 } from "../types";
 import { computeLocalStamp } from "./compute-instance-time";
+import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
 import { resolveTransitionDelta } from "./get-world-control-points";
 import { rawValueAdd, rawValueDiff } from "./raw-value-math";
 
@@ -55,6 +55,7 @@ const DEFAULT_IN: StandardTransitionType = StandardTransitionType.Cubic;
 export function insertKeypointWithDeCasteljauLocal(
   track: Track<RawValue>,
   localStamp: number,
+  evaluatedValue?: RawValue,
 ): { inserted: KP; index: number } | undefined {
   if (!track?.points || track.points.length === 0) {
     return undefined;
@@ -96,22 +97,42 @@ export function insertKeypointWithDeCasteljauLocal(
 
   // Will solve for parameter u after control times are computed below
 
-  // Build cubic control points in (time, value) space following compute-track-interpolator semantics
+  // Build cubic control points in (time, value) space from the segment's transitions
   const aOut = A.transitions?.out ?? DEFAULT_OUT;
   const bIn = B.transitions?.in ?? DEFAULT_IN;
 
-  const aOutDelta = resolveTransitionDelta("out", A.stamp, B.stamp, A.value, B.value, aOut);
-  const bInDelta = resolveTransitionDelta("in", A.stamp, B.stamp, A.value, B.value, bIn);
+  let aOutDelta = resolveTransitionDelta("out", A.stamp, B.stamp, A.value, B.value, aOut);
+  let bInDelta = resolveTransitionDelta("in", A.stamp, B.stamp, A.value, B.value, bIn);
+
+  if (typeof A.value === "number" && typeof B.value === "number") {
+    const numeric = (index: number) => {
+      const point = track.points[index];
+      return point && typeof point.value === "number"
+        ? { stamp: point.stamp, value: point.value }
+        : undefined;
+    };
+    const resolved = resolveSegmentControlPoints({
+      start: { stamp: A.stamp, value: A.value },
+      end: { stamp: B.stamp, value: B.value },
+      transitions: { startOut: aOut, endIn: bIn },
+      neighbors: { startPrev: numeric(i - 1), endNext: numeric(i + 2) },
+    });
+    const cp1 = resolved.cp1Effective ?? resolved.cp1Raw;
+    const cp2 = resolved.cp2Effective ?? resolved.cp2Raw;
+    if (!cp1 || !cp2) return undefined;
+    aOutDelta = { x: cp1.x - A.stamp, y: cp1.y - A.value };
+    bInDelta = { x: cp2.x - B.stamp, y: cp2.y - B.value };
+  }
 
   // Absolute control times
   const p0t = startTime;
   const p1t = startTime + aOutDelta.x;
   const p2t = endTime + bInDelta.x;
   const p3t = endTime;
-  // Relative parameter for split — solve cubic for time to match compute-track-interpolator semantics
+  // Relative parameter for split — solve the cubic for time
   const u = solveForParameterTime(p0t, p1t, p2t, p3t, localStamp);
 
-  // Absolute control values (same blend semantics used by compute-track-interpolator)
+  // Absolute control values
   const p0v = A.value;
   const p1v = rawValueAdd(A.value, aOutDelta.y as RawValue);
   const p2v = rawValueAdd(B.value, bInDelta.y as RawValue);
@@ -123,7 +144,6 @@ export function insertKeypointWithDeCasteljauLocal(
   const q2t = lerp(p2t, p3t, u);
   const r0t = lerp(q0t, q1t, u);
   const r1t = lerp(q1t, q2t, u);
-  const st = lerp(r0t, r1t, u); // Bezier-evaluated time at split
   const stExact = localStamp; // Keep K.stamp equal to the requested time
 
   // De Casteljau for value (per type)
@@ -132,7 +152,7 @@ export function insertKeypointWithDeCasteljauLocal(
   const q2v = mixValue(p2v, p3v, u);
   const r0v = mixValue(q0v, q1v, u);
   const r1v = mixValue(q1v, q2v, u);
-  const sv = mixValue(r0v, r1v, u);
+  const sv = evaluatedValue ?? mixValue(r0v, r1v, u);
 
   // Normalize control times and values back into transitions for left [A, K] and right [K, B]
   // Left segment [A, K] deltas
@@ -141,13 +161,13 @@ export function insertKeypointWithDeCasteljauLocal(
     y: toDelta(p0v, q0v),
   };
   const kInDelta = {
-    x: r0t - st,
+    x: r0t - stExact,
     y: toDelta(sv, r0v),
   };
 
   // Right segment [K, B] deltas
   const kOutDelta = {
-    x: r1t - st,
+    x: r1t - stExact,
     y: toDelta(sv, r1v),
   };
   const bInDeltaNext = {
@@ -166,7 +186,7 @@ export function insertKeypointWithDeCasteljauLocal(
     },
   };
 
-  // Update A.out and B.in with normalized parameters from split
+  // Update the neighbouring endpoints with local deltas from the split
   const nextA: KP = {
     ...A,
     transitions: {
@@ -202,24 +222,17 @@ export function insertKeypointWithDeCasteljau(
   track: Track<RawValue>,
   worldStamp: number,
   instance: Pick<AnimationInstance, "settings">,
+  evaluatedValue?: RawValue,
 ): { inserted: KP; index: number } | undefined {
   const localStamp = computeLocalStamp(
     worldStamp,
     instance.settings?.timescale ?? 1,
     instance.settings?.offset ?? 0,
   );
-  return insertKeypointWithDeCasteljauLocal(track, localStamp);
+  return insertKeypointWithDeCasteljauLocal(track, localStamp, evaluatedValue);
 }
 
 /* ============================== helpers ============================== */
-
-/** Clamp a Bezier parameter to [0,1]. Used for curve parameter solving only. */
-function clamp01(v: number): number {
-  if (!Number.isFinite(v)) return 0;
-  if (v < 0) return 0;
-  if (v > 1) return 1;
-  return v;
-}
 
 /** Guard against non-finite stamp values without clamping to any range. */
 function ensureFinite(v: number): number {
@@ -244,23 +257,8 @@ function evaluateBezierScalar(p0: number, p1: number, p2: number, p3: number, t:
 }
 
 /**
- * Derivative of a cubic Bezier for scalar values.
- */
-function evaluateBezierDerivativeScalar(
-  p0: number,
-  p1: number,
-  p2: number,
-  p3: number,
-  t: number,
-): number {
-  const mt = 1 - t;
-  // B'(t) = 3*(1 - t)^2*(p1 - p0) + 6*(1 - t)*t*(p2 - p1) + 3*t^2*(p3 - p2)
-  return 3 * mt * mt * (p1 - p0) + 6 * mt * t * (p2 - p1) + 3 * t * t * (p3 - p2);
-}
-
-/**
  * Solve for the parameter t such that the cubic Bezier in time equals the target.
- * Uses bounded binary search followed by a Newton–Raphson refinement for higher precision.
+ * Solves time with 64 bisection steps in local milliseconds.
  */
 function solveForParameterTime(
   p0t: number,
@@ -271,44 +269,15 @@ function solveForParameterTime(
 ): number {
   if (p3t === p0t) return 0;
 
-  // 1) Binary search to bracket a good initial t
   let low = 0;
   let high = 1;
-  let mid = 0;
-  const EPS = 1e-8;
-  const MAX_BIN_ITERS = 32;
-  for (let i = 0; i < MAX_BIN_ITERS; i += 1) {
-    mid = (low + high) / 2;
+  for (let i = 0; i < 64; i += 1) {
+    const mid = (low + high) / 2;
     const estimate = evaluateBezierScalar(p0t, p1t, p2t, p3t, mid);
-    const diff = estimate - targetTime;
-    if (Math.abs(diff) < EPS) {
-      return clamp01(mid);
-    }
-    if (estimate < targetTime) {
-      low = mid;
-    } else {
-      high = mid;
-    }
+    if (estimate < targetTime) low = mid;
+    else high = mid;
   }
-  let t = clamp01((low + high) / 2);
-
-  // 2) Newton–Raphson refinement
-  const MAX_NR_ITERS = 8;
-  for (let k = 0; k < MAX_NR_ITERS; k += 1) {
-    const f = evaluateBezierScalar(p0t, p1t, p2t, p3t, t) - targetTime;
-    const fp = evaluateBezierDerivativeScalar(p0t, p1t, p2t, p3t, t);
-    if (!Number.isFinite(fp) || Math.abs(fp) < 1e-12) {
-      break; // derivative too small; avoid instability
-    }
-    const tNext = clamp01(t - f / fp);
-    if (Math.abs(tNext - t) < EPS) {
-      t = tNext;
-      break;
-    }
-    t = tNext;
-  }
-
-  return clamp01(t);
+  return (low + high) / 2;
 }
 
 /**

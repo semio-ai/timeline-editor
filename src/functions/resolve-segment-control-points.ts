@@ -38,9 +38,9 @@ export interface SegmentControlPointResult {
  *   effective stay co-linear with the anchor — clamps must never bend
  *   direction. The renderer draws the marker at raw and highlights effective.
  *
- * This is the single clamp site for every flow: static render, the
- * interpolator, and the live drag preview all reach it via
- * {@link computeRowData} / the interpolator builder.
+ * Editor geometry, drag previews and numeric insertion splits resolve here.
+ * Host evaluators implement these same rules so their values meet the editor's
+ * effective control points.
  */
 export function resolveSegmentControlPoints(
   input: SegmentControlPointInput,

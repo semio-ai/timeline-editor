@@ -9,13 +9,15 @@ import {
 import { flushMicrotasks } from "../utils/flush-microtasks";
 import { clickMarkerWith } from "../selection/selection-test-helpers";
 import { computeDragDiffOps } from "../../functions/drag-diff-ops";
-import { computeTrackInterpolator } from "../../functions/compute-track-interpolator";
-import { computeTrackViolations } from "../../functions/compute-track-violations";
+import { computeInstanceTrackViolations } from "../../functions/compute-track-violations";
+import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
+import { curveOf } from "../curves";
 import { resolveAnimationDuration } from "../../functions/compute-animation-extent";
 
 describe("global row opacity drag projection", () => {
   it("keeps a single projected marker with matching stamp in the global row", async () => {
     const store = createTestAnimationStore({
+      trackEvaluator: testTrackEvaluator,
       includeNamespaceA: true,
       includeNamespaceB: false,
       activeInstance: INSTANCE_IDS.ALPHA_SHARED,
@@ -87,9 +89,17 @@ describe("global row opacity drag projection", () => {
     const instance = namespace.animationInstances[INSTANCE_IDS.ALPHA_SHARED];
     const animation = store.getState().animations[instance.animationId];
     const animatable = store.getState().animatables[opacityTrack.animatableId];
-    const expectedViolations = computeTrackViolations(
-      computeTrackInterpolator({ ...opacityTrack, points: projected.projectedPoints }, instance),
+    const expectedViolations = computeInstanceTrackViolations(
+      curveOf(
+        {
+          ...opacityTrack,
+          points: [...projected.projectedPoints].sort((a, b) => a.stamp - b.stamp),
+        },
+        animation,
+        store.getState().tracks,
+      ),
       resolveAnimationDuration(animation, store.getState().tracks),
+      instance.settings.timescale,
       baseTrackId,
       NAMESPACE_IDS.ALPHA,
       INSTANCE_IDS.ALPHA_SHARED,
