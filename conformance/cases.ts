@@ -1,7 +1,7 @@
 import type { AnimationInstanceSettings, StoredAnimation } from "../src/types/data/animation";
 import { computeWorldStamp } from "../src/functions/compute-instance-time";
+import { referenceCurve, type TrackSample } from "../src/test-fixtures/reference-curve";
 import { corpus, scalarTracks } from "./corpus";
-import { referenceCurve, type TrackSample } from "./curve";
 
 export interface ReferenceCase {
   animation: StoredAnimation;

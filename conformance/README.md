@@ -4,6 +4,10 @@ These plain JSON cases define the results an animation engine must reproduce.
 They contain Studio v2 animations and scalar tracks, with no JavaScript-specific
 Map serialization.
 
+The generator and conformance tests use the shared reference curve in
+`../src/test-fixtures/reference-curve.ts`, also used by the editor's test evaluator
+and exact-track curve tests.
+
 ## Format
 
 One file per animation and instance setting:
@@ -86,7 +90,7 @@ Run `npx vitest run conformance/conformance.test.ts` from `packages/animation`.
 `conformance/conformance.test.ts` checks that every regenerated case matches the
 committed JSON within a relative 1e-12. It also checks fixture migration, sampling
 at knots and adjacent instants, the dense grid, numeric precision, handle scaling,
-string steps, the final boolean value, negative local times, analytic world
+string steps, the final boolean value, coincident keypoints, negative local times, analytic world
 velocities and muted or empty contributions. The generator uses Studio's
 control-point resolver and imports no track interpolator.
 

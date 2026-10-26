@@ -3,9 +3,9 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { computeWorldStamp } from "../src/functions/compute-instance-time";
 import { createTestAnimationStore } from "../src/test-fixtures";
+import { referenceCurve, type TrackSample } from "../src/test-fixtures/reference-curve";
 import type { SimpleTrack } from "../src/types/data/simple-track";
 import { corpus, scalarTracks } from "./corpus";
-import { referenceCurve } from "./curve";
 import { referenceCases, type ReferenceCase } from "./cases";
 
 const settings = { active: true, offset: 137, timescale: 1 };
@@ -130,6 +130,28 @@ describe("animation engine reference", () => {
     const curve = referenceCurve(track, settings);
     expect(curve(2136.999)).toEqual({ value: true, velocity: null });
     expect(curve(2137)).toEqual({ value: false, velocity: null });
+  });
+
+  it("holds the first value before coincident keypoints and the last value from their instant onward", () => {
+    const track: SimpleTrack = {
+      id: "coincident-keypoints",
+      name: "Coincident keypoints",
+      animatableId: "target",
+      points: [
+        { id: "first", stamp: 250, value: 1 },
+        { id: "last", stamp: 250, value: 2 },
+      ],
+    };
+    const curve = referenceCurve(track, { active: true, offset: 0, timescale: 1 });
+    const samples: [number, TrackSample][] = [
+      [-1000, { value: 1, velocity: 0 }],
+      [0, { value: 1, velocity: 0 }],
+      [249.999, { value: 1, velocity: 0 }],
+      [250, { value: 2, velocity: 0 }],
+      [250.001, { value: 2, velocity: 0 }],
+      [1000, { value: 2, velocity: 0 }],
+    ];
+    for (const [time, expected] of samples) expect(curve(time), `${time} ms`).toEqual(expected);
   });
 
   it("evaluates negative local time and uses offset without clamping to zero", () => {
