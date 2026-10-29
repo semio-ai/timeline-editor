@@ -21,21 +21,52 @@ export function classifyAnimationFormat(version: unknown): AnimationFormatSuppor
 }
 
 export class UnreadableAnimationFormatError extends Error {
-  constructor(version: unknown) {
+  /** `unstampedKeypoints`: the version reads as v1, but its keypoints carry no v1 stamps. */
+  constructor(version: unknown, unstampedKeypoints = false) {
     super(
-      typeof version === "number" && version > CURRENT_ANIMATION_FORMAT_VERSION
-        ? "This animation was saved by a newer version of Studio. Reload Studio to open it."
-        : "This animation has an unreadable format version and cannot be opened.",
+      unstampedKeypoints
+        ? "This is not an animation this version of Studio can read: its keypoints have no times in a format it knows."
+        : typeof version === "number" && version > CURRENT_ANIMATION_FORMAT_VERSION
+          ? "This animation was saved by a newer version of Studio. Reload Studio to open it."
+          : "This animation has an unreadable format version and cannot be opened.",
     );
     this.name = "UnreadableAnimationFormatError";
   }
 }
 
-/** Check persisted versions before inspecting or changing their content. */
+/**
+ * Whether every keypoint carries the numeric `stamp` that v1 uses. A
+ * document read as v1 (stated as 1, or stating no version) has each stamp
+ * rescaled by its duration, so a keypoint without one belongs to another
+ * format and would get a time computed from a missing field. A v2 document is
+ * never rescaled, and the structural checks of its readers refuse a
+ * malformed one. A document with no `tracks` array has no keypoints to judge.
+ */
+function hasStampedKeypoints(animation: unknown): boolean {
+  const tracks = (animation as { tracks?: unknown } | null)?.tracks;
+  if (!Array.isArray(tracks)) return true;
+  return tracks.every((track) => {
+    const points = (track as { points?: unknown } | null)?.points;
+    return (
+      !Array.isArray(points) ||
+      points.every((point) => typeof (point as { stamp?: unknown } | null)?.stamp === "number")
+    );
+  });
+}
+
+/**
+ * Check a persisted animation's version before inspecting or changing its
+ * content, and that a document read as v1 has the stamps v1 rescales. An
+ * unknown version is refused without reading its tracks.
+ */
 export function assertReadableAnimationFormat(animation: unknown): void {
   const version = (animation as { formatVersion?: unknown } | null)?.formatVersion;
-  if (classifyAnimationFormat(version) === AnimationFormatSupport.Unreadable) {
+  const support = classifyAnimationFormat(version);
+  if (support === AnimationFormatSupport.Unreadable) {
     throw new UnreadableAnimationFormatError(version);
+  }
+  if (support === AnimationFormatSupport.Legacy && !hasStampedKeypoints(animation)) {
+    throw new UnreadableAnimationFormatError(version, true);
   }
 }
 

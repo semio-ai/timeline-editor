@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
 import type { StoredAnimation } from "../types";
 import { StandardTransitionType, TransitionPairing } from "../types";
-import { migrateToMillisecondStamps } from "../functions/migrate-animation-format";
+import { CURRENT_ANIMATION_FORMAT_VERSION } from "../types/data/animation";
+import {
+  AnimationFormatSupport,
+  assertReadableAnimationFormat,
+  classifyAnimationFormat,
+  UnreadableAnimationFormatError,
+  migrateToMillisecondStamps,
+} from "../functions/migrate-animation-format";
 
 function makeV1Animation(overrides?: Partial<StoredAnimation>): StoredAnimation {
   return {
@@ -232,5 +239,92 @@ describe("migrateToMillisecondStamps", () => {
 
     expect(second).toBe(first); // Same reference — no double migration
     expect(second.tracks[0].points[0].stamp).toBe(1000); // 0.25 * 4000
+  });
+});
+
+describe("animation format admission", () => {
+  it.each([
+    [undefined, AnimationFormatSupport.Legacy],
+    [1, AnimationFormatSupport.Legacy],
+    [2, AnimationFormatSupport.Millisecond],
+    [3, AnimationFormatSupport.Current],
+    [CURRENT_ANIMATION_FORMAT_VERSION + 1, AnimationFormatSupport.Unreadable],
+    [99, AnimationFormatSupport.Unreadable],
+    ["3", AnimationFormatSupport.Unreadable],
+    [-1, AnimationFormatSupport.Unreadable],
+  ])("classifies %s as %s", (version, expected) => {
+    expect(classifyAnimationFormat(version)).toBe(expected);
+  });
+
+  it.each([CURRENT_ANIMATION_FORMAT_VERSION + 1, 99, "3", -1])(
+    "refuses %s before reading or migrating its tracks",
+    (formatVersion) => {
+      const stored = { ...makeV1Animation(), formatVersion } as unknown as StoredAnimation;
+      Object.defineProperty(stored, "tracks", {
+        get: () => {
+          throw new Error("read unknown tracks");
+        },
+      });
+      expect(() => migrateToMillisecondStamps(stored)).toThrow(UnreadableAnimationFormatError);
+      expect(stored.formatVersion).toBe(formatVersion);
+    },
+  );
+
+  it("migrates an explicitly marked v1 animation", () => {
+    const stored = makeV1Animation({
+      formatVersion: 1,
+      tracks: [
+        { id: "t", name: "t", animatableId: "a", points: [{ id: "k", stamp: 0.5, value: 1 }] },
+      ],
+    });
+    expect(migrateToMillisecondStamps(stored).tracks[0].points[0].stamp).toBe(2500);
+  });
+
+  // A v2 document with such a keypoint is never rescaled; its readers'
+  // structural checks refuse it (`use-project-full-context.test.tsx`).
+  it.each([
+    ["no version", undefined],
+    ["v1", 1],
+  ])("refuses a %s document whose keypoints carry no stamp to rescale", (_label, formatVersion) => {
+    const stored = {
+      ...makeV1Animation(),
+      formatVersion,
+      tracks: [
+        {
+          id: "t",
+          name: "t",
+          animatableId: "a",
+          points: [{ id: "k", timeNs: 500_000_000, value: 1 }],
+        },
+      ],
+    } as unknown as StoredAnimation;
+    expect(() => assertReadableAnimationFormat(stored)).toThrow(UnreadableAnimationFormatError);
+    expect(() => migrateToMillisecondStamps(stored)).toThrow(UnreadableAnimationFormatError);
+  });
+
+  it("control: admits stamped v1 and v2 documents, and ones with no tracks or points", () => {
+    const stamped = [
+      { id: "t", name: "t", animatableId: "a", points: [{ id: "k", stamp: 0.5, value: 1 }] },
+    ];
+    expect(() => assertReadableAnimationFormat(makeV1Animation({ tracks: stamped }))).not.toThrow();
+    expect(() =>
+      assertReadableAnimationFormat({ ...makeV1Animation({ tracks: stamped }), formatVersion: 2 }),
+    ).not.toThrow();
+    expect(() => assertReadableAnimationFormat(makeV1Animation({ tracks: [] }))).not.toThrow();
+    expect(() =>
+      assertReadableAnimationFormat({
+        ...makeV1Animation(),
+        tracks: [{ id: "t", name: "t", animatableId: "a", points: [] }],
+      }),
+    ).not.toThrow();
+  });
+
+  it("gives newer formats a truthful reload message", () => {
+    expect(() =>
+      migrateToMillisecondStamps({
+        ...makeV1Animation(),
+        formatVersion: CURRENT_ANIMATION_FORMAT_VERSION + 1,
+      } as unknown as StoredAnimation),
+    ).toThrow("This animation was saved by a newer version of Studio. Reload Studio to open it.");
   });
 });
