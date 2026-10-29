@@ -1,5 +1,52 @@
 # @semio/animation
 
+## 0.5.0
+
+### Minor Changes
+
+- 3eae826: Curves are evaluated exactly by the host, and Studio strictly reads format 3 and saves format 2.
+  - **Evaluation.** A store's `trackEvaluator` (`TrackEvaluator`: `compile(track)` → `CompiledCurve`) evaluates every curve the editor uses: the curves it draws (`polyline`, points on the curve), the value and velocity at the playhead, the values a violation check reads (`numbers`, values and velocities in one batch) and the value a new keypoint takes. `trackCurve(track, evaluator)` gives a track's curve in clip-local milliseconds. An evaluator compiles a track as clip 2.0 plays it: `clipTrackJson(track)` writes its document, and `clipTrackColumns(track, codeOf)` writes a number track's keypoints as columns of numbers, which compile with no text to parse. Without an evaluator rows draw authored Béziers and have no value readouts or violations. Studio passes `@semio/studio-arora`'s `CompiledTrack`, the Arora animation engine its devices play with; `testTrackEvaluator` evaluates in JavaScript for tests and stories.
+  - **Storage.** Studio reads formats 1, 2 and 3 and always saves format 2 through `writeAnimationForStorage` (`computeStoredAnimation`, the store save getters and `persistStoredAnimation`). Load/edit/save preserves `inputKey`, handles, every transition kind, negative keypoint times and legacy metadata. Composite values remain representable in format 2.
+  - **Format 3.** `writeStoredAnimation` retains the nanosecond writer: safe-integer `timeNs`, handles `{ dtNs, dv }` with safe-integer `dtNs` and finite `dv`, editor metadata and optional `defaultViewportExtentNs`. It stores no length. The reader validates every required field before conversion, refuses v3 `stamp` and x/y handles and v2 `timeNs`, and preserves the unknown-version refusal. Switching the save boundary to write format 3 is a one-line change once clients that read 3 are in production. The framework-free codec is available from `@semio/animation/format`.
+  - **Length.** `clipDocument` and device delivery set the engine clip's `lengthNs` using `resolveAnimationDuration`: the latest of the content end, the viewport hint and one second. Filtering tracks does not shorten the whole animation. The player's bounds remain its playback window.
+  - **Handles.** A handle dragged on an instance played at a timescale stores the clip-local change that puts it under the pointer (`handlePointerDelta`), so it scales with the timescale exactly as keypoint times do.
+  - **Removed.** `toModuleClip`, `moduleClipDuration`, `TrackBaker` and the store's `trackBaker`; the `@semio/animation/module-baker` entry point, and with it the dependency on `@vizij/runtime`; `computeTrackTrajectories` and the trajectory types.
+
+- f286b72: Recorded tracks: the values a key of a device took, over the device's own clock.
+  - **`RecordedTrack`** — `{ device, key, points }`, each point `{ stamp, value }` with `stamp` the device's `arora/time` in milliseconds and `value` a scalar. Read-only, keyed by device and key (`RecordedKey`), so a device's input, animation output and feedback, and another device's beside them, sit in one view.
+  - **`Recorder`** — records `RecordedKey`s from the changes of a store keyed `<device>/<key>`: a point each time a key's value changes, stamped with its device's clock as the same change or the last before sets it. `capture` has the shape of a `DataStore` listener, `storeKeys` names the keys it reads (each recorded key and each device's `arora/time`), and `tracks()` returns what it holds. Nothing is persisted.
+
+- 6371a2a: The animation package reads no singleton: its values come from the store the host injects and its player comes with its store.
+  - **Values.** A direct `AnimatableControl` watches its `valueLookupKey` in the injected `DataStore` (`DataStoreContext` from `@semio/utils`); rendering one without a provider throws. The value a track takes at the playhead is read from its curve in the derived snapshot rather than from values the store wrote, and an editor re-renders when that value changes: the derived orchestrator no longer writes `useValuesStore`, and the deprecated `updateValues`, `updateVelocities` and `setTrackValue` actions are removed.
+  - **Player.** `AnimationData.playerStore` is the player the timeline shows and commands. The host passes the one it drives when it creates the store (`createAnimationStore({ playerStore })`; Studio passes `usePlayerStore`); a store created without one has a player of its own (`createPlayerStore()`). Components, actions and subscriptions all read it there, `usePlayerSubscription` included; the actions `skipToStart`, `skipToEnd`, `updateDuration` and `focusSelectionInstance` take the store's getter to reach it.
+  - **Namespaces.** The package resolves a namespace's entity with `namespaceEntity` from `@semio/utils` and spells `entityId@instanceId` nowhere.
+
+- a764cdc: A track can animate an input an entity's runtime declares beyond its model: `Track.inputKey` (and `StoredTrack.inputKey`) names that input by its key, the track's `animatableId` being the input's `runtimeInputId`. `createTrack` sets `inputKey` for a track created on such an id, and a stored animation keeps it. `RowNoticeContext` lets a host show a statement beside the name of every track row, from the row's namespace and what it animates; `AnimatableControl` and `TrackControl` take a `notice` beside their label.
+
+### Patch Changes
+
+- b914075: `@semio/animation`, `@semio/scene` and `vizij` declare their `@semio/ui`, `@semio/utils`
+  and `vizij` dependencies as caret ranges instead of `*`, so a later breaking release of
+  one of them no longer reaches an earlier published version of these packages.
+- Updated dependencies [1e272bf]
+- Updated dependencies [e3be707]
+- Updated dependencies [a26939f]
+- Updated dependencies [4bb39a2]
+- Updated dependencies [c2738c1]
+- Updated dependencies [3db3ee1]
+- Updated dependencies [f286b72]
+- Updated dependencies [6e59734]
+- Updated dependencies [4bb39a2]
+- Updated dependencies [544a676]
+- Updated dependencies [4bb39a2]
+- Updated dependencies [f718bde]
+- Updated dependencies [0a439db]
+- Updated dependencies [6371a2a]
+- Updated dependencies [a764cdc]
+- Updated dependencies [f2ebc2d]
+  - @semio/ui@0.5.0
+  - @semio/utils@0.5.0
+
 ## 0.4.0
 
 ### Minor Changes
