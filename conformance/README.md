@@ -94,7 +94,7 @@ string steps, the final boolean value, coincident keypoints, negative local time
 velocities and muted or empty contributions. The generator uses Studio's
 control-point resolver and imports no track interpolator.
 
-Studio's [Arora conformance tests](../../../apps/studio/src/arora/conformance.test.ts)
+Studio's [Arora conformance tests](https://github.com/semio-ai/studio/blob/main/apps/studio/src/arora/conformance.test.ts)
 check the Arora engine against these committed files through the editor's track
-evaluator and compiled delivery tracks. The [device conformance tests](../../../apps/studio/src/arora/conformance-device.test.ts)
+evaluator and compiled delivery tracks. The [device conformance tests](https://github.com/semio-ai/studio/blob/main/apps/studio/src/arora/conformance-device.test.ts)
 check the same files through Arora's animation module on an emulated device.

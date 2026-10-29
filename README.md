@@ -122,7 +122,7 @@ The timeline, tracks and minimap render every frame by default
 All three canvases subscribe to the setting, including while mounted. The
 host must schedule R3F's global `invalidate()` to keep continuous behavior
 running in demand mode; this package starts no timer. See the
-[shared API](../utils/README.md#canvas-render-loop).
+[shared API](https://github.com/semio-ai/semio-utils/blob/main/README.md#canvas-render-loop).
 
 ## What's inside
 
