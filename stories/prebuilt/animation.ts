@@ -1,13 +1,13 @@
 import type { AnimatableValue } from "@semio/data";
 import { randomHexString } from "@semio/utils";
-import { createDefaultState, createDefaultAnimation, addAnimation } from "@semio/animation";
+import { createDefaultState, createDefaultAnimation, addAnimation } from "@semio/timeline-editor";
 import type {
   AnimationData,
   StoredAnimation,
   AnimationInstance,
   Track,
   Keypoint,
-} from "@semio/animation";
+} from "@semio/timeline-editor";
 
 export function createTestAnimationState(trackCount: number, keysPerTrack: number): AnimationData {
   const state = createDefaultState();

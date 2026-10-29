@@ -38,7 +38,7 @@ const config = {
         alias: [
           ...(Array.isArray(config.resolve?.alias) ? config.resolve.alias : []),
           {
-            find: /^@semio\/animation$/,
+            find: /^@semio\/timeline-editor$/,
             replacement: resolve(__dirname, "../src/index.tsx"),
           },
         ],

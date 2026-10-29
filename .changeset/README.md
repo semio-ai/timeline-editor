@@ -2,7 +2,7 @@ Add a changeset with `npx changeset` in any pull request that changes the publis
 Describe the change and choose the appropriate version bump.
 
 Inside Studio's mount, the CLI resolves to Studio's workspace root and writes into
-Studio's `.changeset/`. Write the file by hand under `packages/animation/.changeset/`,
+Studio's `.changeset/`. Write the file by hand under `packages/timeline-editor/.changeset/`,
 or run `npx changeset` from a standalone clone.
 
 The release workflow collects changesets in a Version Packages pull request for the next

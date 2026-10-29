@@ -52,7 +52,7 @@ export interface MotionCubicBezierLineProps {
  * @example
  * ```tsx
  * import { useMotionValue } from "motion/react";
- * import { MotionCubicBezierLine } from "@semio/animation";
+ * import { MotionCubicBezierLine } from "@semio/timeline-editor";
  *
  * function MyComponent() {
  *   const startX = useMotionValue(0);

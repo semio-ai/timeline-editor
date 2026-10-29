@@ -20,7 +20,7 @@ From this package's root:
 npm run test -- selection
 ```
 
-In Studio, `npx turbo run test --filter=@semio/animation -- selection` from
+In Studio, `npx turbo run test --filter=@semio/timeline-editor -- selection` from
 Studio's root builds workspace dependencies first and reuses cached builds.
 
 ## Notes

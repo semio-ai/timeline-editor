@@ -1,5 +1,5 @@
 {
-  "name": "@semio/animation",
+  "name": "@semio/timeline-editor",
   "description": "Higher-level visualization and editing components for interacting with assets.",
   "version": "0.6.0",
   "repository": {

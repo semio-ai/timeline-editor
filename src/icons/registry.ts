@@ -107,7 +107,7 @@ export const animationIconRegistry = {
 export type AnimationIconName = keyof typeof animationIconRegistry;
 
 // Register these keys for build-time `<Icon name>` checking. Augmentation follows
-// the dependency graph: @semio/animation (and anything depending on it) now type-
+// the dependency graph: @semio/timeline-editor (and anything depending on it) now type-
 // checks icon names against `default ∪ animation`. Derived from the registry above,
 // so the key set never drifts from what's actually registered.
 declare module "@semio/ui" {

@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { useMotionValue, animate } from "motion/react";
-import { MotionCubicBezierLine } from "@semio/animation";
+import { MotionCubicBezierLine } from "@semio/timeline-editor";
 
 const meta = {
   title: "animation/MotionCubicBezierLine",

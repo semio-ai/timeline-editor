@@ -1,7 +1,7 @@
-@semio/animation — Third-Party Notices
+@semio/timeline-editor — Third-Party Notices
 ======================================
 
-@semio/animation is Apache-2.0 licensed; see the LICENSE file in this package.
+@semio/timeline-editor is Apache-2.0 licensed; see the LICENSE file in this package.
 
 Its icon registry renders components from `@solar-icons/react-perf`, which arrive
 with that dependency rather than being copied into this package's `dist`, and
@@ -56,7 +56,7 @@ SOFTWARE.
 
 **Artwork.** **"Solar Icons" by [480 Design](https://www.figma.com/community/file/1166831539721848736)**, licensed under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
 
-**Package code.** [`@solar-icons/react-perf`](https://www.npmjs.com/package/@solar-icons/react-perf), Copyright (c) 2024 Hakim Saoudi, MIT License (its artwork terms are in that package's `LICENSE-THIRD-PARTY`). It is a dependency of both `@semio/ui` and `@semio/animation`. `@semio/ui`'s CommonJS build bundles the components it renders, because the package is ESM-only; its ESM build and `@semio/animation` leave it external.
+**Package code.** [`@solar-icons/react-perf`](https://www.npmjs.com/package/@solar-icons/react-perf), Copyright (c) 2024 Hakim Saoudi, MIT License (its artwork terms are in that package's `LICENSE-THIRD-PARTY`). It is a dependency of both `@semio/ui` and `@semio/timeline-editor`. `@semio/ui`'s CommonJS build bundles the components it renders, because the package is ESM-only; its ESM build and `@semio/timeline-editor` leave it external.
 
 ```
 MIT License
@@ -72,7 +72,7 @@ The Software may include icons that are licensed under the Creative Commons Attr
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-**Where it is used.** The `@semio/ui`, `@semio/animation` and Studio icon registries render Solar components for shared controls, transport, editor actions, units and legal glyphs.
+**Where it is used.** The `@semio/ui`, `@semio/timeline-editor` and Studio icon registries render Solar components for shared controls, transport, editor actions, units and legal glyphs.
 
 **Vendored Solar artwork.** These `@semio/ui` glyphs copy Solar geometry into `@semio/ui`'s `dist` rather than rendering a package component. Source: <https://github.com/saoudi-h/solar-icons/tree/main/packages/core/svgs>.
 

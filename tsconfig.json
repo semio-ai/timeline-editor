@@ -23,7 +23,7 @@
     "target": "ESNext",
     "jsx": "react-jsx",
     "paths": {
-      "@semio/animation": [
+      "@semio/timeline-editor": [
         "./src/index.tsx"
       ]
     }

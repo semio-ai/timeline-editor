@@ -1,6 +1,6 @@
-# @semio/animation Documentation
+# @semio/timeline-editor Documentation
 
-`@semio/animation` provides the shared timeline, selection, and gesture system used by Studio and Storybook demos.
+`@semio/timeline-editor` provides the shared timeline, selection, and gesture system used by Studio and Storybook demos.
 
 This README is the source of truth for package architecture and current behavior. Keep short-lived implementation notes in PRs or issues.
 
@@ -32,7 +32,7 @@ This README is the source of truth for package architecture and current behavior
 - `AnimationSheet` composes controls + canvas and is the primary consumer-facing editor surface.
 - `canvas-sheet/` owns marker/segment/handle rendering and gesture-driven interactions.
 - All three canvases subscribe to `useCanvasFrameloop()` from `@semio/utils` outside their R3F roots. The default is `always`; a host choosing `demand` owns scheduling global invalidations for continuous behavior. See the [shared API](https://github.com/semio-ai/semio-utils/blob/main/README.md#canvas-render-loop).
-- Storybook stories live in [`stories/`](../stories/). Run `npm run storybook` from the package root for port 6008, or `npm run build-storybook` for a static site. In Studio, `npx turbo run storybook --filter=@semio/animation` from Studio's root builds workspace dependencies first.
+- Storybook stories live in [`stories/`](../stories/). Run `npm run storybook` from the package root for port 6008, or `npm run build-storybook` for a static site. In Studio, `npx turbo run storybook --filter=@semio/timeline-editor` from Studio's root builds workspace dependencies first.
 
 ## Playback speed controls
 
@@ -54,7 +54,7 @@ legacy optional transition metadata preserved. A v3 `stamp` or x/y handle and a
 v1/v2 `timeNs` or nanosecond handle are refused. Duplicate track ids are refused
 in every format, and a track's optional `inputKey` must be a string in every
 format. Unknown versions are refused before tracks are read.
-The `@semio/animation/format` entry point exposes the codec without loading the UI.
+The `@semio/timeline-editor/format` entry point exposes the codec without loading the UI.
 
 `StoredAnimation` is the embedded millisecond model; `PersistedAnimation` describes
 format 3 with optional `defaultViewportExtentNs` and no stored length.
@@ -205,4 +205,4 @@ store or a save payload, including when it replaces already-loaded content.
 
 The [engine reference](../conformance/README.md) records exact values and world
 velocities for the fixture animations and dedicated semantic cases. Regenerate it
-with `npm run conformance:generate --workspace=@semio/animation` from the root.
+with `npm run conformance:generate --workspace=@semio/timeline-editor` from the root.

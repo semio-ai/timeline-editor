@@ -3,7 +3,7 @@
  * Store for handling player state and actions. Provides a centralized
  * way to manage animation playback time, direction, bounds, and looping.
  *
- * Viewport state lives separately (see `viewport-state` in @semio/animation)
+ * Viewport state lives separately (see `viewport-state` in @semio/timeline-editor)
  * so the playhead can advance without fanning re-renders out to every
  * viewport subscriber.
  */

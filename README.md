@@ -1,4 +1,4 @@
-# @semio/animation
+# @semio/timeline-editor
 
 Higher-level visualization and editing components for animating assets — a
 canvas-based timeline editor (`AnimationSheet`) plus the track/keyframe controls
@@ -9,7 +9,7 @@ and motion primitives it's built from. Rendered with
 ## Installation
 
 ```bash
-npm install @semio/animation
+npm install @semio/timeline-editor
 ```
 
 Brings `@semio/ui`, `@semio/utils` and `@semio/data`
@@ -17,7 +17,7 @@ along as dependencies.
 
 ## Development and Storybook
 
-Semio Studio mounts this repository as a git submodule at `packages/animation` and develops it
+Semio Studio mounts this repository as a git submodule at `packages/timeline-editor` and develops it
 from source there. Run these commands from this package's root in either checkout:
 
 ```sh
@@ -34,22 +34,22 @@ npm run build
 Package-root checks use the existing `dist` exports of `@semio/utils`, `@semio/data` and `@semio/ui`.
 In a standalone clone, npm installs those builds. Inside Studio, build the linked
 siblings first so checks use their latest edits. From Studio's root, run
-`npx turbo run lint typecheck test:unit build --filter=@semio/animation` to build
+`npx turbo run lint typecheck test:unit build --filter=@semio/timeline-editor` to build
 dependencies before running the package's checks and reuse cached builds.
 
 Stories live in `stories/`; `.storybook/` supplies the light/dark toolbar and the
-library's default theme. Storybook aliases only `@semio/animation` to `src/index.tsx`.
+library's default theme. Storybook aliases only `@semio/timeline-editor` to `src/index.tsx`.
 Other `@semio/*` dependencies resolve to their installed `dist` exports. npm
 releases include those builds. With workspace links in Studio, build dependencies
-first: from Studio's root, `npx turbo run storybook --filter=@semio/animation` or
-`npx turbo run build-storybook --filter=@semio/animation` does that automatically
+first: from Studio's root, `npx turbo run storybook --filter=@semio/timeline-editor` or
+`npx turbo run build-storybook --filter=@semio/timeline-editor` does that automatically
 and reuses cached builds. Stop the dev server with Ctrl-C before handoff.
 Storybook is separate from `npm run build`.
 
 A changeset for this library belongs in this repository's `.changeset/`. Inside Studio's
 mount, the changesets CLI resolves to Studio's workspace root and writes into Studio's
 `.changeset/` instead, which Studio's CI rejects. There, write the file by hand under
-`packages/animation/.changeset/`, or run `npx changeset` from a standalone clone.
+`packages/timeline-editor/.changeset/`, or run `npx changeset` from a standalone clone.
 
 ## Usage
 
@@ -66,8 +66,8 @@ The host hands the sheet three things:
 
 ```tsx
 import { useState } from "react";
-import { AnimationContext, AnimationSheet, createAnimationStore } from "@semio/animation";
-import type { TrackEvaluator } from "@semio/animation";
+import { AnimationContext, AnimationSheet, createAnimationStore } from "@semio/timeline-editor";
+import type { TrackEvaluator } from "@semio/timeline-editor";
 
 export function Editor({ evaluator }: { evaluator: TrackEvaluator }) {
   const [store] = useState(() => createAnimationStore({ trackEvaluator: evaluator }));
@@ -96,7 +96,7 @@ evaluator, rows draw authored Béziers and have no readouts or violations.
 `playerStore` has a player of its own.
 
 ```ts
-import { usePlayerStore } from "@semio/animation";
+import { usePlayerStore } from "@semio/timeline-editor";
 
 // Read transport state in a component (state lives under `s.player`)
 const stamp = usePlayerStore((s) => s.player.stamp); // milliseconds
@@ -129,7 +129,7 @@ to 5000 ms. Format 3 refuses `stamp`, x/y handles, null transitions, invalid pai
 and malformed optional metadata, and requires finite scalar values of one kind
 per track. Unsupported versions are refused before tracks are read. The validator
 `isStoredAnimationContent` documents the complete requirements per format.
-Framework-free persistence APIs are available from `@semio/animation/format`.
+Framework-free persistence APIs are available from `@semio/timeline-editor/format`.
 
 `writeStoredAnimation` retains the format-3 writer; switching the save boundary to
 it is a one-line change once clients that read format 3 are in production. It
@@ -235,7 +235,7 @@ In Studio, build workspace dependencies first with
 Stored animations with unknown format versions are refused before migration or
 editing; newer versions ask the person to reload Studio.
 
-`@semio/animation/format` exposes the version classifier, refusal error and guard
+`@semio/timeline-editor/format` exposes the version classifier, refusal error and guard
 without initializing the editor store or loading its UI.
 
 ## Releasing

@@ -33,7 +33,7 @@ The implementation prioritizes performance through several key design decisions:
 
 ```tsx
 import { useMotionValue } from "motion/react";
-import { MotionCubicBezierFill } from "@semio/animation";
+import { MotionCubicBezierFill } from "@semio/timeline-editor";
 
 function MyComponent() {
   const startX = useMotionValue(0);
@@ -63,7 +63,7 @@ function MyComponent() {
 #### With Line Component
 
 ```tsx
-import { MotionCubicBezierLine, MotionCubicBezierFill } from "@semio/animation";
+import { MotionCubicBezierLine, MotionCubicBezierFill } from "@semio/timeline-editor";
 
 function CurveWithFill() {
   // Shared motion values

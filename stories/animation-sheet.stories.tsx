@@ -11,8 +11,8 @@ import {
   INSTANCE_IDS,
   TrackRender,
   useAnimationStore,
-} from "@semio/animation";
-import { testTrackEvaluator } from "@semio/animation";
+} from "@semio/timeline-editor";
+import { testTrackEvaluator } from "@semio/timeline-editor";
 
 import { Text, TextRole } from "@semio/ui";
 import { createValuesStore, DataStoreContext, valuesDataStore } from "@semio/data";
@@ -143,7 +143,7 @@ export const WithoutEvaluator: Story = {
   render: () => <AnimationSheetWithStore storeType="full" evaluate={false} />,
 };
 
-function attachTestEvaluator(store: import("@semio/animation").AnimationStore) {
+function attachTestEvaluator(store: import("@semio/timeline-editor").AnimationStore) {
   store.setState({ trackEvaluator: testTrackEvaluator });
   return () => store.setState({ trackEvaluator: undefined });
 }

@@ -8,7 +8,7 @@ import {
   NestedLabel,
   NestedSeparator,
 } from "@semio/ui";
-import { animationIconRegistry } from "@semio/animation";
+import { animationIconRegistry } from "@semio/timeline-editor";
 
 /**
  * Sandbox for icon alignment/size consistency inside list-item (`NestedItem`) `left`

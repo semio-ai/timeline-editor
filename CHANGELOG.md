@@ -1,4 +1,6 @@
-# @semio/animation
+# @semio/timeline-editor
+
+Versions up to 0.6.0 were published as `@semio/animation`.
 
 ## 0.6.0
 

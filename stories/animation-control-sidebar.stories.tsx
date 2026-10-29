@@ -9,8 +9,8 @@ import {
   NameContextProvider,
   LocalGlobalTransformContextProvider,
   createTestAnimationStore,
-} from "@semio/animation";
-import { testTrackEvaluator } from "@semio/animation";
+} from "@semio/timeline-editor";
+import { testTrackEvaluator } from "@semio/timeline-editor";
 
 import { createValuesStore, DataStoreContext, valuesDataStore } from "@semio/data";
 
@@ -64,7 +64,7 @@ export const Preview: Story = {
   render: () => <AnimationSheetWithControls />,
 };
 
-function attachTestEvaluator(store: import("@semio/animation").AnimationStore) {
+function attachTestEvaluator(store: import("@semio/timeline-editor").AnimationStore) {
   store.setState({ trackEvaluator: testTrackEvaluator });
   return () => store.setState({ trackEvaluator: undefined });
 }

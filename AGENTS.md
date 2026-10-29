@@ -1,4 +1,4 @@
-# @semio/animation Agent Guide
+# @semio/timeline-editor Agent Guide
 
 This workspace provides reusable animation timeline, gesture, and HUD components that power `@semio/studio`. Follow these guardrails in this repository; when mounted in Studio, also follow Studio's root `AGENTS.md`.
 
@@ -13,13 +13,13 @@ This workspace provides reusable animation timeline, gesture, and HUD components
 
 - Use the `docs/README.md` file to track the current architecture status before altering gestures, selection, or store logic—many flows are staged behind feature flags. If this file does not exist at any time, please create it and keep it up to date with current architecture designs, work, and behaviors. If work requires secondary readme files to be created, they should be created within the docs folder, and be directly linked from the main readme file. Any secondary readme files should be kept up to date, along with the main readme, and additional readmes should only be created when the topic diverges significantly from existing ones. When major categories of work conclude, the existing readme files should be evaluated, pruned or consolidated if necessary, and the parent readme updated to reflect these changes.
 - Keep the main and secondary readmes in `docs` updated for multi-step changes (store updates, component wiring, tests). Mention any skipped checks in your handoff.
-- Run `npm run build`, `npm run storybook` or `npm run build-storybook` from this package's root. In Studio, the faster cached route from Studio's root is `npx turbo run <task> --filter=@semio/animation`; it builds workspace dependencies first.
-- Before marking work complete, run `npm run typecheck`, `npm run lint` and `npm run test` from this package's root. In Studio, `npx turbo run lint typecheck test:unit --filter=@semio/animation` supplies dependency builds and caching.
+- Run `npm run build`, `npm run storybook` or `npm run build-storybook` from this package's root. In Studio, the faster cached route from Studio's root is `npx turbo run <task> --filter=@semio/timeline-editor`; it builds workspace dependencies first.
+- Before marking work complete, run `npm run typecheck`, `npm run lint` and `npm run test` from this package's root. In Studio, `npx turbo run lint typecheck test:unit --filter=@semio/timeline-editor` supplies dependency builds and caching.
 
 ## Development & Testing
 
 - `npm run dev` (tsup watch) keeps builds up to date while you edit. Stop the watcher before handoff and note the command to resume.
-- Unit tests live in `src/tests`. They currently use Vitest; uncomment or add suites when enabling new behaviour. Run with `npm run test` or `turbo run test --filter=@semio/animation`.
+- Unit tests live in `src/tests`. They currently use Vitest; uncomment or add suites when enabling new behaviour. Run with `npm run test` or `turbo run test --filter=@semio/timeline-editor`.
 - Prefer the fixtures in `src/test-fixtures` for scenario coverage; extend them rather than crafting ad-hoc data inside tests.
 - Since the three.js and react-three/fiber environment does not work well with vitest browser mode for ui testing, we should instead thoroughly test the gesture-based actions that get called from individual components, mocking the behaviors as exhaustively as possible.
 - Never bulk-generate build artifacts (`*.js`, `*.d.ts`, maps) under `src/`. If a tool emits them for diagnostics, clean the files immediately—do not leave the tree polluted or run generators across the entire source folder unless you plan to stage the results.
@@ -53,4 +53,4 @@ This workspace provides reusable animation timeline, gesture, and HUD components
 - Log TODOs with `TODO(semio-agent):` so follow-up work is easy to find.
 - Align this file with the root guide whenever scripts or conventions change; note intentional deviations in PR descriptions.
 
-Keeping these practices ensures `@semio/animation` stays reliable for downstream apps and agents. When uncertain, cross-reference the root `AGENTS.md` and existing docs before diverging.
+Keeping these practices ensures `@semio/timeline-editor` stays reliable for downstream apps and agents. When uncertain, cross-reference the root `AGENTS.md` and existing docs before diverging.
