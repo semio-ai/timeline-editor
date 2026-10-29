@@ -14,19 +14,16 @@ Selection-focused tests for the animation store and derived row interactions.
 
 ## Running
 
-From repo root:
-
-```sh
-npx turbo run test --filter=@semio/animation -- --watch=false selection
-```
-
-From `packages/animation/`:
+From this package's root:
 
 ```sh
 npm run test -- selection
 ```
 
+In Studio, `npx turbo run test --filter=@semio/animation -- selection` from
+Studio's root builds workspace dependencies first and reuses cached builds.
+
 ## Notes
 
-- These tests use shared fixtures from `packages/animation/src/test-fixtures/`.
+- These tests use shared fixtures from [`src/test-fixtures/`](../../test-fixtures/).
 - Keep this file aligned with the actual files in this directory when tests are added/removed.

@@ -1,5 +1,10 @@
 {
   "extends": "@semio/typescript-config/react-library.json",
-  "include": ["."],
-  "exclude": ["dist", "build", "node_modules"]
+  "include": [".", ".storybook/manager.ts", ".storybook/preview.tsx"],
+  "exclude": ["dist", "build", "node_modules", "storybook-static"],
+  "compilerOptions": {
+    "paths": {
+      "@semio/animation": ["./src/index.tsx"]
+    }
+  }
 }

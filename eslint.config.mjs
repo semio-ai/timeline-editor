@@ -1,3 +1,6 @@
-import { reactConfig } from "@semio/eslint-config/react";
+import { storybookConfig } from "@semio/eslint-config/storybook";
 
-export default reactConfig({ tsconfigRootDir: import.meta.dirname });
+export default [
+  ...storybookConfig(),
+  { languageOptions: { parserOptions: { tsconfigRootDir: import.meta.dirname } } },
+];

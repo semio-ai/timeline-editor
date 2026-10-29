@@ -15,6 +15,29 @@ npm install @semio/animation
 Brings `@semio/ui`, `@semio/utils` and `@semio/data`
 along as dependencies.
 
+## Development and Storybook
+
+Run commands from this package's root, either in its own repository or in a
+Studio checkout:
+
+```sh
+npm install
+npm run storybook        # http://localhost:6008
+npm run build-storybook  # storybook-static/
+npm run typecheck
+npm run lint
+npm run test
+```
+
+Stories live in `stories/`; `.storybook/` supplies the light/dark toolbar and the
+library's default theme. Storybook aliases only `@semio/animation` to `src/index.tsx`.
+Other `@semio/*` dependencies resolve to their installed `dist` exports. npm
+releases include those builds. With workspace links in Studio, build dependencies
+first: from Studio's root, `npx turbo run storybook --filter=@semio/animation` or
+`npx turbo run build-storybook --filter=@semio/animation` does that automatically
+and reuses cached builds. Stop the dev server with Ctrl-C before handoff.
+Storybook is separate from `npm run build`.
+
 ## Usage
 
 The host hands the sheet three things:
@@ -197,8 +220,9 @@ MIT
 
 The [animation engine reference](conformance/README.md) contains deterministic
 v2 JSON cases, exact samples and world velocities for a replacement engine.
-Regenerate from the root with
-`npm run conformance:generate --workspace=@semio/animation` after building utils and data.
+Regenerate from this package's root with `npm run conformance:generate`.
+In Studio, build workspace dependencies first with
+`npx turbo run build --filter=@semio/utils --filter=@semio/data` from Studio's root.
 Stored animations with unknown format versions are refused before migration or
 editing; newer versions ask the person to reload Studio.
 

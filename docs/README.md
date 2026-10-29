@@ -32,7 +32,7 @@ This README is the source of truth for package architecture and current behavior
 - `AnimationSheet` composes controls + canvas and is the primary consumer-facing editor surface.
 - `canvas-sheet/` owns marker/segment/handle rendering and gesture-driven interactions.
 - All three canvases subscribe to `useCanvasFrameloop()` from `@semio/utils` outside their R3F roots. The default is `always`; a host choosing `demand` owns scheduling global invalidations for continuous behavior. See the [shared API](https://github.com/semio-ai/semio-utils/blob/main/README.md#canvas-render-loop).
-- Storybook stories for this package live in `apps/docs/stories`.
+- Storybook stories live in [`stories/`](../stories/). Run `npm run storybook` from the package root for port 6008, or `npm run build-storybook` for a static site. In Studio, `npx turbo run storybook --filter=@semio/animation` from Studio's root builds workspace dependencies first.
 
 ## Playback speed controls
 
@@ -153,7 +153,7 @@ and easing (`transition-*`). Studio adds its own keys on top without redefining
 these, so a standalone consumer of this package renders the same editor artwork as
 Studio with no provider of its own. Shared roles such as `add`, `copy` and
 `remove` come from `@semio/ui`. How keys resolve and how a consumer overrides one is
-in `packages/ui/docs/icon-registry.md`.
+in the [UI icon registry guide](https://github.com/semio-ai/semio-ui/blob/main/docs/icon-registry.md).
 
 Conventions the registry encodes:
 
