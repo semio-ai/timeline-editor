@@ -79,7 +79,7 @@ npm run conformance:generate --workspace=@semio/animation
 ```
 
 Or, from `packages/animation`, run `npm run conformance:generate`. The bundled
-runner is generated under ignored `dist/conformance`; it needs the utils build,
+runner is generated under ignored `dist/conformance`; it needs the utils and data builds,
 not an animation build. Two runs on one platform produce byte-identical JSON.
 Across platforms a number can differ in its last bit or two, so the test compares
 a regeneration with the committed set to a relative 1e-12 rather than as text.
