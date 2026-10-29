@@ -1,5 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ContextMenu, Icon, IconProvider, KeyIcon, NestedItem, NestedLabel, NestedSeparator } from "@semio/ui";
+import {
+  ContextMenu,
+  Icon,
+  IconProvider,
+  KeyIcon,
+  NestedItem,
+  NestedLabel,
+  NestedSeparator,
+} from "@semio/ui";
 import { animationIconRegistry } from "@semio/animation";
 
 /**

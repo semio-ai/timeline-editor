@@ -15,6 +15,33 @@ npm install @semio/animation
 Brings `@semio/ui`, `@semio/utils` and `@semio/data`
 along as dependencies.
 
+## Development and Storybook
+
+From this package's root:
+
+```sh
+npm install
+npm run storybook        # http://localhost:6008
+npm run build-storybook  # storybook-static/
+npm run typecheck
+npm run lint
+npm run test
+```
+
+Package-root tests use the existing `dist` exports of `@semio/utils`, `@semio/data` and `@semio/ui`.
+In a Studio checkout, edits to those siblings are visible only after rebuilding
+them. Run `npx turbo run test:unit --filter=@semio/animation` from Studio's root
+to build the siblings before testing.
+
+Stories live in `stories/`; `.storybook/` supplies the light/dark toolbar and the
+library's default theme. Storybook aliases only `@semio/animation` to `src/index.tsx`.
+Other `@semio/*` dependencies resolve to their installed `dist` exports. npm
+releases include those builds. With workspace links in Studio, build dependencies
+first: from Studio's root, `npx turbo run storybook --filter=@semio/animation` or
+`npx turbo run build-storybook --filter=@semio/animation` does that automatically
+and reuses cached builds. Stop the dev server with Ctrl-C before handoff.
+Storybook is separate from `npm run build`.
+
 ## Usage
 
 The host hands the sheet three things:
@@ -122,7 +149,7 @@ The timeline, tracks and minimap render every frame by default
 All three canvases subscribe to the setting, including while mounted. The
 host must schedule R3F's global `invalidate()` to keep continuous behavior
 running in demand mode; this package starts no timer. See the
-[shared API](../utils/README.md#canvas-render-loop).
+[shared API](https://github.com/semio-ai/semio-utils/blob/main/README.md#canvas-render-loop).
 
 ## What's inside
 
@@ -197,8 +224,9 @@ MIT
 
 The [animation engine reference](conformance/README.md) contains deterministic
 v2 JSON cases, exact samples and world velocities for a replacement engine.
-Regenerate from the root with
-`npm run conformance:generate --workspace=@semio/animation` after building utils and data.
+Regenerate from this package's root with `npm run conformance:generate`.
+In Studio, build workspace dependencies first with
+`npx turbo run build --filter=@semio/utils --filter=@semio/data` from Studio's root.
 Stored animations with unknown format versions are refused before migration or
 editing; newer versions ask the person to reload Studio.
 

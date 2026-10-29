@@ -14,7 +14,6 @@ import {
 } from "@semio/animation";
 import { testTrackEvaluator } from "@semio/animation";
 
-/** Studio evaluates through @semio/studio-arora; stories use the test evaluator. */
 import { Text, TextRole } from "@semio/ui";
 import { createValuesStore, DataStoreContext, valuesDataStore } from "@semio/data";
 
@@ -31,7 +30,6 @@ type Story = StoryObj<typeof meta>;
 
 /**
  * A standalone sheet using the test evaluator and an injected values store.
- * Studio evaluates through @semio/studio-arora.
  */
 function AnimationSheetWithStore({
   storeType = "full",
@@ -84,10 +82,6 @@ function AnimationSheetWithStore({
           <AnimationSheet
             {...props}
             height={props.height ?? (bounds.height > 0 ? bounds.height : 600)}
-            fonts={{
-              mono: "fonts/roboto-mono-regular.ttf",
-              ui: "fonts/roboto-regular.ttf",
-            }}
           />
         </div>
       </AnimationContext.Provider>

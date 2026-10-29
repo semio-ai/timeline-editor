@@ -71,22 +71,22 @@ set is under 5 MB. Filenames identify the animation and speed.
 
 ## Regenerate and verify
 
-From the repository root (dependencies installed):
+From this package's root (dependencies installed):
 
 ```sh
-npx turbo run build --filter=@semio/utils --filter=@semio/data
-npm run conformance:generate --workspace=@semio/animation
+npm run conformance:generate
 ```
 
-Or, from `packages/animation`, run `npm run conformance:generate`. The bundled
-runner is generated under ignored `dist/conformance`; it needs the utils and data builds,
-not an animation build. Two runs on one platform produce byte-identical JSON.
+The bundled runner is generated under ignored `dist/conformance`. It uses the
+installed utils and data builds. In Studio, build those workspace links first
+with `npx turbo run build --filter=@semio/utils --filter=@semio/data` from
+Studio's root; the animation package itself needs no build for this generator. Two runs on one platform produce byte-identical JSON.
 Across platforms a number can differ in its last bit or two, so the test compares
 a regeneration with the committed set to a relative 1e-12 rather than as text.
 Format generator sources with Prettier; the generator itself deterministically
 formats the JSON.
 
-Run `npx vitest run conformance/conformance.test.ts` from `packages/animation`.
+Run `npm run test -- conformance/conformance.test.ts` from this package's root.
 `conformance/conformance.test.ts` checks that every regenerated case matches the
 committed JSON within a relative 1e-12. It also checks fixture migration, sampling
 at knots and adjacent instants, the dense grid, numeric precision, handle scaling,
@@ -94,7 +94,7 @@ string steps, the final boolean value, coincident keypoints, negative local time
 velocities and muted or empty contributions. The generator uses Studio's
 control-point resolver and imports no track interpolator.
 
-Studio's [Arora conformance tests](../../../apps/studio/src/arora/conformance.test.ts)
+Studio's [Arora conformance tests](https://github.com/semio-ai/studio/blob/main/apps/studio/src/arora/conformance.test.ts)
 check the Arora engine against these committed files through the editor's track
-evaluator and compiled delivery tracks. The [device conformance tests](../../../apps/studio/src/arora/conformance-device.test.ts)
+evaluator and compiled delivery tracks. The [device conformance tests](https://github.com/semio-ai/studio/blob/main/apps/studio/src/arora/conformance-device.test.ts)
 check the same files through Arora's animation module on an emulated device.

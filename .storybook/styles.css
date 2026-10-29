@@ -1,0 +1,9 @@
+@import "tailwindcss";
+/* ui's precompiled stylesheet holds every utility its components use. Its raw
+ * stylesheet would have Tailwind scan ui's sources, which the npm package omits. */
+@import "@semio/ui/styles.css";
+@import "../public/styles.css";
+@import "../public/theme.css";
+
+@source "../src";
+@source "../stories";
