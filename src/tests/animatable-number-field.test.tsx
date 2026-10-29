@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import type { AnimatableNumber } from "@semio/utils";
+import type { AnimatableNumber } from "@semio/data";
 import { AnimatableNumberField } from "../components/animatable-number-field";
 
 /**

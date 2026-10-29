@@ -1,7 +1,7 @@
 import { Size, TimeDisplay as TimeDisplayMethod, TimeInput, Variant } from "@semio/ui";
 import { type ReactNode, memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { PlayerActions } from "@semio/utils";
+import { PlayerActions } from "../player/player-store";
 import { useAnimationStore } from "../hooks";
 import type { AnimationActions } from "../store-types";
 import { SemanticTime } from "../types";

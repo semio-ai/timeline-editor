@@ -2,7 +2,6 @@ import { Theme } from "@semio/ui";
 import { memo, useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useShallow } from "zustand/react/shallow";
-import { PlayerData } from "@semio/utils";
 import {
   useMotionValue,
   useSpring,
@@ -13,6 +12,7 @@ import {
 import { shallow } from "zustand/shallow";
 import { useFrame } from "@react-three/fiber";
 import { isOrthographicCamera } from "@semio/utils";
+import { PlayerData } from "../../../player/player-store";
 import { useInvariantScaleX, useAnimationStore, usePlayerSubscription } from "../../../hooks";
 import { AnimationData } from "../../../store-types";
 import { SemanticTime } from "../../../types";

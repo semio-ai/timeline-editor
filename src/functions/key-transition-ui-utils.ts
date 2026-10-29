@@ -1,4 +1,4 @@
-import type { RawVector2 } from "@semio/utils";
+import type { RawVector2 } from "@semio/data";
 import {
   TransitionDirective,
   type AnimationData,

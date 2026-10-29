@@ -1,4 +1,4 @@
-import { RawValue } from "@semio/utils";
+import { RawValue } from "@semio/data";
 import { Track } from "../types";
 
 // Test animation data in v2 format (millisecond stamps).

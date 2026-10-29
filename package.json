@@ -53,6 +53,7 @@
   "dependencies": {
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
+    "@semio/data": "^0.0.0",
     "@semio/ui": "*",
     "@semio/utils": "*",
     "@solar-icons/react-perf": "^2.1.0",

@@ -1,4 +1,4 @@
-import type { RawVector2 } from "@semio/utils";
+import type { RawVector2 } from "@semio/data";
 
 export const toViewVector = (delta: RawVector2, scaleX: number, scaleY: number): RawVector2 => ({
   x: delta.x * scaleX,

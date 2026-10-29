@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runtimeInputId } from "@semio/utils";
+import { runtimeInputId } from "@semio/data";
 import { createTrack } from "../actions/create-track";
 import type { AnimationData } from "../store-types";
 

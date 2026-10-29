@@ -1,4 +1,4 @@
-import type { RawValue, RawVector2 } from "@semio/utils";
+import type { RawValue, RawVector2 } from "@semio/data";
 import type { StoredAnimation } from "../types/data/animation";
 import { CURRENT_ANIMATION_FORMAT_VERSION } from "../types/data/animation";
 import type { AuthoredTransition, Keypoint } from "../types/data/keypoint";

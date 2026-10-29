@@ -1,6 +1,8 @@
-import type { AnimatableValue, PlayerStore, StoreSubscribeWithSelector, Write } from "@semio/utils";
+import type { AnimatableValue } from "@semio/data";
+import type { StoreSubscribeWithSelector, Write } from "@semio/utils";
 import { TimeDisplay } from "@semio/ui";
 import type { StoreApi } from "zustand";
+import type { PlayerStore } from "./player/player-store";
 import type { PersistedAnimation } from "./functions/stored-animation-format";
 import type {
   Animation,
@@ -73,7 +75,7 @@ export interface EntityAnimationState {
 export interface ActiveEntityContext {
   /** Active entity ID. */
   entityId: string;
-  /** The entity's namespace, whose entity `namespaceEntity` (`@semio/utils`) resolves. */
+  /** The entity's namespace, whose entity `namespaceEntity` (`@semio/data`) resolves. */
   namespaceId: string;
   /** Control mode for the active entity. */
   controlMode: "direct" | "animation";

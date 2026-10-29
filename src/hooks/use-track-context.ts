@@ -1,6 +1,6 @@
 import { createContext, useContext, MutableRefObject, createRef } from "react";
 import { type RectReadOnly } from "react-use-measure";
-import type { AnimatableValue } from "@semio/utils";
+import type { AnimatableValue } from "@semio/data";
 import { ScaleLinear, defaultScaleLinear } from "../scale-linear";
 import { type AnimationInstanceSettings, TrackRender } from "../types";
 

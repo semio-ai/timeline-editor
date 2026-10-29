@@ -11,7 +11,7 @@ import {
   Button,
   Tooltip,
 } from "@semio/ui";
-import type { AnimatableValue, RawValue } from "@semio/utils";
+import type { AnimatableValue, RawValue } from "@semio/data";
 import {
   useActiveAnimationId,
   useAnimationStore,

@@ -42,7 +42,7 @@ export * from "./functions";
 export * from "./keybindings";
 export * from "./test-fixtures";
 
-// The values store of @semio/utils, re-exported for hosts that import it from here.
+// The values store of @semio/data, re-exported for hosts that import it from here.
 // The package itself reads values through the injected `DataStore`.
 export {
   useValuesStore,
@@ -50,4 +50,14 @@ export {
   type ValuesStore,
   type ValuesData,
   type ValuesActions,
-} from "@semio/utils";
+} from "@semio/data";
+
+export { type Player, PlayerDirection, newPlayer } from "./player/player";
+export {
+  type PlayerActions,
+  type PlayerData,
+  PlayerSlice,
+  type PlayerStore,
+  type PlayerStoreSetter,
+  usePlayerStore,
+} from "./player/player-store";

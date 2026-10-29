@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { AnimatableValue } from "@semio/utils";
+import type { AnimatableValue } from "@semio/data";
 import { exportEffectiveMotion, type EffectiveMotionKey } from "../functions/export-effective-motion";
 import { StandardTransitionType, TransitionDirective, type Animation, type Track } from "../types";
 import { curveOf } from "./curves";

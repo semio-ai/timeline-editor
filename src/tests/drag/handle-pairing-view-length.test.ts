@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RawVector2 } from "@semio/utils";
+import type { RawVector2 } from "@semio/data";
 import { computePairedHandleDelta, getViewLength } from "../../functions/handle-pairing";
 
 describe("handle pairing view-length preservation", () => {

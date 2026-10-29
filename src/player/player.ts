@@ -140,30 +140,6 @@ export function pause(player: Player): Player {
 }
 
 /**
- * Returns the provided player, reset to the given stamp.
- * Pure stamp-set; viewport-follow is handled separately by the
- * viewport-follow subscription.
- * @param player - the player to be updated
- * @param stamp - the new stamp
- * @returns the updated player
- */
-export function seek(player: Player, stamp: number): Player {
-  return reset(player, stamp);
-}
-
-/**
- * Returns the provided player, with the duration set to the provided value.
- * @param player - the player to be updated
- * @param duration - the new duration
- * @returns the updated player
- */
-export function withDuration(player: Player, duration: number): Player {
-  const p = { ...player };
-  p.duration = duration;
-  return p;
-}
-
-/**
  * Creates a new Player instance with default values.
  *
  * @returns A new Player instance initialized with:

@@ -10,8 +10,8 @@ import {
 } from "@semio/ui";
 import { uniq } from "lodash";
 import { clsx } from "clsx";
-import { PlayerData } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
+import { PlayerData } from "../player/player-store";
 import { type SourceRow } from "../types";
 import {
   useAnimationStore,

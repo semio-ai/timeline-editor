@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RawValue } from "@semio/utils";
+import type { RawValue } from "@semio/data";
 import { applyDragDeltas } from "../functions/apply-drag-deltas";
 import type { DragState, Keypoint, SelectionState, Track } from "../types";
 

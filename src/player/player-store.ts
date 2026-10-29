@@ -8,7 +8,6 @@
  * viewport subscriber.
  */
 
-import { createContext } from "react";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { enableMapSet, produce } from "immer";
@@ -76,8 +75,6 @@ export type PlayerStoreSetter = (
       ) => (PlayerData & PlayerActions) | Partial<PlayerData & PlayerActions>),
   replace?: false,
 ) => void;
-
-export type PlayerStoreGetter = () => PlayerData & PlayerActions;
 
 export const PlayerSlice = (set: PlayerStoreSetter) => ({
   player: newPlayer(),
@@ -183,6 +180,3 @@ export function createPlayerStore() {
 }
 
 export type PlayerStore = ReturnType<typeof createPlayerStore>;
-
-// This creates a context where the single app store is stored.
-export const PlayerContext = createContext<PlayerStore | null>(null);

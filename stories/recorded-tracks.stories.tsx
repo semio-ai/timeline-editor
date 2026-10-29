@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useMemo, type ReactNode } from "react";
 import { Recorder, type RecordedTrack } from "@semio/animation";
 import { Text, TextRole } from "@semio/ui";
-import type { AroraValue, StateChange } from "@semio/utils";
+import type { AroraValue, StateChange } from "@semio/data";
 import capture from "./fixtures/recorded-entity-devices.json";
 
 /**

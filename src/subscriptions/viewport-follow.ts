@@ -1,5 +1,5 @@
-import type { PlayerData } from "@semio/utils";
 import { shallow } from "zustand/shallow";
+import type { PlayerData } from "../player/player-store";
 import { viewportMotion, getFittedViewport } from "../viewport-state";
 import type {
   AnimationApi,

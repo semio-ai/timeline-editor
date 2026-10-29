@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AroraValue, StateChange } from "@semio/utils";
+import type { AroraValue, StateChange } from "@semio/data";
 import { Recorder } from "../functions/recorder";
 
 /** A change setting `set` (a `null` value unsets the key). */

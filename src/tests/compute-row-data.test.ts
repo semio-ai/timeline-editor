@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AnimatableValue, RawValue } from "@semio/utils";
+import { AnimatableValue, RawValue } from "@semio/data";
 import {
   LayerBand,
   SourceRow,

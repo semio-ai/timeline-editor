@@ -1,4 +1,4 @@
-import { AnimatableValue } from "@semio/utils";
+import { AnimatableValue } from "@semio/data";
 import type { LayerBand } from "./layer-band";
 
 /**
@@ -175,7 +175,7 @@ export interface SourcePatch {
  */
 export type SourceRef =
   // `namespaceId` is resolved to its entity by the host's `editSource`
-  // override, through `namespaceEntity` (`@semio/utils`).
+  // override, through `namespaceEntity` (`@semio/data`).
   | { kind: "entity"; namespaceId: string }
   | { kind: "animation"; animationId: string; instanceId: string; namespaceId: string }
   | { kind: "animatable"; animatableId: string }

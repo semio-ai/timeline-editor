@@ -1,4 +1,4 @@
-import type { RawVector2 } from "@semio/utils";
+import type { RawVector2 } from "@semio/data";
 import type { ValueScale, WorldCP } from "../types";
 import { clampHandleAgainstOwnKeypointX } from "./solve-handle-transition";
 import { toViewVector } from "./handle-pairing";

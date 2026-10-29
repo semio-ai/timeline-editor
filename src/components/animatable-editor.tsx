@@ -1,7 +1,8 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 import { SliderNumberField, Size, TextField, ToggleSquare } from "@semio/ui";
-import { RawValue, toDegrees, toRadians, unitDisplay } from "@semio/utils";
+import { RawValue } from "@semio/data";
+import { toDegrees, toRadians, unitDisplay } from "@semio/utils";
 import { useShallow } from "zustand/react/shallow";
 import { SourceRowData } from "../types";
 import { useAnimationStore, useColors } from "../hooks";

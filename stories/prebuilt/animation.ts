@@ -1,4 +1,4 @@
-import type { AnimatableValue } from "@semio/utils";
+import type { AnimatableValue } from "@semio/data";
 import { randomHexString } from "@semio/utils";
 import { createDefaultState, createDefaultAnimation, addAnimation } from "@semio/animation";
 import type {

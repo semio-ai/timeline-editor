@@ -1,5 +1,6 @@
 import { SliderNumberField, Size } from "@semio/ui";
-import { unitDisplay, type AnimatableNumber } from "@semio/utils";
+import { unitDisplay } from "@semio/utils";
+import { type AnimatableNumber } from "@semio/data";
 
 export interface AnimatableNumberFieldProps {
   animatable: AnimatableNumber;

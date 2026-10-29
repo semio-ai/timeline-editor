@@ -3,7 +3,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import { Canvas } from "@react-three/fiber";
 import { createStore } from "zustand/vanilla";
-import { CanvasFrameloop, setCanvasFrameloop, usePlayerStore } from "@semio/utils";
+import { CanvasFrameloop, setCanvasFrameloop } from "@semio/utils";
+import { usePlayerStore } from "../player/player-store";
 import { AnimationContext } from "../context";
 import type { AnimationStore } from "../store";
 import {

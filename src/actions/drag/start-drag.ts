@@ -1,4 +1,4 @@
-import type { RawValue } from "@semio/utils";
+import type { RawValue } from "@semio/data";
 import type { AnimationData } from "../../store-types";
 import type {
   DragStampTransform,

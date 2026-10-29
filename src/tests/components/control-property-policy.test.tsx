@@ -20,7 +20,7 @@ vi.mock("../../hooks", () => ({
   useControlMenu: () => ({}),
 }));
 vi.mock("../../hooks/use-player", async () => {
-  const { usePlayerStore } = await import("@semio/utils");
+  const { usePlayerStore } = await import("../../player/player-store");
   return { usePlayer: usePlayerStore };
 });
 vi.mock("../../components/track-control", () => ({

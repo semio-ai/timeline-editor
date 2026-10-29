@@ -1,4 +1,4 @@
-import { AnimatableValue, RawValue, RawVector2 } from "@semio/utils";
+import { AnimatableValue, RawValue, RawVector2 } from "@semio/data";
 import { pick, uniq } from "lodash";
 import {
   ComputedRowData,

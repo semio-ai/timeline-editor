@@ -1,4 +1,4 @@
-import type { RawVector2 } from "@semio/utils";
+import type { RawVector2 } from "@semio/data";
 
 const AUTO_MAGIC_SCALE = 2.5614;
 const ASYMMETRY_CLAMP_FACTOR = 5;

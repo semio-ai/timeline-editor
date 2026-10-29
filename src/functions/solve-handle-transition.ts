@@ -1,4 +1,4 @@
-import { RawVector2 } from "@semio/utils";
+import { RawVector2 } from "@semio/data";
 import { WorldCP } from "../types";
 
 export type HandleAnchorSide = "startOut" | "endIn";

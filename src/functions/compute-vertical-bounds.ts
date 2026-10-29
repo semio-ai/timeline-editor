@@ -1,4 +1,5 @@
-import { AnimatableValue, AnimatableGroupType, RawValue, unitDisplay } from "@semio/utils";
+import { AnimatableValue, AnimatableGroupType, RawValue } from "@semio/data";
+import { unitDisplay } from "@semio/utils";
 import type { SourceRow, Track } from "../types";
 
 /**

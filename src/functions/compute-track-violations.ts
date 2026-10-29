@@ -18,7 +18,7 @@ import {
   instanceOfRawVector2,
   instanceOfRawEuler,
   instanceOfRawColor,
-} from "@semio/utils";
+} from "@semio/data";
 import { ViolationType } from "../types";
 import type { Violation, TrackInterpolator } from "../types";
 import type { TrackCurve } from "./track-curve";

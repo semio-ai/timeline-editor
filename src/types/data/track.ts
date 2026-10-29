@@ -1,4 +1,4 @@
-import { RawValue } from "@semio/utils";
+import { RawValue } from "@semio/data";
 import { Keypoint } from "./keypoint";
 
 /**
@@ -19,7 +19,7 @@ export interface Track<DataType extends RawValue> {
   /**
    * Owning animatable id. For a track on an input an entity's runtime
    * declares beyond its model ({@link inputKey}), the id Studio shows that
-   * input under, `runtimeInputId(inputKey)` (`@semio/utils`).
+   * input under, `runtimeInputId(inputKey)` (`@semio/data`).
    */
   animatableId: string;
   /** See {@link StoredTrack.inputKey}. */
@@ -48,7 +48,7 @@ export interface StoredTrack<DataType extends RawValue> {
   points: Keypoint<DataType>[];
   /**
    * Owning animatable id. For a track with an {@link inputKey}, the id Studio
-   * shows that input under, `runtimeInputId(inputKey)` (`@semio/utils`):
+   * shows that input under, `runtimeInputId(inputKey)` (`@semio/data`):
    * a reader that does not know `inputKey` sees a track on an animatable the
    * model lacks, which it leaves unplayed, as it does a track whose
    * animatable a model update removed.

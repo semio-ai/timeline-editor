@@ -1,4 +1,4 @@
-import { RawValue, RawVector2 } from "@semio/utils";
+import { RawValue, RawVector2 } from "@semio/data";
 
 /** World-space handle delta for a transition control point. */
 export interface TransitionWorldHandle {

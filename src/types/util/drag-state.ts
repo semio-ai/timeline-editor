@@ -9,7 +9,7 @@
  * - On commit, the deltas are replayed against canonical tracks and a fresh derived snapshot
  *   is rebuilt; `dragState` is cleared.
  */
-import type { RawValue, RawVector2 } from "@semio/utils";
+import type { RawValue, RawVector2 } from "@semio/data";
 import type { Keypoint, TransitionPairing } from "../data/keypoint";
 import type { Track } from "../data/track";
 import type { DiffOp, SelectionCleanup, TrackDiffOp } from "./diff";

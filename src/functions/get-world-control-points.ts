@@ -1,4 +1,4 @@
-import { RawValue, RawVector2 } from "@semio/utils";
+import { RawValue, RawVector2 } from "@semio/data";
 import {
   AuthoredTransition,
   Keypoint,

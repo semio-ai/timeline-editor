@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { AnimatePresence, motion } from "motion/react";
 import { clsx } from "clsx";
-import type { AnimatableValue } from "@semio/utils";
+import type { AnimatableValue } from "@semio/data";
 import { useAnimationStore } from "../hooks";
 import {
   AnimatableControl,

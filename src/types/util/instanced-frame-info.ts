@@ -1,4 +1,4 @@
-import { RawValue } from "@semio/utils";
+import { RawValue } from "@semio/data";
 import type { AuthoredTransition, TransitionPairing } from "../data/keypoint";
 import { SourceRowData } from "./source";
 

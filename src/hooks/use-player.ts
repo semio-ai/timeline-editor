@@ -1,5 +1,5 @@
 import { useStore } from "zustand";
-import type { PlayerActions, PlayerData } from "@semio/utils";
+import type { PlayerActions, PlayerData } from "../player/player-store";
 import { useAnimationStore } from "./use-animation-store";
 
 /**

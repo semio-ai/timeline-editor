@@ -1,4 +1,4 @@
-import type { RawValue } from "@semio/utils";
+import type { RawValue } from "@semio/data";
 import type { Track, InstancedFrameInfo, SourceRow, Keypoint } from "../types";
 import { StandardTransitionType } from "../types";
 

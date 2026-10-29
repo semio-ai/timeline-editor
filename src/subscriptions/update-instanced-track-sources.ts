@@ -1,4 +1,4 @@
-import { namespaceEntity } from "@semio/utils";
+import { namespaceEntity } from "@semio/data";
 import { isEqual } from "lodash";
 import type {
   AnimationApi,

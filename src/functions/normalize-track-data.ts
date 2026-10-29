@@ -1,10 +1,10 @@
-import { AnimatableGroupType } from "@semio/utils";
+import { AnimatableGroupType } from "@semio/data";
 import type {
   AnimatableValue,
   AnimatableGroupInfo,
   DeprecatedComplexAnimatableValue,
   RawValue,
-} from "@semio/utils";
+} from "@semio/data";
 import type { Animation, Track } from "../types";
 import { COMPLEX_TYPES, TYPE_FIELDS } from "../constants";
 import { flattenCompositeTracks } from "./flatten-tracks";

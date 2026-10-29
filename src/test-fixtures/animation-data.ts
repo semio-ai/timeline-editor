@@ -1,4 +1,4 @@
-import type { RawValue, AnimatableValue, DeprecatedComplexAnimatableValue } from "@semio/utils";
+import type { RawValue, AnimatableValue, DeprecatedComplexAnimatableValue } from "@semio/data";
 import type { Track, Namespace, StoredAnimation } from "../types";
 import { TransitionPairing } from "../types/data/keypoint";
 

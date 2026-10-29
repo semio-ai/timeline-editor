@@ -12,7 +12,7 @@ vi.mock("../../hooks/use-animation-store", () => ({
   }),
 }));
 vi.mock("../../hooks/use-player", async () => {
-  const { usePlayerStore } = await import("@semio/utils");
+  const { usePlayerStore } = await import("../../player/player-store");
   return { usePlayer: usePlayerStore };
 });
 vi.mock("../../hooks/use-active-animation-id", () => ({ useActiveAnimationId: () => null }));

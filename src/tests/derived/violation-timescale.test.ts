@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { RawValue } from "@semio/utils";
+import { RawValue } from "@semio/data";
 import { buildDerivedSnapshot, rawValueDiff, rawValueNorm } from "../../functions";
 import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
 import { curveOf } from "../curves";

@@ -39,7 +39,7 @@ vi.mock("../../hooks", () => ({
 }));
 vi.mock("../../hooks/use-track-value-reader", () => ({ useTrackValueReader: () => () => undefined }));
 vi.mock("../../hooks/use-player", async () => {
-  const { usePlayerStore } = await import("@semio/utils");
+  const { usePlayerStore } = await import("../../player/player-store");
   return { usePlayer: usePlayerStore };
 });
 vi.mock("../../components/key-strip", () => ({ KeyStrip: () => null }));

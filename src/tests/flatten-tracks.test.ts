@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DeprecatedComplexAnimatableValue, RawVector3, RawValue } from "@semio/utils";
+import type { DeprecatedComplexAnimatableValue, RawVector3, RawValue } from "@semio/data";
 import type { Track } from "../types";
 import { flattenCompositeTracks } from "../functions/flatten-tracks";
 

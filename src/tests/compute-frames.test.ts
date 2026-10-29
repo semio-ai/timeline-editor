@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RawValue } from "@semio/utils";
+import type { RawValue } from "@semio/data";
 import { LayerBand, type SourceRow, type Track } from "../types";
 import { computeFrames } from "../functions/compute-frames";
 

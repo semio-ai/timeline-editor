@@ -10,7 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { namespaceEntity } from "@semio/utils";
+import { namespaceEntity } from "@semio/data";
 import {
   INSTANCE_IDS,
   NAMESPACE_IDS,

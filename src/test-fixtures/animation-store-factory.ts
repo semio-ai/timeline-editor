@@ -1,4 +1,4 @@
-import { AnimatableValue, DeprecatedComplexAnimatableValue, namespaceEntity } from "@semio/utils";
+import { AnimatableValue, DeprecatedComplexAnimatableValue, namespaceEntity } from "@semio/data";
 import { TimeDisplay } from "@semio/ui";
 import {
   type Namespace,

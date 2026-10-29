@@ -12,7 +12,7 @@ and motion primitives it's built from. Rendered with
 npm install @semio/animation
 ```
 
-Brings `@semio/ui` and `@semio/utils`
+Brings `@semio/ui`, `@semio/utils` and `@semio/data`
 along as dependencies.
 
 ## Usage
@@ -22,7 +22,7 @@ The host hands the sheet three things:
 - **the animation store** (`AnimationContext`), created with the player the
   timeline shows and commands (`createAnimationStore({ playerStore })`; one
   created without one has a player of its own);
-- **the values store** (`DataStoreContext` from `@semio/utils`), Arora's data
+- **the values store** (`DataStoreContext` from `@semio/data`), Arora's data
   store interface, which the direct controls read;
 - **an evaluator** (`trackEvaluator` on the store), whose `compile(trackJson)`
   returns a `CompiledCurve` with batched values and velocities. Studio injects
@@ -52,6 +52,25 @@ and velocities from one `numbers` batch. A cache compiles a track once
 per evaluator (a frozen track found again by identity, any other by its document)
 and frees its compiled resource on eviction. Without an
 evaluator, rows draw authored Béziers and have no readouts or violations.
+
+## Playback
+
+`usePlayerStore` holds the shared transport state under `s.player` (`stamp`,
+`running`, `duration`, all in **milliseconds**). A store created without a
+`playerStore` has a player of its own.
+
+```ts
+import { usePlayerStore } from "@semio/animation";
+
+// Read transport state in a component (state lives under `s.player`)
+const stamp = usePlayerStore((s) => s.player.stamp); // milliseconds
+const running = usePlayerStore((s) => s.player.running);
+
+// Drive playback via store actions
+usePlayerStore.getState().playPlayer();
+usePlayerStore.getState().pausePlayer();
+usePlayerStore.getState().resetPlayer(2500); // jump to t = 2500ms
+```
 
 ## Animation content
 
@@ -179,7 +198,7 @@ MIT
 The [animation engine reference](conformance/README.md) contains deterministic
 v2 JSON cases, exact samples and world velocities for a replacement engine.
 Regenerate from the root with
-`npm run conformance:generate --workspace=@semio/animation` after building utils.
+`npm run conformance:generate --workspace=@semio/animation` after building utils and data.
 Stored animations with unknown format versions are refused before migration or
 editing; newer versions ask the person to reload Studio.
 

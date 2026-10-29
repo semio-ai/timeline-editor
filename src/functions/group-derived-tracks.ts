@@ -1,4 +1,4 @@
-import type { AnimatableValue, DeprecatedComplexAnimatableValue, RawValue } from "@semio/utils";
+import type { AnimatableValue, DeprecatedComplexAnimatableValue, RawValue } from "@semio/data";
 import type { Track } from "../types";
 
 type AnimatableValueLike = AnimatableValue | DeprecatedComplexAnimatableValue;

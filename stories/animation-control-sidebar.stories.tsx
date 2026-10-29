@@ -13,7 +13,7 @@ import {
 import { testTrackEvaluator } from "@semio/animation";
 
 /** Studio evaluates through @semio/studio-arora; stories use the test evaluator. */
-import { createValuesStore, DataStoreContext, valuesDataStore } from "@semio/utils";
+import { createValuesStore, DataStoreContext, valuesDataStore } from "@semio/data";
 
 const meta = {
   title: "animation/ControlSidebarPreview",

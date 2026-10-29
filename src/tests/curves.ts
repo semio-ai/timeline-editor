@@ -1,4 +1,4 @@
-import type { RawValue } from "@semio/utils";
+import type { RawValue } from "@semio/data";
 import { trackCurve, type TrackCurve } from "../functions/track-curve";
 import type { Animation, Track } from "../types";
 import type { SimpleTrack } from "../types/data/simple-track";

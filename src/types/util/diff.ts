@@ -10,7 +10,7 @@
  * These types are declarative and id-scoped to avoid structural replacement thrash. Implementation
  * is still in progress; this file documents the intended shape.
  */
-import type { RawValue } from "@semio/utils";
+import type { RawValue } from "@semio/data";
 import type { Keypoint, TransitionPairing } from "../data/keypoint";
 import type { EndpointTransitions } from "./segment-geometry";
 

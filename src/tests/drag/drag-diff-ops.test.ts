@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RawValue } from "@semio/utils";
+import type { RawValue } from "@semio/data";
 import type { DragState, SelectionState, Track } from "../../types";
 import { applyTrackDiffOpsToTrack, computeDragDiffOps } from "../../functions/drag-diff-ops";
 import {

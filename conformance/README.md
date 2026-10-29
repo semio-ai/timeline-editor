@@ -74,7 +74,7 @@ set is under 5 MB. Filenames identify the animation and speed.
 From the repository root (dependencies installed):
 
 ```sh
-npx turbo run build --filter=@semio/utils
+npx turbo run build --filter=@semio/utils --filter=@semio/data
 npm run conformance:generate --workspace=@semio/animation
 ```
 

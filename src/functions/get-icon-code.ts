@@ -1,4 +1,5 @@
-import { unitDisplay, type AnimatableValue } from "@semio/utils";
+import { unitDisplay } from "@semio/utils";
+import { type AnimatableValue } from "@semio/data";
 
 export function getIconCode(
   animatableType:

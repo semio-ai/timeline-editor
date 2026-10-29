@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import type { AnimatableValue } from "@semio/utils";
+import type { AnimatableValue } from "@semio/data";
 import { AnimatableEditor } from "../components/animatable-editor";
 import { AnimationContext } from "../context";
 import { createAnimationStore } from "../store";

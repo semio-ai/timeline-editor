@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { AnimatableValue, RawValue } from "@semio/utils";
+import type { AnimatableValue, RawValue } from "@semio/data";
 import { computeVerticalBounds } from "../functions/compute-vertical-bounds";
 import type { SourceRow, Track } from "../types";
 

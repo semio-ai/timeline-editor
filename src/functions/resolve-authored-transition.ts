@@ -1,4 +1,4 @@
-import type { RawVector2 } from "@semio/utils";
+import type { RawVector2 } from "@semio/data";
 import { StandardTransitionType, TransitionDirective } from "../types";
 
 const STANDARD_TRANSITION_VALUES = new Set<string>(Object.values(StandardTransitionType));

@@ -1,4 +1,4 @@
-import type { AnimatableValue, DeprecatedComplexAnimatableValue, RawValue } from "@semio/utils";
+import type { AnimatableValue, DeprecatedComplexAnimatableValue, RawValue } from "@semio/data";
 import cloneDeep from "lodash/cloneDeep";
 import type { Track } from "../types";
 import { COMPLEX_TYPES, TYPE_FIELDS } from "../constants";

@@ -1,4 +1,4 @@
-import { RawValue, AnimatableValue } from "@semio/utils";
+import { RawValue, AnimatableValue } from "@semio/data";
 import { TimeDisplay } from "@semio/ui";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce, enableMapSet } from "immer";

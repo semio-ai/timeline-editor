@@ -1,4 +1,4 @@
-import { type RawValue } from "@semio/utils";
+import { type RawValue } from "@semio/data";
 
 /** Interpolators for a track value and its derivative. */
 export interface ValueAndDerivativeInterpolators {

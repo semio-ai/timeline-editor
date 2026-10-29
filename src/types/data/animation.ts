@@ -1,4 +1,4 @@
-import { RawValue } from "@semio/utils";
+import { RawValue } from "@semio/data";
 import type { Track } from "./track";
 import type { TrackGroup } from "./track-group";
 

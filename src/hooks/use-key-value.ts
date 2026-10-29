@@ -1,5 +1,5 @@
 import { useCallback, useSyncExternalStore } from "react";
-import { fromTaggedValue, useDataStore, watchKey, type ScalarValue } from "@semio/utils";
+import { fromTaggedValue, useDataStore, watchKey, type ScalarValue } from "@semio/data";
 
 /**
  * The scalar `key` holds in the injected `DataStore`, `fallback` while it

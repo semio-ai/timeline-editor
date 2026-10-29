@@ -1,4 +1,4 @@
-import { namespaceEntity } from "@semio/utils";
+import { namespaceEntity } from "@semio/data";
 import { shallow } from "zustand/shallow";
 import type {
   ActiveEntityContext,

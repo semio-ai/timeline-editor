@@ -1,4 +1,4 @@
-import { namespaceEntity } from "@semio/utils";
+import { namespaceEntity } from "@semio/data";
 import type { EntityAnimationState } from "../store-types";
 
 /**

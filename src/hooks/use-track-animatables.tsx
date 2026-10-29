@@ -1,5 +1,5 @@
 import { useContext, createContext, ReactNode, useMemo } from "react";
-import { AnimatableValue } from "@semio/utils";
+import { AnimatableValue } from "@semio/data";
 import { useShallow } from "zustand/shallow";
 import { useAnimationStore } from "./use-animation-store";
 

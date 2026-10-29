@@ -10,10 +10,9 @@ import {
   withSpeed,
   withDirection,
   reversed,
-  withDuration,
   withBounce,
   withLooping,
-} from "./player";
+} from "../player/player";
 
 describe("Player", () => {
   let player: Player;
@@ -217,13 +216,6 @@ describe("Player", () => {
     it("sets new bounds", () => {
       const boundedPlayer = withBounds(player, [1000, 4000]);
       expect(boundedPlayer.bounds).toEqual([1000, 4000]);
-    });
-  });
-
-  describe("withDuration", () => {
-    it("sets new duration", () => {
-      const durationPlayer = withDuration(player, 5000);
-      expect(durationPlayer.duration).toBe(5000);
     });
   });
 

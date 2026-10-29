@@ -1,4 +1,4 @@
-import { runtimeInputKey } from "@semio/utils";
+import { runtimeInputKey } from "@semio/data";
 import type { AnimationData } from "../store-types";
 import type { SimpleTrack } from "../types/data/simple-track";
 import { COMPLEX_TYPES } from "../constants";

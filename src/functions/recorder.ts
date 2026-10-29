@@ -1,4 +1,4 @@
-import { fromTaggedValue, type ScalarValue, type StateChange } from "@semio/utils";
+import { fromTaggedValue, type ScalarValue, type StateChange } from "@semio/data";
 import type { RecordedKey, RecordedPoint, RecordedTrack } from "../types/data/recorded-track";
 
 /** The key under every device where its Arora runtime publishes its clock, in nanoseconds. */

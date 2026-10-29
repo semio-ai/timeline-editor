@@ -77,7 +77,7 @@ clip length.
 A track animates an animatable of the entity's model, `animatableId`, or an
 input the entity's runtime declares beyond the model, which `inputKey` names by
 its key (`fan.target_value`, `speaker/gain`). Such a track's `animatableId` is
-`runtimeInputId(inputKey)` (`@semio/utils`), the id under which the host keeps
+`runtimeInputId(inputKey)` (`@semio/data`), the id under which the host keeps
 the input's record among the animatables, so its rows, curves and controls are
 an animatable's; `createTrack` sets `inputKey` for a track created on such an
 id. It plays on an entity whose runtime declares the key, and nowhere else.

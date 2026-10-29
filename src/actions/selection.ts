@@ -1,4 +1,4 @@
-import { namespaceEntity } from "@semio/utils";
+import { namespaceEntity } from "@semio/data";
 import { produce } from "immer";
 import { uniq } from "lodash";
 import { createEmptySelectionState } from "../functions/selection-state-manager";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RawVector2 } from "@semio/utils";
+import type { RawVector2 } from "@semio/data";
 import { TRACK_IDS, createTestAnimationStore } from "../../test-fixtures/animation-store-factory";
 import { TransitionPairing } from "../../types";
 

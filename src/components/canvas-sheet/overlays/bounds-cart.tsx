@@ -2,12 +2,13 @@ import { Theme } from "@semio/ui";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useShallow } from "zustand/react/shallow";
-import { closestFrame, PlayerData } from "@semio/utils";
+import { closestFrame } from "@semio/utils";
 import { useMotionValue, useSpring, useTransform, useMotionValueEvent } from "motion/react";
 import { useCursor } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { isOrthographicCamera } from "@semio/utils";
 import { shallow } from "zustand/shallow";
+import { PlayerData } from "../../../player/player-store";
 import { DynamicRoundedRect } from "../shared/rounded-rectangle-geometry";
 import { useTriangleCaretGeometry } from "../shared/triangle-caret";
 import {

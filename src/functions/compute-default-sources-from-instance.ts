@@ -1,4 +1,4 @@
-import { RawValue, AnimatableValue, AnimatableGroupType } from "@semio/utils";
+import { RawValue, AnimatableValue, AnimatableGroupType } from "@semio/data";
 import { GROUP_TYPES } from "../constants";
 import { Animation, AnimationInstance, Source, SourceGroup, SourceTrack, Track } from "../types";
 import type { TrackGroup } from "../types/data/track-group";

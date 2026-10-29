@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RawVector2 } from "@semio/utils";
+import type { RawVector2 } from "@semio/data";
 import {
   createTestAnimationStore,
   TRACK_IDS,

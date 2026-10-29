@@ -5,6 +5,8 @@ import {
   instanceOfRawEuler,
   instanceOfRawRGB,
   instanceOfRawHSL,
+} from "@semio/data";
+import {
   eulerRotationBetween,
   eulerSlerp,
   rotationMatrixToAngle,

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect } from "react";
-import type { PlayerData } from "@semio/utils";
+import type { PlayerData } from "../player/player-store";
 import { useAnimationStore } from "./use-animation-store";
 
 /**

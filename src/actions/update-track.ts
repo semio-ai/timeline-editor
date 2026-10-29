@@ -1,4 +1,4 @@
-import { RawValue } from "@semio/utils";
+import { RawValue } from "@semio/data";
 import type { AnimationData } from "../store-types";
 import type { Track } from "../types";
 

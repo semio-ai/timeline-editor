@@ -1,5 +1,5 @@
-import { AnimatableGroupType } from "@semio/utils";
-import type { AnimatableValue, DeprecatedComplexAnimatableValue, RawValue } from "@semio/utils";
+import { AnimatableGroupType } from "@semio/data";
+import type { AnimatableValue, DeprecatedComplexAnimatableValue, RawValue } from "@semio/data";
 import type { StoredAnimation, Track } from "../types";
 import { COMPLEX_TYPES, TYPE_FIELDS } from "../constants";
 import { readStoredAnimation } from "./stored-animation-format";

@@ -1,4 +1,4 @@
-import type { RawValue } from "@semio/utils";
+import type { RawValue } from "@semio/data";
 import isEqual from "lodash/isEqual";
 import type { Keypoint, Track, DragState, SelectionState } from "../types";
 import type { SelectionCleanup, TrackDiffOp } from "../types/util/diff";

@@ -1,5 +1,5 @@
 import { TimeDisplay } from "@semio/ui";
-import { createPlayerStore } from "@semio/utils";
+import { createPlayerStore } from "../player/player-store";
 import {
   AnimationData,
   ControlStripMode,

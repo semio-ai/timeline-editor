@@ -1,7 +1,7 @@
 import { clsx } from "clsx";
 import { Icon, Select, Size, ToggleSquare, Variant } from "@semio/ui";
-import { PlayerDirection } from "@semio/utils";
 import { useShallow } from "zustand/shallow";
+import { PlayerDirection } from "../player/player";
 import { usePlayer } from "../hooks/use-player";
 import { PLAYBACK_SPEED_OPTIONS } from "./playback-speed-options";
 

@@ -1,4 +1,4 @@
-import type { RawValue } from "@semio/utils";
+import type { RawValue } from "@semio/data";
 import type { Keypoint } from "../types";
 
 export type TransitionValue = NonNullable<Keypoint<RawValue>["transitions"]>["in"];

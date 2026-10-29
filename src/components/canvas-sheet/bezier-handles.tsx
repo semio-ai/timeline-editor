@@ -4,7 +4,7 @@ import { useThree } from "@react-three/fiber";
 import { Camera, Group, Mesh, Vector3 } from "three";
 import { useMotionValueEvent, useSpring } from "motion/react";
 import { Theme } from "@semio/ui";
-import type { RawVector2 } from "@semio/utils";
+import type { RawVector2 } from "@semio/data";
 import { isOrthographicCamera } from "@semio/utils";
 import {
   LayerBand,

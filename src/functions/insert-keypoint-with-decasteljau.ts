@@ -31,7 +31,7 @@ import {
   RawValue,
   RawVector2,
   RawVector3,
-} from "@semio/utils";
+} from "@semio/data";
 import {
   type Keypoint,
   type Track,

@@ -18,7 +18,8 @@ import { useFrame } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { uniq } from "lodash";
-import { isOrthographicCamera, namespaceEntity } from "@semio/utils";
+import { isOrthographicCamera } from "@semio/utils";
+import { namespaceEntity } from "@semio/data";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import {
   buildFilteredSourceRowId,

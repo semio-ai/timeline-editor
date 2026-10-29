@@ -1,6 +1,6 @@
 import { MotionValue, useMotionValue } from "motion/react";
-import { PlayerData } from "@semio/utils";
 import { shallow } from "zustand/shallow";
+import { PlayerData } from "../player/player-store";
 import { useLayoutPlayerSubscription } from "./use-player-subscription";
 
 /**

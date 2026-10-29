@@ -1,4 +1,4 @@
-import type { RawValue } from "@semio/utils";
+import type { RawValue } from "@semio/data";
 import type { Namespace, Source, Track } from "../types";
 import { parseTrackKey } from "../utils/track-key";
 import { computeVisibleSourceTracks } from "./compute-visible-source-tracks";

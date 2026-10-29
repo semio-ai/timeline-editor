@@ -28,6 +28,6 @@ export {
   type ContextConfig,
   type ContextSolutionConfig,
   type OptionalContextProps,
-} from "@semio/utils";
+} from "@semio/ui";
 
 export { type WithTooltipContextProps } from "@semio/ui";

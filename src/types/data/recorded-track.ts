@@ -1,4 +1,4 @@
-import type { ScalarValue } from "@semio/utils";
+import type { ScalarValue } from "@semio/data";
 
 /** A key of one device, as a recording names it. */
 export interface RecordedKey {

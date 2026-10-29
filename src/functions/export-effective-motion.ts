@@ -1,4 +1,4 @@
-import type { AnimatableValue, RawValue } from "@semio/utils";
+import type { AnimatableValue, RawValue } from "@semio/data";
 import type { Animation, Track } from "../types";
 import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
 
