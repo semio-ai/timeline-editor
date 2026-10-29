@@ -12,7 +12,7 @@ because a consumer of the published package has no copy of the source repository
 and a notice that points outward attributes nothing.
 
 Maintainers — this statement is duplicated elsewhere in the source repository
-(https://github.com/semio-ai/semio_studio), and THIRD-PARTY-NOTICES.md at its root
+(https://github.com/semio-ai/studio), and THIRD-PARTY-NOTICES.md at its root
 indexes every copy. Edit them together, because an attribution obligation is
 satisfied by the stated form and not by a paraphrase of it.
 
