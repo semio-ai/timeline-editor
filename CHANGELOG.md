@@ -1,5 +1,20 @@
 # @semio/animation
 
+## 0.6.0
+
+### Minor Changes
+
+- 87f9c41: Reads values through `DataStoreContext` from `@semio/data`, and exports the animation player it plays through: `Player`, `PlayerDirection`, `newPlayer`, `usePlayerStore`, `PlayerStore`, `PlayerData`, `PlayerActions`, `PlayerSlice` and `PlayerStoreSetter`, which `@semio/utils` no longer carries. The values store it re-exports (`useValuesStore`, `mergeValueMaps`, `ValuesStore`, `ValuesData`, `ValuesActions`) now comes from `@semio/data`, and its React context helpers from `@semio/ui`; all keep their names.
+
+  **Migration.** `@semio/data`'s `DataStoreContext` is a different React context from the one `@semio/utils` 0.5 exported, so a host injects its store with `@semio/data`'s `DataStoreContext.Provider`; a direct control rendered under only the `@semio/utils` provider throws. `useValuesStore` and `usePlayerStore` are likewise their own instances: a host that writes values or drives playback through them imports `useValuesStore` from `@semio/data` (or this package's re-export) and `usePlayerStore` from this package.
+
+### Patch Changes
+
+- Updated dependencies [87f9c41]
+- Updated dependencies [87f9c41]
+  - @semio/data@0.1.0
+  - @semio/utils@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes
