@@ -1,7 +1,7 @@
 @semio/animation — Third-Party Notices
 ======================================
 
-@semio/animation is MIT licensed; see the LICENSE file in this package.
+@semio/animation is Apache-2.0 licensed; see the LICENSE file in this package.
 
 Its icon registry renders components from `@solar-icons/react-perf`, which arrive
 with that dependency rather than being copied into this package's `dist`, and
@@ -11,10 +11,10 @@ permission — so the attributions and permission texts are reproduced here in f
 because a consumer of the published package has no copy of the source repository
 and a notice that points outward attributes nothing.
 
-Maintainers — this statement is duplicated elsewhere in the source repository
-(https://github.com/semio-ai/studio), and THIRD-PARTY-NOTICES.md at its root
-indexes every copy. Edit them together, because an attribution obligation is
-satisfied by the stated form and not by a paraphrase of it.
+Maintainers — this statement is kept in Studio's THIRD-PARTY-NOTICES.md
+(https://github.com/semio-ai/studio) and in the NOTICE of each sibling library
+named there. Edit them together, because an attribution obligation is satisfied
+by the stated form and not by a paraphrase of it.
 
 ## Icons
 

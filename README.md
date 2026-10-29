@@ -17,21 +17,25 @@ along as dependencies.
 
 ## Development and Storybook
 
-From this package's root:
+Semio Studio mounts this repository as a git submodule at `packages/animation` and develops it
+from source there. Run these commands from this package's root in either checkout:
 
 ```sh
-npm install
+npm ci
 npm run storybook        # http://localhost:6008
 npm run build-storybook  # storybook-static/
 npm run typecheck
 npm run lint
 npm run test
+npm run test:release
+npm run build
 ```
 
-Package-root tests use the existing `dist` exports of `@semio/utils`, `@semio/data` and `@semio/ui`.
-In a Studio checkout, edits to those siblings are visible only after rebuilding
-them. Run `npx turbo run test:unit --filter=@semio/animation` from Studio's root
-to build the siblings before testing.
+Package-root checks use the existing `dist` exports of `@semio/utils`, `@semio/data` and `@semio/ui`.
+In a standalone clone, npm installs those builds. Inside Studio, build the linked
+siblings first so checks use their latest edits. From Studio's root, run
+`npx turbo run lint typecheck test:unit build --filter=@semio/animation` to build
+dependencies before running the package's checks and reuse cached builds.
 
 Stories live in `stories/`; `.storybook/` supplies the light/dark toolbar and the
 library's default theme. Storybook aliases only `@semio/animation` to `src/index.tsx`.
@@ -41,6 +45,11 @@ first: from Studio's root, `npx turbo run storybook --filter=@semio/animation` o
 `npx turbo run build-storybook --filter=@semio/animation` does that automatically
 and reuses cached builds. Stop the dev server with Ctrl-C before handoff.
 Storybook is separate from `npm run build`.
+
+A changeset for this library belongs in this repository's `.changeset/`. Inside Studio's
+mount, the changesets CLI resolves to Studio's workspace root and writes into Studio's
+`.changeset/` instead, which Studio's CI rejects. There, write the file by hand under
+`packages/animation/.changeset/`, or run `npx changeset` from a standalone clone.
 
 ## Usage
 
@@ -216,10 +225,6 @@ function accepts the resulting runtime animation rather than a raw stored file.
 Toolbar sections use the shared UI `toolbar-segments` style for 2px gaps, square
 shared edges and rounded exposed ends. Section outlines remain on the group.
 
-## License
-
-MIT
-
 ## Engine conformance
 
 The [animation engine reference](conformance/README.md) contains deterministic
@@ -232,3 +237,32 @@ editing; newer versions ask the person to reload Studio.
 
 `@semio/animation/format` exposes the version classifier, refusal error and guard
 without initializing the editor store or loading its UI.
+
+## Releasing
+
+Add a changeset for each pull request that changes the published package. Changesets opens
+a Version Packages PR for the next version. Staging does not wait for that PR: every main
+run stages the current version when npm has not published it and neither `staged/v<version>`
+nor `v<version>` exists on origin, even with pending changesets.
+
+The build uses the version commit: the latest first-parent commit on main changing the
+`package.json` version line, whose version must match the current version. A merge commit
+merging a Version PR counts as that commit. Its own worktree and `npm ci` keep later code
+and Changesets branch handling out of the build. Successful staging creates an annotated
+`staged/v<version>` there. A maintainer approves it with 2FA on npmjs.com → package → Staged
+Packages, or with `npm stage approve <id>`. The next run validates each marker's ancestry
+on main and package version, tags `v<version>` at its commit after npm reports publication,
+and deletes the marker. An unapproved annotated marker older than seven days warns with
+approval or cleanup instructions. A published current version missing both tags gets its
+`v<version>` at the version commit, including when the marker push failed.
+
+Runs happen daily, on main pushes, or by manual dispatch on main. GitHub disables public
+schedules after 60 days without activity; after that, use a main push or dispatch.
+
+A rejected version may not be stageable again under the same number; npm's documentation
+does not say. Restage by bumping the version with another changeset, and delete the rejected
+version's `staged/v<version>` tag from origin.
+
+## License
+
+Apache-2.0

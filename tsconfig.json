@@ -1,10 +1,42 @@
 {
-  "extends": "@semio/typescript-config/react-library.json",
-  "include": [".", ".storybook/manager.ts", ".storybook/preview.tsx"],
-  "exclude": ["dist", "build", "node_modules", "storybook-static"],
   "compilerOptions": {
+    "composite": false,
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "inlineSources": false,
+    "isolatedModules": true,
+    "moduleResolution": "bundler",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "preserveWatchOutput": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "lib": [
+      "ESNext.Array",
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ],
+    "module": "ESNext",
+    "target": "ESNext",
+    "jsx": "react-jsx",
     "paths": {
-      "@semio/animation": ["./src/index.tsx"]
+      "@semio/animation": [
+        "./src/index.tsx"
+      ]
     }
-  }
+  },
+  "include": [
+    ".",
+    ".storybook/manager.ts",
+    ".storybook/preview.tsx"
+  ],
+  "exclude": [
+    "dist",
+    "build",
+    "node_modules",
+    "storybook-static"
+  ]
 }
