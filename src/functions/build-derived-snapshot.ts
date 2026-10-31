@@ -60,6 +60,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
     shouldPreview && inputs.dragState
       ? {
           trackViews: new Map<TrackKey, ProjectedTrackView>(),
+          viewsByTrackId: new Map<string, ProjectedTrackView>(),
           pendingDiffsByTrackId: new Map<string, TrackDiffOp[]>(),
           selectionCleanups: [] as SelectionCleanup[],
           draggedTrackIds: draggedTrackIds ?? new Set<string>(),
@@ -180,6 +181,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
             context.animatable,
           );
       target.preview = {
+        track: previewTrack,
         curve: previewCurve ?? noCurve,
         violations: previewViolations,
       };

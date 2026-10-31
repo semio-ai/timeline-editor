@@ -117,6 +117,45 @@ describe("values drag preview behavior", () => {
     expect(actual).not.toBeCloseTo(canonical);
   });
 
+  it("carries the dragged track as the commit writes it", async () => {
+    const state = store.getState();
+    const [rowId, sourceRow] =
+      Object.entries(state.instancedTrackSources).find(([, row]) =>
+        row.data.some((entry) => entry.trackId === TRACK_IDS.SCALE),
+      ) ?? [];
+    const markerFrame = rowId
+      ? state.derivedSnapshot?.rows?.[rowId]?.computed?.selection?.find((frame) =>
+          frame.points.some((point) => point.markerId === "s1"),
+        )
+      : undefined;
+    if (!rowId || !sourceRow || !markerFrame) {
+      throw new Error("Marker frame not found for drag preview test");
+    }
+    clickMarkerWith(store, rowId, markerFrame.id);
+    store.getState().startDrag({ axis: "vertical", markerId: markerFrame.id, rowId });
+    store.getState().updateDrag({
+      normalizedValueDelta: 0.1,
+      modifiers: { alt: false, shift: false, meta: false },
+    });
+    await flushMicrotasks();
+
+    const datum = sourceRow.data.find((entry) => entry.trackId === TRACK_IDS.SCALE)!;
+    const trackKey = buildTrackKey(datum.namespaceId, datum.instanceId, TRACK_IDS.SCALE);
+    const previewed = store.getState().derivedSnapshot?.tracks[trackKey]?.preview?.track;
+    expect(previewed?.id).toBe(TRACK_IDS.SCALE);
+    // The stored track is untouched while the drag lasts.
+    expect(store.getState().tracks[TRACK_IDS.SCALE].points[1].value).toBe(1);
+    expect(previewed?.points[1].value).not.toBe(1);
+
+    store.getState().commitDrag();
+    await flushMicrotasks();
+
+    const committed = store.getState().tracks[TRACK_IDS.SCALE].points;
+    expect(committed.map(({ id, stamp, value }) => ({ id, stamp, value }))).toEqual(
+      previewed!.points.map(({ id, stamp, value }) => ({ id, stamp, value })),
+    );
+  });
+
   it("reads preview values for timescaled instances while dragging", async () => {
     const storeWithInstances = createTestAnimationStore({
       trackEvaluator: testTrackEvaluator,
