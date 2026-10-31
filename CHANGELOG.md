@@ -1,5 +1,15 @@
 # @semio/timeline-editor
 
+## 0.7.0
+
+### Minor Changes
+
+- 0949885: Published as `@semio/timeline-editor`; versions up to 0.6.0 were published as `@semio/animation`, and consumers change their dependency and imports to the new name.
+
+### Patch Changes
+
+- 589de41: Licensed under Apache-2.0 and released from its own repository.
+
 Versions up to 0.6.0 were published as `@semio/animation`.
 
 ## 0.6.0

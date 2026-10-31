@@ -1,7 +1,7 @@
 {
   "name": "@semio/timeline-editor",
   "description": "Higher-level visualization and editing components for interacting with assets.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/semio-ai/timeline-editor.git"
