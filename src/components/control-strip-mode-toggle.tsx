@@ -1,4 +1,5 @@
-import { Icon, KeyIcon, ToggleSquare, Size } from "@semio/ui";
+import { Icon, ToggleSquare, Size } from "@semio/ui";
+import { KeyIcon } from "../icons/glyphs";
 import { useAnimationStore } from "../hooks";
 import { ControlStripMode } from "../store-types";
 

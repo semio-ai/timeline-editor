@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { KeyIcon, NestedItem, NestedLabel, KeybindingHint } from "@semio/ui";
+import { NestedItem, NestedLabel, KeybindingHint } from "@semio/ui";
+import { KeyIcon } from "../../../icons/glyphs";
 import { AnimationAction } from "../../../keybindings";
 
 /**

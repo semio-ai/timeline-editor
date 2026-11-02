@@ -1,13 +1,13 @@
 import { ReactNode } from "react";
 import {
   Icon,
-  KeyIcon,
   NestedItem,
   NestedLabel,
   NestedSeparator,
   NestedColorPicker,
   KeybindingHint,
 } from "@semio/ui";
+import { KeyIcon } from "../../../icons/glyphs";
 import { AnimationAction } from "../../../keybindings";
 
 export interface TrackControlMenuProps {

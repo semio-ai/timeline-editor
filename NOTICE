@@ -5,7 +5,7 @@
 
 Its icon registry renders components from `@solar-icons/react-perf`, which arrive
 with that dependency rather than being copied into this package's `dist`, and
-glyphs from `@semio/ui`, including the vendored and supplied artwork listed below.
+glyphs from `@semio/ui` plus local vendored and supplied artwork listed below.
 Solar's artwork is CC BY 4.0 — an attribution requirement rather than a bare
 permission — so the attributions and permission texts are reproduced here in full,
 because a consumer of the published package has no copy of the source repository
@@ -26,7 +26,8 @@ by the stated form and not by a paraphrase of it.
   - keyboard letters `letter-c`, `letter-v`, `letter-x`, `letter-z` (the `key-c`, `key-v`, `key-x`, `key-z` roles), from Tabler `letter-c`, `letter-v`, `letter-x`, `letter-z`;
   - `arrow-big-up` (the `key-shift` role), from Tabler `arrow-big-up`;
   - `at` (the `email` role), from Tabler `at`;
-  - `bezier`, from Tabler `vector-bezier-2`.
+
+- **Editor geometry.** `bezier`, from Tabler `vector-bezier-2`, is compiled into `@semio/timeline-editor`'s `dist` (`src/icons/shared-glyphs.tsx`).
 
 ```
 MIT License
@@ -76,17 +77,20 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 **Vendored Solar artwork.** These `@semio/ui` glyphs copy Solar geometry into `@semio/ui`'s `dist` rather than rendering a package component. Source: <https://github.com/saoudi-h/solar-icons/tree/main/packages/core/svgs>.
 
-- LineDuotone `sidebar-open`, `sidebar-close`, `panels-top-left` and `videocamera-off` (`src/icons/sidebar-open.tsx`, `sidebar-close.tsx`, `panels-top-left.tsx`, `videocamera-off.tsx`).
+- LineDuotone `sidebar-open`, `sidebar-close` and `panels-top-left` (`src/icons/sidebar-open.tsx`, `sidebar-close.tsx`, `panels-top-left.tsx`).
 - `add-file` and `exclamation-mark`, from the catalogue SVGs (`src/icons/shared-glyphs.tsx`).
-- `hexagon`, adapted from BoxMinimalistic's outer contour without its internal edges (`src/icons/shared-glyphs.tsx`).
 
-**Modifications.** Rendered as React components at Semio's sizes, recoloured through `currentColor`; the `hexagon` adaptation above removes internal edges. Semio's own Solar-style glyphs are drawn to the same 24-unit grid and stroke weight.
+**Modifications.** Rendered as React components at Semio's sizes, recoloured through `currentColor`. Semio's own Solar-style glyphs are drawn to the same 24-unit grid and stroke weight.
 
 ### Supplied artwork — adapted Solar glyphs and original Semio artwork
 
 These `@semio/ui` glyphs render SVG artwork supplied to the project, with its geometry, transforms and opacity preserved and colours inheriting `currentColor`:
 
-`robot`, `folder-open`, `folder-closed`, `box-plus`, `hand`, `user`, `moon`, `sun-moon`, `replace`, `rotate-3d`, `data-binary`, `save`, `time-display-milliseconds`, `time-display-seconds`, `time-display-frames`, `time-display-seconds-frames`, `time-display-ticks`, `sort-updated`, `sphere`.
+`folder-open`, `folder-closed`, `user`, `moon`, `sun-moon`, `replace`, `save`, `sort-updated`.
+
+These `@semio/timeline-editor` glyphs render supplied artwork with the same geometry, transforms, opacity and `currentColor` treatment, compiled into this package's `dist`:
+
+`rotate-3d`, `data-binary`, `time-display-milliseconds`, `time-display-seconds`, `time-display-frames`, `time-display-seconds-frames`, `time-display-ticks`.
 
 Each glyph in this set is one of two things:
 

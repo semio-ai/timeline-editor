@@ -1,4 +1,5 @@
-import { Button, Icon, type IconValue, KeyIcon, Tooltip } from "@semio/ui";
+import { Button, Icon, type IconValue, Tooltip } from "@semio/ui";
+import { KeyIcon } from "../../icons/glyphs";
 import { DEFAULT_COLOR } from "../../constants";
 
 export type ControlStripCenterIcon = "key" | "plus";

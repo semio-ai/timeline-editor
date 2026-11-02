@@ -40,7 +40,7 @@ This README is the source of truth for package architecture and current behavior
 `PLAYBACK_SPEED_OPTIONS` (`src/components/playback-speed-options.ts`). Each option's
 value is the string form of the store's multiplier, so the select matches it with
 `speed.toString()`. Each speed shows its multiplier glyph, `playback-<rate>` from
-`@semio/ui`'s default registry; the key keeps one decimal (`playback-1.0`) while the
+`animationIconRegistry`; the key keeps one decimal (`playback-1.0`) while the
 value does not (`"1"`).
 
 ## Clip document and persistence
@@ -146,12 +146,17 @@ Current status snapshot:
 ## Icons
 
 `animationIconRegistry` (`src/icons/registry.ts`) is the second of three registry
-layers. It inherits every `@semio/ui` key and adds only what the editor owns:
+layers. An `IconProvider` composes it over `@semio/ui`'s default registry with
+no overlapping keys. The editor owns its 41 timeline glyph keys and exports their
+components and prop types from `src/icons/glyphs.ts`, including `KeyIcon` and
+`IconHandleIndicator`. Local glyphs use ui's public `GlyphProps`; the internal
+`createGlyph` helper provides the shared SVG canvas. The package requires
+`@semio/ui ^0.6.0`. Its registry also provides:
 editor actions (`edit`, `menu`, `settings`, `delete`, `cut`, `paste`), playback
 (`playback-*`), data types (`data-*`), units (`unit-*`), timeline views (`view-*`)
 and easing (`transition-*`). Studio adds its own keys on top without redefining
-these, so a standalone consumer of this package renders the same editor artwork as
-Studio with no provider of its own. Shared roles such as `add`, `copy` and
+these. A standalone consumer supplies `animationIconRegistry` through
+`IconProvider` to render the same editor artwork as Studio. Shared roles such as `add`, `copy` and
 `remove` come from `@semio/ui`. How keys resolve and how a consumer overrides one is
 in the [UI icon registry guide](https://github.com/semio-ai/semio-ui/blob/main/docs/icon-registry.md).
 
@@ -169,8 +174,10 @@ Conventions the registry encodes:
 
 The registry uses `@solar-icons/react-perf` components directly, which is why that
 package is a dependency here. Solar artwork is by 480 Design under CC BY 4.0; this
-package's `NOTICE` carries the attributions and the list of vendored glyphs it
-renders through `@semio/ui`.
+package's `NOTICE` carries the attributions for local artwork and glyphs it
+renders through `@semio/ui`. Registry ownership and glyph prop contracts are
+covered by `src/tests/icon-ownership.test.tsx` and
+`src/tests/glyph-contract.test.tsx`.
 
 ## Shared animatable control properties
 
