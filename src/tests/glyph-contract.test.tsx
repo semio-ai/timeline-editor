@@ -1,7 +1,13 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Icon, IconProvider } from "@semio/ui";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { IconHandleIndicator } from "../icons/handle-indicator";
+import type { IconKeyProps } from "../icons/key";
 import { animationIconRegistry } from "../icons/registry";
+
+afterEach(cleanup);
 
 const propContracts = {
   width: (html: string) => expect(html).toContain('width="18px"'),
@@ -63,3 +69,112 @@ describe("state-controlled glyph opacity", () => {
     expect(html).toContain('fill-opacity="0.5"');
   });
 });
+
+describe.each(["key", "circle", "diamond", "indeterminate"] as const)(
+  "%s custom glyph contract",
+  (name) => {
+    function renderGlyph(props: IconKeyProps = {}) {
+      if (name === "key") {
+        return render(
+          <IconProvider registry={animationIconRegistry}>
+            <Icon {...props} name="key" size="none" />
+          </IconProvider>,
+        ).container.querySelector("svg")!;
+      }
+      return render(<IconHandleIndicator {...props} handle={name} />).container.querySelector(
+        "svg",
+      )!;
+    }
+
+    const contracts = {
+      accessibility: (svg: SVGSVGElement) => expect(svg.getAttribute("aria-label")).toBe("Example"),
+      ariaHidden: (svg: SVGSVGElement) => expect(svg.getAttribute("aria-hidden")).toBe("false"),
+      role: (svg: SVGSVGElement) => expect(svg.getAttribute("role")).toBe("img"),
+      nativeAttribute: (svg: SVGSVGElement) => expect(svg.getAttribute("tabindex")).toBe("0"),
+      dataAttribute: (svg: SVGSVGElement) => expect(svg.getAttribute("data-glyph")).toBe("example"),
+      title: (svg: SVGSVGElement) =>
+        expect(svg.querySelector("title")?.textContent).toBe("Accessible glyph"),
+      mirroring: (svg: SVGSVGElement) => expect(svg.getAttribute("transform")).toBe("scale(-1, 1)"),
+      defaultClass: (svg: SVGSVGElement) =>
+        expect(svg.getAttribute("class")).toContain("icon icon-tabler"),
+      callerClass: (svg: SVGSVGElement) => expect(svg.classList.contains("caller-icon")).toBe(true),
+      callerStyle: (svg: SVGSVGElement) => expect(svg.style.opacity).toBe("0.7"),
+      styleOverride: (svg: SVGSVGElement) => expect(svg.style.strokeLinecap).toBe("butt"),
+      defaultSize: (svg: SVGSVGElement) => expect(svg.getAttribute("width")).toBe("24"),
+      color: (svg: SVGSVGElement) =>
+        expect(svg.querySelector("path")?.getAttribute(name === "key" ? "fill" : "stroke")).toBe(
+          "rebeccapurple",
+        ),
+    };
+
+    it.each(Object.entries(contracts))("forwards %s", (_contract, check) => {
+      check(
+        renderGlyph({
+          "aria-label": "Example",
+          "aria-hidden": false,
+          role: "img",
+          tabIndex: 0,
+          ...{ "data-glyph": "example" },
+          alt: "Accessible glyph",
+          title: "Fallback title",
+          mirrored: true,
+          className: "caller-icon",
+          color: "rebeccapurple",
+          style: { opacity: 0.7, strokeLinecap: "butt" },
+        }),
+      );
+    });
+
+    it("forwards event handlers", () => {
+      const onClick = vi.fn();
+      fireEvent.click(renderGlyph({ onClick }));
+      expect(onClick).toHaveBeenCalledOnce();
+    });
+
+    it("uses title when alt is absent", () => {
+      expect(renderGlyph({ title: "Fallback title" }).querySelector("title")?.textContent).toBe(
+        "Fallback title",
+      );
+    });
+
+    it("keeps an empty alt silent", () => {
+      expect(renderGlyph({ alt: "", title: "Fallback title" }).querySelector("title")).toBeNull();
+    });
+
+    const ownAttributes = ["size", "color", "title", "alt", "mirrored", "fill-opacity"];
+    if (name === "key") ownAttributes.push("dashed", "center");
+    else ownAttributes.push("stroke", "handle");
+
+    it.each(ownAttributes)("consumes %s", (attribute) => {
+      const options: IconKeyProps = {
+        stroke: 4,
+        title: "Title",
+        alt: "Alt",
+        mirrored: true,
+        color: "red",
+        fillOpacity: 0.5,
+      };
+      if (name === "key") {
+        options.dashed = true;
+        options.center = "plus";
+      } else {
+        options.size = 30;
+      }
+      expect(renderGlyph(options).hasAttribute(attribute)).toBe(false);
+    });
+
+    if (name === "key") {
+      it("maps the stroke option to stroke width", () => {
+        expect(renderGlyph({ stroke: 4 }).getAttribute("stroke-width")).toBe("4");
+      });
+
+      it("uses color for the root stroke", () => {
+        expect(renderGlyph({ stroke: 4, color: "red" }).getAttribute("stroke")).toBe("red");
+      });
+    } else {
+      it("preserves unmodified default styles", () => {
+        expect(renderGlyph({ style: { opacity: 0.7 } }).style.fillRule).toBe("evenodd");
+      });
+    }
+  },
+);

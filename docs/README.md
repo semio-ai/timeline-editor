@@ -150,7 +150,10 @@ layers. An `IconProvider` composes it over `@semio/ui`'s default registry with
 no overlapping keys. The editor owns its 41 timeline glyph keys and exports their
 components and prop types from `src/icons/glyphs.ts`, including `KeyIcon` and
 `IconHandleIndicator`. Local glyphs use ui's public `GlyphProps`; the internal
-`createGlyph` helper provides the shared SVG canvas. The package requires
+`createGlyph` helper provides the shared SVG canvas. `IconKey` and every handle
+indicator variant forward native SVG props, merge caller classes and styles, and
+support `mirrored` and `alt` titles (falling back to `title` when `alt` is absent).
+Their own options are consumed before native props reach the SVG. The package requires
 `@semio/ui ^0.6.0`. Its registry also provides:
 editor actions (`edit`, `menu`, `settings`, `delete`, `cut`, `paste`), playback
 (`playback-*`), data types (`data-*`), units (`unit-*`), timeline views (`view-*`)
