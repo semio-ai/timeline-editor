@@ -65,6 +65,8 @@ interface RowComputationContext {
 
 export interface DragPreviewCache {
   trackViews: Map<TrackKey, ProjectedTrackView>;
+  /** The view of the first row holding each dragged stored track: every instance's view of it. */
+  viewsByTrackId: Map<string, ProjectedTrackView>;
   pendingDiffsByTrackId: Map<string, TrackDiffOp[]>;
   selectionCleanups: SelectionCleanup[];
   draggedTrackIds: Set<string>;
@@ -325,14 +327,28 @@ export function computeRowData(
     } as SourceRowData);
 
     if (usePreview && preview && previewCache) {
-      previewCache.trackViews.set(trackKey, {
-        trackKey,
-        trackId: datum.trackId,
-        points: projectedPoints,
-        framePoints,
-        appliedDiffs: preview.diffs,
-        selectionCleanup: preview.selectionCleanup,
-      });
+      // Rows can project one track differently: a dragged track other than the
+      // anchor scales a vertical drag by its row's value range. The commit
+      // replays the diffs of the first row that holds the stored track (below),
+      // so every instance's view of the track is that first row's too, and the
+      // snapshot's preview of the track is the one the commit writes. Each row
+      // still draws its own projection.
+      if (!previewCache.viewsByTrackId.has(datum.trackId)) {
+        previewCache.viewsByTrackId.set(datum.trackId, {
+          trackKey,
+          trackId: datum.trackId,
+          points: projectedPoints,
+          framePoints,
+          appliedDiffs: preview.diffs,
+          selectionCleanup: preview.selectionCleanup,
+        });
+      }
+      if (!previewCache.trackViews.has(trackKey)) {
+        previewCache.trackViews.set(trackKey, {
+          ...previewCache.viewsByTrackId.get(datum.trackId)!,
+          trackKey,
+        });
+      }
       if (!previewCache.pendingDiffsByTrackId.has(datum.trackId)) {
         previewCache.pendingDiffsByTrackId.set(datum.trackId, preview.diffs);
       }
