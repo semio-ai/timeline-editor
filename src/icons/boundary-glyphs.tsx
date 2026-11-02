@@ -1,5 +1,6 @@
 import { createElement, type CSSProperties } from "react";
-import { MovePlayerEndBounds, PlayerEndBounds, type IconComponent } from "@semio/ui";
+import { type IconComponent } from "@semio/ui";
+import { MovePlayerEndBounds, PlayerEndBounds } from "./glyphs";
 
 /**
  * Start-bound artwork carries its orientation without requiring a caller's CSS.

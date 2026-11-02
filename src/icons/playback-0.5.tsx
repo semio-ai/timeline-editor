@@ -1,0 +1,61 @@
+import { forwardRef, type ForwardRefExoticComponent, type RefAttributes } from "react";
+import type { GlyphProps as IconProps } from "@semio/ui";
+
+const Playback05x: ForwardRefExoticComponent<IconProps & RefAttributes<SVGSVGElement>> = forwardRef<
+  SVGSVGElement,
+  IconProps
+>((props, ref) => {
+  const { alt, color = "currentColor", size = "18px", mirrored = false, ...restProps } = props;
+
+  return (
+    <svg
+      ref={ref}
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      color={color}
+      fill="none"
+      fillRule="evenodd"
+      clipRule="evenodd"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeMiterlimit={1.5}
+      viewBox="0 0 24 24"
+      transform={mirrored ? "scale(-1, 1)" : undefined}
+      {...restProps}
+    >
+      {!!alt && <title>{alt}</title>}
+      <g transform="matrix(0.867199,0,0,0.867199,4.565437,1.369067)">
+        <path
+          d="M12.534,5.877L6,5.877L5.965,10.786C7.455,10.803 12.966,9.762 12.966,14.276C12.966,18.79 7.103,19.415 6.225,15.97"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.73px"
+        />
+      </g>
+      <g transform="matrix(0.867199,0,0,0.867199,-0.234399,-1.940713)">
+        <path
+          d="M5.5,9.694C7.708,9.694 9.001,11.45 9.001,15.893C9.001,20.337 7.708,22.093 5.5,22.093C3.293,22.093 2,20.337 2,15.893C2,11.45 3.293,9.694 5.5,9.694Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.73px"
+        />
+      </g>
+      <g transform="matrix(0.589583,0,0,0.589583,9.618748,7.195395)">
+        <g opacity="0.6">
+          <path d="M21,10L14.392,17" fill="none" stroke="currentColor" strokeWidth="2.54px" />
+          <g transform="matrix(-1,0,0,1,35.391873,0)">
+            <path d="M21,10L14.392,17" fill="none" stroke="currentColor" strokeWidth="2.54px" />
+          </g>
+        </g>
+      </g>
+      <g transform="matrix(0.731813,0,0,0.731813,6.253534,4.806895)">
+        <circle cx="2.592" cy="16.889" r="0.889" fill="currentColor" />
+      </g>
+    </svg>
+  );
+});
+
+Playback05x.displayName = "Playback05x";
+
+export { Playback05x };

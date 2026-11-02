@@ -36,6 +36,7 @@ export * from "./utils/track-key";
 
 export { SIDEBAR_WIDTH } from "./constants/layout";
 
+export * from "./icons/glyphs";
 export { animationIconRegistry, type AnimationIconName } from "./icons/registry";
 
 export * from "./functions";

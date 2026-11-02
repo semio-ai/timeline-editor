@@ -4,7 +4,6 @@ import {
   ICON_CLASS_NAME,
   Icon,
   type IconValue,
-  IconHandleIndicator,
   NestedItem,
   NestedLabel,
   NestedMenu,
@@ -14,6 +13,7 @@ import {
 } from "@semio/ui";
 import { useShallow } from "zustand/shallow";
 import { clsx } from "clsx";
+import { IconHandleIndicator } from "../../icons/glyphs";
 import {
   buildSelectedKeyContexts,
   contextHasNeighbor,

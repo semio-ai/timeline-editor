@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
 import { Preview } from "@storybook/react-vite";
 import "./styles.css";
-import { Theme, ThemeContext } from "@semio/ui";
+import { IconProvider, Theme, ThemeContext } from "@semio/ui";
+import { animationIconRegistry } from "@semio/timeline-editor";
 
 export const globalTypes = {
   theme: {
@@ -63,11 +64,15 @@ const preview: Preview = {
   },
 
   decorators: [
+    // The editor's components name keys only `animationIconRegistry` provides, so every
+    // story renders inside it, as a consuming application renders the editor.
     (Story, context) => (
       <ThemeProvider theme={context.globals.theme}>
-        <div className="w-full min-h-10 bg-neutral-200 dark:bg-neutral-800 m-0">
-          <Story />
-        </div>
+        <IconProvider registry={animationIconRegistry}>
+          <div className="w-full min-h-10 bg-neutral-200 dark:bg-neutral-800 m-0">
+            <Story />
+          </div>
+        </IconProvider>
       </ThemeProvider>
     ),
   ],

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyIcon } from "@semio/ui";
+import { KeyIcon } from "../icons/glyphs";
 import { useKeyControlState } from "../hooks";
 import { SourceRow } from "../types";
 import { ControlStrip } from "./controls";

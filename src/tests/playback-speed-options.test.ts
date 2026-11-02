@@ -29,10 +29,12 @@ describe("playback speed options", () => {
     for (const icon of icons) expect(registry[icon]).toBeDefined();
   });
 
-  it("keeps the deprecated speed keys resolving to the matching speed glyphs", () => {
-    expect(animationIconRegistry["speed-slow"]).toBe(defaultIconRegistry["playback-0.5"]);
-    expect(animationIconRegistry["speed-normal"]).toBe(defaultIconRegistry["playback-1.0"]);
-    expect(animationIconRegistry["speed-fast"]).toBe(defaultIconRegistry["playback-1.5"]);
-    expect(animationIconRegistry["speed-fastest"]).toBe(defaultIconRegistry["playback-2.0"]);
+  it.each([
+    ["speed-slow", "playback-0.5"],
+    ["speed-normal", "playback-1.0"],
+    ["speed-fast", "playback-1.5"],
+    ["speed-fastest", "playback-2.0"],
+  ] as const)("keeps %s resolving to %s", (alias, glyph) => {
+    expect(animationIconRegistry[alias]).toBe(animationIconRegistry[glyph]);
   });
 });

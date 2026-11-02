@@ -3,12 +3,11 @@ import {
   ContextMenu,
   Icon,
   IconProvider,
-  KeyIcon,
   NestedItem,
   NestedLabel,
   NestedSeparator,
 } from "@semio/ui";
-import { animationIconRegistry } from "@semio/timeline-editor";
+import { animationIconRegistry, KeyIcon } from "@semio/timeline-editor";
 
 /**
  * Sandbox for icon alignment/size consistency inside list-item (`NestedItem`) `left`
