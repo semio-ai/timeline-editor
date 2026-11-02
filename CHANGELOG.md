@@ -1,5 +1,22 @@
 # @semio/timeline-editor
 
+## 0.7.0
+
+### Minor Changes
+
+- eef7d66: A dragged track's preview in the derived snapshot carries the track itself (`DerivedTrackSnapshot.preview.track`): the stored track as the commit of the drag in progress will write it. A host that plays tracks plays this one while the drag lasts, so what it plays follows the drag and does not change at the commit.
+
+  The snapshot's preview of a track (its curve, its violations and the track) is now the projection of the first row that holds the stored track, the row whose diffs the commit replays, for every instance that plays the track. A track other than the drag's anchor can project differently in rows of different value ranges, and its preview then matches the value the commit writes. Each row still draws its own projection.
+
+- e848100: The package registers and exports its 41 timeline glyphs and keys, their prop types,
+  `KeyIcon` and `IconHandleIndicator`. Its icon registry composes with ui's default
+  registry without overlapping keys. The package requires `@semio/ui ^0.6.0`.
+- 0949885: Published as `@semio/timeline-editor`; versions up to 0.6.0 were published as `@semio/animation`, and consumers change their dependency and imports to the new name.
+
+### Patch Changes
+
+- 589de41: Licensed under Apache-2.0 and released from its own repository.
+
 Versions up to 0.6.0 were published as `@semio/animation`.
 
 ## 0.6.0
