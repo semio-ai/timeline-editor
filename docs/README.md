@@ -34,6 +34,63 @@ This README is the source of truth for package architecture and current behavior
 - All three canvases subscribe to `useCanvasFrameloop()` from `@semio/utils` outside their R3F roots. The default is `always`; a host choosing `demand` owns scheduling global invalidations for continuous behavior. See the [shared API](https://github.com/semio-ai/semio-utils/blob/main/README.md#canvas-render-loop).
 - Storybook stories live in [`stories/`](../stories/). Run `npm run storybook` from the package root for port 6008, or `npm run build-storybook` for a static site. In Studio, `npx turbo run storybook --filter=@semio/timeline-editor` from Studio's root builds workspace dependencies first.
 
+## Wheel and pinch input
+
+`PanZoomControls` (`src/components/controls/pan-zoom-controls.tsx`) owns wheel and
+pinch input on all three canvases. Its `onWheel` handles every wheel event, including
+a trackpad pinch that Chromium delivers as a ctrlKey wheel, and calls
+`preventDefault()` on every ctrlKey wheel it receives, so the browser does not zoom
+the page over an enabled canvas. The tracks canvas disables its controls during a
+box select, and a ctrlKey wheel then reaches the browser. The pinch handler is not
+bound to wheel events (`pinchOnWheel: false`), so no event is handled twice; it
+handles Safari's gesture events and touchscreens.
+
+| Input                                | Spline mode                                                                      | Other modes     |
+| ------------------------------------ | -------------------------------------------------------------------------------- | --------------- |
+| Wheel, vertical (tracks canvas only) | Pan the value axis                                                               | Scroll the rows |
+| Shift+wheel, or a horizontal swipe   | Pan time                                                                         | Pan time        |
+| Ctrl/Cmd+wheel                       | Zoom the value axis                                                              | Zoom time       |
+| Ctrl/Cmd+Shift+wheel                 | Zoom time                                                                        | Zoom time       |
+| Pinch                                | Zoom both axes; two fingers on a touchscreen zoom the axis they are spread along | Zoom time       |
+
+Rates come from `src/functions/wheel-input.ts`:
+
+- **Zoom.** Every input zooms in proportion to its delta, so a stream zooms the same
+  however the browser splits or coalesces it. A mouse wheel notch zooms 1.1× per
+  notch's worth of delta (100px, 3 lines or 1 page); a mouse set to scroll further per
+  notch zooms further too. Continuous input (a pinch, a trackpad scroll) zooms by
+  `exp(-delta / 100)`, which inverts Chromium's pinch encoding
+  (`deltaY = -100 · ln(scale)`), so a pinch tracks the fingers. Updates are never
+  dropped for being small. A gesture, touch or
+  pointer pinch zooms each update by its ratio to the previous one, carried in
+  use-gesture's per-gesture `memo`; `first` and `last` are stale on the
+  below-threshold updates that `triggerAllEvents` delivers, a gesture's start
+  included. A touchscreen pinch's axis comes from use-gesture's finger angle (`da`),
+  since pointer events carry no `touches`.
+- **Pan.** Vertical scroll damps a notch by `panSpeed` and takes continuous input 1:1.
+  Horizontal pan applies `panSpeed` to every input.
+
+Each handler reads the event's own delta, never use-gesture's `delta`, which is the
+difference of offsets accumulated over the canvas's life and loses a notch's exact
+integer value after any trackpad input.
+
+A wheel event's `ctrlKey` is set both for Ctrl+wheel and for a Chromium trackpad
+pinch, so `useControlKeyHeld` (`src/hooks/use-control-key-held.ts`) follows the
+physical Control key from the page's key and pointer events, as three.js's
+`OrbitControls` does, and a ctrlKey wheel reads as a pinch only while Control is not
+held. Losing window focus clears it.
+
+`isLikelyMouseWheel` tells a notch from continuous input per event, by its size and
+integer value, which leaves these misreadings:
+
+- Chromium on macOS reports a mouse wheel in accelerated fractional pixels, so a Mac
+  mouse reads as continuous input: its vertical scroll is not damped, and its zoom
+  follows the accelerated distance at the pinch rate.
+- Integer deltas either side of 50px change zoom rate between events. A trackpad's
+  deltas are fractional, so it never reads as notches.
+- A Control press the page never sees, with no key or pointer event since, leaves a
+  continuous Ctrl+wheel reading as a pinch.
+
 ## Playback speed controls
 
 `PlaybackSettings` offers 0.1×, 0.5×, 1×, 1.5× and 2× playback, from
