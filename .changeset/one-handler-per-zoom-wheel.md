@@ -1,0 +1,5 @@
+---
+"@semio/timeline-editor": patch
+---
+
+Each wheel event over the timeline's canvases zooms or scrolls once. A Ctrl+wheel notch zooms one step (1.1×), as a Cmd+wheel notch does, counting notches in the event's own unit, and a notch in followed by a notch out returns to the starting zoom. A trackpad pinch zooms by the scale the fingers make, in time outside Spline mode and on both axes in Spline mode, whether the browser delivers it as wheel events (Chromium) or as gesture events (Safari), and each pinch starts from the zoom the previous one left. Two fingers on a touchscreen zoom the axis they are spread along in Spline mode, in browsers with pointer events as well as touch events. Continuous input zooms by its total delta, however many events carry it, and Ctrl+Shift zooms time for continuous input as it does for a notch. A mouse wheel notch is still recognised as a notch after trackpad input, so its vertical scroll keeps its `panSpeed` damping. `onStart` and `onEnd` fire once per pinch that zooms.

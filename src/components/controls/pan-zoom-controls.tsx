@@ -17,34 +17,23 @@ import {
   zoomVertical,
 } from "../../viewport-state";
 import { TrackRender } from "../../types";
+import {
+  ZoomAxis,
+  ZoomWheelInput,
+  classifyZoomWheel,
+  fingerSpreadAxis,
+  isLikelyMouseWheel,
+  pinchStepFactor,
+  wheelDeltaPx,
+  wheelZoomFactor,
+} from "../../functions/wheel-input";
 
-/**
- * Detect whether a wheel event originated from a discrete mouse wheel
- * (one detent ≈ 100–120px per event) versus a trackpad (fractional,
- * pixel-precise deltas of ~1–10px). Mouse wheels feel aggressive when
- * mapped 1:1 to viewport units, so callers can dampen them with
- * `panSpeed`; trackpads should map 1:1 to stay smooth.
- *
- * Heuristic:
- *   - `deltaMode !== 0` (Firefox line/page mode): always a wheel.
- *   - `deltaMode === 0` with `|delta| >= 50` and integer-valued:
- *     a Chrome/Edge/Safari wheel detent. Trackpads on the same browsers
- *     emit sub-10px fractional deltas during smooth scrolling, so the
- *     integer-and-large guard excludes them reliably.
- *
- * Known limitation: Linux HiDPI mice with sub-pixel scroll can emit
- * fractional `deltaY` on Chromium. Those slip through as "trackpad" and
- * skip dampening — they'll feel aggressive on this platform. We keep
- * the integer check anyway because the opposite mistake (treating
- * trackpad inertial fast-scroll as a wheel) is more disruptive: long
- * trackpad pans would feel sluggish.
- *
- * Pass whichever axis the gesture actually carried (deltaX for shift+wheel
- * on Chromium browsers, deltaY otherwise) — the classification is per-axis.
- */
-function isLikelyMouseWheel(event: WheelEvent, delta: number): boolean {
-  if (event.deltaMode !== 0) return true;
-  return Math.abs(delta) >= 50 && Number.isInteger(delta);
+/** What a pinch gesture carries from one update to the next, in use-gesture's `memo`. */
+interface PinchMemo {
+  /** The gesture's cumulative scale as of this update. */
+  scale: number;
+  /** Whether `onStart` has fired for this gesture. */
+  started: boolean;
 }
 
 export interface PanZoomControlsProps {
@@ -390,22 +379,64 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       return currentHeight / newHeight;
     };
 
-    // Setup gesture handlers
+    // Zoom `axis` by `factor` about the given client point. Only Spline mode has a
+    // value axis, so every zoom in any other mode zooms time. Zooming both axes
+    // clamps to the more restrictive one so they stay in step at the zoom limits.
+    const applyZoom = (factor: number, clientX: number, clientY: number, axis: ZoomAxis) => {
+      if (factor === 1) return;
+      const mode = settingsRef.current.trackRender ?? TrackRender.Key;
+      const effectiveAxis = mode === TrackRender.Spline ? axis : ZoomAxis.Time;
+      if (effectiveAxis === ZoomAxis.Time) {
+        zoomCameraHorizontal(factor, new Vector2(clientX, clientY));
+        return;
+      }
+      const rect = gl.domElement?.getBoundingClientRect();
+      if (!rect) return;
+      const effV = effectiveVerticalFactor(factor);
+      if (effectiveAxis === ZoomAxis.Value) {
+        if (Math.abs(effV - 1) > 0.0001) {
+          zoomVertical(effV, clientY, { mode, canvasRect: rect });
+        }
+        return;
+      }
+      const effH = effectiveHorizontalFactor(factor);
+      const uniformFactor = Math.abs(effH - 1) < Math.abs(effV - 1) ? effH : effV;
+      if (Math.abs(uniformFactor - 1) <= 0.0001) return;
+      zoomCameraHorizontal(uniformFactor, new Vector2(clientX, clientY));
+      zoomVertical(uniformFactor, clientY, { mode, canvasRect: rect });
+    };
+
+    // Setup gesture handlers. Every wheel event, including a trackpad pinch that
+    // Chromium delivers as a ctrlKey wheel, is handled by `onWheel` alone: the
+    // pinch handler is not bound to wheel events (`pinchOnWheel: false`), so no
+    // wheel event zooms twice. `onPinch` handles Safari's gesture events and
+    // touchscreens.
     useGesture(
       {
-        onWheel: ({ event, delta, ctrlKey, metaKey, shiftKey }) => {
+        onWheel: ({ event, last, ctrlKey, metaKey, shiftKey }) => {
+          // use-gesture reports a wheel gesture's end ~140ms after its last event,
+          // with that event still attached. It carries no new input, and reading
+          // its delta again would apply the last event twice.
+          if (last) return;
+          // A ctrlKey wheel is the browser's page-zoom gesture, and how Chromium
+          // delivers a trackpad pinch. Keep the page from zooming even when the
+          // checks below leave the event unhandled.
+          if (ctrlKey && event.cancelable) event.preventDefault();
           if (!settingsRef.current.enabled) return;
           // Block gestures while an interactive overlay (context menu, popover) is open
           if (useTooltipStore.getState().hasInteractiveOverlay()) return;
 
-          const [deltaX, deltaY] = delta;
+          // The event's own delta, not use-gesture's `delta`: that one is the
+          // difference of two offsets accumulated over every wheel event the canvas
+          // has seen, so after any fractional (trackpad) delta an integer notch comes
+          // back non-integer and `isLikelyMouseWheel` misreads it.
+          const [deltaX, deltaY] = wheelDeltaPx(event as WheelEvent);
           const absDeltaX = Math.abs(deltaX);
           const absDeltaY = Math.abs(deltaY);
           const threshold = 0.5;
 
           onStart?.();
 
-          const isSpline = settingsRef.current.trackRender === TrackRender.Spline;
           const isVerticalDominant = absDeltaY >= absDeltaX && absDeltaY > threshold;
           const isHorizontalDominant = absDeltaX > absDeltaY && absDeltaX > threshold;
           const hasCtrl = ctrlKey || metaKey;
@@ -456,118 +487,93 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
 
           event.preventDefault();
 
-          // --- Ctrl/Cmd + Scroll: Zoom ---
+          // --- Ctrl/Cmd + wheel, and trackpad pinch: Zoom ---
+          // The zoom rate follows the input (see `wheelZoomFactor`): a mouse notch
+          // zooms a fixed step, continuous input zooms in proportion to its delta,
+          // so a pinch tracks the fingers and needs no dead zone. A pinch zooms
+          // like a gesture pinch (both axes in spline mode); a modifier-held wheel
+          // zooms the value axis in spline mode, or time with Shift added.
           if (hasCtrl && settingsRef.current.enableZoom) {
-            const dominantDelta = isVerticalDominant ? deltaY : deltaX;
-            if (Math.abs(dominantDelta) <= threshold) {
-              onChange?.();
-              onEnd?.();
-              return;
+            const dominantDelta = absDeltaY >= absDeltaX ? deltaY : deltaX;
+            const wheelEvent = event as WheelEvent;
+            const input = classifyZoomWheel(wheelEvent, dominantDelta);
+            const zoomFactor = wheelZoomFactor(
+              dominantDelta,
+              input,
+              settingsRef.current.zoomSpeed,
+              wheelEvent.deltaMode,
+            );
+            let axis = ZoomAxis.Time;
+            if (input === ZoomWheelInput.Pinch) {
+              axis = ZoomAxis.Both;
+            } else if (!shiftKey) {
+              axis = ZoomAxis.Value;
             }
-
-            const baseZoomFactor = dominantDelta > 0 ? 0.9 : 1.1;
-            const zoomFactor = 1 + (baseZoomFactor - 1) * settingsRef.current.zoomSpeed;
-
-            if (shiftKey) {
-              // Ctrl + Shift + Scroll: Horizontal zoom
-              const center = new Vector2(event.clientX, event.clientY);
-              zoomCameraHorizontal(zoomFactor, center);
-            } else if (isSpline) {
-              // Ctrl + Scroll (no Shift): Vertical zoom (spline only)
-              const effV = effectiveVerticalFactor(zoomFactor);
-              if (Math.abs(effV - 1) > 0.0001) {
-                const rect = gl.domElement?.getBoundingClientRect();
-                if (rect) {
-                  zoomVertical(effV, event.clientY, {
-                    mode: settingsRef.current.trackRender ?? TrackRender.Key,
-                    canvasRect: rect,
-                  });
-                }
-              }
-            } else {
-              // Ctrl + Scroll in non-spline: Horizontal zoom (no vertical axis)
-              const center = new Vector2(event.clientX, event.clientY);
-              zoomCameraHorizontal(zoomFactor, center);
-            }
+            applyZoom(zoomFactor, event.clientX, event.clientY, axis);
           }
 
           onChange?.();
           onEnd?.();
         },
-        onPinch: ({ origin, first, last, offset: [scale], event }) => {
-          if (!settingsRef.current.enabled || !settingsRef.current.enableZoom) return;
-          if (useTooltipStore.getState().hasInteractiveOverlay()) return;
+        onPinch: ({
+          origin,
+          last,
+          intentional,
+          offset: [scale],
+          da: [, fingerAngle],
+          event,
+          memo: gestureMemo,
+        }) => {
+          // `scale` is cumulative since the gesture began (`from` starts every
+          // gesture at 1), so each update zooms by its ratio to the previous one.
+          // The previous scale, and whether `onStart` has fired, live in the
+          // gesture's `memo`, which use-gesture clears when a gesture starts.
+          // `first` and `last` cannot carry them: use-gesture recomputes those only
+          // on an update past the threshold (`intentional`), and `triggerAllEvents`
+          // also delivers the updates below it, a gesture's start included, still
+          // holding the previous gesture's `first: false, last: true`. Every path
+          // returns the memo, so an update skipped below is never applied later.
+          const previous = gestureMemo as PinchMemo | undefined;
+          const previousScale = previous?.scale ?? 1;
+          let started = previous?.started ?? false;
+          const blocked =
+            !settingsRef.current.enabled ||
+            !settingsRef.current.enableZoom ||
+            useTooltipStore.getState().hasInteractiveOverlay();
 
-          if (first) {
-            onStart?.();
-          }
-
-          event.preventDefault();
-
-          const isSpline = settingsRef.current.trackRender === TrackRender.Spline;
-          const scaleFactor = 1 + (scale - 1) * settingsRef.current.zoomSpeed * 0.5;
-
-          // Determine zoom axis. Pinch+modifier-key combinations don't
-          // round-trip reliably across platforms (notably Mac, where pinch
-          // arrives as ctrl+wheel and additional modifiers are dropped),
-          // so axis selection is gesture-only:
-          // 1. Touch finger angle (if 2 fingers reported)
-          // 2. Default: uniform (collapses to horizontal in non-spline since
-          //    there's no vertical zoom axis there)
-          // For modifier-driven axis selection, use scroll+modifier instead.
-          const nativeEvent = event as TouchEvent;
-          let zoomAxis: "horizontal" | "vertical" | "uniform" = "uniform";
-
-          const touches = nativeEvent?.touches;
-          if (touches?.length === 2) {
-            const dx = Math.abs(touches[1].clientX - touches[0].clientX);
-            const dy = Math.abs(touches[1].clientY - touches[0].clientY);
-            zoomAxis = dx > dy ? "horizontal" : "vertical";
-          }
-          if (!isSpline && zoomAxis !== "horizontal") {
-            zoomAxis = "horizontal";
-          }
-
-          // Apply zoom. Past this point, "uniform" and "vertical" only
-          // appear for spline mode (non-spline was forced to horizontal).
-          if (zoomAxis === "horizontal") {
-            const center = new Vector2(origin[0], origin[1]);
-            zoomCameraHorizontal(scaleFactor, center);
-          } else if (zoomAxis === "uniform") {
-            // Clamp to the more restrictive axis so both stay in sync
-            const effH = effectiveHorizontalFactor(scaleFactor);
-            const effV = effectiveVerticalFactor(scaleFactor);
-            const uniformFactor = Math.abs(effH - 1) < Math.abs(effV - 1) ? effH : effV;
-            if (Math.abs(uniformFactor - 1) > 0.0001) {
-              const center = new Vector2(origin[0], origin[1]);
-              zoomCameraHorizontal(uniformFactor, center);
-              const rect = gl.domElement?.getBoundingClientRect();
-              if (rect) {
-                zoomVertical(uniformFactor, origin[1], {
-                  mode: settingsRef.current.trackRender ?? TrackRender.Key,
-                  canvasRect: rect,
-                });
+          if (!blocked) {
+            event.preventDefault();
+            // Below the threshold `scale` is still 1, so there is nothing to zoom.
+            if (intentional) {
+              if (!started) {
+                started = true;
+                onStart?.();
               }
-            }
-          } else {
-            // vertical
-            const effV = effectiveVerticalFactor(scaleFactor);
-            if (Math.abs(effV - 1) > 0.0001) {
-              const rect = gl.domElement?.getBoundingClientRect();
-              if (rect) {
-                zoomVertical(effV, origin[1], {
-                  mode: settingsRef.current.trackRender ?? TrackRender.Key,
-                  canvasRect: rect,
-                });
-              }
+              // Axis selection is gesture-only, because pinch+modifier combinations
+              // don't round-trip reliably across platforms. Fingers on a touchscreen
+              // (use-gesture's touch and pointer devices) zoom the axis they are
+              // spread along; Safari's trackpad gesture events carry a rotation in
+              // `da` rather than a finger angle, and zoom both axes. Outside Spline
+              // mode every zoom is a time zoom.
+              const fromFingers = /^(touch|pointer|lostpointercapture)/.test(event.type);
+              const axis = fromFingers ? fingerSpreadAxis(fingerAngle) : ZoomAxis.Both;
+              applyZoom(
+                pinchStepFactor(previousScale, scale, settingsRef.current.zoomSpeed),
+                origin[0],
+                origin[1],
+                axis,
+              );
+              onChange?.();
             }
           }
 
-          onChange?.();
-
-          if (last) {
+          // `started` is set only on an update past the threshold, and from then on
+          // use-gesture keeps `last` current, so a stale `last` never reaches here.
+          if (last && started) {
             onEnd?.();
           }
+          const next: PinchMemo = { scale, started };
+          return next;
         },
         // For now, disable drag handling because it messes with other drag events.
         // onDrag: ({ delta: [deltaX], first, last, event }) => {
@@ -604,6 +610,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
         wheel: { eventOptions: { passive: false } },
         pinch: {
           eventOptions: { passive: false },
+          pinchOnWheel: false,
           threshold: 0.001,
           rubberband: false,
           triggerAllEvents: true,
