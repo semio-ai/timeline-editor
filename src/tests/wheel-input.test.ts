@@ -49,25 +49,26 @@ describe("isLikelyMouseWheel", () => {
 });
 
 describe("classifyZoomWheel", () => {
-  const ctrl = { deltaMode: PIXELS, ctrlKey: true, metaKey: false, shiftKey: false };
-  const cmd = { deltaMode: PIXELS, ctrlKey: false, metaKey: true, shiftKey: false };
+  const ctrlKeyWheel = { deltaMode: PIXELS, ctrlKey: true };
+  const cmdWheel = { deltaMode: PIXELS, ctrlKey: false };
 
   it("classifies a Ctrl or Cmd mouse notch as a notch", () => {
-    expect(classifyZoomWheel(ctrl, -100)).toBe(ZoomWheelInput.Notch);
-    expect(classifyZoomWheel(cmd, -100)).toBe(ZoomWheelInput.Notch);
-    expect(classifyZoomWheel({ ...ctrl, deltaMode: LINES }, -3)).toBe(ZoomWheelInput.Notch);
-  });
-
-  it("classifies continuous ctrlKey input as a pinch", () => {
-    expect(classifyZoomWheel(ctrl, -2.31)).toBe(ZoomWheelInput.Pinch);
-  });
-
-  it("classifies continuous input held with Cmd, or with Ctrl and Shift, as a scroll", () => {
-    expect(classifyZoomWheel(cmd, 3.5)).toBe(ZoomWheelInput.Scroll);
-    expect(classifyZoomWheel({ ...ctrl, metaKey: true }, 3.5)).toBe(ZoomWheelInput.Scroll);
-    expect(classifyZoomWheel({ ...ctrl, shiftKey: true }, -4.000244140625)).toBe(
-      ZoomWheelInput.Scroll,
+    expect(classifyZoomWheel(ctrlKeyWheel, -100, true)).toBe(ZoomWheelInput.Notch);
+    expect(classifyZoomWheel(ctrlKeyWheel, -100, false)).toBe(ZoomWheelInput.Notch);
+    expect(classifyZoomWheel(cmdWheel, -100, false)).toBe(ZoomWheelInput.Notch);
+    expect(classifyZoomWheel({ ...ctrlKeyWheel, deltaMode: LINES }, -3, true)).toBe(
+      ZoomWheelInput.Notch,
     );
+  });
+
+  it("classifies continuous ctrlKey input with Control not held as a pinch", () => {
+    expect(classifyZoomWheel(ctrlKeyWheel, -2.31, false)).toBe(ZoomWheelInput.Pinch);
+  });
+
+  it("classifies continuous input with Control held, or held with Cmd, as a scroll", () => {
+    // Chromium on macOS: a slow mouse notch with Control held.
+    expect(classifyZoomWheel(ctrlKeyWheel, -4.000244140625, true)).toBe(ZoomWheelInput.Scroll);
+    expect(classifyZoomWheel(cmdWheel, 3.5, false)).toBe(ZoomWheelInput.Scroll);
   });
 });
 
@@ -77,23 +78,23 @@ describe("wheelZoomFactor", () => {
     expect(wheelZoomFactor(100, ZoomWheelInput.Notch, 1)).toBeCloseTo(1 / 1.1, 12);
   });
 
-  it("zooms once per notch an event carries, and at least one step", () => {
+  it("zooms a notch in proportion to its delta, measured in the event's own unit", () => {
     expect(wheelZoomFactor(-300, ZoomWheelInput.Notch, 1)).toBeCloseTo(1.1 ** 3, 12);
-    expect(wheelZoomFactor(-60, ZoomWheelInput.Notch, 1)).toBeCloseTo(1.1, 12);
-  });
-
-  it("counts notches in the event's own unit", () => {
-    // A 120px notch (Chromium on some Windows settings) is one notch, not 1.2.
-    expect(wheelZoomFactor(-120, ZoomWheelInput.Notch, 1, PIXELS)).toBeCloseTo(1.1, 12);
+    // A 120px notch (Chromium on some Windows settings) zooms 1.2 notches' worth.
+    expect(wheelZoomFactor(-120, ZoomWheelInput.Notch, 1, PIXELS)).toBeCloseTo(1.1 ** 1.2, 12);
     // Firefox line mode: 3 lines per notch, 40px per line.
     expect(wheelZoomFactor(-3 * 40, ZoomWheelInput.Notch, 1, LINES)).toBeCloseTo(1.1, 12);
-    expect(wheelZoomFactor(-6 * 40, ZoomWheelInput.Notch, 1, LINES)).toBeCloseTo(1.1 ** 2, 12);
-    expect(wheelZoomFactor(-9 * 40, ZoomWheelInput.Notch, 1, LINES)).toBeCloseTo(1.1 ** 3, 12);
-    // Rounded, not floored: 5 lines and 150px are each closer to two notches than one.
-    expect(wheelZoomFactor(-5 * 40, ZoomWheelInput.Notch, 1, LINES)).toBeCloseTo(1.1 ** 2, 12);
-    expect(wheelZoomFactor(-150, ZoomWheelInput.Notch, 1, PIXELS)).toBeCloseTo(1.1 ** 2, 12);
+    expect(wheelZoomFactor(-5 * 40, ZoomWheelInput.Notch, 1, LINES)).toBeCloseTo(
+      1.1 ** (5 / 3),
+      12,
+    );
     // Page mode: one notch per page, 800px per page.
     expect(wheelZoomFactor(-800, ZoomWheelInput.Notch, 1, PAGES)).toBeCloseTo(1.1, 12);
+  });
+
+  it("zooms coalesced notches as far as the same notches arriving separately", () => {
+    const separate = wheelZoomFactor(-120, ZoomWheelInput.Notch, 1) ** 3;
+    expect(wheelZoomFactor(-360, ZoomWheelInput.Notch, 1)).toBeCloseTo(separate, 12);
   });
 
   it("returns a pinch's finger scale from Chromium's encoding", () => {

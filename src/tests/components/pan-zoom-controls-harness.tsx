@@ -184,3 +184,12 @@ export function pointerPinch(
   const last = fingers(gaps[gaps.length - 1], spread);
   last.forEach((p, i) => pointer(canvas, "pointerup", i + 1, p.x, p.y));
 }
+
+/** Press or release the physical Control key, as the page's key events report it. */
+export function controlKey(type: "keydown" | "keyup"): void {
+  act(() => {
+    document.dispatchEvent(
+      new KeyboardEvent(type, { key: "Control", ctrlKey: type === "keydown", bubbles: true }),
+    );
+  });
+}

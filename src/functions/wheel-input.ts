@@ -12,17 +12,15 @@ export enum ZoomAxis {
 
 /** What produced a wheel event that zooms. It sets the zoom rate and, in spline mode, the axis. */
 export enum ZoomWheelInput {
-  /** A notched mouse wheel, held with Ctrl or Cmd. Zooms one fixed step per notch. */
+  /** A notched mouse wheel, held with Ctrl or Cmd. Zooms a fixed step per notch. */
   Notch = "notch",
   /**
    * A trackpad pinch. Chromium delivers a pinch as wheel events with `ctrlKey` set
-   * whether or not Ctrl is held, encoding the finger scale as
-   * `deltaY = -100 · ln(scale)`. Continuous input with Ctrl actually held (a
-   * trackpad scroll, or any mouse wheel on macOS) reads the same and is treated
-   * as a pinch, unless Shift is also held.
+   * while the Control key is not held, encoding the finger scale as
+   * `deltaY = -100 · ln(scale)`.
    */
   Pinch = "pinch",
-  /** Continuous input held with Cmd, or with Ctrl and Shift. */
+  /** Continuous input (a trackpad scroll, or any mouse wheel on macOS) held with Ctrl or Cmd. */
   Scroll = "scroll",
 }
 
@@ -46,6 +44,9 @@ const WHEEL_PAGE_PX = 800;
 /** Lines one notch scrolls in line mode (Firefox's default). */
 const WHEEL_NOTCH_LINES = 3;
 
+/** Pages one notch scrolls in page mode. */
+const WHEEL_NOTCH_PAGES = 1;
+
 /** A wheel event's `[deltaX, deltaY]` in pixels, whatever its `deltaMode`. */
 export function wheelDeltaPx(
   event: Pick<WheelEvent, "deltaX" | "deltaY" | "deltaMode">,
@@ -62,15 +63,15 @@ export function wheelDeltaPx(
 /** One notch, in `wheelDeltaPx` pixels, for a wheel event in the given `deltaMode`. */
 function notchPx(deltaMode: number): number {
   if (deltaMode === 1) return WHEEL_NOTCH_LINES * WHEEL_LINE_PX;
-  if (deltaMode === 2) return WHEEL_PAGE_PX;
+  if (deltaMode === 2) return WHEEL_NOTCH_PAGES * WHEEL_PAGE_PX;
   return WHEEL_NOTCH_PX;
 }
 
 /**
  * Whether a wheel event came from a notched mouse wheel (one notch ≈ 100–120px per
  * event) rather than a trackpad (fractional, pixel-precise deltas of ~1–10px).
- * Callers damp a notch's pan by `panSpeed` and zoom it in fixed steps; continuous
- * input pans 1:1 and zooms in proportion to its delta.
+ * Callers damp a notch's vertical scroll by `panSpeed` and zoom it at the notch
+ * rate; continuous input scrolls 1:1 and zooms at the pinch rate.
  *
  *   - `deltaMode !== 0` (Firefox line/page mode): always a wheel.
  *   - `deltaMode === 0` with `|delta| >= 50` and integer-valued: a Chromium wheel
@@ -85,8 +86,8 @@ function notchPx(deltaMode: number): number {
  * inertial scrolling read as notches would make long trackpad pans sluggish.
  *
  * The classification is per event, so input whose events fall either side of the
- * boundary (integer deltas around 50px) changes rate between them, and with Ctrl,
- * axis. A trackpad's deltas are fractional, so it never reads as notches.
+ * boundary (integer deltas around 50px) changes zoom rate between them. A trackpad's
+ * deltas are fractional, so it never reads as notches.
  *
  * Pass the axis the gesture actually carried (deltaX for Shift+wheel on Chromium,
  * deltaY otherwise); the classification is per axis.
@@ -96,13 +97,18 @@ export function isLikelyMouseWheel(event: Pick<WheelEvent, "deltaMode">, delta: 
   return Math.abs(delta) >= 50 && Number.isInteger(delta);
 }
 
-/** Classify a wheel event held with Ctrl or Cmd. `delta` is its dominant-axis delta. */
+/**
+ * Classify a wheel event held with Ctrl or Cmd. `delta` is its dominant-axis delta;
+ * `controlKeyHeld` is whether the Control key is physically down, which a wheel
+ * event's own `ctrlKey` cannot say (see `useControlKeyHeld`).
+ */
 export function classifyZoomWheel(
-  event: Pick<WheelEvent, "deltaMode" | "ctrlKey" | "metaKey" | "shiftKey">,
+  event: Pick<WheelEvent, "deltaMode" | "ctrlKey">,
   delta: number,
+  controlKeyHeld: boolean,
 ): ZoomWheelInput {
   if (isLikelyMouseWheel(event, delta)) return ZoomWheelInput.Notch;
-  if (event.ctrlKey && !event.metaKey && !event.shiftKey) return ZoomWheelInput.Pinch;
+  if (event.ctrlKey && !controlKeyHeld) return ZoomWheelInput.Pinch;
   return ZoomWheelInput.Scroll;
 }
 
@@ -110,14 +116,14 @@ export function classifyZoomWheel(
  * Zoom factor for one wheel event's dominant-axis delta in `wheelDeltaPx` pixels
  * (positive scrolls down, which zooms out).
  *
- * A notch zooms `WHEEL_NOTCH_ZOOM` per notch, counting notches in the event's own
- * unit: 100px in pixel mode, 3 lines in line mode, one page in page mode. An event
- * carrying several notches (the browser coalesces them while the main thread is
- * busy) zooms once per notch, and every notch event zooms at least one step.
- * Continuous input inverts Chromium's pinch encoding, so a pinch zooms by exactly
- * the scale the fingers made, and continuous input zooms by its total delta however
- * many events carry it. `zoomSpeed` scales the zoom's exponent, so in and out stay
- * symmetric at any speed.
+ * Every input zooms in proportion to its delta, so a stream zooms by its total
+ * however the browser splits or coalesces it into events. A notch zooms
+ * `WHEEL_NOTCH_ZOOM` per notch's worth of delta: 100px in pixel mode, 3 lines in
+ * line mode, one page in page mode. A mouse whose notch is larger (some Windows
+ * settings give 120px) zooms that much further per notch, as it also scrolls that
+ * much further. Continuous input inverts Chromium's pinch encoding, so a pinch zooms
+ * by exactly the scale the fingers made. `zoomSpeed` scales the zoom's exponent, so
+ * in and out stay symmetric at any speed.
  */
 export function wheelZoomFactor(
   delta: number,
@@ -127,8 +133,7 @@ export function wheelZoomFactor(
 ): number {
   if (delta === 0) return 1;
   if (input === ZoomWheelInput.Notch) {
-    const notches = Math.max(1, Math.round(Math.abs(delta) / notchPx(deltaMode)));
-    return WHEEL_NOTCH_ZOOM ** (-Math.sign(delta) * notches * zoomSpeed);
+    return WHEEL_NOTCH_ZOOM ** ((-delta / notchPx(deltaMode)) * zoomSpeed);
   }
   return Math.exp((-delta / PINCH_DELTA_PER_LOG_SCALE) * zoomSpeed);
 }

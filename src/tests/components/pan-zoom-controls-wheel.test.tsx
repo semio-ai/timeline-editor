@@ -13,6 +13,7 @@ import {
 import { TrackRender } from "../../types";
 import {
   HEIGHT,
+  controlKey,
   gapsTo,
   mount as mountPanZoom,
   pinchDeltas,
@@ -74,6 +75,17 @@ describe("PanZoomControls wheel zoom, Key mode", () => {
     const before = snapshot();
     wheelStream(canvas, [-300], { ctrlKey: true });
     expect(zoomSince(before).time).toBeCloseTo(1.1 ** 3, 6);
+  });
+
+  it("zooms 120px notches the same whether they arrive separately or coalesced", () => {
+    const canvas = mount(TrackRender.Key);
+    const beforeSeparate = snapshot();
+    wheelStream(canvas, [-120, -120, -120], { ctrlKey: true });
+    const separate = zoomSince(beforeSeparate).time;
+    const beforeCoalesced = snapshot();
+    wheelStream(canvas, [-360], { ctrlKey: true });
+    expect(zoomSince(beforeCoalesced).time).toBeCloseTo(separate, 6);
+    expect(separate).toBeCloseTo(1.1 ** 3.6, 6);
   });
 
   it("zooms one step for a Firefox line-mode Ctrl+wheel notch", () => {
@@ -211,15 +223,69 @@ describe("PanZoomControls wheel zoom, Spline mode", () => {
     expect(zoom.value).toBeCloseTo(1, 6);
   });
 
-  it("zooms only time for continuous input held with Ctrl and Shift", () => {
-    // Chromium on macOS reports a mouse wheel as continuous, fractional pixels.
-    const macNotch = -4.000244140625;
+  // Chromium on macOS reports a mouse wheel as continuous, fractional pixels, so a
+  // Mac Ctrl+wheel looks like a pinch except for the Control key actually being down.
+  const macNotch = -4.000244140625;
+
+  it("zooms only the value axis for continuous input with Control held, and pinches once it is released", () => {
+    const canvas = mount(TrackRender.Spline);
+    const held = snapshot();
+    controlKey("keydown");
+    wheelStream(canvas, Array(5).fill(macNotch), { ctrlKey: true });
+    const heldZoom = zoomSince(held);
+    expect(heldZoom.value).toBeCloseTo(Math.exp((-5 * macNotch) / 100), 6);
+    expect(heldZoom.time).toBeCloseTo(1, 6);
+
+    controlKey("keyup");
+    const released = snapshot();
+    wheelStream(canvas, Array(5).fill(macNotch), { ctrlKey: true });
+    expect(zoomSince(released).time).toBeCloseTo(Math.exp((-5 * macNotch) / 100), 6);
+  });
+
+  it("zooms only time for continuous input with Control and Shift held", () => {
     const canvas = mount(TrackRender.Spline);
     const before = snapshot();
+    controlKey("keydown");
     wheelStream(canvas, Array(5).fill(macNotch), { ctrlKey: true, shiftKey: true });
+    controlKey("keyup");
     const zoom = zoomSince(before);
     expect(zoom.time).toBeCloseTo(Math.exp((-5 * macNotch) / 100), 6);
     expect(zoom.value).toBeCloseTo(1, 6);
+  });
+
+  it("reads Control as held from pointer movement, and as released when the window loses focus", () => {
+    const canvas = mount(TrackRender.Spline);
+    // Control pressed while another window had focus: no keydown, but the pointer
+    // events that follow report it.
+    act(() => {
+      document.dispatchEvent(new MouseEvent("pointermove", { ctrlKey: true, bubbles: true }));
+    });
+    const held = snapshot();
+    wheelStream(canvas, Array(5).fill(macNotch), { ctrlKey: true });
+    expect(zoomSince(held).time).toBeCloseTo(1, 6);
+
+    act(() => {
+      window.dispatchEvent(new Event("blur"));
+    });
+    const released = snapshot();
+    wheelStream(canvas, Array(5).fill(macNotch), { ctrlKey: true });
+    // With Control no longer held, the same events read as a pinch: both axes.
+    expect(zoomSince(released).time).toBeCloseTo(Math.exp((-5 * macNotch) / 100), 6);
+  });
+
+  it("applies continuous updates too small to see one at a time", () => {
+    // Each event zooms by less than 1.0001; together they zoom by exp(4 / 100).
+    const tiny = Array(500).fill(-0.008);
+    const pinchCanvas = mount(TrackRender.Spline);
+    const beforePinch = snapshot();
+    wheelStream(pinchCanvas, tiny, { ctrlKey: true });
+    const pinch = zoomSince(beforePinch);
+    expect(pinch.time).toBeCloseTo(Math.exp(0.04), 6);
+    expect(pinch.value).toBeCloseTo(Math.exp(0.04), 6);
+
+    const beforeScroll = snapshot();
+    wheelStream(pinchCanvas, tiny, { metaKey: true });
+    expect(zoomSince(beforeScroll).value).toBeCloseTo(Math.exp(0.04), 6);
   });
 
   it("zooms both axes by the scale the fingers made for a trackpad pinch", () => {

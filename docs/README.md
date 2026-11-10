@@ -55,10 +55,13 @@ handles Safari's gesture events and touchscreens.
 
 Rates come from `src/functions/wheel-input.ts`:
 
-- **Zoom.** A mouse wheel notch zooms 1.1× per notch, counted in the event's own unit
-  (100px, 3 lines or 1 page). Continuous input (a pinch, a trackpad scroll) zooms by
+- **Zoom.** Every input zooms in proportion to its delta, so a stream zooms the same
+  however the browser splits or coalesces it. A mouse wheel notch zooms 1.1× per
+  notch's worth of delta (100px, 3 lines or 1 page); a mouse set to scroll further per
+  notch zooms further too. Continuous input (a pinch, a trackpad scroll) zooms by
   `exp(-delta / 100)`, which inverts Chromium's pinch encoding
-  (`deltaY = -100 · ln(scale)`), so a pinch tracks the fingers. A gesture, touch or
+  (`deltaY = -100 · ln(scale)`), so a pinch tracks the fingers. Updates are never
+  dropped for being small. A gesture, touch or
   pointer pinch zooms each update by its ratio to the previous one, carried in
   use-gesture's per-gesture `memo`; `first` and `last` are stale on the
   below-threshold updates that `triggerAllEvents` delivers, a gesture's start
@@ -71,16 +74,22 @@ Each handler reads the event's own delta, never use-gesture's `delta`, which is 
 difference of offsets accumulated over the canvas's life and loses a notch's exact
 integer value after any trackpad input.
 
+A wheel event's `ctrlKey` is set both for Ctrl+wheel and for a Chromium trackpad
+pinch, so `useControlKeyHeld` (`src/hooks/use-control-key-held.ts`) follows the
+physical Control key from the page's key and pointer events, as three.js's
+`OrbitControls` does, and a ctrlKey wheel reads as a pinch only while Control is not
+held. Losing window focus clears it.
+
 `isLikelyMouseWheel` tells a notch from continuous input per event, by its size and
 integer value, which leaves these misreadings:
 
 - Chromium on macOS reports a mouse wheel in accelerated fractional pixels, so a Mac
-  mouse reads as continuous input. Its vertical scroll is not damped, its zoom follows
-  the accelerated distance, and Ctrl+wheel without Shift reads as a pinch (both axes
-  in Spline mode). Cmd+wheel zooms as the table says.
-- A trackpad scroll with Ctrl held, and no Shift, reads as a pinch.
-- Integer deltas either side of 50px change rate between events, and with Ctrl,
-  axis. A trackpad's deltas are fractional, so it never reads as notches.
+  mouse reads as continuous input: its vertical scroll is not damped, and its zoom
+  follows the accelerated distance at the pinch rate.
+- Integer deltas either side of 50px change zoom rate between events. A trackpad's
+  deltas are fractional, so it never reads as notches.
+- A Control press the page never sees, with no key or pointer event since, leaves a
+  continuous Ctrl+wheel reading as a pinch.
 
 ## Playback speed controls
 

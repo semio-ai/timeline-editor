@@ -17,6 +17,7 @@ import {
   zoomVertical,
 } from "../../viewport-state";
 import { TrackRender } from "../../types";
+import { useControlKeyHeld } from "../../hooks/use-control-key-held";
 import {
   ZoomAxis,
   ZoomWheelInput,
@@ -104,6 +105,7 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
     const initialCameraWidth = useRef(0);
     const initialCameraHeight = useRef(0);
     const viewportRef = useRef<[number, number]>(viewportMotion.get());
+    const controlKeyHeld = useControlKeyHeld();
 
     // Store current settings in refs for gesture handlers
     const settingsRef = useRef({
@@ -382,6 +384,8 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
     // Zoom `axis` by `factor` about the given client point. Only Spline mode has a
     // value axis, so every zoom in any other mode zooms time. Zooming both axes
     // clamps to the more restrictive one so they stay in step at the zoom limits.
+    // Only an unchanged factor is skipped: continuous input arrives in steps small
+    // enough that any cutoff would drop a slow gesture that a fast one applies.
     const applyZoom = (factor: number, clientX: number, clientY: number, axis: ZoomAxis) => {
       if (factor === 1) return;
       const mode = settingsRef.current.trackRender ?? TrackRender.Key;
@@ -394,14 +398,14 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
       if (!rect) return;
       const effV = effectiveVerticalFactor(factor);
       if (effectiveAxis === ZoomAxis.Value) {
-        if (Math.abs(effV - 1) > 0.0001) {
+        if (effV !== 1) {
           zoomVertical(effV, clientY, { mode, canvasRect: rect });
         }
         return;
       }
       const effH = effectiveHorizontalFactor(factor);
       const uniformFactor = Math.abs(effH - 1) < Math.abs(effV - 1) ? effH : effV;
-      if (Math.abs(uniformFactor - 1) <= 0.0001) return;
+      if (uniformFactor === 1) return;
       zoomCameraHorizontal(uniformFactor, new Vector2(clientX, clientY));
       zoomVertical(uniformFactor, clientY, { mode, canvasRect: rect });
     };
@@ -489,14 +493,15 @@ const InnerPanZoomControls = forwardRef<PanZoomControlsRef, PanZoomControlsProps
 
           // --- Ctrl/Cmd + wheel, and trackpad pinch: Zoom ---
           // The zoom rate follows the input (see `wheelZoomFactor`): a mouse notch
-          // zooms a fixed step, continuous input zooms in proportion to its delta,
-          // so a pinch tracks the fingers and needs no dead zone. A pinch zooms
-          // like a gesture pinch (both axes in spline mode); a modifier-held wheel
+          // zooms at the notch rate, continuous input at the pinch rate, both in
+          // proportion to the delta, so a pinch tracks the fingers and needs no dead
+          // zone. A pinch (a ctrlKey wheel with Control not actually held) zooms
+          // like a gesture pinch, both axes in spline mode; a modifier-held wheel
           // zooms the value axis in spline mode, or time with Shift added.
           if (hasCtrl && settingsRef.current.enableZoom) {
             const dominantDelta = absDeltaY >= absDeltaX ? deltaY : deltaX;
             const wheelEvent = event as WheelEvent;
-            const input = classifyZoomWheel(wheelEvent, dominantDelta);
+            const input = classifyZoomWheel(wheelEvent, dominantDelta, controlKeyHeld.current);
             const zoomFactor = wheelZoomFactor(
               dominantDelta,
               input,
