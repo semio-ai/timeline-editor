@@ -185,11 +185,23 @@ export function pointerPinch(
   last.forEach((p, i) => pointer(canvas, "pointerup", i + 1, p.x, p.y));
 }
 
-/** Press or release the physical Control key, as the page's key events report it. */
-export function controlKey(type: "keydown" | "keyup"): void {
+/**
+ * Press or release a physical Control key (`code` names which one), as the page's
+ * key events report it: `ctrlKey` is the modifier state with the event applied, so
+ * a release reads `ctrlKey: true` while the other Control key is still down.
+ */
+export function controlKey(
+  type: "keydown" | "keyup",
+  { code = "ControlLeft", otherControlHeld = false } = {},
+): void {
   act(() => {
     document.dispatchEvent(
-      new KeyboardEvent(type, { key: "Control", ctrlKey: type === "keydown", bubbles: true }),
+      new KeyboardEvent(type, {
+        key: "Control",
+        code,
+        ctrlKey: type === "keydown" || otherControlHeld,
+        bubbles: true,
+      }),
     );
   });
 }

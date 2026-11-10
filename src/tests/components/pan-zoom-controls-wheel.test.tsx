@@ -253,6 +253,23 @@ describe("PanZoomControls wheel zoom, Spline mode", () => {
     expect(zoom.value).toBeCloseTo(1, 6);
   });
 
+  it("keeps Control held when one of two held Control keys is released", () => {
+    const canvas = mount(TrackRender.Spline);
+    controlKey("keydown", { code: "ControlLeft" });
+    controlKey("keydown", { code: "ControlRight", otherControlHeld: true });
+    controlKey("keyup", { code: "ControlLeft", otherControlHeld: true });
+    const oneReleased = snapshot();
+    wheelStream(canvas, Array(5).fill(macNotch), { ctrlKey: true });
+    const zoom = zoomSince(oneReleased);
+    expect(zoom.value).toBeCloseTo(Math.exp((-5 * macNotch) / 100), 6);
+    expect(zoom.time).toBeCloseTo(1, 6);
+
+    controlKey("keyup", { code: "ControlRight" });
+    const bothReleased = snapshot();
+    wheelStream(canvas, Array(5).fill(macNotch), { ctrlKey: true });
+    expect(zoomSince(bothReleased).time).toBeCloseTo(Math.exp((-5 * macNotch) / 100), 6);
+  });
+
   it("reads Control as held from pointer movement, and as released when the window loses focus", () => {
     const canvas = mount(TrackRender.Spline);
     // Control pressed while another window had focus: no keydown, but the pointer

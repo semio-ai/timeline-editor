@@ -14,8 +14,11 @@ export function useControlKeyHeld(): { readonly current: boolean } {
   const held = useRef(false);
 
   useEffect(() => {
+    // A key event's `ctrlKey` is the modifier state with that event applied, so a
+    // release of one Control key still reads `ctrlKey: true` while the other is
+    // down. Only a Control press is taken as held outright.
     const fromKey = (event: KeyboardEvent) => {
-      held.current = event.key === "Control" ? event.type === "keydown" : event.ctrlKey;
+      held.current = (event.key === "Control" && event.type === "keydown") || event.ctrlKey;
     };
     const fromPointer = (event: PointerEvent) => {
       held.current = event.ctrlKey;
