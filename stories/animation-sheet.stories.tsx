@@ -77,12 +77,23 @@ function AnimationSheetWithStore({
   return (
     <DataStoreContext.Provider value={values}>
       <AnimationContext.Provider value={store}>
-        <div ref={ref} style={{ width: "100vw", height: "100vh", minHeight: 400 }}>
+        <div
+          style={{
+            width: "100vw",
+            height: "100vh",
+            minHeight: 400,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           {evaluate && <EvaluationStatus />}
-          <AnimationSheet
-            {...props}
-            height={props.height ?? (bounds.height > 0 ? bounds.height : 600)}
-          />
+          {/* The sheet takes the height left below the status line, measured here. */}
+          <div ref={ref} style={{ flex: "1 1 0", minHeight: 0 }}>
+            <AnimationSheet
+              {...props}
+              height={props.height ?? (bounds.height > 0 ? bounds.height : 600)}
+            />
+          </div>
         </div>
       </AnimationContext.Provider>
     </DataStoreContext.Provider>
