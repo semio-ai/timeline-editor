@@ -8,7 +8,7 @@ import {
   type CanvasContextMenuContext,
 } from "@semio/ui";
 import { AnimationAction } from "../../../keybindings";
-import { AnimationActionsSection } from "./animation-actions";
+import { AnimationActionsSection, type PlayerMenuActions } from "./animation-actions";
 
 /**
  * Context menu for right-clicking a specific keypoint.
@@ -27,6 +27,7 @@ export function KeyContextMenu({
   onPaste,
   onDelete,
   onFlattenHandles,
+  playerActions,
 }: {
   ctx: CanvasContextMenuContext;
   hasClipboard: boolean;
@@ -45,6 +46,8 @@ export function KeyContextMenu({
   onPaste: (worldStamp: number) => void;
   onDelete: () => void;
   onFlattenHandles: () => void;
+  /** Commands for the menu's "Animation" section. */
+  playerActions: PlayerMenuActions;
 }): ReactNode {
   return (
     <>
@@ -111,7 +114,7 @@ export function KeyContextMenu({
         Deselect All
       </NestedItem>
       <NestedSeparator />
-      <AnimationActionsSection ctx={ctx} />
+      <AnimationActionsSection ctx={ctx} {...playerActions} />
     </>
   );
 }

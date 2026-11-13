@@ -7,7 +7,7 @@ import {
   type KeyMenuContext,
 } from "../../../functions/key-edit-targets";
 import { setViewport, requestVerticalFit } from "../../../viewport-state";
-import { AnimationActionsSection } from "./animation-actions";
+import { AnimationActionsSection, type PlayerMenuActions } from "./animation-actions";
 import { SelectionActionsSection } from "./selection-actions";
 import { EditActionsSection } from "./edit-actions";
 import { KeyEditActionsSection } from "./key-edit-actions";
@@ -24,6 +24,15 @@ type AnimationStore = AnimationData & AnimationActions;
  */
 function getAnimationState(store: any): AnimationStore {
   return store.getState();
+}
+
+/** The "Animation" section's commands, on the store's player as it is when each is chosen. */
+function playerMenuActions(animationStore: any): PlayerMenuActions {
+  const player = () => getAnimationState(animationStore).playerStore.getState();
+  return {
+    onMovePlayhead: (worldStamp) => player().resetPlayer(worldStamp),
+    onMoveBound: (bound, worldStamp) => player().updatePlayerBound(bound, worldStamp),
+  };
 }
 
 /** Context menu items for the tracks area and timeline. */
@@ -106,7 +115,7 @@ export function buildTrackMenuItems(
         onRemoveKey={handleRemoveKey}
       />
       <NestedSeparator />
-      <AnimationActionsSection ctx={ctx} />
+      <AnimationActionsSection ctx={ctx} {...playerMenuActions(animationStore)} />
     </>
   );
 }
@@ -114,12 +123,13 @@ export function buildTrackMenuItems(
 /** Context menu items for the ruler. */
 export function buildRulerMenuItems(
   ctx: CanvasContextMenuContext,
+  animationStore: any,
   timeDisplay: TimeDisplay,
   setTimeDisplay: (v: TimeDisplay) => void,
 ): ReactNode {
   return (
     <>
-      <AnimationActionsSection ctx={ctx} />
+      <AnimationActionsSection ctx={ctx} {...playerMenuActions(animationStore)} />
       <NestedSeparator />
       <AxisSettingsSection timeDisplay={timeDisplay} setTimeDisplay={setTimeDisplay} />
     </>
@@ -139,7 +149,7 @@ export function buildMinimapMenuItems(
 
   return (
     <>
-      <AnimationActionsSection ctx={ctx} />
+      <AnimationActionsSection ctx={ctx} {...playerMenuActions(animationStore)} />
       <NestedSeparator />
       <ZoomActionsSection onFitToViewport={handleFitToViewport} />
     </>
@@ -203,6 +213,7 @@ export function buildKeyMenuItems(
       onPaste={handlePaste}
       onDelete={handleDelete}
       onFlattenHandles={handleFlattenHandles}
+      playerActions={playerMenuActions(animationStore)}
     />
   );
 }

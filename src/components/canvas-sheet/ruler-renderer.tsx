@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, memo, useCallback } from "react";
+import { useState, useRef, useMemo, memo, useCallback, useContext } from "react";
 import { strip } from "number-precision";
 import { useShallow } from "zustand/react/shallow";
 import * as THREE from "three";
@@ -11,6 +11,7 @@ import {
   usePlaybackGestures,
 } from "../../hooks";
 import type { AnimationData } from "../../store-types";
+import { AnimationContext } from "../../context";
 import { computeTickIntervals } from "../../functions/compute-tick-interval";
 import { Z } from "../../constants";
 import { usePlayer } from "../../hooks/use-player";
@@ -139,10 +140,11 @@ export const RulerRenderer = memo(function RulerRenderer({
 
   const playbackGestures = usePlaybackGestures();
 
+  const animationStore = useContext(AnimationContext);
   const rulerMenuItems = useCallback(
     (ctx: Parameters<typeof buildRulerMenuItems>[0]) =>
-      buildRulerMenuItems(ctx, timeDisplay, setTimeDisplay),
-    [timeDisplay, setTimeDisplay],
+      buildRulerMenuItems(ctx, animationStore, timeDisplay, setTimeDisplay),
+    [animationStore, timeDisplay, setTimeDisplay],
   );
   const { onContextMenu } = useCanvasContextMenu({
     items: rulerMenuItems,
