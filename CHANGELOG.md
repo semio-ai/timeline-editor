@@ -1,5 +1,12 @@
 # @semio/timeline-editor
 
+## 0.7.1
+
+### Patch Changes
+
+- bf5be9b: Each wheel event over the timeline's canvases zooms or scrolls once. A Ctrl+wheel notch zooms one step (1.1×), as a Cmd+wheel notch does, and a notch in followed by a notch out returns to the starting zoom. Every input zooms in proportion to its delta, so zoom does not depend on how the browser splits or coalesces events, and small updates are never dropped. A trackpad pinch zooms by the scale the fingers make, in time outside Spline mode and on both axes in Spline mode, whether the browser delivers it as wheel events (Chromium) or as gesture events (Safari), and each pinch starts from the zoom the previous one left. Two fingers on a touchscreen zoom the axis they are spread along in Spline mode, in browsers with pointer events as well as touch events. A pinch is told from Ctrl+wheel by whether the Control key is actually held, so a Ctrl+wheel on a macOS mouse or a trackpad scroll with Ctrl held zooms as Ctrl+wheel does. A mouse wheel notch is still recognised as a notch after trackpad input, so its vertical scroll keeps its `panSpeed` damping. `onStart` and `onEnd` fire once per pinch that zooms.
+- 3d176c8: The timeline's canvas context menus (track area, key, ruler and minimap) open when they render outside the animation provider. Their "Animation" section — Move Playhead, Move Left Bounds, Move Right Bounds — takes its player commands from the menu builder and reads no context. An app that mounts its outermost `TooltipHost` above its animation providers, as Studio does, therefore gets the menu instead of "Missing AnimationProvider in the tree".
+
 ## 0.7.0
 
 ### Minor Changes
