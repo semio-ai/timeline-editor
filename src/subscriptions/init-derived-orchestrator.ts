@@ -88,10 +88,12 @@ export function computeDerivedState(
 }
 
 /**
- * How many times one flush may rebuild. Each publish is a write whose
- * listeners may change an input again, and a provider may report a change
- * while it is being asked; a listener that answers every snapshot with a new
- * input would otherwise loop.
+ * How many times one outermost flush may build, nested flushes included. Each
+ * publish is a write whose listeners may change an input again, and a provider
+ * may report a change while it is being asked; a listener that answers every
+ * snapshot with a new input would otherwise loop. Work left when the budget
+ * runs out is picked up on a later task, so a long but finite chain of changes
+ * still settles without holding up the write that started it.
  */
 const MAX_SETTLE_PASSES = 8;
 
@@ -126,6 +128,11 @@ export interface DerivedOrchestrator {
  * inputs, a listener subscribed after the store's own (a host subscription, a
  * React hook) sees the new snapshot on the first notification that shows it
  * the new inputs, and a caller sees it as soon as its action returns.
+ *
+ * That holds for an action called from a listener too, including one
+ * listening to the snapshot: its write is a nested notification, which builds
+ * at its own end before the action returns. Publishing a snapshot does not
+ * build again by itself, because the inputs are the ones just built from.
  */
 export function createDerivedOrchestrator(
   _api: AnimationApi,
@@ -133,7 +140,10 @@ export function createDerivedOrchestrator(
   get: AnimationStoreGetter,
 ): DerivedOrchestrator {
   let started = false;
-  let flushing = false;
+  let depth = 0;
+  let passesLeft = 0;
+  let building = false;
+  let retry: ReturnType<typeof setTimeout> | undefined;
   let providerChangedDuringBuild = false;
   let builtFrom: DerivedInputs | undefined;
   let watchedProvider: FeedbackProvider | undefined;
@@ -152,7 +162,7 @@ export function createDerivedOrchestrator(
     // of date, so the flush builds again.
     unwatchProvider = provider?.subscribe?.(() => {
       builtFrom = undefined;
-      if (flushing) providerChangedDuringBuild = true;
+      if (building) providerChangedDuringBuild = true;
       else flush();
     });
   };
@@ -160,11 +170,17 @@ export function createDerivedOrchestrator(
   const build = (inputs: DerivedInputs) => {
     const versionHint = (get().derivedSnapshot?.version ?? 0) + 1;
     providerChangedDuringBuild = false;
-    const snapshot = computeDerivedState(
-      inputs,
-      versionHint,
-      inputs.feedbackProvider ?? defaultProvider,
-    );
+    building = true;
+    let snapshot: DerivedSnapshot;
+    try {
+      snapshot = computeDerivedState(
+        inputs,
+        versionHint,
+        inputs.feedbackProvider ?? defaultProvider,
+      );
+    } finally {
+      building = false;
+    }
     builtFrom = providerChangedDuringBuild ? undefined : inputs;
 
     logDerivedEvent("derivedOrchestrator", "snapshot", () => ({
@@ -176,18 +192,31 @@ export function createDerivedOrchestrator(
     set({ derivedSnapshot: snapshot });
   };
 
+  const scheduleRetry = () => {
+    retry ??= setTimeout(() => {
+      retry = undefined;
+      flush();
+    }, 0);
+  };
+
   const flush = () => {
-    if (!started || flushing) return;
-    flushing = true;
+    if (!started) return;
+    if (depth === 0) passesLeft = MAX_SETTLE_PASSES;
+    depth += 1;
     try {
-      for (let pass = 0; pass < MAX_SETTLE_PASSES; pass += 1) {
+      for (;;) {
         const inputs = selectDerivedInputs(get());
         watchProvider(inputs.feedbackProvider);
         if (builtFrom && shallow(builtFrom, inputs)) return;
+        if (passesLeft === 0) {
+          scheduleRetry();
+          return;
+        }
+        passesLeft -= 1;
         build(inputs);
       }
     } finally {
-      flushing = false;
+      depth -= 1;
     }
   };
 
@@ -200,6 +229,8 @@ export function createDerivedOrchestrator(
     },
     stop: () => {
       started = false;
+      clearTimeout(retry);
+      retry = undefined;
       unwatchProvider?.();
       unwatchProvider = undefined;
       watchedProvider = undefined;

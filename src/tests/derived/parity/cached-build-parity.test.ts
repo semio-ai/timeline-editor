@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   computeDerivedState,
   selectDerivedInputs,
@@ -243,5 +243,129 @@ describe("cached derived build", () => {
     calls = 0;
     store.setState({ feedbackProvider: provider });
     expect(calls).toBe(2);
+  });
+
+  it("shows an action called from a snapshot listener its own snapshot", () => {
+    const store = createCorpusStore();
+    const trackId = numericTrackId(store);
+    const pointId = store.getState().tracks[trackId].points[0].id;
+    const valueAt = () => {
+      const state = store.getState();
+      const point = state.tracks[trackId].points.find((p) => p.id === pointId)!;
+      const key = (Object.keys(state.derivedSnapshot!.tracks) as TrackKey[]).find(
+        (k) => state.derivedSnapshot!.tracks[k].metadata?.trackId === trackId,
+      )!;
+      return state.derivedSnapshot!.tracks[key].canonical.curve(point.stamp);
+    };
+    let seen: unknown;
+    let once = true;
+    const unsubscribe = store.subscribe(
+      (s) => s.derivedSnapshot,
+      () => {
+        if (!once) return;
+        once = false;
+        store.getState().updateKeypoint(trackId, { id: pointId, value: 0.3 });
+        seen = valueAt();
+      },
+    );
+    store.getState().updateKeypoint(trackId, { id: pointId, value: 0.1 });
+    unsubscribe();
+    expect(seen).toBeCloseTo(0.3);
+    expect(valueAt()).toBeCloseTo(0.3);
+  });
+
+  // A provider that answers late needs no write to be shown: its notification
+  // alone rebuilds.
+  it("rebuilds when a provider reports a change between writes", () => {
+    const listeners = new Set<() => void>();
+    let end = 1;
+    const provider: FeedbackProvider = {
+      canonical: (subjects) =>
+        new Map(
+          subjects.map((subject) => [
+            subject.trackKey,
+            [
+              {
+                id: `late:${subject.trackKey}`,
+                trackId: subject.trackId,
+                namespace: subject.namespaceId,
+                instanceId: subject.instanceId,
+                type: "upper",
+                stampRange: { start: 0, end },
+              } as Violation,
+            ],
+          ]),
+        ),
+      preview: () => [],
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    const store = createCorpusStore();
+    store.setState({ feedbackProvider: provider });
+    end = 2;
+    listeners.forEach((listener) => listener());
+    const tracks = Object.values(store.getState().derivedSnapshot!.tracks);
+    expect(tracks.length).toBeGreaterThan(0);
+    tracks.forEach((track) => expect(track.canonical.violations[0].stampRange.end).toBe(2));
+  });
+
+  it("settles a provider that changes more times in a row than one flush builds", () => {
+    vi.useFakeTimers();
+    try {
+      let notify = () => {};
+      let answer = 0;
+      const provider: FeedbackProvider = {
+        canonical: (subjects) => {
+          const current = answer;
+          if (answer < 20) {
+            answer += 1;
+            notify();
+          }
+          return new Map(
+            subjects.map((subject) => [
+              subject.trackKey,
+              [
+                {
+                  id: `v${current}:${subject.trackKey}`,
+                  trackId: subject.trackId,
+                  namespace: subject.namespaceId,
+                  instanceId: subject.instanceId,
+                  type: "upper",
+                  stampRange: { start: 0, end: current },
+                } as Violation,
+              ],
+            ]),
+          );
+        },
+        preview: () => [],
+        subscribe: (listener) => {
+          notify = listener;
+          return () => {
+            notify = () => {};
+          };
+        },
+      };
+      const store = createCorpusStore();
+      store.setState({ feedbackProvider: provider });
+      vi.runAllTimers();
+      Object.values(store.getState().derivedSnapshot!.tracks).forEach((track) =>
+        expect(track.canonical.violations[0].stampRange.end).toBe(20),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("recomputes cached violations when the evaluator changes", () => {
+    const store = createCorpusStore();
+    const before = store.getState().derivedSnapshot!;
+    expect(violationsIn(before).length).toBeGreaterThan(0);
+    // Without an evaluator no curve compiles, so nothing can be judged.
+    store.setState({ trackEvaluator: undefined });
+    const fresh = computeDerivedState(selectDerivedInputs(store.getState()), 0);
+    expect(normalize(store.getState().derivedSnapshot)).toEqual(normalize(fresh));
+    expect(violationsIn(store.getState().derivedSnapshot!)).toEqual([]);
   });
 });
