@@ -48,6 +48,14 @@ export interface FeedbackSubject {
  * - `subscribe` lets a provider answer late: it returns what it has now, and
  *   calls the listener when a later answer replaces it. The store rebuilds the
  *   snapshot then, as for a write.
+ *
+ * A provider set as the store's `feedbackProvider` is part of the store's
+ * state, and every action deep-freezes the plain objects, arrays, maps and
+ * sets in that state. So a provider keeps whatever it changes (its caches, its
+ * listeners) where that freeze cannot reach: in its closure, as
+ * `createTrackFeedbackProvider` does, or in the fields of a class instance,
+ * which the freeze leaves alone. A plain-object provider that keeps a cache
+ * in one of its own properties throws on its first write after an action.
  */
 export interface FeedbackProvider {
   canonical(
@@ -92,47 +100,55 @@ interface CachedViolations {
  * A track instance's result depends on its track, the animatable's
  * constraints, the animation's duration, the instance's timescale and the
  * evaluator, and on nothing else. So it is cached against exactly those:
- * keyed by the frozen track object, and kept while the rest are the same
- * objects or values. The cache is weak on the track, so a replaced track's
- * results go with it.
+ * keyed by the track object and the instance, and kept while the rest are
+ * the same objects or values.
+ *
+ * The cache holds only the subjects of the latest `canonical` call: each call
+ * builds the next cache from the entries its subjects use. A replaced track,
+ * a removed instance and a removed track all leave it on the next build, so
+ * a long session of edits does not accumulate results nothing will ask for.
  */
 export function createTrackFeedbackProvider(): FeedbackProvider {
-  const cache = new WeakMap<Track<RawValue>, Map<string, CachedViolations>>();
+  let cache = new Map<Track<RawValue>, Map<string, CachedViolations>>();
 
-  const cached = (subject: FeedbackSubject, evaluator: TrackEvaluator | undefined) => {
-    let byInstance = cache.get(subject.track);
-    if (!byInstance) {
-      byInstance = new Map();
-      cache.set(subject.track, byInstance);
-    }
+  const cached = (
+    next: Map<Track<RawValue>, Map<string, CachedViolations>>,
+    subject: FeedbackSubject,
+    evaluator: TrackEvaluator | undefined,
+  ) => {
     const instanceKey = `${subject.namespaceId}/${subject.instanceId}`;
-    const hit = byInstance.get(instanceKey);
-    if (
+    const hit = cache.get(subject.track)?.get(instanceKey);
+    const entry =
       hit &&
       hit.trackId === subject.trackId &&
       hit.durationMs === subject.durationMs &&
       Object.is(hit.timescale, subject.timescale) &&
       hit.animatable === subject.animatable &&
       hit.evaluator === evaluator
-    ) {
-      return hit.violations;
+        ? hit
+        : {
+            trackId: subject.trackId,
+            durationMs: subject.durationMs,
+            timescale: subject.timescale,
+            animatable: subject.animatable,
+            evaluator,
+            violations: computeSubjectViolations(subject, evaluator),
+          };
+    let byInstance = next.get(subject.track);
+    if (!byInstance) {
+      byInstance = new Map();
+      next.set(subject.track, byInstance);
     }
-    const violations = computeSubjectViolations(subject, evaluator);
-    byInstance.set(instanceKey, {
-      trackId: subject.trackId,
-      durationMs: subject.durationMs,
-      timescale: subject.timescale,
-      animatable: subject.animatable,
-      evaluator,
-      violations,
-    });
-    return violations;
+    byInstance.set(instanceKey, entry);
+    return entry.violations;
   };
 
   return {
     canonical: (subjects, evaluator) => {
+      const next = new Map<Track<RawValue>, Map<string, CachedViolations>>();
       const result = new Map<TrackKey, Violation[]>();
-      subjects.forEach((subject) => result.set(subject.trackKey, cached(subject, evaluator)));
+      subjects.forEach((subject) => result.set(subject.trackKey, cached(next, subject, evaluator)));
+      cache = next;
       return result;
     },
     preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),

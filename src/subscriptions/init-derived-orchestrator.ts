@@ -139,6 +139,12 @@ export interface DerivedOrchestrator {
   /** Builds the first snapshot. Call once `writeSettled` is subscribed. */
   start: () => void;
   stop: () => void;
+  /**
+   * Builds at once if building is stalled and the snapshot trails its inputs.
+   * Otherwise the snapshot is already current wherever an action runs, and
+   * this does nothing.
+   */
+  refresh: () => void;
 }
 
 /**
@@ -173,8 +179,16 @@ export interface DerivedOrchestrator {
  * A write made while a build is running (a provider that writes to the store
  * while it is being asked) does not build inside it: the running build owns
  * the record of what it was built from, and a nested build would overwrite it.
- * The write's change is picked up when the running build returns, because
- * the inputs then differ from the ones it was built from.
+ * The running build is then discarded rather than published, because it was
+ * built from inputs the store no longer holds, and the flush builds again
+ * from the new ones. The nested write's own notification still runs before
+ * that rebuild, so its listeners see the new inputs beside the previous
+ * snapshot, as they would in any write's notification before it settles.
+ *
+ * While building is stalled, the snapshot can trail its inputs. An action
+ * that reads the snapshot calls `refresh` first, so it never acts on a
+ * snapshot built from inputs older than its own: committing a drag, for
+ * one, applies the pending changes the snapshot projected for it.
  */
 export function createDerivedOrchestrator(
   _api: AnimationApi,
@@ -228,6 +242,15 @@ export function createDerivedOrchestrator(
     } finally {
       building = false;
     }
+    // Stopped while asking the provider: a stopped orchestrator publishes nothing.
+    if (!started) return;
+    // A write made while building replaced the inputs this was built from;
+    // publishing it would show listeners a snapshot of a state the store no
+    // longer holds. The flush that called this builds again from the new ones.
+    if (!shallow(inputs, selectDerivedInputs(get()))) {
+      builtFrom = undefined;
+      return;
+    }
     builtFrom = providerChangedDuringBuild ? undefined : inputs;
 
     logDerivedEvent("derivedOrchestrator", "snapshot", () => ({
@@ -258,6 +281,8 @@ export function createDerivedOrchestrator(
     depth += 1;
     try {
       for (;;) {
+        // A listener of the last publish may have stopped this orchestrator.
+        if (!started) return;
         const inputs = selectDerivedInputs(get());
         watchProvider(inputs.feedbackProvider);
         if (builtFrom && shallow(builtFrom, inputs)) {
@@ -278,8 +303,20 @@ export function createDerivedOrchestrator(
     }
   };
 
+  const refresh = () => {
+    if (!started || building || !stalled) return;
+    const inputs = selectDerivedInputs(get());
+    if (builtFrom && shallow(builtFrom, inputs)) return;
+    // Its publish notifies `writeSettled`, which finds building stalled, and
+    // the pending retry still runs. This cannot loop through a listener that
+    // answers every snapshot with an action: the action refreshes before it
+    // writes, and finds the snapshot it is answering already current.
+    build(inputs);
+  };
+
   return {
     writeSettled: () => flush(),
+    refresh,
     start: () => {
       started = true;
       builtFrom = undefined;

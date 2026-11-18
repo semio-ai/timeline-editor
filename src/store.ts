@@ -123,14 +123,26 @@ import {
 } from "./subscriptions";
 import { View } from "./types/util/view";
 import { clickLineAction } from "./actions/click-line";
+import { createInternalListeners } from "./subscriptions/internal-listeners";
 
 enableMapSet();
 
 export const AnimationSlice = (
-  set: AnimationStoreSetter,
+  rawSet: AnimationStoreSetter,
   get: AnimationStoreGetter,
   api: AnimationApi,
 ) => {
+  const internal = createInternalListeners(api);
+  // Brings a stalled snapshot up to its inputs; set while subscriptions run.
+  let refreshDerived = () => {};
+  // An action's recipe may read the snapshot, so the snapshot it reads must be
+  // built from the inputs the recipe sees (see `DerivedOrchestrator.refresh`).
+  // The store's own subscriptions take `rawSet`: they run mid-notification,
+  // where the snapshot trails its inputs by design.
+  const set: AnimationStoreSetter = (partial, replace) => {
+    if (typeof partial === "function") refreshDerived();
+    rawSet(partial, replace);
+  };
   return {
     ...createDefaultState(),
     updateSource: (groupId: string, expanded?: boolean) => {
@@ -491,10 +503,14 @@ export const AnimationSlice = (
         }),
       );
     },
-    skipToNextKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) =>
-      skipToNextKeyframeAction(get, sourceRow, respectBounds),
-    skipToPrevKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) =>
-      skipToPrevKeyframeAction(get, sourceRow, respectBounds),
+    skipToNextKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => {
+      refreshDerived();
+      return skipToNextKeyframeAction(get, sourceRow, respectBounds);
+    },
+    skipToPrevKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => {
+      refreshDerived();
+      return skipToPrevKeyframeAction(get, sourceRow, respectBounds);
+    },
     skipToStart: () => skipToStartAction(get),
     skipToEnd: () => skipToEndAction(get),
     updateDuration: (duration: number) => updateDurationAction(set, get, duration),
@@ -564,7 +580,7 @@ export const AnimationSlice = (
       // The derived orchestrator's listener runs after the other
       // subscriptions in every notification, so it builds the snapshot once
       // they have all answered a write.
-      const derived = createDerivedOrchestrator(api, set, get);
+      const derived = createDerivedOrchestrator(internal.api, rawSet, get);
       const unsubs = [
         ...[
           viewportFollow,
@@ -574,11 +590,21 @@ export const AnimationSlice = (
           updateSourceRowIds,
           updateViewFilteredSourceRows,
           updateActiveEntityContext,
-        ].map((fn) => fn(api, set, get)),
-        api.subscribe(derived.writeSettled),
+        ].map((fn) => fn(internal.api, rawSet, get)),
+        internal.api.subscribe(derived.writeSettled),
         derived.stop,
+        () => {
+          refreshDerived = () => {};
+        },
       ];
-      derived.start();
+      refreshDerived = derived.refresh;
+      try {
+        derived.start();
+      } catch (error) {
+        // No handle reaches the caller, so nothing else could stop this set.
+        unsubs.forEach((unsub) => unsub());
+        throw error;
+      }
 
       // A cleanup stops only the set it was returned for, once. A later call
       // runs it before starting its own set, which spends the handle: running it
@@ -661,8 +687,10 @@ export const AnimationSlice = (
     rangeSelectTracks: (fromRowId: string, toRowId: string) =>
       rangeSelectTracksAction(set, fromRowId, toRowId),
     startBoxSelect: (boxState: BoxSelectState) => startBoxSelectAction(set, get, boxState),
-    updateBoxSelect: (currentStamp: number, currentY: number) =>
-      updateBoxSelectAction(set, get, currentStamp, currentY),
+    updateBoxSelect: (currentStamp: number, currentY: number) => {
+      refreshDerived();
+      updateBoxSelectAction(set, get, currentStamp, currentY);
+    },
     cancelBoxSelect: () => cancelBoxSelectAction(set, get),
     commitBoxSelect: () => commitBoxSelectAction(set),
     setBoxSelectPending: (pending: boolean) => setBoxSelectPendingAction(set, pending),

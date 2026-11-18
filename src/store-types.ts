@@ -202,7 +202,10 @@ export interface AnimationData {
   trackEvaluator?: TrackEvaluator;
   /**
    * Judges the motion for violations. Without one, the store uses the editor's
-   * own limit and velocity checks, cached per track.
+   * own limit and velocity checks, cached per track. Actions deep-freeze the
+   * plain objects in the store's state, so a provider keeps the state it
+   * changes in its closure or in a class instance's fields (see
+   * `FeedbackProvider`).
    */
   feedbackProvider?: FeedbackProvider;
   /**

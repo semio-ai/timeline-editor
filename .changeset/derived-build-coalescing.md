@@ -2,9 +2,9 @@
 "@semio/timeline-editor": minor
 ---
 
-The store builds the derived snapshot once per write, rather than once for each nested write its own subscriptions make. A caller sees the new snapshot as soon as its action returns. So does a listener subscribed after the store's own, on the first notification that shows it the new inputs.
+The store builds the derived snapshot once per write, rather than once for each nested write its own subscriptions make. A caller sees the new snapshot as soon as its action returns. So does a host listener, on the first notification that shows it the new inputs: the store's own subscriptions run ahead of every host listener, including after `initAnimationSubscriptions` is called again.
 
-Violations come from a `FeedbackProvider`, which the host can set as `feedbackProvider` in the store. Without one, the store runs the editor's own limit and velocity checks and caches the results per track, so a write to one track rescans only that track. A dragged track's preview violations are computed once per build, and every row shares them.
+Violations come from a `FeedbackProvider`, which the host can set as `feedbackProvider` in the store. Actions deep-freeze the plain objects in the store's state, so a provider keeps the state it changes in its closure or in a class instance's fields. Without one, the store runs the editor's own limit and velocity checks and caches the results per track, so a write to one track rescans only that track. A dragged track's preview violations are computed once per build, and every row shares them.
 
 A violation's `id` is derived from its track instance, type and start, so a violation that is computed again keeps its id. Source rows and row ids keep their identity across a write that leaves them unchanged.
 

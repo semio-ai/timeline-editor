@@ -60,9 +60,11 @@ describe("cached derived build", () => {
       let step = 0;
       for (const corpusStep of corpusSteps(seed, LENGTH)) {
         const before = store.getState().derivedSnapshot?.version ?? 0;
-        runStep(store, corpusStep);
-        const state = store.getState();
         const where = `${corpusStep.label} (step ${step})`;
+        // No corpus step fails; one that did could leave the state unchanged
+        // and still compare equal to a fresh build of it.
+        expect(runStep(store, corpusStep), where).toBeUndefined();
+        const state = store.getState();
 
         // One outermost action is one write or a few in sequence; each builds
         // at most once.
@@ -99,9 +101,9 @@ describe("cached derived build", () => {
       let previous = store.getState().derivedSnapshot!;
       let step = 0;
       for (const corpusStep of corpusSteps(seed, LENGTH)) {
-        runStep(store, corpusStep);
-        const snapshot = store.getState().derivedSnapshot!;
         const where = `${corpusStep.label} (step ${step})`;
+        expect(runStep(store, corpusStep), where).toBeUndefined();
+        const snapshot = store.getState().derivedSnapshot!;
 
         Object.entries(snapshot.tracks).forEach(([key, track]) => {
           [track.canonical.violations, track.preview?.violations ?? []].forEach((list) => {

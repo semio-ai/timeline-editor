@@ -184,6 +184,7 @@ export function buildDerivedSnapshotWithRows(
     namespaces: inputs.namespaces,
     trackEvaluator: inputs.trackEvaluator,
     previewViolations,
+    durationOf,
   };
   Object.values(inputs.instancedTrackSources).forEach((sourceRow) => {
     const rowInputs = rowInputsOf(sourceRow, inputs, canonicalViolationsByTrackKey, rowContext);
@@ -269,12 +270,12 @@ export function buildDerivedSnapshotWithRows(
         durationMs: durationOf(context.animation),
         timescale: context.instance.settings.timescale,
       };
-      // An uncompiled curve has no values to check.
-      const violations = !previewCurve
-        ? []
-        : previewViolations
-          ? previewViolations(subject)
-          : computeSubjectViolations(subject, inputs.trackEvaluator);
+      // Asked even when the editor cannot compile the preview curve: a provider
+      // may judge the motion without the evaluator, and the rows that draw
+      // this track ask it too, so the two must agree.
+      const violations = previewViolations
+        ? previewViolations(subject)
+        : computeSubjectViolations(subject, inputs.trackEvaluator);
       target.preview = {
         track: previewTrack,
         curve: previewCurve ?? noCurve,

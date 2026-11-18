@@ -66,6 +66,11 @@ interface RowComputationContext {
    * it, the row judges its own preview.
    */
   previewViolations?: (subject: FeedbackSubject) => Violation[];
+  /**
+   * An animation's duration, resolved once per build. Without it, the row
+   * resolves the duration itself, from every track of the animation.
+   */
+  durationOf?: (animation: Animation) => number;
 }
 
 export interface DragPreviewCache {
@@ -481,7 +486,9 @@ export function computeRowData(
         instanceId: entry.instanceId,
         track: previewTrack,
         animatable,
-        durationMs: resolveAnimationDuration(animation, tracks),
+        durationMs: context.durationOf
+          ? context.durationOf(animation)
+          : resolveAnimationDuration(animation, tracks),
         timescale: instance.settings.timescale,
       };
       const previewViolations = context.previewViolations
