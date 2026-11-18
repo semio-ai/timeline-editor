@@ -97,12 +97,13 @@ export function computeDerivedState(
  * When the budget runs out, building stops for the rest of the task: the
  * notifications still unwinding from the write would otherwise each start a
  * flush with a budget of its own. On a later task the store tries once more
- * with a fresh budget, so a chain of up to twice this many changes still
- * settles without holding up the write that started it. If a retry has
- * already run since the inputs last settled, the later task only lifts the
- * stop: the inputs are changing on their own, and the snapshot stays as last
- * built until the next write. Retrying for as long as the inputs change would
- * turn such a listener into an endless loop across tasks.
+ * with a fresh budget, so a chain that needs up to twice this many builds,
+ * the first included, still settles without holding up the write that
+ * started it. If a retry has already run since an outermost flush last
+ * settled, the later task only lifts the stop: the inputs are changing on
+ * their own, and the snapshot stays as last built until the next write.
+ * Retrying for as long as the inputs change would turn such a listener into
+ * an endless loop across tasks.
  */
 const MAX_SETTLE_PASSES = 8;
 

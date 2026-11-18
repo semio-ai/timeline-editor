@@ -161,12 +161,17 @@ function withDefaultTransitions(
   };
 }
 
-/** A point's identity within a frame; an absent namespace or instance is its own value. */
+/**
+ * A point's identity within a frame. The fields are encoded, not joined with a
+ * separator, because an id may contain any character: two different points
+ * must never share a key. An absent namespace or instance encodes as `null`,
+ * which no string does.
+ */
 function framePointKey(
   id: string,
   trackId: string,
   namespaceId: string | undefined,
   instanceId: string | undefined,
 ): string {
-  return [id, trackId, namespaceId ?? "\u0001", instanceId ?? "\u0001"].join("\u0000");
+  return JSON.stringify([id, trackId, namespaceId ?? null, instanceId ?? null]);
 }

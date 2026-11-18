@@ -357,13 +357,47 @@ describe("cached derived build", () => {
       (track) => track.canonical.violations[0].stampRange.end,
     );
 
-  it("settles a provider that changes more times in a row than one flush builds", () => {
+  // Each change the provider reports needs a build, after the build that
+  // first asks it: 15 changes take 16 builds, the write's budget and one
+  // retry's. One more is left unshown until the next write.
+  it.each([
+    [15, 15],
+    [16, 15],
+  ])("settles a provider's chain of %i changes as far as two budgets reach", (changes, shown) => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      store.setState({ feedbackProvider: changingProvider(changes) });
+      vi.runAllTimers();
+      expect(vi.getTimerCount()).toBe(0);
+      expect(new Set(endsShown(store))).toEqual(new Set([shown]));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives each chain of changes its own retry once the last one settled", () => {
     vi.useFakeTimers();
     try {
       const store = createCorpusStore();
       store.setState({ feedbackProvider: changingProvider(12) });
       vi.runAllTimers();
+      store.setState({ feedbackProvider: changingProvider(12) });
+      vi.runAllTimers();
       expect(new Set(endsShown(store))).toEqual(new Set([12]));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cancels a pending retry when the store's subscriptions stop", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      store.setState({ feedbackProvider: changingProvider(12) });
+      expect(vi.getTimerCount()).toBe(1);
+      store.getState().stopAnimationSubscriptions();
+      expect(vi.getTimerCount()).toBe(0);
     } finally {
       vi.useRealTimers();
     }

@@ -193,6 +193,42 @@ function scenario(seed: number) {
 }
 
 describe("computeFrames against the reference grouping", () => {
+  // Ids may contain any character, so a key built by joining them can make two
+  // different points look like one.
+  it("keeps points apart whose ids differ only in where a separator falls", () => {
+    const source = (trackId: string) =>
+      ({
+        editable: true,
+        selectable: true,
+        layerBand: LayerBand.Background,
+        trackId,
+        animatableId: "a",
+        namespaceId: "ns",
+        instanceId: "inst",
+        animationId: "anim-1",
+      }) as SourceRow["data"][number];
+    const tracks: Record<string, Track<RawValue>> = {
+      "b\u0000c": {
+        id: "b\u0000c",
+        name: "one",
+        animatableId: "a",
+        points: [{ id: "a", stamp: 0.5, value: 1 }],
+      },
+      c: {
+        id: "c",
+        name: "two",
+        animatableId: "a",
+        points: [{ id: "a\u0000b", stamp: 0.5, value: 2 }],
+      },
+    };
+    const sourceRow: SourceRow = { id: "row", data: [source("b\u0000c"), source("c")] };
+    const frames = computeFrames(tracks, sourceRow, { ignoreDraggingState: true });
+    expect(frames).toStrictEqual(
+      referenceComputeFrames(tracks, sourceRow, { ignoreDraggingState: true }),
+    );
+    expect(frames[0].points).toHaveLength(2);
+  });
+
   it("gives identical frames for 3000 generated rows", () => {
     for (let seed = 1; seed <= 3000; seed += 1) {
       const { tracks, sourceRow, options } = scenario(seed);
