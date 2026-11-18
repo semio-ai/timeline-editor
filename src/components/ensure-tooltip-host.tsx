@@ -9,8 +9,10 @@ import { TooltipHost, useTooltipHost } from "@semio/ui";
  * their own `TooltipHost`, so with nothing above them each canvas host is a
  * root and one right-click menu or violation popover renders once per canvas,
  * stacked. Wrapping them in one host makes theirs nested, so only that one
- * renders overlays. When a host already exists above (an app that mounts one
- * at its root), this renders its children with no added element.
+ * renders overlays. The store is global, so this guarantees one root per
+ * subtree, not per page: any other root on the page renders each overlay too.
+ * When a host already exists above (an app that mounts one at its root), this
+ * renders its children with no added element.
  *
  * Overlay content is rendered as React children of the root host, so it sees
  * only the contexts above that host. Place this inside any provider overlay

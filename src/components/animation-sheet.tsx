@@ -117,8 +117,10 @@ export const AnimationSheetCore = memo(function AnimationSheetCore(
  * - **AnimationContext**: If not present, creates one with default animation store
  * - **TooltipContext**: If not present, creates a TooltipProvider
  * - **TooltipHost**: If no host is above the sheet, the sheet supplies one
- *   (as does `AnimationSheetCore`), so each 3D overlay renders once rather
- *   than once per canvas (see `EnsureTooltipHost`)
+ *   (as does `AnimationSheetCore`), so the sheet contributes one root host
+ *   rather than one per canvas (see `EnsureTooltipHost`). Every root host on a
+ *   page renders every overlay, so two hostless sheets side by side still
+ *   duplicate; give them a shared host above.
  * - If contexts already exist, uses existing ones (no unnecessary nesting)
  *
  * @param skipAnimationContext - Skip providing animation context, assume parent provides it

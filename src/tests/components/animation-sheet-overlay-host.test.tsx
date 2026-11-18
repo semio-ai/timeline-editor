@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { TooltipHost, TooltipProvider, useCanvasContextMenu, useTooltipStore } from "@semio/ui";
 import { AnimationContext } from "../../context";
-import { TrackAnimatableContext } from "../../hooks/use-track-animatables";
+import { LocalGlobalTransformContext } from "../../hooks/use-local-global-transforms";
 import { createMinimalAnimationStore } from "../../test-fixtures";
 import { AnimationSheetCore } from "../../components/animation-sheet";
 
@@ -17,8 +17,11 @@ import { AnimationSheetCore } from "../../components/animation-sheet";
 
 const seen: { inSheet?: unknown; inOverlay?: unknown } = {};
 
+// Reads the innermost of the sheet's providers, so a matching value shows the
+// overlay rendered below all of them. Its default is a separate object from
+// the provided one, so identity tells the two apart.
 function ContextProbe({ where }: { where: "inSheet" | "inOverlay" }) {
-  seen[where] = useContext(TrackAnimatableContext);
+  seen[where] = useContext(LocalGlobalTransformContext);
   return where === "inOverlay" ? <div>Overlay probe</div> : null;
 }
 
