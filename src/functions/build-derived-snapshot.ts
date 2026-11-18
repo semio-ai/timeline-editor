@@ -1,4 +1,5 @@
 import { AnimatableValue, RawValue } from "@semio/data";
+import { isEqual } from "lodash";
 import {
   Animation,
   DerivedSnapshot,
@@ -15,8 +16,12 @@ import {
 import { buildTrackKey } from "../utils/track-key";
 import type { ProjectedTrackView, SelectionCleanup, TrackDiffOp } from "../types/util/diff";
 import type { SimpleTrack } from "../types/data/simple-track";
-import { computeInstanceTrackViolations } from "./compute-track-violations";
 import { computeRowData } from "./compute-row-data";
+import {
+  computeSubjectViolations,
+  type FeedbackProvider,
+  type FeedbackSubject,
+} from "./feedback-provider";
 import { resolveDraggedTrackIds } from "./resolve-dragged-track-ids";
 import { resolveAnimationDuration } from "./compute-animation-extent";
 import { trackCurve, type TrackEvaluator } from "./track-curve";
@@ -31,6 +36,13 @@ export interface BuildDerivedSnapshotInputs {
   selectionState: SelectionState;
   /** Evaluates each track's curve; without it no track has one. */
   trackEvaluator?: TrackEvaluator;
+  /**
+   * Judges the motion for violations. Without one, every violation is computed
+   * afresh on this build; with one, the provider may answer from what it
+   * computed before, and a dragged track's preview is judged once per distinct
+   * projection on the build, not once per row that draws it.
+   */
+  feedbackProvider?: FeedbackProvider;
   version?: number;
 }
 
@@ -67,6 +79,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         }
       : undefined;
   const renderSampleCache: RenderSampleCache = { samples: {}, trackIndex: {} };
+  const subjects: FeedbackSubject[] = [];
 
   Object.values(namespaces).forEach((namespace) => {
     Object.values(namespace.animationInstances).forEach((instance) => {
@@ -85,24 +98,22 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         const canonicalCurve = compiledCurve ?? noCurve;
         const animDuration = resolveAnimationDuration(animation, inputs.tracks);
         const canonicalDerivative = compiledCurve?.velocity ?? noCurve;
-        // An uncompiled curve has no values to check.
-        const canonicalViolations = !compiledCurve
-          ? []
-          : computeInstanceTrackViolations(
-              compiledCurve,
-              animDuration,
-              instance.settings.timescale,
-              trackId,
-              namespace.id,
-              instance.id,
-              animatable,
-            );
+        subjects.push({
+          trackKey,
+          trackId,
+          namespaceId: namespace.id,
+          instanceId: instance.id,
+          track,
+          animatable,
+          durationMs: animDuration,
+          timescale: instance.settings.timescale,
+        });
 
         derivedTracks[trackKey] = {
           canonical: {
             curve: canonicalCurve,
             derivative: canonicalDerivative,
-            violations: canonicalViolations,
+            violations: [],
           },
           metadata: {
             trackId,
@@ -116,7 +127,6 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
           },
         };
 
-        canonicalViolationsByTrackKey[trackKey] = canonicalViolations;
         trackContextByKey.set(trackKey, {
           track,
           animation,
@@ -127,6 +137,19 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
       });
     });
   });
+
+  const provider = inputs.feedbackProvider;
+  const canonicalViolations = provider?.canonical(subjects, inputs.trackEvaluator);
+  subjects.forEach((subject) => {
+    const violations =
+      canonicalViolations?.get(subject.trackKey) ??
+      computeSubjectViolations(subject, inputs.trackEvaluator);
+    derivedTracks[subject.trackKey].canonical.violations = violations;
+    canonicalViolationsByTrackKey[subject.trackKey] = violations;
+  });
+  const previewViolations = provider
+    ? sharedPreviewViolations(provider, inputs.trackEvaluator)
+    : undefined;
 
   const derivedRows: DerivedSnapshot["rows"] = {};
   Object.values(inputs.instancedTrackSources).forEach((sourceRow) => {
@@ -141,6 +164,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         animations: inputs.animations,
         namespaces: inputs.namespaces,
         trackEvaluator: inputs.trackEvaluator,
+        previewViolations,
       },
       dragPreviewCache,
       renderSampleCache,
@@ -169,21 +193,26 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         previewTrack as unknown as SimpleTrack,
         inputs.trackEvaluator,
       );
-      const previewViolations = !previewCurve
+      const subject: FeedbackSubject = {
+        trackKey,
+        trackId: view.trackId,
+        namespaceId: context.namespaceId,
+        instanceId: context.instance.id,
+        track: previewTrack,
+        animatable: context.animatable,
+        durationMs: resolveAnimationDuration(context.animation, inputs.tracks),
+        timescale: context.instance.settings.timescale,
+      };
+      // An uncompiled curve has no values to check.
+      const violations = !previewCurve
         ? []
-        : computeInstanceTrackViolations(
-            previewCurve,
-            resolveAnimationDuration(context.animation, inputs.tracks),
-            context.instance.settings.timescale,
-            view.trackId,
-            context.namespaceId,
-            context.instance.id,
-            context.animatable,
-          );
+        : previewViolations
+          ? previewViolations(subject)
+          : computeSubjectViolations(subject, inputs.trackEvaluator);
       target.preview = {
         track: previewTrack,
         curve: previewCurve ?? noCurve,
-        violations: previewViolations,
+        violations,
       };
     });
   }
@@ -212,5 +241,34 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
     rows: derivedRows,
     renderSampleCache:
       Object.keys(renderSampleCache.samples).length > 0 ? renderSampleCache : undefined,
+  };
+}
+
+/**
+ * A dragged track's preview violations, judged once per distinct projection on
+ * one build. Rows that draw the same track instance usually project it the
+ * same way and share the result; a row that projects it differently (a
+ * vertical drag scales a non-anchor track by its own row's range) gets its own.
+ */
+function sharedPreviewViolations(
+  provider: FeedbackProvider,
+  evaluator: TrackEvaluator | undefined,
+): (subject: FeedbackSubject) => Violation[] {
+  const judged = new Map<TrackKey, { subject: FeedbackSubject; violations: Violation[] }[]>();
+  return (subject) => {
+    const candidates = judged.get(subject.trackKey) ?? [];
+    const match = candidates.find(
+      ({ subject: seen }) =>
+        seen.trackId === subject.trackId &&
+        seen.durationMs === subject.durationMs &&
+        Object.is(seen.timescale, subject.timescale) &&
+        seen.animatable === subject.animatable &&
+        isEqual(seen.track, subject.track),
+    );
+    if (match) return match.violations;
+    const violations = provider.preview(subject, evaluator);
+    candidates.push({ subject, violations });
+    judged.set(subject.trackKey, candidates);
+    return violations;
   };
 }

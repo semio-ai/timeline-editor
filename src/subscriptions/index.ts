@@ -7,5 +7,5 @@ export { updateViewFilteredSourceRows } from "./update-view-filtered-source-rows
 export { updateGlobalSources } from "./update-global-sources";
 export { updateSourceRowIds } from "./update-source-row-ids";
 
-export { initDerivedOrchestrator } from "./init-derived-orchestrator";
+export { initDerivedOrchestrator, createDerivedOrchestrator } from "./init-derived-orchestrator";
 export { updateActiveEntityContext } from "./update-active-entity-context";

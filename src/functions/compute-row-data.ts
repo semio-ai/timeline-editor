@@ -40,7 +40,7 @@ import { computeVerticalBounds } from "./compute-vertical-bounds";
 import { computeFrames } from "./compute-frames";
 import { resolveAnimationDuration } from "./compute-animation-extent";
 import { trackCurve, type TrackEvaluator, type TrackCurve } from "./track-curve";
-import { computeInstanceTrackViolations } from "./compute-track-violations";
+import { computeSubjectViolations, type FeedbackSubject } from "./feedback-provider";
 import { buildRenderParamsFromControlPoints } from "./compute-transition-params";
 import { resolveSegmentControlPoints } from "./resolve-segment-control-points";
 import { coerceNumericValue, extractFrameNumericValue } from "./segment-value-utils";
@@ -61,6 +61,11 @@ interface RowComputationContext {
   namespaces: Record<string, Namespace>;
   /** Evaluates the curves the row draws and its drag preview's violations. */
   trackEvaluator?: TrackEvaluator;
+  /**
+   * Judges a dragged track's preview, shared by every row on one build. Without
+   * it, the row judges its own preview.
+   */
+  previewViolations?: (subject: FeedbackSubject) => Violation[];
 }
 
 export interface DragPreviewCache {
@@ -469,19 +474,19 @@ export function computeRowData(
       if (!animation || !instance || !animatable) {
         return;
       }
-      const curve = trackCurve(previewTrack as unknown as SimpleTrack, context.trackEvaluator);
-      // An uncompiled curve has no values to check.
-      const previewViolations = !curve
-        ? []
-        : computeInstanceTrackViolations(
-            curve,
-            resolveAnimationDuration(animation, tracks),
-            instance.settings.timescale,
-            track.id,
-            entry.namespaceId,
-            entry.instanceId,
-            animatable,
-          );
+      const subject: FeedbackSubject = {
+        trackKey: buildTrackKey(entry.namespaceId, entry.instanceId, track.id),
+        trackId: track.id,
+        namespaceId: entry.namespaceId,
+        instanceId: entry.instanceId,
+        track: previewTrack,
+        animatable,
+        durationMs: resolveAnimationDuration(animation, tracks),
+        timescale: instance.settings.timescale,
+      };
+      const previewViolations = context.previewViolations
+        ? context.previewViolations(subject)
+        : computeSubjectViolations(subject, context.trackEvaluator);
       const existing = effectiveViolations[entry.trackId] ?? [];
       const withoutDraggedInstance = usePreview
         ? existing.filter(
@@ -1076,8 +1081,7 @@ function resolveHandleKind(transition?: AuthoredTransition): TransitionHandleKin
 function resolveHandleDiff(
   frame: InstancedFrameInfo,
   handleDiffs:
-    | Record<string, { in?: RawVector2; out?: RawVector2; pairing?: TransitionPairing }>
-    | undefined,
+    Record<string, { in?: RawVector2; out?: RawVector2; pairing?: TransitionPairing }> | undefined,
   side: "in" | "out",
 ): RawVector2 | undefined {
   if (!handleDiffs) return undefined;

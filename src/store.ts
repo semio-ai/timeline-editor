@@ -117,7 +117,7 @@ import {
   updateViewFilteredSourceRows,
   updateGlobalSources,
   updateSourceRowIds,
-  initDerivedOrchestrator,
+  createDerivedOrchestrator,
   updateActiveEntityContext,
   viewportFollow,
 } from "./subscriptions";
@@ -561,17 +561,24 @@ export const AnimationSlice = (
         (api as any).__derivedCleanup = undefined;
       }
 
-      // Delay subscription initialization to prevent cascading updates during store creation
+      // The derived orchestrator's listener runs after the other
+      // subscriptions in every notification, so it builds the snapshot once
+      // they have all answered a write.
+      const derived = createDerivedOrchestrator(api, set, get);
       const unsubs = [
-        viewportFollow,
-        updateOverallDuration,
-        initDerivedOrchestrator,
-        updateInstancedTrackSources,
-        updateGlobalSources,
-        updateSourceRowIds,
-        updateViewFilteredSourceRows,
-        updateActiveEntityContext,
-      ].map((fn) => fn(api, set, get));
+        ...[
+          viewportFollow,
+          updateOverallDuration,
+          updateInstancedTrackSources,
+          updateGlobalSources,
+          updateSourceRowIds,
+          updateViewFilteredSourceRows,
+          updateActiveEntityContext,
+        ].map((fn) => fn(api, set, get)),
+        api.subscribe(derived.writeSettled),
+        derived.stop,
+      ];
+      derived.start();
 
       // A cleanup stops only the set it was returned for, once. A later call
       // runs it before starting its own set, which spends the handle: running it

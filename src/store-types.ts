@@ -30,6 +30,7 @@ import { StandardTransitionType, TransitionDirective, TransitionPairing } from "
 import type { SelectionState } from "./types/util/selection-state";
 import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "./types/data/simple-track";
 import type { TrackEvaluator } from "./functions/track-curve";
+import type { FeedbackProvider } from "./functions/feedback-provider";
 
 export { TransitionDirective };
 
@@ -193,6 +194,11 @@ export interface AnimationData {
   derivedSnapshot?: DerivedSnapshot;
   /** Host evaluator for exact curves, readouts and velocities in clip-local time. */
   trackEvaluator?: TrackEvaluator;
+  /**
+   * Judges the motion for violations. Without one, the store uses the editor's
+   * own limit and velocity checks, cached per track.
+   */
+  feedbackProvider?: FeedbackProvider;
   /**
    * The player the timeline shows and commands: its playhead, bounds and
    * transport. The host passes the one it drives (Studio, the player its
