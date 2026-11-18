@@ -10,7 +10,12 @@ import { TooltipHost, useTooltipHost } from "@semio/ui";
  * root and one right-click menu or violation popover renders once per canvas,
  * stacked. Wrapping them in one host makes theirs nested, so only that one
  * renders overlays. When a host already exists above (an app that mounts one
- * at its root), this adds nothing.
+ * at its root), this renders its children with no added element.
+ *
+ * Overlay content is rendered as React children of the root host, so it sees
+ * only the contexts above that host. Place this inside any provider overlay
+ * content reads (names, colors, keybindings); outside them, the content falls
+ * back to each context's default value.
  */
 export function EnsureTooltipHost({ children }: { children: ReactNode }): ReactNode {
   const host = useTooltipHost();

@@ -116,9 +116,9 @@ export const AnimationSheetCore = memo(function AnimationSheetCore(
  * Context Behavior:
  * - **AnimationContext**: If not present, creates one with default animation store
  * - **TooltipContext**: If not present, creates a TooltipProvider
- * - **TooltipHost**: If no host is above the sheet, wraps the sheet in one, so
- *   each 3D overlay renders once rather than once per canvas (see
- *   `EnsureTooltipHost`)
+ * - **TooltipHost**: If no host is above the sheet, the sheet supplies one
+ *   (as does `AnimationSheetCore`), so each 3D overlay renders once rather
+ *   than once per canvas (see `EnsureTooltipHost`)
  * - If contexts already exist, uses existing ones (no unnecessary nesting)
  *
  * @param skipAnimationContext - Skip providing animation context, assume parent provides it
@@ -204,11 +204,6 @@ export const AnimationSheet = memo(function AnimationSheet({
       </AnimationContext.Provider>
     );
   }
-
-  // Independent of `skipTooltipContext`: a parent can provide the tooltip
-  // context without a host, and duplicate overlays depend only on whether a
-  // host already exists above the sheet.
-  content = <EnsureTooltipHost>{content}</EnsureTooltipHost>;
 
   // Wrap with tooltip context if needed
   if (needsTooltipContext) {
@@ -547,47 +542,64 @@ function InnerSheet({
         <NameContextProvider>
           <TrackAnimatableContextProvider>
             <LocalGlobalTransformContextProvider>
-              <div
-                className="animation-sheet-container w-full"
-                data-testid="animation-sheet"
-                // Queryable readiness signal: present once `sheetReady` —
-                // fonts + the timeline and minimap canvases — has flipped
-                // (mirrors the opacity/pointer reveal below; the central
-                // tracks canvas is not part of that gate). Browser tests wait
-                // on this so interaction doesn't begin while the sheet's WebGL
-                // canvases are still initializing and janking the main thread.
-                data-sheet-ready={sheetReady ? "" : undefined}
-                style={{
-                  opacity: sheetReady ? 1 : 0,
-                  // Block pointer interactions while the sheet is invisible
-                  // so the pre-reveal layout can't intercept clicks/scroll.
-                  pointerEvents: sheetReady ? "auto" : "none",
-                  transition: "opacity 200ms ease-in",
-                }}
-              >
-                {/* Grid layout with tracking divs - same structure as original.
+              {/* Inside every provider above so that, when this supplies the
+                  root host, overlay content renders with the sheet's contexts
+                  (names, colors, keybindings) as it would from a canvas host. */}
+              <EnsureTooltipHost>
+                <div
+                  className="animation-sheet-container w-full"
+                  data-testid="animation-sheet"
+                  // Queryable readiness signal: present once `sheetReady` —
+                  // fonts + the timeline and minimap canvases — has flipped
+                  // (mirrors the opacity/pointer reveal below; the central
+                  // tracks canvas is not part of that gate). Browser tests wait
+                  // on this so interaction doesn't begin while the sheet's WebGL
+                  // canvases are still initializing and janking the main thread.
+                  data-sheet-ready={sheetReady ? "" : undefined}
+                  style={{
+                    opacity: sheetReady ? 1 : 0,
+                    // Block pointer interactions while the sheet is invisible
+                    // so the pre-reveal layout can't intercept clicks/scroll.
+                    pointerEvents: sheetReady ? "auto" : "none",
+                    transition: "opacity 200ms ease-in",
+                  }}
+                >
+                  {/* Grid layout with tracking divs - same structure as original.
                     `widthObserveRef` watches this element for width changes so
                     the horizontal-resize blur fires across all three canvas
                     wrappers in sync (height changes are filtered inside the
                     observer's callback). */}
-                <div
-                  ref={widthObserveRef}
-                  aria-expanded={expanded}
-                  style={{
-                    height,
-                    minHeight: MIN_SHEET_HEIGHT,
-                    gridTemplateColumns: `${SIDEBAR_WIDTH + 2}px 1fr`,
-                  }}
-                  className={clsx(
-                    "group/sheet grid w-full overflow-hidden pr-0.5 pb-0.5",
-                    "grid-rows-[36px_36px_36px_minmax(0,1fr)_36px_36px]",
-                  )}
-                >
-                  {/* Toolbar - Row 1 (Left) */}
-                  <ToolbarWrapper rightPadding={8}>
-                    <WorkspaceToolbarSection
+                  <div
+                    ref={widthObserveRef}
+                    aria-expanded={expanded}
+                    style={{
+                      height,
+                      minHeight: MIN_SHEET_HEIGHT,
+                      gridTemplateColumns: `${SIDEBAR_WIDTH + 2}px 1fr`,
+                    }}
+                    className={clsx(
+                      "group/sheet grid w-full overflow-hidden pr-0.5 pb-0.5",
+                      "grid-rows-[36px_36px_36px_minmax(0,1fr)_36px_36px]",
+                    )}
+                  >
+                    {/* Toolbar - Row 1 (Left) */}
+                    <ToolbarWrapper rightPadding={8}>
+                      <WorkspaceToolbarSection
+                        viewIds={viewIds}
+                        activeViewId={resolvedViewId}
+                        onSelectView={handleSelectView}
+                        onCreateView={handleCreateView}
+                        onCopyView={handleCopyView}
+                        onRemoveView={handleRemoveView}
+                        onToggleExpand={onToggleExpand}
+                        expanded={expanded}
+                      />
+                    </ToolbarWrapper>
+
+                    {/* Toolbar - Row 1 (Right) */}
+                    <Toolbar
+                      viewId={resolvedViewId}
                       viewIds={viewIds}
-                      activeViewId={resolvedViewId}
                       onSelectView={handleSelectView}
                       onCreateView={handleCreateView}
                       onCopyView={handleCopyView}
@@ -595,93 +607,82 @@ function InnerSheet({
                       onToggleExpand={onToggleExpand}
                       expanded={expanded}
                     />
-                  </ToolbarWrapper>
 
-                  {/* Toolbar - Row 1 (Right) */}
-                  <Toolbar
-                    viewId={resolvedViewId}
-                    viewIds={viewIds}
-                    onSelectView={handleSelectView}
-                    onCreateView={handleCreateView}
-                    onCopyView={handleCopyView}
-                    onRemoveView={handleRemoveView}
-                    onToggleExpand={onToggleExpand}
-                    expanded={expanded}
-                  />
-
-                  {/* Track Filter - Row 2: uses the shared 7-column grid.
+                    {/* Track Filter - Row 2: uses the shared 7-column grid.
                     Width and right padding mirror the track-list rows
                     (SIDEBAR_WIDTH + ControlRow's `pr-0.5`) so the four
                     toggle buttons align horizontally with the track list's
                     options/strip slots and the bottom-section button rows. */}
-                  <div
-                    className="h-9 items-center py-0.5 pl-1 pr-0.5"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: `1fr 1fr auto repeat(4, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
-                      gap: `${String(SLOT_GAP)}px`,
-                      width: SIDEBAR_WIDTH,
-                    }}
-                  >
-                    <div className="col-span-3 min-w-0">
-                      <Search
-                        size={Size.Sm}
-                        value={trackFilter}
-                        placeholder="Filter visible tracks"
-                        onChange={(value) => setTrackFilter(value)}
-                        outline="hidden"
-                        className="rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
-                        wrapperClassName="w-full"
-                      />
+                    <div
+                      className="h-9 items-center py-0.5 pl-1 pr-0.5"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: `1fr 1fr auto repeat(4, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                        gap: `${String(SLOT_GAP)}px`,
+                        width: SIDEBAR_WIDTH,
+                      }}
+                    >
+                      <div className="col-span-3 min-w-0">
+                        <Search
+                          size={Size.Sm}
+                          value={trackFilter}
+                          placeholder="Filter visible tracks"
+                          onChange={(value) => setTrackFilter(value)}
+                          outline="hidden"
+                          className="rounded-xs bg-neutral-500/10 hover:bg-neutral-500/25"
+                          wrapperClassName="w-full"
+                        />
+                      </div>
+                      <TrackFilterToggles />
                     </div>
-                    <TrackFilterToggles />
-                  </div>
 
-                  {/* Top canvas: ruler + timeline (rows 2-3, col 2).
+                    {/* Top canvas: ruler + timeline (rows 2-3, col 2).
                       `[&_canvas]:w-full!` mirrors the main canvas wrapper so
                       this canvas's DOM also fills the new container width
                       during the debounce window — keeps tick/playhead X
                       positions aligned with the main canvas across resize.
                       No `!h-full` needed: the row is fixed at 36px. */}
-                  <div
-                    className={clsx(
-                      "w-full min-w-0 touch-none overflow-clip rounded-t-md [&_canvas]:w-full!",
-                    )}
-                    style={{
-                      gridColumn: 2,
-                      gridRow: "2 / span 2",
-                      filter: isWidthResizing ? `blur(${String(HORIZONTAL_BLUR_PX)}px)` : undefined,
-                      transition: `filter ${String(MAIN_BLUR_FADE_MS)}ms ease-out`,
-                    }}
-                  >
-                    {fontsReady && (
-                      <TimelineCanvas
-                        viewId={resolvedViewId}
-                        theme={resolvedTheme}
-                        fonts={fonts}
-                        onReady={onTimelineReady}
-                      />
-                    )}
-                  </div>
+                    <div
+                      className={clsx(
+                        "w-full min-w-0 touch-none overflow-clip rounded-t-md [&_canvas]:w-full!",
+                      )}
+                      style={{
+                        gridColumn: 2,
+                        gridRow: "2 / span 2",
+                        filter: isWidthResizing
+                          ? `blur(${String(HORIZONTAL_BLUR_PX)}px)`
+                          : undefined,
+                        transition: `filter ${String(MAIN_BLUR_FADE_MS)}ms ease-out`,
+                      }}
+                    >
+                      {fontsReady && (
+                        <TimelineCanvas
+                          viewId={resolvedViewId}
+                          theme={resolvedTheme}
+                          fonts={fonts}
+                          onReady={onTimelineReady}
+                        />
+                      )}
+                    </div>
 
-                  {/* Timeline Control - Row 3 (left, paired with timeline in row 3 right) */}
-                  <div
-                    className="pl-1 pr-0.5"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
-                      gap: `${String(SLOT_GAP)}px`,
-                      alignItems: "center",
-                      width: SIDEBAR_WIDTH,
-                    }}
-                  >
-                    <TimelineControl viewId={resolvedViewId} />
-                  </div>
+                    {/* Timeline Control - Row 3 (left, paired with timeline in row 3 right) */}
+                    <div
+                      className="pl-1 pr-0.5"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                        gap: `${String(SLOT_GAP)}px`,
+                        alignItems: "center",
+                        width: SIDEBAR_WIDTH,
+                      }}
+                    >
+                      <TimelineControl viewId={resolvedViewId} />
+                    </div>
 
-                  {/* Track List - Row 4 (left) */}
-                  <TrackList height={height - MIN_SHEET_HEIGHT} rowIdLookup={filteredRowLookup} />
+                    {/* Track List - Row 4 (left) */}
+                    <TrackList height={height - MIN_SHEET_HEIGHT} rowIdLookup={filteredRowLookup} />
 
-                  {/* Main canvas: tracks + overlays (row 4, col 2).
+                    {/* Main canvas: tracks + overlays (row 4, col 2).
                       The `[&_canvas]:!w-full [&_canvas]:!h-full` overrides
                       R3F's inline canvas style during the resize window —
                       without it, the debounced canvas keeps its old pixel
@@ -690,87 +691,94 @@ function InnerSheet({
                       fill, and the blur masks the stretch artifacts.
                       Applied on grow always; on shrink only in spline mode
                       (which rescales naturally) — non-spline shrink clips. */}
-                  <div
-                    className={clsx(
-                      "w-full min-w-0 touch-none overflow-clip [&_canvas]:w-full!",
-                      TRACK_MAIN_BG,
-                      shouldStretchMainCanvas && "[&_canvas]:h-full!",
-                    )}
-                    style={{
-                      gridColumn: 2,
-                      gridRow: 4,
-                      // Larger vertical-resize blur wins over the subtler
-                      // horizontal blur if both are active (e.g. a sheet drag
-                      // while the window is also being resized).
-                      filter: isMainResizing
-                        ? `blur(${String(MAIN_BLUR_PX)}px)`
-                        : isWidthResizing
-                          ? `blur(${String(HORIZONTAL_BLUR_PX)}px)`
-                          : undefined,
-                      transition: `filter ${String(MAIN_BLUR_FADE_MS)}ms ease-out`,
-                    }}
-                  >
-                    {fontsReady && (
-                      <TracksCanvas
-                        viewId={resolvedViewId}
-                        theme={resolvedTheme}
-                        rowIdLookup={filteredRowLookup}
-                      />
-                    )}
-                  </div>
+                    <div
+                      className={clsx(
+                        "w-full min-w-0 touch-none overflow-clip [&_canvas]:w-full!",
+                        TRACK_MAIN_BG,
+                        shouldStretchMainCanvas && "[&_canvas]:h-full!",
+                      )}
+                      style={{
+                        gridColumn: 2,
+                        gridRow: 4,
+                        // Larger vertical-resize blur wins over the subtler
+                        // horizontal blur if both are active (e.g. a sheet drag
+                        // while the window is also being resized).
+                        filter: isMainResizing
+                          ? `blur(${String(MAIN_BLUR_PX)}px)`
+                          : isWidthResizing
+                            ? `blur(${String(HORIZONTAL_BLUR_PX)}px)`
+                            : undefined,
+                        transition: `filter ${String(MAIN_BLUR_FADE_MS)}ms ease-out`,
+                      }}
+                    >
+                      {fontsReady && (
+                        <TracksCanvas
+                          viewId={resolvedViewId}
+                          theme={resolvedTheme}
+                          rowIdLookup={filteredRowLookup}
+                        />
+                      )}
+                    </div>
 
-                  {/* Time Controls - Row 5 */}
-                  <div
-                    className="pl-1 pr-0.5"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
-                      gap: `${String(SLOT_GAP)}px`,
-                      alignItems: "center",
-                      width: SIDEBAR_WIDTH,
-                    }}
-                  >
-                    <TimeControls />
-                  </div>
+                    {/* Time Controls - Row 5 */}
+                    <div
+                      className="pl-1 pr-0.5"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                        gap: `${String(SLOT_GAP)}px`,
+                        alignItems: "center",
+                        width: SIDEBAR_WIDTH,
+                      }}
+                    >
+                      <TimeControls />
+                    </div>
 
-                  {/* Bottom canvas: minimap + bottom ruler (rows 5-6, col 2).
+                    {/* Bottom canvas: minimap + bottom ruler (rows 5-6, col 2).
                       `[&_canvas]:w-full!` mirrors the main canvas wrapper —
                       keeps the minimap horizontally aligned with the main
                       canvas across the resize debounce window. No `!h-full`:
                       the rows are fixed at 36px each. */}
-                  <div
-                    className={clsx(
-                      "w-full min-w-0 touch-none overflow-clip rounded-b-md [&_canvas]:w-full!",
-                    )}
-                    style={{
-                      gridColumn: 2,
-                      gridRow: "5 / span 2",
-                      filter: isWidthResizing ? `blur(${String(HORIZONTAL_BLUR_PX)}px)` : undefined,
-                      transition: `filter ${String(MAIN_BLUR_FADE_MS)}ms ease-out`,
-                    }}
-                  >
-                    {fontsReady && (
-                      <MinimapCanvas theme={resolvedTheme} fonts={fonts} onReady={onMinimapReady} />
-                    )}
-                  </div>
+                    <div
+                      className={clsx(
+                        "w-full min-w-0 touch-none overflow-clip rounded-b-md [&_canvas]:w-full!",
+                      )}
+                      style={{
+                        gridColumn: 2,
+                        gridRow: "5 / span 2",
+                        filter: isWidthResizing
+                          ? `blur(${String(HORIZONTAL_BLUR_PX)}px)`
+                          : undefined,
+                        transition: `filter ${String(MAIN_BLUR_FADE_MS)}ms ease-out`,
+                      }}
+                    >
+                      {fontsReady && (
+                        <MinimapCanvas
+                          theme={resolvedTheme}
+                          fonts={fonts}
+                          onReady={onMinimapReady}
+                        />
+                      )}
+                    </div>
 
-                  {/* Playback Settings - Row 6 */}
-                  <div
-                    className="pl-1 pr-0.5"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
-                      gap: `${String(SLOT_GAP)}px`,
-                      alignItems: "center",
-                      width: SIDEBAR_WIDTH,
-                    }}
-                  >
-                    <PlaybackSettings />
-                  </div>
+                    {/* Playback Settings - Row 6 */}
+                    <div
+                      className="pl-1 pr-0.5"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: `1fr repeat(3, ${String(SLOT_SIZE)}px) ${String(SCROLLBAR_GUTTER)}px`,
+                        gap: `${String(SLOT_GAP)}px`,
+                        alignItems: "center",
+                        width: SIDEBAR_WIDTH,
+                      }}
+                    >
+                      <PlaybackSettings />
+                    </div>
 
-                  {/* Bottom Ruler - Row 6 */}
+                    {/* Bottom Ruler - Row 6 */}
+                  </div>
                 </div>
-              </div>
+              </EnsureTooltipHost>
             </LocalGlobalTransformContextProvider>
           </TrackAnimatableContextProvider>
         </NameContextProvider>

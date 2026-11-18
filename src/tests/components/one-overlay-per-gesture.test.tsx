@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { MouseEvent, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { TooltipHost, useCanvasContextMenu, useTooltipStore } from "@semio/ui";
 import { AnimationContext } from "../../context";
 import { createMinimalAnimationStore } from "../../test-fixtures";
@@ -137,16 +137,17 @@ describe("one gesture shows one overlay across the sheet's canvas hosts", () => 
     expect(await openViolation()).toBe(1);
   });
 
-  it("adds no second root under an app-level host", async () => {
+  // Under an existing host a nested one could never become a second root, so
+  // the observable cost of wrapping anyway is an extra element in the app's
+  // layout; this pins that none is added.
+  it("adds no element under an app-level host", () => {
     render(
-      <TooltipHost>
+      <TooltipHost className="app-host">
         <EnsureTooltipHost>
-          <CanvasHosts target={<MenuTarget />} />
+          <span data-testid="sheet" />
         </EnsureTooltipHost>
       </TooltipHost>,
     );
-    expect(await openMenu()).toBe(1);
-    // A settled count: a second root would render its copy in the same commit.
-    await waitFor(() => expect(screen.getAllByText("Move Playhead")).toHaveLength(1));
+    expect(screen.getByTestId("sheet").parentElement).toHaveProperty("className", "app-host");
   });
 });
