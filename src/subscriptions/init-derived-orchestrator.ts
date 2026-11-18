@@ -10,6 +10,7 @@ import { buildDerivedSnapshot } from "../functions";
 import { createTrackFeedbackProvider, type FeedbackProvider } from "../functions/feedback-provider";
 import { logDerivedEvent } from "../utils/derived-debug";
 import { projectRowVerticalAxes } from "./update-view-vertical-axes";
+import { sealDerivedSnapshot } from "./seal-derived-snapshot";
 
 export interface DerivedInputs {
   tracks: AnimationData["tracks"];
@@ -189,7 +190,7 @@ export function createDerivedOrchestrator(
       rowCount: Object.keys(snapshot.rows).length,
     }));
 
-    set({ derivedSnapshot: snapshot });
+    set({ derivedSnapshot: sealDerivedSnapshot(snapshot) });
   };
 
   const scheduleRetry = () => {

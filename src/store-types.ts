@@ -191,6 +191,12 @@ export interface AnimationPreferencesPatch {
  * Interface representing the data structure for animation.
  */
 export interface AnimationData {
+  /**
+   * Everything derived from the tracks for display, rebuilt after each write
+   * that changes its inputs. Read-only: a snapshot is replaced, never edited.
+   * Its top-level object is frozen (see `sealDerivedSnapshot`); its inner
+   * objects are not, but must be treated as if they were.
+   */
   derivedSnapshot?: DerivedSnapshot;
   /** Host evaluator for exact curves, readouts and velocities in clip-local time. */
   trackEvaluator?: TrackEvaluator;
