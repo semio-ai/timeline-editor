@@ -16,7 +16,8 @@ import {
 import { buildTrackKey } from "../utils/track-key";
 import type { ProjectedTrackView, SelectionCleanup, TrackDiffOp } from "../types/util/diff";
 import type { SimpleTrack } from "../types/data/simple-track";
-import { computeRowData } from "./compute-row-data";
+import { computeRowData, resolveRowTransform } from "./compute-row-data";
+import { rowSampleEntries, sameInputs, type ReusableRow, type ReusableRows } from "./row-reuse";
 import {
   computeSubjectViolations,
   type FeedbackProvider,
@@ -44,12 +45,26 @@ export interface BuildDerivedSnapshotInputs {
    */
   feedbackProvider?: FeedbackProvider;
   version?: number;
+  /** The rows the previous build made, which this one hands on where nothing they read changed. */
+  previousRows?: ReusableRows;
+}
+
+/** A built snapshot, with its rows as the next build can reuse them. */
+export interface BuiltDerivedSnapshot {
+  snapshot: DerivedSnapshot;
+  rows: ReusableRows;
 }
 
 /** A curve that has no value anywhere: a track nothing could compile. */
 const noCurve = () => undefined;
 
 export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): DerivedSnapshot {
+  return buildDerivedSnapshotWithRows(inputs).snapshot;
+}
+
+export function buildDerivedSnapshotWithRows(
+  inputs: BuildDerivedSnapshotInputs,
+): BuiltDerivedSnapshot {
   const { namespaces, animations, tracks, animatables } = inputs;
 
   const derivedTracks: Record<TrackKey, DerivedTrackSnapshot> = {};
@@ -163,7 +178,36 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
     : undefined;
 
   const derivedRows: DerivedSnapshot["rows"] = {};
+  const reusableRows = new Map<string, ReusableRow>();
+  const rowContext = {
+    animations: inputs.animations,
+    namespaces: inputs.namespaces,
+    trackEvaluator: inputs.trackEvaluator,
+    previewViolations,
+  };
   Object.values(inputs.instancedTrackSources).forEach((sourceRow) => {
+    const rowInputs = rowInputsOf(sourceRow, inputs, canonicalViolationsByTrackKey, rowContext);
+    const previous = inputs.previousRows?.get(sourceRow.id);
+    // Rows drawn from a drag preview are computed on every build. The anchor
+    // row is named as well as the rows holding a dragged track: today it is
+    // always one of them, and naming it keeps it recomputed if that changes.
+    const drawsDrag =
+      shouldPreview &&
+      Boolean(inputs.dragState) &&
+      (sourceRow.id === inputs.dragState?.anchor?.rowId ||
+        sourceRow.data.some((datum) => draggedTrackIds?.has(datum.trackId)));
+    if (previous && !drawsDrag && sameInputs(previous.inputs, rowInputs)) {
+      derivedRows[sourceRow.id] = previous.row;
+      previous.samples.forEach(([id, sample]) => {
+        renderSampleCache.samples[id] = sample;
+      });
+      previous.trackIndex.forEach(([key, entry]) => {
+        renderSampleCache.trackIndex![key] = entry;
+      });
+      reusableRows.set(sourceRow.id, { ...previous, inputs: rowInputs });
+      return;
+    }
+
     const computed = computeRowData(
       sourceRow,
       inputs.tracks,
@@ -171,12 +215,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
       inputs.animatables,
       inputs.dragState,
       inputs.selectionState,
-      {
-        animations: inputs.animations,
-        namespaces: inputs.namespaces,
-        trackEvaluator: inputs.trackEvaluator,
-        previewViolations,
-      },
+      rowContext,
       dragPreviewCache,
       renderSampleCache,
     );
@@ -185,11 +224,21 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
       buildTrackKey(data.namespaceId, data.instanceId, data.trackId),
     );
 
-    derivedRows[sourceRow.id] = {
+    const row = {
       id: sourceRow.id,
       trackKeys,
       computed,
     };
+    derivedRows[sourceRow.id] = row;
+    // A row drawn from a drag preview is computed again on every build, so it
+    // is not kept for reuse.
+    if (!drawsDrag) {
+      reusableRows.set(sourceRow.id, {
+        inputs: rowInputs,
+        row,
+        ...rowSampleEntries(sourceRow.id, row, renderSampleCache),
+      });
+    }
   });
 
   if (dragPreviewCache) {
@@ -246,13 +295,69 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
       : inputs.dragState;
 
   return {
-    version: inputs.version,
-    dragContext,
-    tracks: derivedTracks,
-    rows: derivedRows,
-    renderSampleCache:
-      Object.keys(renderSampleCache.samples).length > 0 ? renderSampleCache : undefined,
+    snapshot: {
+      version: inputs.version,
+      dragContext,
+      tracks: derivedTracks,
+      rows: derivedRows,
+      renderSampleCache:
+        Object.keys(renderSampleCache.samples).length > 0 ? renderSampleCache : undefined,
+    },
+    rows: reusableRows,
   };
+}
+
+/**
+ * Everything a row reads outside a drag, in a fixed order, so two builds can
+ * tell whether the row would come out the same. Store objects are frozen and
+ * replaced when they change, so their identity stands for their content.
+ *
+ * - The source row itself (which entries, in which order, visible or not).
+ * - Per entry: its track, the track's animatable, its animation, and the
+ *   canonical violations of its track instance. A provider may return the
+ *   same violations array for an unchanged result, so the violations do not
+ *   stand in for the track or the animatable.
+ * - The row's time transform, by value: it comes from the first namespace
+ *   holding the row's instance, which need not be the entry's own.
+ * - The evaluator, which draws value curves.
+ * - Whether a drag preview is showing at all, and the drag's handle edits.
+ *
+ * Some of these are wider than any row reads today, and are kept because a
+ * missing input fails silently (a stale row) while an extra one only costs a
+ * recompute. Outside a drag a row reads its animation only to check that it
+ * exists. A row with no dragged track gets the same result whether a preview
+ * shows or not, and handle edits are keyed by the keys being dragged.
+ */
+function rowInputsOf(
+  sourceRow: SourceRow,
+  inputs: BuildDerivedSnapshotInputs,
+  violations: Record<TrackKey, Violation[]>,
+  context: Parameters<typeof resolveRowTransform>[1],
+): unknown[] {
+  const shouldPreview = inputs.selectionState.instanceId === inputs.dragState?.instanceId;
+  const transform = resolveRowTransform(sourceRow, context);
+  const values: unknown[] = [
+    sourceRow,
+    inputs.trackEvaluator,
+    shouldPreview,
+    shouldPreview ? inputs.dragState?.handleDiffs : undefined,
+    transform.scaleX,
+    transform.scaleY,
+    transform.offsetX,
+    transform.offsetY,
+  ];
+  sourceRow.data.forEach((datum) => {
+    const track = inputs.tracks[datum.trackId];
+    values.push(
+      track,
+      track ? inputs.animatables[track.animatableId] : undefined,
+      inputs.animations[datum.animationId],
+      datum.namespaceId && datum.instanceId
+        ? violations[buildTrackKey(datum.namespaceId, datum.instanceId, datum.trackId)]
+        : undefined,
+    );
+  });
+  return values;
 }
 
 /**

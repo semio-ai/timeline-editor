@@ -1,4 +1,5 @@
 import { shallow } from "zustand/shallow";
+import { isEqual } from "lodash";
 import type {
   AnimationApi,
   AnimationData,
@@ -6,7 +7,8 @@ import type {
   AnimationStoreSetter,
 } from "../store-types";
 import { DerivedSnapshot } from "../types";
-import { buildDerivedSnapshot } from "../functions";
+import { buildDerivedSnapshotWithRows } from "../functions/build-derived-snapshot";
+import { recordReusableRows, reusableRowsOf } from "../functions/row-reuse";
 import { createTrackFeedbackProvider, type FeedbackProvider } from "../functions/feedback-provider";
 import { logDerivedEvent } from "../utils/derived-debug";
 import { projectRowVerticalAxes } from "./update-view-vertical-axes";
@@ -47,14 +49,18 @@ export function selectDerivedInputs(state: AnimationData): DerivedInputs {
 /**
  * The derived snapshot for a set of inputs. Without a feedback provider every
  * violation is computed afresh; with one, the provider may answer from what it
- * computed before. Both give the same result.
+ * computed before. Given the snapshot this store published last, rows whose
+ * inputs did not change are handed on from it, as the same objects. Each of
+ * these gives the same result as a build from nothing.
  */
 export function computeDerivedState(
   inputs: Omit<DerivedInputs, "feedbackProvider">,
   versionHint: number,
   feedbackProvider?: FeedbackProvider,
+  previous?: DerivedSnapshot,
 ): DerivedSnapshot {
-  const snapshot = buildDerivedSnapshot({
+  const previousRows = reusableRowsOf(previous);
+  const { snapshot, rows: reusableRows } = buildDerivedSnapshotWithRows({
     tracks: inputs.tracks,
     namespaces: inputs.namespaces,
     animations: inputs.animations,
@@ -65,6 +71,7 @@ export function computeDerivedState(
     trackEvaluator: inputs.trackEvaluator,
     feedbackProvider,
     version: versionHint,
+    previousRows,
   });
 
   const { rows: rowsWithAxes } = projectRowVerticalAxes(
@@ -74,18 +81,27 @@ export function computeDerivedState(
     inputs.sourceRowIdsByView,
   );
 
-  return {
+  const derived: DerivedSnapshot = {
     ...snapshot,
     rows: Object.fromEntries(
-      Object.entries(snapshot.rows).map(([rowId, row]) => [
-        rowId,
-        {
-          ...row,
-          computed: rowsWithAxes[rowId] ?? row.computed,
-        },
-      ]),
+      Object.entries(snapshot.rows).map(([rowId, row]) => {
+        const computed = rowsWithAxes[rowId] ?? row.computed;
+        // A reused row whose axes came out the same keeps its published
+        // object, so a renderer comparing rows by identity skips it.
+        const published = previous?.rows[rowId];
+        if (
+          published &&
+          previousRows?.get(rowId)?.row === row &&
+          isEqual(published.computed.verticalAxisByView, computed.verticalAxisByView)
+        ) {
+          return [rowId, published];
+        }
+        return [rowId, { ...row, computed }];
+      }),
     ),
   };
+  recordReusableRows(derived, reusableRows);
+  return derived;
 }
 
 /**
@@ -207,6 +223,7 @@ export function createDerivedOrchestrator(
         inputs,
         versionHint,
         inputs.feedbackProvider ?? defaultProvider,
+        get().derivedSnapshot,
       );
     } finally {
       building = false;
