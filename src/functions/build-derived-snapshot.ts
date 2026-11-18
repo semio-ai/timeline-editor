@@ -333,6 +333,10 @@ export function buildDerivedSnapshotWithRows(
  * recompute. Outside a drag a row reads its animation only to check that it
  * exists. A row with no dragged track gets the same result whether a preview
  * shows or not, and handle edits are keyed by the keys being dragged.
+ *
+ * Objects the host supplies (the evaluator, animatables) are compared by
+ * identity too, so a host must replace one to change it: editing one in place
+ * leaves every row that read it as it was.
  */
 function rowInputsOf(
   sourceRow: SourceRow,

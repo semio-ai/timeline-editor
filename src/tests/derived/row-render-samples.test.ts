@@ -36,4 +36,12 @@ describe("a row's render samples", () => {
     expect(unchanged).toBeGreaterThan(0);
     expect(shallow(rowRenderSamples(after, leaf.id), samplesBefore[leaf.id])).toBe(false);
   });
+
+  it("answers again for the same snapshot with the same object", () => {
+    const store = createCorpusStore();
+    const snapshot = store.getState().derivedSnapshot!;
+    Object.keys(snapshot.rows).forEach((rowId) =>
+      expect(rowRenderSamples(snapshot, rowId), rowId).toBe(rowRenderSamples(snapshot, rowId)),
+    );
+  });
 });
