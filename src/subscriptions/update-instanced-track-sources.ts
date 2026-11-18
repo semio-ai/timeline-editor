@@ -105,12 +105,23 @@ export function updateInstancedTrackSources(
         }
       });
 
+      // A row that went away is a change even when every remaining row and the
+      // global row's data are as they were.
+      const global: SourceRow = { id: "global", data: globalLeafData };
+      const currentRowIds = Object.keys(current).filter(
+        (key) => !isFilteredSourceRowId(key) && key !== "global",
+      );
+      changed ||=
+        !current.global ||
+        !isEqual(current.global, global) ||
+        currentRowIds.length !== Object.keys(instancedTrackSources).length ||
+        currentRowIds.some((rowId) => !(rowId in instancedTrackSources));
+
       // The global row aggregates all leaf track data — used by the timeline
       // canvas renderer. Its identity is also the cue
-      // `updateViewFilteredSourceRows` regenerates the filtered twins on, so it
-      // is replaced whenever any row changed, and kept only when none did.
-      const global: SourceRow = { id: "global", data: globalLeafData };
-      changed ||= !current.global || !isEqual(current.global, global);
+      // `updateViewFilteredSourceRows` regenerates the filtered twins on (and
+      // drops a removed row's twins on), so it is replaced whenever any row
+      // changed, appeared or went away, and kept only when none did.
       instancedTrackSources.global = changed ? global : current.global;
 
       // Preserve any per-view filtered twins (managed by update-view-filtered-source-rows)
@@ -121,10 +132,6 @@ export function updateInstancedTrackSources(
         }
       });
 
-      const currentRowIds = Object.keys(current).filter((key) => !isFilteredSourceRowId(key));
-      changed ||=
-        currentRowIds.length !== Object.keys(instancedTrackSources).length ||
-        currentRowIds.some((rowId) => !(rowId in instancedTrackSources));
       if (!changed) return;
 
       set({
