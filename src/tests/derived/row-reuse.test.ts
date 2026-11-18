@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DerivedSnapshot } from "../../types";
+import { TrackRender, VerticalAxis, type DerivedSnapshot } from "../../types";
 import type { FeedbackProvider } from "../../functions/feedback-provider";
 import {
   computeDerivedState,
@@ -164,10 +164,111 @@ describe("row reuse with a provider whose answers never change", () => {
     matchesFresh(store);
   });
 
+  it("redraws a row whose instance plays at another speed", () => {
+    const store = createCorpusStore();
+    store.setState({ feedbackProvider: provider });
+    const { row } = leafWithKey(store);
+    const { namespaceId, instanceId } = row.data[0];
+    const namespaces = store.getState().namespaces;
+    const namespace = namespaces[namespaceId];
+    const instance = namespace.animationInstances[instanceId];
+    store.getState().setNamespaces({
+      ...namespaces,
+      [namespaceId]: {
+        ...namespace,
+        animationInstances: {
+          ...namespace.animationInstances,
+          [instanceId]: { ...instance, settings: { ...instance.settings, timescale: 2 } },
+        },
+      },
+    });
+    matchesFresh(store);
+  });
+
   it("redraws every row's curves when the evaluator goes", () => {
     const store = createCorpusStore();
     store.setState({ feedbackProvider: provider });
     store.setState({ trackEvaluator: undefined });
     matchesFresh(store);
+  });
+});
+
+describe("row reuse around views and drags", () => {
+  // In a spline view with a uniform axis every row shares one range, so a
+  // change to one row's bounds moves the axes of rows that are otherwise
+  // unchanged: those must come out as new objects with the new axes.
+  it("replaces a kept row whose shared axis moved", () => {
+    const store = createCorpusStore();
+    store.getState().updateView("parity-view", {
+      trackRender: TrackRender.Spline,
+      verticalAxis: VerticalAxis.Uniform,
+    });
+    const { trackId } = leafWithKey(store);
+    const animatableId = store.getState().tracks[trackId].animatableId;
+    const animatables = store.getState().animatables;
+    const before = snapshot(store);
+    store.setState({
+      animatables: {
+        ...animatables,
+        [animatableId]: {
+          ...animatables[animatableId],
+          constraints: { min: -100000, max: 100000 },
+        } as (typeof animatables)[string],
+      },
+    });
+    const after = snapshot(store);
+    const fresh = computeDerivedState(selectDerivedInputs(store.getState()), 0);
+    expect(normalize(after)).toEqual(normalize(fresh));
+    const moved = Object.keys(after.rows).filter(
+      (rowId) =>
+        before.rows[rowId] &&
+        !drawsTrack(store, rowId, trackId) &&
+        JSON.stringify(before.rows[rowId].computed.verticalAxisByView) !==
+          JSON.stringify(after.rows[rowId].computed.verticalAxisByView),
+    );
+    expect(moved.length).toBeGreaterThan(0);
+    moved.forEach((rowId) => expect(after.rows[rowId], rowId).not.toBe(before.rows[rowId]));
+  });
+
+  // A row reads the drag's anchor even while focus is on another instance,
+  // where no preview shows: the anchor row takes the anchor's frame id, which
+  // lists the frame's keys. When a key leaves that frame meanwhile, a reused
+  // anchor row would keep listing it.
+  it("recomputes the anchor row of a drag whose instance lost focus", () => {
+    const store = createCorpusStore();
+    const state = store.getState();
+    const anchor = Object.values(state.instancedTrackSources)
+      .filter(
+        (row) => row.data.length > 1 && row.data[0].instanceId === state.selectionState.instanceId,
+      )
+      .map((row) => ({
+        row,
+        frame: state.derivedSnapshot!.rows[row.id]?.computed.selection?.find(
+          (candidate) => (candidate.points?.length ?? 0) > 1,
+        ),
+      }))
+      .find(({ frame }) => frame)!;
+    const { row, frame } = { row: anchor.row, frame: anchor.frame! };
+    store.getState().clickMarker(frame.points ?? [], row.id, frame.id, false, false);
+    store.getState().startDrag({ axis: "horizontal", markerId: frame.id, rowId: row.id });
+    const other = Object.values(store.getState().namespaces)
+      .flatMap((namespace) => Object.keys(namespace.animationInstances))
+      .find((id) => id !== store.getState().selectionState.instanceId)!;
+    const check = (where: string) => {
+      const fresh = computeDerivedState(selectDerivedInputs(store.getState()), 0);
+      expect(normalize(snapshot(store)), where).toEqual(normalize(fresh));
+    };
+    store.getState().focusSelectionInstance(other);
+    check("after focus moved");
+    // One of the frame's keys leaves it.
+    const leaving = frame.points![1];
+    const leavingTrack = store.getState().tracks[leaving.trackId];
+    const leavingPoint = leavingTrack.points.find((p) => p.id === leaving.markerId)!;
+    store
+      .getState()
+      .updateKeypoint(leavingTrack.id, { id: leavingPoint.id, stamp: leavingPoint.stamp + 123 });
+    check("after a key left the anchor frame");
+    store.getState().cancelDrag();
+    check("after cancel");
   });
 });

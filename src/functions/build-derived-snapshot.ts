@@ -17,7 +17,7 @@ import { buildTrackKey } from "../utils/track-key";
 import type { ProjectedTrackView, SelectionCleanup, TrackDiffOp } from "../types/util/diff";
 import type { SimpleTrack } from "../types/data/simple-track";
 import { computeRowData, resolveRowTransform } from "./compute-row-data";
-import { rowSampleEntries, sameInputs, type ReusableRow, type ReusableRows } from "./row-reuse";
+import { sameInputs, type ReusableRow, type ReusableRows } from "./row-reuse";
 import {
   computeSubjectViolations,
   type FeedbackProvider,
@@ -188,14 +188,13 @@ export function buildDerivedSnapshotWithRows(
   Object.values(inputs.instancedTrackSources).forEach((sourceRow) => {
     const rowInputs = rowInputsOf(sourceRow, inputs, canonicalViolationsByTrackKey, rowContext);
     const previous = inputs.previousRows?.get(sourceRow.id);
-    // Rows drawn from a drag preview are computed on every build. The anchor
-    // row is named as well as the rows holding a dragged track: today it is
-    // always one of them, and naming it keeps it recomputed if that changes.
+    // Rows a drag reaches are computed on every build: those drawn from its
+    // preview, and its anchor row, which takes the anchor's frame id whether
+    // or not the preview is showing (focus may have left the drag's instance).
     const drawsDrag =
-      shouldPreview &&
       Boolean(inputs.dragState) &&
       (sourceRow.id === inputs.dragState?.anchor?.rowId ||
-        sourceRow.data.some((datum) => draggedTrackIds?.has(datum.trackId)));
+        (shouldPreview && sourceRow.data.some((datum) => draggedTrackIds?.has(datum.trackId))));
     if (previous && !drawsDrag && sameInputs(previous.inputs, rowInputs)) {
       derivedRows[sourceRow.id] = previous.row;
       previous.samples.forEach(([id, sample]) => {
@@ -208,6 +207,10 @@ export function buildDerivedSnapshotWithRows(
       return;
     }
 
+    // A row reads and writes only its own entries in the sample cache (they
+    // are keyed by row), so it fills a cache of its own, merged in after.
+    // Its entries are then known without searching the build's whole cache.
+    const rowSamples: RenderSampleCache = { samples: {}, trackIndex: {} };
     const computed = computeRowData(
       sourceRow,
       inputs.tracks,
@@ -217,8 +220,10 @@ export function buildDerivedSnapshotWithRows(
       inputs.selectionState,
       rowContext,
       dragPreviewCache,
-      renderSampleCache,
+      rowSamples,
     );
+    Object.assign(renderSampleCache.samples, rowSamples.samples);
+    Object.assign(renderSampleCache.trackIndex!, rowSamples.trackIndex);
 
     const trackKeys = sourceRow.data.map((data) =>
       buildTrackKey(data.namespaceId, data.instanceId, data.trackId),
@@ -236,7 +241,8 @@ export function buildDerivedSnapshotWithRows(
       reusableRows.set(sourceRow.id, {
         inputs: rowInputs,
         row,
-        ...rowSampleEntries(sourceRow.id, row, renderSampleCache),
+        samples: Object.entries(rowSamples.samples),
+        trackIndex: Object.entries(rowSamples.trackIndex ?? {}),
       });
     }
   });

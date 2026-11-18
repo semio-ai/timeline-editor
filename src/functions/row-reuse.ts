@@ -2,7 +2,6 @@ import type {
   DerivedRowSnapshot,
   DerivedSnapshot,
   PolylineSample,
-  RenderSampleCache,
   RenderSampleId,
   TrackRender,
 } from "../types";
@@ -38,31 +37,4 @@ export function recordReusableRows(snapshot: DerivedSnapshot, rows: ReusableRows
 
 export function sameInputs(a: readonly unknown[], b: readonly unknown[]): boolean {
   return a.length === b.length && a.every((value, index) => Object.is(value, b[index]));
-}
-
-/**
- * The entries a row wrote to a build's render sample cache: its track index
- * entries, which are keyed by row, and the samples its segments point to.
- */
-export function rowSampleEntries(
-  rowId: string,
-  row: DerivedRowSnapshot,
-  cache: RenderSampleCache,
-): Pick<ReusableRow, "samples" | "trackIndex"> {
-  const prefix = `${rowId}:`;
-  const trackIndex = Object.entries(cache.trackIndex ?? {}).filter(([key]) =>
-    key.startsWith(prefix),
-  );
-  const ids = new Set<RenderSampleId>();
-  row.computed.render?.segments.forEach((segment) =>
-    Object.values(segment.samples).forEach((sample) => {
-      if (sample?.kind === "shared") ids.add(sample.sampleId);
-    }),
-  );
-  const samples = Array.from(ids)
-    .map((id): [RenderSampleId, PolylineSample] | undefined =>
-      cache.samples[id] ? [id, cache.samples[id]] : undefined,
-    )
-    .filter((entry): entry is [RenderSampleId, PolylineSample] => entry !== undefined);
-  return { samples, trackIndex };
 }
