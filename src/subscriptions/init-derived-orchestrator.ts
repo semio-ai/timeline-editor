@@ -92,9 +92,17 @@ export function computeDerivedState(
  * How many times one outermost flush may build, nested flushes included. Each
  * publish is a write whose listeners may change an input again, and a provider
  * may report a change while it is being asked; a listener that answers every
- * snapshot with a new input would otherwise loop. Work left when the budget
- * runs out is picked up on a later task, so a long but finite chain of changes
- * still settles without holding up the write that started it.
+ * snapshot with a new input would otherwise loop.
+ *
+ * When the budget runs out, building stops for the rest of the task: the
+ * notifications still unwinding from the write would otherwise each start a
+ * flush with a budget of its own. On a later task the store tries once more
+ * with a fresh budget, so a chain of up to twice this many changes still
+ * settles without holding up the write that started it. If a retry has
+ * already run since the inputs last settled, the later task only lifts the
+ * stop: the inputs are changing on their own, and the snapshot stays as last
+ * built until the next write. Retrying for as long as the inputs change would
+ * turn such a listener into an endless loop across tasks.
  */
 const MAX_SETTLE_PASSES = 8;
 
@@ -134,6 +142,12 @@ export interface DerivedOrchestrator {
  * listening to the snapshot: its write is a nested notification, which builds
  * at its own end before the action returns. Publishing a snapshot does not
  * build again by itself, because the inputs are the ones just built from.
+ *
+ * A write made while a build is running (a provider that writes to the store
+ * while it is being asked) does not build inside it: the running build owns
+ * the record of what it was built from, and a nested build would overwrite it.
+ * The write's change is picked up when the running build returns, because
+ * the inputs then differ from the ones it was built from.
  */
 export function createDerivedOrchestrator(
   _api: AnimationApi,
@@ -144,7 +158,11 @@ export function createDerivedOrchestrator(
   let depth = 0;
   let passesLeft = 0;
   let building = false;
-  let retry: ReturnType<typeof setTimeout> | undefined;
+  // Set when the budget runs out; no flush builds until the timer lifts it.
+  let stalled = false;
+  let stallTimer: ReturnType<typeof setTimeout> | undefined;
+  // Whether a retry has run since an outermost flush last settled.
+  let retried = false;
   let providerChangedDuringBuild = false;
   let builtFrom: DerivedInputs | undefined;
   let watchedProvider: FeedbackProvider | undefined;
@@ -193,24 +211,35 @@ export function createDerivedOrchestrator(
     set({ derivedSnapshot: sealDerivedSnapshot(snapshot) });
   };
 
-  const scheduleRetry = () => {
-    retry ??= setTimeout(() => {
-      retry = undefined;
-      flush();
+  const stall = () => {
+    if (stalled) return;
+    stalled = true;
+    const retrying = !retried;
+    retried = true;
+    logDerivedEvent("derivedOrchestrator", "settle budget exhausted", () => ({ retrying }));
+    stallTimer = setTimeout(() => {
+      stallTimer = undefined;
+      stalled = false;
+      if (retrying) flush();
     }, 0);
   };
 
   const flush = () => {
-    if (!started) return;
+    if (!started || building || stalled) return;
     if (depth === 0) passesLeft = MAX_SETTLE_PASSES;
     depth += 1;
     try {
       for (;;) {
         const inputs = selectDerivedInputs(get());
         watchProvider(inputs.feedbackProvider);
-        if (builtFrom && shallow(builtFrom, inputs)) return;
+        if (builtFrom && shallow(builtFrom, inputs)) {
+          // Only an outermost flush settling ends a chain of changes: a nested
+          // one finds the inputs already built by a deeper flush.
+          if (depth === 1) retried = false;
+          return;
+        }
         if (passesLeft === 0) {
-          scheduleRetry();
+          stall();
           return;
         }
         passesLeft -= 1;
@@ -230,8 +259,9 @@ export function createDerivedOrchestrator(
     },
     stop: () => {
       started = false;
-      clearTimeout(retry);
-      retry = undefined;
+      clearTimeout(stallTimer);
+      stallTimer = undefined;
+      stalled = false;
       unwatchProvider?.();
       unwatchProvider = undefined;
       watchedProvider = undefined;

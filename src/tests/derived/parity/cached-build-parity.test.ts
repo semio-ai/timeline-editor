@@ -311,48 +311,113 @@ describe("cached derived build", () => {
     tracks.forEach((track) => expect(track.canonical.violations[0].stampRange.end).toBe(2));
   });
 
+  // A provider whose answer, while it is being asked, is already out of date:
+  // each answer counts up to `last`, reporting a change as it gives it. The
+  // store may also be written to while it is asked.
+  function changingProvider(last: number, onAsk?: () => void) {
+    let notify = () => {};
+    let answer = 0;
+    const provider: FeedbackProvider = {
+      canonical: (subjects) => {
+        const current = answer;
+        onAsk?.();
+        if (answer < last) {
+          answer += 1;
+          notify();
+        }
+        return new Map(
+          subjects.map((subject) => [
+            subject.trackKey,
+            [
+              {
+                id: `v${current}:${subject.trackKey}`,
+                trackId: subject.trackId,
+                namespace: subject.namespaceId,
+                instanceId: subject.instanceId,
+                type: "upper",
+                stampRange: { start: 0, end: current },
+              } as Violation,
+            ],
+          ]),
+        );
+      },
+      preview: () => [],
+      subscribe: (listener) => {
+        notify = listener;
+        return () => {
+          notify = () => {};
+        };
+      },
+    };
+    return provider;
+  }
+
+  const endsShown = (store: ReturnType<typeof createCorpusStore>) =>
+    Object.values(store.getState().derivedSnapshot!.tracks).map(
+      (track) => track.canonical.violations[0].stampRange.end,
+    );
+
   it("settles a provider that changes more times in a row than one flush builds", () => {
     vi.useFakeTimers();
     try {
-      let notify = () => {};
-      let answer = 0;
-      const provider: FeedbackProvider = {
-        canonical: (subjects) => {
-          const current = answer;
-          if (answer < 20) {
-            answer += 1;
-            notify();
-          }
-          return new Map(
-            subjects.map((subject) => [
-              subject.trackKey,
-              [
-                {
-                  id: `v${current}:${subject.trackKey}`,
-                  trackId: subject.trackId,
-                  namespace: subject.namespaceId,
-                  instanceId: subject.instanceId,
-                  type: "upper",
-                  stampRange: { start: 0, end: current },
-                } as Violation,
-              ],
-            ]),
-          );
-        },
-        preview: () => [],
-        subscribe: (listener) => {
-          notify = listener;
-          return () => {
-            notify = () => {};
-          };
-        },
-      };
       const store = createCorpusStore();
-      store.setState({ feedbackProvider: provider });
+      store.setState({ feedbackProvider: changingProvider(12) });
       vi.runAllTimers();
-      Object.values(store.getState().derivedSnapshot!.tracks).forEach((track) =>
-        expect(track.canonical.violations[0].stampRange.end).toBe(20),
+      expect(new Set(endsShown(store))).toEqual(new Set([12]));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows a provider's latest answer when it writes to the store while asked", () => {
+    const store = createCorpusStore();
+    let wrote = false;
+    const provider = changingProvider(1, () => {
+      if (wrote) return;
+      wrote = true;
+      // A write to state the snapshot does not read: nothing about it calls
+      // for another build, so only the answer reported after it can.
+      store.setState({ unrelatedToTheSnapshot: true } as never);
+    });
+    store.setState({ feedbackProvider: provider });
+    expect(new Set(endsShown(store))).toEqual(new Set([1]));
+    const fresh = computeDerivedState(selectDerivedInputs(store.getState()), 0, provider);
+    expect(normalize(store.getState().derivedSnapshot)).toEqual(normalize(fresh));
+  });
+
+  // A host listener that answers every snapshot with a new edit never lets
+  // the inputs settle. The store must stop building rather than loop, on the
+  // write's own task or on later ones, and must not recurse once per build.
+  it("stops building for a listener that answers every snapshot with an edit", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      const trackId = numericTrackId(store);
+      const pointId = store.getState().tracks[trackId].points[0].id;
+      let edits = 0;
+      const unsubscribe = store.subscribe(
+        (s) => s.derivedSnapshot,
+        () => {
+          edits += 1;
+          store.getState().updateKeypoint(trackId, { id: pointId, value: (edits % 7) * 0.01 });
+        },
       );
+      const before = store.getState().derivedSnapshot!.version!;
+      store.getState().updateKeypoint(trackId, { id: pointId, value: 0.5 });
+      // One later task: the retry.
+      expect(vi.getTimerCount()).toBe(1);
+      // A bounded number of tasks: a store that kept retrying would still have
+      // a timer pending after them.
+      for (let task = 0; task < 5; task += 1) vi.runOnlyPendingTimers();
+      expect(vi.getTimerCount()).toBe(0);
+      unsubscribe();
+      // The write's own budget, then one retry's.
+      expect(store.getState().derivedSnapshot!.version! - before).toBe(16);
+
+      // Once the listener is gone, the next write builds as usual.
+      store.getState().updateKeypoint(trackId, { id: pointId, value: 0.25 });
+      const fresh = computeDerivedState(selectDerivedInputs(store.getState()), 0);
+      expect(normalize(store.getState().derivedSnapshot)).toEqual(normalize(fresh));
     } finally {
       vi.useRealTimers();
     }
