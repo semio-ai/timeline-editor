@@ -10,6 +10,8 @@ export interface InternalListeners {
    * listener in each notification.
    */
   api: AnimationApi;
+  /** Whether a notification is running the store's own subscriptions. */
+  dispatching: () => boolean;
 }
 
 /**
@@ -68,9 +70,18 @@ export function createInternalListeners(api: AnimationApi): InternalListeners {
   // each listener the state as it stands when it is called. A listener earlier
   // in the set may have written, and the ones after it must see that write,
   // not the state the notification began with.
-  api.subscribe((_state, previous) =>
-    listeners.forEach((listener) => listener(api.getState(), previous)),
-  );
+  let depth = 0;
+  api.subscribe((_state, previous) => {
+    depth += 1;
+    try {
+      listeners.forEach((listener) => listener(api.getState(), previous));
+    } finally {
+      depth -= 1;
+    }
+  });
 
-  return { api: { ...api, subscribe: subscribe as AnimationApi["subscribe"] } };
+  return {
+    api: { ...api, subscribe: subscribe as AnimationApi["subscribe"] },
+    dispatching: () => depth > 0,
+  };
 }

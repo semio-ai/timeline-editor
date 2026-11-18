@@ -9,8 +9,10 @@ import {
 import {
   computeDerivedState,
   currentDerivedSnapshot,
+  initDerivedOrchestrator,
   selectDerivedInputs,
 } from "../../subscriptions/init-derived-orchestrator";
+import { sharedPreviewViolations } from "../../functions/build-derived-snapshot";
 import { ViolationType, type TrackKey, type Violation } from "../../types";
 import { violationId } from "../../functions/compute-track-violations";
 import { isFilteredSourceRowId } from "../../functions/view-filtered-source-row";
@@ -730,11 +732,13 @@ describe("derived store edges", () => {
         // Answers once, from inside its first subscribe.
         if (!answered) {
           answered = true;
+          first = listener;
           listener();
         }
         return () => listeners.delete(listener);
       },
     };
+    let first = () => {};
     let swapped = false;
     const unsubscribe = store.subscribe(
       (s) => s.derivedSnapshot,
@@ -748,6 +752,10 @@ describe("derived store edges", () => {
     store.setState({ feedbackProvider: provider });
     unsubscribe();
     expect(swapped).toBe(true);
+    // The first watch's listener ended with it, though the provider is set again.
+    const version = store.getState().derivedSnapshot!.version;
+    first();
+    expect(store.getState().derivedSnapshot!.version).toBe(version);
     store.getState().stopAnimationSubscriptions();
     expect(listeners.size).toBe(0);
   });
@@ -899,6 +907,154 @@ describe("derived store edges", () => {
         vi.useRealTimers();
       }
     });
+  });
+
+  it("publishes nothing built mid-write for an action a player listener takes while stalled", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      stallBuilding(store);
+      const { row, trackId } = leafWithKey(store);
+      let acted = 0;
+      const stopPlayer = store.getState().playerStore.subscribe(() => {
+        acted += 1;
+        store.getState().setEmphasis(null);
+      });
+      const published: string[][] = [];
+      const unsubscribe = store.subscribe(
+        (s) => s.derivedSnapshot,
+        (snapshot) => published.push(Object.keys(snapshot!.rows)),
+      );
+      // The store's subscriptions answer a removed track with writes of their
+      // own; the overall duration's notifies the player before the source
+      // rows have caught up.
+      const { [trackId]: _removed, ...rest } = store.getState().tracks;
+      store.setState({ tracks: rest });
+      stopPlayer();
+      unsubscribe();
+      expect(acted).toBeGreaterThan(0);
+      published.forEach((rowIds) => expect(rowIds).not.toContain(row.id));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not ask the host's provider for the snapshot an action builds when the published one trails", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      const asked = vi.fn(judged);
+      store.setState({
+        feedbackProvider: {
+          canonical: asked,
+          preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+        },
+      });
+      stallBuilding(store);
+      bumpKey(store);
+      asked.mockClear();
+      const current = currentDerivedSnapshot(store.getState());
+      expect(current).not.toBe(store.getState().derivedSnapshot);
+      expect(asked).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("hands each subject the curve the build compiled, and the editor's checks use it", () => {
+    const store = createCorpusStore();
+    const seen: FeedbackSubject[] = [];
+    store.setState({
+      feedbackProvider: {
+        canonical: (subjects, evaluator) => {
+          seen.push(...subjects);
+          return judged(subjects, evaluator);
+        },
+        preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+      },
+    });
+    const { tracks } = store.getState().derivedSnapshot!;
+    const withCurve = seen.filter((subject) => subject.curve);
+    expect(withCurve.length).toBeGreaterThan(0);
+    withCurve.forEach((subject) =>
+      expect(subject.curve).toBe(tracks[subject.trackKey].canonical.curve),
+    );
+    // Without an evaluator nothing compiles, so only the handed curve can be judged.
+    const judgedSubject = withCurve.find(
+      (subject) => tracks[subject.trackKey].canonical.violations.length > 0,
+    )!;
+    expect(computeSubjectViolations(judgedSubject, undefined)).toEqual(
+      tracks[judgedSubject.trackKey].canonical.violations,
+    );
+  });
+
+  it("judges two instances' previews apart when their ids differ only by where a slash falls", () => {
+    const store = createCorpusStore();
+    const { trackId } = leafWithKey(store);
+    const { tracks, animatables, trackEvaluator } = store.getState();
+    const subject = (namespaceId: string, instanceId: string): FeedbackSubject => ({
+      trackKey: `${namespaceId}/${instanceId}/${trackId}` as TrackKey,
+      trackId,
+      namespaceId,
+      instanceId,
+      track: tracks[trackId],
+      animatable: animatables[tracks[trackId].animatableId],
+      durationMs: 6000,
+      timescale: 1,
+    });
+    const preview = vi.fn((s: FeedbackSubject) => [
+      { id: s.namespaceId, namespace: s.namespaceId, instanceId: s.instanceId } as Violation,
+    ]);
+    const shared = sharedPreviewViolations({ canonical: judged, preview }, trackEvaluator);
+    expect(shared(subject("a/b", "c"))[0].namespace).toBe("a/b");
+    expect(shared(subject("a", "b/c"))[0].namespace).toBe("a");
+    expect(preview).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not ask a provider whose subscribe stopped the store or set another", () => {
+    const store = createCorpusStore();
+    const stopping = vi.fn(judged);
+    store.setState({
+      feedbackProvider: {
+        canonical: stopping,
+        preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+        subscribe: () => {
+          store.getState().stopAnimationSubscriptions();
+          return () => {};
+        },
+      },
+    });
+    expect(stopping).not.toHaveBeenCalled();
+
+    const other = createCorpusStore();
+    const replaced = vi.fn(judged);
+    other.setState({
+      feedbackProvider: {
+        canonical: replaced,
+        preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+        subscribe: () => {
+          other.setState({ feedbackProvider: createTrackFeedbackProvider() });
+          return () => {};
+        },
+      },
+    });
+    expect(replaced).not.toHaveBeenCalled();
+    expect(isCurrent(other)).toBe(true);
+  });
+
+  it("stops a standalone orchestrator whose first build throws", () => {
+    const store = createCorpusStore();
+    store.getState().stopAnimationSubscriptions();
+    const failing = vi.fn(() => {
+      throw new Error("provider failed");
+    });
+    store.setState({ feedbackProvider: { canonical: failing, preview: () => [] } });
+    expect(() =>
+      initDerivedOrchestrator(store as never, store.setState as never, store.getState),
+    ).toThrow("provider failed");
+    failing.mockClear();
+    bumpKey(store);
+    expect(failing).not.toHaveBeenCalled();
   });
 
   it("runs its own subscriptions before a host listener subscribed between two starts", () => {

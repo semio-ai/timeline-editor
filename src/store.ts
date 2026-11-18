@@ -590,7 +590,14 @@ export const AnimationSlice = (
       // subscriptions in every notification, so it builds the snapshot once
       // they have all answered a write.
       const derived = createDerivedOrchestrator(internal.api, set, get);
-      const refresh = () => derived.refresh();
+      // Not while the store's own subscriptions are answering a write (a host
+      // listener they notify mid-answer, on this store or on the player): it
+      // would publish a snapshot built from half-updated inputs. An action
+      // taken then reads the snapshot as it stands; one whose effect outlasts
+      // it reads `currentDerivedSnapshot` instead.
+      const refresh = () => {
+        if (!internal.dispatching()) derived.refresh();
+      };
       const unsubs = [
         ...[
           viewportFollow,

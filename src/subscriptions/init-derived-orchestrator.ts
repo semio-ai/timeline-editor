@@ -284,6 +284,10 @@ export function createDerivedOrchestrator(
 
   /** Builds from `inputs` and publishes, unless the result is out of date before it can be. */
   const build = (inputs: DerivedInputs): boolean => {
+    // Watching a provider can run its answer, which may stop this
+    // orchestrator or replace the inputs (another provider included). Asking
+    // with what was selected before would ask a provider no longer set.
+    if (!started || !shallow(inputs, selectDerivedInputs(get()))) return false;
     const versionHint = (get().derivedSnapshot?.version ?? 0) + 1;
     providerChangedDuringBuild = false;
     building = true;
@@ -425,9 +429,16 @@ export function initDerivedOrchestrator(
 ): () => void {
   const orchestrator = createDerivedOrchestrator(api, set, get);
   const unsubscribe = api.subscribe(orchestrator.writeSettled);
-  orchestrator.start();
-  return () => {
+  const cleanup = () => {
     unsubscribe();
     orchestrator.stop();
   };
+  try {
+    orchestrator.start();
+  } catch (error) {
+    // No handle reaches the caller, so nothing else could stop it.
+    cleanup();
+    throw error;
+  }
+  return cleanup;
 }

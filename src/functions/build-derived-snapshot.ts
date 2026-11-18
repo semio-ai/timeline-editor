@@ -133,6 +133,7 @@ export function buildDerivedSnapshotWithRows(
           animatable,
           durationMs: animDuration,
           timescale: instance.settings.timescale,
+          curve: compiledCurve,
         });
 
         derivedTracks[trackKey] = {
@@ -269,6 +270,7 @@ export function buildDerivedSnapshotWithRows(
         animatable: context.animatable,
         durationMs: durationOf(context.animation),
         timescale: context.instance.settings.timescale,
+        curve: previewCurve,
       };
       // Asked even when the editor cannot compile the preview curve: a provider
       // may judge the motion without the evaluator, and the rows that draw
@@ -377,7 +379,7 @@ function rowInputsOf(
  * same way and share the result; a row that projects it differently (a
  * vertical drag scales a non-anchor track by its own row's range) gets its own.
  */
-function sharedPreviewViolations(
+export function sharedPreviewViolations(
   provider: FeedbackProvider,
   evaluator: TrackEvaluator | undefined,
 ): (subject: FeedbackSubject) => Violation[] {
@@ -386,6 +388,9 @@ function sharedPreviewViolations(
     const candidates = judged.get(subject.trackKey) ?? [];
     const match = candidates.find(
       ({ subject: seen }) =>
+        // The track key joins its parts with "/", which any of them may hold.
+        seen.namespaceId === subject.namespaceId &&
+        seen.instanceId === subject.instanceId &&
         seen.trackId === subject.trackId &&
         seen.durationMs === subject.durationMs &&
         Object.is(seen.timescale, subject.timescale) &&
