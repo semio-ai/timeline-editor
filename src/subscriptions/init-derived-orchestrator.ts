@@ -1,3 +1,4 @@
+import { isDraft, original } from "immer";
 import { shallow } from "zustand/shallow";
 import { isEqual } from "lodash";
 import type {
@@ -103,6 +104,37 @@ export function computeDerivedState(
   recordReusableRows(derived, reusableRows);
   return derived;
 }
+
+// The inputs each published snapshot was built from.
+const inputsOfSnapshot = new WeakMap<DerivedSnapshot, DerivedInputs>();
+
+/**
+ * The derived snapshot for `state`'s own inputs: the published one when it
+ * was built from them, and otherwise one built now, without publishing it.
+ *
+ * The published snapshot trails its inputs while building is stalled, and an
+ * action may run then. An action whose effect outlasts the snapshot (committing
+ * a drag writes the keys it projected) reads through this, so what it writes
+ * never comes from inputs it no longer has, however a refresh before it fared.
+ * Building without publishing runs no listener, so nothing can change the
+ * inputs between this and the action's use of it. Its violations come from the
+ * editor's own checks, not the host's provider: none of these actions reads
+ * them, and asking a provider from inside an action would let it write.
+ *
+ * Given an Immer draft, it reads the state the recipe started from.
+ */
+export function currentDerivedSnapshot(state: AnimationData): DerivedSnapshot | undefined {
+  const base = isDraft(state) ? original(state)! : state;
+  const published = base.derivedSnapshot;
+  // No subscriptions have built one, so there is nothing derived to act on.
+  if (!published) return undefined;
+  const inputs = selectDerivedInputs(base);
+  const builtFrom = inputsOfSnapshot.get(published);
+  if (builtFrom && shallow(withoutProvider(builtFrom), withoutProvider(inputs))) return published;
+  return computeDerivedState(inputs, published.version ?? 0, undefined, published);
+}
+
+const withoutProvider = ({ feedbackProvider: _provider, ...rest }: DerivedInputs) => rest;
 
 /**
  * How many times one outermost flush may build, nested flushes included. Each
@@ -216,6 +248,8 @@ export function createDerivedOrchestrator(
   let builtFrom: DerivedInputs | undefined;
   let watchedProvider: FeedbackProvider | undefined;
   let unwatchProvider: (() => void) | undefined;
+  // Counts watches; a listener or handle from an earlier one is ignored.
+  let watch = 0;
   // Used when the host sets none: today's checks, cached per track.
   const defaultProvider = createTrackFeedbackProvider();
 
@@ -224,13 +258,17 @@ export function createDerivedOrchestrator(
     unwatchProvider?.();
     unwatchProvider = undefined;
     watchedProvider = provider;
+    // Each watch is its own, even of a provider watched before: the same
+    // provider can be replaced and set again while it is still subscribing.
+    watch += 1;
+    const thisWatch = watch;
     // A provider whose answers change after it gave them (one that finishes a
     // check later) is a derived input changing: rebuild as a write would. If it
     // says so while a build is asking it, that build's answers are already out
     // of date, so the flush builds again.
     if (!provider?.subscribe) return;
     const unwatch = provider.subscribe(() => {
-      if (watchedProvider !== provider) return;
+      if (watch !== thisWatch) return;
       builtFrom = undefined;
       if (building) providerChangedDuringBuild = true;
       else flush();
@@ -240,7 +278,7 @@ export function createDerivedOrchestrator(
     // can end this watch before its handle is returned. A handle for a watch
     // that has already ended is released at once, rather than kept where
     // nothing will release it or where it would replace the newer watch's.
-    if (watchedProvider === provider && started) unwatchProvider = unwatch;
+    if (watch === thisWatch) unwatchProvider = unwatch;
     else unwatch();
   };
 
@@ -277,7 +315,9 @@ export function createDerivedOrchestrator(
       rowCount: Object.keys(snapshot.rows).length,
     }));
 
-    set({ derivedSnapshot: sealDerivedSnapshot(snapshot) });
+    const sealed = sealDerivedSnapshot(snapshot);
+    inputsOfSnapshot.set(sealed, inputs);
+    set({ derivedSnapshot: sealed });
     return true;
   };
 
@@ -368,6 +408,7 @@ export function createDerivedOrchestrator(
       unwatchProvider?.();
       unwatchProvider = undefined;
       watchedProvider = undefined;
+      watch += 1;
     },
   };
 }

@@ -1,4 +1,6 @@
 import type { AnimationData } from "../../store-types";
+import type { DerivedSnapshot } from "../../types";
+import { currentDerivedSnapshot } from "../../subscriptions/init-derived-orchestrator";
 import { computeDragDiffOps, applyTrackDiffOpsToTrack } from "../../functions/drag-diff-ops";
 import { cloneTransitionValue, cloneTransitions } from "../../utils/clone-transitions";
 import type { SelectionCleanup, TrackDiffOp } from "../../types/util/diff";
@@ -28,9 +30,11 @@ const buildConstraintBoundsByTrack = (
 };
 
 /** Build data-derived bounds per track for range scaling (not clamping). */
-const buildDataBoundsByTrack = (state: AnimationData): Map<string, { min: number; max: number }> => {
+const buildDataBoundsByTrack = (
+  snapshot: DerivedSnapshot | undefined,
+): Map<string, { min: number; max: number }> => {
   const boundsByTrack = new Map<string, { min: number; max: number }>();
-  const rows = Object.values(state.derivedSnapshot?.rows ?? {});
+  const rows = Object.values(snapshot?.rows ?? {});
   rows.forEach((row) => {
     const computed = row.computed;
     if (!computed?.verticalBounds) return;
@@ -62,7 +66,10 @@ const groupDiffsByTrackId = (diffs: TrackDiffOp[]): Map<string, TrackDiffOp[]> =
  * @param state - The animation state to modify
  */
 export function commitDrag(state: AnimationData): void {
-  const dragState = state.derivedSnapshot?.dragContext ?? state.dragState;
+  // The snapshot for the drag as it now is: the keys it writes are the ones
+  // that snapshot projected.
+  const snapshot = currentDerivedSnapshot(state);
+  const dragState = snapshot?.dragContext ?? state.dragState;
   if (!dragState) {
     return;
   }
@@ -156,7 +163,7 @@ export function commitDrag(state: AnimationData): void {
     }
   } else if (hasHorizontalDelta || hasVerticalDelta) {
     const constraintBounds = hasVerticalDelta ? buildConstraintBoundsByTrack(state) : undefined;
-    const dataBounds = hasVerticalDelta ? buildDataBoundsByTrack(state) : undefined;
+    const dataBounds = hasVerticalDelta ? buildDataBoundsByTrack(snapshot) : undefined;
     const trackIds = new Set<string>(selection.keypoints.keys());
     seedDiffsByTrackId.forEach((_diffs, trackId) => trackIds.add(trackId));
 

@@ -8,6 +8,7 @@ import {
 } from "../../functions/feedback-provider";
 import {
   computeDerivedState,
+  currentDerivedSnapshot,
   selectDerivedInputs,
 } from "../../subscriptions/init-derived-orchestrator";
 import { ViolationType, type TrackKey, type Violation } from "../../types";
@@ -56,6 +57,23 @@ function stallBuilding(store: Store) {
   touchViews();
   unsubscribe();
   expect(vi.getTimerCount()).toBe(1);
+}
+
+/** Writes a new value to a leaf's first key, a change every snapshot shows. */
+function bumpKey(store: Store) {
+  const { trackId, point } = leafWithKey(store);
+  const track = store.getState().tracks[trackId];
+  store.setState({
+    tracks: {
+      ...store.getState().tracks,
+      [trackId]: {
+        ...track,
+        points: track.points.map((p) =>
+          p.id === point.id ? { ...p, value: (p.value as number) + 0.01 } : p,
+        ),
+      },
+    },
+  });
 }
 
 const isCurrent = (store: Store) =>
@@ -612,34 +630,6 @@ describe("derived store edges", () => {
     expect(listeners.size).toBe(0);
   });
 
-  it("does not refresh for an action a host listener takes while the store's subscriptions answer a write", () => {
-    vi.useFakeTimers();
-    try {
-      const store = createCorpusStore();
-      stallBuilding(store);
-      let acted = 0;
-      const unsubscribe = store.subscribe(
-        (s) => s.tracks,
-        () => {
-          acted += 1;
-          store.getState().setEmphasis(null);
-        },
-      );
-      const version = store.getState().derivedSnapshot!.version;
-      // Removing a track makes the store's subscriptions rebuild the source
-      // rows, each with a write whose notification reaches the host listener
-      // before the rest have answered.
-      const { trackId } = leafWithKey(store);
-      const { [trackId]: _removed, ...rest } = store.getState().tracks;
-      store.setState({ tracks: rest });
-      unsubscribe();
-      expect(acted).toBeGreaterThan(0);
-      expect(store.getState().derivedSnapshot!.version).toBe(version);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it("ignores a replaced provider that keeps calling the listener it was given", () => {
     const store = createCorpusStore();
     let stale = () => {};
@@ -658,6 +648,257 @@ describe("derived store edges", () => {
     const version = store.getState().derivedSnapshot!.version;
     stale();
     expect(store.getState().derivedSnapshot!.version).toBe(version);
+  });
+
+  it.each([1, 8])(
+    "commits nothing for a drag cancelled on publish %i of a refresh that never settles",
+    (cancelOn) => {
+      vi.useFakeTimers();
+      try {
+        const store = createCorpusStore();
+        const { row, trackId, point } = leafWithKey(store);
+        const before = store.getState().tracks[trackId].points.map((p) => p.stamp);
+        const frame = getMarkerFrame(store, row.id, point.id);
+        store.getState().clickMarker(frame.points ?? [], row.id, frame.id, false, false);
+        store.getState().startDrag({ axis: "horizontal", markerId: frame.id, rowId: row.id });
+        stallBuilding(store);
+        store.getState().updateDrag({ normalizedStamp: { current: 0.6 }, modifiers: {} as never });
+        let publishes = 0;
+        const unsubscribe = store.subscribe(
+          (s) => s.derivedSnapshot,
+          () => {
+            publishes += 1;
+            if (publishes === cancelOn) store.getState().cancelDrag();
+            store.setState({ editorViews: { ...store.getState().editorViews } });
+          },
+        );
+        store.getState().commitDrag();
+        unsubscribe();
+        expect(publishes).toBeGreaterThanOrEqual(cancelOn);
+        expect(store.getState().tracks[trackId].points.map((p) => p.stamp)).toEqual(before);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it("commits a drag where it was moved when a host listener commits it mid-write while stalled", () => {
+    vi.useFakeTimers();
+    try {
+      const run = (stall: boolean) => {
+        const store = createCorpusStore();
+        const { row, trackId, point } = leafWithKey(store);
+        const frame = getMarkerFrame(store, row.id, point.id);
+        store.getState().clickMarker(frame.points ?? [], row.id, frame.id, false, false);
+        store.getState().startDrag({ axis: "horizontal", markerId: frame.id, rowId: row.id });
+        store.getState().updateDrag({ normalizedStamp: { current: 0.4 }, modifiers: {} as never });
+        if (stall) stallBuilding(store);
+        store.getState().updateDrag({ normalizedStamp: { current: 0.6 }, modifiers: {} as never });
+        // Removing another track makes the store's subscriptions answer with
+        // writes of their own; the host listener commits in the middle.
+        let committed = false;
+        const unsubscribe = store.subscribe(
+          (s) => s.tracks,
+          () => {
+            if (committed) return;
+            committed = true;
+            store.getState().commitDrag();
+          },
+        );
+        const other = Object.keys(store.getState().tracks).find((id) => id !== trackId)!;
+        const { [other]: _removed, ...rest } = store.getState().tracks;
+        store.setState({ tracks: rest });
+        unsubscribe();
+        expect(committed).toBe(true);
+        return store.getState().tracks[trackId].points.map((p) => p.stamp);
+      };
+      expect(run(true)).toEqual(run(false));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("releases every listener of a provider replaced and set again while it is subscribing", () => {
+    const store = createCorpusStore();
+    const listeners = new Set<() => void>();
+    let answered = false;
+    const provider: FeedbackProvider = {
+      canonical: judged,
+      preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+      subscribe: (listener) => {
+        listeners.add(listener);
+        // Answers once, from inside its first subscribe.
+        if (!answered) {
+          answered = true;
+          listener();
+        }
+        return () => listeners.delete(listener);
+      },
+    };
+    let swapped = false;
+    const unsubscribe = store.subscribe(
+      (s) => s.derivedSnapshot,
+      () => {
+        if (!answered || swapped) return;
+        swapped = true;
+        store.setState({ feedbackProvider: createTrackFeedbackProvider() });
+        store.setState({ feedbackProvider: provider });
+      },
+    );
+    store.setState({ feedbackProvider: provider });
+    unsubscribe();
+    expect(swapped).toBe(true);
+    store.getState().stopAnimationSubscriptions();
+    expect(listeners.size).toBe(0);
+  });
+
+  it("keeps a set started while the previous one stops current: it refreshes and it stops", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      let restartOnRelease = false;
+      store.setState({
+        feedbackProvider: {
+          canonical: judged,
+          preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+          // Starts the store's subscriptions again while the old set releases it.
+          subscribe: () => () => {
+            if (!restartOnRelease) return;
+            restartOnRelease = false;
+            store.getState().initAnimationSubscriptions();
+          },
+        },
+      });
+      restartOnRelease = true;
+      store.getState().stopAnimationSubscriptions();
+      expect(restartOnRelease).toBe(false);
+
+      // The new set refreshes a stalled snapshot for an action.
+      stallBuilding(store);
+      const version = store.getState().derivedSnapshot!.version!;
+      store.getState().setEmphasis(null);
+      expect(store.getState().derivedSnapshot!.version!).toBeGreaterThan(version);
+
+      // And it is the one `stopAnimationSubscriptions` stops.
+      store.getState().stopAnimationSubscriptions();
+      vi.runAllTimers();
+      const stopped = store.getState().derivedSnapshot!.version;
+      const { trackId, point } = leafWithKey(store);
+      store.getState().updateKeypoint(trackId, { id: point.id, value: 0.9 });
+      expect(store.getState().derivedSnapshot!.version).toBe(stopped);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("refreshes once for a provider that changes on every ask, when the inputs did not", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      const listeners = new Set<() => void>();
+      store.setState({
+        feedbackProvider: {
+          canonical: (subjects, evaluator) => {
+            listeners.forEach((listener) => listener());
+            return judged(subjects, evaluator);
+          },
+          preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+          subscribe: (listener) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+          },
+        },
+      });
+      expect(vi.getTimerCount()).toBe(1);
+      const version = store.getState().derivedSnapshot!.version!;
+      store.getState().setEmphasis(null);
+      expect(store.getState().derivedSnapshot!.version! - version).toBe(1);
+      store.getState().stopAnimationSubscriptions();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("answers an action with the published snapshot when it is current, and builds one when it trails", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      expect(currentDerivedSnapshot(store.getState())).toBe(store.getState().derivedSnapshot);
+      stallBuilding(store);
+      const { trackId, point } = leafWithKey(store);
+      store.setState({
+        tracks: {
+          ...store.getState().tracks,
+          [trackId]: {
+            ...store.getState().tracks[trackId],
+            points: store
+              .getState()
+              .tracks[trackId].points.map((p) => (p.id === point.id ? { ...p, value: 0.77 } : p)),
+          },
+        },
+      });
+      const published = store.getState().derivedSnapshot;
+      const current = currentDerivedSnapshot(store.getState());
+      expect(current).not.toBe(published);
+      expect(store.getState().derivedSnapshot).toBe(published);
+      expect(normalize(current)).toEqual(
+        normalize(computeDerivedState(selectDerivedInputs(store.getState()), 0)),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  describe("a stalled action's refresh leaves the published snapshot current", () => {
+    it("when a write the provider makes drops the build it forced", () => {
+      vi.useFakeTimers();
+      try {
+        const store = createCorpusStore();
+        let armed = false;
+        store.setState({
+          feedbackProvider: {
+            canonical: (subjects, evaluator) => {
+              if (armed) {
+                armed = false;
+                bumpKey(store);
+              }
+              return judged(subjects, evaluator);
+            },
+            preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+          },
+        });
+        stallBuilding(store);
+        armed = true;
+        store.getState().setEmphasis(null);
+        expect(armed).toBe(false);
+        expect(isCurrent(store)).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("when a listener answers its publish with a write", () => {
+      vi.useFakeTimers();
+      try {
+        const store = createCorpusStore();
+        stallBuilding(store);
+        let answered = false;
+        const unsubscribe = store.subscribe(
+          (s) => s.derivedSnapshot,
+          () => {
+            if (answered) return;
+            answered = true;
+            bumpKey(store);
+          },
+        );
+        store.getState().setEmphasis(null);
+        unsubscribe();
+        expect(answered).toBe(true);
+        expect(isCurrent(store)).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   it("runs its own subscriptions before a host listener subscribed between two starts", () => {
