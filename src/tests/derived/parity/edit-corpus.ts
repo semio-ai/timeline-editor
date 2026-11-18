@@ -120,6 +120,12 @@ export function* corpusSteps(seed: number, length: number): Generator<CorpusStep
     "clearSelection",
     "selectAll",
     "viewport",
+    "instanceAdd",
+    "instanceRemove",
+    "instanceActive",
+    "focusInstance",
+    "trackRemove",
+    "trackFilter",
   ] as const;
 
   for (let i = 0; i < length; i += 1) {
@@ -353,6 +359,74 @@ export function* corpusSteps(seed: number, length: number): Generator<CorpusStep
       case "selectAll":
         yield { label: "selectAll", run: (s) => s.getState().selectAll() };
         break;
+      // Instancing: the number of instances, rows and keys a row shows changes.
+      case "instanceAdd":
+      case "instanceRemove":
+      case "instanceActive": {
+        const namespaceId = pick(Object.keys(state.namespaces).sort());
+        if (!namespaceId) break;
+        const instanceId = pick(
+          Object.keys(state.namespaces[namespaceId].animationInstances).sort(),
+        );
+        if (!instanceId) break;
+        const copyId = `${instanceId}-copy-${i}`;
+        const active = random() < 0.5;
+        yield {
+          label:
+            kind === "instanceAdd"
+              ? `instanceAdd ${namespaceId}/${copyId}`
+              : kind === "instanceRemove"
+                ? `instanceRemove ${namespaceId}/${instanceId}`
+                : `instanceActive ${namespaceId}/${instanceId}=${active}`,
+          run: (s) => {
+            const namespaces = s.getState().namespaces;
+            const namespace = namespaces[namespaceId];
+            const instances = { ...namespace.animationInstances };
+            const instance = instances[instanceId];
+            if (kind === "instanceAdd") instances[copyId] = { ...instance, id: copyId };
+            else if (kind === "instanceRemove") delete instances[instanceId];
+            else
+              instances[instanceId] = { ...instance, settings: { ...instance.settings, active } };
+            s.getState().setNamespaces({
+              ...namespaces,
+              [namespaceId]: { ...namespace, animationInstances: instances },
+            });
+          },
+        };
+        break;
+      }
+      case "focusInstance": {
+        const instanceId = pick(
+          Object.values(state.namespaces)
+            .flatMap((namespace) => Object.keys(namespace.animationInstances))
+            .sort(),
+        );
+        if (!instanceId) break;
+        yield {
+          label: `focusInstance ${instanceId}`,
+          run: (s) => s.getState().focusSelectionInstance(instanceId),
+        };
+        break;
+      }
+      case "trackRemove": {
+        const animationId = pick(Object.keys(state.animations).sort());
+        if (!animationId) break;
+        const trackId = pick([...state.animations[animationId].tracks].sort());
+        if (!trackId) break;
+        yield {
+          label: `trackRemove ${animationId}/${trackId}`,
+          run: (s) => s.getState().removeTrack(trackId, animationId),
+        };
+        break;
+      }
+      case "trackFilter": {
+        const trackFilter = pick(["", "pos", "scale", "opacity", "rot", "zzz"])!;
+        yield {
+          label: `trackFilter "${trackFilter}"`,
+          run: (s) => s.getState().updateView(VIEW_ID, { trackFilter }),
+        };
+        break;
+      }
       case "viewport": {
         const top = 10 + int(90);
         const bottom = -10 - int(90);
