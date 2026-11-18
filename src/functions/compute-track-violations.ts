@@ -103,7 +103,7 @@ export function computeTrackViolations(
         if (openViolation === undefined) {
           // Open a new violation
           openViolations[violationType] = {
-            id: crypto.randomUUID(),
+            id: violationId(namespace, instanceId, trackId, violationType, stampStart),
             stampRange: { start: stampStart, end: stampEnd },
             type: violationType,
             trackId,
@@ -333,9 +333,34 @@ export function computeInstanceTrackViolations(
   if (scale === 1) return violations;
   return violations.map((violation) => ({
     ...violation,
+    id: violationId(
+      namespace,
+      instanceId,
+      trackId,
+      violation.type,
+      violation.stampRange.start * scale,
+    ),
     stampRange: {
       start: violation.stampRange.start * scale,
       end: violation.stampRange.end * scale,
     },
   }));
+}
+
+/**
+ * A violation's id, derived from what it is: the track instance it is on, its
+ * kind, and the stamp it starts at. A track instance has at most one open
+ * violation of each kind at a time, so no two of its violations share one.
+ * Deriving the id from content means the same violation computed again keeps
+ * its id, so a renderer keyed by it keeps its element and a set built from the
+ * ids keeps its own id.
+ */
+export function violationId(
+  namespace: string,
+  instanceId: string,
+  trackId: string,
+  type: ViolationType,
+  start: number,
+): string {
+  return `violation:${namespace}/${instanceId}/${trackId}:${type}@${start}`;
 }
