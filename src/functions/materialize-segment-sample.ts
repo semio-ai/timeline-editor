@@ -1,4 +1,4 @@
-import type { RenderSampleCache, SegmentSample } from "../types";
+import type { DerivedSnapshot, RenderSampleCache, SegmentSample } from "../types";
 
 export interface MaterializedSegmentSample {
   points: Float32Array;
@@ -37,4 +37,29 @@ export function materializeSegmentSample(
   }
 
   return { points, stride };
+}
+
+/**
+ * The cached samples one row's segments point to, by id.
+ *
+ * A renderer that read the whole cache would change with every build, since
+ * each build makes a new cache. A row the build kept carries the same sample
+ * objects into the new cache, so this subset is shallow-equal from one build
+ * to the next exactly when the row's drawing did not change.
+ */
+export function rowRenderSamples(
+  snapshot: DerivedSnapshot | undefined,
+  rowId: string,
+): RenderSampleCache["samples"] {
+  const subset: RenderSampleCache["samples"] = {};
+  const samples = snapshot?.renderSampleCache?.samples;
+  if (!samples) return subset;
+  snapshot.rows[rowId]?.computed.render?.segments.forEach((segment) =>
+    Object.values(segment.samples).forEach((sample) => {
+      if (sample?.kind === "shared" && samples[sample.sampleId]) {
+        subset[sample.sampleId] = samples[sample.sampleId];
+      }
+    }),
+  );
+  return subset;
 }

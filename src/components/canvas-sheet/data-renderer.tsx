@@ -26,6 +26,7 @@ import {
   filterHandlesByVisibility,
   shouldRowShowHandles,
 } from "../../functions";
+import { rowRenderSamples } from "../../functions/materialize-segment-sample";
 import {
   LayerBand,
   SelectionFrame,
@@ -197,9 +198,11 @@ export const DataRenderer = memo(function DataRenderer({
   const computedData = useAnimationStore(
     useShallow((state: StoreState) => state.derivedSnapshot?.rows?.[sourceRowId]?.computed),
   );
-  const renderSampleCache = useAnimationStore(
-    useShallow((state: StoreState) => state.derivedSnapshot?.renderSampleCache),
+  // Only this row's samples: the whole cache is new on every build.
+  const rowSamples = useAnimationStore(
+    useShallow((state: StoreState) => rowRenderSamples(state.derivedSnapshot, sourceRowId)),
   );
+  const renderSampleCache = useMemo(() => ({ samples: rowSamples }), [rowSamples]);
   const selectionState = useAnimationStore(useShallow((state: StoreState) => state.selectionState));
   const handleVisibility = useAnimationStore(
     useShallow(
@@ -227,12 +230,8 @@ export const DataRenderer = memo(function DataRenderer({
   const emphasis = useAnimationStore(
     useShallow((state: StoreState) => state.emphasisRowId === sourceRowId),
   );
-  const setEmphasis = useAnimationStore(
-    useShallow((state: StoreState) => state.setEmphasis),
-  );
-  const selectTrack = useAnimationStore(
-    useShallow((state: StoreState) => state.selectTrack),
-  );
+  const setEmphasis = useAnimationStore(useShallow((state: StoreState) => state.setEmphasis));
+  const selectTrack = useAnimationStore(useShallow((state: StoreState) => state.selectTrack));
   const toggleTrackInSelection = useAnimationStore(
     useShallow((state: StoreState) => state.toggleTrackInSelection),
   );
@@ -262,7 +261,10 @@ export const DataRenderer = memo(function DataRenderer({
   const animationStore = useContext(AnimationContext);
   const { onContextMenu: rowContextMenu } = useCanvasContextMenu({
     items: (ctx) =>
-      buildTrackMenuItems(ctx, animationStore, trackIds, { trackRender, rowTargets: rowKeyTargets }),
+      buildTrackMenuItems(ctx, animationStore, trackIds, {
+        trackRender,
+        rowTargets: rowKeyTargets,
+      }),
   });
 
   const rowMuted = useMemo(() => {
@@ -317,7 +319,7 @@ export const DataRenderer = memo(function DataRenderer({
       ),
     [computedData?.render?.handles, handleVisibility, selectionState.keypoints],
   );
-  const isGroupRow = sourceRow ? (sourceRow.isGroup || sourceRow.data.length > 1) : false;
+  const isGroupRow = sourceRow ? sourceRow.isGroup || sourceRow.data.length > 1 : false;
   const transitionLayer: LayerBand = useMemo(() => {
     // Group/aggregate rows render behind individual track rows to avoid
     // covering individual hexagons with group-level segments.
@@ -380,9 +382,7 @@ export const DataRenderer = memo(function DataRenderer({
       owningEntityId ? (state.entityStates[owningEntityId]?.activeInstanceId ?? null) : null,
     ),
   );
-  const activeEntityId = useAnimationStore(
-    useShallow((state: StoreState) => state.activeEntityId),
-  );
+  const activeEntityId = useAnimationStore(useShallow((state: StoreState) => state.activeEntityId));
 
   // Render the click-to-switch overlay whenever clicking would switch
   // focus or activate a different instance — i.e. anywhere the row
@@ -479,7 +479,8 @@ export const DataRenderer = memo(function DataRenderer({
   // different key), but NOT when it's merely extended (e.g. shift-clicking
   // to add keys to the selection).
   const handleIdSet = useMemo(() => {
-    if (handleVisibility !== HandleVisibility.KeySelection || renderHandles.length === 0) return null;
+    if (handleVisibility !== HandleVisibility.KeySelection || renderHandles.length === 0)
+      return null;
     return new Set(renderHandles.map((h) => h.id));
   }, [handleVisibility, renderHandles]);
   const prevHandleIdSetRef = useRef(handleIdSet);
@@ -604,18 +605,19 @@ export const DataRenderer = memo(function DataRenderer({
           )}
 
           {/* Render violations */}
-          {trackRender !== TrackRender.Spline && violationVisibility !== ViolationVisibility.Hidden && (
-            <ViolationRenderer
-              violationSet={computedData.violationSet}
-              theme={theme}
-              height={height - 1}
-              measureFromBottom={measureFromBottom}
-              layer={transitionLayer}
-              xTransform={xTransform}
-              sourceRowId={sourceRowId}
-              selectedTrackIds={violationSelectedTrackIds}
-            />
-          )}
+          {trackRender !== TrackRender.Spline &&
+            violationVisibility !== ViolationVisibility.Hidden && (
+              <ViolationRenderer
+                violationSet={computedData.violationSet}
+                theme={theme}
+                height={height - 1}
+                measureFromBottom={measureFromBottom}
+                layer={transitionLayer}
+                xTransform={xTransform}
+                sourceRowId={sourceRowId}
+                selectedTrackIds={violationSelectedTrackIds}
+              />
+            )}
         </>
       )}
 
