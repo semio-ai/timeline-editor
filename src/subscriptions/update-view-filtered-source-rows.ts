@@ -76,9 +76,7 @@ export function updateViewFilteredSourceRows(
           const row = sourceRows[rowId];
           if (!row) return;
           row.data.forEach((entry) => {
-            visibleTrackKeys.add(
-              buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId),
-            );
+            visibleTrackKeys.add(buildTrackKey(entry.namespaceId, entry.instanceId, entry.trackId));
           });
         });
         viewContexts.push({ viewId: view.id, visibleTrackKeys });
@@ -126,7 +124,12 @@ export function updateViewFilteredSourceRows(
         if (isFilteredSourceRowId(rowId)) return;
         nextSourceRows[rowId] = row;
       });
-      Object.assign(nextSourceRows, filteredRows);
+      // A twin whose content did not change keeps its object, so the derived
+      // build can hand on the row drawn from it.
+      Object.entries(filteredRows).forEach(([rowId, row]) => {
+        const current = sourceRows[rowId];
+        nextSourceRows[rowId] = current && isEqual(current, row) ? current : row;
+      });
       set({ instancedTrackSources: nextSourceRows });
     },
     {

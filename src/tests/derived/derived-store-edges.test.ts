@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import { describe, expect, it, vi } from "vitest";
 import {
   computeSubjectViolations,
@@ -11,6 +12,7 @@ import {
 } from "../../subscriptions/init-derived-orchestrator";
 import { ViolationType, type TrackKey, type Violation } from "../../types";
 import { violationId } from "../../functions/compute-track-violations";
+import { isFilteredSourceRowId } from "../../functions/view-filtered-source-row";
 import { getMarkerFrame } from "../selection/selection-test-helpers";
 import { createCorpusStore, normalize } from "./parity/edit-corpus";
 
@@ -91,19 +93,18 @@ describe("derived store edges", () => {
     expect(store.getState().derivedSnapshot!.version! - before).toBe(1);
   });
 
-  it("publishes nothing and watches no provider once a snapshot listener stops the store", () => {
+  it("publishes nothing, asks nothing and watches no provider once a snapshot listener stops the store", () => {
     vi.useFakeTimers();
     try {
       const store = createCorpusStore();
       const listeners = new Set<() => void>();
-      let answers = 0;
+      let asks = 0;
       const provider: FeedbackProvider = {
         canonical: (subjects, evaluator) => {
-          // Reports a change while asked, so the flush wants to build again.
-          if (answers < 3) {
-            answers += 1;
-            listeners.forEach((listener) => listener());
-          }
+          asks += 1;
+          // Reports a change on every ask, so the flushes still unwinding
+          // when the listener stops the store each want to build again.
+          listeners.forEach((listener) => listener());
           return judged(subjects, evaluator);
         },
         preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
@@ -113,18 +114,22 @@ describe("derived store edges", () => {
         },
       };
       let stoppedAt: number | undefined;
+      let asksAtStop = 0;
       store.subscribe(
         (s) => s.derivedSnapshot,
         (snapshot) => {
           if (stoppedAt !== undefined) return;
           stoppedAt = snapshot!.version;
           store.getState().stopAnimationSubscriptions();
+          asksAtStop = asks;
         },
       );
       store.setState({ feedbackProvider: provider });
-      vi.runAllTimers();
       expect(stoppedAt).toBeDefined();
+      expect(vi.getTimerCount()).toBe(0);
+      vi.runAllTimers();
       expect(store.getState().derivedSnapshot!.version).toBe(stoppedAt);
+      expect(asks).toBe(asksAtStop);
       expect(listeners.size).toBe(0);
     } finally {
       vi.useRealTimers();
@@ -472,6 +477,187 @@ describe("derived store edges", () => {
         vi.useRealTimers();
       }
     });
+  });
+
+  it("deletes nothing a listener makes read-only while a stalled delete refreshes", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      const { row, trackId, point } = leafWithKey(store);
+      const frame = getMarkerFrame(store, row.id, point.id);
+      store.getState().clickMarker(frame.points ?? [], row.id, frame.id, false, false);
+      expect(store.getState().selectionState.keypoints.get(trackId)?.has(point.id)).toBe(true);
+      stallBuilding(store);
+      let locked = false;
+      const unsubscribe = store.subscribe(
+        (s) => s.derivedSnapshot,
+        () => {
+          if (locked) return;
+          locked = true;
+          store.getState().setSourcesReadonly(row.id, true);
+        },
+      );
+      // The selection changes no input but the snapshot trails it, so the
+      // delete's refresh builds, and its listener runs before the delete
+      // reads what may be edited.
+      store.setState({ editorViews: { ...store.getState().editorViews } });
+      store.getState().deleteSelection();
+      unsubscribe();
+      expect(locked).toBe(true);
+      expect(store.getState().tracks[trackId].points.some((p) => p.id === point.id)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a filtered twin's object when a write leaves its content unchanged", () => {
+    const store = createCorpusStore();
+    const viewId = Object.keys(store.getState().editorViews)[0];
+    const twins = () =>
+      Object.entries(store.getState().instancedTrackSources).filter(([id]) =>
+        isFilteredSourceRowId(id),
+      );
+    // A filter that leaves part of several groups visible makes several twins.
+    const names = Object.values(store.getState().tracks).map((track) => track.id.slice(-3));
+    const query = names.find((name) => {
+      const { editorViews } = store.getState();
+      store.setState({
+        editorViews: { ...editorViews, [viewId]: { ...editorViews[viewId], trackFilter: name } },
+      });
+      return twins().length >= 2;
+    });
+    expect(query).toBeDefined();
+    const before = Object.fromEntries(twins());
+    // A click changes the source rows of the clicked track's rows only.
+    const { row, point } = leafWithKey(store);
+    const frame = getMarkerFrame(store, row.id, point.id);
+    store.getState().clickMarker(frame.points ?? [], row.id, frame.id, false, false);
+    let kept = 0;
+    twins().forEach(([id, twin]) => {
+      if (!before[id] || !isEqual(before[id], twin)) return;
+      expect(twin, id).toBe(before[id]);
+      kept += 1;
+    });
+    expect(kept).toBeGreaterThan(0);
+  });
+
+  it("does not answer one instance from another's cache when their ids differ only by a slash", () => {
+    const store = createCorpusStore();
+    const { trackId } = leafWithKey(store);
+    const { tracks, animatables, trackEvaluator } = store.getState();
+    const subject = (namespaceId: string, instanceId: string): FeedbackSubject => ({
+      trackKey: `${namespaceId}/${instanceId}/${trackId}` as TrackKey,
+      trackId,
+      namespaceId,
+      instanceId,
+      track: tracks[trackId],
+      animatable: animatables[tracks[trackId].animatableId],
+      durationMs: 6000,
+      timescale: 1,
+    });
+    const provider = createTrackFeedbackProvider();
+    const first = provider.canonical([subject("a/b", "c")], trackEvaluator);
+    const second = provider.canonical([subject("a", "b/c")], trackEvaluator);
+    expect(second.get(`a/b/c/${trackId}` as TrackKey)).not.toBe(
+      first.get(`a/b/c/${trackId}` as TrackKey),
+    );
+  });
+
+  it("stops the subscriptions it is starting when their first build stops the store", () => {
+    const store = createCorpusStore();
+    let armed = false;
+    const asked = vi.fn();
+    store.setState({
+      feedbackProvider: {
+        canonical: (subjects, evaluator) => {
+          asked();
+          if (armed) {
+            armed = false;
+            store.getState().stopAnimationSubscriptions();
+          }
+          return judged(subjects, evaluator);
+        },
+        preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+      },
+    });
+    armed = true;
+    store.getState().initAnimationSubscriptions();
+    asked.mockClear();
+    const sources = store.getState().instancedTrackSources;
+    const { trackId, point } = leafWithKey(store);
+    store.getState().updateKeypoint(trackId, { id: point.id, value: 0.7 });
+    store.setState({ tracks: { ...store.getState().tracks } });
+    expect(asked).not.toHaveBeenCalled();
+    expect(store.getState().instancedTrackSources).toBe(sources);
+  });
+
+  it("releases a provider's listener when the answer it gives from subscribe stops the store", () => {
+    const store = createCorpusStore();
+    const listeners = new Set<() => void>();
+    store.subscribe(
+      (s) => s.derivedSnapshot,
+      () => store.getState().stopAnimationSubscriptions(),
+    );
+    store.setState({
+      feedbackProvider: {
+        canonical: judged,
+        preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+        subscribe: (listener) => {
+          listeners.add(listener);
+          listener();
+          return () => listeners.delete(listener);
+        },
+      },
+    });
+    expect(listeners.size).toBe(0);
+  });
+
+  it("does not refresh for an action a host listener takes while the store's subscriptions answer a write", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      stallBuilding(store);
+      let acted = 0;
+      const unsubscribe = store.subscribe(
+        (s) => s.tracks,
+        () => {
+          acted += 1;
+          store.getState().setEmphasis(null);
+        },
+      );
+      const version = store.getState().derivedSnapshot!.version;
+      // Removing a track makes the store's subscriptions rebuild the source
+      // rows, each with a write whose notification reaches the host listener
+      // before the rest have answered.
+      const { trackId } = leafWithKey(store);
+      const { [trackId]: _removed, ...rest } = store.getState().tracks;
+      store.setState({ tracks: rest });
+      unsubscribe();
+      expect(acted).toBeGreaterThan(0);
+      expect(store.getState().derivedSnapshot!.version).toBe(version);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores a replaced provider that keeps calling the listener it was given", () => {
+    const store = createCorpusStore();
+    let stale = () => {};
+    store.setState({
+      feedbackProvider: {
+        canonical: judged,
+        preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+        // Never forgets its listener, even when told to.
+        subscribe: (listener) => {
+          stale = listener;
+          return () => {};
+        },
+      },
+    });
+    store.setState({ feedbackProvider: createTrackFeedbackProvider() });
+    const version = store.getState().derivedSnapshot!.version;
+    stale();
+    expect(store.getState().derivedSnapshot!.version).toBe(version);
   });
 
   it("runs its own subscriptions before a host listener subscribed between two starts", () => {

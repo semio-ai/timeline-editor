@@ -228,11 +228,20 @@ export function createDerivedOrchestrator(
     // check later) is a derived input changing: rebuild as a write would. If it
     // says so while a build is asking it, that build's answers are already out
     // of date, so the flush builds again.
-    unwatchProvider = provider?.subscribe?.(() => {
+    if (!provider?.subscribe) return;
+    const unwatch = provider.subscribe(() => {
+      if (watchedProvider !== provider) return;
       builtFrom = undefined;
       if (building) providerChangedDuringBuild = true;
       else flush();
     });
+    // A provider may answer from inside `subscribe`, and what that answer sets
+    // off (a build whose listener stops the store or sets another provider)
+    // can end this watch before its handle is returned. A handle for a watch
+    // that has already ended is released at once, rather than kept where
+    // nothing will release it or where it would replace the newer watch's.
+    if (watchedProvider === provider && started) unwatchProvider = unwatch;
+    else unwatch();
   };
 
   /** Builds from `inputs` and publishes, unless the result is out of date before it can be. */

@@ -127,24 +127,37 @@ import { createInternalListeners } from "./subscriptions/internal-listeners";
 
 enableMapSet();
 
+/**
+ * Each action, preceded by a refresh of a stalled snapshot (see
+ * `DerivedOrchestrator.refresh`). An action may read the snapshot anywhere,
+ * from its first check of what may be edited to its recipe, so the refresh
+ * comes before all of it: refreshing later would let a listener of the
+ * refresh's publish change what the action already checked.
+ */
+function refreshingFirst<Actions extends Record<string, (...args: never[]) => unknown>>(
+  actions: Actions,
+  refresh: () => void,
+): Actions {
+  return Object.fromEntries(
+    Object.entries(actions).map(([name, action]) => [
+      name,
+      (...args: never[]) => {
+        refresh();
+        return action(...args);
+      },
+    ]),
+  ) as Actions;
+}
+
 export const AnimationSlice = (
-  rawSet: AnimationStoreSetter,
+  set: AnimationStoreSetter,
   get: AnimationStoreGetter,
   api: AnimationApi,
 ) => {
   const internal = createInternalListeners(api);
   // Brings a stalled snapshot up to its inputs; set while subscriptions run.
   let refreshDerived = () => {};
-  // An action's recipe may read the snapshot, so the snapshot it reads must be
-  // built from the inputs the recipe sees (see `DerivedOrchestrator.refresh`).
-  // The store's own subscriptions take `rawSet`: they run mid-notification,
-  // where the snapshot trails its inputs by design.
-  const set: AnimationStoreSetter = (partial, replace) => {
-    if (typeof partial === "function") refreshDerived();
-    rawSet(partial, replace);
-  };
-  return {
-    ...createDefaultState(),
+  const actions = {
     updateSource: (groupId: string, expanded?: boolean) => {
       set(
         produce((state: AnimationData) => {
@@ -503,14 +516,10 @@ export const AnimationSlice = (
         }),
       );
     },
-    skipToNextKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => {
-      refreshDerived();
-      return skipToNextKeyframeAction(get, sourceRow, respectBounds);
-    },
-    skipToPrevKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) => {
-      refreshDerived();
-      return skipToPrevKeyframeAction(get, sourceRow, respectBounds);
-    },
+    skipToNextKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) =>
+      skipToNextKeyframeAction(get, sourceRow, respectBounds),
+    skipToPrevKeyframe: (sourceRow: SourceRow, respectBounds?: boolean) =>
+      skipToPrevKeyframeAction(get, sourceRow, respectBounds),
     skipToStart: () => skipToStartAction(get),
     skipToEnd: () => skipToEndAction(get),
     updateDuration: (duration: number) => updateDurationAction(set, get, duration),
@@ -580,7 +589,13 @@ export const AnimationSlice = (
       // The derived orchestrator's listener runs after the other
       // subscriptions in every notification, so it builds the snapshot once
       // they have all answered a write.
-      const derived = createDerivedOrchestrator(internal.api, rawSet, get);
+      const derived = createDerivedOrchestrator(internal.api, set, get);
+      // Not while the store's own subscriptions are answering a write: a
+      // host listener they notify mid-answer would build from half-updated
+      // inputs.
+      const refresh = () => {
+        if (!internal.dispatching()) derived.refresh();
+      };
       const unsubs = [
         ...[
           viewportFollow,
@@ -590,34 +605,38 @@ export const AnimationSlice = (
           updateSourceRowIds,
           updateViewFilteredSourceRows,
           updateActiveEntityContext,
-        ].map((fn) => fn(internal.api, rawSet, get)),
+        ].map((fn) => fn(internal.api, set, get)),
         internal.api.subscribe(derived.writeSettled),
         derived.stop,
         () => {
-          refreshDerived = () => {};
+          if (refreshDerived === refresh) refreshDerived = () => {};
         },
       ];
-      refreshDerived = derived.refresh;
-      try {
-        derived.start();
-      } catch (error) {
-        // No handle reaches the caller, so nothing else could stop this set.
-        unsubs.forEach((unsub) => unsub());
-        throw error;
-      }
+      refreshDerived = refresh;
 
       // A cleanup stops only the set it was returned for, once. A later call
-      // runs it before starting its own set, which spends the handle: running it
-      // again must not stop the newer set's work, and `stopAnimationSubscriptions`
-      // is how a host stops whatever is current. So while a handle is live it is the current one.
+      // runs it before starting its own set, which spends the handle: running
+      // it again must not stop the newer set's work, and
+      // `stopAnimationSubscriptions` is how a host stops whatever is current.
+      // So while a handle is live it is the current one.
       let active = true;
       const cleanup = () => {
         if (!active) return;
         active = false;
         unsubs.forEach((unsub) => unsub());
-        (api as any).__derivedCleanup = undefined;
+        if ((api as any).__derivedCleanup === cleanup) (api as any).__derivedCleanup = undefined;
       };
+      // Installed before the first build: a provider or listener that build
+      // calls may stop the store or start it again, and either must find
+      // this set current.
       (api as any).__derivedCleanup = cleanup;
+      try {
+        derived.start();
+      } catch (error) {
+        // No handle reaches the caller, so nothing else could stop this set.
+        cleanup();
+        throw error;
+      }
       return cleanup;
     },
     stopAnimationSubscriptions: () => {
@@ -687,10 +706,8 @@ export const AnimationSlice = (
     rangeSelectTracks: (fromRowId: string, toRowId: string) =>
       rangeSelectTracksAction(set, fromRowId, toRowId),
     startBoxSelect: (boxState: BoxSelectState) => startBoxSelectAction(set, get, boxState),
-    updateBoxSelect: (currentStamp: number, currentY: number) => {
-      refreshDerived();
-      updateBoxSelectAction(set, get, currentStamp, currentY);
-    },
+    updateBoxSelect: (currentStamp: number, currentY: number) =>
+      updateBoxSelectAction(set, get, currentStamp, currentY),
     cancelBoxSelect: () => cancelBoxSelectAction(set, get),
     commitBoxSelect: () => commitBoxSelectAction(set),
     setBoxSelectPending: (pending: boolean) => setBoxSelectPendingAction(set, pending),
@@ -806,6 +823,13 @@ export const AnimationSlice = (
         }),
       );
     },
+  };
+  const { initAnimationSubscriptions, stopAnimationSubscriptions, ...edits } = actions;
+  return {
+    ...createDefaultState(),
+    ...refreshingFirst(edits, () => refreshDerived()),
+    initAnimationSubscriptions,
+    stopAnimationSubscriptions,
   };
 };
 

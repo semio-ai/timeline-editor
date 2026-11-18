@@ -116,7 +116,8 @@ export function createTrackFeedbackProvider(): FeedbackProvider {
     subject: FeedbackSubject,
     evaluator: TrackEvaluator | undefined,
   ) => {
-    const instanceKey = `${subject.namespaceId}/${subject.instanceId}`;
+    // Encoded, not joined: either id may contain any separator.
+    const instanceKey = JSON.stringify([subject.namespaceId, subject.instanceId]);
     const hit = cache.get(subject.track)?.get(instanceKey);
     const entry =
       hit &&

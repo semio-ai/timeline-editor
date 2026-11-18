@@ -705,7 +705,15 @@ export interface AnimationActions {
    */
   setTimeDisplay: (mode: TimeDisplay) => void;
   /**
-   * Initialize interpolator generation. Returns a function to cancel the subscriptions.
+   * Starts the store's own subscriptions, which keep its source rows and its
+   * derived snapshot current, after stopping any set already running. Returns
+   * a function that stops this set.
+   *
+   * While it starts, each subscription brings its part of the state up to date
+   * with a write of its own, and the snapshot is built once all of them have.
+   * A host listener notified by one of those writes sees the source rows ahead
+   * of the snapshot. Once it has returned, a host listener sees the snapshot
+   * for the inputs it is notified of.
    */
   initAnimationSubscriptions: () => () => void;
   /**
