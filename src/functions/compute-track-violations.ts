@@ -354,6 +354,12 @@ export function computeInstanceTrackViolations(
  * Deriving the id from content means the same violation computed again keeps
  * its id, so a renderer keyed by it keeps its element and a set built from the
  * ids keeps its own id.
+ *
+ * The parts are JSON-encoded rather than joined with a separator: any of the
+ * ids may contain any character, and a separator they contain would let two
+ * different violations share an id (namespace `a/b` with instance `c`, and
+ * namespace `a` with instance `b/c`). A violation set keyed by id would then
+ * keep only one of them.
  */
 export function violationId(
   namespace: string,
@@ -362,5 +368,5 @@ export function violationId(
   type: ViolationType,
   start: number,
 ): string {
-  return `violation:${namespace}/${instanceId}/${trackId}:${type}@${start}`;
+  return `violation:${JSON.stringify([namespace, instanceId, trackId, type, start])}`;
 }

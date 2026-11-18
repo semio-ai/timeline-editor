@@ -140,9 +140,15 @@ export interface DerivedOrchestrator {
   start: () => void;
   stop: () => void;
   /**
-   * Builds at once if building is stalled and the snapshot trails its inputs.
-   * Otherwise the snapshot is already current wherever an action runs, and
-   * this does nothing.
+   * Builds at once if building is stalled and the snapshot trails its inputs,
+   * until a build is published, within one budget. Otherwise the snapshot is
+   * already current wherever an action runs, and this does nothing.
+   *
+   * It does not build inside a running build (an action a provider calls
+   * while it is asked) or inside a refresh (an action a listener calls in
+   * answer to the refresh's own publish): either would let a provider or
+   * listener that never settles recurse once per build. Such an action reads
+   * the snapshot as it stands.
    */
   refresh: () => void;
 }
@@ -186,9 +192,10 @@ export interface DerivedOrchestrator {
  * snapshot, as they would in any write's notification before it settles.
  *
  * While building is stalled, the snapshot can trail its inputs. An action
- * that reads the snapshot calls `refresh` first, so it never acts on a
- * snapshot built from inputs older than its own: committing a drag, for
- * one, applies the pending changes the snapshot projected for it.
+ * that reads the snapshot calls `refresh` first, so it acts on a snapshot
+ * built from its own inputs: committing a drag, for one, applies the pending
+ * changes the snapshot projected for where the drag now is. `refresh` says
+ * where it cannot.
  */
 export function createDerivedOrchestrator(
   _api: AnimationApi,
@@ -227,7 +234,8 @@ export function createDerivedOrchestrator(
     });
   };
 
-  const build = (inputs: DerivedInputs) => {
+  /** Builds from `inputs` and publishes, unless the result is out of date before it can be. */
+  const build = (inputs: DerivedInputs): boolean => {
     const versionHint = (get().derivedSnapshot?.version ?? 0) + 1;
     providerChangedDuringBuild = false;
     building = true;
@@ -243,13 +251,13 @@ export function createDerivedOrchestrator(
       building = false;
     }
     // Stopped while asking the provider: a stopped orchestrator publishes nothing.
-    if (!started) return;
+    if (!started) return false;
     // A write made while building replaced the inputs this was built from;
     // publishing it would show listeners a snapshot of a state the store no
     // longer holds. The flush that called this builds again from the new ones.
     if (!shallow(inputs, selectDerivedInputs(get()))) {
       builtFrom = undefined;
-      return;
+      return false;
     }
     builtFrom = providerChangedDuringBuild ? undefined : inputs;
 
@@ -260,6 +268,7 @@ export function createDerivedOrchestrator(
     }));
 
     set({ derivedSnapshot: sealDerivedSnapshot(snapshot) });
+    return true;
   };
 
   const stall = () => {
@@ -303,15 +312,27 @@ export function createDerivedOrchestrator(
     }
   };
 
+  let refreshing = false;
   const refresh = () => {
-    if (!started || building || !stalled) return;
-    const inputs = selectDerivedInputs(get());
-    if (builtFrom && shallow(builtFrom, inputs)) return;
-    // Its publish notifies `writeSettled`, which finds building stalled, and
-    // the pending retry still runs. This cannot loop through a listener that
-    // answers every snapshot with an action: the action refreshes before it
-    // writes, and finds the snapshot it is answering already current.
-    build(inputs);
+    if (!started || building || !stalled || refreshing) return;
+    refreshing = true;
+    try {
+      // Until a build is published from the inputs as they stand, within one
+      // budget: a write made while building drops the build it overtook.
+      for (let pass = 0; pass < MAX_SETTLE_PASSES; pass += 1) {
+        if (!started) return;
+        const inputs = selectDerivedInputs(get());
+        // Watched before it is asked, so an answer it gives late reaches the
+        // retry, which would otherwise find these inputs already built.
+        watchProvider(inputs.feedbackProvider);
+        if (builtFrom && shallow(builtFrom, inputs)) return;
+        // The publish notifies `writeSettled`, which finds building stalled;
+        // the pending retry still runs.
+        if (build(inputs)) return;
+      }
+    } finally {
+      refreshing = false;
+    }
   };
 
   return {

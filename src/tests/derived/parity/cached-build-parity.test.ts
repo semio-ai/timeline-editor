@@ -6,13 +6,8 @@ import {
 } from "../../../subscriptions/init-derived-orchestrator";
 import type { FeedbackProvider } from "../../../functions/feedback-provider";
 import type { DerivedSnapshot, TrackKey, Violation } from "../../../types";
-import {
-  corpusSteps,
-  createCorpusStore,
-  normalize,
-  runStep,
-  violationContentKey,
-} from "./edit-corpus";
+import { violationId } from "../../../functions/compute-track-violations";
+import { corpusSteps, createCorpusStore, normalize, runStep } from "./edit-corpus";
 
 const SEEDS = [3, 5, 8, 13, 21, 34];
 const LENGTH = 30;
@@ -76,7 +71,15 @@ describe("cached derived build", () => {
         // Violation ids are their content, so the cached and fresh builds agree
         // on them exactly, not only up to renaming.
         violationsIn(state.derivedSnapshot!).forEach((violation) => {
-          expect(violation.id, where).toBe(`violation:${violationContentKey(violation)}`);
+          expect(violation.id, where).toBe(
+            violationId(
+              violation.namespace,
+              violation.instanceId,
+              violation.trackId,
+              violation.type,
+              violation.stampRange.start,
+            ),
+          );
         });
         Object.entries(state.derivedSnapshot!.rows).forEach(([rowId, row]) => {
           expect(row.computed.violationSet?.id, `${where} row ${rowId}`).toBe(

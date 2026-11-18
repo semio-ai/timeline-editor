@@ -9,7 +9,8 @@ import {
   computeDerivedState,
   selectDerivedInputs,
 } from "../../subscriptions/init-derived-orchestrator";
-import type { TrackKey, Violation } from "../../types";
+import { ViolationType, type TrackKey, type Violation } from "../../types";
+import { violationId } from "../../functions/compute-track-violations";
 import { getMarkerFrame } from "../selection/selection-test-helpers";
 import { createCorpusStore, normalize } from "./parity/edit-corpus";
 
@@ -41,6 +42,19 @@ const judged = (subjects: readonly FeedbackSubject[], evaluator: unknown) =>
       computeSubjectViolations(subject, evaluator as never),
     ]),
   );
+
+/**
+ * Runs out the build budget with a host listener that answers every snapshot
+ * with a write to an input, then removes the listener: building stays stalled
+ * until the pending retry.
+ */
+function stallBuilding(store: Store) {
+  const touchViews = () => store.setState({ editorViews: { ...store.getState().editorViews } });
+  const unsubscribe = store.subscribe((s) => s.derivedSnapshot, touchViews);
+  touchViews();
+  unsubscribe();
+  expect(vi.getTimerCount()).toBe(1);
+}
 
 const isCurrent = (store: Store) =>
   JSON.stringify(normalize(store.getState().derivedSnapshot)) ===
@@ -198,6 +212,137 @@ describe("derived store edges", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("builds again for a stalled action when a write drops the build it forced", () => {
+    vi.useFakeTimers();
+    try {
+      const drag = (stall: boolean) => {
+        const store = createCorpusStore();
+        let armed = false;
+        store.setState({
+          feedbackProvider: {
+            canonical: (subjects, evaluator) => {
+              if (armed) {
+                armed = false;
+                store.setState({ editorViews: { ...store.getState().editorViews } });
+              }
+              return judged(subjects, evaluator);
+            },
+            preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+          },
+        });
+        const { row, trackId, point } = leafWithKey(store);
+        const frame = getMarkerFrame(store, row.id, point.id);
+        store.getState().clickMarker(frame.points ?? [], row.id, frame.id, false, false);
+        store.getState().startDrag({ axis: "horizontal", markerId: frame.id, rowId: row.id });
+        store.getState().updateDrag({ normalizedStamp: { current: 0.4 }, modifiers: {} as never });
+        if (stall) stallBuilding(store);
+        store.getState().updateDrag({ normalizedStamp: { current: 0.6 }, modifiers: {} as never });
+        // The provider writes to an input while the commit's refresh asks it.
+        armed = true;
+        store.getState().commitDrag();
+        return store.getState().tracks[trackId].points.map((p) => p.stamp);
+      };
+      expect(drag(true)).toEqual(drag(false));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not recurse when a provider changes on every ask and a listener answers each snapshot", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      const { trackId, point } = leafWithKey(store);
+      const listeners = new Set<() => void>();
+      store.setState({
+        feedbackProvider: {
+          canonical: (subjects, evaluator) => {
+            listeners.forEach((listener) => listener());
+            return judged(subjects, evaluator);
+          },
+          preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+          subscribe: (listener) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+          },
+        },
+      });
+      expect(vi.getTimerCount()).toBe(1);
+      let edits = 0;
+      const unsubscribe = store.subscribe(
+        (s) => s.derivedSnapshot,
+        () => {
+          edits += 1;
+          store.getState().updateKeypoint(trackId, { id: point.id, value: (edits % 7) * 0.01 });
+        },
+      );
+      const version = store.getState().derivedSnapshot!.version!;
+      store.getState().updateKeypoint(trackId, { id: point.id, value: 0.25 });
+      expect(store.getState().derivedSnapshot!.version! - version).toBe(1);
+      unsubscribe();
+      store.getState().stopAnimationSubscriptions();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("hears a late answer from a provider a stalled action asked first", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      stallBuilding(store);
+      const listeners = new Set<() => void>();
+      let answer = 0;
+      store.setState({
+        feedbackProvider: {
+          canonical: (subjects) =>
+            new Map(
+              subjects.map((subject) => [
+                subject.trackKey,
+                [
+                  {
+                    id: `late:${subject.trackKey}`,
+                    trackId: subject.trackId,
+                    namespace: subject.namespaceId,
+                    instanceId: subject.instanceId,
+                    type: "upper",
+                    stampRange: { start: 0, end: answer },
+                  } as Violation,
+                ],
+              ]),
+            ),
+          preview: () => [],
+          subscribe: (listener) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+          },
+        },
+      });
+      // An action while stalled builds with the new provider. Its own write
+      // is to nothing the snapshot reads, so only the provider's late answer
+      // calls for another build.
+      store.getState().setEmphasis(null);
+      answer = 1;
+      listeners.forEach((listener) => listener());
+      vi.runAllTimers();
+      const ends = Object.values(store.getState().derivedSnapshot!.tracks).map(
+        (track) => track.canonical.violations[0]?.stampRange.end,
+      );
+      expect(new Set(ends)).toEqual(new Set([1]));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives violations whose ids differ only in where a slash falls different ids", () => {
+    expect(violationId("a/b", "c", "t", ViolationType.Upper, 0)).not.toBe(
+      violationId("a", "b/c", "t", ViolationType.Upper, 0),
+    );
+    expect(violationId("a", "b", "c/t", ViolationType.Upper, 0)).not.toBe(
+      violationId("a/b", "c", "t", ViolationType.Upper, 0),
+    );
   });
 
   it("runs its own subscriptions before a host listener subscribed between two starts", () => {
