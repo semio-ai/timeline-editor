@@ -29,6 +29,7 @@ import {
   matchesSourceRowQuery,
   normalizeVisibleSourceRowIds,
 } from "../functions/filter-visible-source-row-ids";
+import { EnsureTooltipHost } from "./ensure-tooltip-host";
 // Import existing components that we'll reuse for now
 import { TimelineControl } from "./timeline-control";
 import { TimeControls } from "./time-controls";
@@ -114,9 +115,11 @@ export const AnimationSheetCore = memo(function AnimationSheetCore(
  *
  * Context Behavior:
  * - **AnimationContext**: If not present, creates one with default animation store
- * - **TooltipContext**: If not present, creates TooltipProvider + TooltipHost for 3D tooltip support
+ * - **TooltipContext**: If not present, creates a TooltipProvider
+ * - **TooltipHost**: If no host is above the sheet, wraps the sheet in one, so
+ *   each 3D overlay renders once rather than once per canvas (see
+ *   `EnsureTooltipHost`)
  * - If contexts already exist, uses existing ones (no unnecessary nesting)
- * - Always wraps with TooltipHost for proper 3D tooltip positioning support
  *
  * @param skipAnimationContext - Skip providing animation context, assume parent provides it
  * @param skipTooltipContext - Skip providing tooltip context, assume parent provides it
@@ -201,6 +204,11 @@ export const AnimationSheet = memo(function AnimationSheet({
       </AnimationContext.Provider>
     );
   }
+
+  // Independent of `skipTooltipContext`: a parent can provide the tooltip
+  // context without a host, and duplicate overlays depend only on whether a
+  // host already exists above the sheet.
+  content = <EnsureTooltipHost>{content}</EnsureTooltipHost>;
 
   // Wrap with tooltip context if needed
   if (needsTooltipContext) {
