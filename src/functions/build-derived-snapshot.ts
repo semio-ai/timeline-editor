@@ -80,6 +80,17 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
       : undefined;
   const renderSampleCache: RenderSampleCache = { samples: {}, trackIndex: {} };
   const subjects: FeedbackSubject[] = [];
+  // A duration reads every track in its animation, and every track of every
+  // instance of that animation needs it: resolve each animation's once.
+  const durations = new Map<Animation, number>();
+  const durationOf = (animation: Animation) => {
+    let duration = durations.get(animation);
+    if (duration === undefined) {
+      duration = resolveAnimationDuration(animation, inputs.tracks);
+      durations.set(animation, duration);
+    }
+    return duration;
+  };
 
   Object.values(namespaces).forEach((namespace) => {
     Object.values(namespace.animationInstances).forEach((instance) => {
@@ -96,7 +107,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         const trackKey = buildTrackKey(namespace.id, instance.id, trackId);
         const compiledCurve = trackCurve(track as unknown as SimpleTrack, inputs.trackEvaluator);
         const canonicalCurve = compiledCurve ?? noCurve;
-        const animDuration = resolveAnimationDuration(animation, inputs.tracks);
+        const animDuration = durationOf(animation);
         const canonicalDerivative = compiledCurve?.velocity ?? noCurve;
         subjects.push({
           trackKey,
@@ -200,7 +211,7 @@ export function buildDerivedSnapshot(inputs: BuildDerivedSnapshotInputs): Derive
         instanceId: context.instance.id,
         track: previewTrack,
         animatable: context.animatable,
-        durationMs: resolveAnimationDuration(context.animation, inputs.tracks),
+        durationMs: durationOf(context.animation),
         timescale: context.instance.settings.timescale,
       };
       // An uncompiled curve has no values to check.
