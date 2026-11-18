@@ -185,7 +185,7 @@ describe("derived store edges", () => {
     }
   });
 
-  it("builds once for an action while stalled, though a listener answers every snapshot with one", () => {
+  it("builds at most one budget for an action while stalled, though a listener answers every snapshot with one", () => {
     vi.useFakeTimers();
     try {
       const store = createCorpusStore();
@@ -201,11 +201,14 @@ describe("derived store edges", () => {
       store.getState().updateKeypoint(trackId, { id: point.id, value: 0.5 });
       expect(vi.getTimerCount()).toBe(1);
       // An action brings the stalled snapshot up to date before it reads it.
-      // The listener answers that build with an action of its own, which
-      // must not build again in turn.
+      // The listener answers each of those builds with an action of its own,
+      // which must not start a refresh of its own, and the refresh gives up
+      // after one budget.
       const version = store.getState().derivedSnapshot!.version!;
       store.getState().updateKeypoint(trackId, { id: point.id, value: 0.25 });
-      expect(store.getState().derivedSnapshot!.version! - version).toBe(1);
+      const built = store.getState().derivedSnapshot!.version! - version;
+      expect(built).toBeGreaterThan(0);
+      expect(built).toBeLessThanOrEqual(8);
       unsubscribe();
       vi.runAllTimers();
       expect(isCurrent(store)).toBe(true);
@@ -280,7 +283,7 @@ describe("derived store edges", () => {
       );
       const version = store.getState().derivedSnapshot!.version!;
       store.getState().updateKeypoint(trackId, { id: point.id, value: 0.25 });
-      expect(store.getState().derivedSnapshot!.version! - version).toBe(1);
+      expect(store.getState().derivedSnapshot!.version! - version).toBeLessThanOrEqual(8);
       unsubscribe();
       store.getState().stopAnimationSubscriptions();
     } finally {
@@ -343,6 +346,132 @@ describe("derived store edges", () => {
     expect(violationId("a", "b", "c/t", ViolationType.Upper, 0)).not.toBe(
       violationId("a/b", "c", "t", ViolationType.Upper, 0),
     );
+  });
+
+  it("commits nothing for a drag a listener cancels while a stalled commit refreshes", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      const { row, trackId, point } = leafWithKey(store);
+      const before = store.getState().tracks[trackId].points.map((p) => p.stamp);
+      const frame = getMarkerFrame(store, row.id, point.id);
+      store.getState().clickMarker(frame.points ?? [], row.id, frame.id, false, false);
+      store.getState().startDrag({ axis: "horizontal", markerId: frame.id, rowId: row.id });
+      stallBuilding(store);
+      store.getState().updateDrag({ normalizedStamp: { current: 0.6 }, modifiers: {} as never });
+      let cancelled = false;
+      const unsubscribe = store.subscribe(
+        (s) => s.derivedSnapshot,
+        () => {
+          if (cancelled) return;
+          cancelled = true;
+          store.getState().cancelDrag();
+        },
+      );
+      store.getState().commitDrag();
+      unsubscribe();
+      expect(cancelled).toBe(true);
+      expect(store.getState().tracks[trackId].points.map((p) => p.stamp)).toEqual(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  describe("an action reading the snapshot while stalled sees a key moved in the meantime", () => {
+    /** Moves a leaf's first key halfway to its second, with building stalled or not. */
+    const movedKey = (stall: boolean) => {
+      const store = createCorpusStore();
+      const { row, trackId } = leafWithKey(store);
+      const [first, second] = store.getState().tracks[trackId].points;
+      if (stall) stallBuilding(store);
+      store.getState().updateKeypoint(trackId, {
+        id: first.id,
+        stamp: Math.round((first.stamp + second.stamp) / 2),
+      });
+      return { store, sourceRow: store.getState().instancedTrackSources[row.id] };
+    };
+    const player = (store: Store) => store.getState().playerStore.getState();
+    /** Every stamp skipping visits from one end of the clip in one direction. */
+    const skipAll = (stall: boolean, direction: "next" | "prev") => {
+      const { store, sourceRow } = movedKey(stall);
+      player(store).resetPlayer(direction === "next" ? -1e9 : 1e9);
+      const visited: number[] = [];
+      for (let i = 0; i < 20; i += 1) {
+        if (direction === "next") store.getState().skipToNextKeyframe(sourceRow);
+        else store.getState().skipToPrevKeyframe(sourceRow);
+        const stamp = player(store).player.stamp;
+        if (visited[visited.length - 1] === stamp) break;
+        visited.push(stamp);
+      }
+      return visited;
+    };
+
+    it("when skipping to the next key", () => {
+      vi.useFakeTimers();
+      try {
+        expect(skipAll(true, "next")).toEqual(skipAll(false, "next"));
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("when skipping to the previous key", () => {
+      vi.useFakeTimers();
+      try {
+        expect(skipAll(true, "prev")).toEqual(skipAll(false, "prev"));
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("when box-selecting around it", () => {
+      vi.useFakeTimers();
+      try {
+        // Where the moved key lands, in world time: the stamp a skip through
+        // the moved clip visits that one through the unmoved clip does not.
+        const unmoved = createCorpusStore();
+        const unmovedRow = unmoved.getState().instancedTrackSources[leafWithKey(unmoved).row.id];
+        player(unmoved).resetPlayer(-1e9);
+        const unmovedStamps = new Set<number>();
+        for (let i = 0; i < 20; i += 1) {
+          unmoved.getState().skipToNextKeyframe(unmovedRow);
+          unmovedStamps.add(player(unmoved).player.stamp);
+        }
+        const landed = skipAll(false, "next").find((stamp) => !unmovedStamps.has(stamp))!;
+        expect(landed).toBeDefined();
+
+        const select = (stall: boolean) => {
+          const { store } = movedKey(stall);
+          const viewId = Object.keys(store.getState().editorViews)[0];
+          store.getState().startBoxSelect({
+            origin: "timeline",
+            startStamp: landed - 1,
+            startY: 0,
+            currentStamp: landed - 1,
+            currentY: 0,
+            mode: "replace",
+            initialKeypoints: new Map(),
+            layout: {
+              viewId,
+              canvasHeight: 100,
+              topOffsetPx: 0,
+              bottomOffsetPx: 100,
+              trackHeightPx: 20,
+            },
+          });
+          store.getState().updateBoxSelect(landed + 1, 100);
+          return [...store.getState().selectionState.keypoints].map(([trackId, ids]) => [
+            trackId,
+            [...ids].sort(),
+          ]);
+        };
+        const control = select(false);
+        expect(control.length).toBeGreaterThan(0);
+        expect(select(true)).toEqual(control);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   it("runs its own subscriptions before a host listener subscribed between two starts", () => {

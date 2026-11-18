@@ -141,8 +141,9 @@ export interface DerivedOrchestrator {
   stop: () => void;
   /**
    * Builds at once if building is stalled and the snapshot trails its inputs,
-   * until a build is published, within one budget. Otherwise the snapshot is
-   * already current wherever an action runs, and this does nothing.
+   * until the snapshot was published from the inputs as they stand, within
+   * one budget. Otherwise the snapshot is already current wherever an action
+   * runs, and this does nothing.
    *
    * It does not build inside a running build (an action a provider calls
    * while it is asked) or inside a refresh (an action a listener calls in
@@ -317,8 +318,14 @@ export function createDerivedOrchestrator(
     if (!started || building || !stalled || refreshing) return;
     refreshing = true;
     try {
-      // Until a build is published from the inputs as they stand, within one
-      // budget: a write made while building drops the build it overtook.
+      // The inputs of the last snapshot this refresh published.
+      let published: DerivedInputs | undefined;
+      // Until the snapshot was published from the inputs as they stand, within
+      // one budget. A write made while building drops the build it overtook,
+      // and a listener answering the publish (one cancelling the drag the
+      // action is about to commit) changes the inputs again. A provider whose
+      // answer changed while it was asked does not count: the snapshot
+      // already projects the drag and selection the action reads.
       for (let pass = 0; pass < MAX_SETTLE_PASSES; pass += 1) {
         if (!started) return;
         const inputs = selectDerivedInputs(get());
@@ -326,9 +333,10 @@ export function createDerivedOrchestrator(
         // retry, which would otherwise find these inputs already built.
         watchProvider(inputs.feedbackProvider);
         if (builtFrom && shallow(builtFrom, inputs)) return;
+        if (published && shallow(published, inputs)) return;
         // The publish notifies `writeSettled`, which finds building stalled;
         // the pending retry still runs.
-        if (build(inputs)) return;
+        if (build(inputs)) published = inputs;
       }
     } finally {
       refreshing = false;
