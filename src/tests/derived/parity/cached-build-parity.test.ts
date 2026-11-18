@@ -18,12 +18,25 @@ const SEEDS = [3, 5, 8, 13, 21, 34];
 const LENGTH = 30;
 
 function violationsIn(snapshot: DerivedSnapshot): Violation[] {
-  const out: Violation[] = [];
-  Object.values(snapshot.tracks).forEach((track) => {
-    out.push(...track.canonical.violations, ...(track.preview?.violations ?? []));
+  return placedViolationsIn(snapshot).map(([, violation]) => violation);
+}
+
+/**
+ * Every violation in a snapshot with the list it is in. A track's canonical
+ * and preview lists may hold violations with the same id and different
+ * content (a drag moves where one ends, not where it starts), so a violation
+ * is identified by its list and its id together.
+ */
+function placedViolationsIn(snapshot: DerivedSnapshot): [string, Violation][] {
+  const out: [string, Violation][] = [];
+  Object.entries(snapshot.tracks).forEach(([key, track]) => {
+    track.canonical.violations.forEach((v) => out.push([`${key} canonical ${v.id}`, v]));
+    (track.preview?.violations ?? []).forEach((v) => out.push([`${key} preview ${v.id}`, v]));
   });
-  Object.values(snapshot.rows).forEach((row) => {
-    out.push(...Object.values(row.computed.violationSet?.violations ?? {}));
+  Object.entries(snapshot.rows).forEach(([rowId, row]) => {
+    Object.values(row.computed.violationSet?.violations ?? {}).forEach((v) =>
+      out.push([`row ${rowId} ${v.id}`, v]),
+    );
   });
   return out;
 }
@@ -100,13 +113,12 @@ describe("cached derived build", () => {
         // What changed is judged against a build from nothing cached: an object
         // reused by mistake would otherwise compare equal to itself.
         const fresh = computeDerivedState(selectDerivedInputs(store.getState()), 0);
-        const before = new Map(violationsIn(previous).map((v) => [v.id, v]));
-        violationsIn(fresh).forEach((violation) => {
-          const old = before.get(violation.id);
+        const before = new Map(placedViolationsIn(previous));
+        const now = new Map(placedViolationsIn(snapshot));
+        placedViolationsIn(fresh).forEach(([place, violation]) => {
+          const old = before.get(place);
           if (old && JSON.stringify(old) !== JSON.stringify(violation)) {
-            violationsIn(snapshot)
-              .filter((current) => current.id === violation.id)
-              .forEach((current) => expect(current, `${where} ${violation.id}`).not.toBe(old));
+            expect(now.get(place), `${where} ${place}`).not.toBe(old);
           }
         });
         const previousRows = previous.rows;

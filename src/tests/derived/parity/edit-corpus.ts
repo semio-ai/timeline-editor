@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { StandardTransitionType, TransitionPairing } from "../../../types";
+import { StandardTransitionType, TransitionPairing, VerticalAxis } from "../../../types";
 import type { AnimationStore } from "../../../store";
 import { createTestAnimationStore } from "../../../test-fixtures/animation-store-factory";
 import { testTrackEvaluator } from "../../../test-fixtures/track-evaluator";
@@ -23,6 +23,7 @@ export interface CorpusStep {
 
 const MODS = { alt: false, shift: false, meta: false };
 const VIEW_ID = "parity-view";
+const SECOND_VIEW_ID = "parity-view-2";
 
 /**
  * Makes the ids the store generates (new keys, pasted keys) a sequence, from
@@ -126,6 +127,12 @@ export function* corpusSteps(seed: number, length: number): Generator<CorpusStep
     "focusInstance",
     "trackRemove",
     "trackFilter",
+    "groupDrag",
+    "offset",
+    "evaluator",
+    "extendKey",
+    "axisMode",
+    "secondView",
   ] as const;
 
   for (let i = 0; i < length; i += 1) {
@@ -424,6 +431,129 @@ export function* corpusSteps(seed: number, length: number): Generator<CorpusStep
         yield {
           label: `trackFilter "${trackFilter}"`,
           run: (s) => s.getState().updateView(VIEW_ID, { trackFilter }),
+        };
+        break;
+      }
+      case "groupDrag": {
+        // A drag on a row that holds several track instances: a group row or
+        // the global row.
+        const rowId = pick(
+          allRows(store).filter((id) => (state.instancedTrackSources[id]?.data.length ?? 0) > 1),
+        );
+        if (!rowId) break;
+        const frame = pick(state.derivedSnapshot?.rows[rowId]?.computed.selection ?? []);
+        if (!frame) break;
+        const axis = int(2) ? "vertical" : "horizontal";
+        yield {
+          label: `groupDrag select ${rowId}`,
+          run: (s) => {
+            const current = getMarkerFrame(s, rowId, frame.id);
+            const points = (current.points ?? []).filter((p) => p.selectable ?? true);
+            s.getState().clickMarker(points, rowId, current.id, false, false);
+          },
+        };
+        yield {
+          label: `groupDrag start ${axis}`,
+          run: (s) => s.getState().startDrag({ axis, markerId: frame.id, rowId }),
+        };
+        const moves = 1 + int(3);
+        for (let m = 0; m < moves; m += 1) {
+          const delta = (random() - 0.5) * 0.6;
+          const stamp = 0.1 + random() * 0.8;
+          yield {
+            label: `groupDrag move ${m}`,
+            run: (s) =>
+              s
+                .getState()
+                .updateDrag(
+                  axis === "vertical"
+                    ? { normalizedValueDelta: delta, modifiers: MODS }
+                    : { normalizedStamp: { current: stamp }, modifiers: MODS },
+                ),
+          };
+        }
+        const commit = random() < 0.7;
+        yield {
+          label: `groupDrag ${commit ? "commit" : "cancel"}`,
+          run: (s) => (commit ? s.getState().commitDrag() : s.getState().cancelDrag()),
+        };
+        break;
+      }
+      case "offset": {
+        const namespaceId = pick(Object.keys(state.namespaces).sort());
+        if (!namespaceId) break;
+        const instanceId = pick(
+          Object.keys(state.namespaces[namespaceId].animationInstances).sort(),
+        );
+        if (!instanceId) break;
+        const offset = pick([0, 250, 1000, -500])!;
+        yield {
+          label: `offset ${namespaceId}/${instanceId}=${offset}`,
+          run: (s) => {
+            const namespaces = s.getState().namespaces;
+            const namespace = namespaces[namespaceId];
+            const instance = namespace.animationInstances[instanceId];
+            s.getState().setNamespaces({
+              ...namespaces,
+              [namespaceId]: {
+                ...namespace,
+                animationInstances: {
+                  ...namespace.animationInstances,
+                  [instanceId]: { ...instance, settings: { ...instance.settings, offset } },
+                },
+              },
+            });
+          },
+        };
+        break;
+      }
+      case "evaluator": {
+        // A new evaluator object that compiles the same curves, or none.
+        const none = random() < 0.3;
+        yield {
+          label: `evaluator ${none ? "none" : "replaced"}`,
+          run: (s) =>
+            s.setState({
+              trackEvaluator: none
+                ? undefined
+                : { compile: (compiled) => testTrackEvaluator.compile(compiled) },
+            }),
+        };
+        break;
+      }
+      case "extendKey": {
+        // Moves a track's last key past the clip's end, which lengthens the
+        // animation every instance of it plays.
+        if (!track || track.points.length === 0) break;
+        const last = track.points.reduce((a, b) => (b.stamp > a.stamp ? b : a));
+        const end = Math.max(
+          ...Object.values(state.tracks).flatMap((t) => t.points.map((p) => p.stamp)),
+        );
+        const stamp = end + 500 * (1 + int(4));
+        yield {
+          label: `extendKey ${track.id}/${last.id}`,
+          run: (s) => s.getState().updateKeypoint(track.id, { id: last.id, stamp }),
+        };
+        break;
+      }
+      case "axisMode": {
+        const verticalAxis = pick([VerticalAxis.Uniform, VerticalAxis.Normalized])!;
+        const viewId = int(2) ? VIEW_ID : SECOND_VIEW_ID;
+        yield {
+          label: `axisMode ${viewId}=${verticalAxis}`,
+          run: (s) => {
+            if (s.getState().editorViews[viewId]) s.getState().updateView(viewId, { verticalAxis });
+          },
+        };
+        break;
+      }
+      case "secondView": {
+        yield {
+          label: "secondView",
+          run: (s) => {
+            if (s.getState().editorViews[SECOND_VIEW_ID]) s.getState().removeView(SECOND_VIEW_ID);
+            else s.getState().addView({ id: SECOND_VIEW_ID });
+          },
         };
         break;
       }
