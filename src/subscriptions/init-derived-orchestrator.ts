@@ -112,7 +112,7 @@ const FIRST_BACKOFF_MS = 50;
 const MAX_RETRY_DELAY_MS = 1000;
 
 /** How long the `stalls`-th stall of one unsettled chain waits to retry. */
-function retryDelay(stalls: number): number {
+export function retryDelay(stalls: number): number {
   if (stalls <= 1) return 0;
   return Math.min(MAX_RETRY_DELAY_MS, FIRST_BACKOFF_MS * 2 ** (stalls - 2));
 }

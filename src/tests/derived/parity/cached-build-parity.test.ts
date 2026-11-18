@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   computeDerivedState,
+  retryDelay,
   selectDerivedInputs,
 } from "../../../subscriptions/init-derived-orchestrator";
 import type { FeedbackProvider } from "../../../functions/feedback-provider";
@@ -406,6 +407,12 @@ describe("cached derived build", () => {
       vi.useRealTimers();
     }
   }, 30_000);
+
+  it("waits twice as long before each further retry in a chain, up to a second", () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 20].map(retryDelay)).toEqual([
+      0, 50, 100, 200, 400, 800, 1000, 1000, 1000,
+    ]);
+  });
 
   it("cancels a pending retry when the store's subscriptions stop", () => {
     vi.useFakeTimers();
