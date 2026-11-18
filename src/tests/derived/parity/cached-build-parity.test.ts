@@ -73,6 +73,58 @@ describe("cached derived build", () => {
     120_000,
   );
 
+  // Renderers key elements by violation and segment id and memoize on object
+  // identity. A stable id is safe only while two things hold: no two
+  // violations a renderer sees share an id (a violation set is keyed by id, so
+  // a shared one would silently drop a violation), and anything whose content
+  // changed arrives as a new object, so a memo keyed by identity sees it.
+  it.each(SEEDS)(
+    "gives renderers unique ids and new objects for changed content, seed %i",
+    (seed) => {
+      const store = createCorpusStore();
+      let previous = store.getState().derivedSnapshot!;
+      let step = 0;
+      for (const corpusStep of corpusSteps(seed, LENGTH)) {
+        runStep(store, corpusStep);
+        const snapshot = store.getState().derivedSnapshot!;
+        const where = `${corpusStep.label} (step ${step})`;
+
+        Object.entries(snapshot.tracks).forEach(([key, track]) => {
+          [track.canonical.violations, track.preview?.violations ?? []].forEach((list) => {
+            const ids = list.map((violation) => violation.id);
+            expect(new Set(ids).size, `${where} ${key}`).toBe(ids.length);
+          });
+        });
+
+        // What changed is judged against a build from nothing cached: an object
+        // reused by mistake would otherwise compare equal to itself.
+        const fresh = computeDerivedState(selectDerivedInputs(store.getState()), 0);
+        const before = new Map(violationsIn(previous).map((v) => [v.id, v]));
+        violationsIn(fresh).forEach((violation) => {
+          const old = before.get(violation.id);
+          if (old && JSON.stringify(old) !== JSON.stringify(violation)) {
+            violationsIn(snapshot)
+              .filter((current) => current.id === violation.id)
+              .forEach((current) => expect(current, `${where} ${violation.id}`).not.toBe(old));
+          }
+        });
+        const previousRows = previous.rows;
+        Object.entries(fresh.rows).forEach(([rowId, row]) => {
+          const old = previousRows[rowId]?.computed.violationSet;
+          if (old && JSON.stringify(old) !== JSON.stringify(row.computed.violationSet)) {
+            expect(snapshot.rows[rowId]?.computed.violationSet, `${where} row ${rowId}`).not.toBe(
+              old,
+            );
+          }
+        });
+
+        previous = snapshot;
+        step += 1;
+      }
+    },
+    120_000,
+  );
+
   it("builds once per outermost write", () => {
     const store = createCorpusStore();
     const state = store.getState();
