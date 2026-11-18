@@ -357,38 +357,55 @@ describe("cached derived build", () => {
       (track) => track.canonical.violations[0].stampRange.end,
     );
 
-  // Each change the provider reports needs a build, after the build that
-  // first asks it: 15 changes take 16 builds, the write's budget and one
-  // retry's. One more is left unshown until the next write.
-  it.each([
-    [15, 15],
-    [16, 15],
-  ])("settles a provider's chain of %i changes as far as two budgets reach", (changes, shown) => {
+  it.each([12, 40])("settles a provider's chain of %i changes", (changes) => {
     vi.useFakeTimers();
     try {
       const store = createCorpusStore();
       store.setState({ feedbackProvider: changingProvider(changes) });
       vi.runAllTimers();
       expect(vi.getTimerCount()).toBe(0);
-      expect(new Set(endsShown(store))).toEqual(new Set([shown]));
+      expect(new Set(endsShown(store))).toEqual(new Set([changes]));
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("gives each chain of changes its own retry once the last one settled", () => {
+  it("shows an edit made while building is stopped", () => {
     vi.useFakeTimers();
     try {
       const store = createCorpusStore();
-      store.setState({ feedbackProvider: changingProvider(12) });
+      store.setState({ feedbackProvider: changingProvider(40) });
+      vi.runOnlyPendingTimers();
+      expect(vi.getTimerCount()).toBe(1);
+      const trackId = numericTrackId(store);
+      const pointId = store.getState().tracks[trackId].points[0].id;
+      store.getState().updateKeypoint(trackId, { id: pointId, value: 0.42 });
       vi.runAllTimers();
-      store.setState({ feedbackProvider: changingProvider(12) });
-      vi.runAllTimers();
-      expect(new Set(endsShown(store))).toEqual(new Set([12]));
+      const fresh = computeDerivedState(
+        selectDerivedInputs(store.getState()),
+        0,
+        store.getState().feedbackProvider,
+      );
+      expect(normalize(store.getState().derivedSnapshot)).toEqual(normalize(fresh));
     } finally {
       vi.useRealTimers();
     }
   });
+
+  it("retries a new chain of changes at once after the last one settled", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      // Long enough to back off: 31 builds run out four budgets.
+      store.setState({ feedbackProvider: changingProvider(30) });
+      vi.runAllTimers();
+      store.setState({ feedbackProvider: changingProvider(12) });
+      vi.advanceTimersByTime(0);
+      expect(new Set(endsShown(store))).toEqual(new Set([12]));
+    } finally {
+      vi.useRealTimers();
+    }
+  }, 30_000);
 
   it("cancels a pending retry when the store's subscriptions stop", () => {
     vi.useFakeTimers();
@@ -420,9 +437,9 @@ describe("cached derived build", () => {
   });
 
   // A host listener that answers every snapshot with a new edit never lets
-  // the inputs settle. The store must stop building rather than loop, on the
-  // write's own task or on later ones, and must not recurse once per build.
-  it("stops building for a listener that answers every snapshot with an edit", () => {
+  // the inputs settle. The store must neither loop on the write's task nor
+  // recurse once per build, and later retries must back off.
+  it("backs off for a listener that answers every snapshot with an edit", () => {
     vi.useFakeTimers();
     try {
       const store = createCorpusStore();
@@ -436,20 +453,25 @@ describe("cached derived build", () => {
           store.getState().updateKeypoint(trackId, { id: pointId, value: (edits % 7) * 0.01 });
         },
       );
-      const before = store.getState().derivedSnapshot!.version!;
+      const version = () => store.getState().derivedSnapshot!.version!;
+      const before = version();
       store.getState().updateKeypoint(trackId, { id: pointId, value: 0.5 });
-      // One later task: the retry.
+      // The write's own budget, and one retry pending.
+      expect(version() - before).toBe(8);
       expect(vi.getTimerCount()).toBe(1);
-      // A bounded number of tasks: a store that kept retrying would still have
-      // a timer pending after them.
-      for (let task = 0; task < 5; task += 1) vi.runOnlyPendingTimers();
-      expect(vi.getTimerCount()).toBe(0);
+      // The first retry runs on the next task.
+      vi.advanceTimersByTime(0);
+      expect(version() - before).toBe(16);
+      // The next waits.
+      vi.advanceTimersByTime(49);
+      expect(version() - before).toBe(16);
+      vi.advanceTimersByTime(1);
+      expect(version() - before).toBe(24);
+      // Once the listener is gone, the pending retry settles the inputs and
+      // nothing more is scheduled.
       unsubscribe();
-      // The write's own budget, then one retry's.
-      expect(store.getState().derivedSnapshot!.version! - before).toBe(16);
-
-      // Once the listener is gone, the next write builds as usual.
-      store.getState().updateKeypoint(trackId, { id: pointId, value: 0.25 });
+      vi.runAllTimers();
+      expect(vi.getTimerCount()).toBe(0);
       const fresh = computeDerivedState(selectDerivedInputs(store.getState()), 0);
       expect(normalize(store.getState().derivedSnapshot)).toEqual(normalize(fresh));
     } finally {

@@ -195,6 +195,40 @@ function scenario(seed: number) {
 describe("computeFrames against the reference grouping", () => {
   // Ids may contain any character, so a key built by joining them can make two
   // different points look like one.
+  // An absent namespace or instance is a value of its own, distinct from every
+  // string, including any a key might use to stand for "absent".
+  it.each([
+    ["namespace", { namespaceId: undefined }, { namespaceId: "\u0001" }],
+    ["instance", { instanceId: undefined }, { instanceId: "\u0001" }],
+    ["namespace", { namespaceId: undefined }, { namespaceId: "null" }],
+  ])("keeps a point with no %s apart from one with any string there", (_, absent, present) => {
+    const tracks: Record<string, Track<RawValue>> = {
+      t: { id: "t", name: "t", animatableId: "a", points: [{ id: "k", stamp: 0.5, value: 1 }] },
+    };
+    const base = {
+      editable: true,
+      selectable: true,
+      layerBand: LayerBand.Background,
+      trackId: "t",
+      animatableId: "a",
+      namespaceId: "ns",
+      instanceId: "inst",
+      animationId: "anim-1",
+    };
+    const sourceRow: SourceRow = {
+      id: "row",
+      data: [
+        { ...base, ...absent },
+        { ...base, ...present },
+      ] as SourceRow["data"],
+    };
+    const frames = computeFrames(tracks, sourceRow, { ignoreDraggingState: true });
+    expect(frames).toStrictEqual(
+      referenceComputeFrames(tracks, sourceRow, { ignoreDraggingState: true }),
+    );
+    expect(frames[0].points).toHaveLength(2);
+  });
+
   it("keeps points apart whose ids differ only in where a separator falls", () => {
     const source = (trackId: string) =>
       ({

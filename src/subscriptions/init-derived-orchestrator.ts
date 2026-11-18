@@ -96,16 +96,26 @@ export function computeDerivedState(
  *
  * When the budget runs out, building stops for the rest of the task: the
  * notifications still unwinding from the write would otherwise each start a
- * flush with a budget of its own. On a later task the store tries once more
- * with a fresh budget, so a chain that needs up to twice this many builds,
- * the first included, still settles without holding up the write that
- * started it. If a retry has already run since an outermost flush last
- * settled, the later task only lifts the stop: the inputs are changing on
- * their own, and the snapshot stays as last built until the next write.
- * Retrying for as long as the inputs change would turn such a listener into
- * an endless loop across tasks.
+ * flush with a budget of its own. A later task flushes again with a fresh
+ * budget, so every change, including an edit made while building was
+ * stopped, is shown in the end: dropping the leftover work would leave the
+ * snapshot behind its inputs until some unrelated write.
+ *
+ * The first retry runs on the next task, so a chain that needs up to twice
+ * this many builds, the first included, settles at once. Each further retry
+ * in the same unsettled chain waits twice as long as the one before, up to
+ * `MAX_RETRY_DELAY_MS`: inputs that never settle (a listener answering every
+ * snapshot with a new edit) cost one budget per delay instead of a loop.
  */
 const MAX_SETTLE_PASSES = 8;
+const FIRST_BACKOFF_MS = 50;
+const MAX_RETRY_DELAY_MS = 1000;
+
+/** How long the `stalls`-th stall of one unsettled chain waits to retry. */
+function retryDelay(stalls: number): number {
+  if (stalls <= 1) return 0;
+  return Math.min(MAX_RETRY_DELAY_MS, FIRST_BACKOFF_MS * 2 ** (stalls - 2));
+}
 
 export interface DerivedOrchestrator {
   /** Listener to subscribe after every other subscription of the store. */
@@ -159,11 +169,11 @@ export function createDerivedOrchestrator(
   let depth = 0;
   let passesLeft = 0;
   let building = false;
-  // Set when the budget runs out; no flush builds until the timer lifts it.
+  // Set when the budget runs out; no flush builds until the retry runs.
   let stalled = false;
   let stallTimer: ReturnType<typeof setTimeout> | undefined;
-  // Whether a retry has run since an outermost flush last settled.
-  let retried = false;
+  // How many times the budget has run out since an outermost flush last settled.
+  let stalls = 0;
   let providerChangedDuringBuild = false;
   let builtFrom: DerivedInputs | undefined;
   let watchedProvider: FeedbackProvider | undefined;
@@ -215,14 +225,14 @@ export function createDerivedOrchestrator(
   const stall = () => {
     if (stalled) return;
     stalled = true;
-    const retrying = !retried;
-    retried = true;
-    logDerivedEvent("derivedOrchestrator", "settle budget exhausted", () => ({ retrying }));
+    stalls += 1;
+    const delay = retryDelay(stalls);
+    logDerivedEvent("derivedOrchestrator", "settle budget exhausted", () => ({ stalls, delay }));
     stallTimer = setTimeout(() => {
       stallTimer = undefined;
       stalled = false;
-      if (retrying) flush();
-    }, 0);
+      flush();
+    }, delay);
   };
 
   const flush = () => {
@@ -236,7 +246,7 @@ export function createDerivedOrchestrator(
         if (builtFrom && shallow(builtFrom, inputs)) {
           // Only an outermost flush settling ends a chain of changes: a nested
           // one finds the inputs already built by a deeper flush.
-          if (depth === 1) retried = false;
+          if (depth === 1) stalls = 0;
           return;
         }
         if (passesLeft === 0) {
