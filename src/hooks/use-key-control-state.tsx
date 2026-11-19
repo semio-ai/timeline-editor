@@ -81,8 +81,9 @@ function instanceIn(
 function uniqueInstanceOf(data: SourceRow["data"]): InstanceRef | undefined {
   const refs = uniq(
     data
-      .filter((entry) => entry.namespaceId && entry.instanceId)
-      .map((entry) => JSON.stringify([entry.namespaceId, entry.instanceId])),
+      .filter((entry) => entry.instanceId)
+      // A namespace id may be empty, and still names a namespace.
+      .map((entry) => JSON.stringify([entry.namespaceId ?? "", entry.instanceId])),
   );
   if (refs.length !== 1) return undefined;
   const [namespaceId, instanceId] = JSON.parse(refs[0]) as [string, string];

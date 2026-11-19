@@ -3,7 +3,7 @@ import { renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { AnimationContext } from "../../context";
-import { useKeyControlState } from "../../hooks/use-key-control-state";
+import { keysAtStamp, useKeyControlState } from "../../hooks/use-key-control-state";
 import { useTrackValueReader } from "../../hooks/use-track-value-reader";
 import { trackValueAt } from "../../functions/track-value-at";
 import { currentDerivedSnapshot } from "../../subscriptions/init-derived-orchestrator";
@@ -261,5 +261,95 @@ describe("an event handler acts on the state as it is, not on a published snapsh
     });
     expect(result.current.keyState).toBe("full");
     expect(result.current.keyStateNow().keyState).toBe("full");
+  });
+
+  it("finds the key at the playhead in a namespace whose id is empty", () => {
+    const store = createCorpusStore();
+    const { row, trackId, point } = leafWithKey(store);
+    const { namespaceId, instanceId } = row.data[0];
+    const { [namespaceId]: namespace, ...others } = store.getState().namespaces;
+    const instance = namespace.animationInstances[instanceId];
+    store.setState({
+      namespaces: {
+        ...others,
+        "": {
+          ...namespace,
+          id: "",
+          animationInstances: {
+            ...namespace.animationInstances,
+            [instanceId]: { ...instance, settings: { ...instance.settings, offset: 250 } },
+          },
+        },
+      },
+    });
+    const current = Object.values(store.getState().instancedTrackSources).find(
+      (candidate) =>
+        !candidate.isGroup &&
+        candidate.data.length === 1 &&
+        candidate.data[0].namespaceId === "" &&
+        candidate.data[0].trackId === trackId,
+    )!;
+    expect(current).toBeDefined();
+    store
+      .getState()
+      .playerStore.getState()
+      .resetPlayer(computeWorldStamp(point.stamp, instance.settings.timescale, 250));
+    const { result } = renderHook(() => useKeyControlState(current), {
+      wrapper: wrapperFor(store),
+    });
+    expect(result.current.keyState).toBe("full");
+    expect(result.current.keyStateNow().keyState).toBe("full");
+  });
+
+  it("reads a row of several instances at the playhead's world time", () => {
+    const store = createCorpusStore();
+    // Every instance runs at twice the speed, each from its own offset, so
+    // no instance's local time is the world's.
+    const namespaces = Object.fromEntries(
+      Object.entries(store.getState().namespaces).map(([id, namespace], n) => [
+        id,
+        {
+          ...namespace,
+          animationInstances: Object.fromEntries(
+            Object.entries(namespace.animationInstances).map(([instanceId, instance], i) => [
+              instanceId,
+              {
+                ...instance,
+                settings: { ...instance.settings, timescale: 2, offset: 250 + 500 * (n + i) },
+              },
+            ]),
+          ),
+        },
+      ]),
+    );
+    store.setState({ namespaces });
+    const global = store.getState().instancedTrackSources.global;
+    const ids = new Set(global.data.map((datum) => `${datum.namespaceId}/${datum.instanceId}`));
+    expect(ids.size).toBeGreaterThan(1);
+    const computed = store.getState().derivedSnapshot!.rows.global.computed;
+    const targets = global.data;
+    const [first] = global.data;
+    const firstInstance =
+      store.getState().namespaces[first.namespaceId].animationInstances[first.instanceId];
+    // A frame where reading the world time as the first instance's would differ.
+    const stamp = computed.virtualFrames
+      .map((frame) => frame.stamp)
+      .find(
+        (s) =>
+          keysAtStamp(computed, s, targets).keyState !==
+          keysAtStamp(
+            computed,
+            computeLocalStamp(s, firstInstance.settings.timescale, firstInstance.settings.offset),
+            targets,
+          ).keyState,
+      );
+    expect(stamp).toBeDefined();
+    store.getState().playerStore.getState().resetPlayer(stamp!);
+    const { result } = renderHook(() => useKeyControlState(global), {
+      wrapper: wrapperFor(store),
+    });
+    const expected = keysAtStamp(computed, stamp!, targets).keyState;
+    expect(result.current.keyState).toBe(expected);
+    expect(result.current.keyStateNow().keyState).toBe(expected);
   });
 });
