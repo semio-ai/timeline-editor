@@ -1099,6 +1099,58 @@ describe("derived store edges", () => {
     },
   );
 
+  it("compiles again only past the curve cache, when instances sharing track keys visit their tracks in opposite orders", () => {
+    const state = createCorpusStore().getState();
+    const { trackId } = leafWithKey(createCorpusStore());
+    const base = state.tracks[trackId];
+    const count = 600;
+    const tracks = Object.fromEntries(
+      Array.from({ length: count }, (_, i) => {
+        const id = `copy-${i}`;
+        const points = Object.freeze(
+          base.points.map((p) => Object.freeze({ ...p, value: (p.value as number) + i * 0.001 })),
+        );
+        return [id, Object.freeze({ ...base, id, points })];
+      }),
+    );
+    const ids = Object.keys(tracks);
+    const animation = Object.values(state.animations)[0];
+    const [namespace] = Object.values(state.namespaces);
+    const [instance] = Object.values(namespace.animationInstances);
+    const playing = (namespaceId: string, instanceId: string, animationId: string) => ({
+      ...namespace,
+      id: namespaceId,
+      animationInstances: { [instanceId]: { ...instance, id: instanceId, animationId } },
+    });
+    let compiles = 0;
+    computeDerivedState(
+      {
+        ...selectDerivedInputs(state),
+        tracks: { ...state.tracks, ...tracks } as typeof state.tracks,
+        animations: {
+          forward: { ...animation, id: "forward", tracks: ids },
+          backward: { ...animation, id: "backward", tracks: [...ids].reverse() },
+        } as typeof state.animations,
+        // Their track keys collide: the later instance's subjects are judged.
+        namespaces: {
+          "a/b": playing("a/b", "c", "forward"),
+          a: playing("a", "b/c", "backward"),
+        } as typeof state.namespaces,
+        instancedTrackSources: {},
+        trackEvaluator: {
+          compile: (track) => {
+            compiles += 1;
+            return state.trackEvaluator!.compile(track);
+          },
+        },
+      },
+      0,
+    );
+    // Judging the later instance in its own compile order would recompile
+    // every track once more.
+    expect(compiles).toBe(count + 2 * (count - 512));
+  });
+
   it("answers a restart with the set a provider's release started during it", () => {
     vi.useFakeTimers();
     try {

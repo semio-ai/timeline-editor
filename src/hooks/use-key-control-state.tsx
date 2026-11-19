@@ -1,7 +1,7 @@
 import { useCallback, useContext, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
-import { computeNextTime, computePreviousTime } from "../functions";
+import { computeLocalStamp, computeNextTime, computePreviousTime } from "../functions";
 import { type AnimationActions, type AnimationData } from "../store-types";
 import { buildTrackKey } from "../utils/track-key";
 import { SemanticTime, SourceRow, InstancedFrameInfo, LayerBand } from "../types";
@@ -176,14 +176,26 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
   );
 
   const store = useContext(AnimationContext);
+  // Everything from the state at the call: the row, its instance's time
+  // transform and its derived frames can all have changed since the render.
   const keyStateNow = useCallback((): KeysAtStamp => {
     if (!store) return keysAtStamp(undefined, 0, targetEntries);
     const state = store.getState();
+    const row = state.instancedTrackSources[source.id] ?? source;
+    const instanceIds = uniq(row.data.map((entry) => entry.instanceId).filter(Boolean));
+    const instance =
+      instanceIds.length === 1
+        ? Object.values(state.namespaces)
+            .map((namespace) => namespace.animationInstances[instanceIds[0] as string])
+            .find(Boolean)
+        : undefined;
     const stampNow = state.playerStore.getState().player.stamp;
-    const localNow = typeof toLocal === "function" ? toLocal(stampNow) : stampNow;
+    const localNow = instance
+      ? computeLocalStamp(stampNow, instance.settings.timescale, instance.settings.offset)
+      : stampNow;
     const computedNow = currentDerivedSnapshot(state)?.rows?.[source.id]?.computed;
-    return keysAtStamp(computedNow, localNow, targetEntries);
-  }, [source.id, store, targetEntries, toLocal]);
+    return keysAtStamp(computedNow, localNow, keyTargets(row.data));
+  }, [source, store, targetEntries]);
 
   const [backFn, forwardFn, addPreview, removePreview] = useAnimationStore(
     useShallow((state: AnimationData & AnimationActions) => [

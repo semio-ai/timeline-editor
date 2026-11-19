@@ -69,3 +69,113 @@ it("adds a key at the playhead, rather than removing one, once the key there has
     vi.useRealTimers();
   }
 });
+
+/** A row of two or more tracks of the active instance that all have a key at one stamp. */
+function rowKeyedTogether(store: Store) {
+  const state = store.getState();
+  for (const row of Object.values(state.instancedTrackSources)) {
+    if (row.data.length < 2) continue;
+    if (row.data.some((datum) => datum.instanceId !== state.selectionState.instanceId)) continue;
+    const stampsOf = (trackId: string) =>
+      new Set(state.tracks[trackId]?.points.map((p) => p.stamp) ?? []);
+    const [firstDatum, ...rest] = row.data;
+    const shared = [...stampsOf(firstDatum.trackId)].find((stamp) =>
+      rest.every((datum) => stampsOf(datum.trackId).has(stamp)),
+    );
+    if (shared !== undefined) return { row, stamp: shared };
+  }
+  throw new Error("No row whose tracks share a key stamp.");
+}
+
+/** Moves a track's key at `from` to `to`. */
+function moveKey(store: Store, trackId: string, from: number, to: number) {
+  const track = store.getState().tracks[trackId];
+  store.setState({
+    tracks: {
+      ...store.getState().tracks,
+      [trackId]: {
+        ...track,
+        points: track.points.map((p) => (p.stamp === from ? { ...p, stamp: to } : p)),
+      },
+    },
+  });
+}
+
+function stall(store: Store) {
+  const touchViews = () => store.setState({ editorViews: { ...store.getState().editorViews } });
+  const unsubscribe = store.subscribe((s) => s.derivedSnapshot, touchViews);
+  touchViews();
+  unsubscribe();
+  expect(vi.getTimerCount()).toBe(1);
+}
+
+/** The control menu of `row`, with the playhead on the world time of `row`'s key at `stamp`. */
+function menuAt(store: Store, row: ReturnType<typeof rowKeyedTogether>["row"], stamp: number) {
+  const instance = Object.values(store.getState().namespaces)
+    .map((namespace) => namespace.animationInstances[row.data[0].instanceId])
+    .find(Boolean)!;
+  const world = stamp * (instance.settings.timescale || 1) + (instance.settings.offset ?? 0);
+  store.getState().playerStore.getState().resetPlayer(world);
+  return renderHook(
+    () =>
+      useControlMenu({
+        sourceRow: row,
+        trackIds: row.data.map((datum) => datum.trackId),
+        isGroup: true,
+        allReadonly: false,
+      }),
+    { wrapper: StoreProviderFor(store) },
+  );
+}
+
+it("removes the keys at the playhead once a key has moved onto it", () => {
+  vi.useFakeTimers();
+  try {
+    const store = createCorpusStore();
+    const { row, stamp } = rowKeyedTogether(store);
+    const [moving] = row.data;
+    // One track's key starts elsewhere, so the row shows a partial key.
+    moveKey(store, moving.trackId, stamp, stamp + 7);
+    const { result } = menuAt(store, row, stamp);
+    expect(result.current.keyState).toBe("partial");
+    stall(store);
+    moveKey(store, moving.trackId, stamp + 7, stamp);
+    result.current.handleToggleKeyframe();
+    row.data.forEach((datum) =>
+      expect(
+        store.getState().tracks[datum.trackId].points.some((p) => p.stamp === stamp),
+        datum.trackId,
+      ).toBe(false),
+    );
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("adds a key to the track that now lacks one, not to the one that lacked one before", () => {
+  vi.useFakeTimers();
+  try {
+    const store = createCorpusStore();
+    const { row, stamp } = rowKeyedTogether(store);
+    const [before, now] = row.data;
+    moveKey(store, before.trackId, stamp, stamp + 7);
+    const { result } = menuAt(store, row, stamp);
+    expect(result.current.keyState).toBe("partial");
+    stall(store);
+    // The first track's key comes back, and the second's moves away.
+    moveKey(store, before.trackId, stamp + 7, stamp);
+    moveKey(store, now.trackId, stamp, stamp + 7);
+    const counts = row.data.map((datum) => store.getState().tracks[datum.trackId].points.length);
+    result.current.handleAddKeyframe();
+    const keyedAt = (trackId: string) =>
+      store.getState().tracks[trackId].points.some((p) => p.stamp === stamp);
+    expect(keyedAt(now.trackId)).toBe(true);
+    row.data.forEach((datum, i) =>
+      expect(store.getState().tracks[datum.trackId].points.length, datum.trackId).toBe(
+        counts[i] + (datum.trackId === now.trackId ? 1 : 0),
+      ),
+    );
+  } finally {
+    vi.useRealTimers();
+  }
+});

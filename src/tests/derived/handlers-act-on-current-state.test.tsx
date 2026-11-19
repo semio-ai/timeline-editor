@@ -8,6 +8,7 @@ import { useTrackValueReader } from "../../hooks/use-track-value-reader";
 import { trackValueAt } from "../../functions/track-value-at";
 import { currentDerivedSnapshot } from "../../subscriptions/init-derived-orchestrator";
 import { buildTrackKey } from "../../utils/track-key";
+import { computeLocalStamp } from "../../functions";
 import { createCorpusStore } from "./parity/edit-corpus";
 
 type Store = ReturnType<typeof createCorpusStore>;
@@ -104,6 +105,50 @@ describe("an event handler acts on the state as it is, not on a published snapsh
       // The strip still shows the published snapshot's key; a handler sees none.
       expect(result.current.keyState).toBe("full");
       expect(result.current.keyStateNow().keyState).toBe("none");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("finds the key at the playhead by its instance's time transform as it is now", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      const { row, trackId, point } = leafWithKey(store);
+      const instanceId = row.data[0].instanceId;
+      const namespaceId = row.data[0].namespaceId;
+      store.getState().playerStore.getState().resetPlayer(-1e9);
+      store.getState().skipToNextKeyframe(row);
+      const { result } = renderHook(() => useKeyControlState(row), {
+        wrapper: wrapperFor(store),
+      });
+      expect(result.current.keyStateNow().keyState).toBe("full");
+      // The key and its instance's offset move together, so the key stays at
+      // the playhead in world time while its local stamp changes.
+      stallBuilding(store);
+      const namespace = store.getState().namespaces[namespaceId];
+      const instance = namespace.animationInstances[instanceId];
+      const offset = instance.settings.offset ?? 0;
+      const stamp = store.getState().playerStore.getState().player.stamp;
+      store.setState({
+        namespaces: {
+          ...store.getState().namespaces,
+          [namespaceId]: {
+            ...namespace,
+            animationInstances: {
+              ...namespace.animationInstances,
+              [instanceId]: {
+                ...instance,
+                settings: { ...instance.settings, offset: offset - 123 },
+              },
+            },
+          },
+        },
+      });
+      const local = computeLocalStamp(stamp, instance.settings.timescale, offset - 123);
+      editKey(store, trackId, point.id, { stamp: local });
+      expect(local).not.toBe(point.stamp);
+      expect(result.current.keyStateNow().keyState).toBe("full");
     } finally {
       vi.useRealTimers();
     }

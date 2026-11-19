@@ -165,18 +165,24 @@ export function buildDerivedSnapshotWithRows(
   });
 
   const provider = inputs.feedbackProvider;
-  // One subject per track key: the one whose record `derivedTracks` kept. A
-  // track key joins its ids with "/", so two instances whose ids differ only
-  // in where a "/" falls share one, and the later overwrote the earlier.
-  // Judging only that one keeps a track's violations its own.
-  const judged = [...new Map(subjects.map((subject) => [subject.trackKey, subject])).values()];
   // Judged most recently compiled first. A check compiles its track's curve
   // again once the curve cache has evicted it, and with more tracks than the
   // cache holds, judging in compile order would find every one evicted, each
   // compile evicting the next one judged. In reverse, only those past the
   // cache's size compile again. Without a provider, the editor's own checks
   // run in the same order.
-  judged.reverse();
+  //
+  // One subject per track key: the one whose record `derivedTracks` kept, the
+  // last compiled. A track key joins its ids with "/", so two instances whose
+  // ids differ only in where a "/" falls share one, and the later overwrote
+  // the earlier. Judging only that one keeps a track's violations its own.
+  const judged: FeedbackSubject[] = [];
+  const judgedKeys = new Set<TrackKey>();
+  for (let i = subjects.length - 1; i >= 0; i -= 1) {
+    if (judgedKeys.has(subjects[i].trackKey)) continue;
+    judgedKeys.add(subjects[i].trackKey);
+    judged.push(subjects[i]);
+  }
   const canonicalViolations =
     provider?.canonical(judged, inputs.trackEvaluator) ??
     new Map(
