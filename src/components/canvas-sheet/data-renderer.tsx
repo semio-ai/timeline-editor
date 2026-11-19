@@ -21,12 +21,7 @@ import { uniq } from "lodash";
 import { isOrthographicCamera } from "@semio/utils";
 import { namespaceEntity } from "@semio/data";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
-import {
-  buildFilteredSourceRowId,
-  rowInstanceOf,
-  filterHandlesByVisibility,
-  shouldRowShowHandles,
-} from "../../functions";
+import { rowDrawing, filterHandlesByVisibility, shouldRowShowHandles } from "../../functions";
 import { rowRenderSamples } from "../../functions/materialize-segment-sample";
 import {
   LayerBand,
@@ -186,27 +181,19 @@ export const DataRenderer = memo(function DataRenderer({
   onBoxSelectStart,
 }: DataRendererProps) {
   type StoreState = AnimationData & AnimationActions;
-  const sourceRow = useAnimationStore(
-    useShallow((state: StoreState) => {
-      if (viewId) {
-        const filteredId = buildFilteredSourceRowId(viewId, sourceRowId);
-        const filtered = state.instancedTrackSources[filteredId];
-        if (filtered) return filtered;
-      }
-      return state.instancedTrackSources[sourceRowId];
-    }),
+  // Which rows the keys and the rest of the row are read from, and the
+  // instance each is drawn through (see `rowDrawing`).
+  const { keyRowId, keyInstanceId, rowInstanceId } = useAnimationStore(
+    useShallow((state: StoreState) => rowDrawing(state.instancedTrackSources, sourceRowId, viewId)),
   );
+  // The view's filtered copy of the row when there is one: the keys, and what
+  // the row shows of its tracks, come from it.
+  const sourceRow = useAnimationStore((state: StoreState) => state.instancedTrackSources[keyRowId]);
   const computedData = useAnimationStore(
     useShallow((state: StoreState) => state.derivedSnapshot?.rows?.[sourceRowId]?.computed),
   );
-  // The keys are listed from the row each DataPoint reads them from: the
-  // view's filtered copy when there is one, a row of its own whose frames
-  // differ from the full row's wherever the filter hides a key.
   const keySelectionFrames = useAnimationStore(
-    useShallow(
-      (state: StoreState) =>
-        state.derivedSnapshot?.rows?.[sourceRow?.id ?? sourceRowId]?.computed?.selection,
-    ),
+    useShallow((state: StoreState) => state.derivedSnapshot?.rows?.[keyRowId]?.computed?.selection),
   );
   // Only this row's samples: the whole cache is new on every build.
   const rowSamples = useAnimationStore(
@@ -286,16 +273,6 @@ export const DataRenderer = memo(function DataRenderer({
     return sourceRow.data.some((entry) => entry.visible !== false);
   }, [sourceRow]);
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
-  // A row's stamps are in its one instance's time, or in world time for a
-  // row of several. The segments, violations and handles drawn here come from
-  // `computedData`, the row `sourceRowId`; the keys come from `sourceRow`,
-  // which may be the view's filtered copy of it (a row of its own, and of one
-  // instance when the filter leaves one showing). Each is drawn through the
-  // time of the row it was read from.
-  const rowInstanceId = useAnimationStore(
-    (state: StoreState) => rowInstanceOf(state.instancedTrackSources[sourceRowId])?.instanceId,
-  );
-  const keyInstanceId = useMemo(() => rowInstanceOf(sourceRow)?.instanceId, [sourceRow]);
   const keyXTransform = useMemo(() => {
     const transform = keyInstanceId ? localGlobalTransformLookup.toWorld[keyInstanceId] : undefined;
     return typeof transform === "function" ? transform : (stamp: number) => stamp;

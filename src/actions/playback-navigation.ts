@@ -68,7 +68,9 @@ export function skipToNextKeyframe(
   const instancedFrameData = computedData.virtualFrames;
   const { localStamp, localBounds, toWorld } = resolveRowTimeContext(
     state.namespaces,
-    sourceRow,
+    // The row as the store holds it now, which the stamps above were built
+    // from: the caller's copy can predate an instance joining or leaving it.
+    state.instancedTrackSources[sourceRowId] ?? sourceRow,
     playerState.player.stamp,
     playerState.player.bounds,
   );
@@ -98,7 +100,9 @@ export function skipToPrevKeyframe(
   const instancedFrameData = computedData.virtualFrames;
   const { localStamp, localBounds, toWorld } = resolveRowTimeContext(
     state.namespaces,
-    sourceRow,
+    // The row as the store holds it now, which the stamps above were built
+    // from: the caller's copy can predate an instance joining or leaving it.
+    state.instancedTrackSources[sourceRowId] ?? sourceRow,
     playerState.player.stamp,
     playerState.player.bounds,
   );

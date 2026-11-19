@@ -14,6 +14,7 @@ import { computeRowData } from "../../functions/compute-row-data";
 import { computeTransitionSegments } from "../../functions/compute-transition-segments";
 import {
   buildFilteredSourceRowId,
+  rowDrawing,
   rowInstanceOf,
   spansSeveralInstances,
 } from "../../functions/view-filtered-source-row";
@@ -338,10 +339,18 @@ describe("rows that span several instances", () => {
       id: filteredId,
       data: global.data.filter((entry) => entry.instanceId === INSTANCE_IDS.BETA_SHARED),
     };
-    expect(rowInstanceOf(global)).toBeUndefined();
-    expect(rowInstanceOf(filtered)).toEqual({
-      namespaceId: NAMESPACE_IDS.BETA,
-      instanceId: INSTANCE_IDS.BETA_SHARED,
+    // The view draws the copy's keys through the instance and the full row's
+    // segments and violations through none.
+    const sources = { ...state.instancedTrackSources, [filteredId]: filtered };
+    expect(rowDrawing(sources, GLOBAL, "view")).toEqual({
+      keyRowId: filteredId,
+      keyInstanceId: INSTANCE_IDS.BETA_SHARED,
+      rowInstanceId: undefined,
+    });
+    expect(rowDrawing(sources, GLOBAL, "another view")).toEqual({
+      keyRowId: GLOBAL,
+      keyInstanceId: undefined,
+      rowInstanceId: undefined,
     });
 
     // The copy is a row of its own, of one instance, so its keys are local
@@ -483,6 +492,27 @@ describe("next and previous key on a row of several instances", () => {
       visited.push(player().player.stamp);
     });
     expect(visited).toEqual(expected);
+  });
+
+  it("take the row's time from the row as the store holds it", async () => {
+    const store = await betaStore();
+    const row = store.getState().instancedTrackSources[GLOBAL];
+    // A copy of the row from before the other instances joined it.
+    const stale = {
+      ...row,
+      data: row.data.filter((entry) => entry.instanceId === INSTANCE_IDS.BETA_SHARED),
+    };
+    const player = () => store.getState().playerStore.getState();
+    const walk = (through: SourceRow) => {
+      player().resetPlayer(-1e9);
+      const visited: number[] = [];
+      for (let step = 0; step < 40; step += 1) {
+        store.getState().skipToNextKeyframe(through);
+        visited.push(player().player.stamp);
+      }
+      return visited;
+    };
+    expect(walk(stale)).toEqual(walk(row));
   });
 });
 

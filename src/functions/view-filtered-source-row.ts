@@ -51,3 +51,35 @@ export function rowInstanceOf(row: SourceRow | undefined): RowInstance | undefin
 export function spansSeveralInstances(row: SourceRow): boolean {
   return row.data.some((entry) => entry.instanceId) && !rowInstanceOf(row);
 }
+
+/** Which rows a row is drawn from, and the instance each is drawn through. */
+export interface RowDrawing {
+  /** The row its keys are listed and read from. */
+  keyRowId: string;
+  /** The instance the keys' stamps are taken to world time through, if any. */
+  keyInstanceId?: string;
+  /** The instance its segments, violations and handles are drawn through, if any. */
+  rowInstanceId?: string;
+}
+
+/**
+ * How a row is drawn in a view. Its segments, violations and handles come from
+ * the row itself; its keys from the view's filtered copy of it when there is
+ * one, a row of its own whose columns differ from the full row's wherever the
+ * filter hides a key, and which can be of one instance when the full row is of
+ * several. Each is drawn through the time of the row it is read from: its one
+ * instance's, or none for a row of several, whose stamps are in world time.
+ */
+export function rowDrawing(
+  sources: Record<string, SourceRow>,
+  rowId: string,
+  viewId?: string,
+): RowDrawing {
+  const filteredId = viewId ? buildFilteredSourceRowId(viewId, rowId) : undefined;
+  const keyRowId = filteredId && sources[filteredId] ? filteredId : rowId;
+  return {
+    keyRowId,
+    keyInstanceId: rowInstanceOf(sources[keyRowId])?.instanceId,
+    rowInstanceId: rowInstanceOf(sources[rowId])?.instanceId,
+  };
+}
