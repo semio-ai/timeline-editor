@@ -196,7 +196,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           const targets = keyState === "partial" ? missingEntries : entries;
           const updates: { trackId: string; keypoint: Partial<SimpleKeypoint> }[] = targets
             .map((datum) => {
-              const localStamp = playheadIn(datum);
+              const localStamp = playheadIn(datum.instanceId);
               const valueKey = buildTrackKey(
                 datum.namespaceId as string,
                 datum.instanceId as string,
