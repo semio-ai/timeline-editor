@@ -47,8 +47,8 @@ export interface KeyControlState {
 export interface KeysNow extends KeysAtStamp {
   /** The row's tracks as the state has them. */
   entries: SourceRow["data"];
-  /** The playhead in an instance's local time, by its time transform now. */
-  playheadIn: (instanceId: string) => number;
+  /** The playhead in a track's instance's local time, by its time transform now. */
+  playheadIn: (entry: InstanceRef) => number;
 }
 
 /** The keys a row holds at one local stamp, and which of its tracks lack one. */
@@ -59,21 +59,34 @@ export interface KeysAtStamp {
   missingEntries: SourceRow["data"];
 }
 
+/** Where an animation instance is: its namespace and its id within it. */
+export interface InstanceRef {
+  namespaceId: string;
+  instanceId: string;
+}
+
 /**
- * An animation instance by id. The editor identifies an instance by its id
- * alone (the selection, key edits and key insertion all do), so this finds it
- * the way they do: the first namespace that holds one.
+ * An animation instance by its namespace and id: the instance a row's
+ * entries play. Instance ids are unique only within a namespace, so the
+ * namespace is part of finding one.
  */
-function instanceIn(namespaces: AnimationData["namespaces"], instanceId: string) {
-  return Object.values(namespaces)
-    .map((namespace) => namespace.animationInstances[instanceId])
-    .find(Boolean);
+function instanceIn(
+  namespaces: AnimationData["namespaces"],
+  { namespaceId, instanceId }: InstanceRef,
+) {
+  return namespaces[namespaceId]?.animationInstances[instanceId];
 }
 
 /** The one instance every entry of a row plays, if there is exactly one. */
-function uniqueInstanceOf(data: SourceRow["data"]): string | undefined {
-  const ids = uniq(data.map((entry) => entry.instanceId).filter(Boolean));
-  return ids.length === 1 ? (ids[0] as string) : undefined;
+function uniqueInstanceOf(data: SourceRow["data"]): InstanceRef | undefined {
+  const refs = uniq(
+    data
+      .filter((entry) => entry.namespaceId && entry.instanceId)
+      .map((entry) => JSON.stringify([entry.namespaceId, entry.instanceId])),
+  );
+  if (refs.length !== 1) return undefined;
+  const [namespaceId, instanceId] = JSON.parse(refs[0]) as [string, string];
+  return { namespaceId, instanceId };
 }
 
 /** The tracks a row's key controls act on: its foreground tracks, or all of them. */
@@ -226,8 +239,8 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
     const state = store.getState();
     const row = state.instancedTrackSources[source.id] ?? source;
     const stampNow = state.playerStore.getState().player.stamp;
-    const playheadIn = (instanceId: string) => {
-      const instance = instanceIn(state.namespaces, instanceId);
+    const playheadIn = (entry: InstanceRef) => {
+      const instance = instanceIn(state.namespaces, entry);
       return instance
         ? computeLocalStamp(stampNow, instance.settings.timescale, instance.settings.offset)
         : stampNow;
