@@ -16,7 +16,7 @@ import {
 import { buildTrackKey } from "../utils/track-key";
 import type { ProjectedTrackView, SelectionCleanup, TrackDiffOp } from "../types/util/diff";
 import type { SimpleTrack } from "../types/data/simple-track";
-import { computeRowData, resolveRowTransform } from "./compute-row-data";
+import { aggregateRowTime, computeRowData, resolveRowTransform } from "./compute-row-data";
 import { sameInputs, type ReusableRow, type ReusableRows } from "./row-reuse";
 import {
   computeSubjectViolations,
@@ -382,8 +382,15 @@ function rowInputsOf(
     transform.offsetX,
     transform.offsetY,
   ];
+  // A row of several instances places each entry's keys through its own
+  // instance, so each entry's instance time is an input of the row.
+  const rowTime = aggregateRowTime(sourceRow, context);
   sourceRow.data.forEach((datum) => {
     const track = inputs.tracks[datum.trackId];
+    if (rowTime) {
+      const entryTime = rowTime(datum.namespaceId, datum.instanceId);
+      values.push(entryTime.scaleX, entryTime.offsetX);
+    }
     values.push(
       track,
       track ? inputs.animatables[track.animatableId] : undefined,

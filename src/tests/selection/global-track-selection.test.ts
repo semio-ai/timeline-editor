@@ -12,6 +12,7 @@ import {
   clickMarkerWith,
   getMarkerFrame,
   getMarkerPoints,
+  playAtOwnTime,
   pointsToSignatures,
   selectionSignatures,
 } from "./selection-test-helpers";
@@ -57,6 +58,9 @@ describe("Global vs Track Selection", () => {
   });
 
   it("ignores non-selectable or cross-instance points when a global marker is clicked", () => {
+    // The other instance's copy of the key shares the global row's column
+    // only when both play the animation at its own time.
+    playAtOwnTime(store, NAMESPACE_IDS.BETA, INSTANCE_IDS.BETA_SHARED);
     clickMarkerWith(store, GLOBAL_ROW_ID, "o1");
 
     const { selectionState } = store.getState();

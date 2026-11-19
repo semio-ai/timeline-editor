@@ -11,6 +11,7 @@ import {
   matchesSourceRowQuery,
 } from "../functions/filter-visible-source-row-ids";
 import { currentDerivedSnapshot } from "../subscriptions/init-derived-orchestrator";
+import { resolveRowTransform } from "../functions/compute-row-data";
 
 /**
  * Hit-test keypoints against the current box-select bounds and return the
@@ -95,8 +96,14 @@ function computeBoxSelectHitTest(
     const computed = snapshot?.rows?.[rowId]?.computed;
     if (!computed) return;
 
+    // The box spans world time; a row of one instance holds its keys in that
+    // instance's time, and the row's transform takes them to world time.
+    const rowTransform = resolveRowTransform(sourceRow, {
+      animations: state.animations,
+      namespaces: state.namespaces,
+    });
     computed.virtualFrames.forEach((frame) => {
-      const stamp = frame.stamp;
+      const stamp = frame.stamp * rowTransform.scaleX + rowTransform.offsetX;
       if (stamp < minStamp || stamp > maxStamp) return;
 
       frame.points.forEach((point) => {

@@ -160,6 +160,7 @@ export function computeRowData(
     max: verticalBounds[1],
   };
   const rowTransform = resolveRowTransform(sourceRow, context);
+  const rowTime = aggregateRowTime(sourceRow, context);
 
   const shouldPreview = Boolean(selectionState.instanceId === dragState?.instanceId);
   const draggedTrackIds = shouldPreview
@@ -312,12 +313,25 @@ export function computeRowData(
       }
     }
 
-    projectedPointLookup.set(trackKey, new Map(projectedPoints.map((point) => [point.id, point])));
+    // A row of several instances places each entry's keys in world time; the
+    // preview kept for the commit below stays in the track's own time.
+    const entryTime = rowTime?.(datum.namespaceId, datum.instanceId);
+    const rowProjectedPoints = entryTime
+      ? projectedPoints.map((point) => keypointInTime(point, entryTime))
+      : projectedPoints;
+    const rowFramePoints = entryTime
+      ? framePoints.map((point) => keypointInTime(point, entryTime))
+      : framePoints;
+
+    projectedPointLookup.set(
+      trackKey,
+      new Map(rowProjectedPoints.map((point) => [point.id, point])),
+    );
 
     projectedTracks[trackKey] = {
       ...baseTrack,
       id: trackKey,
-      points: projectedPoints.slice(),
+      points: rowProjectedPoints.slice(),
     } as Track<RawValue>;
     projectedSourceRow.data.push({
       ...(datum as SourceRowData),
@@ -328,7 +342,7 @@ export function computeRowData(
     markerTracks[trackKey] = {
       ...baseTrack,
       id: trackKey,
-      points: framePoints.slice(),
+      points: rowFramePoints.slice(),
     } as Track<RawValue>;
     markerSourceRow.data.push({
       ...(datum as SourceRowData),
@@ -506,8 +520,18 @@ export function computeRowData(
     });
   }
 
+  const rowViolations = shouldPreviewViolations ? effectiveViolations : filteredViolations;
   const violationSet = computeViolationSet(
-    shouldPreviewViolations ? effectiveViolations : filteredViolations,
+    rowTime
+      ? Object.fromEntries(
+          Object.entries(rowViolations).map(([trackId, list]) => [
+            trackId,
+            list.map((violation) =>
+              violationInTime(violation, rowTime(violation.namespace, violation.instanceId)),
+            ),
+          ]),
+        )
+      : rowViolations,
   );
 
   const renderMarkers = buildRenderMarkers(markerFramesWithPairing);
@@ -1009,18 +1033,85 @@ export function resolveRowTransform(
   for (const namespace of Object.values(context.namespaces)) {
     const instance = namespace.animationInstances[instanceId];
     if (!instance) continue;
-    const timescale = instance.settings.timescale ?? 1;
-    const offset = instance.settings.offset ?? 0;
-    const scaleX = Number.isFinite(timescale) && timescale !== 0 ? 1 / timescale : 1;
-    return {
-      scaleX,
-      scaleY: 1,
-      offsetX: offset,
-      offsetY: 0,
-    };
+    return instanceTransform(instance);
   }
 
   return IDENTITY_TRANSFORM;
+}
+
+/** An instance's map from its animation's local time to world time. */
+function instanceTransform(instance: Namespace["animationInstances"][string]): AffineTransform2D {
+  const timescale = instance.settings.timescale ?? 1;
+  const offset = instance.settings.offset ?? 0;
+  const scaleX = Number.isFinite(timescale) && timescale !== 0 ? 1 / timescale : 1;
+  return {
+    scaleX,
+    scaleY: 1,
+    offsetX: Number.isFinite(offset) ? offset : 0,
+    offsetY: 0,
+  };
+}
+
+/**
+ * Where a row that spans several instances places each entry's keys. A row of
+ * one instance keeps its keys in that instance's local time and is drawn
+ * through `resolveRowTransform`. A row of several has no one transform to be
+ * drawn through, so its keys, violations and segments are built in world time
+ * instead, each entry's through its own instance: that is the time everything
+ * reading such a row (drawing, dragging, box selection, the key strip, next and
+ * previous key, the time display) takes its stamps to be in.
+ *
+ * Undefined for a row of at most one instance, whose keys stay local.
+ */
+export function aggregateRowTime(
+  sourceRow: SourceRow,
+  context?: RowComputationContext,
+): ((namespaceId: string, instanceId: string) => AffineTransform2D) | undefined {
+  const instanceIds = uniq(
+    sourceRow.data.map((entry) => entry.instanceId).filter((id): id is string => Boolean(id)),
+  );
+  const namespaces = context?.namespaces;
+  if (instanceIds.length < 2 || !namespaces) return undefined;
+  return (namespaceId, instanceId) => {
+    const instance = namespaces[namespaceId]?.animationInstances[instanceId];
+    return instance ? instanceTransform(instance) : IDENTITY_TRANSFORM;
+  };
+}
+
+/**
+ * A key moved into another time: its stamp, and the time component of any
+ * explicit handle, which is an offset in the key's own time.
+ */
+function keypointInTime<T extends RawValue>(
+  point: Keypoint<T>,
+  transform: AffineTransform2D,
+): Keypoint<T> {
+  if (isIdentityTransform(transform)) return point;
+  const scaleHandle = (handle: AuthoredTransition | undefined) =>
+    handle && typeof handle === "object" && "x" in handle
+      ? { ...handle, x: handle.x * transform.scaleX }
+      : handle;
+  const transitions = point.transitions && {
+    ...point.transitions,
+    in: scaleHandle(point.transitions.in),
+    out: scaleHandle(point.transitions.out),
+  };
+  return {
+    ...point,
+    stamp: point.stamp * transform.scaleX + transform.offsetX,
+    ...(transitions ? { transitions } : {}),
+  };
+}
+
+/** A violation's range moved into another time. */
+function violationInTime(violation: Violation, transform: AffineTransform2D): Violation {
+  if (isIdentityTransform(transform)) return violation;
+  const start = violation.stampRange.start * transform.scaleX + transform.offsetX;
+  const end = violation.stampRange.end * transform.scaleX + transform.offsetX;
+  return {
+    ...violation,
+    stampRange: { start: Math.min(start, end), end: Math.max(start, end) },
+  };
 }
 
 function resolvePairingByPoint(

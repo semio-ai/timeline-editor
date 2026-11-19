@@ -11,6 +11,14 @@ import { corpusSteps, createCorpusStore, normalize, runStep } from "./edit-corpu
 const SEEDS = [3, 5, 8, 13, 21, 34];
 const LENGTH = 30;
 
+/** Every violation in a snapshot's track lists, canonical and preview. */
+function trackViolationsIn(snapshot: DerivedSnapshot): Violation[] {
+  return Object.values(snapshot.tracks).flatMap((track) => [
+    ...track.canonical.violations,
+    ...(track.preview?.violations ?? []),
+  ]);
+}
+
 function violationsIn(snapshot: DerivedSnapshot): Violation[] {
   return placedViolationsIn(snapshot).map(([, violation]) => violation);
 }
@@ -68,8 +76,20 @@ describe("cached derived build", () => {
         expect(normalize(state.derivedSnapshot), where).toEqual(normalize(fresh));
 
         // Violation ids are their content, so the cached and fresh builds agree
-        // on them exactly, not only up to renaming.
-        violationsIn(state.derivedSnapshot!).forEach((violation) => {
+        // on them exactly, not only up to renaming. A track's lists hold its
+        // violations in its own time; a row of several instances holds the
+        // same violations moved into world time, under the same ids.
+        const trackViolations = trackViolationsIn(state.derivedSnapshot!);
+        const trackViolationIds = new Set(trackViolations.map((violation) => violation.id));
+        Object.entries(state.derivedSnapshot!.rows).forEach(([rowId, row]) => {
+          Object.values(row.computed.violationSet?.violations ?? {}).forEach((violation) => {
+            expect(
+              trackViolationIds.has(violation.id),
+              `${where} row ${rowId} ${violation.id}`,
+            ).toBe(true);
+          });
+        });
+        trackViolations.forEach((violation) => {
           // Spelled out rather than taken from `violationId`, so a change to
           // what the id is made of fails here.
           expect(violation.id, where).toBe(
