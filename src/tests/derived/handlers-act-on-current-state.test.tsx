@@ -223,6 +223,11 @@ describe("an event handler acts on the state as it is, not on a published snapsh
     expect(result.current.keyState).toBe("full");
     // The previous key, back in world time.
     expect(result.current.prevTime).toBe(computeWorldStamp(first.stamp, 2, 250));
+    // A handler, when it runs, finds the same key at the same local time.
+    const now = result.current.keyStateNow();
+    expect(now.keyState).toBe("full");
+    expect(now.currentFrame?.stamp).toBe(second.stamp);
+    expect(now.playheadIn({ namespaceId, instanceId })).toBe(second.stamp);
   });
 
   it("finds a row's instance by its namespace too, when another namespace has one of the same id", () => {
