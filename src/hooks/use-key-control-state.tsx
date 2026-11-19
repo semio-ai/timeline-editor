@@ -1,7 +1,12 @@
 import { useCallback, useContext, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
-import { computeLocalStamp, computeNextTime, computePreviousTime } from "../functions";
+import {
+  computeLocalStamp,
+  computeNextTime,
+  computePreviousTime,
+  computeWorldStamp,
+} from "../functions";
 import { type AnimationActions, type AnimationData } from "../store-types";
 import { buildTrackKey } from "../utils/track-key";
 import { SemanticTime, SourceRow, InstancedFrameInfo, LayerBand } from "../types";
@@ -9,7 +14,6 @@ import { AnimationContext } from "../context";
 import { currentDerivedSnapshot } from "../subscriptions/init-derived-orchestrator";
 import type { ComputedRowData } from "../types";
 import { useAnimationStore } from "./use-animation-store";
-import { useLocalGlobalTransformLookup } from "./use-local-global-transforms";
 import { usePlayer } from "./use-player";
 
 export interface KeyControlState {
@@ -53,6 +57,13 @@ export interface KeysAtStamp {
   currentFrame?: InstancedFrameInfo;
   targetPoints: InstancedFrameInfo["points"];
   missingEntries: SourceRow["data"];
+}
+
+/** An animation instance by id, in whichever namespace holds it. */
+function instanceIn(namespaces: AnimationData["namespaces"], instanceId: string) {
+  return Object.values(namespaces)
+    .map((namespace) => namespace.animationInstances[instanceId])
+    .find(Boolean);
 }
 
 /** The tracks a row's key controls act on: its foreground tracks, or all of them. */
@@ -124,7 +135,6 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
   // during play); it just gives a sensible last-known value.
   const stampSafe = stamp ?? playerStore.getState().player.stamp;
 
-  const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   const uniqueInstanceId = useMemo(() => {
     const ids = uniq(
       source.data
@@ -134,14 +144,30 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
     return ids.length === 1 ? ids[0] : undefined;
   }, [source.data]);
 
-  const toLocal =
-    uniqueInstanceId && localGlobalTransformLookup.toLocal[uniqueInstanceId]
-      ? localGlobalTransformLookup.toLocal[uniqueInstanceId]
-      : undefined;
-  const toWorld =
-    uniqueInstanceId && localGlobalTransformLookup.toWorld[uniqueInstanceId]
-      ? localGlobalTransformLookup.toWorld[uniqueInstanceId]
-      : undefined;
+  // The instance's time transform, from the store: the same one an event
+  // handler reads when it acts (`keyStateNow`), so what the strip shows and
+  // what a click does agree, with or without a transform provider above.
+  const instanceSettings = useAnimationStore(
+    useShallow((state: AnimationData) =>
+      uniqueInstanceId ? instanceIn(state.namespaces, uniqueInstanceId)?.settings : undefined,
+    ),
+  );
+  const toLocal = useMemo(
+    () =>
+      instanceSettings
+        ? (world: number) =>
+            computeLocalStamp(world, instanceSettings.timescale, instanceSettings.offset)
+        : undefined,
+    [instanceSettings],
+  );
+  const toWorld = useMemo(
+    () =>
+      instanceSettings
+        ? (local: number) =>
+            computeWorldStamp(local, instanceSettings.timescale, instanceSettings.offset)
+        : undefined,
+    [instanceSettings],
+  );
 
   const localStamp = useMemo(
     () => (typeof toLocal === "function" ? toLocal(stampSafe) : stampSafe),
@@ -198,9 +224,7 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
     const row = state.instancedTrackSources[source.id] ?? source;
     const stampNow = state.playerStore.getState().player.stamp;
     const playheadIn = (instanceId: string) => {
-      const instance = Object.values(state.namespaces)
-        .map((namespace) => namespace.animationInstances[instanceId])
-        .find(Boolean);
+      const instance = instanceIn(state.namespaces, instanceId);
       return instance
         ? computeLocalStamp(stampNow, instance.settings.timescale, instance.settings.offset)
         : stampNow;

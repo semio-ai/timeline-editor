@@ -8,7 +8,7 @@ import { useTrackValueReader } from "../../hooks/use-track-value-reader";
 import { trackValueAt } from "../../functions/track-value-at";
 import { currentDerivedSnapshot } from "../../subscriptions/init-derived-orchestrator";
 import { buildTrackKey } from "../../utils/track-key";
-import { computeLocalStamp } from "../../functions";
+import { computeLocalStamp, computeWorldStamp } from "../../functions";
 import { createCorpusStore } from "./parity/edit-corpus";
 
 type Store = ReturnType<typeof createCorpusStore>;
@@ -154,5 +154,35 @@ describe("an event handler acts on the state as it is, not on a published snapsh
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("shows and acts on the same key with no transform provider above it", () => {
+    const store = createCorpusStore();
+    const { row, point } = leafWithKey(store);
+    const { namespaceId, instanceId } = row.data[0];
+    const namespace = store.getState().namespaces[namespaceId];
+    const instance = namespace.animationInstances[instanceId];
+    store.setState({
+      namespaces: {
+        ...store.getState().namespaces,
+        [namespaceId]: {
+          ...namespace,
+          animationInstances: {
+            ...namespace.animationInstances,
+            [instanceId]: { ...instance, settings: { ...instance.settings, offset: 250 } },
+          },
+        },
+      },
+    });
+    store
+      .getState()
+      .playerStore.getState()
+      .resetPlayer(computeWorldStamp(point.stamp, instance.settings.timescale, 250));
+    const current = store.getState().instancedTrackSources[row.id];
+    const { result } = renderHook(() => useKeyControlState(current), {
+      wrapper: wrapperFor(store),
+    });
+    expect(result.current.keyState).toBe("full");
+    expect(result.current.keyStateNow().keyState).toBe("full");
   });
 });
