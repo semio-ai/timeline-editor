@@ -181,9 +181,11 @@ function publishedViolations(published: DerivedSnapshot, from: DerivedInputs): F
       new Map(
         subjects.map((subject) => {
           const before = published.tracks[subject.trackKey];
+          // A track key joins namespace, instance and track ids with "/", so
+          // two instances can share one only by splitting it differently:
+          // with the same track, their instance ids differ too.
           const same =
             before?.metadata &&
-            before.metadata.namespaceId === subject.namespaceId &&
             before.metadata.instanceId === subject.instanceId &&
             before.metadata.duration === subject.durationMs &&
             Object.is(before.metadata.timescale, subject.timescale) &&

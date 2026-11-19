@@ -3,6 +3,7 @@ import { renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { expect, it, vi } from "vitest";
 import { AnimationContext } from "../../context";
+import { computeWorldStamp } from "../../functions";
 import { useControlMenu } from "../../hooks/use-control-menu";
 import { createCorpusStore } from "./parity/edit-corpus";
 
@@ -114,7 +115,7 @@ function menuAt(store: Store, row: ReturnType<typeof rowKeyedTogether>["row"], s
   const instance = Object.values(store.getState().namespaces)
     .map((namespace) => namespace.animationInstances[row.data[0].instanceId])
     .find(Boolean)!;
-  const world = stamp * (instance.settings.timescale || 1) + (instance.settings.offset ?? 0);
+  const world = computeWorldStamp(stamp, instance.settings.timescale, instance.settings.offset);
   store.getState().playerStore.getState().resetPlayer(world);
   return renderHook(
     () =>
@@ -174,6 +175,39 @@ it("adds a key to the track that now lacks one, not to the one that lacked one b
       expect(store.getState().tracks[datum.trackId].points.length, datum.trackId).toBe(
         counts[i] + (datum.trackId === now.trackId ? 1 : 0),
       ),
+    );
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("adds keys only to the tracks the row holds now", () => {
+  vi.useFakeTimers();
+  try {
+    const store = createCorpusStore();
+    const { row, stamp } = rowKeyedTogether(store);
+    // A stamp where none of the row's tracks has a key.
+    const empty = stamp + 3;
+    const { result } = menuAt(store, row, empty);
+    expect(result.current.keyState).toBe("none");
+    stall(store);
+    // The row stops holding its first track.
+    const [dropped, ...kept] = row.data;
+    store.setState({
+      instancedTrackSources: {
+        ...store.getState().instancedTrackSources,
+        [row.id]: { ...row, data: kept },
+      },
+    });
+    const keysOf = (trackId: string) => store.getState().tracks[trackId].points.length;
+    const before = keysOf(dropped.trackId);
+    result.current.handleToggleKeyframe();
+    expect(keysOf(dropped.trackId)).toBe(before);
+    kept.forEach((datum) =>
+      expect(
+        store.getState().tracks[datum.trackId].points.some((p) => Math.abs(p.stamp - empty) < 1e-6),
+        datum.trackId,
+      ).toBe(true),
     );
   } finally {
     vi.useRealTimers();

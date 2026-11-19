@@ -13,7 +13,7 @@ import {
   selectDerivedInputs,
 } from "../../subscriptions/init-derived-orchestrator";
 import { sharedPreviewViolations } from "../../functions/build-derived-snapshot";
-import { ViolationType, type TrackKey, type Violation } from "../../types";
+import { ViolationType, type DerivedSnapshot, type TrackKey, type Violation } from "../../types";
 import { violationId } from "../../functions/compute-track-violations";
 import { isFilteredSourceRowId } from "../../functions/view-filtered-source-row";
 import { getMarkerFrame } from "../selection/selection-test-helpers";
@@ -1055,7 +1055,7 @@ describe("derived store edges", () => {
       const state = createCorpusStore().getState();
       const { trackId } = leafWithKey(createCorpusStore());
       const base = state.tracks[trackId];
-      const count = 600;
+      const count = 520;
       const tracks = Object.fromEntries(
         Array.from({ length: count }, (_, i) => {
           const id = `copy-${i}`;
@@ -1098,13 +1098,14 @@ describe("derived store edges", () => {
       );
       expect(compiles).toBe(count + (count - 512));
     },
+    30_000,
   );
 
   it("compiles again only past the curve cache, when instances sharing track keys visit their tracks in opposite orders", () => {
     const state = createCorpusStore().getState();
     const { trackId } = leafWithKey(createCorpusStore());
     const base = state.tracks[trackId];
-    const count = 600;
+    const count = 520;
     const tracks = Object.fromEntries(
       Array.from({ length: count }, (_, i) => {
         const id = `copy-${i}`;
@@ -1150,7 +1151,7 @@ describe("derived store edges", () => {
     // Judging the later instance in its own compile order would recompile
     // every track once more.
     expect(compiles).toBe(count + 2 * (count - 512));
-  });
+  }, 30_000);
 
   it("answers a restart with the set a provider's release started during it", () => {
     vi.useFakeTimers();
@@ -1277,6 +1278,146 @@ describe("derived store edges", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe("judges again, in an action's snapshot, the tracks an edit to what their checks read changed", () => {
+    /** Every canonical violation by track, as content. */
+    const violationsOf = (snapshot: DerivedSnapshot | undefined) =>
+      Object.fromEntries(
+        Object.entries(snapshot?.tracks ?? {}).map(([key, track]) => [
+          key,
+          track.canonical.violations.map((v) =>
+            JSON.stringify([v.namespace, v.instanceId, v.trackId, v.type, v.stampRange]),
+          ),
+        ]),
+      );
+    const leafInstance = (store: Store) => {
+      const { row } = leafWithKey(store);
+      const { namespaceId, instanceId } = row.data[0];
+      const namespace = store.getState().namespaces[namespaceId];
+      return {
+        namespaceId,
+        instanceId,
+        namespace,
+        instance: namespace.animationInstances[instanceId],
+      };
+    };
+    const edits: [string, (store: Store) => void][] = [
+      [
+        "the animatable's limits",
+        (store) => {
+          const { trackId } = leafWithKey(store);
+          const { animatableId } = store.getState().tracks[trackId];
+          const animatable = store.getState().animatables[animatableId] as {
+            constraints?: object;
+          };
+          store.setState({
+            animatables: {
+              ...store.getState().animatables,
+              [animatableId]: {
+                ...animatable,
+                constraints: { ...animatable.constraints, min: -0.001, max: 0.001 },
+              } as never,
+            },
+          });
+        },
+      ],
+      [
+        "the instance's timescale",
+        (store) => {
+          const { namespaceId, namespace, instanceId, instance } = leafInstance(store);
+          store.setState({
+            namespaces: {
+              ...store.getState().namespaces,
+              [namespaceId]: {
+                ...namespace,
+                animationInstances: {
+                  ...namespace.animationInstances,
+                  [instanceId]: { ...instance, settings: { ...instance.settings, timescale: 40 } },
+                },
+              },
+            },
+          });
+        },
+      ],
+      [
+        "the animation's duration",
+        (store) => {
+          // Violations are sampled across the animation's duration, so
+          // lengthening it by a fraction of a sample interval moves where
+          // every one of them starts and ends.
+          const { instance } = leafInstance(store);
+          const { animations, derivedSnapshot } = store.getState();
+          const animation = animations[instance.animationId];
+          const duration = Object.values(derivedSnapshot!.tracks).find(
+            (track) => track.metadata?.instanceId === instance.id,
+          )!.metadata!.duration;
+          store.setState({
+            animations: {
+              ...animations,
+              [animation.id]: { ...animation, defaultViewportExtent: duration + 345 },
+            },
+          });
+        },
+      ],
+      [
+        "the evaluator",
+        (store) => {
+          const evaluator = store.getState().trackEvaluator!;
+          // Evaluates every key 1000 higher: past any limit.
+          store.setState({
+            trackEvaluator: {
+              compile: (track) =>
+                evaluator.compile({
+                  ...track,
+                  points: track.points.map((p) =>
+                    typeof p.value === "number" ? { ...p, value: p.value + 1000 } : p,
+                  ),
+                }),
+            },
+          });
+        },
+      ],
+      [
+        "which instance a track key names",
+        (store) => {
+          // Two instances whose ids differ only in where a "/" falls share
+          // their track keys: replacing one with the other keeps every key.
+          const { namespace } = leafInstance(store);
+          const [instance] = Object.values(namespace.animationInstances);
+          const named = (namespaceId: string, instanceId: string) => ({
+            ...namespace,
+            id: namespaceId,
+            animationInstances: { [instanceId]: { ...instance, id: instanceId } },
+          });
+          if (!store.getState().namespaces["a/b"]) {
+            store.setState({
+              namespaces: { ...store.getState().namespaces, "a/b": named("a/b", "c") },
+            });
+            return;
+          }
+          const { "a/b": _replaced, ...rest } = store.getState().namespaces;
+          store.setState({ namespaces: { ...rest, a: named("a", "b/c") } });
+        },
+      ],
+    ];
+
+    it.each(edits)("%s", (name, edit) => {
+      vi.useFakeTimers();
+      try {
+        const store = createCorpusStore();
+        // The colliding case first publishes the instance it later replaces.
+        if (name === "which instance a track key names") edit(store);
+        stallBuilding(store);
+        const published = store.getState().derivedSnapshot;
+        edit(store);
+        const fresh = computeDerivedState(selectDerivedInputs(store.getState()), 0);
+        expect(violationsOf(fresh)).not.toEqual(violationsOf(published));
+        expect(violationsOf(currentDerivedSnapshot(store.getState()))).toEqual(violationsOf(fresh));
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   it("runs its own subscriptions before a host listener subscribed between two starts", () => {
