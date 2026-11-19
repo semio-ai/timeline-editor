@@ -1400,14 +1400,68 @@ describe("derived store edges", () => {
           store.setState({ namespaces: { ...rest, a: named("a", "b/c") } });
         },
       ],
+      [
+        "which track a shared track key names",
+        (store) => {
+          // Namespace "a/i" playing track "t", and namespace "a" playing track
+          // "i/t", through instances both named "i": their track keys are the
+          // same. The tracks differ, so their violations do.
+          const { namespace } = leafInstance(store);
+          const [instance] = Object.values(namespace.animationInstances);
+          const { trackId } = leafWithKey(store);
+          const base = store.getState().tracks[trackId];
+          const { animations, tracks } = store.getState();
+          const animation = animations[instance.animationId];
+          if (!store.getState().namespaces["a/i"]) {
+            store.setState({
+              tracks: {
+                ...tracks,
+                t: { ...base, id: "t" },
+                "i/t": {
+                  ...base,
+                  id: "i/t",
+                  points: base.points.map((p) =>
+                    typeof p.value === "number" ? { ...p, value: p.value + 1000 } : p,
+                  ),
+                },
+              },
+              animations: {
+                ...animations,
+                plain: { ...animation, id: "plain", tracks: ["t"] },
+                raised: { ...animation, id: "raised", tracks: ["i/t"] },
+              },
+              namespaces: {
+                ...store.getState().namespaces,
+                "a/i": {
+                  ...namespace,
+                  id: "a/i",
+                  animationInstances: { i: { ...instance, id: "i", animationId: "plain" } },
+                },
+              },
+            });
+            return;
+          }
+          const { "a/i": _replaced, ...rest } = store.getState().namespaces;
+          store.setState({
+            namespaces: {
+              ...rest,
+              a: {
+                ...namespace,
+                id: "a",
+                animationInstances: { i: { ...instance, id: "i", animationId: "raised" } },
+              },
+            },
+          });
+        },
+      ],
     ];
 
     it.each(edits)("%s", (name, edit) => {
       vi.useFakeTimers();
       try {
         const store = createCorpusStore();
-        // The colliding case first publishes the instance it later replaces.
-        if (name === "which instance a track key names") edit(store);
+        // The colliding cases first publish what they later replace.
+        if (name.includes("track key names")) edit(store);
         stallBuilding(store);
         const published = store.getState().derivedSnapshot;
         edit(store);

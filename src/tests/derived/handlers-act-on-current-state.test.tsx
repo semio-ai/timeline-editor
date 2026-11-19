@@ -185,4 +185,42 @@ describe("an event handler acts on the state as it is, not on a published snapsh
     expect(result.current.keyState).toBe("full");
     expect(result.current.keyStateNow().keyState).toBe("full");
   });
+
+  it("converts between world and the instance's local time by its timescale and offset", () => {
+    const store = createCorpusStore();
+    const { row, trackId } = leafWithKey(store);
+    const { namespaceId, instanceId } = row.data[0];
+    const namespace = store.getState().namespaces[namespaceId];
+    const instance = namespace.animationInstances[instanceId];
+    store.setState({
+      namespaces: {
+        ...store.getState().namespaces,
+        [namespaceId]: {
+          ...namespace,
+          animationInstances: {
+            ...namespace.animationInstances,
+            [instanceId]: {
+              ...instance,
+              settings: { ...instance.settings, timescale: 2, offset: 250 },
+            },
+          },
+        },
+      },
+    });
+    const [first, second] = store.getState().tracks[trackId].points;
+    // On the second key, by its world time: away from local 0, where a
+    // timescale changes nothing.
+    expect(second.stamp).not.toBe(0);
+    store
+      .getState()
+      .playerStore.getState()
+      .resetPlayer(computeWorldStamp(second.stamp, 2, 250));
+    const current = store.getState().instancedTrackSources[row.id];
+    const { result } = renderHook(() => useKeyControlState(current), {
+      wrapper: wrapperFor(store),
+    });
+    expect(result.current.keyState).toBe("full");
+    // The previous key, back in world time.
+    expect(result.current.prevTime).toBe(computeWorldStamp(first.stamp, 2, 250));
+  });
 });
