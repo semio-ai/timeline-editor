@@ -259,10 +259,25 @@ export function createDerivedOrchestrator(
   // Used when the host sets none: today's checks, cached per track.
   const defaultProvider = createTrackFeedbackProvider();
 
+  /**
+   * Ends the current watch before releasing it: the provider's unsubscribe is
+   * its own code, and may write to the store or call its listener, starting a
+   * flush that must find this watch already over.
+   */
+  const endWatch = () => {
+    const release = unwatchProvider;
+    unwatchProvider = undefined;
+    watchedProvider = undefined;
+    watch += 1;
+    release?.();
+  };
+
   const watchProvider = (provider: FeedbackProvider | undefined) => {
     if (provider === watchedProvider) return;
-    unwatchProvider?.();
-    unwatchProvider = undefined;
+    endWatch();
+    // Releasing the previous provider ran its code, which may have started a
+    // newer watch; that one stands.
+    if (watchedProvider !== undefined || unwatchProvider !== undefined) return;
     watchedProvider = provider;
     // Each watch is its own, even of a provider watched before: the same
     // provider can be replaced and set again while it is still subscribing.
@@ -384,10 +399,7 @@ export function createDerivedOrchestrator(
       clearTimeout(stallTimer);
       stallTimer = undefined;
       stalled = false;
-      unwatchProvider?.();
-      unwatchProvider = undefined;
-      watchedProvider = undefined;
-      watch += 1;
+      endWatch();
     },
   };
 }

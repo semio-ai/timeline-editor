@@ -73,8 +73,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
 
   const running = usePlayer(useShallow((state) => state.player.running));
   const playerStore = useAnimationStore((state) => state.playerStore);
-  const { keyState, currentFrame, missingEntries, targetPoints } =
-    useKeyControlState(fallbackSource);
+  const { keyStateNow } = useKeyControlState(fallbackSource);
 
   const { treeOptions, treeValues }: { treeOptions: TreeOption[]; treeValues: string[] } =
     useMemo(() => {
@@ -178,6 +177,9 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
         authoringDisabled={allNonEditable}
         onHexClick={() => {
           if (controlsDisabled) return;
+          // The keys at the playhead as the state has them now: the strip
+          // shows the published snapshot, which can trail it.
+          const { keyState, currentFrame, missingEntries, targetPoints } = keyStateNow();
           if (keyState === "full" && currentFrame) {
             const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
             const removals: { trackId: string; keypointId: string }[] = points.map((p) => ({

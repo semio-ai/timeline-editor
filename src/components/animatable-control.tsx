@@ -552,13 +552,7 @@ function AnimatableGroupControl({
         source={sourceRow}
         color={resolvedColor}
         disabled={disabled || running || allReadonly}
-        onHexClick={() => {
-          if (controlMenu.keyState === "full") {
-            controlMenu.handleRemoveKeyframe();
-          } else {
-            controlMenu.handleAddKeyframe();
-          }
-        }}
+        onHexClick={controlMenu.handleToggleKeyframe}
       />
     );
   } else {

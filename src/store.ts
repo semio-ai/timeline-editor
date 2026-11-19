@@ -556,12 +556,14 @@ export const AnimationSlice = (
       );
     },
     initAnimationSubscriptions: () => {
-      // Clean up any previous subscriptions for this store instance
+      // Stop the set already running. Its cleanup clears the handle itself.
       const existingCleanup = (api as any).__derivedCleanup as (() => void) | undefined;
-      if (typeof existingCleanup === "function") {
-        existingCleanup();
-        (api as any).__derivedCleanup = undefined;
-      }
+      if (typeof existingCleanup === "function") existingCleanup();
+      // Stopping it can run a provider's unsubscribe, which may have started
+      // a set of its own. That set is current, so it is the one this call
+      // answers with: starting another would leave it running with no handle.
+      const startedMeanwhile = (api as any).__derivedCleanup as (() => void) | undefined;
+      if (typeof startedMeanwhile === "function") return startedMeanwhile;
 
       // The derived orchestrator's listener runs after the other
       // subscriptions in every notification, so it builds the snapshot once
@@ -585,13 +587,17 @@ export const AnimationSlice = (
       // runs it before starting its own set, which spends the handle: running
       // it again must not stop the newer set's work, and
       // `stopAnimationSubscriptions` is how a host stops whatever is current.
-      // So while a handle is live it is the current one.
       let active = true;
       const cleanup = () => {
         if (!active) return;
         active = false;
+        // Stops being current before anything it stops runs: a provider's
+        // release may start the subscriptions again, and that start must
+        // find no set running, not this one. While active it is the current
+        // handle: every later start spends the current one before it
+        // installs its own.
+        (api as any).__derivedCleanup = undefined;
         unsubs.forEach((unsub) => unsub());
-        if ((api as any).__derivedCleanup === cleanup) (api as any).__derivedCleanup = undefined;
       };
       // Installed before the first build: a provider or listener that build
       // calls may stop the store or start it again, and either must find

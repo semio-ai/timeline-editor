@@ -203,9 +203,7 @@ function InnerTrackControl({
     handleToggleVisible,
     handleToggleMuted,
     handleToggleLocked,
-    handleAddKeyframe,
-    handleRemoveKeyframe,
-    keyState,
+    handleToggleKeyframe,
   } = useControlMenu({
     sourceRow,
     propertyControls,
@@ -418,13 +416,7 @@ function InnerTrackControl({
                 authoringDisabled={allReadonly}
                 source={sourceRow}
                 color={color}
-                onHexClick={() => {
-                  if (keyState === "full") {
-                    handleRemoveKeyframe();
-                  } else {
-                    handleAddKeyframe();
-                  }
-                }}
+                onHexClick={handleToggleKeyframe}
               />
             )
           }

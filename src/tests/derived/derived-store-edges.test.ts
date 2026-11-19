@@ -740,6 +740,10 @@ describe("derived store edges", () => {
       restartOnRelease = true;
       store.getState().stopAnimationSubscriptions();
       expect(restartOnRelease).toBe(false);
+      // The set the release started is running.
+      const running = store.getState().derivedSnapshot!.version!;
+      bumpKey(store);
+      expect(store.getState().derivedSnapshot!.version!).toBeGreaterThan(running);
 
       store.getState().stopAnimationSubscriptions();
       vi.runAllTimers();
@@ -1009,6 +1013,161 @@ describe("derived store edges", () => {
       },
     });
     expect(currentDerivedSnapshot(store.getState())).toBe(store.getState().derivedSnapshot);
+  });
+
+  it("judges, for a track key two instances share, the one whose record the snapshot keeps", () => {
+    const store = createCorpusStore();
+    const [namespace] = Object.values(store.getState().namespaces);
+    const [instance] = Object.values(namespace.animationInstances);
+    // Two instances whose namespace and instance ids differ only in where a
+    // "/" falls, so their tracks share track keys.
+    const copy = (namespaceId: string, instanceId: string) => ({
+      ...namespace,
+      id: namespaceId,
+      animationInstances: { [instanceId]: { ...instance, id: instanceId } },
+    });
+    store.setState({
+      namespaces: {
+        ...store.getState().namespaces,
+        "a/b": copy("a/b", "c"),
+        a: copy("a", "b/c"),
+      },
+    });
+    const shared = Object.values(store.getState().derivedSnapshot!.tracks).filter(
+      (track) => track.metadata?.namespaceId === "a" || track.metadata?.namespaceId === "a/b",
+    );
+    expect(shared.some((track) => track.canonical.violations.length > 0)).toBe(true);
+    shared.forEach((track) =>
+      track.canonical.violations.forEach((violation) => {
+        expect(violation.namespace).toBe(track.metadata?.namespaceId);
+        expect(violation.instanceId).toBe(track.metadata?.instanceId);
+      }),
+    );
+  });
+
+  it.each([
+    ["the editor's own checks", undefined],
+    ["the default provider", createTrackFeedbackProvider()],
+  ])(
+    "compiles again, past the curve cache's size, only the tracks beyond it, judged by %s",
+    (_by, feedbackProvider) => {
+      const state = createCorpusStore().getState();
+      const { trackId } = leafWithKey(createCorpusStore());
+      const base = state.tracks[trackId];
+      const count = 600;
+      const tracks = Object.fromEntries(
+        Array.from({ length: count }, (_, i) => {
+          const id = `copy-${i}`;
+          const points = Object.freeze(
+            base.points.map((p) => Object.freeze({ ...p, value: (p.value as number) + i * 0.001 })),
+          );
+          return [id, Object.freeze({ ...base, id, points })];
+        }),
+      );
+      const animation = {
+        ...Object.values(state.animations)[0],
+        id: "copies",
+        tracks: Object.keys(tracks),
+      };
+      const [namespace] = Object.values(state.namespaces);
+      const [instance] = Object.values(namespace.animationInstances);
+      let compiles = 0;
+      const evaluator = {
+        compile: (track: Parameters<NonNullable<typeof state.trackEvaluator>["compile"]>[0]) => {
+          compiles += 1;
+          return state.trackEvaluator!.compile(track);
+        },
+      };
+      computeDerivedState(
+        {
+          ...selectDerivedInputs(state),
+          tracks: { ...state.tracks, ...tracks } as typeof state.tracks,
+          animations: { copies: animation } as typeof state.animations,
+          namespaces: {
+            [namespace.id]: {
+              ...namespace,
+              animationInstances: { [instance.id]: { ...instance, animationId: "copies" } },
+            },
+          } as typeof state.namespaces,
+          instancedTrackSources: {},
+          trackEvaluator: evaluator,
+        },
+        0,
+        feedbackProvider,
+      );
+      expect(compiles).toBe(count + (count - 512));
+    },
+  );
+
+  it("answers a restart with the set a provider's release started during it", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      let restartOnRelease = false;
+      store.setState({
+        feedbackProvider: {
+          canonical: judged,
+          preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+          subscribe: () => () => {
+            if (!restartOnRelease) return;
+            restartOnRelease = false;
+            store.getState().initAnimationSubscriptions();
+          },
+        },
+      });
+      restartOnRelease = true;
+      // Releasing the provider while restarting starts a set of its own.
+      store.getState().initAnimationSubscriptions();
+      expect(restartOnRelease).toBe(false);
+      // One set is running.
+      const running = store.getState().derivedSnapshot!.version!;
+      bumpKey(store);
+      expect(store.getState().derivedSnapshot!.version! - running).toBe(1);
+      store.getState().stopAnimationSubscriptions();
+      vi.runAllTimers();
+      const stopped = store.getState().derivedSnapshot!.version;
+      bumpKey(store);
+      expect(store.getState().derivedSnapshot!.version).toBe(stopped);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("releases a replaced provider once, though its release writes to the store", () => {
+    const store = createCorpusStore();
+    let releases = 0;
+    const listeners = new Set<() => void>();
+    store.setState({
+      feedbackProvider: {
+        canonical: judged,
+        preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+        subscribe: (listener) => {
+          listeners.add(listener);
+          return () => {
+            releases += 1;
+            listeners.delete(listener);
+            // Its own code: writes to an input, and calls its listener.
+            bumpKey(store);
+            listener();
+          };
+        },
+      },
+    });
+    const next = new Set<() => void>();
+    store.setState({
+      feedbackProvider: {
+        canonical: judged,
+        preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+        subscribe: (listener) => {
+          next.add(listener);
+          return () => next.delete(listener);
+        },
+      },
+    });
+    expect(releases).toBe(1);
+    expect(listeners.size).toBe(0);
+    expect(next.size).toBe(1);
+    expect(isCurrent(store)).toBe(true);
   });
 
   it("runs its own subscriptions before a host listener subscribed between two starts", () => {
