@@ -350,9 +350,14 @@ export function createDerivedOrchestrator(
         else flush();
       });
     } catch (error) {
-      // Not watched after all: the next flush tries again, rather than
-      // taking the provider for watched and never hearing it.
-      if (watch === thisWatch) watchedProvider = undefined;
+      // Not watched after all: the watch ends, so a listener the provider
+      // kept is ignored, and the next flush tries again rather than taking
+      // the provider for watched and never hearing it. A newer watch the
+      // provider started from inside `subscribe` stands.
+      if (watch === thisWatch) {
+        watchedProvider = undefined;
+        watch += 1;
+      }
       throw error;
     }
     // A provider may answer from inside `subscribe`, and what that answer sets
@@ -419,11 +424,15 @@ export function createDerivedOrchestrator(
       try {
         flush();
       } catch (error) {
-        // No caller to hand the error to: a provider or listener threw while
-        // the retry built. Report it and retry later, with the same backoff,
-        // so the change it was building is still shown in the end.
+        // No caller to hand the error to. Report it and retry later, with
+        // the same backoff: a build that threw (a provider failing) left the
+        // inputs unbuilt, so the retry builds them. A listener that threw
+        // after a publish has only cut that notification short, as any
+        // throwing store listener does; the snapshot is published.
         console.error("Building the derived snapshot failed; retrying.", error);
-        stall();
+        // Unless what threw had stopped the orchestrator first: a stopped one
+        // keeps no timer.
+        if (started) stall();
       }
     }, delay);
   };

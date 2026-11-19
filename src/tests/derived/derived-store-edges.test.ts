@@ -1563,19 +1563,20 @@ describe("derived store edges", () => {
         },
       },
     });
-    const watching = new Set<() => void>();
+    let subscribes = 0;
     store.setState({
       feedbackProvider: {
         canonical: judged,
         preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
-        subscribe: (listener) => {
-          watching.add(listener);
-          return () => watching.delete(listener);
+        subscribe: () => {
+          subscribes += 1;
+          return () => {};
         },
       },
     });
     expect(releasing).toBe(true);
-    expect(watching.size).toBe(0);
+    // Not subscribed at all, not subscribed and released.
+    expect(subscribes).toBe(0);
   });
 
   it("subscribes again to a provider whose subscribe threw", () => {
@@ -1619,6 +1620,83 @@ describe("derived store edges", () => {
       (track) => track.canonical.violations[0]?.stampRange.end,
     );
     expect(new Set(ends)).toEqual(new Set([1]));
+  });
+
+  it("ignores a listener a provider kept from a subscribe that threw", () => {
+    const store = createCorpusStore();
+    let kept = () => {};
+    store.setState({ feedbackProvider: undefined });
+    expect(() =>
+      store.setState({
+        feedbackProvider: {
+          canonical: judged,
+          preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+          subscribe: (listener) => {
+            kept = listener;
+            throw new Error("subscribe failed");
+          },
+        },
+      }),
+    ).toThrow("subscribe failed");
+    store.setState({ feedbackProvider: undefined });
+    const version = store.getState().derivedSnapshot!.version;
+    kept();
+    expect(store.getState().derivedSnapshot!.version).toBe(version);
+  });
+
+  it("keeps the watch a provider started from inside a subscribe that threw", () => {
+    const store = createCorpusStore();
+    let subscribes = 0;
+    const replacement: FeedbackProvider = {
+      canonical: judged,
+      preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+      subscribe: () => {
+        subscribes += 1;
+        return () => {};
+      },
+    };
+    expect(() =>
+      store.setState({
+        feedbackProvider: {
+          canonical: judged,
+          preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+          subscribe: () => {
+            store.setState({ feedbackProvider: replacement });
+            throw new Error("subscribe failed");
+          },
+        },
+      }),
+    ).toThrow("subscribe failed");
+    bumpKey(store);
+    expect(subscribes).toBe(1);
+  });
+
+  it("keeps no retry when a provider stops the store and then throws during one", () => {
+    vi.useFakeTimers();
+    const report = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const store = createCorpusStore();
+      stallBuilding(store);
+      let armed = true;
+      store.setState({
+        feedbackProvider: {
+          canonical: () => {
+            if (!armed) return new Map();
+            armed = false;
+            store.getState().stopAnimationSubscriptions();
+            throw new Error("provider failed");
+          },
+          preview: () => [],
+        },
+      });
+      vi.advanceTimersToNextTimer();
+      expect(armed).toBe(false);
+      expect(report).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      report.mockRestore();
+      vi.useRealTimers();
+    }
   });
 
   it("runs its own subscriptions before a host listener subscribed between two starts", () => {
