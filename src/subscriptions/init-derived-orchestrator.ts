@@ -10,7 +10,11 @@ import type {
 import { DerivedSnapshot } from "../types";
 import { buildDerivedSnapshotWithRows } from "../functions/build-derived-snapshot";
 import { recordReusableRows, reusableRowsOf } from "../functions/row-reuse";
-import { createTrackFeedbackProvider, type FeedbackProvider } from "../functions/feedback-provider";
+import {
+  computeSubjectViolations,
+  createTrackFeedbackProvider,
+  type FeedbackProvider,
+} from "../functions/feedback-provider";
 import { logDerivedEvent } from "../utils/derived-debug";
 import { projectRowVerticalAxes } from "./update-view-vertical-axes";
 import { sealDerivedSnapshot } from "./seal-derived-snapshot";
@@ -126,14 +130,23 @@ const builtForAction = new WeakMap<
  * a commit writes where the drag used to be. Every action that reads derived
  * data reads it through this instead.
  *
+ * In the middle of a write, the state itself is only partly derived: the
+ * source rows are among the inputs, and the store's subscriptions that bring
+ * them up to date may not have run yet. A snapshot built then shows the state
+ * as it stands, with the rows as they were (a track the write added has no
+ * row yet). Nothing an action does can finish that derivation, so an action
+ * a listener takes mid-write acts on that state.
+ *
  * A snapshot built here is not published: publishing would notify listeners,
  * which could change the state between this and the action's use of it, and
  * in the middle of a write it would show them a snapshot of half-updated
- * inputs. The published snapshot catches up when building resumes. Its
- * violations come from the editor's own checks, not the host's provider: no
- * action reads them, and asking a provider from inside an action would let it
- * write. Asked again for the same inputs, it answers with the snapshot it
- * built before.
+ * inputs. The published snapshot catches up when building resumes. No action
+ * reads violations, so the host's provider is not asked: for a track whose
+ * inputs are those the published snapshot was built from, its violations are
+ * taken from it, and for any other the editor's own checks judge it. Taking
+ * them over is what lets a row whose inputs did not change be handed on.
+ * Asked again for the same inputs, it answers with the snapshot it built
+ * before.
  *
  * Given an Immer draft, it reads the state the recipe started from.
  */
@@ -147,9 +160,44 @@ export function currentDerivedSnapshot(state: AnimationData): DerivedSnapshot | 
   if (builtFrom && shallow(withoutProvider(builtFrom), inputs)) return published;
   const built = builtForAction.get(published);
   if (built && shallow(built.inputs, inputs)) return built.snapshot;
-  const snapshot = computeDerivedState(inputs, published.version ?? 0, undefined, published);
+  const snapshot = computeDerivedState(
+    inputs,
+    published.version ?? 0,
+    builtFrom && publishedViolations(published, builtFrom),
+    published,
+  );
   builtForAction.set(published, { inputs, snapshot });
   return snapshot;
+}
+
+/**
+ * Answers from `published` for a track whose inputs are the ones it was built
+ * from, and with the editor's own checks otherwise. It never asks the host's
+ * provider.
+ */
+function publishedViolations(published: DerivedSnapshot, from: DerivedInputs): FeedbackProvider {
+  return {
+    canonical: (subjects, evaluator) =>
+      new Map(
+        subjects.map((subject) => {
+          const before = published.tracks[subject.trackKey];
+          const same =
+            before?.metadata &&
+            before.metadata.namespaceId === subject.namespaceId &&
+            before.metadata.instanceId === subject.instanceId &&
+            before.metadata.duration === subject.durationMs &&
+            Object.is(before.metadata.timescale, subject.timescale) &&
+            from.tracks[subject.trackId] === subject.track &&
+            from.animatables[subject.track.animatableId] === subject.animatable &&
+            from.trackEvaluator === evaluator;
+          return [
+            subject.trackKey,
+            same ? before.canonical.violations : computeSubjectViolations(subject, evaluator),
+          ];
+        }),
+      ),
+    preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+  };
 }
 
 const withoutProvider = ({

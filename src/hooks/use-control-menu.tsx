@@ -208,14 +208,14 @@ export function useControlMenu({
   const handleAddKeyframe = useCallback(() => {
     if (playing || allReadonly) return;
     const stamp = playerStore.getState().player.stamp;
-    const { keyState: keyStateAtCall, missingEntries } = keyStateNow();
-    const targets = keyStateAtCall === "partial" ? missingEntries : sourceRow.data;
+    const { keyState: keyStateAtCall, missingEntries, entries } = keyStateNow();
+    const targets = keyStateAtCall === "partial" ? missingEntries : entries;
     // Batched so adding keys across a row's tracks is one undoable edit.
     insertKeypointsAtWorldStamp(
       targets.map((datum) => ({ trackId: datum.trackId, instanceId: datum.instanceId })),
       stamp,
     );
-  }, [playing, allReadonly, keyStateNow, sourceRow.data, insertKeypointsAtWorldStamp, playerStore]);
+  }, [playing, allReadonly, keyStateNow, insertKeypointsAtWorldStamp, playerStore]);
 
   const handleRemoveKeyframe = useCallback(() => {
     if (playing || allReadonly) return;

@@ -17,6 +17,7 @@ import { ViolationType, type TrackKey, type Violation } from "../../types";
 import { violationId } from "../../functions/compute-track-violations";
 import { isFilteredSourceRowId } from "../../functions/view-filtered-source-row";
 import { getMarkerFrame } from "../selection/selection-test-helpers";
+import { buildTrackKey } from "../../utils/track-key";
 import { createCorpusStore, normalize } from "./parity/edit-corpus";
 
 type Store = ReturnType<typeof createCorpusStore>;
@@ -1220,6 +1221,62 @@ describe("derived store edges", () => {
     expect(listeners.size).toBe(0);
     expect(next.size).toBe(1);
     expect(isCurrent(store)).toBe(true);
+  });
+
+  it("hands on, in an action's snapshot, the published rows an edit did not reach", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      stallBuilding(store);
+      const { trackId } = leafWithKey(store);
+      bumpKey(store);
+      const published = store.getState().derivedSnapshot!;
+      const current = currentDerivedSnapshot(store.getState())!;
+      const sources = store.getState().instancedTrackSources;
+      let kept = 0;
+      Object.keys(current.rows).forEach((rowId) => {
+        const draws = sources[rowId]?.data.some((datum) => datum.trackId === trackId);
+        if (draws) expect(current.rows[rowId], rowId).not.toBe(published.rows[rowId]);
+        else if (current.rows[rowId] === published.rows[rowId]) kept += 1;
+      });
+      expect(kept).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("judges again, in an action's snapshot, a track an edit changed", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      stallBuilding(store);
+      const { row, trackId, point } = leafWithKey(store);
+      const datum = row.data[0];
+      const key = buildTrackKey(datum.namespaceId, datum.instanceId, trackId);
+      // Far past the animatable's limits: the edit makes a violation.
+      const track = store.getState().tracks[trackId];
+      store.setState({
+        tracks: {
+          ...store.getState().tracks,
+          [trackId]: {
+            ...track,
+            points: track.points.map((p) =>
+              p.id === point.id ? { ...p, value: (p.value as number) + 1000 } : p,
+            ),
+          },
+        },
+      });
+      const current = currentDerivedSnapshot(store.getState())!;
+      const fresh = computeDerivedState(selectDerivedInputs(store.getState()), 0);
+      const violations = current.tracks[key].canonical.violations;
+      expect(violations).not.toBe(
+        store.getState().derivedSnapshot!.tracks[key].canonical.violations,
+      );
+      expect(violations).toEqual(fresh.tracks[key].canonical.violations);
+      expect(violations.length).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("runs its own subscriptions before a host listener subscribed between two starts", () => {

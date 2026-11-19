@@ -149,6 +149,8 @@ describe("an event handler acts on the state as it is, not on a published snapsh
       editKey(store, trackId, point.id, { stamp: local });
       expect(local).not.toBe(point.stamp);
       expect(result.current.keyStateNow().keyState).toBe("full");
+      // A key added there goes at the instance's local time now.
+      expect(result.current.keyStateNow().playheadIn(instanceId)).toBe(local);
     } finally {
       vi.useRealTimers();
     }

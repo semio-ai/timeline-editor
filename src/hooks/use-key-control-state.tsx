@@ -36,7 +36,15 @@ export interface KeyControlState {
    * which can trail the state (see `currentDerivedSnapshot`); a handler that
    * removes or adds keys from them could act on keys that have since moved.
    */
-  keyStateNow: () => KeysAtStamp;
+  keyStateNow: () => KeysNow;
+}
+
+/** The keys at the playhead now, with what an edit there needs from the state. */
+export interface KeysNow extends KeysAtStamp {
+  /** The row's tracks as the state has them. */
+  entries: SourceRow["data"];
+  /** The playhead in an instance's local time, by its time transform now. */
+  playheadIn: (instanceId: string) => number;
 }
 
 /** The keys a row holds at one local stamp, and which of its tracks lack one. */
@@ -178,23 +186,33 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
   const store = useContext(AnimationContext);
   // Everything from the state at the call: the row, its instance's time
   // transform and its derived frames can all have changed since the render.
-  const keyStateNow = useCallback((): KeysAtStamp => {
-    if (!store) return keysAtStamp(undefined, 0, targetEntries);
+  const keyStateNow = useCallback((): KeysNow => {
+    if (!store) {
+      return {
+        ...keysAtStamp(undefined, 0, targetEntries),
+        entries: source.data,
+        playheadIn: () => 0,
+      };
+    }
     const state = store.getState();
     const row = state.instancedTrackSources[source.id] ?? source;
-    const instanceIds = uniq(row.data.map((entry) => entry.instanceId).filter(Boolean));
-    const instance =
-      instanceIds.length === 1
-        ? Object.values(state.namespaces)
-            .map((namespace) => namespace.animationInstances[instanceIds[0] as string])
-            .find(Boolean)
-        : undefined;
     const stampNow = state.playerStore.getState().player.stamp;
-    const localNow = instance
-      ? computeLocalStamp(stampNow, instance.settings.timescale, instance.settings.offset)
-      : stampNow;
+    const playheadIn = (instanceId: string) => {
+      const instance = Object.values(state.namespaces)
+        .map((namespace) => namespace.animationInstances[instanceId])
+        .find(Boolean);
+      return instance
+        ? computeLocalStamp(stampNow, instance.settings.timescale, instance.settings.offset)
+        : stampNow;
+    };
+    const instanceIds = uniq(row.data.map((entry) => entry.instanceId).filter(Boolean));
+    const localNow = instanceIds.length === 1 ? playheadIn(instanceIds[0] as string) : stampNow;
     const computedNow = currentDerivedSnapshot(state)?.rows?.[source.id]?.computed;
-    return keysAtStamp(computedNow, localNow, keyTargets(row.data));
+    return {
+      ...keysAtStamp(computedNow, localNow, keyTargets(row.data)),
+      entries: row.data,
+      playheadIn,
+    };
   }, [source, store, targetEntries]);
 
   const [backFn, forwardFn, addPreview, removePreview] = useAnimationStore(
