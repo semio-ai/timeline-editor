@@ -982,6 +982,35 @@ describe("derived store edges", () => {
     expect(watching.size).toBe(0);
   });
 
+  it("builds again for an action when the state changed since the last one it built for", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createCorpusStore();
+      stallBuilding(store);
+      bumpKey(store);
+      const first = currentDerivedSnapshot(store.getState());
+      bumpKey(store);
+      const second = currentDerivedSnapshot(store.getState());
+      expect(second).not.toBe(first);
+      expect(normalize(second)).toEqual(
+        normalize(computeDerivedState(selectDerivedInputs(store.getState()), 0)),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("answers an action with the published snapshot when it is current, whatever provider is set", () => {
+    const store = createCorpusStore();
+    store.setState({
+      feedbackProvider: {
+        canonical: judged,
+        preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+      },
+    });
+    expect(currentDerivedSnapshot(store.getState())).toBe(store.getState().derivedSnapshot);
+  });
+
   it("runs its own subscriptions before a host listener subscribed between two starts", () => {
     const store = createCorpusStore();
     const { trackId, point } = leafWithKey(store);
