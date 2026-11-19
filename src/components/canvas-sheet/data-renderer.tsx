@@ -23,7 +23,7 @@ import { namespaceEntity } from "@semio/data";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import {
   buildFilteredSourceRowId,
-  drawnInstanceOf,
+  rowInstanceOf,
   filterHandlesByVisibility,
   shouldRowShowHandles,
 } from "../../functions";
@@ -277,10 +277,20 @@ export const DataRenderer = memo(function DataRenderer({
     return sourceRow.data.some((entry) => entry.visible !== false);
   }, [sourceRow]);
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
-  // From the row `computedData` was built from, not the view's filtered copy.
-  const rowInstanceId = useAnimationStore((state: StoreState) =>
-    drawnInstanceOf(state.instancedTrackSources, sourceRowId),
+  // A row's stamps are in its one instance's time, or in world time for a
+  // row of several. The segments, violations and handles drawn here come from
+  // `computedData`, the row `sourceRowId`; the keys are read by each DataPoint
+  // from `sourceRow`, which may be the view's filtered copy of it (a row of
+  // its own, and of one instance when the filter leaves one showing). Each is
+  // drawn through the time of the row it was read from.
+  const rowInstanceId = useAnimationStore(
+    (state: StoreState) => rowInstanceOf(state.instancedTrackSources[sourceRowId])?.instanceId,
   );
+  const keyInstanceId = useMemo(() => rowInstanceOf(sourceRow)?.instanceId, [sourceRow]);
+  const keyXTransform = useMemo(() => {
+    const transform = keyInstanceId ? localGlobalTransformLookup.toWorld[keyInstanceId] : undefined;
+    return typeof transform === "function" ? transform : (stamp: number) => stamp;
+  }, [localGlobalTransformLookup, keyInstanceId]);
   const xTransform = useMemo(() => {
     const transform =
       rowInstanceId && localGlobalTransformLookup.toWorld[rowInstanceId]
@@ -547,7 +557,7 @@ export const DataRenderer = memo(function DataRenderer({
             sourceRow={sourceRow}
             selectionFrames={computedData.selection ?? []}
             activeInstanceId={activeInstanceForOwningEntity}
-            xTransform={xTransform}
+            xTransform={keyXTransform}
             verticalBounds={effectiveVerticalBounds}
             verticalAxisRange={axisRange}
             theme={theme}

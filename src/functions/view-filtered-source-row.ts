@@ -22,19 +22,32 @@ export function parseFilteredSourceRowId(rowId: string): { viewId: string; rowId
   };
 }
 
+/** An instance, by the namespace it plays under and its id. */
+export interface RowInstance {
+  namespaceId: string;
+  instanceId: string;
+}
+
 /**
- * The instance whose time a row's derived data is drawn through: the row's
- * one instance, or none for a row of several, whose data is already in world
- * time. It is read from the row the data was built from, not from a view's
- * filtered copy of it, which can show one instance of a row built from
- * several.
+ * The one instance a row's entries belong to, or undefined for a row of none
+ * or of several. A row of one instance holds its derived stamps in that
+ * instance's local time; a row of several holds them in world time. Every
+ * reader of a row's stamps decides which by asking this, so they agree.
  */
-export function drawnInstanceOf(
-  sources: Record<string, SourceRow>,
-  rowId: string,
-): string | undefined {
-  const row = sources[rowId];
-  if (!row) return undefined;
-  const ids = new Set(row.data.map((entry) => entry.instanceId).filter(Boolean));
-  return ids.size === 1 ? [...ids][0] : undefined;
+export function rowInstanceOf(row: SourceRow | undefined): RowInstance | undefined {
+  let found: RowInstance | undefined;
+  for (const entry of row?.data ?? []) {
+    if (!entry.instanceId) continue;
+    if (!found) {
+      found = { namespaceId: entry.namespaceId, instanceId: entry.instanceId };
+    } else if (found.namespaceId !== entry.namespaceId || found.instanceId !== entry.instanceId) {
+      return undefined;
+    }
+  }
+  return found;
+}
+
+/** Whether a row's entries belong to more than one instance. */
+export function spansSeveralInstances(row: SourceRow): boolean {
+  return row.data.some((entry) => entry.instanceId) && !rowInstanceOf(row);
 }

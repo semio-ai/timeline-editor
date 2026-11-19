@@ -39,6 +39,7 @@ import { computeFilledInterpGaps } from "./compute-filled-interp-gaps";
 import { computeVerticalBounds } from "./compute-vertical-bounds";
 import { computeFrames } from "./compute-frames";
 import { computeWorldStamp } from "./compute-instance-time";
+import { rowInstanceOf, spansSeveralInstances } from "./view-filtered-source-row";
 import { resolveAnimationDuration } from "./compute-animation-extent";
 import { trackCurve, type TrackEvaluator, type TrackCurve } from "./track-curve";
 import { computeSubjectViolations, type FeedbackSubject } from "./feedback-provider";
@@ -1020,24 +1021,11 @@ export function resolveRowTransform(
   sourceRow: SourceRow,
   context?: RowComputationContext,
 ): AffineTransform2D {
-  const instanceIds = uniq(
-    sourceRow.data.map((entry) => entry.instanceId).filter((id): id is string => Boolean(id)),
-  );
-  if (instanceIds.length !== 1) {
-    return IDENTITY_TRANSFORM;
-  }
-  if (!context?.namespaces) {
-    return IDENTITY_TRANSFORM;
-  }
-
-  const instanceId = instanceIds[0];
-  for (const namespace of Object.values(context.namespaces)) {
-    const instance = namespace.animationInstances[instanceId];
-    if (!instance) continue;
-    return instanceTransform(instance);
-  }
-
-  return IDENTITY_TRANSFORM;
+  const owner = rowInstanceOf(sourceRow);
+  const instance = owner
+    ? context?.namespaces?.[owner.namespaceId]?.animationInstances[owner.instanceId]
+    : undefined;
+  return instance ? instanceTransform(instance) : IDENTITY_TRANSFORM;
 }
 
 /** An instance's map from its animation's local time to world time. */
@@ -1083,11 +1071,8 @@ export function aggregateRowTime(
   sourceRow: SourceRow,
   context?: RowComputationContext,
 ): ((namespaceId: string, instanceId: string) => InstanceTime) | undefined {
-  const instanceIds = uniq(
-    sourceRow.data.map((entry) => entry.instanceId).filter((id): id is string => Boolean(id)),
-  );
   const namespaces = context?.namespaces;
-  if (instanceIds.length < 2 || !namespaces) return undefined;
+  if (!spansSeveralInstances(sourceRow) || !namespaces) return undefined;
   return (namespaceId, instanceId) => {
     const instance = namespaces[namespaceId]?.animationInstances[instanceId];
     return instance ? instanceTime(instance) : { timescale: 1, offset: 0 };

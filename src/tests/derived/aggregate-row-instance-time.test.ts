@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { AnimationStore } from "../../store";
-import type { InstancedFrameInfo, Keypoint } from "../../types";
+import type { InstancedFrameInfo, Keypoint, SourceRow, Violation } from "../../types";
+import type { FeedbackProvider } from "../../functions/feedback-provider";
 import {
   createTestAnimationStore,
   INSTANCE_IDS,
@@ -13,7 +14,8 @@ import { computeRowData } from "../../functions/compute-row-data";
 import { computeTransitionSegments } from "../../functions/compute-transition-segments";
 import {
   buildFilteredSourceRowId,
-  drawnInstanceOf,
+  rowInstanceOf,
+  spansSeveralInstances,
 } from "../../functions/view-filtered-source-row";
 import { keysAtStamp } from "../../hooks/use-key-control-state";
 import { computeDerivedState } from "../../subscriptions/init-derived-orchestrator";
@@ -81,12 +83,17 @@ function setBeta(store: AnimationStore, settings: { timescale?: number; offset?:
 const betaWorld = (store: AnimationStore, local: number) =>
   computeWorldStamp(local, betaSettings(store).timescale, betaSettings(store).offset);
 
-/** An opacity key whose world and local times differ under BETA_SHARED. */
+/**
+ * An opacity key whose world and local times differ under BETA_SHARED, and
+ * away from local 0 ms, so its world time depends on the instance's speed as
+ * well as its offset.
+ */
 function movedKey(store: AnimationStore): Keypoint<number> {
   const point = (store.getState().tracks[TRACK_IDS.OPACITY].points as Keypoint<number>[]).find(
-    (candidate) => Math.abs(betaWorld(store, candidate.stamp) - candidate.stamp) > 1,
+    (candidate) =>
+      candidate.stamp !== 0 && Math.abs(betaWorld(store, candidate.stamp) - candidate.stamp) > 1,
   );
-  if (!point) throw new Error("expected an opacity key away from local 500 ms");
+  if (!point) throw new Error("expected an opacity key away from local 0 and 500 ms");
   return point;
 }
 
@@ -320,27 +327,49 @@ describe("rows that span several instances", () => {
     },
   );
 
-  it("are drawn once into world time when a view's filter shows one of their instances", async () => {
+  it("draw a view's one-instance copy of them through that instance, at the same world times", async () => {
     const store = await betaStore();
     const key = movedKey(store);
-    const { instancedTrackSources } = store.getState();
+    const state = store.getState();
+    const global = state.instancedTrackSources[GLOBAL];
     const filteredId = buildFilteredSourceRowId("view", GLOBAL);
-    const sources = {
-      ...instancedTrackSources,
-      [filteredId]: {
-        ...instancedTrackSources[GLOBAL],
-        id: filteredId,
-        data: instancedTrackSources[GLOBAL].data.filter(
-          (entry) => entry.instanceId === INSTANCE_IDS.BETA_SHARED,
-        ),
-      },
+    const filtered = {
+      ...global,
+      id: filteredId,
+      data: global.data.filter((entry) => entry.instanceId === INSTANCE_IDS.BETA_SHARED),
     };
-    // The global row's data is drawn as it is: through no instance's time.
-    expect(drawnInstanceOf(sources, GLOBAL)).toBeUndefined();
-    expect(drawnInstanceOf(sources, BETA_OPACITY_ROW)).toBe(INSTANCE_IDS.BETA_SHARED);
+    expect(rowInstanceOf(global)).toBeUndefined();
+    expect(rowInstanceOf(filtered)).toEqual({
+      namespaceId: NAMESPACE_IDS.BETA,
+      instanceId: INSTANCE_IDS.BETA_SHARED,
+    });
+
+    // The copy is a row of its own, of one instance, so its keys are local
+    // and drawn through the instance; they land where the global row's are.
+    const copy = computeRowData(
+      filtered,
+      state.tracks,
+      {},
+      state.animatables,
+      undefined,
+      state.selectionState,
+      { animations: state.animations, namespaces: state.namespaces },
+    );
+    const [local] = stampsOf(copy.virtualFrames, key.id, INSTANCE_IDS.BETA_SHARED);
+    expect(local).toBe(key.stamp);
     expect(stampsOf(rowFrames(store, GLOBAL), key.id, INSTANCE_IDS.BETA_SHARED)).toEqual([
-      betaWorld(store, key.stamp),
+      betaWorld(store, local),
     ]);
+  });
+
+  it("count instances by namespace and id", () => {
+    const entry = (namespaceId: string) =>
+      ({ namespaceId, instanceId: "same-id", trackId: "t" }) as SourceRow["data"][number];
+    const row = (namespaceIds: string[]): SourceRow =>
+      ({ id: "row", data: namespaceIds.map(entry) }) as SourceRow;
+    expect(spansSeveralInstances(row(["a", "a"]))).toBe(false);
+    expect(spansSeveralInstances(row(["a", "b"]))).toBe(true);
+    expect(rowInstanceOf(row(["a", "b"]))).toBeUndefined();
   });
 
   it("put a key exactly where the key strip looks for it", async () => {
@@ -374,11 +403,79 @@ describe("rows that span several instances", () => {
         `key ${point.id}`,
       ).toEqual([point.id]);
     });
+
+    // A box whose edge is exactly that world time holds the key, in its own
+    // row and in the global row.
+    const world = betaWorld(store, 100);
+    const viewId = Object.keys(store.getState().editorViews)[0];
+    const boxFrom = (start: number, end: number) => {
+      store.getState().startBoxSelect({
+        origin: "tracks",
+        startStamp: start,
+        startY: -1e6,
+        currentStamp: start,
+        currentY: -1e6,
+        mode: "replace",
+        initialKeypoints: new Map(),
+        layout: {
+          viewId,
+          canvasHeight: 100,
+          topOffsetPx: 0,
+          bottomOffsetPx: 100,
+          trackHeightPx: 20,
+        },
+      });
+      store.getState().updateBoxSelect(end, 1e6);
+      const ids = [...(store.getState().selectionState.keypoints.get(TRACK_IDS.OPACITY) ?? [])];
+      store.getState().cancelBoxSelect();
+      return ids;
+    };
+    expect(boxFrom(world, world + 1)).toContain("at-100");
+    expect(boxFrom(world - 1, world)).toContain("at-100");
+
+    // The same, in the key's own row alone: a row of one instance, whose keys
+    // are taken to world time by the hit test rather than by the build.
+    const { sourceRowIds } = store.getState();
+    expect(sourceRowIds.spline).toContain(BETA_OPACITY_ROW);
+    store.setState({ sourceRowIds: { ...sourceRowIds, flat: [BETA_OPACITY_ROW] } });
+    expect(boxFrom(world, world + 1)).toContain("at-100");
+    expect(boxFrom(world - 1, world)).toContain("at-100");
   });
 
   it("redraw when an instance's offset alone changes", async () => {
     const store = await betaStore();
     setBeta(store, { offset: 350 });
+    await flushMicrotasks();
+    const key = movedKey(store);
+    expect(stampsOf(rowFrames(store, GLOBAL), key.id, INSTANCE_IDS.BETA_SHARED)).toEqual([
+      betaWorld(store, key.stamp),
+    ]);
+  });
+});
+
+describe("row reuse", () => {
+  it("redraws a row of several instances when one's speed alone changes", async () => {
+    // Answers that stay the same objects whatever the instance's speed, so
+    // only the instance's time can tell the row it changed.
+    const answers = new Map<string, Violation[]>();
+    const steady = (key: string) => {
+      let list = answers.get(key);
+      if (!list) answers.set(key, (list = []));
+      return list;
+    };
+    const provider: FeedbackProvider = {
+      canonical: (subjects) => new Map(subjects.map((s) => [s.trackKey, steady(s.trackKey)])),
+      preview: () => [],
+    };
+    const store = createTestAnimationStore({
+      trackEvaluator: testTrackEvaluator,
+      activeInstance: INSTANCE_IDS.BETA_SHARED,
+    });
+    store.setState({ feedbackProvider: provider });
+    cleanup = store.getState().initAnimationSubscriptions();
+    await flushMicrotasks();
+
+    setBeta(store, { timescale: 4 });
     await flushMicrotasks();
     const key = movedKey(store);
     expect(stampsOf(rowFrames(store, GLOBAL), key.id, INSTANCE_IDS.BETA_SHARED)).toEqual([
