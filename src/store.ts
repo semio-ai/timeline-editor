@@ -127,37 +127,14 @@ import { createInternalListeners } from "./subscriptions/internal-listeners";
 
 enableMapSet();
 
-/**
- * Each action, preceded by a refresh of a stalled snapshot (see
- * `DerivedOrchestrator.refresh`). An action may read the snapshot anywhere,
- * from its first check of what may be edited to its recipe, so the refresh
- * comes before all of it: refreshing later would let a listener of the
- * refresh's publish change what the action already checked.
- */
-function refreshingFirst<Actions extends Record<string, (...args: never[]) => unknown>>(
-  actions: Actions,
-  refresh: () => void,
-): Actions {
-  return Object.fromEntries(
-    Object.entries(actions).map(([name, action]) => [
-      name,
-      (...args: never[]) => {
-        refresh();
-        return action(...args);
-      },
-    ]),
-  ) as Actions;
-}
-
 export const AnimationSlice = (
   set: AnimationStoreSetter,
   get: AnimationStoreGetter,
   api: AnimationApi,
 ) => {
   const internal = createInternalListeners(api);
-  // Brings a stalled snapshot up to its inputs; set while subscriptions run.
-  let refreshDerived = () => {};
-  const actions = {
+  return {
+    ...createDefaultState(),
     updateSource: (groupId: string, expanded?: boolean) => {
       set(
         produce((state: AnimationData) => {
@@ -590,14 +567,6 @@ export const AnimationSlice = (
       // subscriptions in every notification, so it builds the snapshot once
       // they have all answered a write.
       const derived = createDerivedOrchestrator(internal.api, set, get);
-      // Not while the store's own subscriptions are answering a write (a host
-      // listener they notify mid-answer, on this store or on the player): it
-      // would publish a snapshot built from half-updated inputs. An action
-      // taken then reads the snapshot as it stands; one whose effect outlasts
-      // it reads `currentDerivedSnapshot` instead.
-      const refresh = () => {
-        if (!internal.dispatching()) derived.refresh();
-      };
       const unsubs = [
         ...[
           viewportFollow,
@@ -610,11 +579,7 @@ export const AnimationSlice = (
         ].map((fn) => fn(internal.api, set, get)),
         internal.api.subscribe(derived.writeSettled),
         derived.stop,
-        () => {
-          if (refreshDerived === refresh) refreshDerived = () => {};
-        },
       ];
-      refreshDerived = refresh;
 
       // A cleanup stops only the set it was returned for, once. A later call
       // runs it before starting its own set, which spends the handle: running
@@ -825,13 +790,6 @@ export const AnimationSlice = (
         }),
       );
     },
-  };
-  const { initAnimationSubscriptions, stopAnimationSubscriptions, ...edits } = actions;
-  return {
-    ...createDefaultState(),
-    ...refreshingFirst(edits, () => refreshDerived()),
-    initAnimationSubscriptions,
-    stopAnimationSubscriptions,
   };
 };
 

@@ -2,7 +2,7 @@ import type { AnimatableValue, RawValue } from "@semio/data";
 import type { Track, TrackKey, Violation } from "../types";
 import type { SimpleTrack } from "../types/data/simple-track";
 import { computeInstanceTrackViolations } from "./compute-track-violations";
-import { trackCurve, type TrackCurve, type TrackEvaluator } from "./track-curve";
+import { trackCurve, type TrackEvaluator } from "./track-curve";
 
 /**
  * One track as one instance plays it: everything a check reads about it.
@@ -21,12 +21,6 @@ export interface FeedbackSubject {
   /** The animation's duration in local milliseconds. */
   durationMs: number;
   timescale: number | undefined;
-  /**
-   * The curve the editor compiled for `track` with the build's evaluator, when
-   * it has one. A provider that evaluates the track the same way can use it
-   * rather than compiling again; the editor's own checks do.
-   */
-  curve?: TrackCurve;
 }
 
 /**
@@ -77,9 +71,7 @@ export function computeSubjectViolations(
   subject: FeedbackSubject,
   evaluator: TrackEvaluator | undefined,
 ): Violation[] {
-  // The build compiles each track once and hands the curve on: compiling it
-  // here again would, past the curve cache's size, recompile every track.
-  const curve = subject.curve ?? trackCurve(subject.track as unknown as SimpleTrack, evaluator);
+  const curve = trackCurve(subject.track as unknown as SimpleTrack, evaluator);
   // An uncompiled curve has no values to check.
   if (!curve) return [];
   return computeInstanceTrackViolations(

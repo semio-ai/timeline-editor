@@ -107,19 +107,33 @@ export function computeDerivedState(
 
 // The inputs each published snapshot was built from.
 const inputsOfSnapshot = new WeakMap<DerivedSnapshot, DerivedInputs>();
+// The last snapshot built for an action while a published one trailed.
+const builtForAction = new WeakMap<
+  DerivedSnapshot,
+  { inputs: DerivedInputs; snapshot: DerivedSnapshot }
+>();
 
 /**
- * The derived snapshot for `state`'s own inputs: the published one when it
- * was built from them, and otherwise one built now, without publishing it.
+ * The derived snapshot for `state`'s own inputs, for an action to read: the
+ * published one when it was built from them, and otherwise one built now and
+ * not published.
  *
- * The published snapshot trails its inputs while building is stalled, and an
- * action may run then. An action whose effect outlasts the snapshot (committing
- * a drag writes the keys it projected) reads through this, so what it writes
- * never comes from inputs it no longer has, however a refresh before it fared.
- * Building without publishing runs no listener, so nothing can change the
- * inputs between this and the action's use of it. Its violations come from the
- * editor's own checks, not the host's provider: none of these actions reads
- * them, and asking a provider from inside an action would let it write.
+ * The published snapshot is current wherever an action runs, except while
+ * building is stalled (see `createDerivedOrchestrator`) or in the middle of a
+ * write the store's own subscriptions are still answering, as when a host or
+ * player listener acts then. An action reading the published one there would
+ * act on inputs the state no longer has: a skip lands on a key that has moved,
+ * a commit writes where the drag used to be. Every action that reads derived
+ * data reads it through this instead.
+ *
+ * A snapshot built here is not published: publishing would notify listeners,
+ * which could change the state between this and the action's use of it, and
+ * in the middle of a write it would show them a snapshot of half-updated
+ * inputs. The published snapshot catches up when building resumes. Its
+ * violations come from the editor's own checks, not the host's provider: no
+ * action reads them, and asking a provider from inside an action would let it
+ * write. Asked again for the same inputs, it answers with the snapshot it
+ * built before.
  *
  * Given an Immer draft, it reads the state the recipe started from.
  */
@@ -128,13 +142,20 @@ export function currentDerivedSnapshot(state: AnimationData): DerivedSnapshot | 
   const published = base.derivedSnapshot;
   // No subscriptions have built one, so there is nothing derived to act on.
   if (!published) return undefined;
-  const inputs = selectDerivedInputs(base);
+  const inputs = withoutProvider(selectDerivedInputs(base));
   const builtFrom = inputsOfSnapshot.get(published);
-  if (builtFrom && shallow(withoutProvider(builtFrom), withoutProvider(inputs))) return published;
-  return computeDerivedState(inputs, published.version ?? 0, undefined, published);
+  if (builtFrom && shallow(withoutProvider(builtFrom), inputs)) return published;
+  const built = builtForAction.get(published);
+  if (built && shallow(built.inputs, inputs)) return built.snapshot;
+  const snapshot = computeDerivedState(inputs, published.version ?? 0, undefined, published);
+  builtForAction.set(published, { inputs, snapshot });
+  return snapshot;
 }
 
-const withoutProvider = ({ feedbackProvider: _provider, ...rest }: DerivedInputs) => rest;
+const withoutProvider = ({
+  feedbackProvider: _provider,
+  ...rest
+}: DerivedInputs): DerivedInputs => ({ ...rest, feedbackProvider: undefined });
 
 /**
  * How many times one outermost flush may build, nested flushes included. Each
@@ -171,19 +192,6 @@ export interface DerivedOrchestrator {
   /** Builds the first snapshot. Call once `writeSettled` is subscribed. */
   start: () => void;
   stop: () => void;
-  /**
-   * Builds at once if building is stalled and the snapshot trails its inputs,
-   * until the snapshot was published from the inputs as they stand, within
-   * one budget. Otherwise the snapshot is already current wherever an action
-   * runs, and this does nothing.
-   *
-   * It does not build inside a running build (an action a provider calls
-   * while it is asked) or inside a refresh (an action a listener calls in
-   * answer to the refresh's own publish): either would let a provider or
-   * listener that never settles recurse once per build. Such an action reads
-   * the snapshot as it stands.
-   */
-  refresh: () => void;
 }
 
 /**
@@ -224,11 +232,9 @@ export interface DerivedOrchestrator {
  * that rebuild, so its listeners see the new inputs beside the previous
  * snapshot, as they would in any write's notification before it settles.
  *
- * While building is stalled, the snapshot can trail its inputs. An action
- * that reads the snapshot calls `refresh` first, so it acts on a snapshot
- * built from its own inputs: committing a drag, for one, applies the pending
- * changes the snapshot projected for where the drag now is. `refresh` says
- * where it cannot.
+ * While building is stalled, the snapshot can trail its inputs until the
+ * retry. Actions read derived data through `currentDerivedSnapshot`, which
+ * builds for their own inputs when the published snapshot trails them.
  */
 export function createDerivedOrchestrator(
   _api: AnimationApi,
@@ -366,39 +372,8 @@ export function createDerivedOrchestrator(
     }
   };
 
-  let refreshing = false;
-  const refresh = () => {
-    if (!started || building || !stalled || refreshing) return;
-    refreshing = true;
-    try {
-      // The inputs of the last snapshot this refresh published.
-      let published: DerivedInputs | undefined;
-      // Until the snapshot was published from the inputs as they stand, within
-      // one budget. A write made while building drops the build it overtook,
-      // and a listener answering the publish (one cancelling the drag the
-      // action is about to commit) changes the inputs again. A provider whose
-      // answer changed while it was asked does not count: the snapshot
-      // already projects the drag and selection the action reads.
-      for (let pass = 0; pass < MAX_SETTLE_PASSES; pass += 1) {
-        if (!started) return;
-        const inputs = selectDerivedInputs(get());
-        // Watched before it is asked, so an answer it gives late reaches the
-        // retry, which would otherwise find these inputs already built.
-        watchProvider(inputs.feedbackProvider);
-        if (builtFrom && shallow(builtFrom, inputs)) return;
-        if (published && shallow(published, inputs)) return;
-        // The publish notifies `writeSettled`, which finds building stalled;
-        // the pending retry still runs.
-        if (build(inputs)) published = inputs;
-      }
-    } finally {
-      refreshing = false;
-    }
-  };
-
   return {
     writeSettled: () => flush(),
-    refresh,
     start: () => {
       started = true;
       builtFrom = undefined;

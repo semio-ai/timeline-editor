@@ -17,6 +17,7 @@ import {
   clearSelection,
   collectRangeKeypoints,
 } from "../functions/selection-state-manager";
+import { currentDerivedSnapshot } from "../subscriptions/init-derived-orchestrator";
 
 export function clickMarkerAction(
   state: AnimationData,
@@ -47,7 +48,7 @@ export function clickMarkerAction(
   }
 
   if (shift && selection.reference?.rowId === rowId) {
-    const row = state.derivedSnapshot?.rows?.[rowId]?.computed;
+    const row = currentDerivedSnapshot(state)?.rows?.[rowId]?.computed;
     return {
       selectionState: handleShiftSelection(
         selection,

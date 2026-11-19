@@ -133,7 +133,6 @@ export function buildDerivedSnapshotWithRows(
           animatable,
           durationMs: animDuration,
           timescale: instance.settings.timescale,
-          curve: compiledCurve,
         });
 
         derivedTracks[trackKey] = {
@@ -166,7 +165,12 @@ export function buildDerivedSnapshotWithRows(
   });
 
   const provider = inputs.feedbackProvider;
-  const canonicalViolations = provider?.canonical(subjects, inputs.trackEvaluator);
+  // Most recently compiled first. A check compiles its track's curve again
+  // once the curve cache has evicted it, and with more tracks than the cache
+  // holds, asking in compile order would find every one evicted, each
+  // compile evicting the next one asked for. In reverse, only those past the
+  // cache's size compile again.
+  const canonicalViolations = provider?.canonical([...subjects].reverse(), inputs.trackEvaluator);
   subjects.forEach((subject) => {
     const violations =
       canonicalViolations?.get(subject.trackKey) ??
@@ -270,7 +274,6 @@ export function buildDerivedSnapshotWithRows(
         animatable: context.animatable,
         durationMs: durationOf(context.animation),
         timescale: context.instance.settings.timescale,
-        curve: previewCurve,
       };
       // Asked even when the editor cannot compile the preview curve: a provider
       // may judge the motion without the evaluator, and the rows that draw
