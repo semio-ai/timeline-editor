@@ -453,6 +453,39 @@ describe("rows that span several instances", () => {
   });
 });
 
+describe("next and previous key on a row of several instances", () => {
+  it("step through each instance's keys at their world times", async () => {
+    const store = await betaStore();
+    const row = store.getState().instancedTrackSources[GLOBAL];
+    const expected = [
+      ...new Set(
+        Object.values(store.getState().instancedTrackSources)
+          .filter((leaf) => !leaf.isGroup && leaf.data.length === 1)
+          .flatMap((leaf) => {
+            const [entry] = leaf.data;
+            const settings =
+              store.getState().namespaces[entry.namespaceId].animationInstances[entry.instanceId]
+                .settings;
+            return store
+              .getState()
+              .tracks[entry.trackId].points.map((point) =>
+                computeWorldStamp(point.stamp, settings.timescale, settings.offset),
+              );
+          }),
+      ),
+    ].sort((a, b) => a - b);
+
+    const player = () => store.getState().playerStore.getState();
+    player().resetPlayer(-1e9);
+    const visited: number[] = [];
+    expected.forEach(() => {
+      store.getState().skipToNextKeyframe(row);
+      visited.push(player().player.stamp);
+    });
+    expect(visited).toEqual(expected);
+  });
+});
+
 describe("a handle dragged in a row of several instances", () => {
   it("draws as the same handle does once committed", async () => {
     const store = await betaStore();

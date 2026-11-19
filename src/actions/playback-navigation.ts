@@ -9,26 +9,7 @@ import { resolveAnimationDuration } from "../functions/compute-animation-extent"
 import type { AnimationData, AnimationStoreGetter, AnimationStoreSetter } from "../store-types";
 import type { Namespace, SourceRow } from "../types";
 import { currentDerivedSnapshot } from "../subscriptions/init-derived-orchestrator";
-
-/**
- * The unique animation-instance id for a row whose entries all reference the
- * same instance. Returns `undefined` for global / mixed-instance rows so
- * callers can fall back to world-time.
- */
-function resolveUniqueInstanceId(sourceRow: SourceRow): string | undefined {
-  let uniqueId: string | undefined;
-  for (const entry of sourceRow.data) {
-    if (!entry.instanceId) {
-      return undefined;
-    }
-    if (!uniqueId) {
-      uniqueId = entry.instanceId;
-    } else if (uniqueId !== entry.instanceId) {
-      return undefined;
-    }
-  }
-  return uniqueId;
-}
+import { rowInstanceOf } from "../functions/view-filtered-source-row";
 
 /** Always returns the bounds in `[min, max]` order, regardless of input. */
 function normalizeBounds(bounds: [number, number]): [number, number] {
@@ -50,30 +31,20 @@ function resolveRowTimeContext(
   localBounds: [number, number];
   toWorld?: (stamp: number) => number;
 } {
-  const instanceId = resolveUniqueInstanceId(sourceRow);
-  if (!instanceId) {
+  // A row of several instances holds its stamps in world time already.
+  const owner = rowInstanceOf(sourceRow);
+  const instance = owner
+    ? namespaces[owner.namespaceId]?.animationInstances[owner.instanceId]
+    : undefined;
+  if (!instance) {
     return { localStamp: worldStamp, localBounds: worldBounds };
   }
-
-  let settings: { timescale: number; offset: number } | undefined;
-  for (const namespace of Object.values(namespaces)) {
-    const instance = namespace.animationInstances[instanceId];
-    if (instance) {
-      const rawTimescale = instance.settings.timescale ?? 1;
-      const rawOffset = instance.settings.offset ?? 0;
-      const timescale = Number.isFinite(rawTimescale) && rawTimescale !== 0 ? rawTimescale : 1;
-      const offset = Number.isFinite(rawOffset) ? rawOffset : 0;
-      settings = {
-        timescale,
-        offset,
-      };
-      break;
-    }
-  }
-
-  if (!settings) {
-    return { localStamp: worldStamp, localBounds: worldBounds };
-  }
+  const rawTimescale = instance.settings.timescale ?? 1;
+  const rawOffset = instance.settings.offset ?? 0;
+  const settings = {
+    timescale: Number.isFinite(rawTimescale) && rawTimescale !== 0 ? rawTimescale : 1,
+    offset: Number.isFinite(rawOffset) ? rawOffset : 0,
+  };
 
   const toLocal = (stamp: number) => computeLocalStamp(stamp, settings.timescale, settings.offset);
   const toWorld = (stamp: number) => computeWorldStamp(stamp, settings.timescale, settings.offset);

@@ -5,6 +5,7 @@ import { uniq } from "lodash";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import { Z } from "../../constants";
 import { AnimationData, ViolationVisibility } from "../../store-types";
+import { rowInstanceOf } from "../../functions/view-filtered-source-row";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 
@@ -47,15 +48,8 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
   );
   const trackIds = uniq(sourceRow?.data.map((d) => d.trackId) || []);
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
-  const rowInstanceId = useMemo(() => {
-    if (!sourceRow) return undefined;
-    const ids = uniq(
-      sourceRow.data
-        .map((entry) => entry.instanceId)
-        .filter((value): value is string => Boolean(value)),
-    );
-    return ids.length === 1 ? ids[0] : undefined;
-  }, [sourceRow]);
+  // A row of several instances holds its stamps in world time already.
+  const rowInstanceId = useMemo(() => rowInstanceOf(sourceRow)?.instanceId, [sourceRow]);
   const xTransform = useMemo(() => {
     const transform =
       rowInstanceId && localGlobalTransformLookup.toWorld[rowInstanceId]
