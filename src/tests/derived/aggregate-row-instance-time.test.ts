@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { AnimationStore } from "../../store";
-import type { InstancedFrameInfo, Keypoint, SourceRow, Violation } from "../../types";
+import type { DragState, InstancedFrameInfo, Keypoint, SourceRow, Violation } from "../../types";
 import type { FeedbackProvider } from "../../functions/feedback-provider";
 import {
   createTestAnimationStore,
@@ -450,6 +450,63 @@ describe("rows that span several instances", () => {
     expect(stampsOf(rowFrames(store, GLOBAL), key.id, INSTANCE_IDS.BETA_SHARED)).toEqual([
       betaWorld(store, key.stamp),
     ]);
+  });
+});
+
+describe("a handle dragged in a row of several instances", () => {
+  it("draws as the same handle does once committed", async () => {
+    const store = await betaStore();
+    const state = store.getState();
+    const key = movedKey(store);
+    const handle = { x: 200, y: 0 };
+    const entries = [INSTANCE_IDS.ALPHA_SHARED, INSTANCE_IDS.BETA_SHARED].flatMap(
+      (instanceId) =>
+        Object.values(state.instancedTrackSources).find(
+          (row) =>
+            !row.isGroup &&
+            row.data.length === 1 &&
+            row.data[0].instanceId === instanceId &&
+            row.data[0].trackId === TRACK_IDS.OPACITY,
+        )!.data,
+    );
+    const row = { ...state.instancedTrackSources[GLOBAL], id: "opacity-pair", data: entries };
+    const context = { animations: state.animations, namespaces: state.namespaces };
+    const selection = { ...state.selectionState, instanceId: INSTANCE_IDS.BETA_SHARED };
+
+    const dragging = computeRowData(
+      row,
+      state.tracks,
+      {},
+      state.animatables,
+      {
+        instanceId: INSTANCE_IDS.BETA_SHARED,
+        handleDiffs: { [key.id]: { out: handle } },
+      } as unknown as DragState,
+      selection,
+      context,
+    );
+    const track = state.tracks[TRACK_IDS.OPACITY];
+    const committed = computeRowData(
+      row,
+      {
+        ...state.tracks,
+        [TRACK_IDS.OPACITY]: {
+          ...track,
+          points: track.points.map((point) =>
+            point.id === key.id
+              ? { ...point, transitions: { ...point.transitions, out: handle } }
+              : point,
+          ),
+        },
+      },
+      {},
+      state.animatables,
+      undefined,
+      selection,
+      context,
+    );
+    expect(dragging.render?.segments.length).toBeGreaterThan(0);
+    expect(dragging.render?.segments).toEqual(committed.render?.segments);
   });
 });
 

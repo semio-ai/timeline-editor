@@ -199,6 +199,15 @@ export const DataRenderer = memo(function DataRenderer({
   const computedData = useAnimationStore(
     useShallow((state: StoreState) => state.derivedSnapshot?.rows?.[sourceRowId]?.computed),
   );
+  // The keys are listed from the row each DataPoint reads them from: the
+  // view's filtered copy when there is one, a row of its own whose frames
+  // differ from the full row's wherever the filter hides a key.
+  const keySelectionFrames = useAnimationStore(
+    useShallow(
+      (state: StoreState) =>
+        state.derivedSnapshot?.rows?.[sourceRow?.id ?? sourceRowId]?.computed?.selection,
+    ),
+  );
   // Only this row's samples: the whole cache is new on every build.
   const rowSamples = useAnimationStore(
     useShallow((state: StoreState) => rowRenderSamples(state.derivedSnapshot, sourceRowId)),
@@ -279,10 +288,10 @@ export const DataRenderer = memo(function DataRenderer({
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   // A row's stamps are in its one instance's time, or in world time for a
   // row of several. The segments, violations and handles drawn here come from
-  // `computedData`, the row `sourceRowId`; the keys are read by each DataPoint
-  // from `sourceRow`, which may be the view's filtered copy of it (a row of
-  // its own, and of one instance when the filter leaves one showing). Each is
-  // drawn through the time of the row it was read from.
+  // `computedData`, the row `sourceRowId`; the keys come from `sourceRow`,
+  // which may be the view's filtered copy of it (a row of its own, and of one
+  // instance when the filter leaves one showing). Each is drawn through the
+  // time of the row it was read from.
   const rowInstanceId = useAnimationStore(
     (state: StoreState) => rowInstanceOf(state.instancedTrackSources[sourceRowId])?.instanceId,
   );
@@ -555,7 +564,7 @@ export const DataRenderer = memo(function DataRenderer({
           {/* Render the hexagons/visuals for each keyed point */}
           <DataPointsRenderer
             sourceRow={sourceRow}
-            selectionFrames={computedData.selection ?? []}
+            selectionFrames={keySelectionFrames ?? []}
             activeInstanceId={activeInstanceForOwningEntity}
             xTransform={keyXTransform}
             verticalBounds={effectiveVerticalBounds}

@@ -463,7 +463,14 @@ export function computeRowData(
 
   const pointNeighborhoodsByTrack = buildPointNeighborhoodByTrack(projectedTracks);
   const segmentsWithGeometry = interpolations.map((segment) =>
-    attachSegmentGeometry(segment, sourceRow, boundsForRow, handleDiffs, pointNeighborhoodsByTrack),
+    attachSegmentGeometry(
+      segment,
+      sourceRow,
+      boundsForRow,
+      handleDiffs,
+      pointNeighborhoodsByTrack,
+      rowTime,
+    ),
   );
 
   const shouldPreviewViolations = Boolean(
@@ -1181,17 +1188,28 @@ function resolveHandleKind(transition?: AuthoredTransition): TransitionHandleKin
   return TransitionHandleKind.Easing;
 }
 
+/**
+ * A handle being dragged, from the drag's offsets by key id. The offsets are in
+ * the key's own time; in a row that holds world time (`rowTime`), the offset is
+ * taken there through the instance of the key it belongs to, as the key's
+ * stored handles are.
+ */
 function resolveHandleDiff(
   frame: InstancedFrameInfo,
   handleDiffs:
     Record<string, { in?: RawVector2; out?: RawVector2; pairing?: TransitionPairing }> | undefined,
   side: "in" | "out",
+  rowTime?: (namespaceId: string, instanceId: string) => InstanceTime,
 ): RawVector2 | undefined {
   if (!handleDiffs) return undefined;
   const direct = handleDiffs[frame.id]?.[side];
-  if (direct) return direct;
-  const match = frame.points.find((point) => handleDiffs[point.id]?.[side]);
-  return match ? handleDiffs[match.id]?.[side] : undefined;
+  const owner = direct
+    ? frame.points[0]
+    : frame.points.find((point) => handleDiffs[point.id]?.[side]);
+  const diff = direct ?? (owner ? handleDiffs[owner.id]?.[side] : undefined);
+  if (!diff || !rowTime || !owner) return diff;
+  const { timescale } = rowTime(owner.namespaceId, owner.instanceId);
+  return { ...diff, x: diff.x / timescale };
 }
 
 function attachSegmentGeometry(
@@ -1206,11 +1224,12 @@ function attachSegmentGeometry(
       { prev?: { stamp: number; value: number }; next?: { stamp: number; value: number } }
     >
   >,
+  rowTime?: (namespaceId: string, instanceId: string) => InstanceTime,
 ): InstancePair {
   const startOutTransition =
-    resolveHandleDiff(segment.start, handleDiffs, "out") ?? segment.start.transitions?.out;
+    resolveHandleDiff(segment.start, handleDiffs, "out", rowTime) ?? segment.start.transitions?.out;
   const endInTransition =
-    resolveHandleDiff(segment.end, handleDiffs, "in") ?? segment.end.transitions?.in;
+    resolveHandleDiff(segment.end, handleDiffs, "in", rowTime) ?? segment.end.transitions?.in;
   const rawTransitions: EndpointTransitions = {
     startOut: startOutTransition ?? DEFAULT_TRANSITION_OUT,
     endIn: endInTransition ?? DEFAULT_TRANSITION_IN,
