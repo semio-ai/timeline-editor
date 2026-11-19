@@ -10,6 +10,11 @@ import {
 import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
 import { computeWorldStamp } from "../../functions";
 import { computeRowData } from "../../functions/compute-row-data";
+import { computeTransitionSegments } from "../../functions/compute-transition-segments";
+import {
+  buildFilteredSourceRowId,
+  drawnInstanceOf,
+} from "../../functions/view-filtered-source-row";
 import { keysAtStamp } from "../../hooks/use-key-control-state";
 import { computeDerivedState } from "../../subscriptions/init-derived-orchestrator";
 import { selectDerivedInputs } from "../../subscriptions/init-derived-orchestrator";
@@ -49,6 +54,28 @@ function betaSettings(store: AnimationStore) {
   return store.getState().namespaces[NAMESPACE_IDS.BETA].animationInstances[
     INSTANCE_IDS.BETA_SHARED
   ].settings;
+}
+
+/** Changes BETA_SHARED's timing, keeping what is not given. */
+function setBeta(store: AnimationStore, settings: { timescale?: number; offset?: number }) {
+  const { namespaces } = store.getState();
+  const beta = namespaces[NAMESPACE_IDS.BETA];
+  const instance = beta.animationInstances[INSTANCE_IDS.BETA_SHARED];
+  store.setState({
+    namespaces: {
+      ...namespaces,
+      [NAMESPACE_IDS.BETA]: {
+        ...beta,
+        animationInstances: {
+          ...beta.animationInstances,
+          [INSTANCE_IDS.BETA_SHARED]: {
+            ...instance,
+            settings: { ...instance.settings, ...settings },
+          },
+        },
+      },
+    },
+  });
 }
 
 const betaWorld = (store: AnimationStore, local: number) =>
@@ -292,4 +319,98 @@ describe("rows that span several instances", () => {
       expect(select(key.stamp)).not.toContain(key.id);
     },
   );
+
+  it("are drawn once into world time when a view's filter shows one of their instances", async () => {
+    const store = await betaStore();
+    const key = movedKey(store);
+    const { instancedTrackSources } = store.getState();
+    const filteredId = buildFilteredSourceRowId("view", GLOBAL);
+    const sources = {
+      ...instancedTrackSources,
+      [filteredId]: {
+        ...instancedTrackSources[GLOBAL],
+        id: filteredId,
+        data: instancedTrackSources[GLOBAL].data.filter(
+          (entry) => entry.instanceId === INSTANCE_IDS.BETA_SHARED,
+        ),
+      },
+    };
+    // The global row's data is drawn as it is: through no instance's time.
+    expect(drawnInstanceOf(sources, GLOBAL)).toBeUndefined();
+    expect(drawnInstanceOf(sources, BETA_OPACITY_ROW)).toBe(INSTANCE_IDS.BETA_SHARED);
+    expect(stampsOf(rowFrames(store, GLOBAL), key.id, INSTANCE_IDS.BETA_SHARED)).toEqual([
+      betaWorld(store, key.stamp),
+    ]);
+  });
+
+  it("put a key exactly where the key strip looks for it", async () => {
+    const store = await betaStore();
+    setBeta(store, { timescale: 3, offset: 0 });
+    // At speed 3 from 0 ms, local 100 ms is 33.33... ms in world time, a value that
+    // dividing and multiplying by the reciprocal round differently.
+    const track = store.getState().tracks[TRACK_IDS.OPACITY];
+    store.setState({
+      tracks: {
+        ...store.getState().tracks,
+        [TRACK_IDS.OPACITY]: {
+          ...track,
+          points: [...track.points, { id: "at-100", stamp: 100, value: 0.5 }].sort(
+            (a, b) => a.stamp - b.stamp,
+          ),
+        },
+      },
+    });
+    await flushMicrotasks();
+    const row = store.getState().instancedTrackSources[GLOBAL];
+    const computed = store.getState().derivedSnapshot!.rows[GLOBAL].computed;
+    const betaOpacity = row.data.filter(
+      (entry) =>
+        entry.instanceId === INSTANCE_IDS.BETA_SHARED && entry.trackId === TRACK_IDS.OPACITY,
+    );
+    store.getState().tracks[TRACK_IDS.OPACITY].points.forEach((point) => {
+      const found = keysAtStamp(computed, betaWorld(store, point.stamp), betaOpacity);
+      expect(
+        found.targetPoints.map((p) => p.id),
+        `key ${point.id}`,
+      ).toEqual([point.id]);
+    });
+  });
+
+  it("redraw when an instance's offset alone changes", async () => {
+    const store = await betaStore();
+    setBeta(store, { offset: 350 });
+    await flushMicrotasks();
+    const key = movedKey(store);
+    expect(stampsOf(rowFrames(store, GLOBAL), key.id, INSTANCE_IDS.BETA_SHARED)).toEqual([
+      betaWorld(store, key.stamp),
+    ]);
+  });
+});
+
+describe("transition segments", () => {
+  it("span each copy of a track only between its own keys", () => {
+    const frame = (stamp: number, instanceId: string): InstancedFrameInfo =>
+      ({
+        id: `${instanceId}@${stamp}`,
+        stamp,
+        points: [
+          {
+            id: `k${stamp}`,
+            trackId: "t",
+            namespaceId: "ns",
+            instanceId,
+            type: "number",
+            value: 0,
+          },
+        ],
+      }) as unknown as InstancedFrameInfo;
+    const segments = computeTransitionSegments(
+      [frame(0, "a"), frame(1000, "a"), frame(5000, "b"), frame(6000, "b")],
+      ["t"],
+    );
+    expect(segments.map(({ start, end }) => [start.stamp, end.stamp])).toEqual([
+      [0, 1000],
+      [5000, 6000],
+    ]);
+  });
 });

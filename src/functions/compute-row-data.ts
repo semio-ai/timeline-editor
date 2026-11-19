@@ -38,6 +38,7 @@ import { computeTransitionSegments } from "./compute-transition-segments";
 import { computeFilledInterpGaps } from "./compute-filled-interp-gaps";
 import { computeVerticalBounds } from "./compute-vertical-bounds";
 import { computeFrames } from "./compute-frames";
+import { computeWorldStamp } from "./compute-instance-time";
 import { resolveAnimationDuration } from "./compute-animation-extent";
 import { trackCurve, type TrackEvaluator, type TrackCurve } from "./track-curve";
 import { computeSubjectViolations, type FeedbackSubject } from "./feedback-provider";
@@ -317,10 +318,10 @@ export function computeRowData(
     // preview kept for the commit below stays in the track's own time.
     const entryTime = rowTime?.(datum.namespaceId, datum.instanceId);
     const rowProjectedPoints = entryTime
-      ? projectedPoints.map((point) => keypointInTime(point, entryTime))
+      ? projectedPoints.map((point) => keypointInWorld(point, entryTime))
       : projectedPoints;
     const rowFramePoints = entryTime
-      ? framePoints.map((point) => keypointInTime(point, entryTime))
+      ? framePoints.map((point) => keypointInWorld(point, entryTime))
       : framePoints;
 
     projectedPointLookup.set(
@@ -527,7 +528,7 @@ export function computeRowData(
           Object.entries(rowViolations).map(([trackId, list]) => [
             trackId,
             list.map((violation) =>
-              violationInTime(violation, rowTime(violation.namespace, violation.instanceId)),
+              violationInWorld(violation, rowTime(violation.namespace, violation.instanceId)),
             ),
           ]),
         )
@@ -1052,6 +1053,21 @@ function instanceTransform(instance: Namespace["animationInstances"][string]): A
   };
 }
 
+/** An instance's time: how fast and from when it plays its animation. */
+interface InstanceTime {
+  timescale: number;
+  offset: number;
+}
+
+function instanceTime(instance: Namespace["animationInstances"][string]): InstanceTime {
+  const timescale = instance.settings.timescale ?? 1;
+  const offset = instance.settings.offset ?? 0;
+  return {
+    timescale: Number.isFinite(timescale) && timescale !== 0 ? timescale : 1,
+    offset: Number.isFinite(offset) ? offset : 0,
+  };
+}
+
 /**
  * Where a row that spans several instances places each entry's keys. A row of
  * one instance keeps its keys in that instance's local time and is drawn
@@ -1066,7 +1082,7 @@ function instanceTransform(instance: Namespace["animationInstances"][string]): A
 export function aggregateRowTime(
   sourceRow: SourceRow,
   context?: RowComputationContext,
-): ((namespaceId: string, instanceId: string) => AffineTransform2D) | undefined {
+): ((namespaceId: string, instanceId: string) => InstanceTime) | undefined {
   const instanceIds = uniq(
     sourceRow.data.map((entry) => entry.instanceId).filter((id): id is string => Boolean(id)),
   );
@@ -1074,22 +1090,26 @@ export function aggregateRowTime(
   if (instanceIds.length < 2 || !namespaces) return undefined;
   return (namespaceId, instanceId) => {
     const instance = namespaces[namespaceId]?.animationInstances[instanceId];
-    return instance ? instanceTransform(instance) : IDENTITY_TRANSFORM;
+    return instance ? instanceTime(instance) : { timescale: 1, offset: 0 };
   };
 }
 
 /**
- * A key moved into another time: its stamp, and the time component of any
- * explicit handle, which is an offset in the key's own time.
+ * A stamp in world time. The same conversion the key strip and playhead use,
+ * so a key found by comparing stamps is found at exactly this time.
  */
-function keypointInTime<T extends RawValue>(
-  point: Keypoint<T>,
-  transform: AffineTransform2D,
-): Keypoint<T> {
-  if (isIdentityTransform(transform)) return point;
+const worldStampIn = (stamp: number, time: InstanceTime) =>
+  computeWorldStamp(stamp, time.timescale, time.offset);
+
+/**
+ * A key in world time: its stamp, and the time component of any explicit
+ * handle, which is an offset in the key's own time.
+ */
+function keypointInWorld<T extends RawValue>(point: Keypoint<T>, time: InstanceTime): Keypoint<T> {
+  if (time.timescale === 1 && time.offset === 0) return point;
   const scaleHandle = (handle: AuthoredTransition | undefined) =>
     handle && typeof handle === "object" && "x" in handle
-      ? { ...handle, x: handle.x * transform.scaleX }
+      ? { ...handle, x: handle.x / time.timescale }
       : handle;
   const transitions = point.transitions && {
     ...point.transitions,
@@ -1098,16 +1118,16 @@ function keypointInTime<T extends RawValue>(
   };
   return {
     ...point,
-    stamp: point.stamp * transform.scaleX + transform.offsetX,
+    stamp: worldStampIn(point.stamp, time),
     ...(transitions ? { transitions } : {}),
   };
 }
 
-/** A violation's range moved into another time. */
-function violationInTime(violation: Violation, transform: AffineTransform2D): Violation {
-  if (isIdentityTransform(transform)) return violation;
-  const start = violation.stampRange.start * transform.scaleX + transform.offsetX;
-  const end = violation.stampRange.end * transform.scaleX + transform.offsetX;
+/** A violation with its range in world time. */
+function violationInWorld(violation: Violation, time: InstanceTime): Violation {
+  if (time.timescale === 1 && time.offset === 0) return violation;
+  const start = worldStampIn(violation.stampRange.start, time);
+  const end = worldStampIn(violation.stampRange.end, time);
   return {
     ...violation,
     stampRange: { start: Math.min(start, end), end: Math.max(start, end) },

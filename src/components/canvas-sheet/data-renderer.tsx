@@ -23,6 +23,7 @@ import { namespaceEntity } from "@semio/data";
 import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
 import {
   buildFilteredSourceRowId,
+  drawnInstanceOf,
   filterHandlesByVisibility,
   shouldRowShowHandles,
 } from "../../functions";
@@ -276,15 +277,10 @@ export const DataRenderer = memo(function DataRenderer({
     return sourceRow.data.some((entry) => entry.visible !== false);
   }, [sourceRow]);
   const localGlobalTransformLookup = useLocalGlobalTransformLookup();
-  const rowInstanceId = useMemo(() => {
-    if (!sourceRow) return undefined;
-    const ids = uniq(
-      sourceRow.data
-        .map((entry) => entry.instanceId)
-        .filter((value): value is string => Boolean(value)),
-    );
-    return ids.length === 1 ? ids[0] : undefined;
-  }, [sourceRow]);
+  // From the row `computedData` was built from, not the view's filtered copy.
+  const rowInstanceId = useAnimationStore((state: StoreState) =>
+    drawnInstanceOf(state.instancedTrackSources, sourceRowId),
+  );
   const xTransform = useMemo(() => {
     const transform =
       rowInstanceId && localGlobalTransformLookup.toWorld[rowInstanceId]

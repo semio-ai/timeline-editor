@@ -389,7 +389,7 @@ function rowInputsOf(
     const track = inputs.tracks[datum.trackId];
     if (rowTime) {
       const entryTime = rowTime(datum.namespaceId, datum.instanceId);
-      values.push(entryTime.scaleX, entryTime.offsetX);
+      values.push(entryTime.timescale, entryTime.offset);
     }
     values.push(
       track,
