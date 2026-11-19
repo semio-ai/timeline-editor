@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AnimationStore } from "../../store";
-import type { DragState, InstancedFrameInfo, Keypoint, SourceRow, Violation } from "../../types";
+import type {
+  ComputedRowData,
+  DragState,
+  InstancedFrameInfo,
+  Keypoint,
+  SourceRow,
+  Violation,
+} from "../../types";
 import type { FeedbackProvider } from "../../functions/feedback-provider";
 import {
   createTestAnimationStore,
@@ -9,7 +16,7 @@ import {
   TRACK_IDS,
 } from "../../test-fixtures/animation-store-factory";
 import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
-import { computeWorldStamp, worldStampOf } from "../../functions";
+import { adjacentKeyTime, computeWorldStamp, worldStampOf } from "../../functions";
 import { computeRowData } from "../../functions/compute-row-data";
 import { computeTransitionSegments } from "../../functions/compute-transition-segments";
 import {
@@ -690,6 +697,33 @@ describe("row reuse", () => {
     expect(stampsOf(rowFrames(store, GLOBAL), key.id, INSTANCE_IDS.BETA_SHARED)).toEqual([
       betaWorld(store, key.stamp),
     ]);
+  });
+});
+
+describe("adjacent keys", () => {
+  it("are found the same way for a row in its instance's time and in world time", () => {
+    const frame = (stamp: number) =>
+      ({ id: `f${stamp}`, stamp, points: [] }) as unknown as InstancedFrameInfo;
+    const time = {
+      namespaceId: "ns",
+      instanceId: "i",
+      timescale: 20,
+      offset: 250,
+    };
+    const local = [0, 1, 4];
+    const inLocal = { virtualFrames: local.map(frame), time } as unknown as ComputedRowData;
+    const inWorld = {
+      virtualFrames: local.map((stamp) => frame(worldStampOf(time, stamp))),
+    } as unknown as ComputedRowData;
+    const bounds: [number, number] = [0, 1e6];
+    [250, 250.05, 250.2, 260].forEach((from) => {
+      (["next", "previous"] as const).forEach((direction) => {
+        expect(
+          adjacentKeyTime(inLocal, direction, from, bounds, true),
+          `${direction} ${from}`,
+        ).toBe(adjacentKeyTime(inWorld, direction, from, bounds, true));
+      });
+    });
   });
 });
 

@@ -1,7 +1,7 @@
 import { useCallback, useContext, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
-import { adjacentKeyTime, computeLocalStamp, rowStampOf } from "../functions";
+import { adjacentKeyTime, computeLocalStamp, instanceTime, rowStampOf } from "../functions";
 import { type AnimationActions, type AnimationData } from "../store-types";
 import { buildTrackKey } from "../utils/track-key";
 import { SemanticTime, SourceRow, InstancedFrameInfo, LayerBand } from "../types";
@@ -184,9 +184,9 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
     const stampNow = state.playerStore.getState().player.stamp;
     const playheadIn = (entry: InstanceRef) => {
       const instance = instanceIn(state.namespaces, entry);
-      return instance
-        ? computeLocalStamp(stampNow, instance.settings.timescale, instance.settings.offset)
-        : stampNow;
+      if (!instance) return stampNow;
+      const { timescale, offset } = instanceTime(instance);
+      return computeLocalStamp(stampNow, timescale, offset);
     };
     const computedNow = currentDerivedSnapshot(state)?.rows?.[source.id]?.computed;
     const localNow = rowStampOf(computedNow?.time, stampNow);

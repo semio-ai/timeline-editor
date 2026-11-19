@@ -17,13 +17,3 @@ export function worldStampOf(time: RowTime | undefined, stamp: number): number {
 export function rowStampOf(time: RowTime | undefined, worldStamp: number): number {
   return time ? computeLocalStamp(worldStamp, time.timescale, time.offset) : worldStamp;
 }
-
-/** World-time bounds in a row's time, lower first. */
-export function rowBoundsOf(
-  time: RowTime | undefined,
-  worldBounds: [number, number],
-): [number, number] {
-  const start = rowStampOf(time, worldBounds[0]);
-  const end = rowStampOf(time, worldBounds[1]);
-  return start <= end ? [start, end] : [end, start];
-}

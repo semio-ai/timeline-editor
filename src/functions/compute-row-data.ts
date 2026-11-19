@@ -1070,8 +1070,9 @@ export interface InstanceTime {
 }
 
 /**
- * An instance's time as every conversion uses it: a speed that is not a
- * finite non-zero number plays at 1, an offset that is not finite at 0.
+ * An instance's time as the derived rows, and the readers that convert their
+ * stamps, use it: a speed that is not a finite non-zero number plays at 1, an
+ * offset that is not finite at 0.
  */
 export function instanceTime(instance: Namespace["animationInstances"][string]): InstanceTime {
   const timescale = instance.settings.timescale ?? 1;

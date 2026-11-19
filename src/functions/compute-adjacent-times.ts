@@ -1,5 +1,5 @@
 import type { ComputedRowData, InstancedFrameInfo } from "../types";
-import { rowBoundsOf, rowStampOf, worldStampOf } from "./compute-instance-time";
+import { worldStampOf } from "./compute-instance-time";
 
 /**
  * Computes the next timestamp based on the provided tracks, instances, and current timestamp.
@@ -16,9 +16,7 @@ export function computeNextTime(
   bounds: [number, number],
   respectBounds: boolean,
 ): number | undefined {
-  // In the row's own time: an instance's local time for a row of one, world
-  // time for a row of several, so keys this close are passed over in one and
-  // can be reached in the other when the instance does not play at speed 1.
+  // In the time of the stamps given: world time, from `adjacentKeyTime`.
   const EPSILON = 0.1;
   const stamps = data.map((f) => f.stamp);
   if (stamps.length === 0) return undefined;
@@ -51,9 +49,7 @@ export function computePreviousTime(
   bounds: [number, number],
   respectBounds: boolean,
 ): number | undefined {
-  // In the row's own time: an instance's local time for a row of one, world
-  // time for a row of several, so keys this close are passed over in one and
-  // can be reached in the other when the instance does not play at speed 1.
+  // In the time of the stamps given: world time, from `adjacentKeyTime`.
   const EPSILON = 0.1;
   const stamps = data.map((f) => f.stamp);
   if (stamps.length === 0) return undefined;
@@ -73,9 +69,9 @@ export function computePreviousTime(
 
 /**
  * A row's next or previous key from a world time, in world time. The row's
- * stamps are in the time it records (`ComputedRowData.time`), so the playhead
- * and bounds are taken into that time to compare with them, and the key found
- * is taken back.
+ * stamps are in the time it records (`ComputedRowData.time`); they are taken
+ * to world time to compare, so the tolerance between keys means the same for
+ * every row, whichever time its stamps are in.
  */
 export function adjacentKeyTime(
   computed: ComputedRowData,
@@ -85,12 +81,13 @@ export function adjacentKeyTime(
   respectBounds: boolean,
 ): number | undefined {
   const { time } = computed;
+  const frames = time
+    ? computed.virtualFrames.map((frame) => ({ ...frame, stamp: worldStampOf(time, frame.stamp) }))
+    : computed.virtualFrames;
   const find = direction === "next" ? computeNextTime : computePreviousTime;
-  const found = find(
-    computed.virtualFrames,
-    rowStampOf(time, worldStamp),
-    rowBoundsOf(time, worldBounds),
-    respectBounds,
-  );
-  return found === undefined ? undefined : worldStampOf(time, found);
+  return find(frames, worldStamp, normalized(worldBounds), respectBounds);
+}
+
+function normalized(bounds: [number, number]): [number, number] {
+  return bounds[0] <= bounds[1] ? bounds : [bounds[1], bounds[0]];
 }
