@@ -47,8 +47,8 @@ export interface KeyControlState {
 export interface KeysNow extends KeysAtStamp {
   /** The row's tracks as the state has them. */
   entries: SourceRow["data"];
-  /** The playhead in an instance's local time, by its time transform now. */
-  playheadIn: (instanceId: string) => number;
+  /** The playhead in a track's instance's local time, by its time transform now. */
+  playheadIn: (entry: InstanceRef) => number;
 }
 
 /** The keys a row holds at one local stamp, and which of its tracks lack one. */
@@ -59,11 +59,33 @@ export interface KeysAtStamp {
   missingEntries: SourceRow["data"];
 }
 
-/** An animation instance by id, in whichever namespace holds it. */
-function instanceIn(namespaces: AnimationData["namespaces"], instanceId: string) {
-  return Object.values(namespaces)
-    .map((namespace) => namespace.animationInstances[instanceId])
-    .find(Boolean);
+/** Where an animation instance is: its namespace and its id within it. */
+export interface InstanceRef {
+  namespaceId: string;
+  instanceId: string;
+}
+
+/**
+ * An animation instance by its namespace and id. Instance ids are unique only
+ * within a namespace, so the namespace is part of finding one.
+ */
+function instanceIn(
+  namespaces: AnimationData["namespaces"],
+  { namespaceId, instanceId }: InstanceRef,
+) {
+  return namespaces[namespaceId]?.animationInstances[instanceId];
+}
+
+/** The one instance every entry of a row plays, if there is exactly one. */
+function uniqueInstanceOf(data: SourceRow["data"]): InstanceRef | undefined {
+  const refs = uniq(
+    data
+      .filter((entry) => entry.namespaceId && entry.instanceId)
+      .map((entry) => JSON.stringify([entry.namespaceId, entry.instanceId])),
+  );
+  if (refs.length !== 1) return undefined;
+  const [namespaceId, instanceId] = JSON.parse(refs[0]) as [string, string];
+  return { namespaceId, instanceId };
 }
 
 /** The tracks a row's key controls act on: its foreground tracks, or all of them. */
@@ -135,21 +157,14 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
   // during play); it just gives a sensible last-known value.
   const stampSafe = stamp ?? playerStore.getState().player.stamp;
 
-  const uniqueInstanceId = useMemo(() => {
-    const ids = uniq(
-      source.data
-        .map((entry) => entry.instanceId)
-        .filter((value): value is string => Boolean(value)),
-    );
-    return ids.length === 1 ? ids[0] : undefined;
-  }, [source.data]);
+  const uniqueInstance = useMemo(() => uniqueInstanceOf(source.data), [source.data]);
 
   // The instance's time transform, from the store: the same one an event
   // handler reads when it acts (`keyStateNow`), so what the strip shows and
   // what a click does agree, with or without a transform provider above.
   const instanceSettings = useAnimationStore(
     useShallow((state: AnimationData) =>
-      uniqueInstanceId ? instanceIn(state.namespaces, uniqueInstanceId)?.settings : undefined,
+      uniqueInstance ? instanceIn(state.namespaces, uniqueInstance)?.settings : undefined,
     ),
   );
   const toLocal = useMemo(
@@ -223,14 +238,14 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
     const state = store.getState();
     const row = state.instancedTrackSources[source.id] ?? source;
     const stampNow = state.playerStore.getState().player.stamp;
-    const playheadIn = (instanceId: string) => {
-      const instance = instanceIn(state.namespaces, instanceId);
+    const playheadIn = (entry: InstanceRef) => {
+      const instance = instanceIn(state.namespaces, entry);
       return instance
         ? computeLocalStamp(stampNow, instance.settings.timescale, instance.settings.offset)
         : stampNow;
     };
-    const instanceIds = uniq(row.data.map((entry) => entry.instanceId).filter(Boolean));
-    const localNow = instanceIds.length === 1 ? playheadIn(instanceIds[0] as string) : stampNow;
+    const instance = uniqueInstanceOf(row.data);
+    const localNow = instance ? playheadIn(instance) : stampNow;
     const computedNow = currentDerivedSnapshot(state)?.rows?.[source.id]?.computed;
     return {
       ...keysAtStamp(computedNow, localNow, keyTargets(row.data)),

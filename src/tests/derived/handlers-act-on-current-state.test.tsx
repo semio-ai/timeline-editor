@@ -150,7 +150,7 @@ describe("an event handler acts on the state as it is, not on a published snapsh
       expect(local).not.toBe(point.stamp);
       expect(result.current.keyStateNow().keyState).toBe("full");
       // A key added there goes at the instance's local time now.
-      expect(result.current.keyStateNow().playheadIn(instanceId)).toBe(local);
+      expect(result.current.keyStateNow().playheadIn({ namespaceId, instanceId })).toBe(local);
     } finally {
       vi.useRealTimers();
     }
@@ -207,10 +207,11 @@ describe("an event handler acts on the state as it is, not on a published snapsh
         },
       },
     });
+    // The first key away from local 0, where a timescale changes nothing.
+    const [key0, key1] = store.getState().tracks[trackId].points;
+    editKey(store, trackId, key0.id, { stamp: key1.stamp / 2 });
     const [first, second] = store.getState().tracks[trackId].points;
-    // On the second key, by its world time: away from local 0, where a
-    // timescale changes nothing.
-    expect(second.stamp).not.toBe(0);
+    expect(first.stamp).not.toBe(0);
     store
       .getState()
       .playerStore.getState()
@@ -222,5 +223,43 @@ describe("an event handler acts on the state as it is, not on a published snapsh
     expect(result.current.keyState).toBe("full");
     // The previous key, back in world time.
     expect(result.current.prevTime).toBe(computeWorldStamp(first.stamp, 2, 250));
+  });
+
+  it("finds a row's instance by its namespace too, when another namespace has one of the same id", () => {
+    const store = createCorpusStore();
+    const { row, trackId, point } = leafWithKey(store);
+    const { namespaceId, instanceId } = row.data[0];
+    const namespace = store.getState().namespaces[namespaceId];
+    const instance = namespace.animationInstances[instanceId];
+    // A second namespace with an instance of the same id, offset by 250.
+    store.setState({
+      namespaces: {
+        ...store.getState().namespaces,
+        twin: {
+          ...namespace,
+          id: "twin",
+          animationInstances: {
+            [instanceId]: { ...instance, settings: { ...instance.settings, offset: 250 } },
+          },
+        },
+      },
+    });
+    const twinRow = Object.values(store.getState().instancedTrackSources).find(
+      (candidate) =>
+        !candidate.isGroup &&
+        candidate.data.length === 1 &&
+        candidate.data[0].namespaceId === "twin" &&
+        candidate.data[0].trackId === trackId,
+    )!;
+    expect(twinRow).toBeDefined();
+    store
+      .getState()
+      .playerStore.getState()
+      .resetPlayer(computeWorldStamp(point.stamp, instance.settings.timescale, 250));
+    const { result } = renderHook(() => useKeyControlState(twinRow), {
+      wrapper: wrapperFor(store),
+    });
+    expect(result.current.keyState).toBe("full");
+    expect(result.current.keyStateNow().keyState).toBe("full");
   });
 });

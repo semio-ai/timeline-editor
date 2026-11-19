@@ -1454,6 +1454,49 @@ describe("derived store edges", () => {
           });
         },
       ],
+      [
+        "which instance a track key names in one namespace",
+        (store) => {
+          // In namespace "a", instance "b" playing track "c/t", and instance
+          // "b/c" playing track "t": their track keys are the same.
+          const { namespace } = leafInstance(store);
+          const [instance] = Object.values(namespace.animationInstances);
+          const { trackId } = leafWithKey(store);
+          const base = store.getState().tracks[trackId];
+          const { animations, tracks } = store.getState();
+          const animation = animations[instance.animationId];
+          const playing = (instanceId: string, animationId: string) => ({
+            ...namespace,
+            id: "a",
+            animationInstances: { [instanceId]: { ...instance, id: instanceId, animationId } },
+          });
+          if (!store.getState().namespaces.a) {
+            store.setState({
+              tracks: {
+                ...tracks,
+                "c/t": { ...base, id: "c/t" },
+                t: {
+                  ...base,
+                  id: "t",
+                  points: base.points.map((p) =>
+                    typeof p.value === "number" ? { ...p, value: p.value + 1000 } : p,
+                  ),
+                },
+              },
+              animations: {
+                ...animations,
+                plain: { ...animation, id: "plain", tracks: ["c/t"] },
+                raised: { ...animation, id: "raised", tracks: ["t"] },
+              },
+              namespaces: { ...store.getState().namespaces, a: playing("b", "plain") },
+            });
+            return;
+          }
+          store.setState({
+            namespaces: { ...store.getState().namespaces, a: playing("b/c", "raised") },
+          });
+        },
+      ],
     ];
 
     it.each(edits)("%s", (name, edit) => {
@@ -1461,7 +1504,7 @@ describe("derived store edges", () => {
       try {
         const store = createCorpusStore();
         // The colliding cases first publish what they later replace.
-        if (name.includes("track key names")) edit(store);
+        if (name.includes("key names")) edit(store);
         stallBuilding(store);
         const published = store.getState().derivedSnapshot;
         edit(store);
