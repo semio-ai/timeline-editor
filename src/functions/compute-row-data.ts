@@ -1049,12 +1049,16 @@ function instanceTransform(instance: Namespace["animationInstances"][string]): A
 }
 
 /** An instance's time: how fast and from when it plays its animation. */
-interface InstanceTime {
+export interface InstanceTime {
   timescale: number;
   offset: number;
 }
 
-function instanceTime(instance: Namespace["animationInstances"][string]): InstanceTime {
+/**
+ * An instance's time as every conversion uses it: a speed that is not a
+ * finite non-zero number plays at 1, an offset that is not finite at 0.
+ */
+export function instanceTime(instance: Namespace["animationInstances"][string]): InstanceTime {
   const timescale = instance.settings.timescale ?? 1;
   const offset = instance.settings.offset ?? 0;
   return {

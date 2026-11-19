@@ -10,6 +10,7 @@ import type { AnimationData, AnimationStoreGetter, AnimationStoreSetter } from "
 import type { Namespace, SourceRow } from "../types";
 import { currentDerivedSnapshot } from "../subscriptions/init-derived-orchestrator";
 import { rowInstanceOf } from "../functions/view-filtered-source-row";
+import { instanceTime } from "../functions/compute-row-data";
 
 /** Always returns the bounds in `[min, max]` order, regardless of input. */
 function normalizeBounds(bounds: [number, number]): [number, number] {
@@ -39,12 +40,7 @@ function resolveRowTimeContext(
   if (!instance) {
     return { localStamp: worldStamp, localBounds: worldBounds };
   }
-  const rawTimescale = instance.settings.timescale ?? 1;
-  const rawOffset = instance.settings.offset ?? 0;
-  const settings = {
-    timescale: Number.isFinite(rawTimescale) && rawTimescale !== 0 ? rawTimescale : 1,
-    offset: Number.isFinite(rawOffset) ? rawOffset : 0,
-  };
+  const settings = instanceTime(instance);
 
   const toLocal = (stamp: number) => computeLocalStamp(stamp, settings.timescale, settings.offset);
   const toWorld = (stamp: number) => computeWorldStamp(stamp, settings.timescale, settings.offset);

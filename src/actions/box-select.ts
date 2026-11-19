@@ -13,6 +13,7 @@ import {
 import { currentDerivedSnapshot } from "../subscriptions/init-derived-orchestrator";
 import { computeWorldStamp } from "../functions/compute-instance-time";
 import { rowInstanceOf } from "../functions/view-filtered-source-row";
+import { instanceTime } from "../functions/compute-row-data";
 
 /**
  * Hit-test keypoints against the current box-select bounds and return the
@@ -100,12 +101,13 @@ function computeBoxSelectHitTest(
     // The box spans world time; a row of one instance holds its keys in that
     // instance's time, and is drawn at the world time computeWorldStamp gives.
     const owner = rowInstanceOf(sourceRow);
-    const settings = owner
-      ? state.namespaces[owner.namespaceId]?.animationInstances[owner.instanceId]?.settings
+    const instance = owner
+      ? state.namespaces[owner.namespaceId]?.animationInstances[owner.instanceId]
       : undefined;
+    const time = instance ? instanceTime(instance) : undefined;
     computed.virtualFrames.forEach((frame) => {
-      const stamp = settings
-        ? computeWorldStamp(frame.stamp, settings.timescale, settings.offset)
+      const stamp = time
+        ? computeWorldStamp(frame.stamp, time.timescale, time.offset)
         : frame.stamp;
       if (stamp < minStamp || stamp > maxStamp) return;
 

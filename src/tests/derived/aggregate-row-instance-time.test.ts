@@ -516,6 +516,38 @@ describe("next and previous key on a row of several instances", () => {
   });
 });
 
+describe("box selection", () => {
+  it("plays an instance whose speed is zero at its own time, as the rows do", async () => {
+    const store = await betaStore();
+    setBeta(store, { timescale: 0, offset: 0 });
+    await flushMicrotasks();
+    const { sourceRowIds } = store.getState();
+    store.setState({ sourceRowIds: { ...sourceRowIds, flat: [BETA_OPACITY_ROW] } });
+
+    const key = movedKey(store);
+    store.getState().startBoxSelect({
+      origin: "tracks",
+      startStamp: key.stamp - 1,
+      startY: -1e6,
+      currentStamp: key.stamp - 1,
+      currentY: -1e6,
+      mode: "replace",
+      initialKeypoints: new Map(),
+      layout: {
+        viewId: Object.keys(store.getState().editorViews)[0],
+        canvasHeight: 100,
+        topOffsetPx: 0,
+        bottomOffsetPx: 100,
+        trackHeightPx: 20,
+      },
+    });
+    store.getState().updateBoxSelect(key.stamp + 1, 1e6);
+    expect([...(store.getState().selectionState.keypoints.get(TRACK_IDS.OPACITY) ?? [])]).toEqual([
+      key.id,
+    ]);
+  });
+});
+
 describe("a handle dragged in a row of several instances", () => {
   it("draws as the same handle does once committed", async () => {
     const store = await betaStore();

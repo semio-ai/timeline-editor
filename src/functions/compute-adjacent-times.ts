@@ -15,6 +15,9 @@ export function computeNextTime(
   bounds: [number, number],
   respectBounds: boolean,
 ): number | undefined {
+  // In the row's own time: an instance's local time for a row of one, world
+  // time for a row of several. Either way it is far below a frame, so a key it
+  // passes over is one no frame can show apart from its neighbour.
   const EPSILON = 0.1;
   const stamps = data.map((f) => f.stamp);
   if (stamps.length === 0) return undefined;
@@ -47,6 +50,9 @@ export function computePreviousTime(
   bounds: [number, number],
   respectBounds: boolean,
 ): number | undefined {
+  // In the row's own time: an instance's local time for a row of one, world
+  // time for a row of several. Either way it is far below a frame, so a key it
+  // passes over is one no frame can show apart from its neighbour.
   const EPSILON = 0.1;
   const stamps = data.map((f) => f.stamp);
   if (stamps.length === 0) return undefined;
