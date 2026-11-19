@@ -11,6 +11,8 @@ import {
 } from "@semio/timeline-editor";
 import { Text, TextRole } from "@semio/ui";
 import { createValuesStore, DataStoreContext, valuesDataStore } from "@semio/data";
+import { shallow } from "zustand/shallow";
+import { selectDerivedInputs } from "../src/subscriptions/init-derived-orchestrator";
 import {
   createTrackFeedbackProvider,
   type FeedbackProvider,
@@ -30,30 +32,35 @@ type Story = StoryObj<typeof meta>;
  * Its answers come from the editor's own provider, so violations look the
  * same with it on or off; what changes is how often it is asked, how long
  * each answer takes, and whether an answer throws.
+ *
+ * The store deep-freezes the plain objects in its state, this provider
+ * included, so everything the story changes lives in the closure and is
+ * reached through methods.
  */
 interface HostProvider extends FeedbackProvider {
   /** Tells the store the provider's answers changed, as a host's subscription would. */
   notify(): void;
-  costMs: number;
-  throwNext: boolean;
-  calls: number;
+  setCostMs(ms: number): void;
+  /** Makes the next `canonical` call throw. */
+  failNext(): void;
+  calls(): number;
 }
 
 function createHostProvider(): HostProvider {
   const inner = createTrackFeedbackProvider();
   const listeners = new Set<() => void>();
-  const host: HostProvider = {
-    costMs: 0,
-    throwNext: false,
-    calls: 0,
+  let costMs = 0;
+  let throwNext = false;
+  let calls = 0;
+  return {
     canonical(subjects, evaluator) {
-      host.calls += 1;
-      if (host.throwNext) {
-        host.throwNext = false;
+      calls += 1;
+      if (throwNext) {
+        throwNext = false;
         throw new Error("Story provider failed once on purpose.");
       }
       // A synchronous host check costs the main thread this long.
-      const until = performance.now() + host.costMs;
+      const until = performance.now() + costMs;
       while (performance.now() < until) {
         /* busy */
       }
@@ -67,47 +74,54 @@ function createHostProvider(): HostProvider {
     notify() {
       listeners.forEach((listener) => listener());
     },
+    setCostMs(ms) {
+      costMs = ms;
+    },
+    failNext() {
+      throwNext = true;
+    },
+    calls: () => calls,
   };
-  return host;
-}
-
-/** What the store's inputs were written with, compared by reference. */
-function writeInputs(store: AnimationStore) {
-  const { tracks, animations, namespaces, animatables } = store.getState();
-  return [tracks, animations, namespaces, animatables] as const;
 }
 
 /**
- * Counts writes to the store's authored data and snapshots it publishes.
- * A write is a change to tracks, animations, namespaces or animatables; a
- * publish is a new `derivedSnapshot` object.
+ * Counts changes to the snapshot's inputs and the snapshots the store
+ * publishes. An input change is any write to what the snapshot is built from
+ * (an edit, a selection, a view change, the provider); a publish is a new
+ * `derivedSnapshot` object. The snapshots published while the store starts,
+ * before any input changes, are not counted against a change.
  */
 function useDerivedCounters(store: AnimationStore) {
   const [counters, setCounters] = useState({
-    version: 0,
-    writes: 0,
+    version: store.getState().derivedSnapshot?.version ?? 0,
+    changes: 0,
     publishes: 0,
-    publishesSinceWrite: 0,
-    mostPerWrite: 0,
+    publishesSinceChange: 0,
+    mostPerChange: 0,
   });
-  const last = useRef({ inputs: writeInputs(store), snapshot: store.getState().derivedSnapshot });
+  const last = useRef({
+    inputs: selectDerivedInputs(store.getState()),
+    snapshot: store.getState().derivedSnapshot,
+  });
 
   useEffect(
     () =>
       store.subscribe((state) => {
-        const inputs = writeInputs(store);
-        const wrote = inputs.some((input, index) => input !== last.current.inputs[index]);
+        const inputs = selectDerivedInputs(state);
+        const changed = !shallow(inputs, last.current.inputs);
         const published = state.derivedSnapshot !== last.current.snapshot;
         last.current = { inputs, snapshot: state.derivedSnapshot };
-        if (!wrote && !published) return;
+        if (!changed && !published) return;
         setCounters((previous) => {
-          const sinceWrite = (wrote ? 0 : previous.publishesSinceWrite) + (published ? 1 : 0);
+          const changes = previous.changes + (changed ? 1 : 0);
+          const sinceChange =
+            changes === 0 ? 0 : (changed ? 0 : previous.publishesSinceChange) + (published ? 1 : 0);
           return {
             version: state.derivedSnapshot?.version ?? 0,
-            writes: previous.writes + (wrote ? 1 : 0),
+            changes,
             publishes: previous.publishes + (published ? 1 : 0),
-            publishesSinceWrite: sinceWrite,
-            mostPerWrite: Math.max(previous.mostPerWrite, sinceWrite),
+            publishesSinceChange: sinceChange,
+            mostPerChange: Math.max(previous.mostPerChange, sinceChange),
           };
         });
       }),
@@ -128,40 +142,58 @@ function Diagnostics({
   setProviderOn: (on: boolean) => void;
 }): ReactNode {
   const counters = useDerivedCounters(store);
-  const [costMs, setCostMs] = useState(host.costMs);
-  const [calls, setCalls] = useState(host.calls);
+  const [costMs, setCostMs] = useState(0);
+  const [calls, setCalls] = useState(host.calls());
   const [failure, setFailure] = useState<string>();
 
   useEffect(() => {
-    host.costMs = costMs;
+    host.setCostMs(costMs);
   }, [host, costMs]);
 
   // The provider's call count is not store state, so it is sampled.
   useEffect(() => {
-    const timer = setInterval(() => setCalls(host.calls), 250);
+    const timer = setInterval(() => setCalls(host.calls()), 250);
     return () => clearInterval(timer);
   }, [host]);
 
   return (
     <div
       data-testid="derived-diagnostics"
-      style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: 8, alignItems: "center" }}
+      // One row of fixed height whose numbers keep their width, so the sheet
+      // below never moves while the counts change.
+      style={{
+        display: "flex",
+        flexWrap: "nowrap",
+        gap: 16,
+        height: 36,
+        flex: "0 0 36px",
+        padding: "0 8px",
+        alignItems: "center",
+        overflow: "hidden",
+        whiteSpace: "nowrap",
+        fontVariantNumeric: "tabular-nums",
+      }}
     >
       <Text role={TextRole.Note}>
-        snapshot v{counters.version} · writes {counters.writes} · publishes {counters.publishes} ·
-        last write → {counters.publishesSinceWrite} publish(es) · most for one write{" "}
-        {counters.mostPerWrite}
+        snapshot v<Count value={counters.version} /> · input changes{" "}
+        <Count value={counters.changes} /> · publishes <Count value={counters.publishes} /> · last
+        change → <Count value={counters.publishesSinceChange} digits={2} /> · most for one change{" "}
+        <Count value={counters.mostPerChange} digits={2} />
       </Text>
-      <label>
+      <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <input
           type="checkbox"
           checked={providerOn}
           onChange={(event) => setProviderOn(event.target.checked)}
-        />{" "}
-        <Text role={TextRole.Note}>host provider (asked {calls}×)</Text>
+        />
+        <Text role={TextRole.Note}>
+          host provider, asked <Count value={calls} />×
+        </Text>
       </label>
-      <label>
-        <Text role={TextRole.Note}>provider cost {costMs} ms </Text>
+      <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <Text role={TextRole.Note}>
+          cost <Count value={costMs} digits={2} /> ms
+        </Text>
         <input
           type="range"
           min={0}
@@ -182,7 +214,7 @@ function Diagnostics({
           // A build that throws throws to whatever started it (here, this
           // notification); the store keeps the snapshot it last published,
           // and the next write or notification builds again.
-          host.throwNext = true;
+          host.failNext();
           try {
             host.notify();
             setFailure(undefined);
@@ -193,9 +225,16 @@ function Diagnostics({
       >
         Fail next build
       </button>
-      {failure && <Text role={TextRole.Note}>build threw: {failure}</Text>}
+      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+        <Text role={TextRole.Note}>{failure ? `build threw: ${failure}` : ""}</Text>
+      </span>
     </div>
   );
+}
+
+/** A count drawn at a fixed width, so a growing number does not shift what follows. */
+function Count({ value, digits = 4 }: { value: number; digits?: number }): ReactNode {
+  return <span style={{ display: "inline-block", minWidth: `${digits}ch` }}>{value}</span>;
 }
 
 function DerivedSnapshotSheet({ scaled }: { scaled: boolean }): ReactNode {
