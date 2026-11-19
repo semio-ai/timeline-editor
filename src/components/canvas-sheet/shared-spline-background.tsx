@@ -2,10 +2,10 @@ import { memo, useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { Theme } from "@semio/ui";
 import { uniq } from "lodash";
-import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
+import { useAnimationStore, useColors } from "../../hooks";
 import { Z } from "../../constants";
 import { AnimationData, ViolationVisibility } from "../../store-types";
-import { rowInstanceOf } from "../../functions/view-filtered-source-row";
+import { worldStampOf } from "../../functions/compute-instance-time";
 import { FrustumBackground } from "./frustum-background";
 import { ViolationRenderer } from "./violation-renderer";
 
@@ -47,19 +47,9 @@ export const SharedSplineBackground = memo(function SharedSplineBackground({
     [violationVisibility, selectedKeypoints],
   );
   const trackIds = uniq(sourceRow?.data.map((d) => d.trackId) || []);
-  const localGlobalTransformLookup = useLocalGlobalTransformLookup();
-  // A row of several instances holds its stamps in world time already.
-  const rowInstanceId = useMemo(() => rowInstanceOf(sourceRow)?.instanceId, [sourceRow]);
-  const xTransform = useMemo(() => {
-    const transform =
-      rowInstanceId && localGlobalTransformLookup.toWorld[rowInstanceId]
-        ? localGlobalTransformLookup.toWorld[rowInstanceId]
-        : undefined;
-    if (typeof transform === "function") {
-      return transform;
-    }
-    return (stamp: number) => stamp;
-  }, [localGlobalTransformLookup, rowInstanceId]);
+  // The row's stamps are in the time it was built in.
+  const rowTime = computedData?.time;
+  const xTransform = useMemo(() => (stamp: number) => worldStampOf(rowTime, stamp), [rowTime]);
 
   const color = useColors(trackIds);
 

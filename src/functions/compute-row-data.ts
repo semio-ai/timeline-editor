@@ -27,6 +27,7 @@ import {
   RenderSampleId,
   AffineTransform2D,
   AuthoredTransition,
+  RowTime,
 } from "../types";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
@@ -163,6 +164,7 @@ export function computeRowData(
   };
   const rowTransform = resolveRowTransform(sourceRow, context);
   const rowTime = aggregateRowTime(sourceRow, context);
+  const ownTime = rowOwnTime(sourceRow, context);
 
   const shouldPreview = Boolean(selectionState.instanceId === dragState?.instanceId);
   const draggedTrackIds = shouldPreview
@@ -555,6 +557,7 @@ export function computeRowData(
   const renderHandles = buildRenderHandles(segmentsWithGeometry, sourceRow);
 
   const rowComputedData: ComputedRowData = {
+    ...(ownTime ? { time: ownTime } : {}),
     violationSet,
     virtualFrames: markerFramesWithPairing,
     verticalBounds: boundsForRow,
@@ -1035,6 +1038,18 @@ export function resolveRowTransform(
   return instance ? instanceTransform(instance) : IDENTITY_TRANSFORM;
 }
 
+/**
+ * The local time a row of one instance holds its stamps in, recorded on the
+ * row so its readers convert with the timing the stamps were built with.
+ */
+function rowOwnTime(sourceRow: SourceRow, context?: RowComputationContext): RowTime | undefined {
+  const owner = rowInstanceOf(sourceRow);
+  const instance = owner
+    ? context?.namespaces?.[owner.namespaceId]?.animationInstances[owner.instanceId]
+    : undefined;
+  return owner && instance ? { ...owner, ...instanceTime(instance) } : undefined;
+}
+
 /** An instance's map from its animation's local time to world time. */
 function instanceTransform(instance: Namespace["animationInstances"][string]): AffineTransform2D {
   const timescale = instance.settings.timescale ?? 1;
@@ -1072,9 +1087,8 @@ export function instanceTime(instance: Namespace["animationInstances"][string]):
  * one instance keeps its keys in that instance's local time and is drawn
  * through `resolveRowTransform`. A row of several has no one transform to be
  * drawn through, so its keys, violations and segments are built in world time
- * instead, each entry's through its own instance: that is the time everything
- * reading such a row (drawing, dragging, box selection, the key strip, next and
- * previous key, the time display) takes its stamps to be in.
+ * instead, each entry's through its own instance, and it records no time of
+ * its own (`ComputedRowData.time`), which tells its readers so.
  *
  * Undefined for a row of at most one instance, whose keys stay local.
  */

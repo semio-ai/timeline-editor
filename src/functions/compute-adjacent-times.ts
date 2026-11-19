@@ -1,4 +1,5 @@
-import type { InstancedFrameInfo } from "../types";
+import type { ComputedRowData, InstancedFrameInfo } from "../types";
+import { rowBoundsOf, rowStampOf, worldStampOf } from "./compute-instance-time";
 
 /**
  * Computes the next timestamp based on the provided tracks, instances, and current timestamp.
@@ -16,8 +17,8 @@ export function computeNextTime(
   respectBounds: boolean,
 ): number | undefined {
   // In the row's own time: an instance's local time for a row of one, world
-  // time for a row of several. Either way it is far below a frame, so a key it
-  // passes over is one no frame can show apart from its neighbour.
+  // time for a row of several, so keys this close are passed over in one and
+  // can be reached in the other when the instance does not play at speed 1.
   const EPSILON = 0.1;
   const stamps = data.map((f) => f.stamp);
   if (stamps.length === 0) return undefined;
@@ -51,8 +52,8 @@ export function computePreviousTime(
   respectBounds: boolean,
 ): number | undefined {
   // In the row's own time: an instance's local time for a row of one, world
-  // time for a row of several. Either way it is far below a frame, so a key it
-  // passes over is one no frame can show apart from its neighbour.
+  // time for a row of several, so keys this close are passed over in one and
+  // can be reached in the other when the instance does not play at speed 1.
   const EPSILON = 0.1;
   const stamps = data.map((f) => f.stamp);
   if (stamps.length === 0) return undefined;
@@ -68,4 +69,28 @@ export function computePreviousTime(
   } else {
     return previousStampDirect;
   }
+}
+
+/**
+ * A row's next or previous key from a world time, in world time. The row's
+ * stamps are in the time it records (`ComputedRowData.time`), so the playhead
+ * and bounds are taken into that time to compare with them, and the key found
+ * is taken back.
+ */
+export function adjacentKeyTime(
+  computed: ComputedRowData,
+  direction: "next" | "previous",
+  worldStamp: number,
+  worldBounds: [number, number],
+  respectBounds: boolean,
+): number | undefined {
+  const { time } = computed;
+  const find = direction === "next" ? computeNextTime : computePreviousTime;
+  const found = find(
+    computed.virtualFrames,
+    rowStampOf(time, worldStamp),
+    rowBoundsOf(time, worldBounds),
+    respectBounds,
+  );
+  return found === undefined ? undefined : worldStampOf(time, found);
 }

@@ -30,9 +30,10 @@ export interface RowInstance {
 
 /**
  * The one instance a row's entries belong to, or undefined for a row of none
- * or of several. A row of one instance holds its derived stamps in that
- * instance's local time; a row of several holds them in world time. Every
- * reader of a row's stamps decides which by asking this, so they agree.
+ * or of several. The derived build asks this to decide which time a row's
+ * stamps are in (its one instance's local time, or world time for a row of
+ * several) and records the answer on the row (`ComputedRowData.time`), which
+ * is what readers of the stamps convert with.
  */
 export function rowInstanceOf(row: SourceRow | undefined): RowInstance | undefined {
   let found: RowInstance | undefined;
@@ -52,34 +53,19 @@ export function spansSeveralInstances(row: SourceRow): boolean {
   return row.data.some((entry) => entry.instanceId) && !rowInstanceOf(row);
 }
 
-/** Which rows a row is drawn from, and the instance each is drawn through. */
-export interface RowDrawing {
-  /** The row its keys are listed and read from. */
-  keyRowId: string;
-  /** The instance the keys' stamps are taken to world time through, if any. */
-  keyInstanceId?: string;
-  /** The instance its segments, violations and handles are drawn through, if any. */
-  rowInstanceId?: string;
-}
-
 /**
- * How a row is drawn in a view. Its segments, violations and handles come from
- * the row itself; its keys from the view's filtered copy of it when there is
- * one, a row of its own whose columns differ from the full row's wherever the
- * filter hides a key, and which can be of one instance when the full row is of
- * several. Each is drawn through the time of the row it is read from: its one
- * instance's, or none for a row of several, whose stamps are in world time.
+ * The row a view lists and reads a row's keys from: the view's filtered copy
+ * of it when there is one, a row of its own whose columns differ from the
+ * full row's wherever the filter hides a key, and which can be of one
+ * instance when the full row is of several. The row's segments, violations
+ * and handles come from the full row. Each carries the time its stamps are
+ * in (`ComputedRowData.time`).
  */
-export function rowDrawing(
+export function keyRowOf(
   sources: Record<string, SourceRow>,
   rowId: string,
   viewId?: string,
-): RowDrawing {
+): string {
   const filteredId = viewId ? buildFilteredSourceRowId(viewId, rowId) : undefined;
-  const keyRowId = filteredId && sources[filteredId] ? filteredId : rowId;
-  return {
-    keyRowId,
-    keyInstanceId: rowInstanceOf(sources[keyRowId])?.instanceId,
-    rowInstanceId: rowInstanceOf(sources[rowId])?.instanceId,
-  };
+  return filteredId && sources[filteredId] ? filteredId : rowId;
 }

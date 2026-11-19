@@ -11,9 +11,7 @@ import {
   matchesSourceRowQuery,
 } from "../functions/filter-visible-source-row-ids";
 import { currentDerivedSnapshot } from "../subscriptions/init-derived-orchestrator";
-import { computeWorldStamp } from "../functions/compute-instance-time";
-import { rowInstanceOf } from "../functions/view-filtered-source-row";
-import { instanceTime } from "../functions/compute-row-data";
+import { worldStampOf } from "../functions/compute-instance-time";
 
 /**
  * Hit-test keypoints against the current box-select bounds and return the
@@ -98,17 +96,10 @@ function computeBoxSelectHitTest(
     const computed = snapshot?.rows?.[rowId]?.computed;
     if (!computed) return;
 
-    // The box spans world time; a row of one instance holds its keys in that
-    // instance's time, and is drawn at the world time computeWorldStamp gives.
-    const owner = rowInstanceOf(sourceRow);
-    const instance = owner
-      ? state.namespaces[owner.namespaceId]?.animationInstances[owner.instanceId]
-      : undefined;
-    const time = instance ? instanceTime(instance) : undefined;
+    // The box spans world time; the row's stamps are in the time it was built
+    // in, and are drawn at their world time through it.
     computed.virtualFrames.forEach((frame) => {
-      const stamp = time
-        ? computeWorldStamp(frame.stamp, time.timescale, time.offset)
-        : frame.stamp;
+      const stamp = worldStampOf(computed.time, frame.stamp);
       if (stamp < minStamp || stamp > maxStamp) return;
 
       frame.points.forEach((point) => {

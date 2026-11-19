@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AnimationStore } from "../../store";
 import type { DragState, InstancedFrameInfo, Keypoint, SourceRow, Violation } from "../../types";
 import type { FeedbackProvider } from "../../functions/feedback-provider";
@@ -9,12 +9,12 @@ import {
   TRACK_IDS,
 } from "../../test-fixtures/animation-store-factory";
 import { testTrackEvaluator } from "../../test-fixtures/track-evaluator";
-import { computeWorldStamp } from "../../functions";
+import { computeWorldStamp, worldStampOf } from "../../functions";
 import { computeRowData } from "../../functions/compute-row-data";
 import { computeTransitionSegments } from "../../functions/compute-transition-segments";
 import {
   buildFilteredSourceRowId,
-  rowDrawing,
+  keyRowOf,
   rowInstanceOf,
   spansSeveralInstances,
 } from "../../functions/view-filtered-source-row";
@@ -339,19 +339,11 @@ describe("rows that span several instances", () => {
       id: filteredId,
       data: global.data.filter((entry) => entry.instanceId === INSTANCE_IDS.BETA_SHARED),
     };
-    // The view draws the copy's keys through the instance and the full row's
-    // segments and violations through none.
+    // The view reads the keys from the copy; each row records the time its
+    // stamps are in.
     const sources = { ...state.instancedTrackSources, [filteredId]: filtered };
-    expect(rowDrawing(sources, GLOBAL, "view")).toEqual({
-      keyRowId: filteredId,
-      keyInstanceId: INSTANCE_IDS.BETA_SHARED,
-      rowInstanceId: undefined,
-    });
-    expect(rowDrawing(sources, GLOBAL, "another view")).toEqual({
-      keyRowId: GLOBAL,
-      keyInstanceId: undefined,
-      rowInstanceId: undefined,
-    });
+    expect(keyRowOf(sources, GLOBAL, "view")).toBe(filteredId);
+    expect(keyRowOf(sources, GLOBAL, "another view")).toBe(GLOBAL);
 
     // The copy is a row of its own, of one instance, so its keys are local
     // and drawn through the instance; they land where the global row's are.
@@ -364,6 +356,13 @@ describe("rows that span several instances", () => {
       state.selectionState,
       { animations: state.animations, namespaces: state.namespaces },
     );
+    expect(copy.time).toEqual({
+      namespaceId: NAMESPACE_IDS.BETA,
+      instanceId: INSTANCE_IDS.BETA_SHARED,
+      timescale: betaSettings(store).timescale,
+      offset: betaSettings(store).offset,
+    });
+    expect(state.derivedSnapshot!.rows[GLOBAL].computed.time).toBeUndefined();
     const [local] = stampsOf(copy.virtualFrames, key.id, INSTANCE_IDS.BETA_SHARED);
     expect(local).toBe(key.stamp);
     expect(stampsOf(rowFrames(store, GLOBAL), key.id, INSTANCE_IDS.BETA_SHARED)).toEqual([
@@ -494,6 +493,27 @@ describe("next and previous key on a row of several instances", () => {
     expect(visited).toEqual(expected);
   });
 
+  it("step through a scaled instance's own row at its keys' world times", async () => {
+    const store = await betaStore();
+    const leaf = store.getState().instancedTrackSources[BETA_OPACITY_ROW];
+    const expected = store
+      .getState()
+      .tracks[TRACK_IDS.OPACITY].points.map((point) => betaWorld(store, point.stamp))
+      .sort((a, b) => a - b);
+    const player = () => store.getState().playerStore.getState();
+    player().resetPlayer(-1e9);
+    const forward = expected.map(() => {
+      store.getState().skipToNextKeyframe(leaf);
+      return player().player.stamp;
+    });
+    expect(forward).toEqual(expected);
+    const backward = expected.slice(1).map(() => {
+      store.getState().skipToPrevKeyframe(leaf);
+      return player().player.stamp;
+    });
+    expect(backward).toEqual(expected.slice(0, -1).reverse());
+  });
+
   it("take the row's time from the row as the store holds it", async () => {
     const store = await betaStore();
     const row = store.getState().instancedTrackSources[GLOBAL];
@@ -602,6 +622,43 @@ describe("a handle dragged in a row of several instances", () => {
     );
     expect(dragging.render?.segments.length).toBeGreaterThan(0);
     expect(dragging.render?.segments).toEqual(committed.render?.segments);
+  });
+});
+
+describe("a row's recorded time", () => {
+  it("stays the time its stamps were built in until the row is rebuilt", async () => {
+    const store = await betaStore();
+    const key = movedKey(store);
+    const worldBefore = betaWorld(store, key.stamp);
+    vi.useFakeTimers();
+    try {
+      // Run out the build budget so the next write is not built until the
+      // retry: a listener answers every snapshot with a write.
+      const touchViews = () => store.setState({ editorViews: { ...store.getState().editorViews } });
+      const unsubscribe = store.subscribe((state) => state.derivedSnapshot, touchViews);
+      touchViews();
+      unsubscribe();
+      expect(vi.getTimerCount()).toBe(1);
+
+      setBeta(store, { timescale: 4 });
+      const leaf = store.getState().derivedSnapshot!.rows[BETA_OPACITY_ROW].computed;
+      const global = store.getState().derivedSnapshot!.rows[GLOBAL].computed;
+      // Not rebuilt: the leaf still records speed 2, and converting its
+      // stamps with that puts the key where the global row still holds it.
+      expect(leaf.time?.timescale).toBe(2);
+      const [local] = stampsOf(leaf.virtualFrames, key.id, INSTANCE_IDS.BETA_SHARED);
+      expect(worldStampOf(leaf.time, local)).toBe(worldBefore);
+      expect(stampsOf(global.virtualFrames, key.id, INSTANCE_IDS.BETA_SHARED)).toEqual([
+        worldBefore,
+      ]);
+
+      vi.runAllTimers();
+      const rebuilt = store.getState().derivedSnapshot!.rows[BETA_OPACITY_ROW].computed;
+      expect(rebuilt.time?.timescale).toBe(4);
+      expect(worldStampOf(rebuilt.time, key.stamp)).toBe(betaWorld(store, key.stamp));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

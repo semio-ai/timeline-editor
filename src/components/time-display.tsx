@@ -5,7 +5,7 @@ import { PlayerActions } from "../player/player-store";
 import { useAnimationStore } from "../hooks";
 import type { AnimationActions } from "../store-types";
 import { SemanticTime } from "../types";
-import { computeNextTime, computePreviousTime } from "../functions";
+import { adjacentKeyTime } from "../functions";
 import { usePlayer } from "../hooks/use-player";
 
 export interface TimeDisplayProps {
@@ -36,12 +36,12 @@ export function InnerTimeDisplay({
 
   const prevKeyframeTime = useMemo(() => {
     if (!computedData) return 0;
-    return computePreviousTime(computedData.virtualFrames, stamp, bounds, true);
+    return adjacentKeyTime(computedData, "previous", stamp, bounds, true);
   }, [stamp, bounds, computedData]);
 
   const nextKeyframeTime = useMemo(() => {
     if (!computedData) return duration;
-    return computeNextTime(computedData.virtualFrames, stamp, bounds, true);
+    return adjacentKeyTime(computedData, "next", stamp, bounds, true);
   }, [stamp, bounds, computedData, duration]);
 
   const { resetPlayer, updatePlayerBounds } = usePlayer(
