@@ -327,8 +327,10 @@ export function createDerivedOrchestrator(
     if (provider === watchedProvider) return;
     endWatch();
     // Releasing the previous provider ran its code, which may have started a
-    // newer watch; that one stands.
+    // newer watch (that one stands), stopped this orchestrator, or set
+    // another provider; a watch of this one would then be of nothing current.
     if (watchedProvider !== undefined || unwatchProvider !== undefined) return;
+    if (!started || get().feedbackProvider !== provider) return;
     watchedProvider = provider;
     // Each watch is its own, even of a provider watched before: the same
     // provider can be replaced and set again while it is still subscribing.
@@ -339,12 +341,20 @@ export function createDerivedOrchestrator(
     // says so while a build is asking it, that build's answers are already out
     // of date, so the flush builds again.
     if (!provider?.subscribe) return;
-    const unwatch = provider.subscribe(() => {
-      if (watch !== thisWatch) return;
-      builtFrom = undefined;
-      if (building) providerChangedDuringBuild = true;
-      else flush();
-    });
+    let unwatch: () => void;
+    try {
+      unwatch = provider.subscribe(() => {
+        if (watch !== thisWatch) return;
+        builtFrom = undefined;
+        if (building) providerChangedDuringBuild = true;
+        else flush();
+      });
+    } catch (error) {
+      // Not watched after all: the next flush tries again, rather than
+      // taking the provider for watched and never hearing it.
+      if (watch === thisWatch) watchedProvider = undefined;
+      throw error;
+    }
     // A provider may answer from inside `subscribe`, and what that answer sets
     // off (a build whose listener stops the store or sets another provider)
     // can end this watch before its handle is returned. A handle for a watch
@@ -406,7 +416,15 @@ export function createDerivedOrchestrator(
     stallTimer = setTimeout(() => {
       stallTimer = undefined;
       stalled = false;
-      flush();
+      try {
+        flush();
+      } catch (error) {
+        // No caller to hand the error to: a provider or listener threw while
+        // the retry built. Report it and retry later, with the same backoff,
+        // so the change it was building is still shown in the end.
+        console.error("Building the derived snapshot failed; retrying.", error);
+        stall();
+      }
     }, delay);
   };
 

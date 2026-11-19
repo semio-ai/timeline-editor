@@ -219,10 +219,11 @@ export function useControlMenu({
 
   const handleRemoveKeyframe = useCallback(() => {
     if (playing || allReadonly) return;
-    const { currentFrame, targetPoints } = keyStateNow();
-    if (!currentFrame) return;
-    const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-    removeKeypoints(points.map((p) => ({ trackId: p.trackId, keypointId: p.id })));
+    // Only the row's own keys at the playhead: none there now means nothing
+    // to remove, not the frame's other tracks' keys.
+    const { targetPoints } = keyStateNow();
+    if (targetPoints.length === 0) return;
+    removeKeypoints(targetPoints.map((p) => ({ trackId: p.trackId, keypointId: p.id })));
   }, [playing, allReadonly, keyStateNow, removeKeypoints]);
 
   /** Removes the keys at the playhead when every track has one, and adds the missing ones otherwise. */

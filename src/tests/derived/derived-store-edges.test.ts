@@ -1517,6 +1517,110 @@ describe("derived store edges", () => {
     });
   });
 
+  it("reports a provider's failure during a retry and retries again, still showing the edit", () => {
+    vi.useFakeTimers();
+    const report = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const store = createCorpusStore();
+      stallBuilding(store);
+      let failures = 1;
+      store.setState({
+        feedbackProvider: {
+          canonical: (subjects, evaluator) => {
+            if (failures > 0) {
+              failures -= 1;
+              throw new Error("provider failed");
+            }
+            return judged(subjects, evaluator);
+          },
+          preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+        },
+      });
+      bumpKey(store);
+      expect(() => vi.runAllTimers()).not.toThrow();
+      expect(report).toHaveBeenCalledTimes(1);
+      expect(isCurrent(store)).toBe(true);
+    } finally {
+      report.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ["stops the store", (store: Store) => store.getState().stopAnimationSubscriptions()],
+    ["sets no provider", (store: Store) => store.setState({ feedbackProvider: undefined })],
+  ])("does not watch a provider when releasing the previous one %s", (_what, onRelease) => {
+    const store = createCorpusStore();
+    let releasing = false;
+    store.setState({
+      feedbackProvider: {
+        canonical: judged,
+        preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+        subscribe: () => () => {
+          if (releasing) return;
+          releasing = true;
+          onRelease(store);
+        },
+      },
+    });
+    const watching = new Set<() => void>();
+    store.setState({
+      feedbackProvider: {
+        canonical: judged,
+        preview: (subject, evaluator) => computeSubjectViolations(subject, evaluator),
+        subscribe: (listener) => {
+          watching.add(listener);
+          return () => watching.delete(listener);
+        },
+      },
+    });
+    expect(releasing).toBe(true);
+    expect(watching.size).toBe(0);
+  });
+
+  it("subscribes again to a provider whose subscribe threw", () => {
+    const store = createCorpusStore();
+    let subscribes = 0;
+    let notify = () => {};
+    let answer = 0;
+    const provider: FeedbackProvider = {
+      canonical: (subjects) =>
+        new Map(
+          subjects.map((subject) => [
+            subject.trackKey,
+            [
+              {
+                id: `late:${subject.trackKey}`,
+                trackId: subject.trackId,
+                namespace: subject.namespaceId,
+                instanceId: subject.instanceId,
+                type: "upper",
+                stampRange: { start: 0, end: answer },
+              } as Violation,
+            ],
+          ]),
+        ),
+      preview: () => [],
+      subscribe: (listener) => {
+        subscribes += 1;
+        if (subscribes === 1) throw new Error("subscribe failed");
+        notify = listener;
+        return () => {
+          notify = () => {};
+        };
+      },
+    };
+    expect(() => store.setState({ feedbackProvider: provider })).toThrow("subscribe failed");
+    bumpKey(store);
+    expect(subscribes).toBe(2);
+    answer = 1;
+    notify();
+    const ends = Object.values(store.getState().derivedSnapshot!.tracks).map(
+      (track) => track.canonical.violations[0]?.stampRange.end,
+    );
+    expect(new Set(ends)).toEqual(new Set([1]));
+  });
+
   it("runs its own subscriptions before a host listener subscribed between two starts", () => {
     const store = createCorpusStore();
     const { trackId, point } = leafWithKey(store);

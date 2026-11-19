@@ -180,8 +180,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           const { keyState, currentFrame, missingEntries, targetPoints, entries, playheadIn } =
             keyStateNow();
           if (keyState === "full" && currentFrame) {
-            const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-            const removals: { trackId: string; keypointId: string }[] = points.map((p) => ({
+            const removals: { trackId: string; keypointId: string }[] = targetPoints.map((p) => ({
               trackId: p.trackId,
               keypointId: p.id,
             }));

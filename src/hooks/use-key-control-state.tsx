@@ -238,7 +238,9 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
       };
     }
     const state = store.getState();
-    const row = state.instancedTrackSources[source.id] ?? source;
+    // A row that no longer exists has nothing to act on: its rendered
+    // entries may name tracks or instances that are gone.
+    const row = state.instancedTrackSources[source.id] ?? { ...source, data: [] };
     const stampNow = state.playerStore.getState().player.stamp;
     const playheadIn = (entry: InstanceRef) => {
       const instance = instanceIn(state.namespaces, entry);

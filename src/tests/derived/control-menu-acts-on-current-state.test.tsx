@@ -5,6 +5,7 @@ import { expect, it, vi } from "vitest";
 import { AnimationContext } from "../../context";
 import { computeWorldStamp } from "../../functions";
 import { useControlMenu } from "../../hooks/use-control-menu";
+import { LayerBand } from "../../types";
 import { createCorpusStore } from "./parity/edit-corpus";
 
 vi.mock("@semio/ui", async (importOriginal) => ({
@@ -212,4 +213,45 @@ it("adds keys only to the tracks the row holds now", () => {
   } finally {
     vi.useRealTimers();
   }
+});
+
+it("removes no key when the row's own tracks have none at the playhead, though another track there does", () => {
+  const store = createCorpusStore();
+  const { row, stamp } = rowKeyedTogether(store);
+  const { result } = menuAt(store, row, stamp);
+  const [target, ...background] = row.data;
+  // The target's key moves away; the other tracks' stay at the playhead.
+  moveKey(store, target.trackId, stamp, stamp + 7);
+  // The row now acts on its first track only: the others are in the
+  // background. Set after the move, which derives the rows again.
+  store.setState({
+    instancedTrackSources: {
+      ...store.getState().instancedTrackSources,
+      [row.id]: {
+        ...row,
+        data: [
+          { ...target, layerBand: LayerBand.ForegroundSelected },
+          ...background.map((datum) => ({ ...datum, layerBand: LayerBand.Background })),
+        ],
+      },
+    },
+  });
+  const counts = row.data.map((datum) => store.getState().tracks[datum.trackId].points.length);
+  result.current.handleRemoveKeyframe();
+  row.data.forEach((datum, i) =>
+    expect(store.getState().tracks[datum.trackId].points.length, datum.trackId).toBe(counts[i]),
+  );
+});
+
+it("adds no key for a row that no longer exists", () => {
+  const store = createCorpusStore();
+  const { row, stamp } = rowKeyedTogether(store);
+  const { result } = menuAt(store, row, stamp + 3);
+  const { [row.id]: _removed, ...rest } = store.getState().instancedTrackSources;
+  store.setState({ instancedTrackSources: rest });
+  const counts = row.data.map((datum) => store.getState().tracks[datum.trackId].points.length);
+  result.current.handleAddKeyframe();
+  row.data.forEach((datum, i) =>
+    expect(store.getState().tracks[datum.trackId].points.length, datum.trackId).toBe(counts[i]),
+  );
 });
