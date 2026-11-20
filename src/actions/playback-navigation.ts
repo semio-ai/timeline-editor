@@ -6,12 +6,9 @@ import {
   computeWorldStamp,
 } from "../functions";
 import { resolveAnimationDuration } from "../functions/compute-animation-extent";
-import type {
-  AnimationData,
-  AnimationStoreGetter,
-  AnimationStoreSetter,
-} from "../store-types";
+import type { AnimationData, AnimationStoreGetter, AnimationStoreSetter } from "../store-types";
 import type { Namespace, SourceRow } from "../types";
+import { currentDerivedSnapshot } from "../subscriptions/init-derived-orchestrator";
 
 /**
  * The unique animation-instance id for a row whose entries all reference the
@@ -94,7 +91,7 @@ export function skipToNextKeyframe(
   const state = get();
   const playerState = state.playerStore.getState();
   const sourceRowId = sourceRow.id;
-  const computedData = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
+  const computedData = currentDerivedSnapshot(state)?.rows?.[sourceRowId]?.computed;
   if (!computedData) return;
 
   const instancedFrameData = computedData.virtualFrames;
@@ -124,7 +121,7 @@ export function skipToPrevKeyframe(
   const state = get();
   const playerState = state.playerStore.getState();
   const sourceRowId = sourceRow.id;
-  const computedData = state.derivedSnapshot?.rows?.[sourceRowId]?.computed;
+  const computedData = currentDerivedSnapshot(state)?.rows?.[sourceRowId]?.computed;
   if (!computedData) return;
 
   const instancedFrameData = computedData.virtualFrames;

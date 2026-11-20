@@ -91,17 +91,48 @@ export function updateInstancedTrackSources(
         globalLeafData,
       );
 
-      // The global row aggregates all leaf track data — used by the timeline canvas renderer.
-      instancedTrackSources.global = { id: "global", data: globalLeafData };
+      const current = get().instancedTrackSources ?? {};
+
+      // A row whose content is unchanged keeps its object, so a consumer keyed
+      // by row identity skips it.
+      let changed = false;
+      Object.entries(instancedTrackSources).forEach(([rowId, row]) => {
+        const previous = current[rowId];
+        if (previous && isEqual(previous, row)) {
+          instancedTrackSources[rowId] = previous;
+        } else {
+          changed = true;
+        }
+      });
+
+      // A row that went away is a change even when every remaining row and the
+      // global row's data are as they were.
+      const global: SourceRow = { id: "global", data: globalLeafData };
+      const currentRowIds = Object.keys(current).filter(
+        (key) => !isFilteredSourceRowId(key) && key !== "global",
+      );
+      changed ||=
+        !current.global ||
+        !isEqual(current.global, global) ||
+        currentRowIds.length !== Object.keys(instancedTrackSources).length ||
+        currentRowIds.some((rowId) => !(rowId in instancedTrackSources));
+
+      // The global row aggregates all leaf track data — used by the timeline
+      // canvas renderer. Its identity is also the cue
+      // `updateViewFilteredSourceRows` regenerates the filtered twins on (and
+      // drops a removed row's twins on), so it is replaced whenever any row
+      // changed, appeared or went away, and kept only when none did.
+      instancedTrackSources.global = changed ? global : current.global;
 
       // Preserve any per-view filtered twins (managed by update-view-filtered-source-rows)
       const existingFiltered: Record<string, SourceRow> = {};
-      const current = get().instancedTrackSources ?? {};
       Object.entries(current).forEach(([key, row]) => {
         if (isFilteredSourceRowId(key)) {
           existingFiltered[key] = row;
         }
       });
+
+      if (!changed) return;
 
       set({
         instancedTrackSources: {

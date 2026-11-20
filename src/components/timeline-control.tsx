@@ -8,7 +8,6 @@ import {
   useAnimationStore,
   useColors,
   useKeyControlState,
-  useLocalGlobalTransformLookup,
   useNameLookup,
 } from "../hooks";
 import { computeTreeOptionsFromSources } from "../functions/compute-tree-options-from-sources";
@@ -38,7 +37,6 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
       })),
     );
 
-  const localGlobalTransformLookup = useLocalGlobalTransformLookup();
   const readTrackValue = useTrackValueReader();
 
   const fallbackSource = useMemo<SourceRow>(
@@ -73,8 +71,7 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
 
   const running = usePlayer(useShallow((state) => state.player.running));
   const playerStore = useAnimationStore((state) => state.playerStore);
-  const { keyState, currentFrame, missingEntries, targetPoints } =
-    useKeyControlState(fallbackSource);
+  const { keyStateNow } = useKeyControlState(fallbackSource);
 
   const { treeOptions, treeValues }: { treeOptions: TreeOption[]; treeValues: string[] } =
     useMemo(() => {
@@ -178,9 +175,12 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
         authoringDisabled={allNonEditable}
         onHexClick={() => {
           if (controlsDisabled) return;
+          // The keys at the playhead as the state has them now: the strip
+          // shows the published snapshot, which can trail it.
+          const { keyState, currentFrame, missingEntries, targetPoints, entries, playheadIn } =
+            keyStateNow();
           if (keyState === "full" && currentFrame) {
-            const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-            const removals: { trackId: string; keypointId: string }[] = points.map((p) => ({
+            const removals: { trackId: string; keypointId: string }[] = targetPoints.map((p) => ({
               trackId: p.trackId,
               keypointId: p.id,
             }));
@@ -192,11 +192,10 @@ export function TimelineControl({ viewId }: { viewId: string }): ReactNode {
           // re-render every 25ms playback tick just to keep the closure's
           // stamp fresh.
           const stamp = playerStore.getState().player.stamp;
-          const targets = keyState === "partial" ? missingEntries : fallbackSource.data;
+          const targets = keyState === "partial" ? missingEntries : entries;
           const updates: { trackId: string; keypoint: Partial<SimpleKeypoint> }[] = targets
             .map((datum) => {
-              const toLocal = localGlobalTransformLookup.toLocal[datum.instanceId];
-              const localStamp = typeof toLocal === "function" ? toLocal(stamp) : stamp;
+              const localStamp = playheadIn(datum);
               const valueKey = buildTrackKey(
                 datum.namespaceId as string,
                 datum.instanceId as string,

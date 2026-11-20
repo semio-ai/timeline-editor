@@ -15,6 +15,7 @@ import type {
 import { cloneTransitions } from "../../utils/clone-transitions";
 import { getWorldControlPoints } from "../../functions/get-world-control-points";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../../constants";
+import { currentDerivedSnapshot } from "../../subscriptions/init-derived-orchestrator";
 
 const DEFAULT_TRANSFORM: DragStampTransform = {
   offset: 0,
@@ -89,7 +90,7 @@ export function startDrag(state: AnimationData, input: DragStartInput): void {
     return;
   }
 
-  const rowData = state.derivedSnapshot?.rows?.[input.rowId]?.computed;
+  const rowData = currentDerivedSnapshot(state)?.rows?.[input.rowId]?.computed;
   if (!rowData) {
     return;
   }

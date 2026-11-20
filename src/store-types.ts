@@ -30,6 +30,7 @@ import { StandardTransitionType, TransitionDirective, TransitionPairing } from "
 import type { SelectionState } from "./types/util/selection-state";
 import type { SimpleKeypoint, SimpleRawValue, SimpleTrack } from "./types/data/simple-track";
 import type { TrackEvaluator } from "./functions/track-curve";
+import type { FeedbackProvider } from "./functions/feedback-provider";
 
 export { TransitionDirective };
 
@@ -190,9 +191,23 @@ export interface AnimationPreferencesPatch {
  * Interface representing the data structure for animation.
  */
 export interface AnimationData {
+  /**
+   * Everything derived from the tracks for display, rebuilt after each write
+   * that changes its inputs. Read-only: a snapshot is replaced, never edited.
+   * Its top-level object is frozen (see `sealDerivedSnapshot`); its inner
+   * objects are not, but must be treated as if they were.
+   */
   derivedSnapshot?: DerivedSnapshot;
   /** Host evaluator for exact curves, readouts and velocities in clip-local time. */
   trackEvaluator?: TrackEvaluator;
+  /**
+   * Judges the motion for violations. Without one, the store uses the editor's
+   * own limit and velocity checks, cached per track. Actions deep-freeze the
+   * plain objects in the store's state, so a provider keeps the state it
+   * changes in its closure or in a class instance's fields (see
+   * `FeedbackProvider`).
+   */
+  feedbackProvider?: FeedbackProvider;
   /**
    * The player the timeline shows and commands: its playhead, bounds and
    * transport. The host passes the one it drives (Studio, the player its
@@ -690,7 +705,15 @@ export interface AnimationActions {
    */
   setTimeDisplay: (mode: TimeDisplay) => void;
   /**
-   * Initialize interpolator generation. Returns a function to cancel the subscriptions.
+   * Starts the store's own subscriptions, which keep its source rows and its
+   * derived snapshot current, after stopping any set already running. Returns
+   * a function that stops this set.
+   *
+   * While it starts, each subscription brings its part of the state up to date
+   * with a write of its own, and the snapshot is built once all of them have.
+   * A host listener notified by one of those writes sees the source rows ahead
+   * of the snapshot. Once it has returned, a host listener sees the snapshot
+   * for the inputs it is notified of.
    */
   initAnimationSubscriptions: () => () => void;
   /**

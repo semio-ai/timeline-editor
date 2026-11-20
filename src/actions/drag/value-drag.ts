@@ -17,6 +17,7 @@ import { cloneTransitionValue } from "../../utils/clone-transitions";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../../constants";
 import { getWorldControlPoints } from "../../functions/get-world-control-points";
 import { clearSelection } from "../../functions/selection-state-manager";
+import { currentDerivedSnapshot } from "../../subscriptions/init-derived-orchestrator";
 import { updateDrag } from "./update-drag";
 import { commitDrag } from "./commit-drag";
 import { cancelDrag } from "./cancel-drag";
@@ -199,7 +200,7 @@ const resolveValueScale = (
   rowId: string,
 ): ValueScale | undefined => {
   if (inputScale) return inputScale;
-  const row = state.derivedSnapshot?.rows?.[rowId]?.computed;
+  const row = currentDerivedSnapshot(state)?.rows?.[rowId]?.computed;
   if (!row?.verticalBounds) return undefined;
   // Value-driven drags use literal row bounds; visual padding/offset from spline views is ignored.
   return {
@@ -452,7 +453,7 @@ const resolveValueRange = (dragState: DragState, state: AnimationData): number =
   }
 
   const rowId = dragState.anchor.rowId;
-  const bounds = state.derivedSnapshot?.rows?.[rowId]?.computed?.verticalBounds;
+  const bounds = currentDerivedSnapshot(state)?.rows?.[rowId]?.computed?.verticalBounds;
   if (bounds) {
     const range = bounds.max - bounds.min;
     if (Number.isFinite(range) && range !== 0) return range;

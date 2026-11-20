@@ -12,6 +12,7 @@ export * from "./compute-stored-animation";
 export * from "./compute-updated-sources";
 export * from "./export-effective-motion";
 export * from "./compute-track-violations";
+export * from "./feedback-provider";
 export * from "./compute-tree-options-from-sources";
 export * from "./compute-vertical-bounds";
 export * from "./compute-violation-set";

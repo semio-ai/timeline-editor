@@ -4,6 +4,10 @@ import { StandardTransitionType } from "../types";
 
 interface ComputeFramesOptions {
   draggingKeypointIds?: Set<string>;
+  /**
+   * The key as the row shows it, for a preview that moves keys. It must keep
+   * the key's id: frames group by it.
+   */
   transformKeypoint?: (
     keypoint: Keypoint<RawValue>,
     context: { trackId: string; source: SourceRow["data"][number] },
@@ -29,117 +33,104 @@ interface ComputeFramesOptions {
 }
 
 /**
- * Computes the frames from the given tracks.
+ * Groups a row's keys into frames: one frame per stamp, holding every key at
+ * that stamp across the row's visible tracks and instances.
  *
- * This function processes the provided tracks and generates an array of `InstancedFrameInfo` objects.
- * Each `InstancedFrameInfo` object contains a unique identifier, a timestamp, and an array of points
- * that belong to that frame.
+ * Unless `ignoreDraggingState` is set, keys being dragged and keys at rest
+ * never share a frame, so a stamp can have one frame of each. A frame's id is
+ * built from all of its points, sorted, so it does not depend on the order the
+ * tracks were visited in. Its transitions are its first point's.
  *
- * @param tracks - A record of track IDs to `Track` objects. Each `Track` object contains an array of points.
- * @param sourceRow - A `SourceRow` object that contains data about the source of the data.
- * @param draggingFrameIds - Optional array of frame IDs that are currently being dragged and should not be merged.
- * @returns An array of `InstancedFrameInfo` objects, each representing a frame with its associated points.
+ * Frames are looked up by stamp and points by identity, so the cost is linear
+ * in the number of keys plus the final sort by stamp. Aggregate rows (a group,
+ * or the global row) hold every key in the clip, so a scan per key would be
+ * quadratic there.
+ *
+ * @param tracks - The tracks the row's entries refer to, by id.
+ * @param sourceRow - The row: which track instances it shows.
+ * @returns The frames, sorted by stamp; frames at one stamp keep the order they
+ * were first met in.
  */
 export function computeFrames(
   tracks: Record<string, Track<RawValue>>,
   sourceRow: SourceRow,
   options: ComputeFramesOptions = {},
 ): InstancedFrameInfo[] {
-  const instancedFrameInfo: InstancedFrameInfo[] = [];
-  const { draggingKeypointIds, transformKeypoint } = options;
+  const frames: InstancedFrameInfo[] = [];
+  // Per frame, the identities of the points it holds.
+  const pointKeys = new Map<InstancedFrameInfo, Set<string>>();
+  // Frames by stamp: [at rest, dragging]. With `ignoreDraggingState` only the
+  // first slot is used.
+  const byStamp = new Map<number, [InstancedFrameInfo?, InstancedFrameInfo?]>();
+  const { draggingKeypointIds, transformKeypoint, ignoreDraggingState } = options;
 
   sourceRow.data.forEach((sourceRowData) => {
     // Skip hidden tracks — they should not produce markers, lines, or selection points
     if (sourceRowData.visible === false) return;
     const trackId = sourceRowData.trackId;
-    const emittedTrackId = (sourceRowData as any).trackIdBase ?? trackId;
+    const emittedTrackId: string = (sourceRowData as any).trackIdBase ?? trackId;
     const trackData = tracks[trackId];
     trackData.points.forEach((point) => {
       const previewPoint = transformKeypoint?.(point, { trackId, source: sourceRowData }) ?? point;
-
-      const isDragging = draggingKeypointIds?.has(point.id) ?? false;
-
-      // Find existing frame with matching timestamp (and, optionally, matching dragging state)
-      const matchingFrameIndex = instancedFrameInfo.findIndex((frame) => {
-        if (frame.stamp !== previewPoint.stamp) return false;
-
-        if (options.ignoreDraggingState) {
-          return true;
-        }
-
-        // Check if all points in this frame have the same dragging state as the current point
-        const framePointsDragging = frame.points.every(
-          (p) => draggingKeypointIds?.has(p.id) ?? false,
-        );
-
-        return framePointsDragging === isDragging;
-      });
-
-      // Use the keypoint value directly; derive the point type from the runtime value.
+      const slot = !ignoreDraggingState && draggingKeypointIds?.has(point.id) ? 1 : 0;
       const value = previewPoint.value;
+      const stamp = previewPoint.stamp;
+      const pointKey = framePointKey(
+        previewPoint.id,
+        emittedTrackId,
+        sourceRowData.namespaceId,
+        sourceRowData.instanceId,
+      );
 
-      const targetTrackId: string = emittedTrackId;
+      const slots = byStamp.get(stamp);
+      const existing = slots?.[slot];
+      if (existing) {
+        const keys = pointKeys.get(existing)!;
+        if (keys.has(pointKey)) return;
+        keys.add(pointKey);
+        existing.points.push({
+          ...sourceRowData,
+          id: previewPoint.id,
+          type: typeof value as "number" | "string" | "boolean",
+          value,
+          trackId: emittedTrackId,
+        });
+        return;
+      }
 
-      if (matchingFrameIndex >= 0) {
-        // Add point to existing frame
-        const exists = instancedFrameInfo[matchingFrameIndex].points.some(
-          (p) =>
-            p.id === previewPoint.id &&
-            p.trackId === targetTrackId &&
-            p.namespaceId === sourceRowData.namespaceId &&
-            p.instanceId === sourceRowData.instanceId,
-        );
-        if (!exists) {
-          instancedFrameInfo[matchingFrameIndex].points.push({
+      const frame: InstancedFrameInfo = {
+        id: "",
+        stamp,
+        points: [
+          {
             ...sourceRowData,
             id: previewPoint.id,
-            type: typeof value as "number" | "string" | "boolean",
             value,
-            trackId: targetTrackId,
-          });
-        }
-        // Update frame ID based on all points in this frame
-        const pointIds = instancedFrameInfo[matchingFrameIndex].points
-          .map((p) => `${p.id}-${p.trackId}-${p.namespaceId ?? "ns"}-${p.instanceId ?? "inst"}`)
-          .sort()
-          .join("-");
-        instancedFrameInfo[matchingFrameIndex].id = pointIds;
-        // Preserve transitions from the first point when available; ensure defaults are set.
-        if (!instancedFrameInfo[matchingFrameIndex].transitions) {
-          instancedFrameInfo[matchingFrameIndex].transitions = withDefaultTransitions(
-            previewPoint.transitions,
-          );
-        } else {
-          instancedFrameInfo[matchingFrameIndex].transitions = withDefaultTransitions({
-            ...previewPoint.transitions,
-            ...instancedFrameInfo[matchingFrameIndex].transitions,
-          });
-        }
-      } else {
-        // Create new frame
-        const baseFrameId = `${previewPoint.id}-${targetTrackId}-${sourceRowData.namespaceId ?? "ns"}-${
-          sourceRowData.instanceId ?? "inst"
-        }`;
-        const frame: InstancedFrameInfo = {
-          id: baseFrameId,
-          stamp: previewPoint.stamp,
-          points: [
-            {
-              ...sourceRowData,
-              id: previewPoint.id,
-              value,
-              type: typeof value as "number" | "string" | "boolean",
-              trackId: targetTrackId,
-            },
-          ],
-          transitions: withDefaultTransitions(previewPoint.transitions),
-        };
-        instancedFrameInfo.push(frame);
+            type: typeof value as "number" | "string" | "boolean",
+            trackId: emittedTrackId,
+          },
+        ],
+        transitions: withDefaultTransitions(previewPoint.transitions),
+      };
+      frames.push(frame);
+      pointKeys.set(frame, new Set([pointKey]));
+      // NaN equals no stamp, itself included, so a NaN-stamped key always
+      // starts a frame of its own and is never found by a later one.
+      if (!Number.isNaN(stamp)) {
+        if (slots) slots[slot] = frame;
+        else byStamp.set(stamp, slot === 0 ? [frame] : [undefined, frame]);
       }
     });
   });
 
-  const sortedFrames = instancedFrameInfo.toSorted((a, b) => a.stamp - b.stamp);
+  frames.forEach((frame) => {
+    frame.id = frame.points
+      .map((p) => `${p.id}-${p.trackId}-${p.namespaceId ?? "ns"}-${p.instanceId ?? "inst"}`)
+      .sort()
+      .join("-");
+  });
+
+  const sortedFrames = frames.toSorted((a, b) => a.stamp - b.stamp);
 
   // Apply stable anchor frame id when provided and matching namespace/instance.
   if (options.anchorFrameKey && options.anchorFrameId) {
@@ -168,4 +159,19 @@ function withDefaultTransitions(
     out: transitions?.out ?? StandardTransitionType.Cubic,
     pairing: transitions?.pairing,
   };
+}
+
+/**
+ * A point's identity within a frame. The fields are encoded, not joined with a
+ * separator, because an id may contain any character: two different points
+ * must never share a key. An absent namespace or instance encodes as `null`,
+ * which no string does.
+ */
+function framePointKey(
+  id: string,
+  trackId: string,
+  namespaceId: string | undefined,
+  instanceId: string | undefined,
+): string {
+  return JSON.stringify([id, trackId, namespaceId ?? null, instanceId ?? null]);
 }

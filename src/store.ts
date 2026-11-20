@@ -117,12 +117,13 @@ import {
   updateViewFilteredSourceRows,
   updateGlobalSources,
   updateSourceRowIds,
-  initDerivedOrchestrator,
+  createDerivedOrchestrator,
   updateActiveEntityContext,
   viewportFollow,
 } from "./subscriptions";
 import { View } from "./types/util/view";
 import { clickLineAction } from "./actions/click-line";
+import { createInternalListeners } from "./subscriptions/internal-listeners";
 
 enableMapSet();
 
@@ -131,6 +132,7 @@ export const AnimationSlice = (
   get: AnimationStoreGetter,
   api: AnimationApi,
 ) => {
+  const internal = createInternalListeners(api);
   return {
     ...createDefaultState(),
     updateSource: (groupId: string, expanded?: boolean) => {
@@ -554,37 +556,60 @@ export const AnimationSlice = (
       );
     },
     initAnimationSubscriptions: () => {
-      // Clean up any previous subscriptions for this store instance
+      // Stop the set already running. Its cleanup clears the handle itself.
       const existingCleanup = (api as any).__derivedCleanup as (() => void) | undefined;
-      if (typeof existingCleanup === "function") {
-        existingCleanup();
-        (api as any).__derivedCleanup = undefined;
-      }
+      if (typeof existingCleanup === "function") existingCleanup();
+      // Stopping it can run a provider's unsubscribe, which may have started
+      // a set of its own. That set is current, so it is the one this call
+      // answers with: starting another would leave it running with no handle.
+      const startedMeanwhile = (api as any).__derivedCleanup as (() => void) | undefined;
+      if (typeof startedMeanwhile === "function") return startedMeanwhile;
 
-      // Delay subscription initialization to prevent cascading updates during store creation
+      // The derived orchestrator's listener runs after the other
+      // subscriptions in every notification, so it builds the snapshot once
+      // they have all answered a write.
+      const derived = createDerivedOrchestrator(internal.api, set, get);
       const unsubs = [
-        viewportFollow,
-        updateOverallDuration,
-        initDerivedOrchestrator,
-        updateInstancedTrackSources,
-        updateGlobalSources,
-        updateSourceRowIds,
-        updateViewFilteredSourceRows,
-        updateActiveEntityContext,
-      ].map((fn) => fn(api, set, get));
+        ...[
+          viewportFollow,
+          updateOverallDuration,
+          updateInstancedTrackSources,
+          updateGlobalSources,
+          updateSourceRowIds,
+          updateViewFilteredSourceRows,
+          updateActiveEntityContext,
+        ].map((fn) => fn(internal.api, set, get)),
+        internal.api.subscribe(derived.writeSettled),
+        derived.stop,
+      ];
 
       // A cleanup stops only the set it was returned for, once. A later call
-      // runs it before starting its own set, which spends the handle: running it
-      // again must not stop the newer set's work, and `stopAnimationSubscriptions`
-      // is how a host stops whatever is current. So while a handle is live it is the current one.
+      // runs it before starting its own set, which spends the handle: running
+      // it again must not stop the newer set's work, and
+      // `stopAnimationSubscriptions` is how a host stops whatever is current.
       let active = true;
       const cleanup = () => {
         if (!active) return;
         active = false;
-        unsubs.forEach((unsub) => unsub());
+        // Stops being current before anything it stops runs: a provider's
+        // release may start the subscriptions again, and that start must
+        // find no set running, not this one. While active it is the current
+        // handle: every later start spends the current one before it
+        // installs its own.
         (api as any).__derivedCleanup = undefined;
+        unsubs.forEach((unsub) => unsub());
       };
+      // Installed before the first build: a provider or listener that build
+      // calls may stop the store or start it again, and either must find
+      // this set current.
       (api as any).__derivedCleanup = cleanup;
+      try {
+        derived.start();
+      } catch (error) {
+        // No handle reaches the caller, so nothing else could stop this set.
+        cleanup();
+        throw error;
+      }
       return cleanup;
     },
     stopAnimationSubscriptions: () => {

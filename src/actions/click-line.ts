@@ -10,6 +10,7 @@ import {
   collectRowForegroundKeypoints,
   resolveSelectionInstanceIdForRow,
 } from "../functions/selection-state-manager";
+import { currentDerivedSnapshot } from "../subscriptions/init-derived-orchestrator";
 
 /**
  * Click a transition segment (row-wide action).
@@ -32,7 +33,7 @@ export function clickLineAction(
   shift?: boolean,
   mod?: boolean,
 ): Partial<AnimationData> {
-  const row: ComputedRowData | undefined = state.derivedSnapshot?.rows?.[rowId]?.computed;
+  const row: ComputedRowData | undefined = currentDerivedSnapshot(state)?.rows?.[rowId]?.computed;
   let selection = state.selectionState ?? createEmptySelectionState();
 
   // Resolve/confirm the instance to operate on.

@@ -60,6 +60,8 @@ export interface UseControlMenuResult {
   /** Keyframe lifecycle callbacks — shared with the key strip. */
   handleAddKeyframe: () => void;
   handleRemoveKeyframe: () => void;
+  /** The key strip's hex: removes the keys at the playhead, or adds the missing ones. */
+  handleToggleKeyframe: () => void;
 
   /** Current keyframe-presence state at the playhead, for strip rendering. */
   keyState: "none" | "partial" | "full";
@@ -170,7 +172,7 @@ export function useControlMenu({
   );
 
   // ── Key control state (keyframe presence + prev/next navigation) ─────
-  const { keyState, currentFrame, missingEntries, targetPoints, prevEnabled, nextEnabled, onPrev, onNext } =
+  const { keyState, prevEnabled, nextEnabled, onPrev, onNext, keyStateNow } =
     useKeyControlState(sourceRow);
 
   // ── Toggle callbacks ─────────────────────────────────────────────────
@@ -201,30 +203,34 @@ export function useControlMenu({
   );
 
   // ── Keyframe callbacks ───────────────────────────────────────────────
+  // Each reads the keys at the playhead when it runs (`keyStateNow`), not as
+  // the row last rendered them.
   const handleAddKeyframe = useCallback(() => {
     if (playing || allReadonly) return;
     const stamp = playerStore.getState().player.stamp;
-    const targets = keyState === "partial" ? missingEntries : sourceRow.data;
+    const { keyState: keyStateAtCall, missingEntries, entries } = keyStateNow();
+    const targets = keyStateAtCall === "partial" ? missingEntries : entries;
     // Batched so adding keys across a row's tracks is one undoable edit.
     insertKeypointsAtWorldStamp(
       targets.map((datum) => ({ trackId: datum.trackId, instanceId: datum.instanceId })),
       stamp,
     );
-  }, [
-    playing,
-    allReadonly,
-    keyState,
-    missingEntries,
-    sourceRow.data,
-    insertKeypointsAtWorldStamp,
-    playerStore,
-  ]);
+  }, [playing, allReadonly, keyStateNow, insertKeypointsAtWorldStamp, playerStore]);
 
   const handleRemoveKeyframe = useCallback(() => {
-    if (playing || allReadonly || !currentFrame) return;
-    const points = targetPoints.length > 0 ? targetPoints : currentFrame.points;
-    removeKeypoints(points.map((p) => ({ trackId: p.trackId, keypointId: p.id })));
-  }, [playing, allReadonly, currentFrame, targetPoints, removeKeypoints]);
+    if (playing || allReadonly) return;
+    // Only the row's own keys at the playhead: none there now means nothing
+    // to remove, not the frame's other tracks' keys.
+    const { targetPoints } = keyStateNow();
+    if (targetPoints.length === 0) return;
+    removeKeypoints(targetPoints.map((p) => ({ trackId: p.trackId, keypointId: p.id })));
+  }, [playing, allReadonly, keyStateNow, removeKeypoints]);
+
+  /** Removes the keys at the playhead when every track has one, and adds the missing ones otherwise. */
+  const handleToggleKeyframe = useCallback(() => {
+    if (keyStateNow().keyState === "full") handleRemoveKeyframe();
+    else handleAddKeyframe();
+  }, [keyStateNow, handleAddKeyframe, handleRemoveKeyframe]);
 
   const handlePaste = useCallback(() => {
     pasteAtStamp(playerStore.getState().player.stamp);
@@ -354,6 +360,7 @@ export function useControlMenu({
     handleToggleLocked,
     handleAddKeyframe,
     handleRemoveKeyframe,
+    handleToggleKeyframe,
     keyState,
   };
 }

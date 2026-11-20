@@ -2,7 +2,7 @@
  * Single violation instance detected during playback or editing.
  */
 export interface Violation {
-  /** Unique violation id. */
+  /** Derived from the violation's track instance, type and start, so it is stable across rebuilds. */
   id: string;
   /** Stamp range (normalized timeline units) where the violation applies. */
   stampRange: { start: number; end: number };

@@ -10,6 +10,7 @@ import {
   filterVisibleSourceRowIds,
   matchesSourceRowQuery,
 } from "../functions/filter-visible-source-row-ids";
+import { currentDerivedSnapshot } from "../subscriptions/init-derived-orchestrator";
 
 /**
  * Hit-test keypoints against the current box-select bounds and return the
@@ -77,6 +78,7 @@ function computeBoxSelectHitTest(
   // Collect hit keypoints
   const hits: { trackId: string; keypointId: string }[] = [];
 
+  const snapshot = currentDerivedSnapshot(state);
   rowIds.forEach((rowId, idx) => {
     const sourceRow = state.instancedTrackSources[rowId];
     if (!sourceRow) return;
@@ -90,7 +92,7 @@ function computeBoxSelectHitTest(
         return;
     }
 
-    const computed = state.derivedSnapshot?.rows?.[rowId]?.computed;
+    const computed = snapshot?.rows?.[rowId]?.computed;
     if (!computed) return;
 
     computed.virtualFrames.forEach((frame) => {
@@ -109,7 +111,9 @@ function computeBoxSelectHitTest(
         // Skip points whose source track is hidden in this view's SelectTree.
         // Critical for aggregate rows (global, group rows) whose computed
         // frames include keypoints from every underlying track.
-        if (!visibleTrackKeys.has(buildTrackKey(point.namespaceId, point.instanceId, point.trackId)))
+        if (
+          !visibleTrackKeys.has(buildTrackKey(point.namespaceId, point.instanceId, point.trackId))
+        )
           return;
 
         // Y hit-test: check the keypoint's visual center, not the row band

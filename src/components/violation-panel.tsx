@@ -47,7 +47,7 @@ export function ViolationPanel({
     return list;
   }, defaultViolations);
 
-  const name = useNames(uniqueTracks, "MultipleTracks");
+  const name = useNames(uniqueTracks, "Multiple Tracks");
   const color = useColors(uniqueTracks);
 
   return (
