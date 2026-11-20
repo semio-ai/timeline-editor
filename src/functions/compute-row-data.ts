@@ -27,6 +27,7 @@ import {
   RenderSampleId,
   AffineTransform2D,
   AuthoredTransition,
+  RowTime,
 } from "../types";
 import { DEFAULT_TRANSITION_IN, DEFAULT_TRANSITION_OUT } from "../constants";
 import { buildTrackKey } from "../utils/track-key";
@@ -38,6 +39,8 @@ import { computeTransitionSegments } from "./compute-transition-segments";
 import { computeFilledInterpGaps } from "./compute-filled-interp-gaps";
 import { computeVerticalBounds } from "./compute-vertical-bounds";
 import { computeFrames } from "./compute-frames";
+import { computeWorldStamp } from "./compute-instance-time";
+import { rowInstanceOf, spansSeveralInstances } from "./view-filtered-source-row";
 import { resolveAnimationDuration } from "./compute-animation-extent";
 import { trackCurve, type TrackEvaluator, type TrackCurve } from "./track-curve";
 import { computeSubjectViolations, type FeedbackSubject } from "./feedback-provider";
@@ -160,6 +163,8 @@ export function computeRowData(
     max: verticalBounds[1],
   };
   const rowTransform = resolveRowTransform(sourceRow, context);
+  const rowTime = aggregateRowTime(sourceRow, context);
+  const ownTime = rowOwnTime(sourceRow, context);
 
   const shouldPreview = Boolean(selectionState.instanceId === dragState?.instanceId);
   const draggedTrackIds = shouldPreview
@@ -312,12 +317,25 @@ export function computeRowData(
       }
     }
 
-    projectedPointLookup.set(trackKey, new Map(projectedPoints.map((point) => [point.id, point])));
+    // A row of several instances places each entry's keys in world time; the
+    // preview kept for the commit below stays in the track's own time.
+    const entryTime = rowTime?.(datum.namespaceId, datum.instanceId);
+    const rowProjectedPoints = entryTime
+      ? projectedPoints.map((point) => keypointInWorld(point, entryTime))
+      : projectedPoints;
+    const rowFramePoints = entryTime
+      ? framePoints.map((point) => keypointInWorld(point, entryTime))
+      : framePoints;
+
+    projectedPointLookup.set(
+      trackKey,
+      new Map(rowProjectedPoints.map((point) => [point.id, point])),
+    );
 
     projectedTracks[trackKey] = {
       ...baseTrack,
       id: trackKey,
-      points: projectedPoints.slice(),
+      points: rowProjectedPoints.slice(),
     } as Track<RawValue>;
     projectedSourceRow.data.push({
       ...(datum as SourceRowData),
@@ -328,7 +346,7 @@ export function computeRowData(
     markerTracks[trackKey] = {
       ...baseTrack,
       id: trackKey,
-      points: framePoints.slice(),
+      points: rowFramePoints.slice(),
     } as Track<RawValue>;
     markerSourceRow.data.push({
       ...(datum as SourceRowData),
@@ -447,7 +465,14 @@ export function computeRowData(
 
   const pointNeighborhoodsByTrack = buildPointNeighborhoodByTrack(projectedTracks);
   const segmentsWithGeometry = interpolations.map((segment) =>
-    attachSegmentGeometry(segment, sourceRow, boundsForRow, handleDiffs, pointNeighborhoodsByTrack),
+    attachSegmentGeometry(
+      segment,
+      sourceRow,
+      boundsForRow,
+      handleDiffs,
+      pointNeighborhoodsByTrack,
+      rowTime,
+    ),
   );
 
   const shouldPreviewViolations = Boolean(
@@ -506,8 +531,18 @@ export function computeRowData(
     });
   }
 
+  const rowViolations = shouldPreviewViolations ? effectiveViolations : filteredViolations;
   const violationSet = computeViolationSet(
-    shouldPreviewViolations ? effectiveViolations : filteredViolations,
+    rowTime
+      ? Object.fromEntries(
+          Object.entries(rowViolations).map(([trackId, list]) => [
+            trackId,
+            list.map((violation) =>
+              violationInWorld(violation, rowTime(violation.namespace, violation.instanceId)),
+            ),
+          ]),
+        )
+      : rowViolations,
   );
 
   const renderMarkers = buildRenderMarkers(markerFramesWithPairing);
@@ -522,6 +557,7 @@ export function computeRowData(
   const renderHandles = buildRenderHandles(segmentsWithGeometry, sourceRow);
 
   const rowComputedData: ComputedRowData = {
+    ...(ownTime ? { time: ownTime } : {}),
     violationSet,
     virtualFrames: markerFramesWithPairing,
     verticalBounds: boundsForRow,
@@ -995,32 +1031,118 @@ export function resolveRowTransform(
   sourceRow: SourceRow,
   context?: RowComputationContext,
 ): AffineTransform2D {
-  const instanceIds = uniq(
-    sourceRow.data.map((entry) => entry.instanceId).filter((id): id is string => Boolean(id)),
-  );
-  if (instanceIds.length !== 1) {
-    return IDENTITY_TRANSFORM;
-  }
-  if (!context?.namespaces) {
-    return IDENTITY_TRANSFORM;
-  }
+  const owner = rowInstanceOf(sourceRow);
+  const instance = owner
+    ? context?.namespaces?.[owner.namespaceId]?.animationInstances[owner.instanceId]
+    : undefined;
+  return instance ? instanceTransform(instance) : IDENTITY_TRANSFORM;
+}
 
-  const instanceId = instanceIds[0];
-  for (const namespace of Object.values(context.namespaces)) {
-    const instance = namespace.animationInstances[instanceId];
-    if (!instance) continue;
-    const timescale = instance.settings.timescale ?? 1;
-    const offset = instance.settings.offset ?? 0;
-    const scaleX = Number.isFinite(timescale) && timescale !== 0 ? 1 / timescale : 1;
-    return {
-      scaleX,
-      scaleY: 1,
-      offsetX: offset,
-      offsetY: 0,
-    };
-  }
+/**
+ * The local time a row of one instance holds its stamps in, recorded on the
+ * row so its readers convert with the timing the stamps were built with.
+ */
+function rowOwnTime(sourceRow: SourceRow, context?: RowComputationContext): RowTime | undefined {
+  const owner = rowInstanceOf(sourceRow);
+  const instance = owner
+    ? context?.namespaces?.[owner.namespaceId]?.animationInstances[owner.instanceId]
+    : undefined;
+  return owner && instance ? { ...owner, ...instanceTime(instance) } : undefined;
+}
 
-  return IDENTITY_TRANSFORM;
+/** An instance's map from its animation's local time to world time. */
+function instanceTransform(instance: Namespace["animationInstances"][string]): AffineTransform2D {
+  const timescale = instance.settings.timescale ?? 1;
+  const offset = instance.settings.offset ?? 0;
+  const scaleX = Number.isFinite(timescale) && timescale !== 0 ? 1 / timescale : 1;
+  return {
+    scaleX,
+    scaleY: 1,
+    offsetX: Number.isFinite(offset) ? offset : 0,
+    offsetY: 0,
+  };
+}
+
+/** An instance's time: how fast and from when it plays its animation. */
+export interface InstanceTime {
+  timescale: number;
+  offset: number;
+}
+
+/**
+ * An instance's time as the derived rows, and the readers that convert their
+ * stamps, use it: a speed that is not a finite non-zero number plays at 1, an
+ * offset that is not finite at 0.
+ */
+export function instanceTime(instance: Namespace["animationInstances"][string]): InstanceTime {
+  const timescale = instance.settings.timescale ?? 1;
+  const offset = instance.settings.offset ?? 0;
+  return {
+    timescale: Number.isFinite(timescale) && timescale !== 0 ? timescale : 1,
+    offset: Number.isFinite(offset) ? offset : 0,
+  };
+}
+
+/**
+ * Where a row that spans several instances places each entry's keys. A row of
+ * one instance keeps its keys in that instance's local time and is drawn
+ * through `resolveRowTransform`. A row of several has no one transform to be
+ * drawn through, so its keys, violations and segments are built in world time
+ * instead, each entry's through its own instance, and it records no time of
+ * its own (`ComputedRowData.time`), which tells its readers so.
+ *
+ * Undefined for a row of at most one instance, whose keys stay local.
+ */
+export function aggregateRowTime(
+  sourceRow: SourceRow,
+  context?: RowComputationContext,
+): ((namespaceId: string, instanceId: string) => InstanceTime) | undefined {
+  const namespaces = context?.namespaces;
+  if (!spansSeveralInstances(sourceRow) || !namespaces) return undefined;
+  return (namespaceId, instanceId) => {
+    const instance = namespaces[namespaceId]?.animationInstances[instanceId];
+    return instance ? instanceTime(instance) : { timescale: 1, offset: 0 };
+  };
+}
+
+/**
+ * A stamp in world time. The same conversion the key strip and playhead use,
+ * so a key found by comparing stamps is found at exactly this time.
+ */
+const worldStampIn = (stamp: number, time: InstanceTime) =>
+  computeWorldStamp(stamp, time.timescale, time.offset);
+
+/**
+ * A key in world time: its stamp, and the time component of any explicit
+ * handle, which is an offset in the key's own time.
+ */
+function keypointInWorld<T extends RawValue>(point: Keypoint<T>, time: InstanceTime): Keypoint<T> {
+  if (time.timescale === 1 && time.offset === 0) return point;
+  const scaleHandle = (handle: AuthoredTransition | undefined) =>
+    handle && typeof handle === "object" && "x" in handle
+      ? { ...handle, x: handle.x / time.timescale }
+      : handle;
+  const transitions = point.transitions && {
+    ...point.transitions,
+    in: scaleHandle(point.transitions.in),
+    out: scaleHandle(point.transitions.out),
+  };
+  return {
+    ...point,
+    stamp: worldStampIn(point.stamp, time),
+    ...(transitions ? { transitions } : {}),
+  };
+}
+
+/** A violation with its range in world time. */
+function violationInWorld(violation: Violation, time: InstanceTime): Violation {
+  if (time.timescale === 1 && time.offset === 0) return violation;
+  const start = worldStampIn(violation.stampRange.start, time);
+  const end = worldStampIn(violation.stampRange.end, time);
+  return {
+    ...violation,
+    stampRange: { start: Math.min(start, end), end: Math.max(start, end) },
+  };
 }
 
 function resolvePairingByPoint(
@@ -1085,17 +1207,28 @@ function resolveHandleKind(transition?: AuthoredTransition): TransitionHandleKin
   return TransitionHandleKind.Easing;
 }
 
+/**
+ * A handle being dragged, from the drag's offsets by key id. The offsets are in
+ * the key's own time; in a row that holds world time (`rowTime`), the offset is
+ * taken there through the instance of the key it belongs to, as the key's
+ * stored handles are.
+ */
 function resolveHandleDiff(
   frame: InstancedFrameInfo,
   handleDiffs:
     Record<string, { in?: RawVector2; out?: RawVector2; pairing?: TransitionPairing }> | undefined,
   side: "in" | "out",
+  rowTime?: (namespaceId: string, instanceId: string) => InstanceTime,
 ): RawVector2 | undefined {
   if (!handleDiffs) return undefined;
   const direct = handleDiffs[frame.id]?.[side];
-  if (direct) return direct;
-  const match = frame.points.find((point) => handleDiffs[point.id]?.[side]);
-  return match ? handleDiffs[match.id]?.[side] : undefined;
+  const owner = direct
+    ? frame.points[0]
+    : frame.points.find((point) => handleDiffs[point.id]?.[side]);
+  const diff = direct ?? (owner ? handleDiffs[owner.id]?.[side] : undefined);
+  if (!diff || !rowTime || !owner) return diff;
+  const { timescale } = rowTime(owner.namespaceId, owner.instanceId);
+  return { ...diff, x: diff.x / timescale };
 }
 
 function attachSegmentGeometry(
@@ -1110,11 +1243,12 @@ function attachSegmentGeometry(
       { prev?: { stamp: number; value: number }; next?: { stamp: number; value: number } }
     >
   >,
+  rowTime?: (namespaceId: string, instanceId: string) => InstanceTime,
 ): InstancePair {
   const startOutTransition =
-    resolveHandleDiff(segment.start, handleDiffs, "out") ?? segment.start.transitions?.out;
+    resolveHandleDiff(segment.start, handleDiffs, "out", rowTime) ?? segment.start.transitions?.out;
   const endInTransition =
-    resolveHandleDiff(segment.end, handleDiffs, "in") ?? segment.end.transitions?.in;
+    resolveHandleDiff(segment.end, handleDiffs, "in", rowTime) ?? segment.end.transitions?.in;
   const rawTransitions: EndpointTransitions = {
     startOut: startOutTransition ?? DEFAULT_TRANSITION_OUT,
     endIn: endInTransition ?? DEFAULT_TRANSITION_IN,

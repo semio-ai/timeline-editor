@@ -1,12 +1,7 @@
 import { useCallback, useContext, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { uniq } from "lodash";
-import {
-  computeLocalStamp,
-  computeNextTime,
-  computePreviousTime,
-  computeWorldStamp,
-} from "../functions";
+import { adjacentKeyTime, computeLocalStamp, rowStampOf } from "../functions";
 import { type AnimationActions, type AnimationData } from "../store-types";
 import { buildTrackKey } from "../utils/track-key";
 import { SemanticTime, SourceRow, InstancedFrameInfo, LayerBand } from "../types";
@@ -75,19 +70,6 @@ function instanceIn(
   { namespaceId, instanceId }: InstanceRef,
 ) {
   return namespaces[namespaceId]?.animationInstances[instanceId];
-}
-
-/** The one instance every entry of a row plays, if there is exactly one. */
-function uniqueInstanceOf(data: SourceRow["data"]): InstanceRef | undefined {
-  const refs = uniq(
-    data
-      .filter((entry) => entry.instanceId)
-      // A namespace id may be empty, and still names a namespace.
-      .map((entry) => JSON.stringify([entry.namespaceId ?? "", entry.instanceId])),
-  );
-  if (refs.length !== 1) return undefined;
-  const [namespaceId, instanceId] = JSON.parse(refs[0]) as [string, string];
-  return { namespaceId, instanceId };
 }
 
 /** The tracks a row's key controls act on: its foreground tracks, or all of them. */
@@ -159,62 +141,20 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
   // during play); it just gives a sensible last-known value.
   const stampSafe = stamp ?? playerStore.getState().player.stamp;
 
-  const uniqueInstance = useMemo(() => uniqueInstanceOf(source.data), [source.data]);
-
-  // The instance's time transform, from the store: the same one an event
-  // handler reads when it acts (`keyStateNow`), so what the strip shows and
-  // what a click does agree, with or without a transform provider above.
-  const instanceSettings = useAnimationStore(
-    useShallow((state: AnimationData) =>
-      uniqueInstance ? instanceIn(state.namespaces, uniqueInstance)?.settings : undefined,
-    ),
-  );
-  const toLocal = useMemo(
-    () =>
-      instanceSettings
-        ? (world: number) =>
-            computeLocalStamp(world, instanceSettings.timescale, instanceSettings.offset)
-        : undefined,
-    [instanceSettings],
-  );
-  const toWorld = useMemo(
-    () =>
-      instanceSettings
-        ? (local: number) =>
-            computeWorldStamp(local, instanceSettings.timescale, instanceSettings.offset)
-        : undefined,
-    [instanceSettings],
-  );
-
-  const localStamp = useMemo(
-    () => (typeof toLocal === "function" ? toLocal(stampSafe) : stampSafe),
-    [stampSafe, toLocal],
-  );
-  const localBounds = useMemo<[number, number]>(() => {
-    if (typeof toLocal !== "function") return bounds;
-    const start = toLocal(bounds[0]);
-    const end = toLocal(bounds[1]);
-    return start <= end ? [start, end] : [end, start];
-  }, [bounds, toLocal]);
+  // The row's frames are in the time the row was built in: the playhead is
+  // taken into that time to find the key under it, whatever has changed since.
+  const rowTime = computedData?.time;
+  const localStamp = useMemo(() => rowStampOf(rowTime, stampSafe), [rowTime, stampSafe]);
 
   const prevTime = useMemo(() => {
     if (running || computedData === undefined) return undefined;
-    const localPrev = computePreviousTime(
-      computedData.virtualFrames,
-      localStamp,
-      localBounds,
-      true,
-    );
-    if (localPrev === undefined) return undefined;
-    return typeof toWorld === "function" ? toWorld(localPrev) : localPrev;
-  }, [computedData, localBounds, localStamp, running, toWorld]);
+    return adjacentKeyTime(computedData, "previous", stampSafe, bounds, true);
+  }, [bounds, computedData, running, stampSafe]);
 
   const nextTime = useMemo(() => {
     if (running || computedData === undefined) return undefined;
-    const localNext = computeNextTime(computedData.virtualFrames, localStamp, localBounds, true);
-    if (localNext === undefined) return undefined;
-    return typeof toWorld === "function" ? toWorld(localNext) : localNext;
-  }, [computedData, localBounds, localStamp, running, toWorld]);
+    return adjacentKeyTime(computedData, "next", stampSafe, bounds, true);
+  }, [bounds, computedData, running, stampSafe]);
 
   const prevEnabled = prevTime !== undefined;
   const nextEnabled = nextTime !== undefined;
@@ -248,9 +188,8 @@ export function useKeyControlState(source: SourceRow): KeyControlState {
         ? computeLocalStamp(stampNow, instance.settings.timescale, instance.settings.offset)
         : stampNow;
     };
-    const instance = uniqueInstanceOf(row.data);
-    const localNow = instance ? playheadIn(instance) : stampNow;
     const computedNow = currentDerivedSnapshot(state)?.rows?.[source.id]?.computed;
+    const localNow = rowStampOf(computedNow?.time, stampNow);
     return {
       ...keysAtStamp(computedNow, localNow, keyTargets(row.data)),
       entries: row.data,

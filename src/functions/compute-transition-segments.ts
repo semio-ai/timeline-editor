@@ -24,19 +24,21 @@ export function computeTransitionSegments(
     .slice()
     .sort((a, b) => a.stamp - b.stamp);
   const pairs = pairwise<InstancedFrameInfo>(sortedFrames);
-  trackIds.forEach((trackId) => {
-    // Find the first and last frame for each track and store it in activeTracks
-    const firstFrame = instancedFrames.find((frame) =>
-      frame.points.some((point) => point.trackId === trackId),
-    );
-    const lastFrame = instancedFrames
-      .slice()
-      .reverse()
-      .find((frame) => frame.points.some((point) => point.trackId === trackId));
-    if (firstFrame?.stamp !== undefined && lastFrame?.stamp !== undefined) {
-      activeTracks.push([firstFrame.stamp, lastFrame.stamp]);
-    }
+  // Each copy of a track has its own active range, from its first key to its
+  // last: in a row of several instances the copies of one track sit at
+  // different world times, and the gap between them holds no transition.
+  const tracksOfRow = new Set(trackIds);
+  const ranges = new Map<string, [number, number]>();
+  sortedFrames.forEach((frame) => {
+    frame.points.forEach((point) => {
+      if (!tracksOfRow.has(point.trackId)) return;
+      const copy = JSON.stringify([point.trackId, point.namespaceId, point.instanceId]);
+      const range = ranges.get(copy);
+      if (range) range[1] = frame.stamp;
+      else ranges.set(copy, [frame.stamp, frame.stamp]);
+    });
   });
+  ranges.forEach((range) => activeTracks.push(range));
 
   const uniqueSegments = overlappingSegments(activeTracks);
 

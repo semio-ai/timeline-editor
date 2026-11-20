@@ -1,6 +1,7 @@
 import { useContext, createContext, ReactNode, useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { computeLocalStamp, computeWorldStamp } from "../functions";
+import { instanceTime } from "../functions/compute-row-data";
 import { useAnimationStore } from "./use-animation-store";
 
 /**
@@ -26,10 +27,10 @@ export function LocalGlobalTransformContextProvider({ children }: { children: Re
 
     Object.values(namespaces).forEach((namespace) => {
       Object.values(namespace.animationInstances).forEach((instance) => {
-        const toWorldFunc = (stamp: number) =>
-          computeWorldStamp(stamp, instance.settings.timescale, instance.settings.offset);
-        const toLocalFunc = (stamp: number) =>
-          computeLocalStamp(stamp, instance.settings.timescale, instance.settings.offset);
+        // Timed as the derived rows are, so a stamp converts the same here.
+        const { timescale, offset } = instanceTime(instance);
+        const toWorldFunc = (stamp: number) => computeWorldStamp(stamp, timescale, offset);
+        const toLocalFunc = (stamp: number) => computeLocalStamp(stamp, timescale, offset);
         toWorld[instance.id] = toWorldFunc;
         toLocal[instance.id] = toLocalFunc;
       });

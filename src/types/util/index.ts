@@ -1,4 +1,4 @@
-export type { ComputedRowData } from "./computed-row-data";
+export type { ComputedRowData, RowTime } from "./computed-row-data";
 export type {
   DragAxis,
   DragAnchorRef,
