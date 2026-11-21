@@ -1,5 +1,25 @@
 # @semio/timeline-editor
 
+## 0.8.0
+
+### Minor Changes
+
+- 86f9aef: The store builds the derived snapshot once per write, rather than once for each nested write its own subscriptions make. A caller sees the new snapshot as soon as its action returns. So does a host listener, on the first notification that shows it the new inputs: the store's own subscriptions run ahead of every host listener, including after `initAnimationSubscriptions` is called again.
+
+  The store's actions read derived data through `currentDerivedSnapshot(state)`: the published snapshot when it was built from the state's inputs, and otherwise one built for them and not published. The published snapshot can trail its inputs while a host listener acts in the middle of a write, or while building is paused after a listener kept answering snapshots with edits; an action then still acts on the state as it is.
+
+  Violations come from a `FeedbackProvider`, which the host can set as `feedbackProvider` in the store. Actions deep-freeze the plain objects in the store's state, so a provider keeps the state it changes in its closure or in a class instance's fields. Without one, the store runs the editor's own limit and velocity checks and caches the results per track, so a write to one track rescans only that track. A dragged track's preview violations are computed once per build, and every row shares them.
+
+  A violation's `id` is derived from its track instance, type and start, so a violation that is computed again keeps its id. Source rows and row ids keep their identity across a write that leaves them unchanged.
+
+  A derived row whose inputs did not change is handed on from the previous snapshot as the same object, with its render samples. A key edit recomputes only the rows that draw the edited track, and a viewport change recomputes none. `rowRenderSamples(snapshot, rowId)` gives the samples one row's segments point to; the data renderer selects these instead of the whole sample cache, so a row the build kept does not redraw.
+
+  The published `derivedSnapshot` is frozen at its top level, which stops each action's Immer recipe from walking the whole snapshot. A snapshot is replaced, never edited: its inner objects are not frozen, but must not be changed in place. Host-supplied objects the snapshot reads, such as the evaluator and the animatables, are compared by identity, so a host changes one by replacing it.
+
+### Patch Changes
+
+- bf0730f: The animation sheet (`AnimationSheet` and `AnimationSheetCore`) now supplies a root `TooltipHost`, inside its own context providers, when no host exists above it. Without one, each of the sheet's canvas hosts was a root host and rendered every visible 3D overlay, so one right-click opened a stacked menu per canvas and a violation popover could render more than once. Every root host on a page still renders every overlay, so two hostless sheets on one page need a shared host above them. Apps that already mount a `TooltipHost` above the sheet are unaffected.
+
 ## 0.7.1
 
 ### Patch Changes
