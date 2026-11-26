@@ -12,6 +12,7 @@ import {
   clickMarkerWith,
   getMarkerFrame,
   getMarkerPoints,
+  playAtOwnTime,
   selectionSignatures,
 } from "./selection-test-helpers";
 
@@ -92,6 +93,9 @@ describe("Visual Selection", () => {
   });
 
   it("ignores non-matching instance data when evaluating global marker selection", () => {
+    // The other instance's copy of the key shares the global row's column
+    // only when both play the animation at its own time.
+    playAtOwnTime(store, NAMESPACE_IDS.BETA, INSTANCE_IDS.BETA_SHARED);
     const trackRowId = `${NAMESPACE_IDS.ALPHA}/${INSTANCE_IDS.ALPHA_SHARED}/${TRACK_IDS.OPACITY}`;
     clickMarkerWith(store, trackRowId, "o1");
 

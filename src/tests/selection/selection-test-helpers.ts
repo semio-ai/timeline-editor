@@ -119,3 +119,29 @@ export function resolveMarkerFrameId(
 ): string {
   return getMarkerFrame(store, rowId, markerId).id;
 }
+
+/**
+ * Plays an instance at its animation's own time (no offset, speed 1), so its
+ * keys share world time, and so the global row's columns, with an unscaled
+ * instance of the same animation.
+ */
+export function playAtOwnTime(store: AnimationStore, namespaceId: string, instanceId: string) {
+  const { namespaces } = store.getState();
+  const namespace = namespaces[namespaceId];
+  const instance = namespace.animationInstances[instanceId];
+  store.setState({
+    namespaces: {
+      ...namespaces,
+      [namespaceId]: {
+        ...namespace,
+        animationInstances: {
+          ...namespace.animationInstances,
+          [instanceId]: {
+            ...instance,
+            settings: { ...instance.settings, offset: 0, timescale: 1 },
+          },
+        },
+      },
+    },
+  });
+}

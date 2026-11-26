@@ -20,11 +20,13 @@ import * as THREE from "three";
 import { uniq } from "lodash";
 import { isOrthographicCamera } from "@semio/utils";
 import { namespaceEntity } from "@semio/data";
-import { useAnimationStore, useColors, useLocalGlobalTransformLookup } from "../../hooks";
+import { useAnimationStore, useColors } from "../../hooks";
 import {
-  buildFilteredSourceRowId,
+  keyRowOf,
   filterHandlesByVisibility,
+  rowStampOf,
   shouldRowShowHandles,
+  worldStampOf,
 } from "../../functions";
 import { rowRenderSamples } from "../../functions/materialize-segment-sample";
 import {
@@ -185,18 +187,21 @@ export const DataRenderer = memo(function DataRenderer({
   onBoxSelectStart,
 }: DataRendererProps) {
   type StoreState = AnimationData & AnimationActions;
-  const sourceRow = useAnimationStore(
-    useShallow((state: StoreState) => {
-      if (viewId) {
-        const filteredId = buildFilteredSourceRowId(viewId, sourceRowId);
-        const filtered = state.instancedTrackSources[filteredId];
-        if (filtered) return filtered;
-      }
-      return state.instancedTrackSources[sourceRowId];
-    }),
+  // The row the keys are read from (see `keyRowOf`): the view's filtered copy
+  // of the row when there is one, which also gives what the row shows of its
+  // tracks. Its segments, violations and handles come from the row itself.
+  const keyRowId = useAnimationStore((state: StoreState) =>
+    keyRowOf(state.instancedTrackSources, sourceRowId, viewId),
   );
+  const sourceRow = useAnimationStore((state: StoreState) => state.instancedTrackSources[keyRowId]);
   const computedData = useAnimationStore(
     useShallow((state: StoreState) => state.derivedSnapshot?.rows?.[sourceRowId]?.computed),
+  );
+  const keyComputed = useAnimationStore(
+    useShallow((state: StoreState) => {
+      const computed = state.derivedSnapshot?.rows?.[keyRowId]?.computed;
+      return { selection: computed?.selection, time: computed?.time };
+    }),
   );
   // Only this row's samples: the whole cache is new on every build.
   const rowSamples = useAnimationStore(
@@ -275,36 +280,13 @@ export const DataRenderer = memo(function DataRenderer({
     if (!sourceRow || sourceRow.data.length === 0) return true;
     return sourceRow.data.some((entry) => entry.visible !== false);
   }, [sourceRow]);
-  const localGlobalTransformLookup = useLocalGlobalTransformLookup();
-  const rowInstanceId = useMemo(() => {
-    if (!sourceRow) return undefined;
-    const ids = uniq(
-      sourceRow.data
-        .map((entry) => entry.instanceId)
-        .filter((value): value is string => Boolean(value)),
-    );
-    return ids.length === 1 ? ids[0] : undefined;
-  }, [sourceRow]);
-  const xTransform = useMemo(() => {
-    const transform =
-      rowInstanceId && localGlobalTransformLookup.toWorld[rowInstanceId]
-        ? localGlobalTransformLookup.toWorld[rowInstanceId]
-        : undefined;
-    if (typeof transform === "function") {
-      return transform;
-    }
-    return (stamp: number) => stamp;
-  }, [localGlobalTransformLookup, rowInstanceId]);
-  const xInverse = useMemo(() => {
-    const transform =
-      rowInstanceId && localGlobalTransformLookup.toLocal[rowInstanceId]
-        ? localGlobalTransformLookup.toLocal[rowInstanceId]
-        : undefined;
-    if (typeof transform === "function") {
-      return transform;
-    }
-    return (stamp: number) => stamp;
-  }, [localGlobalTransformLookup, rowInstanceId]);
+  // Each is drawn through the time of the row it is read from, as that row
+  // was built: its stamps are in that time whatever has changed since.
+  const keyTime = keyComputed.time;
+  const keyXTransform = useMemo(() => (stamp: number) => worldStampOf(keyTime, stamp), [keyTime]);
+  const rowTime = computedData?.time;
+  const xTransform = useMemo(() => (stamp: number) => worldStampOf(rowTime, stamp), [rowTime]);
+  const xInverse = useMemo(() => (stamp: number) => rowStampOf(rowTime, stamp), [rowTime]);
   const xScale = useMemo(() => {
     const scaled = xTransform(1) - xTransform(0);
     return Number.isFinite(scaled) && scaled !== 0 ? scaled : 1;
@@ -549,9 +531,9 @@ export const DataRenderer = memo(function DataRenderer({
           {/* Render the hexagons/visuals for each keyed point */}
           <DataPointsRenderer
             sourceRow={sourceRow}
-            selectionFrames={computedData.selection ?? []}
+            selectionFrames={keyComputed.selection ?? []}
             activeInstanceId={activeInstanceForOwningEntity}
-            xTransform={xTransform}
+            xTransform={keyXTransform}
             verticalBounds={effectiveVerticalBounds}
             verticalAxisRange={axisRange}
             theme={theme}
